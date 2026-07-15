@@ -45,8 +45,10 @@ export const stripeConnections = pgTable("stripe_connections", {
   stripeAccountId: text("stripe_account_id").notNull(),
   accessTokenEncrypted: text("access_token_encrypted").notNull(),
   refreshTokenEncrypted: text("refresh_token_encrypted"),
-  // Granted OAuth scope, e.g. "read_only" — checked at call time so a stale
-  // connection can never be used to write to the client's Stripe account.
+  // Granted OAuth scope — recorded for audit visibility only. Stripe
+  // requires "read_write" for Standard accounts, so this is never used to
+  // gate access; see lib/stripe/read-only-client.ts for the actual
+  // write-prevention.
   scope: text("scope"),
   connectedAt: timestamp("connected_at", { withTimezone: true })
     .notNull()

@@ -18,7 +18,10 @@ export async function GET(request: NextRequest) {
   const authorizeUrl = new URL("https://connect.stripe.com/oauth/authorize");
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", requireEnv("STRIPE_CONNECT_CLIENT_ID"));
-  authorizeUrl.searchParams.set("scope", "read_only");
+  // Stripe requires "read_write" for Standard accounts — "read_only" is
+  // Extension-only, a different platform category. Write access is blocked
+  // at the code level instead: see lib/stripe/read-only-client.ts.
+  authorizeUrl.searchParams.set("scope", "read_write");
   authorizeUrl.searchParams.set(
     "redirect_uri",
     new URL("/api/stripe/callback", origin).toString()
