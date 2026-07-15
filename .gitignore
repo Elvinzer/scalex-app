@@ -1,0 +1,68 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# next.js
+/.next/
+/out/
+/build
+.turbo
+
+# testing / coverage
+/coverage
+
+# --- Secrets & env : jamais en clair dans le repo ---
+# Règle du projet : clé Anthropic BYOK chiffrée en base, jamais en clair nulle part,
+# donc a fortiori jamais dans un fichier versionné.
+.env
+.env*.local
+.env.production
+.env.development
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+# .env.example reste versionné, c'est le seul fichier d'env qui doit l'être
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# supabase (config locale / cache CLI)
+supabase/.branches
+supabase/.temp
+.supabase
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# bases locales de test
+*.sqlite
+*.sqlite3
+*.db
+
+# éditeurs
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Claude Code — config locale perso, ne pas versionner (settings.json partagé reste tracké)
+.claude/settings.local.json
+CLAUDE.local.md

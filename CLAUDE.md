@@ -22,9 +22,17 @@ SaaS BYOK qui diagnostique le goulot d'étranglement business d'un infopreneur U
 
 ## Commandes
 - `npm run dev` — lancer en local
-- `npm run typecheck` — TOUJOURS lancer après une série de modifs, avant de dire que c'est fini
+- `npm run typecheck` — auto-déclenché après chaque edit via hook (`.claude/settings.json`) ; relancer manuellement si le hook est absent
 - `npm run db:push` — appliquer une migration Drizzle en dev
 - `npm run lint` — avant chaque commit
+
+## Definition of Done
+Avant de dire qu'une tâche est terminée :
+- [ ] `npm run typecheck` et `npm run lint` passent
+- [ ] Aucun secret dans le diff (clé API, `.env`, token Stripe/Supabase)
+- [ ] `.env.example` mis à jour si une nouvelle variable d'env a été ajoutée
+- [ ] Preview Vercel qui build sans erreur
+- [ ] Migration Drizzle appliquée (`db:push`) si `db/schema.ts` a été touché
 
 ## Code style
 - ES modules uniquement, jamais de `require`
@@ -32,6 +40,8 @@ SaaS BYOK qui diagnostique le goulot d'étranglement business d'un infopreneur U
 - Server Actions pour les mutations simples, route handlers pour les webhooks/API externes
 - Pas de `any` en TypeScript. Si un type est incertain, demander plutôt que deviner.
 - Tailwind uniquement, pas de CSS-in-JS
+- Validation (Zod) sur toute donnée qui traverse une frontière externe : payloads webhooks,
+  inputs formulaire, réponses tool-use de l'agent. Jamais de `as` non validé sur du input externe.
 
 ## Règles non négociables (BYOK & Stripe Connect)
 - La clé API Anthropic du client est CHIFFRÉE en base, jamais en clair, jamais loggée,
@@ -43,10 +53,17 @@ SaaS BYOK qui diagnostique le goulot d'étranglement business d'un infopreneur U
   les chiffres calculés au modèle. Le produit est AI-augmented, pas AI-native.
 - Une seule intégration à la fois (Stripe d'abord). Ne pas ajouter Kajabi/Brevo/Calendly
   sans que ce soit explicitement demandé.
+- Chaque job Inngest (brief hebdo, sync Stripe, relances) doit être idempotent (re-run safe),
+  pas seulement les webhooks Stripe.
+- Logger le nombre de tokens (input/output) de chaque appel à l'agent — c'est la clé du
+  client qui paie, il doit pouvoir voir sa conso.
 
 ## Workflow Git (on est 2, dont 1 non-technique)
-- Jamais de commit direct sur `main`
-- Une branche par feature, PR avec preview Vercel avant merge
+- Phase init (pas encore d'utilisateurs réels) : tout se passe sur `main`, commits directs,
+  pas de branche ni de PR — on garde ça simple tant qu'il n'y a rien à casser en prod
+- Dès qu'il y a des vrais utilisateurs ou un premier déploiement à protéger, revenir à un
+  modèle avec une branche de travail séparée (`dev`) et `main` protégée — à rediscuter
+  à ce moment-là, ne pas l'introduire prématurément
 - [PRÉNOM NON-TECH] travaille uniquement sur des tâches front/copy/marketing, jamais sur
   `lib/agent/`, `db/schema.ts`, ou les webhooks Stripe
 - Ne jamais committer de secrets — vérifier qu'aucune clé n'apparaît dans un diff avant de proposer un commit
@@ -63,3 +80,7 @@ SaaS BYOK qui diagnostique le goulot d'étranglement business d'un infopreneur U
 - Ne pas écrire de tests e2e complets avant la Phase 1 (MVP) terminée — prioriser la vitesse
 - Si une tâche touche `lib/agent/`, `db/schema.ts`, les webhooks Stripe, ou l'auth : proposer
   un plan avant d'éditer, ne pas foncer directement dans le code
+- Ne pas ajouter de serveur MCP par confort — chaque serveur connecté charge ses définitions
+  d'outils à chaque message, même si non utilisé
+- Pour une recherche large dans le code (où est utilisé X, quels fichiers touchent Y) :
+  déléguer à un subagent d'exploration plutôt que de driver ça en contexte principal
