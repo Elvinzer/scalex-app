@@ -4,6 +4,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -43,21 +44,35 @@ export const stripeConnections = pgTable("stripe_connections", {
     .references(() => users.id, { onDelete: "cascade" }),
   stripeAccountId: text("stripe_account_id").notNull(),
   accessTokenEncrypted: text("access_token_encrypted").notNull(),
+  refreshTokenEncrypted: text("refresh_token_encrypted"),
+  // Granted OAuth scope, e.g. "read_only" — checked at call time so a stale
+  // connection can never be used to write to the client's Stripe account.
+  scope: text("scope"),
   connectedAt: timestamp("connected_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
 
-export const diagnostics = pgTable("diagnostics", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  category: text("category").notNull(),
-  score: integer("score").notNull(),
-  // Cents, USD — integer to avoid float rounding on money. 42000 = $420.00.
-  dollarsLost: integer("dollars_lost").notNull(),
-  computedAt: timestamp("computed_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const diagnostics = pgTable(
+  "diagnostics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    // Placeholder until the full health-scoring model exists — sync jobs
+    // that only compute a dollar figure (e.g. failed payments) write 0.
+    score: integer("score").notNull(),
+    // Cents, USD — integer to avoid float rounding on money. 42000 = $420.00.
+    dollarsLost: integer("dollars_lost").notNull(),
+    computedAt: timestamp("computed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // One row per category per user — sync jobs upsert on this to stay
+    // idempotent across re-runs.
+    uniqueIndex("diagnostics_user_category_idx").on(table.userId, table.category),
+  ]
+);

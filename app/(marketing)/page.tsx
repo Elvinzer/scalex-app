@@ -50,17 +50,12 @@ export default function MarketingHomePage() {
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button size="lg" asChild>
-          <a href="/dashboard">Diagnose my business</a>
+          <a href="/onboarding">Diagnose my business</a>
         </Button>
         <Button size="lg" variant="outline" asChild>
           <a href="mailto:hello@scalex.app">Talk to us</a>
         </Button>
       </div>
-
-      <p className="text-sm text-muted-foreground">
-        Bring your own Stripe account and your own Anthropic API key — Scale X
-        never touches a shared key or a shared account.
-      </p>
     </main>
   );
 }
