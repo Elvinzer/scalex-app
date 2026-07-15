@@ -66,3 +66,9 @@ Thumbs.db
 # Claude Code — config locale perso, ne pas versionner (settings.json partagé reste tracké)
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Claude Code — skills installés localement (lock file + artefacts), pas du code produit
+# ancrés à la racine (/) pour ne pas capturer lib/agent/, le vrai code produit
+/.agents/
+/agent/
+/skills-lock.json
