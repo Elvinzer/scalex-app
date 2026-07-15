@@ -1,0 +1,9 @@
+# Scale X
+
+> Scale X is a BYOK SaaS that diagnoses the single business bottleneck costing a $10k–100k/month info business the most revenue, then deploys a Claude-powered AI agent — using the founder's own Stripe data and their own Anthropic API key — to fix it, instead of just showing a dashboard.
+
+## About
+
+- Audience: US-based infopreneurs and course/coaching businesses doing $10k–100k/month in revenue.
+- How it works: connects to the user's own Stripe account (Stripe Connect) to compute revenue-loss diagnostics in code, then runs an AI agent (bring-your-own Anthropic API key) that acts on the diagnosis.
+- Not a dashboard: the product's output is a fix carried out by an agent, not a chart the user has to interpret themselves.
