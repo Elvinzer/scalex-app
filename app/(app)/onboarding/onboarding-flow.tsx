@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ const SCAN_MESSAGES = [
 const VISIBLE_STEPS: Step[] = ["revenue", "stripe", "scanning"];
 
 export function OnboardingFlow() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>(() =>
     searchParams.get("step") === "scanning" ? "scanning" : "revenue"
@@ -65,6 +66,7 @@ export function OnboardingFlow() {
           funnelUrl={funnelUrl}
           onFunnelUrlChange={setFunnelUrl}
           onBack={() => setStep("revenue")}
+          onSkip={() => router.push("/dashboard")}
           stripeError={stripeError}
         />
       )}
@@ -150,11 +152,13 @@ function StripeStep({
   funnelUrl,
   onFunnelUrlChange,
   onBack,
+  onSkip,
   stripeError,
 }: {
   funnelUrl: string;
   onFunnelUrlChange: (value: string) => void;
   onBack: () => void;
+  onSkip: () => void;
   stripeError: string | null;
 }) {
   return (
@@ -201,6 +205,14 @@ function StripeStep({
           />
         </label>
       </div>
+
+      <button
+        type="button"
+        onClick={onSkip}
+        className="self-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+      >
+        Plus tard — j&apos;irai directement au dashboard
+      </button>
     </div>
   );
 }

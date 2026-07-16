@@ -2,6 +2,8 @@
 // falls back to the raw category key for any not yet mapped here.
 const CATEGORY_LABELS: Record<string, string> = {
   failed_payments: "Paiements échoués",
+  ascension: "Ascension / upsell",
+  lead_response: "Temps de réponse aux leads",
 };
 
 export function categoryLabel(category: string): string {
@@ -42,6 +44,16 @@ export const CATEGORY_ACTIONS: Record<string, { title: string; description: stri
     title: "Relance automatique des paiements échoués",
     description:
       "Détection des paiements Stripe échoués + séquence de relance par email avec lien de paiement sécurisé.",
+  },
+  ascension: {
+    title: "Séquence d'upsell post-achat",
+    description:
+      "Email + page d'offre complémentaire envoyés automatiquement après un achat, pour capter la valeur additionnelle perdue aujourd'hui.",
+  },
+  lead_response: {
+    title: "Relance immédiate des nouveaux leads",
+    description:
+      "Détection des leads sans réponse sous 1h + relance automatique pour ne plus perdre de prospects chauds.",
   },
 };
 

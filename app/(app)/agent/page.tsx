@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 
-import { DiagnosticEmptyState } from "@/components/diagnostic-empty-state";
+import { DiagnosticPendingState, StripeOptionalState } from "@/components/diagnostic-empty-state";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { diagnostics } from "@/db/schema";
@@ -17,7 +17,15 @@ export default async function AgentPage() {
     .orderBy(desc(diagnostics.dollarsLost));
 
   if (rows.length === 0) {
-    return <DiagnosticEmptyState stripeConnected={Boolean(user?.stripeConnectId)} />;
+    if (!user?.stripeConnectId) {
+      return (
+        <StripeOptionalState
+          title="Pas encore de recommandation"
+          description="Connecte Stripe pour que ton agent ait un vrai goulot à te proposer de corriger."
+        />
+      );
+    }
+    return <DiagnosticPendingState />;
   }
 
   const hasApiKey = Boolean(user?.anthropicApiKeyEncrypted);

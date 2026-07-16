@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 
-import { DiagnosticEmptyState } from "@/components/diagnostic-empty-state";
+import { DiagnosticPendingState, StripeOptionalState } from "@/components/diagnostic-empty-state";
 import { db } from "@/db";
 import { diagnostics } from "@/db/schema";
 import { getCurrentUser } from "@/lib/current-user";
@@ -17,7 +17,15 @@ export default async function ClosingPage() {
     .orderBy(desc(diagnostics.dollarsLost));
 
   if (rows.length === 0) {
-    return <DiagnosticEmptyState stripeConnected={Boolean(user?.stripeConnectId)} />;
+    if (!user?.stripeConnectId) {
+      return (
+        <StripeOptionalState
+          title="Rien à prioriser pour l'instant"
+          description="Connecte Stripe pour voir tes zones de perte classées par impact."
+        />
+      );
+    }
+    return <DiagnosticPendingState />;
   }
 
   const totalLost = rows.reduce((sum, row) => sum + row.dollarsLost, 0);

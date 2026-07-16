@@ -1,34 +1,48 @@
 import { Button } from "@/components/ui/button";
 import { PendingRefresh } from "@/components/pending-refresh";
 
-// Shown by every page that depends on diagnostics rows — distinguishes
-// "you haven't connected Stripe yet" (real, actionable) from "the sync job
-// just hasn't landed yet" (transient, self-resolving), instead of a single
-// state that reads as broken either way.
-export function DiagnosticEmptyState({ stripeConnected }: { stripeConnected: boolean }) {
-  if (!stripeConnected) {
-    return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Connecte Stripe pour démarrer
-        </h1>
-        <p className="max-w-md text-muted-foreground">
-          Scale X a besoin d&apos;un accès en lecture à ton compte Stripe pour calculer ton
-          goulot business.
-        </p>
-        <Button size="lg" asChild className="mt-2">
-          <a href="/api/stripe/connect">Connecter Stripe</a>
-        </Button>
-      </div>
-    );
-  }
-
+// Shown when diagnostics rows exist to compute but haven't landed yet
+// (sync job in flight) — transient, self-resolving via PendingRefresh.
+export function DiagnosticPendingState() {
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 text-center">
       <p className="font-mono text-sm text-muted-foreground">
         Calcul de ton goulot en cours...
       </p>
       <PendingRefresh />
+    </div>
+  );
+}
+
+// Shown when Stripe isn't connected yet — Stripe is optional, so this never
+// blocks the page: a dismissable-feeling banner plus a placeholder card,
+// not a full-screen wall.
+export function StripeOptionalState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-primary/30 bg-primary/5 px-6 py-4 sm:flex-row sm:items-center">
+        <div>
+          <p className="text-sm font-medium">Stripe n&apos;est pas encore connecté</p>
+          <p className="text-sm text-muted-foreground">
+            Optionnel pour explorer — connecte-le pour un vrai diagnostic basé sur tes
+            données.
+          </p>
+        </div>
+        <Button asChild size="sm" className="shrink-0">
+          <a href="/api/stripe/connect">Connecter Stripe</a>
+        </Button>
+      </div>
+
+      <div className="rounded-3xl border border-dashed border-border bg-card/50 p-10 text-center">
+        <p className="text-lg font-medium">{title}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+      </div>
     </div>
   );
 }
