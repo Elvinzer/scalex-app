@@ -1,0 +1,57 @@
+import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/current-user";
+
+const UPCOMING_INTEGRATIONS = ["Kajabi", "Brevo", "Calendly"];
+
+export default async function IntegrationsPage() {
+  const { user } = await getCurrentUser();
+  const stripeConnected = Boolean(user?.stripeConnectId);
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">Intégrations</h1>
+        <p className="mt-1 text-muted-foreground">
+          Les sources de données que Scale X utilise pour ton diagnostic.
+        </p>
+      </div>
+
+      <div className="rounded-3xl border border-border bg-card p-8">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-medium">Stripe</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Accès en lecture seule à tes paiements — c&apos;est la source principale du
+              diagnostic.
+            </p>
+          </div>
+          {stripeConnected ? (
+            <span className="flex shrink-0 items-center gap-2 rounded-full bg-state-healthy/10 px-3 py-1 text-sm font-medium whitespace-nowrap text-state-healthy">
+              <span className="size-2 rounded-full bg-state-healthy" />
+              Connecté
+            </span>
+          ) : (
+            <Button asChild className="shrink-0">
+              <a href="/api/stripe/connect">Connecter Stripe</a>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-medium text-muted-foreground">À venir</p>
+        {UPCOMING_INTEGRATIONS.map((name) => (
+          <div
+            key={name}
+            className="flex items-center justify-between rounded-3xl border border-dashed border-border bg-card/50 p-6"
+          >
+            <p className="font-medium text-muted-foreground">{name}</p>
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Bientôt
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

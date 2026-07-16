@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AppSidebar } from "@/components/app-sidebar";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -27,5 +28,12 @@ export default async function AppLayout({
       .onConflictDoNothing({ target: users.id });
   }
 
-  return <>{children}</>;
+  return (
+    <div className="flex min-h-screen">
+      <AppSidebar email={typeof email === "string" ? email : ""} />
+      <main className="ml-64 flex-1 px-8 py-10 sm:px-12 lg:px-16">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </main>
+    </div>
+  );
 }
