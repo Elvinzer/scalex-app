@@ -58,6 +58,23 @@ Avant de dire qu'une tâche est terminée :
 - Logger le nombre de tokens (input/output) de chaque appel à l'agent — c'est la clé du
   client qui paie, il doit pouvoir voir sa conso.
 
+## Sécurité (toute l'app, pas seulement BYOK/Stripe)
+- Chaque route dans `app/(app)/` et `app/api/` vérifie la session Supabase côté serveur
+  (jamais confiance en un état client) ; RLS Postgres activée sur toutes les tables user-scoped,
+  policies vérifiées à chaque migration touchant `db/schema.ts`
+- Zod sur toute frontière externe (déjà dans Code style) + sanitize de tout ce qui est
+  affiché en `dangerouslySetInnerHTML` ou injecté dans du HTML (emails React Email inclus)
+- Rate limiting sur les endpoints publics/non-authentifiés (formulaires, webhooks, auth)
+  pour limiter l'abus et le credential stuffing
+- Headers de sécurité (CSP, `X-Frame-Options`, `Referrer-Policy`, HSTS) configurés au niveau
+  Next.js/Vercel, jamais désactivés pour "debug rapide" en prod
+- Aucune donnée sensible (clé Anthropic, token Stripe/Supabase, session) dans les logs,
+  Sentry, ou messages d'erreur renvoyés au client
+- Dépendances : `npm audit` avant chaque ajout de package non trivial ; pas de package
+  peu maintenu ou sans historique clair dans le flux BYOK/paiement
+- Toute nouvelle route ou Server Action qui touche à l'auth, aux paiements ou à la clé
+  Anthropic suit la règle déjà en place : proposer un plan avant d'éditer
+
 ## Workflow Git (on est 2, dont 1 non-technique)
 - Phase init (pas encore d'utilisateurs réels) : tout se passe sur `main`, commits directs,
   pas de branche ni de PR — on garde ça simple tant qu'il n'y a rien à casser en prod
@@ -68,11 +85,19 @@ Avant de dire qu'une tâche est terminée :
   `lib/agent/`, `db/schema.ts`, ou les webhooks Stripe
 - Ne jamais committer de secrets — vérifier qu'aucune clé n'apparaît dans un diff avant de proposer un commit
 
-## SEO / GEO (app/(marketing)/ uniquement)
+## SEO / GEO (app/(marketing)/ uniquement — jamais app/(app)/)
+- Objectif : ultra SEO/GEO côté public. Zéro effort SEO côté produit — `app/(app)/` reste
+  `noindex, nofollow` (robots meta + `robots.txt`) et n'a aucune des obligations ci-dessous
 - JSON-LD (Organization, SoftwareApplication, FAQPage) sur chaque page publique
 - `llms.txt` et `llms-full.txt` à la racine tenus à jour avec le contenu réel
 - Chaque page de contenu répond à la question dans le premier paragraphe, avec un chiffre
   concret — pensé pour être cité par un moteur génératif, pas juste indexé
+- `sitemap.xml` et `robots.txt` générés dynamiquement, tenus à jour à chaque nouvelle page
+- Metadata Next.js (`title`, `description`, canonical, Open Graph, Twitter card) sur
+  chaque page de `app/(marketing)/`, jamais de valeurs par défaut génériques copiées-collées
+- HTML sémantique (un seul `h1`, hiérarchie de headings propre, `alt` descriptif sur les images)
+- Core Web Vitals surveillés : images en `next/image`, pas de JS bloquant le rendu,
+  `app/(marketing)/` reste statique/ISR (voir Structure) pour rester rapide
 
 ## Ce qu'il ne faut PAS faire
 - Ne pas ajouter de vector DB managé (Pinecone etc.) — pgvector (Supabase) suffit si besoin
