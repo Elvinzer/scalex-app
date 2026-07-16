@@ -16,28 +16,26 @@ export default async function SettingsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Réglages</h1>
+        <h1 className="text-3xl font-bold">Réglages</h1>
         <p className="mt-1 text-muted-foreground">
           Ton compte, ta clé Anthropic et tes intégrations.
         </p>
       </div>
 
-      <div className="rounded-3xl border border-border bg-card p-8">
-        <p className="text-sm font-medium text-muted-foreground">Compte</p>
-        <p className="mt-2 text-lg font-medium">{user?.email}</p>
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">Compte</p>
+        <p className="mt-2 text-lg font-bold">{user?.email}</p>
       </div>
 
-      <div className="rounded-3xl border border-border bg-card p-8">
-        <p className="text-sm font-medium text-muted-foreground">
-          Clé API Anthropic (BYOK)
-        </p>
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">Clé API Anthropic (BYOK)</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Ton agent utilise toujours ta propre clé — jamais partagée, jamais affichée en
           clair.
         </p>
 
         {maskedKey && (
-          <p className="mt-4 inline-flex items-center rounded-full bg-primary/10 px-3 py-1 font-mono text-sm text-primary">
+          <p className="mt-4 inline-flex items-center rounded-full bg-signal/15 px-3 py-1 font-mono text-sm font-bold text-signal">
             {maskedKey}
           </p>
         )}
@@ -47,12 +45,12 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-border bg-card p-8">
-        <p className="text-sm font-medium text-muted-foreground">Stripe</p>
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">Stripe</p>
         {user?.stripeConnectId ? (
           <div className="mt-2 flex items-center gap-2">
             <span className="size-2 rounded-full bg-state-healthy" />
-            <p className="text-sm font-medium">Connecté — {user.stripeConnectId}</p>
+            <p className="text-sm font-bold">Connecté — {user.stripeConnectId}</p>
           </div>
         ) : (
           <>

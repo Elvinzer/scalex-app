@@ -54,7 +54,7 @@ export function CsvImport() {
           accept=".csv,text/csv"
           onChange={handleFileChange}
           disabled={isPending}
-          className="text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground file:hover:bg-primary/90"
+          className="text-sm text-muted-foreground file:mr-4 file:rounded-full file:border-2 file:border-ink file:bg-ink file:px-4 file:py-2 file:text-sm file:font-bold file:text-mist file:hover:opacity-90"
         />
       </div>
 
@@ -62,8 +62,8 @@ export function CsvImport() {
       {fileError && <p className="text-sm text-state-critical">{fileError}</p>}
 
       {result && (
-        <div className="rounded-xl border border-border bg-muted/50 p-4 text-sm">
-          <p className="font-medium">
+        <div className="rounded-xl border-2 border-border bg-muted p-4 text-sm">
+          <p className="font-bold">
             {result.imported > 0
               ? `${result.imported} jour${result.imported > 1 ? "s" : ""} importé${result.imported > 1 ? "s" : ""}`
               : "Aucune ligne importée"}

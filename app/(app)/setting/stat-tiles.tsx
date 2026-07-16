@@ -38,9 +38,9 @@ export function StatTiles({
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {TILES.map((tile) => (
-        <div key={tile.key} className="rounded-3xl border border-border bg-card p-6">
-          <p className="text-sm font-medium text-muted-foreground">{tile.label}</p>
-          <p className="mt-2 font-mono text-3xl font-semibold tabular-nums">
+        <div key={tile.key} className="sticker-card p-6">
+          <p className="text-sm font-bold text-muted-foreground">{tile.label}</p>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums">
             {totals[tile.key]}
           </p>
           <div className="mt-3">

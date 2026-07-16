@@ -14,9 +14,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<DiagnosticStatus, string> = {
-  healthy: "bg-state-healthy/10 text-state-healthy",
-  caution: "bg-state-caution/10 text-state-caution",
-  critical: "bg-state-critical/10 text-state-critical",
+  healthy: "bg-state-healthy-bg text-state-healthy",
+  caution: "bg-state-caution-bg text-state-caution",
+  critical: "bg-state-critical-bg text-state-critical",
 };
 
 export default async function DiagnosticPage() {
@@ -45,7 +45,7 @@ export default async function DiagnosticPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Diagnostic</h1>
+        <h1 className="text-3xl font-bold">Diagnostic</h1>
         <p className="mt-1 text-muted-foreground">
           L&apos;état de santé de chaque zone de ton business qu&apos;on surveille
           aujourd&apos;hui.
@@ -56,19 +56,19 @@ export default async function DiagnosticPage() {
         {rows.map((row) => {
           const status = diagnosticStatus(row.dollarsLost, maxDollarsLost);
           return (
-            <div key={row.id} className="rounded-3xl border border-border bg-card p-6">
+            <div key={row.id} className="sticker-card p-6">
               <div className="flex items-start justify-between gap-3">
-                <p className="font-medium">{categoryLabel(row.category)}</p>
+                <p className="font-bold">{categoryLabel(row.category)}</p>
                 <span
                   className={cn(
-                    "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
+                    "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap",
                     STATUS_STYLES[status]
                   )}
                 >
                   {STATUS_LABELS[status]}
                 </span>
               </div>
-              <p className="mt-3 font-mono text-2xl font-semibold tabular-nums">
+              <p className="mt-3 font-display text-2xl font-bold tabular-nums">
                 {formatUsd(row.dollarsLost)}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">manque à gagner détecté</p>
@@ -77,9 +77,11 @@ export default async function DiagnosticPage() {
         })}
       </div>
 
-      <div className="rounded-3xl border border-dashed border-border bg-card/50 p-6 text-center">
-        <p className="text-sm font-medium">D&apos;autres catégories arrivent bientôt</p>
-        <p className="mt-1 text-sm text-muted-foreground">
+      <div className="sticker-card-dashed p-6 text-center">
+        <p className="text-sm font-bold text-muted-foreground">
+          D&apos;autres catégories arrivent bientôt
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground/80">
           Acquisition, ascension et rétention rejoindront le diagnostic au fur et à mesure
           des intégrations connectées.
         </p>

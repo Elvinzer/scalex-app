@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
+import { IBM_Plex_Mono, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const displayFont = Bricolage_Grotesque({
+const displayFont = Space_Grotesk({
   variable: "--font-display",
+  weight: ["500", "600", "700"],
   subsets: ["latin"],
 });
 
-const bodyFont = Instrument_Sans({
+const bodyFont = Plus_Jakarta_Sans({
   variable: "--font-body",
+  weight: ["400", "500", "600", "700", "800"],
   subsets: ["latin"],
 });
 
@@ -34,7 +36,6 @@ export default function RootLayout({
       <body
         className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} antialiased`}
       >
-        <div aria-hidden className="ambient-glow pointer-events-none fixed inset-0 -z-10" />
         {children}
       </body>
     </html>

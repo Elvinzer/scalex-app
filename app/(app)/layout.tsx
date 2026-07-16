@@ -29,7 +29,7 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-panel">
       <AppSidebar email={typeof email === "string" ? email : ""} />
       <main className="ml-64 flex-1 px-8 py-10 sm:px-12 lg:px-16">
         <div className="mx-auto max-w-6xl">{children}</div>

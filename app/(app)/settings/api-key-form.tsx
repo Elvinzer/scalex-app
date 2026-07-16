@@ -35,7 +35,7 @@ export function ApiKeyForm() {
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder="sk-ant-..."
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="rounded-lg border-2 border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         />
       </label>
 

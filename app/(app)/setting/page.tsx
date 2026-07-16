@@ -29,7 +29,7 @@ export default async function SettingPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Setting</h1>
+        <h1 className="text-3xl font-bold">Setting</h1>
         <p className="mt-1 text-muted-foreground">
           Ton funnel de prospection, jour par jour — nouveaux abonnés, premiers messages,
           conversations, appels proposés et réservés.
@@ -37,8 +37,8 @@ export default async function SettingPage() {
       </div>
 
       {!hasEntries && (
-        <div className="rounded-3xl border border-dashed border-border bg-card/50 p-6 text-center">
-          <p className="text-sm font-medium">Aucun KPI enregistré pour l&apos;instant</p>
+        <div className="sticker-card-dashed p-6 text-center">
+          <p className="text-sm font-bold">Aucun KPI enregistré pour l&apos;instant</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoute ta première journée ci-dessous, ou importe un historique en CSV.
           </p>
@@ -47,8 +47,8 @@ export default async function SettingPage() {
 
       {hasEntries && (
         <>
-          <div className="rounded-3xl border border-border bg-card p-8">
-            <p className="text-sm font-medium">Funnel</p>
+          <div className="sticker-card p-8">
+            <p className="text-sm font-bold">Funnel</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Cumul sur les {entries.length} jour{entries.length > 1 ? "s" : ""} enregistré
               {entries.length > 1 ? "s" : ""}.
@@ -69,8 +69,8 @@ export default async function SettingPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-3xl border border-border bg-card p-8">
-          <p className="text-sm font-medium">Ajouter un jour</p>
+        <div className="sticker-card p-8">
+          <p className="text-sm font-bold">Ajouter un jour</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ressaisir une date déjà enregistrée la met à jour.
           </p>
@@ -79,8 +79,8 @@ export default async function SettingPage() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border bg-card p-8">
-          <p className="text-sm font-medium">Importer un CSV</p>
+        <div className="sticker-card p-8">
+          <p className="text-sm font-bold">Importer un CSV</p>
           <div className="mt-6">
             <CsvImport />
           </div>
@@ -89,7 +89,7 @@ export default async function SettingPage() {
 
       {hasEntries && (
         <div>
-          <p className="mb-3 text-sm font-medium">Historique</p>
+          <p className="mb-3 text-sm font-bold">Historique</p>
           <EntriesTable entries={entries} />
         </div>
       )}

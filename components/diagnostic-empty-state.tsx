@@ -26,9 +26,9 @@ export function StripeOptionalState({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-primary/30 bg-primary/5 px-6 py-4 sm:flex-row sm:items-center">
+      <div className="sticker-card border-signal flex flex-col items-start justify-between gap-4 px-6 py-4 sm:flex-row sm:items-center">
         <div>
-          <p className="text-sm font-medium">Stripe n&apos;est pas encore connecté</p>
+          <p className="text-sm font-bold">Stripe n&apos;est pas encore connecté</p>
           <p className="text-sm text-muted-foreground">
             Optionnel pour explorer — connecte-le pour un vrai diagnostic basé sur tes
             données.
@@ -39,8 +39,8 @@ export function StripeOptionalState({
         </Button>
       </div>
 
-      <div className="rounded-3xl border border-dashed border-border bg-card/50 p-10 text-center">
-        <p className="text-lg font-medium">{title}</p>
+      <div className="sticker-card-dashed p-10 text-center">
+        <p className="text-lg font-bold">{title}</p>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
       </div>
     </div>

@@ -112,9 +112,7 @@ function RevenueStep({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight">
-        What&apos;s your monthly revenue right now?
-      </h1>
+      <h1 className="text-2xl font-bold">What&apos;s your monthly revenue right now?</h1>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="sr-only">Monthly revenue</legend>
@@ -122,9 +120,9 @@ function RevenueStep({
           <label
             key={option.value}
             className={cn(
-              "flex cursor-pointer items-center rounded-xl border px-4 py-3 text-sm font-medium transition-colors has-[:focus-visible]:border-ring has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+              "flex cursor-pointer items-center rounded-xl border-2 px-4 py-3 text-sm font-bold transition-colors has-[:focus-visible]:border-ring has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
               value === option.value
-                ? "border-signal bg-signal/5"
+                ? "border-signal bg-signal/10"
                 : "border-border hover:bg-muted"
             )}
           >
@@ -172,26 +170,24 @@ function StripeStep({
       </button>
 
       {stripeError && (
-        <p className="rounded-lg border border-state-critical/30 bg-state-critical/10 px-3 py-2 text-sm text-state-critical">
+        <p className="rounded-lg border-2 border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm text-state-critical">
           We couldn&apos;t reach Stripe. Reconnect your account.
         </p>
       )}
 
-      <div className="signature-glow flex flex-col gap-4 rounded-4xl border-2 border-signal p-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Connect your Stripe account
-        </h1>
-        <p className="text-sm text-muted-foreground">
+      <div className="sticker-spotlight flex flex-col gap-4 p-6">
+        <h1 className="text-2xl font-bold">Connect your Stripe account</h1>
+        <p className="text-sm text-mist/70">
           This is how Scale X finds your bottleneck. Read-only access. Revoke
           anytime.
         </p>
-        <Button size="lg" asChild className="w-full">
+        <Button size="lg" asChild className="w-full border-signal bg-signal text-ink">
           <a href="/api/stripe/connect">Connect Stripe</a>
         </Button>
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="text-xs font-medium text-muted-foreground">
+        <p className="text-xs font-bold text-muted-foreground">
           Everything below is optional
         </p>
         <label className="flex flex-col gap-1.5 text-sm">
@@ -201,7 +197,7 @@ function StripeStep({
             value={funnelUrl}
             onChange={(e) => onFunnelUrlChange(e.target.value)}
             placeholder="https://yoursite.com/offer"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="rounded-lg border-2 border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
         </label>
       </div>
@@ -229,7 +225,7 @@ function ScanningStep({
 
   return (
     <div className="flex flex-col items-center gap-6 text-center">
-      <div className="relative h-32 w-full overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="relative h-32 w-full overflow-hidden rounded-2xl border-2 border-border bg-card">
         <div
           className="absolute top-0 left-0 h-full bg-foreground/[0.06] transition-[width] duration-700 ease-out motion-reduce:transition-none"
           style={{ width: `calc(50% - ${gapHalf}%)` }}

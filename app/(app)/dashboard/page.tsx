@@ -36,39 +36,37 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="gradient-text text-4xl font-semibold">Salut, {firstName}</h1>
+        <h1 className="text-4xl font-bold">Salut, {firstName}</h1>
         <p className="mt-1.5 text-muted-foreground">
           Voici où en est ton business — et ce qu&apos;il faut corriger en premier.
         </p>
       </div>
 
-      <div className="signature-glow relative overflow-hidden rounded-4xl border border-border bg-card p-10">
-        <p className="text-sm font-medium text-muted-foreground">
-          Manque à gagner total détecté
-        </p>
-        <p className="mt-3 font-mono text-6xl font-semibold tabular-nums text-state-critical sm:text-7xl">
+      <div className="sticker-spotlight p-10">
+        <p className="text-sm font-medium text-mist/70">Manque à gagner total détecté</p>
+        <p className="mt-3 font-display text-6xl font-bold tabular-nums sm:text-7xl">
           {formatUsd(totalLost)}
         </p>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-mist/70">
           sur {rows.length} {rows.length > 1 ? "zones identifiées" : "zone identifiée"}
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div className="rounded-3xl border border-border bg-card p-8">
+        <div className="sticker-card p-8">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-state-critical/10 text-state-critical">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-state-critical-bg text-state-critical">
                 <Target className="size-4.5" />
               </span>
               <div>
-                <p className="text-sm font-medium text-state-critical">Ton goulot actuel</p>
-                <h2 className="mt-1 text-2xl font-semibold">
+                <p className="text-sm font-bold text-state-critical">Ton goulot actuel</p>
+                <h2 className="mt-1 text-2xl font-bold">
                   {categoryLabel(topBottleneck.category)}
                 </h2>
               </div>
             </div>
-            <span className="shrink-0 rounded-full bg-state-critical/10 px-3 py-1 text-sm font-medium whitespace-nowrap text-state-critical">
+            <span className="shrink-0 rounded-full bg-state-critical-bg px-3 py-1 text-sm font-bold whitespace-nowrap text-state-critical">
               {formatUsd(topBottleneck.dollarsLost)}
             </span>
           </div>
@@ -81,11 +79,11 @@ export default async function DashboardPage() {
           </Button>
         </div>
 
-        <div className="flex flex-col justify-between rounded-3xl border border-border bg-card p-8">
+        <div className="sticker-card flex flex-col justify-between p-8">
           <span className="flex size-9 items-center justify-center rounded-xl bg-violet/10 text-violet">
             <Sparkles className="size-4.5" />
           </span>
-          <p className="mt-4 font-mono text-4xl font-semibold tabular-nums">{rows.length}</p>
+          <p className="mt-4 font-display text-4xl font-bold tabular-nums">{rows.length}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {rows.length > 1 ? "zones suivies" : "zone suivie"} — connecte d&apos;autres sources
             dans Réglages pour élargir le diagnostic.
@@ -93,14 +91,14 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-border bg-card p-8">
+      <div className="sticker-card p-8">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gain/10 text-gain">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-signal/10 text-signal">
               <Bot className="size-4.5" />
             </span>
             <div>
-              <p className="text-sm font-medium">Ton agent IA</p>
+              <p className="text-sm font-bold">Ton agent IA</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Voir la recommandation détaillée pour ton goulot actuel.
               </p>

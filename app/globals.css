@@ -13,13 +13,19 @@
   --font-heading: var(--font-display);
   --color-ink: var(--ink);
   --color-mist: var(--mist);
+  --color-paper-alt: var(--paper-alt);
+  --color-panel: var(--panel);
   --color-signal: var(--signal);
   --color-violet: var(--violet);
   --color-gain: var(--gain);
   --color-state-critical: var(--state-critical);
+  --color-state-critical-bg: var(--state-critical-bg);
   --color-state-caution: var(--state-caution);
+  --color-state-caution-bg: var(--state-caution-bg);
   --color-state-healthy: var(--state-healthy);
+  --color-state-healthy-bg: var(--state-healthy-bg);
   --color-state-unknown: var(--state-unknown);
+  --color-state-unknown-bg: var(--state-unknown-bg);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -59,18 +65,24 @@
 }
 
 :root {
-  /* Scale X identity palette — see BUILD_LOG.md for the naming rationale
-     (Mist -> Signal -> Gate -> Clearing). */
-  --ink: #12141c;
-  --mist: #f6f7fa;
+  /* Scale X "sticker style" identity — cream/lavender paper, thick ink
+     borders, one tweakable coral accent. See BUILD_LOG.md. */
+  --ink: #15131f;
+  --mist: #fbf7f0;
   --vault: #ffffff;
-  --signal: #5b5fef;
-  --violet: #8b5cf6;
-  --gain: #e3a527;
-  --state-critical: #d6483f;
-  --state-caution: #e06b1f;
-  --state-healthy: #2e9e6f;
-  --state-unknown: #8a8fa3;
+  --paper-alt: #efecfb;
+  --panel: #fcfaf6;
+  --signal: #ff6b4a;
+  --violet: #6d5cf6;
+  --gain: #ff6b4a;
+  --state-critical: #c4432a;
+  --state-critical-bg: #fde7e3;
+  --state-caution: #b5791f;
+  --state-caution-bg: #fbeed9;
+  --state-healthy: #3a7a3a;
+  --state-healthy-bg: #e9f5e3;
+  --state-unknown: #8a84a0;
+  --state-unknown-bg: #edeaf5;
 
   --background: var(--mist);
   --foreground: var(--ink);
@@ -79,16 +91,16 @@
   --popover: var(--vault);
   --popover-foreground: var(--ink);
   --primary: var(--signal);
-  --primary-foreground: #ffffff;
-  --secondary: oklch(0.97 0 0);
+  --primary-foreground: var(--ink);
+  --secondary: var(--paper-alt);
   --secondary-foreground: var(--ink);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: #f5f2ec;
+  --muted-foreground: #6b6580;
+  --accent: var(--paper-alt);
   --accent-foreground: var(--ink);
   --destructive: var(--state-critical);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: color-mix(in oklch, var(--ink) 18%, transparent);
+  --input: color-mix(in oklch, var(--ink) 18%, transparent);
   --ring: var(--signal);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -108,9 +120,9 @@
 
 .dark {
   --vault: #1a1e29;
-  --violet: #a78bfa;
+  --violet: #8778f8;
   --state-critical: #e1594f;
-  --state-caution: #e97f3b;
+  --state-caution: #d99a4a;
   --state-healthy: #34b980;
   --state-unknown: #9aa0b4;
 
@@ -121,7 +133,7 @@
   --popover: var(--vault);
   --popover-foreground: var(--mist);
   --primary: var(--signal);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--ink);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: var(--mist);
   --muted: oklch(0.269 0 0);
@@ -160,68 +172,32 @@
   h1,
   h2,
   h3 {
-    @apply font-display tracking-tight;
+    @apply font-display font-bold tracking-tight;
   }
 }
 
 @layer utilities {
-  /* Cheap film-grain texture — the single highest-leverage fix against the
-     "flat generic AI SaaS" look: a pure-noise SVG, no image asset. Applied
-     globally, low opacity, never intercepts clicks. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 999;
-    pointer-events: none;
-    opacity: 0.035;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* Sticker card — the standard content card: thick ink border, hard
+     offset shadow, no blur. Replaces the old soft glow/gradient system. */
+  .sticker-card {
+    border: 2.5px solid var(--ink);
+    border-radius: var(--radius-2xl);
+    background: var(--card);
+    box-shadow: 7px 7px 0 var(--ink);
   }
 
-  /* Concentrated version for hero moments (the Stripe card, the aha
-     number card) — stronger, contained to that element. */
-  .signature-glow {
-    background-image:
-      radial-gradient(
-        circle at 25% 15%,
-        color-mix(in oklch, var(--signal) 55%, transparent),
-        transparent 60%
-      ),
-      radial-gradient(
-        circle at 85% 85%,
-        color-mix(in oklch, var(--gain) 45%, transparent),
-        transparent 60%
-      );
+  /* Muted, locked/empty-state variant: dashed border, no shadow. */
+  .sticker-card-dashed {
+    border: 2px dashed color-mix(in oklch, var(--ink) 25%, transparent);
+    border-radius: var(--radius-2xl);
+    background: var(--muted);
   }
 
-  /* Ambient version, fixed behind every screen — this is what keeps the
-     rest of the page from reading as flat white between the hero moments.
-     Same two colors, much lower opacity, page-scale instead of card-scale. */
-  .ambient-glow {
-    background-image:
-      radial-gradient(
-        ellipse 70% 55% at 100% 0%,
-        color-mix(in oklch, var(--signal) 45%, transparent),
-        transparent 80%
-      ),
-      radial-gradient(
-        ellipse 65% 55% at 0% 100%,
-        color-mix(in oklch, var(--gain) 38%, transparent),
-        transparent 80%
-      );
-  }
-
-  /* Brand gradient — signal blue into violet, used sparingly on the marks
-     that should read as "premium" (logo, primary buttons, hero figures). */
-  .brand-gradient {
-    background-image: linear-gradient(135deg, var(--signal) 0%, var(--violet) 100%);
-  }
-
-  .gradient-text {
-    background-image: linear-gradient(135deg, var(--signal) 0%, var(--violet) 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
+  /* Hero/"spotlight" moment: solid ink card, cream text — the one place
+     per screen that should read as the headline, not another white card. */
+  .sticker-spotlight {
+    border-radius: var(--radius-2xl);
+    background: var(--ink);
+    color: var(--mist);
   }
 }

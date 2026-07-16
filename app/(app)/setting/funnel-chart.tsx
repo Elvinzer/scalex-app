@@ -61,7 +61,7 @@ export function FunnelChart({
                   className={cn(
                     "font-mono text-xs tabular-nums",
                     isBottleneckConnector
-                      ? "font-semibold text-state-critical"
+                      ? "font-bold text-state-critical"
                       : "text-muted-foreground"
                   )}
                 >
@@ -72,13 +72,13 @@ export function FunnelChart({
 
             <div className="flex items-center gap-3">
               <div className="w-48 shrink-0 text-sm text-muted-foreground">{stage.label}</div>
-              <div className="relative h-8 flex-1 rounded-lg bg-muted">
+              <div className="relative h-8 flex-1 rounded-lg border-2 border-ink/10 bg-muted">
                 <div
                   className="h-full rounded-lg bg-signal transition-[width] duration-500 ease-out"
                   style={{ width: `${widthPercent}%` }}
                 />
               </div>
-              <div className="w-14 shrink-0 text-right font-mono text-sm font-semibold tabular-nums">
+              <div className="w-14 shrink-0 text-right font-display text-sm font-bold tabular-nums">
                 {value}
               </div>
             </div>

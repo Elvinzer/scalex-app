@@ -33,7 +33,7 @@ export default async function ClosingPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Détail du goulot</h1>
+        <h1 className="text-3xl font-bold">Détail du goulot</h1>
         <p className="mt-1 text-muted-foreground">
           Toutes les zones où ton business perd de l&apos;argent, classées par impact.
         </p>
@@ -44,38 +44,34 @@ export default async function ClosingPage() {
           <div
             key={row.id}
             className={cn(
-              "flex items-center justify-between rounded-3xl border p-6",
-              index === 0
-                ? "signature-glow border-primary/30 bg-card"
-                : "border-border bg-card"
+              "flex items-center justify-between p-6",
+              index === 0 ? "sticker-spotlight" : "sticker-card"
             )}
           >
             <div className="flex items-center gap-4">
               <span
                 className={cn(
-                  "flex size-9 shrink-0 items-center justify-center rounded-full font-mono text-sm font-semibold",
-                  index === 0
-                    ? "bg-state-critical/10 text-state-critical"
-                    : "bg-muted text-muted-foreground"
+                  "flex size-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold",
+                  index === 0 ? "bg-signal text-ink" : "bg-muted text-muted-foreground"
                 )}
               >
                 #{index + 1}
               </span>
               <div>
-                <p className="font-medium">{categoryLabel(row.category)}</p>
-                {index === 0 && <p className="text-sm text-primary">Goulot prioritaire</p>}
+                <p className="font-bold">{categoryLabel(row.category)}</p>
+                {index === 0 && <p className="text-sm text-signal">Goulot prioritaire</p>}
               </div>
             </div>
-            <p className="font-mono text-xl font-semibold tabular-nums">
+            <p className="font-display text-xl font-bold tabular-nums">
               {formatUsd(row.dollarsLost)}
             </p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-3xl border border-border bg-card p-6">
+      <div className="sticker-card p-6">
         <p className="text-sm text-muted-foreground">Manque à gagner total</p>
-        <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-state-critical">
+        <p className="mt-1 font-display text-3xl font-bold tabular-nums text-state-critical">
           {formatUsd(totalLost)}
         </p>
       </div>
