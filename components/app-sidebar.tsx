@@ -26,12 +26,13 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/diagnostic", label: "Diagnostic", icon: Stethoscope },
-  { href: "/closing", label: "Closing", icon: Target },
-  { href: "/agent", label: "Agent IA", icon: Bot },
-  { href: "/integrations", label: "Intégrations", icon: Plug },
-  { href: "/settings", label: "Réglages", icon: Settings },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tint: "var(--signal)" },
+  { href: "/setting", label: "KPI", icon: Send, tint: "var(--state-caution)" },
+  { href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, tint: "var(--violet)" },
+  { href: "/closing", label: "Closing", icon: Target, tint: "var(--state-critical)" },
+  { href: "/agent", label: "Agent IA", icon: Bot, tint: "var(--gain)" },
+  { href: "/integrations", label: "Intégrations", icon: Plug, tint: "var(--state-healthy)" },
+  { href: "/settings", label: "Réglages", icon: Settings, tint: "var(--muted-foreground)" },
 ];
 
 export function AppSidebar({ email }: { email: string }) {
