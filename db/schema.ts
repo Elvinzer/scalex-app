@@ -1,4 +1,5 @@
 import {
+  date,
   integer,
   pgSchema,
   pgTable,
@@ -76,5 +77,33 @@ export const diagnostics = pgTable(
     // One row per category per user — sync jobs upsert on this to stay
     // idempotent across re-runs.
     uniqueIndex("diagnostics_user_category_idx").on(table.userId, table.category),
+  ]
+);
+
+// Manually entered — no integration behind this one. One row per user per
+// day; the manual form and the CSV import both upsert on (userId, date), so
+// re-saving or re-importing a day overwrites it instead of duplicating.
+export const settingKpiEntries = pgTable(
+  "setting_kpi_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    newSubscribers: integer("new_subscribers").notNull(),
+    firstMessagesSent: integer("first_messages_sent").notNull(),
+    conversationsStarted: integer("conversations_started").notNull(),
+    callsProposed: integer("calls_proposed").notNull(),
+    callsBooked: integer("calls_booked").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("setting_kpi_entries_user_date_idx").on(table.userId, table.date),
   ]
 );
