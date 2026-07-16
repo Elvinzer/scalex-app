@@ -173,7 +173,7 @@ function StripeStep({
         </p>
       )}
 
-      <div className="flex flex-col gap-4 rounded-2xl border-2 border-signal bg-signal/5 p-6">
+      <div className="signature-glow flex flex-col gap-4 rounded-4xl border-2 border-signal p-6">
         <h1 className="text-2xl font-semibold tracking-tight">
           Connect your Stripe account
         </h1>

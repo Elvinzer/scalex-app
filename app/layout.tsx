@@ -34,6 +34,7 @@ export default function RootLayout({
       <body
         className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} antialiased`}
       >
+        <div aria-hidden className="ambient-glow pointer-events-none fixed inset-0 -z-10" />
         {children}
       </body>
     </html>

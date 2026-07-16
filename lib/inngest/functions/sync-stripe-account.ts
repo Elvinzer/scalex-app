@@ -41,12 +41,12 @@ export const syncStripeAccount = inngest.createFunction(
           userId,
           category: "failed_payments",
           score: 0,
-          dollarsLost: Math.round(failedPaymentsCents / 100),
+          dollarsLost: failedPaymentsCents,
         })
         .onConflictDoUpdate({
           target: [diagnostics.userId, diagnostics.category],
           set: {
-            dollarsLost: Math.round(failedPaymentsCents / 100),
+            dollarsLost: failedPaymentsCents,
             computedAt: new Date(),
           },
         });

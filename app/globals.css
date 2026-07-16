@@ -149,7 +149,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground relative;
   }
   html {
     @apply font-sans;
@@ -158,5 +158,54 @@
   h2,
   h3 {
     @apply font-display;
+  }
+}
+
+@layer utilities {
+  /* Cheap film-grain texture — the single highest-leverage fix against the
+     "flat generic AI SaaS" look: a pure-noise SVG, no image asset. Applied
+     globally, low opacity, never intercepts clicks. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Concentrated version for hero moments (the Stripe card, the aha
+     number card) — stronger, contained to that element. */
+  .signature-glow {
+    background-image:
+      radial-gradient(
+        circle at 25% 15%,
+        color-mix(in oklch, var(--signal) 55%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        circle at 85% 85%,
+        color-mix(in oklch, var(--gain) 45%, transparent),
+        transparent 60%
+      );
+  }
+
+  /* Ambient version, fixed behind every screen — this is what keeps the
+     rest of the page from reading as flat white between the hero moments.
+     Same two colors, much lower opacity, page-scale instead of card-scale. */
+  .ambient-glow {
+    background-image:
+      radial-gradient(
+        ellipse 70% 55% at 100% 0%,
+        color-mix(in oklch, var(--signal) 45%, transparent),
+        transparent 80%
+      ),
+      radial-gradient(
+        ellipse 65% 55% at 0% 100%,
+        color-mix(in oklch, var(--gain) 38%, transparent),
+        transparent 80%
+      );
   }
 }
