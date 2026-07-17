@@ -11,5 +11,18 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(disown)",
+      "Bash(cd *)",
+      "Bash(grep *)",
+      "Bash(curl *)",
+      "Bash(npm install)",
+      "Bash(npm run *)",
+      "Bash(git *)",
+      "Bash(cat *)",
+      "Bash(ls *)"
+    ]
   }
 }

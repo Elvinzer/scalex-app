@@ -3,25 +3,43 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { settingKpiEntries } from "@/db/schema";
 import { getCurrentUser } from "@/lib/current-user";
+import { formatRangeDates, resolveDateRange } from "@/lib/setting/date-range";
 import { aggregateEntries, computeFunnelRates, findBottleneck } from "@/lib/setting/funnel";
 
 import { BottleneckCard } from "./bottleneck-card";
 import { CsvImport } from "./csv-import";
+import { DateRangePicker } from "./date-range-picker";
 import { EntriesTable } from "./entries-table";
 import { EntryForm } from "./entry-form";
 import { FunnelChart } from "./funnel-chart";
 import { StatTiles } from "./stat-tiles";
 
-export default async function SettingPage() {
-  const { userId } = await getCurrentUser();
+function paramValue(value: string | string[] | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
 
-  const entries = await db
+export default async function SettingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string | string[]; from?: string | string[]; to?: string | string[] }>;
+}) {
+  const { userId } = await getCurrentUser();
+  const params = await searchParams;
+
+  const allEntries = await db
     .select()
     .from(settingKpiEntries)
     .where(eq(settingKpiEntries.userId, userId))
     .orderBy(desc(settingKpiEntries.date));
 
-  const hasEntries = entries.length > 0;
+  const hasAnyEntries = allEntries.length > 0;
+
+  const range = resolveDateRange(paramValue(params.range), paramValue(params.from), paramValue(params.to));
+  const entries = range
+    ? allEntries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
+    : allEntries;
+  const hasEntriesInRange = entries.length > 0;
+
   const totals = aggregateEntries(entries);
   const rates = computeFunnelRates(totals);
   const bottleneck = findBottleneck(rates);
@@ -36,7 +54,7 @@ export default async function SettingPage() {
         </p>
       </div>
 
-      {!hasEntries && (
+      {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">
           <p className="text-sm font-bold">Aucun KPI enregistré pour l&apos;instant</p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -45,13 +63,26 @@ export default async function SettingPage() {
         </div>
       )}
 
-      {hasEntries && (
+      {hasAnyEntries && (
+        <div className="flex justify-end">
+          <DateRangePicker />
+        </div>
+      )}
+
+      {hasAnyEntries && !hasEntriesInRange && (
+        <div className="sticker-card-dashed p-6 text-center">
+          <p className="text-sm font-bold">Aucune donnée sur cette période</p>
+          <p className="mt-1 text-sm text-muted-foreground">Choisis une autre plage ci-dessus.</p>
+        </div>
+      )}
+
+      {hasEntriesInRange && (
         <>
           <div className="sticker-card p-8">
             <p className="text-sm font-bold">Funnel</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Cumul sur les {entries.length} jour{entries.length > 1 ? "s" : ""} enregistré
-              {entries.length > 1 ? "s" : ""}.
+              Cumul sur {entries.length} jour{entries.length > 1 ? "s" : ""}
+              {range ? ` — ${formatRangeDates(range)}` : " enregistrés"}.
             </p>
             <div className="mt-6">
               <FunnelChart
@@ -87,7 +118,7 @@ export default async function SettingPage() {
         </div>
       </div>
 
-      {hasEntries && (
+      {hasEntriesInRange && (
         <div>
           <p className="mb-3 text-sm font-bold">Historique</p>
           <EntriesTable entries={entries} />
