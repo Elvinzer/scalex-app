@@ -3,7 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { settingKpiEntries } from "@/db/schema";
 import { getCurrentUser } from "@/lib/current-user";
-import { formatRangeDates, resolveDateRange } from "@/lib/setting/date-range";
+import { formatRangeDates, previousEquivalentRange, resolveDateRange } from "@/lib/setting/date-range";
 import { aggregateEntries, computeFunnelRates, findBottleneck } from "@/lib/setting/funnel";
 
 import { BottleneckCard } from "./bottleneck-card";
@@ -43,6 +43,17 @@ export default async function SettingPage({
   const totals = aggregateEntries(entries);
   const rates = computeFunnelRates(totals);
   const bottleneck = findBottleneck(rates);
+
+  // Previous-period comparison for the stat tiles — no meaningful "previous"
+  // window when viewing all-time history, so it's skipped in that case.
+  const previousRange = range ? previousEquivalentRange(range) : null;
+  const previousEntries = previousRange
+    ? allEntries.filter(
+        (entry) => entry.date >= previousRange.from && entry.date <= previousRange.to
+      )
+    : [];
+  const previousTotals = previousRange ? aggregateEntries(previousEntries) : null;
+  const previousRates = previousTotals ? computeFunnelRates(previousTotals) : null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -93,7 +104,13 @@ export default async function SettingPage({
             </div>
           </div>
 
-          <StatTiles entriesAscending={[...entries].reverse()} totals={totals} rates={rates} />
+          <StatTiles
+            entriesAscending={[...entries].reverse()}
+            totals={totals}
+            rates={rates}
+            previousTotals={previousTotals}
+            previousRates={previousRates}
+          />
 
           <BottleneckCard bottleneck={bottleneck} />
         </>

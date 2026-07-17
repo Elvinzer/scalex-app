@@ -75,6 +75,21 @@ export function resolveDateRange(
   return null;
 }
 
+// Same-length window immediately preceding `range`, for a "vs previous period"
+// comparison on the stat tiles.
+export function previousEquivalentRange(range: DateRange): DateRange {
+  const fromDate = new Date(`${range.from}T00:00:00Z`);
+  const toDate = new Date(`${range.to}T00:00:00Z`);
+  const lengthDays = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000) + 1;
+
+  const previousTo = new Date(fromDate);
+  previousTo.setUTCDate(previousTo.getUTCDate() - 1);
+  const previousFrom = new Date(previousTo);
+  previousFrom.setUTCDate(previousFrom.getUTCDate() - (lengthDays - 1));
+
+  return { from: toIsoDate(previousFrom), to: toIsoDate(previousTo) };
+}
+
 export type MonthOption = { preset: string; label: string };
 
 function capitalize(value: string): string {
