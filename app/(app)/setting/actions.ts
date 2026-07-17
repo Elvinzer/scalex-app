@@ -1,12 +1,16 @@
 "use server";
 
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { settingKpiEntries } from "@/db/schema";
 import { parseSettingKpiCsv, type SettingKpiCsvError } from "@/lib/setting/csv";
-import { settingKpiEntryInputSchema } from "@/lib/setting/schema";
+import {
+  editableSettingKpiFields,
+  settingKpiEntryInputSchema,
+  type EditableSettingKpiField,
+} from "@/lib/setting/schema";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireUserId(): Promise<string> {
@@ -55,6 +59,41 @@ export async function saveSettingKpiEntry(
         updatedAt: new Date(),
       },
     });
+
+  revalidatePath("/setting");
+  return { error: null };
+}
+
+export async function updateSettingKpiEntryField(
+  entryId: string,
+  field: EditableSettingKpiField,
+  value: number
+): Promise<{ error: string | null }> {
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Session expirée" };
+  }
+
+  if (!editableSettingKpiFields.includes(field)) {
+    return { error: "Champ invalide" };
+  }
+
+  const parsed = settingKpiEntryInputSchema.shape[field].safeParse(value);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Valeur invalide" };
+  }
+
+  const updated = await db
+    .update(settingKpiEntries)
+    .set({ [field]: parsed.data, updatedAt: new Date() })
+    .where(and(eq(settingKpiEntries.id, entryId), eq(settingKpiEntries.userId, userId)))
+    .returning({ id: settingKpiEntries.id });
+
+  if (updated.length === 0) {
+    return { error: "Entrée introuvable" };
+  }
 
   revalidatePath("/setting");
   return { error: null };

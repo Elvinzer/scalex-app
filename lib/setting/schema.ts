@@ -18,3 +18,16 @@ export const settingKpiEntryInputSchema = z.object({
 });
 
 export type SettingKpiEntryInput = z.infer<typeof settingKpiEntryInputSchema>;
+
+// Columns editable inline (double-click) in the history table — everything
+// except `date`, since changing it could collide with another day already
+// covered by the (userId, date) unique index.
+export const editableSettingKpiFields = [
+  "newSubscribers",
+  "firstMessagesSent",
+  "conversationsStarted",
+  "callsProposed",
+  "callsBooked",
+] as const;
+
+export type EditableSettingKpiField = (typeof editableSettingKpiFields)[number];

@@ -1,5 +1,7 @@
 import type { settingKpiEntries } from "@/db/schema";
 
+import { EditableKpiCell } from "./editable-kpi-cell";
+
 type SettingKpiEntry = typeof settingKpiEntries.$inferSelect;
 
 const VISIBLE_ROWS = 30;
@@ -34,13 +36,27 @@ export function EntriesTable({ entries }: { entries: SettingKpiEntry[] }) {
           {visible.map((entry) => (
             <tr key={entry.id} className="border-b border-border last:border-0">
               <td className="px-4 py-2.5">{formatDate(entry.date)}</td>
-              <td className="px-4 py-2.5 font-mono tabular-nums">{entry.newSubscribers}</td>
-              <td className="px-4 py-2.5 font-mono tabular-nums">{entry.firstMessagesSent}</td>
-              <td className="px-4 py-2.5 font-mono tabular-nums">
-                {entry.conversationsStarted}
-              </td>
-              <td className="px-4 py-2.5 font-mono tabular-nums">{entry.callsProposed}</td>
-              <td className="px-4 py-2.5 font-mono tabular-nums">{entry.callsBooked}</td>
+              <EditableKpiCell
+                entryId={entry.id}
+                field="newSubscribers"
+                value={entry.newSubscribers}
+              />
+              <EditableKpiCell
+                entryId={entry.id}
+                field="firstMessagesSent"
+                value={entry.firstMessagesSent}
+              />
+              <EditableKpiCell
+                entryId={entry.id}
+                field="conversationsStarted"
+                value={entry.conversationsStarted}
+              />
+              <EditableKpiCell
+                entryId={entry.id}
+                field="callsProposed"
+                value={entry.callsProposed}
+              />
+              <EditableKpiCell entryId={entry.id} field="callsBooked" value={entry.callsBooked} />
             </tr>
           ))}
         </tbody>
