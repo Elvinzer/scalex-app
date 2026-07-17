@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 
 import type { settingKpiEntries } from "@/db/schema";
-import { formatPercent, type FunnelRates, type FunnelTotals } from "@/lib/setting/funnel";
+import { rate, formatPercent, type FunnelTotals } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
 import { Sparkline } from "./sparkline";
@@ -11,14 +11,19 @@ type SettingKpiEntry = typeof settingKpiEntries.$inferSelect;
 type CountTile = { type: "count"; key: keyof FunnelTotals; label: string };
 type RateTile = {
   type: "rate";
-  key: keyof FunnelRates;
+  key: string;
   label: string;
   numeratorKey: keyof FunnelTotals;
   denominatorKey: keyof FunnelTotals;
 };
 
-// Order mirrors the funnel itself: each calculated rate sits right after the
-// count it's derived from.
+// Each rate tile's value is numerator/denominator computed straight from
+// totals — not lib/setting/funnel.ts's FunnelRates, whose `bookingRate` is a
+// proposal→booking stage rate used elsewhere (FunnelChart's connector,
+// bottleneck detection) and stays as-is. "Taux d'appels réservés" here is a
+// different, deliberately chosen ratio (réservés / 1er messages), so it's
+// self-contained: whatever numerator/denominator is configured below is
+// exactly what's displayed, with no risk of drifting from a shared formula.
 const TILES: (CountTile | RateTile)[] = [
   { type: "count", key: "newSubscribers", label: "Nouveaux abonnés" },
   { type: "count", key: "firstMessagesSent", label: "Premiers messages envoyés" },
@@ -44,7 +49,7 @@ const TILES: (CountTile | RateTile)[] = [
     key: "bookingRate",
     label: "Taux d'appels réservés",
     numeratorKey: "callsBooked",
-    denominatorKey: "callsProposed",
+    denominatorKey: "firstMessagesSent",
   },
 ];
 
@@ -106,20 +111,16 @@ function RateDelta({ current, previous }: { current: number | null; previous: nu
 }
 
 // entriesAscending must be sorted oldest-first (chronological, for the
-// sparkline direction to read left-to-right correctly). previousTotals/Rates
-// are null when there's no comparable prior period (e.g. "all time" is selected).
+// sparkline direction to read left-to-right correctly). previousTotals is
+// null when there's no comparable prior period (e.g. "all time" is selected).
 export function StatTiles({
   entriesAscending,
   totals,
-  rates,
   previousTotals,
-  previousRates,
 }: {
   entriesAscending: SettingKpiEntry[];
   totals: FunnelTotals;
-  rates: FunnelRates;
   previousTotals: FunnelTotals | null;
-  previousRates: FunnelRates | null;
 }) {
   const recent = entriesAscending.slice(-SPARKLINE_DAYS);
   const labels = recent.map((entry) => shortDate(entry.date));
@@ -144,9 +145,12 @@ export function StatTiles({
           );
         }
 
-        const rateValue = rates[tile.key];
         const numerator = totals[tile.numeratorKey];
         const denominator = totals[tile.denominatorKey];
+        const rateValue = rate(numerator, denominator);
+        const previousRateValue = previousTotals
+          ? rate(previousTotals[tile.numeratorKey], previousTotals[tile.denominatorKey])
+          : null;
 
         return (
           <div
@@ -158,7 +162,7 @@ export function StatTiles({
               {rateValue === null ? "—" : formatPercent(rateValue)}
             </p>
             <div className="mt-1 min-h-4">
-              <RateDelta current={rateValue} previous={previousRates?.[tile.key] ?? null} />
+              <RateDelta current={rateValue} previous={previousRateValue} />
             </div>
             <p className="mt-auto pt-3 text-xs text-muted-foreground">
               {NUMBER_FORMAT.format(numerator)} / {NUMBER_FORMAT.format(denominator)}

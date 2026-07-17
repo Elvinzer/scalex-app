@@ -40,7 +40,7 @@ export type FunnelRates = {
 
 export type FunnelStage = keyof FunnelRates;
 
-function rate(numerator: number, denominator: number): number | null {
+export function rate(numerator: number, denominator: number): number | null {
   if (denominator <= 0) return null;
   return numerator / denominator;
 }

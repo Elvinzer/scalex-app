@@ -53,7 +53,6 @@ export default async function SettingPage({
       )
     : [];
   const previousTotals = previousRange ? aggregateEntries(previousEntries) : null;
-  const previousRates = previousTotals ? computeFunnelRates(previousTotals) : null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -107,9 +106,7 @@ export default async function SettingPage({
           <StatTiles
             entriesAscending={[...entries].reverse()}
             totals={totals}
-            rates={rates}
             previousTotals={previousTotals}
-            previousRates={previousRates}
           />
 
           <BottleneckCard bottleneck={bottleneck} />
