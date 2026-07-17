@@ -1,10 +1,9 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 
+import { Sparkline } from "@/components/sparkline";
 import type { settingKpiEntries } from "@/db/schema";
 import { rate, formatPercent, type FunnelTotals } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
-
-import { Sparkline } from "./sparkline";
 
 type SettingKpiEntry = typeof settingKpiEntries.$inferSelect;
 

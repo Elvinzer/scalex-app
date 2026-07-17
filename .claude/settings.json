@@ -19,6 +19,7 @@
       "Bash(grep *)",
       "Bash(curl *)",
       "Bash(tail *)",
+      "Bash(find *)",
       "Bash(npm install)",
       "Bash(npm run *)",
       "Bash(git *)",

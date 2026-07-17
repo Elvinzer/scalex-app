@@ -12,7 +12,7 @@ import {
   resolveDateRange,
   todayUtc,
   toIsoDate,
-} from "@/lib/setting/date-range";
+} from "@/lib/date-range";
 
 const PREVIOUS_MONTHS_COUNT = 6;
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];

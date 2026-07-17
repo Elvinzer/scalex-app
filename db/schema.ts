@@ -119,3 +119,30 @@ export const settingKpiEntries = pgTable(
     uniqueIndex("setting_kpi_entries_user_date_idx").on(table.userId, table.date),
   ]
 );
+
+// Same shape/upsert semantics as settingKpiEntries — manually entered, one
+// row per user per day, (userId, date) upsert. callsAttended and salesClosed
+// let /closing compute its own rate (closingRate) plus a no-show rate that
+// also needs settingKpiEntries.callsBooked (a cross-table read, not stored
+// here) over the same period.
+export const closingKpiEntries = pgTable(
+  "closing_kpi_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    callsAttended: integer("calls_attended").notNull(),
+    salesClosed: integer("sales_closed").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("closing_kpi_entries_user_date_idx").on(table.userId, table.date),
+  ]
+);
