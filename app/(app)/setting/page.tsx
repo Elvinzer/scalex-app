@@ -93,7 +93,7 @@ export default async function SettingPage({
             </div>
           </div>
 
-          <StatTiles entriesAscending={[...entries].reverse()} totals={totals} />
+          <StatTiles entriesAscending={[...entries].reverse()} totals={totals} rates={rates} />
 
           <BottleneckCard bottleneck={bottleneck} />
         </>

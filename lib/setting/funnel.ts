@@ -75,6 +75,10 @@ export const STAGE_TIPS: Record<FunnelStage, string> = {
     "Des appels sont proposés mais pas réservés : le lien de réservation ou le suivi post-proposition est probablement le point à corriger.",
 };
 
+export function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
 export type Bottleneck = { stage: FunnelStage; rate: number };
 
 export function findBottleneck(rates: FunnelRates): Bottleneck | null {

@@ -1,7 +1,7 @@
 import { ArrowDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { FunnelRates, FunnelStage, FunnelTotals } from "@/lib/setting/funnel";
+import { formatPercent, type FunnelRates, type FunnelStage, type FunnelTotals } from "@/lib/setting/funnel";
 
 const STAGES: { key: keyof FunnelTotals; label: string }[] = [
   { key: "newSubscribers", label: "Nouveaux abonnés" },
@@ -19,10 +19,6 @@ const CONNECTOR_RATES: FunnelStage[] = [
   "proposalRate",
   "bookingRate",
 ];
-
-function formatPercent(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
 
 // Server-rendered — one hue (--signal) because these five bars are stages
 // of a single flow, not independent categories to compare; length is the
