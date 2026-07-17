@@ -2,9 +2,11 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { db } from "@/db";
-import { settingKpiEntries } from "@/db/schema";
+import { settingKpiEntries, users } from "@/db/schema";
+import { SECTOR_KEYS } from "@/lib/setting/benchmarks";
 import { parseSettingKpiCsv, type SettingKpiCsvError } from "@/lib/setting/csv";
 import {
   editableSettingKpiFields,
@@ -94,6 +96,27 @@ export async function updateSettingKpiEntryField(
   if (updated.length === 0) {
     return { error: "Entrée introuvable" };
   }
+
+  revalidatePath("/setting");
+  return { error: null };
+}
+
+const sectorSchema = z.enum(SECTOR_KEYS).nullable();
+
+export async function updateSector(sector: string | null): Promise<{ error: string | null }> {
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Session expirée" };
+  }
+
+  const parsed = sectorSchema.safeParse(sector);
+  if (!parsed.success) {
+    return { error: "Secteur invalide" };
+  }
+
+  await db.update(users).set({ sector: parsed.data }).where(eq(users.id, userId));
 
   revalidatePath("/setting");
   return { error: null };

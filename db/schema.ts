@@ -1,6 +1,7 @@
 import {
   date,
   integer,
+  pgEnum,
   pgSchema,
   pgTable,
   text,
@@ -16,6 +17,16 @@ const authSchema = pgSchema("auth");
 const authUsers = authSchema.table("users", {
   id: uuid("id").primaryKey(),
 });
+
+// Used to pick which row of lib/setting/benchmarks.ts to compare a user's
+// KPI rates against — null means "not set", falls back to the global (all
+// sectors) benchmark.
+export const prospectionSector = pgEnum("prospection_sector", [
+  "coaching_b2b_high_ticket",
+  "low_ticket_infoproduct",
+  "ecommerce_dtc",
+  "real_estate_finance",
+]);
 
 export const users = pgTable("users", {
   // Same id as auth.users — this table only carries app-specific columns,
@@ -33,6 +44,7 @@ export const users = pgTable("users", {
   // "is this user connected to Stripe". stripe_connections stays the source
   // of truth (token, connected_at).
   stripeConnectId: text("stripe_connect_id"),
+  sector: prospectionSector("sector"),
 });
 
 export const stripeConnections = pgTable("stripe_connections", {
