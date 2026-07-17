@@ -24,7 +24,38 @@
       "Bash(npm run *)",
       "Bash(git *)",
       "Bash(cat *)",
-      "Bash(ls *)"
+      "Bash(ls *)",
+      "Edit(app/(marketing)/**)",
+      "Write(app/(marketing)/**)",
+      "Edit(app/(app)/**)",
+      "Write(app/(app)/**)",
+      "Edit(components/**)",
+      "Write(components/**)",
+      "Edit(lib/closing/**)",
+      "Write(lib/closing/**)",
+      "Edit(lib/setting/**)",
+      "Write(lib/setting/**)",
+      "Edit(lib/inngest/**)",
+      "Write(lib/inngest/**)",
+      "Edit(app/api/inngest/**)",
+      "Write(app/api/inngest/**)",
+      "Edit(public/**)",
+      "Write(public/**)",
+      "Edit(lib/agent/**)",
+      "Write(lib/agent/**)",
+      "Edit(db/schema.ts)",
+      "Write(db/schema.ts)"
+    ],
+    "ask": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(git branch -D*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.local)"
     ]
   }
 }
