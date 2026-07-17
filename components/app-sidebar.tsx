@@ -2,13 +2,12 @@
 
 import {
   Bot,
+  Filter,
   LayoutDashboard,
   LogOut,
   Plug,
-  Send,
   Settings,
   Stethoscope,
-  Target,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -24,9 +23,8 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/setting", label: "KPI", icon: Send },
+  { href: "/funnel", label: "Funnel", icon: Filter },
   { href: "/diagnostic", label: "Diagnostic", icon: Stethoscope },
-  { href: "/closing", label: "Closing", icon: Target },
   { href: "/agent", label: "Agent IA", icon: Bot },
   { href: "/integrations", label: "Intégrations", icon: Plug },
   { href: "/settings", label: "Réglages", icon: Settings },
@@ -57,7 +55,7 @@ export function AppSidebar({ email }: { email: string }) {
       <nav className="flex flex-1 flex-col gap-1">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href;
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.label}

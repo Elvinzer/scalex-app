@@ -4,6 +4,13 @@
 
 export type DateRange = { from: string; to: string };
 
+// searchParams values come through as `string | string[] | undefined` —
+// Next.js repeats the key as an array if it appears more than once in the
+// URL. Only the single-string case is a valid preset/date value.
+export function paramValue(value: string | string[] | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 export const PRESET_LABELS: Record<string, string> = {
   all: "Tout l'historique",
   "current-month": "Mois en cours",

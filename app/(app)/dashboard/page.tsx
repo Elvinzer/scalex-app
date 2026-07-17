@@ -75,7 +75,7 @@ export default async function DashboardPage() {
             pour l&apos;impact le plus rapide sur ton chiffre d&apos;affaires.
           </p>
           <Button size="lg" asChild className="mt-6">
-            <a href="/closing">Voir le détail →</a>
+            <a href="/funnel/closing">Voir le détail →</a>
           </Button>
         </div>
 
