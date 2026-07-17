@@ -1,12 +1,16 @@
 import { desc, eq } from "drizzle-orm";
 
+import { BenchmarkMeter } from "@/components/benchmark-meter";
 import { DateRangePicker } from "@/components/date-range-picker";
+import { SectorPicker } from "@/components/sector-picker";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
-import { aggregateClosingEntries, computeClosingRates } from "@/lib/closing/metrics";
-import { formatRangeDates, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
+import { BENCHMARK_DISCLAIMER, getBenchmark } from "@/lib/benchmarks";
+import { aggregateClosingEntries, computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
 import { getCurrentUser } from "@/lib/current-user";
+import { formatRangeDates, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 
+import { ClosingBottleneckCard } from "./closing-bottleneck-card";
 import { ClosingTiles } from "./closing-tiles";
 import { CsvImport } from "./csv-import";
 import { EntriesTable } from "./entries-table";
@@ -28,8 +32,10 @@ export default async function ClosingPage({
 }: {
   searchParams: Promise<{ range?: string | string[]; from?: string | string[]; to?: string | string[] }>;
 }) {
-  const { userId } = await getCurrentUser();
+  const { userId, user } = await getCurrentUser();
   const params = await searchParams;
+  const sector = user?.sector ?? null;
+  const benchmark = getBenchmark(sector);
 
   const [allEntries, allSettingEntries] = await Promise.all([
     db
@@ -51,6 +57,7 @@ export default async function ClosingPage({
   const callsBooked = sumCallsBooked(allSettingEntries, range);
   const totals = aggregateClosingEntries(entries);
   const rates = computeClosingRates(totals, callsBooked);
+  const bottleneck = findClosingBottleneck(rates);
 
   // Previous-period comparison — no meaningful "previous" window when
   // viewing all-time history, so it's skipped in that case.
@@ -112,6 +119,33 @@ export default async function ClosingPage({
             previousRates={previousRates}
           />
         </div>
+      )}
+
+      {hasEntriesInRange && (
+        <>
+          <ClosingBottleneckCard bottleneck={bottleneck} sector={sector} />
+
+          <div className="sticker-card p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold">Repères du marché</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Où tu te situes vs des ordres de grandeur du secteur, pour la présence aux
+                  appels réservés.
+                </p>
+              </div>
+              <SectorPicker sector={sector} />
+            </div>
+            <div className="mt-6 max-w-md">
+              <BenchmarkMeter
+                label="Taux de présence à l'appel (show-up)"
+                value={rates.showUpRate}
+                band={benchmark.showUpRate}
+              />
+            </div>
+            <p className="mt-6 text-xs text-muted-foreground">{BENCHMARK_DISCLAIMER}</p>
+          </div>
+        </>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">

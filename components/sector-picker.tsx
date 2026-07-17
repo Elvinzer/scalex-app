@@ -2,9 +2,8 @@
 
 import { useTransition } from "react";
 
-import { SECTOR_KEYS, SECTOR_LABELS, type SectorKey } from "@/lib/setting/benchmarks";
-
-import { updateSector } from "./actions";
+import { SECTOR_KEYS, SECTOR_LABELS, type SectorKey } from "@/lib/benchmarks";
+import { updateSector } from "@/lib/user-actions";
 
 export function SectorPicker({ sector }: { sector: SectorKey | null }) {
   const [isPending, startTransition] = useTransition();

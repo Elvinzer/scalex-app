@@ -1,5 +1,5 @@
+import type { BenchmarkBand } from "@/lib/benchmarks";
 import { formatPercent } from "@/lib/setting/funnel";
-import type { BenchmarkBand } from "@/lib/setting/benchmarks";
 
 // A horizontal 3-zone ruler (below "bas" / between "bas" and "moyen" / above
 // "moyen", with a tick at "bon") and the user's actual rate plotted as a
