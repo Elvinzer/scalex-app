@@ -43,7 +43,7 @@ export default async function AgentPage() {
         <div className="sticker-card border-signal p-6">
           <p className="text-sm font-bold">Ajoute ta clé API Anthropic pour activer l&apos;agent</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ton agent utilise toujours ta propre clé (BYOK) — jamais une clé partagée.
+            Ton agent utilise toujours ta propre clé (BYOK), jamais une clé partagée.
           </p>
           <Button asChild className="mt-4">
             <a href="/settings">Ajouter ma clé →</a>
@@ -79,7 +79,7 @@ export default async function AgentPage() {
                     : "Ajoute ta clé Anthropic dans Réglages pour débloquer cette action"
                 }
               >
-                Activer — bientôt disponible
+                Activer (bientôt disponible)
               </Button>
             </div>
           );

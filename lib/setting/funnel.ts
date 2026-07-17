@@ -66,13 +66,13 @@ export const STAGE_LABELS: Record<FunnelStage, string> = {
 // the shape (one entry per FunnelStage) is what matters and won't change.
 export const STAGE_TIPS: Record<FunnelStage, string> = {
   outreachRate:
-    "Une partie de tes nouveaux abonnés ne reçoit jamais de premier message — vérifie ton délai d'envoi.",
+    "Une partie de tes nouveaux abonnés ne reçoit jamais de premier message : vérifie ton délai d'envoi.",
   responseRate:
-    "Beaucoup de premiers messages restent sans réponse — le message d'ouverture ou le moment d'envoi est probablement à revoir.",
+    "Beaucoup de premiers messages restent sans réponse : le message d'ouverture ou le moment d'envoi est probablement à revoir.",
   proposalRate:
-    "Des conversations démarrent mais n'aboutissent pas à une proposition d'appel — regarde où la conversation décroche.",
+    "Des conversations démarrent mais n'aboutissent pas à une proposition d'appel : regarde où la conversation décroche.",
   bookingRate:
-    "Des appels sont proposés mais pas réservés — le lien de réservation ou le suivi post-proposition est probablement le point à corriger.",
+    "Des appels sont proposés mais pas réservés : le lien de réservation ou le suivi post-proposition est probablement le point à corriger.",
 };
 
 export type Bottleneck = { stage: FunnelStage; rate: number };

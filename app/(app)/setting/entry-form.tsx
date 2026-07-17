@@ -88,7 +88,7 @@ export function EntryForm() {
       {error && <p className="text-sm text-state-critical">{error}</p>}
       {savedDate && !error && (
         <p className="text-sm text-state-healthy">
-          {savedDate} enregistré — au tour du {nextDay(savedDate)}.
+          {savedDate} enregistré, au tour du {nextDay(savedDate)}.
         </p>
       )}
 

@@ -38,7 +38,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-4xl font-bold">Salut, {firstName}</h1>
         <p className="mt-1.5 text-muted-foreground">
-          Voici où en est ton business — et ce qu&apos;il faut corriger en premier.
+          Voici où en est ton business, et ce qu&apos;il faut corriger en premier.
         </p>
       </div>
 
@@ -71,7 +71,7 @@ export default async function DashboardPage() {
             </span>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            C&apos;est la zone qui te coûte le plus aujourd&apos;hui — corrige-la en premier
+            C&apos;est la zone qui te coûte le plus aujourd&apos;hui : corrige-la en premier
             pour l&apos;impact le plus rapide sur ton chiffre d&apos;affaires.
           </p>
           <Button size="lg" asChild className="mt-6">
@@ -85,7 +85,7 @@ export default async function DashboardPage() {
           </span>
           <p className="mt-4 font-display text-4xl font-bold tabular-nums">{rows.length}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {rows.length > 1 ? "zones suivies" : "zone suivie"} — connecte d&apos;autres sources
+            {rows.length > 1 ? "zones suivies" : "zone suivie"}, connecte d&apos;autres sources
             dans Réglages pour élargir le diagnostic.
           </p>
         </div>

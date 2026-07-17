@@ -35,7 +35,7 @@ export function CsvImport() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Un fichier avec une ligne par jour — les jours déjà enregistrés sont mis à jour,
+        Un fichier avec une ligne par jour : les jours déjà enregistrés sont mis à jour,
         pas dupliqués.
       </p>
 
@@ -72,7 +72,7 @@ export function CsvImport() {
             <ul className="mt-2 flex flex-col gap-1 text-state-critical">
               {result.errors.map((error, index) => (
                 <li key={index}>
-                  {error.line > 0 ? `Ligne ${error.line} — ` : ""}
+                  {error.line > 0 ? `Ligne ${error.line} : ` : ""}
                   {error.message}
                 </li>
               ))}

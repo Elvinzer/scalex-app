@@ -6,19 +6,19 @@ import { Button } from "@/components/ui/button";
 import { FaqAccordion } from "./faq-accordion";
 
 export const metadata: Metadata = {
-  title: "Scale X — Trouve le goulot qui te coûte le plus cher, puis corrige-le avec l'IA",
+  title: "Scale X · Trouve le goulot qui te coûte le plus cher, puis corrige-le avec l'IA",
   description:
-    "Scale X connecte ton Stripe, isole le bottleneck qui coûte le plus cher à ton info-business ce mois-ci, et déploie un agent Claude pour le corriger — pas juste un dashboard.",
+    "Scale X connecte ton Stripe, isole le bottleneck qui coûte le plus cher à ton info-business ce mois-ci, et déploie un agent Claude pour le corriger, pas juste un dashboard.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Scale X — Trouve le goulot qui te coûte le plus cher",
+    title: "Scale X · Trouve le goulot qui te coûte le plus cher",
     description:
       "Diagnostic Stripe + agent IA qui corrige le bottleneck qui coûte le plus cher à ton info-business chaque mois.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Scale X — Trouve le goulot qui te coûte le plus cher",
+    title: "Scale X · Trouve le goulot qui te coûte le plus cher",
     description:
       "Diagnostic Stripe + agent IA qui corrige le bottleneck qui coûte le plus cher à ton info-business chaque mois.",
   },
@@ -41,7 +41,7 @@ const PROBLEMS = [
     tag: "→",
     stat: "Jusqu'à 40% de perte",
     title: "Funnel qui fuit",
-    desc: "Entre le clic et l'achat, l'argent s'évapore à une étape précise — que personne ne regarde.",
+    desc: "Entre le clic et l'achat, l'argent s'évapore à une étape précise. Personne ne la regarde.",
   },
 ];
 
@@ -59,7 +59,7 @@ const STEPS = [
   {
     n: "03",
     title: "L'agent IA agit",
-    desc: "Tu reçois un plan d'action concret — ou tu laisses l'agent l'exécuter pour toi.",
+    desc: "Tu reçois un plan d'action concret, ou tu laisses l'agent l'exécuter pour toi.",
   },
 ];
 
@@ -67,7 +67,7 @@ const FEATURES = [
   {
     tag: "DIAGNOSTIC",
     title: "Santé business en temps réel",
-    desc: "Acquisition, ascension, rétention : un statut clair — Sain, À surveiller, Critique — pour chaque zone.",
+    desc: "Acquisition, ascension, rétention : un statut clair (Sain, À surveiller, Critique) pour chaque zone.",
   },
   {
     tag: "AGENT IA",
@@ -129,7 +129,7 @@ const PRICING = [
 const FAQS = [
   {
     q: "Est-ce que Scale X remplace mon CRM ou mon outil d'emailing ?",
-    a: "Non. Scale X ne remplace rien — il regarde ce qui se passe déjà dans ton Stripe et te dit quoi corriger en premier. Tu gardes tes outils actuels.",
+    a: "Non. Scale X ne remplace rien : il regarde ce qui se passe déjà dans ton Stripe et te dit quoi corriger en premier. Tu gardes tes outils actuels.",
   },
   {
     q: "Mes données Stripe sont-elles en sécurité ?",
@@ -236,7 +236,7 @@ export default function MarketingHomePage() {
         <h1 className="max-w-4xl text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.06]">
           Ton business perd{" "}
           <span className="inline-block rounded-lg bg-signal px-2.5">de l&apos;argent</span>{" "}
-          chaque mois. On te dit où — et on le corrige.
+          chaque mois. On te dit où. Et on le corrige.
         </h1>
         <p className="max-w-2xl text-lg leading-relaxed text-[#4B4760]">
           Scale X connecte ton Stripe, isole le bottleneck qui te coûte le plus cher ce
@@ -339,7 +339,7 @@ export default function MarketingHomePage() {
           </h2>
           <p className="text-base text-muted-foreground">
             Le bottleneck du moment, les KPI qui bougent, et un accès direct au plan
-            d&apos;action — avant même de cliquer où que ce soit.
+            d&apos;action, avant même de cliquer où que ce soit.
           </p>
         </div>
         <div className="sticker-card flex min-h-[420px] overflow-hidden p-0">
@@ -374,7 +374,7 @@ export default function MarketingHomePage() {
                   Bottleneck actuel
                 </span>
                 <p className="mt-3 font-display text-lg font-bold">
-                  Paiements échoués — $2,340 détectés ce mois-ci
+                  Paiements échoués : $2,340 détectés ce mois-ci
                 </p>
               </div>
               <span className="shrink-0 rounded-full border-2 border-signal bg-signal px-4 py-2.5 text-sm font-bold text-ink">

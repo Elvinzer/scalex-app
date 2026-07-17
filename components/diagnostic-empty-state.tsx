@@ -30,7 +30,7 @@ export function StripeOptionalState({
         <div>
           <p className="text-sm font-bold">Stripe n&apos;est pas encore connecté</p>
           <p className="text-sm text-muted-foreground">
-            Optionnel pour explorer — connecte-le pour un vrai diagnostic basé sur tes
+            Optionnel pour explorer, connecte-le pour un vrai diagnostic basé sur tes
             données.
           </p>
         </div>

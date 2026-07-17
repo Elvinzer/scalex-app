@@ -30,7 +30,7 @@ export default async function SettingsPage() {
       <div className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">Clé API Anthropic (BYOK)</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Ton agent utilise toujours ta propre clé — jamais partagée, jamais affichée en
+          Ton agent utilise toujours ta propre clé : jamais partagée, jamais affichée en
           clair.
         </p>
 
@@ -50,7 +50,7 @@ export default async function SettingsPage() {
         {user?.stripeConnectId ? (
           <div className="mt-2 flex items-center gap-2">
             <span className="size-2 rounded-full bg-state-healthy" />
-            <p className="text-sm font-bold">Connecté — {user.stripeConnectId}</p>
+            <p className="text-sm font-bold">Connecté : {user.stripeConnectId}</p>
           </div>
         ) : (
           <>

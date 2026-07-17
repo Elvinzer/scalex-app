@@ -29,7 +29,7 @@ export function parseSettingKpiCsv(raw: string): SettingKpiCsvResult {
   if (dataLines.length > MAX_ROWS) {
     errors.push({
       line: 0,
-      message: `Trop de lignes (max ${MAX_ROWS}) — sépare l'import en plusieurs fichiers`,
+      message: `Trop de lignes (max ${MAX_ROWS}) : sépare l'import en plusieurs fichiers`,
     });
     return { rows: [], errors };
   }

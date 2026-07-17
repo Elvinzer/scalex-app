@@ -207,7 +207,7 @@ function StripeStep({
         onClick={onSkip}
         className="self-center text-sm text-muted-foreground underline-offset-4 hover:underline"
       >
-        Plus tard — j&apos;irai directement au dashboard
+        Plus tard, j&apos;irai directement au dashboard
       </button>
     </div>
   );

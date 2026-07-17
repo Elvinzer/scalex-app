@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { OnboardingFlow } from "./onboarding-flow";
 
 export const metadata: Metadata = {
-  title: "Get started — Scale X",
+  title: "Get started with Scale X",
   description:
     "Connect Stripe and find the single bottleneck costing your business the most money.",
 };

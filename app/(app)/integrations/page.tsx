@@ -21,7 +21,7 @@ export default async function IntegrationsPage() {
           <div>
             <p className="font-bold">Stripe</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Accès en lecture seule à tes paiements — c&apos;est la source principale du
+              Accès en lecture seule à tes paiements. C&apos;est la source principale du
               diagnostic.
             </p>
           </div>

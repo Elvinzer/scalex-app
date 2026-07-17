@@ -21,7 +21,7 @@ const monoFont = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Scale X — Diagnose and fix your business bottleneck",
+  title: "Scale X: Diagnose and fix your business bottleneck",
   description:
     "Scale X diagnoses the #1 bottleneck holding back your info business and deploys an AI agent that fixes it.",
 };
