@@ -1,5 +1,6 @@
 "use server";
 
+import Anthropic from "@anthropic-ai/sdk";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -115,7 +116,19 @@ export async function generateFunnelStageInsight(
       answers,
       apiKey: agentKey.apiKey,
     });
-  } catch {
+  } catch (error) {
+    // Only a confirmed 401 on the user's own key means the key is dead —
+    // never flag the shared key, and never treat rate limits/network blips
+    // as an invalid key.
+    if (agentKey.source === "byok" && error instanceof Anthropic.AuthenticationError) {
+      await db.update(users).set({ anthropicApiKeyInvalid: true }).where(eq(users.id, userId));
+      revalidatePath("/settings");
+      return {
+        insightText: null,
+        error:
+          "Ta clé Anthropic ne fonctionne plus (révoquée ou expirée). Ajoute une nouvelle clé dans Réglages pour continuer.",
+      };
+    }
     return { insightText: null, error: "La génération de l'insight a échoué, réessaie." };
   }
 

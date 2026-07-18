@@ -135,12 +135,14 @@ export function StatTiles({
   previousTotals,
   benchmark,
   existingInsights,
+  hasWorkingKey,
 }: {
   entriesAscending: SettingKpiEntry[];
   totals: FunnelTotals;
   previousTotals: FunnelTotals | null;
   benchmark: ReturnType<typeof getBenchmark>;
   existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>>;
+  hasWorkingKey: boolean;
 }) {
   const recent = entriesAscending.slice(-SPARKLINE_DAYS);
   const labels = recent.map((entry) => shortDate(entry.date));
@@ -185,6 +187,7 @@ export function StatTiles({
                   stage={tile.stage}
                   label={tile.label}
                   existingInsight={existingInsights[tile.stage] ?? null}
+                  hasWorkingKey={hasWorkingKey}
                 />
               )}
             </div>

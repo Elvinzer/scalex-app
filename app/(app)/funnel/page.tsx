@@ -26,6 +26,7 @@ export default async function FunnelOverviewPage({
   const params = await searchParams;
   const sector = user?.sector ?? null;
   const benchmark = getBenchmark(sector);
+  const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
   const [allSettingEntries, allClosingEntries, existingInsights] = await Promise.all([
     db
@@ -128,6 +129,7 @@ export default async function FunnelOverviewPage({
             showUpRate={closingRates.showUpRate}
             closingRate={closingRates.closingRate}
             existingInsights={existingInsights}
+            hasWorkingKey={hasWorkingKey}
           />
         </>
       )}

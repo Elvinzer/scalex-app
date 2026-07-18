@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { validateAnthropicKey } from "@/lib/agent/validate-key";
 import { encrypt } from "@/lib/crypto";
 import { createClient } from "@/lib/supabase/server";
 
@@ -28,9 +29,23 @@ export async function saveAnthropicKey(
     return { error: parsed.error.issues[0]?.message ?? "Clé invalide" };
   }
 
+  const validation = await validateAnthropicKey(parsed.data);
+  if (validation === "invalid") {
+    return {
+      error:
+        "Cette clé ne fonctionne pas. Vérifie que tu l'as bien copiée depuis console.anthropic.com et réessaie.",
+    };
+  }
+  if (validation === "unknown") {
+    return {
+      error:
+        "Impossible de vérifier ta clé pour l'instant (souci réseau côté Anthropic) — réessaie dans quelques instants.",
+    };
+  }
+
   await db
     .update(users)
-    .set({ anthropicApiKeyEncrypted: encrypt(parsed.data) })
+    .set({ anthropicApiKeyEncrypted: encrypt(parsed.data), anthropicApiKeyInvalid: false })
     .where(eq(users.id, data.claims.sub as string));
 
   revalidatePath("/settings");

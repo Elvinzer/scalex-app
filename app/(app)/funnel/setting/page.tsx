@@ -26,6 +26,7 @@ export default async function SettingPage({
   const params = await searchParams;
   const sector = user?.sector ?? null;
   const benchmark = getBenchmark(sector);
+  const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
   const [allEntries, existingInsights] = await Promise.all([
     db
@@ -115,6 +116,7 @@ export default async function SettingPage({
             previousTotals={previousTotals}
             benchmark={benchmark}
             existingInsights={existingInsights}
+            hasWorkingKey={hasWorkingKey}
           />
 
           <BottleneckCard bottleneck={bottleneck} sector={sector} />

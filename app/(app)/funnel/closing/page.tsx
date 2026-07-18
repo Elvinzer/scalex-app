@@ -32,6 +32,7 @@ export default async function ClosingPage({
   const params = await searchParams;
   const sector = user?.sector ?? null;
   const benchmark = getBenchmark(sector);
+  const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
   const [allEntries, allSettingEntries, existingInsights] = await Promise.all([
     db
@@ -118,6 +119,7 @@ export default async function ClosingPage({
             previousRates={previousRates}
             benchmark={benchmark}
             existingInsights={existingInsights}
+            hasWorkingKey={hasWorkingKey}
           />
         </div>
       )}

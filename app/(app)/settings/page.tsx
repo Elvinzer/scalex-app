@@ -12,6 +12,7 @@ export default async function SettingsPage() {
   const maskedKey = user?.anthropicApiKeyEncrypted
     ? `sk-ant-...${decrypt(user.anthropicApiKeyEncrypted).slice(-4)}`
     : null;
+  const keyInvalid = Boolean(user?.anthropicApiKeyInvalid);
 
   return (
     <div className="flex flex-col gap-8">
@@ -34,11 +35,48 @@ export default async function SettingsPage() {
           clair.
         </p>
 
-        {maskedKey && (
+        {maskedKey && !keyInvalid && (
           <p className="mt-4 inline-flex items-center rounded-full bg-signal/15 px-3 py-1 font-mono text-sm font-bold text-signal">
             {maskedKey}
           </p>
         )}
+
+        {maskedKey && keyInvalid && (
+          <div className="mt-4 rounded-xl border-2 border-state-critical/40 bg-state-critical/10 p-3">
+            <p className="inline-flex items-center gap-2 font-mono text-sm font-bold text-state-critical">
+              <span className="size-2 rounded-full bg-state-critical" />
+              {maskedKey} — ne fonctionne plus
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cette clé a été révoquée ou a expiré côté Anthropic. Génères-en une nouvelle
+              ci-dessous pour débloquer à nouveau les insights.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-6 rounded-xl border-2 border-dashed border-border p-4 text-sm text-muted-foreground">
+          <p className="font-bold text-foreground">Comment obtenir ta clé</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-4">
+            <li>
+              Va sur{" "}
+              <a
+                href="https://console.anthropic.com/settings/keys"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-signal underline"
+              >
+                console.anthropic.com
+              </a>{" "}
+              et connecte-toi (ou crée un compte).
+            </li>
+            <li>Ajoute quelques dollars de crédit dans Billing — sans ça, l&apos;API refuse tout appel.</li>
+            <li>
+              Dans API Keys, clique « Create Key », donne-lui un nom (ex. « Scale X »), et copie
+              la valeur qui commence par sk-ant-.
+            </li>
+            <li>Colle-la ci-dessous. Elle ne sera plus jamais affichée en clair une fois enregistrée.</li>
+          </ol>
+        </div>
 
         <div className="mt-6">
           <ApiKeyForm />

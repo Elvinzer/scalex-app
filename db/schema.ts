@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   integer,
   jsonb,
@@ -40,6 +41,10 @@ export const users = pgTable("users", {
     .notNull()
     .defaultNow(),
   anthropicApiKeyEncrypted: text("anthropic_api_key_encrypted"),
+  // True only when a previously-accepted BYOK key is now confirmed dead
+  // (Anthropic returned 401 on a real call) — cleared automatically the next
+  // time a key passes validateAnthropicKey(). See lib/agent/validate-key.ts.
+  anthropicApiKeyInvalid: boolean("anthropic_api_key_invalid").notNull().default(false),
   // Denormalized copy of stripe_connections.stripe_account_id for the active
   // connection, kept in sync on connect/disconnect — avoids a join to check
   // "is this user connected to Stripe". stripe_connections stays the source

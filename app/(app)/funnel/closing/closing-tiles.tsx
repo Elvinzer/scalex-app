@@ -82,6 +82,7 @@ export function ClosingTiles({
   previousRates,
   benchmark,
   existingInsights,
+  hasWorkingKey,
 }: {
   entriesAscending: ClosingKpiEntry[];
   totals: ClosingTotals;
@@ -91,6 +92,7 @@ export function ClosingTiles({
   previousRates: ClosingRates | null;
   benchmark: ReturnType<typeof getBenchmark>;
   existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>>;
+  hasWorkingKey: boolean;
 }) {
   const recent = entriesAscending.slice(-SPARKLINE_DAYS);
   const labels = recent.map((entry) => shortDate(entry.date));
@@ -137,6 +139,7 @@ export function ClosingTiles({
             stage="closingRate"
             label="Taux de closing"
             existingInsight={existingInsights.closingRate ?? null}
+            hasWorkingKey={hasWorkingKey}
           />
         </div>
         <p className="mt-2 font-display text-3xl font-bold text-violet">
@@ -161,6 +164,7 @@ export function ClosingTiles({
             stage="showUpRate"
             label="Taux de présence à l'appel (show-up)"
             existingInsight={existingInsights.showUpRate ?? null}
+            hasWorkingKey={hasWorkingKey}
           />
         </div>
         <p className="mt-2 font-display text-3xl font-bold text-violet">

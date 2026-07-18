@@ -10,6 +10,7 @@ import { BENCHMARK_DISCLAIMER, getBenchmark, SECTOR_LABELS, type SectorKey } fro
 import type { FunnelRates } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
+import { KeyRequiredModal } from "./key-required-modal";
 import { StageInsightPanel, type ExistingStageInsight } from "./stage-insight-panel";
 
 const STAGE_TITLES: Record<FunnelStageKey, string> = {
@@ -35,6 +36,7 @@ export function MarketBenchmarkAccordion({
   showUpRate,
   closingRate,
   existingInsights,
+  hasWorkingKey,
 }: {
   sector: SectorKey | null;
   benchmark: ReturnType<typeof getBenchmark>;
@@ -42,16 +44,18 @@ export function MarketBenchmarkAccordion({
   showUpRate: number | null;
   closingRate: number | null;
   existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>>;
+  hasWorkingKey: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [activeStage, setActiveStage] = useState<FunnelStageKey | null>(null);
+  const [showKeyRequired, setShowKeyRequired] = useState(false);
   const sectorLabel = sector ? SECTOR_LABELS[sector] : "secteur non renseigné";
 
   function ClickableStat({ stage, value, band }: { stage: FunnelStageKey; value: number | null; band: ReturnType<typeof getBenchmark>["responseRate"] }) {
     return (
       <button
         type="button"
-        onClick={() => setActiveStage(stage)}
+        onClick={() => (hasWorkingKey ? setActiveStage(stage) : setShowKeyRequired(true))}
         className="rounded-xl p-2 text-left transition-colors hover:bg-muted/60"
       >
         <BenchmarkMeter label={STAGE_TITLES[stage]} value={value} band={band} />
@@ -113,6 +117,8 @@ export function MarketBenchmarkAccordion({
           <p className="mt-6 text-xs text-muted-foreground">{BENCHMARK_DISCLAIMER}</p>
         </div>
       )}
+
+      {showKeyRequired && <KeyRequiredModal onClose={() => setShowKeyRequired(false)} />}
 
       {activeStage && (
         <StageInsightPanel
