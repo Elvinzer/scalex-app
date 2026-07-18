@@ -1,6 +1,7 @@
 import {
   date,
   integer,
+  jsonb,
   pgEnum,
   pgSchema,
   pgTable,
@@ -144,5 +145,61 @@ export const closingKpiEntries = pgTable(
   },
   (table) => [
     uniqueIndex("closing_kpi_entries_user_date_idx").on(table.userId, table.date),
+  ]
+);
+
+// Every stage a funnel rate can come from — Setting (outreach → booking) and
+// Closing (show-up, closing) combined. See lib/setting/funnel.ts / lib/closing/metrics.ts.
+export const funnelStageEnum = pgEnum("funnel_stage", [
+  "outreachRate",
+  "responseRate",
+  "proposalRate",
+  "bookingRate",
+  "showUpRate",
+  "closingRate",
+]);
+
+// One AI-generated insight per (user, stage) — overwritten on regeneration,
+// not versioned. keySource/inputTokens/outputTokens exist so the client can
+// see their own consumption and so Scale X can track exposure on the shared
+// fallback key (see lib/agent/quota.ts), per CLAUDE.md's BYOK logging rule.
+export const funnelStageInsights = pgTable(
+  "funnel_stage_insights",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stage: funnelStageEnum("stage").notNull(),
+    answers: jsonb("answers").notNull().$type<Record<string, string>>(),
+    insightText: text("insight_text").notNull(),
+    keySource: text("key_source").notNull(), // "byok" | "shared"
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("funnel_stage_insights_user_stage_idx").on(table.userId, table.stage),
+  ]
+);
+
+// Monthly per-user counter, incremented only when the shared fallback key is
+// used (BYOK calls cost Scale X nothing, so they're never counted here).
+// periodMonth ("2026-07") doubles as the reset mechanism — a new month is
+// simply a new row, no cron job needed.
+export const sharedAgentUsage = pgTable(
+  "shared_agent_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    periodMonth: text("period_month").notNull(),
+    requestCount: integer("request_count").notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex("shared_agent_usage_user_period_idx").on(table.userId, table.periodMonth),
   ]
 );

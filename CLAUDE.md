@@ -46,7 +46,11 @@ Avant de dire qu'une tâche est terminée :
 ## Règles non négociables (BYOK & Stripe Connect)
 - La clé API Anthropic du client est CHIFFRÉE en base, jamais en clair, jamais loggée,
   jamais renvoyée au frontend après la saisie initiale (afficher `sk-ant-...xxxx` masqué)
-- Tout appel à l'agent utilise la clé du user courant, jamais une clé serveur partagée
+- Tout appel à l'agent utilise en priorité la clé Anthropic BYOK du user courant. Si le user n'a
+  pas configuré de clé, fallback sur une clé serveur partagée (`ANTHROPIC_SHARED_API_KEY`),
+  protégée comme tout secret (jamais loggée, jamais renvoyée au client) — le quota mensuel par
+  user sur ce fallback est centralisé dans un seul point de config (`lib/agent/quota.ts`) pour
+  pouvoir le brancher sur les paliers d'abonnement sans refonte
 - Les webhooks Stripe Connect DOIVENT vérifier la signature (`stripe.webhooks.constructEvent`)
   et être idempotents (checker un `event.id` déjà traité avant d'agir)
 - Ne jamais pré-agréger côté LLM : calculer sommes/taux/deltas en code, envoyer seulement
@@ -55,8 +59,9 @@ Avant de dire qu'une tâche est terminée :
   sans que ce soit explicitement demandé.
 - Chaque job Inngest (brief hebdo, sync Stripe, relances) doit être idempotent (re-run safe),
   pas seulement les webhooks Stripe.
-- Logger le nombre de tokens (input/output) de chaque appel à l'agent — c'est la clé du
-  client qui paie, il doit pouvoir voir sa conso.
+- Logger le nombre de tokens (input/output) de chaque appel à l'agent, que ce soit sur la clé
+  BYOK du client (il doit pouvoir voir sa conso) ou sur la clé partagée (suivi de l'exposition
+  côté Scale X).
 
 ## Sécurité (toute l'app, pas seulement BYOK/Stripe)
 - Chaque route dans `app/(app)/` et `app/api/` vérifie la session Supabase côté serveur

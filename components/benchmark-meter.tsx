@@ -17,7 +17,10 @@ export function BenchmarkMeter({
   if (!band) {
     return (
       <div>
-        <p className="text-sm font-bold text-muted-foreground">{label}</p>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-sm font-bold text-muted-foreground">{label}</p>
+          <p className="font-display text-lg font-bold">{value === null ? "—" : formatPercent(value)}</p>
+        </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Pas de repère marché pour cette métrique sur ce secteur.
         </p>

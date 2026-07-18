@@ -4,24 +4,60 @@ import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 import { BenchmarkMeter } from "@/components/benchmark-meter";
+import { SectorPicker } from "@/components/sector-picker";
+import type { FunnelStageKey } from "@/lib/agent/knowledge";
 import { BENCHMARK_DISCLAIMER, getBenchmark, SECTOR_LABELS, type SectorKey } from "@/lib/benchmarks";
+import type { FunnelRates } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
+import { StageInsightPanel, type ExistingStageInsight } from "./stage-insight-panel";
+
+const STAGE_TITLES: Record<FunnelStageKey, string> = {
+  outreachRate: "Taux de prise de contact",
+  responseRate: "Taux de réponse au 1er message",
+  proposalRate: "Taux de proposition d'appel",
+  bookingRate: "Taux d'appels acceptés (sur proposés)",
+  showUpRate: "Taux de présence à l'appel (show-up)",
+  closingRate: "Taux de closing",
+};
+
+// The single source of truth for market benchmarks — every funnel stage
+// lives here, Setting and Closing combined, instead of being split across
+// three separate "Repères du marché" boxes (one per tab). Stages without a
+// numeric band for the current sector (outreachRate, proposalRate,
+// closingRate — see lib/benchmarks.ts) still render their own rate via
+// BenchmarkMeter, just without the comparison ruler. Clicking a stat opens
+// a short question flow that generates a personalized AI insight.
 export function MarketBenchmarkAccordion({
   sector,
   benchmark,
-  responseRate,
-  bookingRate,
+  settingRates,
   showUpRate,
+  closingRate,
+  existingInsights,
 }: {
   sector: SectorKey | null;
   benchmark: ReturnType<typeof getBenchmark>;
-  responseRate: number | null;
-  bookingRate: number | null;
+  settingRates: FunnelRates;
   showUpRate: number | null;
+  closingRate: number | null;
+  existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>>;
 }) {
   const [open, setOpen] = useState(false);
+  const [activeStage, setActiveStage] = useState<FunnelStageKey | null>(null);
   const sectorLabel = sector ? SECTOR_LABELS[sector] : "secteur non renseigné";
+
+  function ClickableStat({ stage, value, band }: { stage: FunnelStageKey; value: number | null; band: ReturnType<typeof getBenchmark>["responseRate"] }) {
+    return (
+      <button
+        type="button"
+        onClick={() => setActiveStage(stage)}
+        className="rounded-xl p-2 text-left transition-colors hover:bg-muted/60"
+      >
+        <BenchmarkMeter label={STAGE_TITLES[stage]} value={value} band={band} />
+      </button>
+    );
+  }
 
   return (
     <div className="sticker-card overflow-hidden">
@@ -36,25 +72,55 @@ export function MarketBenchmarkAccordion({
 
       {open && (
         <div className="border-t border-border p-5 pt-6">
-          <div className="grid gap-6 sm:grid-cols-3">
-            <BenchmarkMeter
-              label="Taux de réponse au 1er message"
-              value={responseRate}
-              band={benchmark.responseRate}
-            />
-            <BenchmarkMeter
-              label="Taux d'appels acceptés (sur proposés)"
-              value={bookingRate}
-              band={benchmark.bookingRate}
-            />
-            <BenchmarkMeter
-              label="Taux de présence à l'appel (show-up)"
-              value={showUpRate}
-              band={benchmark.showUpRate}
-            />
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Où tu te situes vs des ordres de grandeur du secteur, sur chaque étape du funnel —
+              prospection et closing confondus. Clique un taux pour un diagnostic personnalisé.
+            </p>
+            <SectorPicker sector={sector} />
           </div>
+
+          <div>
+            <p className="mt-6 mb-3 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+              Setting · prospection
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <ClickableStat stage="outreachRate" value={settingRates.outreachRate} band={null} />
+              <ClickableStat
+                stage="responseRate"
+                value={settingRates.responseRate}
+                band={benchmark.responseRate}
+              />
+              <ClickableStat stage="proposalRate" value={settingRates.proposalRate} band={null} />
+              <ClickableStat
+                stage="bookingRate"
+                value={settingRates.bookingRate}
+                band={benchmark.bookingRate}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="mt-8 mb-3 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+              Closing · vente
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <ClickableStat stage="showUpRate" value={showUpRate} band={benchmark.showUpRate} />
+              <ClickableStat stage="closingRate" value={closingRate} band={null} />
+            </div>
+          </div>
+
           <p className="mt-6 text-xs text-muted-foreground">{BENCHMARK_DISCLAIMER}</p>
         </div>
+      )}
+
+      {activeStage && (
+        <StageInsightPanel
+          stage={activeStage}
+          label={STAGE_TITLES[activeStage]}
+          existingInsight={existingInsights[activeStage] ?? null}
+          onClose={() => setActiveStage(null)}
+        />
       )}
     </div>
   );
