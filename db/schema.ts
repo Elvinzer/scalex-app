@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -164,10 +165,13 @@ export const funnelStageEnum = pgEnum("funnel_stage", [
   "closingRate",
 ]);
 
-// One AI-generated insight per (user, stage) — overwritten on regeneration,
-// not versioned. keySource/inputTokens/outputTokens exist so the client can
-// see their own consumption and so Scale X can track exposure on the shared
-// fallback key (see lib/agent/quota.ts), per CLAUDE.md's BYOK logging rule.
+// Append-only history — every AI-generated insight is kept (not overwritten
+// on regeneration), so a user can look back at everything ever generated for
+// a stage. implemented/implementedAt let the user mark whether they actually
+// put a given insight into practice. keySource/inputTokens/outputTokens exist
+// so the client can see their own consumption and so Scale X can track
+// exposure on the shared fallback key (see lib/agent/quota.ts), per
+// CLAUDE.md's BYOK logging rule.
 export const funnelStageInsights = pgTable(
   "funnel_stage_insights",
   {
@@ -184,10 +188,11 @@ export const funnelStageInsights = pgTable(
     generatedAt: timestamp("generated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // null = user hasn't said yet; true/false = their answer.
+    implemented: boolean("implemented"),
+    implementedAt: timestamp("implemented_at", { withTimezone: true }),
   },
-  (table) => [
-    uniqueIndex("funnel_stage_insights_user_stage_idx").on(table.userId, table.stage),
-  ]
+  (table) => [index("funnel_stage_insights_user_idx").on(table.userId)]
 );
 
 // Monthly per-user counter, incremented only when the shared fallback key is

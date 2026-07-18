@@ -5,22 +5,13 @@ import { useState } from "react";
 
 import { BenchmarkMeter } from "@/components/benchmark-meter";
 import { SectorPicker } from "@/components/sector-picker";
-import type { FunnelStageKey } from "@/lib/agent/knowledge";
+import { STAGE_TITLES, type FunnelStageKey } from "@/lib/agent/knowledge";
 import { BENCHMARK_DISCLAIMER, getBenchmark, SECTOR_LABELS, type SectorKey } from "@/lib/benchmarks";
 import type { FunnelRates } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
 import { KeyRequiredModal } from "./key-required-modal";
 import { StageInsightPanel, type ExistingStageInsight } from "./stage-insight-panel";
-
-const STAGE_TITLES: Record<FunnelStageKey, string> = {
-  outreachRate: "Taux de prise de contact",
-  responseRate: "Taux de réponse au 1er message",
-  proposalRate: "Taux de proposition d'appel",
-  bookingRate: "Taux d'appels acceptés (sur proposés)",
-  showUpRate: "Taux de présence à l'appel (show-up)",
-  closingRate: "Taux de closing",
-};
 
 // The single source of truth for market benchmarks — every funnel stage
 // lives here, Setting and Closing combined, instead of being split across

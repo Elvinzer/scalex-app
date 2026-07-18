@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { funnelStageInsights } from "@/db/schema";
@@ -7,14 +7,23 @@ import type { FunnelStageKey } from "@/lib/agent/knowledge";
 import type { ExistingStageInsight } from "./stage-insight-panel";
 
 // Shared by the overview accordion and the Setting/Closing tile grids so all
-// three read the same per-stage AI insights already generated for this user.
+// three read the same per-stage AI insight already generated for this user —
+// the LATEST one, since funnelStageInsights is now an append-only history
+// (see app/(app)/funnel/insights/page.tsx for the full history view).
 export async function getExistingStageInsights(
   userId: string
 ): Promise<Partial<Record<FunnelStageKey, ExistingStageInsight>>> {
   const rows = await db
     .select({ stage: funnelStageInsights.stage, insightText: funnelStageInsights.insightText })
     .from(funnelStageInsights)
-    .where(eq(funnelStageInsights.userId, userId));
+    .where(eq(funnelStageInsights.userId, userId))
+    .orderBy(desc(funnelStageInsights.generatedAt));
 
-  return Object.fromEntries(rows.map((row) => [row.stage, { insightText: row.insightText }]));
+  const latestByStage: Partial<Record<FunnelStageKey, ExistingStageInsight>> = {};
+  for (const row of rows) {
+    if (!(row.stage in latestByStage)) {
+      latestByStage[row.stage] = { insightText: row.insightText };
+    }
+  }
+  return latestByStage;
 }

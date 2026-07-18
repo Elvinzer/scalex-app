@@ -15,4 +15,13 @@ export const STAGE_KNOWLEDGE: Record<FunnelStageKey, StageKnowledge> = {
   closingRate: closingRateKnowledge,
 };
 
+export const STAGE_TITLES: Record<FunnelStageKey, string> = {
+  outreachRate: "Taux de prise de contact",
+  responseRate: "Taux de réponse au 1er message",
+  proposalRate: "Taux de proposition d'appel",
+  bookingRate: "Taux d'appels acceptés (sur proposés)",
+  showUpRate: "Taux de présence à l'appel (show-up)",
+  closingRate: "Taux de closing",
+};
+
 export type { FunnelStageKey, Question, StageKnowledge } from "./types";

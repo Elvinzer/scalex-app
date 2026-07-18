@@ -1,7 +1,7 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -132,31 +132,56 @@ export async function generateFunnelStageInsight(
     return { insightText: null, error: "La génération de l'insight a échoué, réessaie." };
   }
 
-  await db
-    .insert(funnelStageInsights)
-    .values({
-      userId,
-      stage,
-      answers,
-      insightText: result.text,
-      keySource: agentKey.source,
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
-    })
-    .onConflictDoUpdate({
-      target: [funnelStageInsights.userId, funnelStageInsights.stage],
-      set: {
-        answers,
-        insightText: result.text,
-        keySource: agentKey.source,
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-        generatedAt: new Date(),
-      },
-    });
+  await db.insert(funnelStageInsights).values({
+    userId,
+    stage,
+    answers,
+    insightText: result.text,
+    keySource: agentKey.source,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+  });
 
   revalidatePath("/funnel");
   revalidatePath("/funnel/setting");
   revalidatePath("/funnel/closing");
+  revalidatePath("/funnel/insights");
   return { insightText: result.text, error: null };
+}
+
+const implementedInputSchema = z.object({
+  insightId: z.string().uuid(),
+  implemented: z.boolean(),
+});
+
+export async function setInsightImplemented(
+  insightId: string,
+  implemented: boolean
+): Promise<{ error: string | null }> {
+  const parsed = implementedInputSchema.safeParse({ insightId, implemented });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Entrée invalide" };
+  }
+
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Session expirée" };
+  }
+
+  const updated = await db
+    .update(funnelStageInsights)
+    .set({ implemented: parsed.data.implemented, implementedAt: new Date() })
+    .where(
+      and(eq(funnelStageInsights.id, parsed.data.insightId), eq(funnelStageInsights.userId, userId))
+    )
+    .returning({ id: funnelStageInsights.id });
+
+  if (updated.length === 0) {
+    return { error: "Insight introuvable" };
+  }
+
+  revalidatePath("/funnel/insights");
+  return { error: null };
 }
