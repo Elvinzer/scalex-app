@@ -24,8 +24,10 @@ function toUnixRange(range: DateRange): { gte: number; lte: number } {
 // the current/previous-30-days comparison and the 8-week sparkline. Queried
 // live on each Dashboard load (no sync job/table yet) — acceptable at
 // current scale; a cached periodic sync is a Phase 2 optimization if load
-// becomes an issue. Returns null when Stripe isn't connected, so the caller
-// can render the "Donnée manquante — Connecte Stripe" card state.
+// becomes an issue. Returns null when Stripe isn't connected OR the stored
+// token is no longer valid (expired/revoked on Stripe's side) — either way
+// the Dashboard degrades to the "Donnée manquante — Connecte Stripe" card
+// state instead of crashing the whole page.
 export async function getStripeActivity(userId: string, range: DateRange): Promise<StripeActivity | null> {
   const [connection] = await db
     .select()
@@ -35,20 +37,25 @@ export async function getStripeActivity(userId: string, range: DateRange): Promi
 
   if (!connection) return null;
 
-  const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
-  const created = toUnixRange(range);
+  try {
+    const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
+    const created = toUnixRange(range);
 
-  const charges: StripeActivity["charges"] = [];
-  for await (const charge of stripe.charges.list({ created, limit: 100 })) {
-    if (charge.status === "succeeded") {
-      charges.push({ createdAt: new Date(charge.created * 1000), amountCents: charge.amount });
+    const charges: StripeActivity["charges"] = [];
+    for await (const charge of stripe.charges.list({ created, limit: 100 })) {
+      if (charge.status === "succeeded") {
+        charges.push({ createdAt: new Date(charge.created * 1000), amountCents: charge.amount });
+      }
     }
-  }
 
-  const customers: StripeActivity["customers"] = [];
-  for await (const customer of stripe.customers.list({ created, limit: 100 })) {
-    customers.push({ createdAt: new Date(customer.created * 1000) });
-  }
+    const customers: StripeActivity["customers"] = [];
+    for await (const customer of stripe.customers.list({ created, limit: 100 })) {
+      customers.push({ createdAt: new Date(customer.created * 1000) });
+    }
 
-  return { charges, customers };
+    return { charges, customers };
+  } catch (error) {
+    console.error("Stripe activity fetch failed for user", userId, error);
+    return null;
+  }
 }
