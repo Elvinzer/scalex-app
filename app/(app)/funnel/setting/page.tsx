@@ -4,10 +4,12 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { FunnelTabs } from "@/components/funnel-tabs";
 import { db } from "@/db";
 import { settingKpiEntries } from "@/db/schema";
+import { getBenchmark } from "@/lib/benchmarks";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { aggregateEntries, computeFunnelRates, findBottleneck } from "@/lib/setting/funnel";
 
+import { getExistingStageInsights } from "../existing-insights";
 import { BottleneckCard } from "./bottleneck-card";
 import { CsvImport } from "./csv-import";
 import { EntriesTable } from "./entries-table";
@@ -23,12 +25,16 @@ export default async function SettingPage({
   const { userId, user } = await getCurrentUser();
   const params = await searchParams;
   const sector = user?.sector ?? null;
+  const benchmark = getBenchmark(sector);
 
-  const allEntries = await db
-    .select()
-    .from(settingKpiEntries)
-    .where(eq(settingKpiEntries.userId, userId))
-    .orderBy(desc(settingKpiEntries.date));
+  const [allEntries, existingInsights] = await Promise.all([
+    db
+      .select()
+      .from(settingKpiEntries)
+      .where(eq(settingKpiEntries.userId, userId))
+      .orderBy(desc(settingKpiEntries.date)),
+    getExistingStageInsights(userId),
+  ]);
 
   const hasAnyEntries = allEntries.length > 0;
 
@@ -107,6 +113,8 @@ export default async function SettingPage({
             entriesAscending={[...entries].reverse()}
             totals={totals}
             previousTotals={previousTotals}
+            benchmark={benchmark}
+            existingInsights={existingInsights}
           />
 
           <BottleneckCard bottleneck={bottleneck} sector={sector} />

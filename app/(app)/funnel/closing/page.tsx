@@ -4,10 +4,12 @@ import { DateRangePicker } from "@/components/date-range-picker";
 import { FunnelTabs } from "@/components/funnel-tabs";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
+import { getBenchmark } from "@/lib/benchmarks";
 import { aggregateClosingEntries, computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 
+import { getExistingStageInsights } from "../existing-insights";
 import { ClosingBottleneckCard } from "./closing-bottleneck-card";
 import { ClosingTiles } from "./closing-tiles";
 import { CsvImport } from "./csv-import";
@@ -29,14 +31,16 @@ export default async function ClosingPage({
   const { userId, user } = await getCurrentUser();
   const params = await searchParams;
   const sector = user?.sector ?? null;
+  const benchmark = getBenchmark(sector);
 
-  const [allEntries, allSettingEntries] = await Promise.all([
+  const [allEntries, allSettingEntries, existingInsights] = await Promise.all([
     db
       .select()
       .from(closingKpiEntries)
       .where(eq(closingKpiEntries.userId, userId))
       .orderBy(desc(closingKpiEntries.date)),
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)),
+    getExistingStageInsights(userId),
   ]);
 
   const hasAnyEntries = allEntries.length > 0;
@@ -112,6 +116,8 @@ export default async function ClosingPage({
             callsBooked={callsBooked}
             previousTotals={previousTotals}
             previousRates={previousRates}
+            benchmark={benchmark}
+            existingInsights={existingInsights}
           />
         </div>
       )}

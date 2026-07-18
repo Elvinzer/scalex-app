@@ -143,5 +143,7 @@ export async function generateFunnelStageInsight(
     });
 
   revalidatePath("/funnel");
+  revalidatePath("/funnel/setting");
+  revalidatePath("/funnel/closing");
   return { insightText: result.text, error: null };
 }

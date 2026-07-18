@@ -1,9 +1,15 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { Sparkline } from "@/components/sparkline";
+import { TileBenchmarkStrip } from "@/components/tile-benchmark-strip";
 import type { settingKpiEntries } from "@/db/schema";
+import type { FunnelStageKey } from "@/lib/agent/knowledge";
+import type { getBenchmark } from "@/lib/benchmarks";
 import { rate, formatPercent, type FunnelTotals } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
+
+import { InsightTrigger } from "../insight-trigger";
+import type { ExistingStageInsight } from "../stage-insight-panel";
 
 type SettingKpiEntry = typeof settingKpiEntries.$inferSelect;
 
@@ -14,6 +20,12 @@ type RateTile = {
   label: string;
   numeratorKey: keyof FunnelTotals;
   denominatorKey: keyof FunnelTotals;
+  // Set only when this exact ratio matches a stage covered by the
+  // StageInsightPanel / market-benchmark system (lib/agent/knowledge,
+  // lib/benchmarks.ts) — omitted when the tile's ratio doesn't line up
+  // precisely with that stage's formula (see "Taux d'appels réservés" below).
+  stage?: FunnelStageKey;
+  benchmarkKey?: "responseRate" | "bookingRate" | "showUpRate";
 };
 
 // Each rate tile's value is numerator/denominator computed straight from
@@ -23,6 +35,8 @@ type RateTile = {
 // different, deliberately chosen ratio (réservés / 1er messages), so it's
 // self-contained: whatever numerator/denominator is configured below is
 // exactly what's displayed, with no risk of drifting from a shared formula.
+// It's also why that tile gets neither `stage` nor `benchmarkKey`: it isn't
+// the same ratio as any stage the insight/benchmark systems know about.
 const TILES: (CountTile | RateTile)[] = [
   { type: "count", key: "newSubscribers", label: "Nouveaux abonnés" },
   { type: "count", key: "firstMessagesSent", label: "Premiers messages envoyés" },
@@ -32,6 +46,8 @@ const TILES: (CountTile | RateTile)[] = [
     label: "Taux de réponse au 1er message",
     numeratorKey: "conversationsStarted",
     denominatorKey: "firstMessagesSent",
+    stage: "responseRate",
+    benchmarkKey: "responseRate",
   },
   { type: "count", key: "conversationsStarted", label: "Conversations en cours" },
   { type: "count", key: "callsProposed", label: "Appels proposés" },
@@ -41,6 +57,7 @@ const TILES: (CountTile | RateTile)[] = [
     label: "Taux d'appels proposés",
     numeratorKey: "callsProposed",
     denominatorKey: "conversationsStarted",
+    stage: "proposalRate",
   },
   { type: "count", key: "callsBooked", label: "Appels réservés" },
   {
@@ -116,10 +133,14 @@ export function StatTiles({
   entriesAscending,
   totals,
   previousTotals,
+  benchmark,
+  existingInsights,
 }: {
   entriesAscending: SettingKpiEntry[];
   totals: FunnelTotals;
   previousTotals: FunnelTotals | null;
+  benchmark: ReturnType<typeof getBenchmark>;
+  existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>>;
 }) {
   const recent = entriesAscending.slice(-SPARKLINE_DAYS);
   const labels = recent.map((entry) => shortDate(entry.date));
@@ -150,22 +171,35 @@ export function StatTiles({
         const previousRateValue = previousTotals
           ? rate(previousTotals[tile.numeratorKey], previousTotals[tile.denominatorKey])
           : null;
+        const band = tile.benchmarkKey ? benchmark[tile.benchmarkKey] : null;
 
         return (
           <div
             key={tile.key}
             className="sticker-card flex flex-col border-violet/40 bg-paper-alt/60 p-5"
           >
-            <p className="text-sm font-bold text-muted-foreground">{tile.label}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-bold text-muted-foreground">{tile.label}</p>
+              {tile.stage && (
+                <InsightTrigger
+                  stage={tile.stage}
+                  label={tile.label}
+                  existingInsight={existingInsights[tile.stage] ?? null}
+                />
+              )}
+            </div>
             <p className="mt-2 font-display text-3xl font-bold text-violet">
               {rateValue === null ? "—" : formatPercent(rateValue)}
             </p>
             <div className="mt-1 min-h-4">
               <RateDelta current={rateValue} previous={previousRateValue} />
             </div>
-            <p className="mt-auto pt-3 text-xs text-muted-foreground">
-              {NUMBER_FORMAT.format(numerator)} / {NUMBER_FORMAT.format(denominator)}
-            </p>
+            <div className="mt-auto pt-3">
+              <p className="text-xs text-muted-foreground">
+                {NUMBER_FORMAT.format(numerator)} / {NUMBER_FORMAT.format(denominator)}
+              </p>
+              <TileBenchmarkStrip value={rateValue} band={band} />
+            </div>
           </div>
         );
       })}

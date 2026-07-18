@@ -3,8 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { FunnelTabs } from "@/components/funnel-tabs";
 import { db } from "@/db";
-import { closingKpiEntries, funnelStageInsights, settingKpiEntries } from "@/db/schema";
-import type { FunnelStageKey } from "@/lib/agent/knowledge";
+import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
 import { aggregateClosingEntries, computeClosingRates } from "@/lib/closing/metrics";
 import { getCurrentUser } from "@/lib/current-user";
@@ -12,11 +11,11 @@ import { formatRangeDates, paramValue, resolveDateRange } from "@/lib/date-range
 import { findOverviewBottleneck } from "@/lib/funnel/overview";
 import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
 
+import { getExistingStageInsights } from "./existing-insights";
 import { MarketBenchmarkAccordion } from "./market-benchmark-accordion";
 import { OverviewBottleneckCard } from "./overview-bottleneck-card";
 import { OverviewFunnelChart } from "./overview-funnel-chart";
 import { OverviewTiles } from "./overview-tiles";
-import type { ExistingStageInsight } from "./stage-insight-panel";
 
 export default async function FunnelOverviewPage({
   searchParams,
@@ -28,7 +27,7 @@ export default async function FunnelOverviewPage({
   const sector = user?.sector ?? null;
   const benchmark = getBenchmark(sector);
 
-  const [allSettingEntries, allClosingEntries, stageInsightRows] = await Promise.all([
+  const [allSettingEntries, allClosingEntries, existingInsights] = await Promise.all([
     db
       .select()
       .from(settingKpiEntries)
@@ -39,15 +38,8 @@ export default async function FunnelOverviewPage({
       .from(closingKpiEntries)
       .where(eq(closingKpiEntries.userId, userId))
       .orderBy(desc(closingKpiEntries.date)),
-    db
-      .select({ stage: funnelStageInsights.stage, insightText: funnelStageInsights.insightText })
-      .from(funnelStageInsights)
-      .where(eq(funnelStageInsights.userId, userId)),
+    getExistingStageInsights(userId),
   ]);
-
-  const existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>> = Object.fromEntries(
-    stageInsightRows.map((row) => [row.stage, { insightText: row.insightText }])
-  );
 
   const hasAnyEntries = allSettingEntries.length > 0 || allClosingEntries.length > 0;
 

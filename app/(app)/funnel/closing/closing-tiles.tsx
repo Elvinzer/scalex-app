@@ -1,10 +1,16 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { Sparkline } from "@/components/sparkline";
+import { TileBenchmarkStrip } from "@/components/tile-benchmark-strip";
 import type { closingKpiEntries } from "@/db/schema";
+import type { FunnelStageKey } from "@/lib/agent/knowledge";
+import type { getBenchmark } from "@/lib/benchmarks";
 import type { ClosingRates, ClosingTotals } from "@/lib/closing/metrics";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
+
+import { InsightTrigger } from "../insight-trigger";
+import type { ExistingStageInsight } from "../stage-insight-panel";
 
 type ClosingKpiEntry = typeof closingKpiEntries.$inferSelect;
 
@@ -74,6 +80,8 @@ export function ClosingTiles({
   callsBooked,
   previousTotals,
   previousRates,
+  benchmark,
+  existingInsights,
 }: {
   entriesAscending: ClosingKpiEntry[];
   totals: ClosingTotals;
@@ -81,6 +89,8 @@ export function ClosingTiles({
   callsBooked: number;
   previousTotals: ClosingTotals | null;
   previousRates: ClosingRates | null;
+  benchmark: ReturnType<typeof getBenchmark>;
+  existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>>;
 }) {
   const recent = entriesAscending.slice(-SPARKLINE_DAYS);
   const labels = recent.map((entry) => shortDate(entry.date));
@@ -121,30 +131,57 @@ export function ClosingTiles({
       </div>
 
       <div className="sticker-card flex flex-col border-violet/40 bg-paper-alt/60 p-5">
-        <p className="text-sm font-bold text-muted-foreground">Taux de closing</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-bold text-muted-foreground">Taux de closing</p>
+          <InsightTrigger
+            stage="closingRate"
+            label="Taux de closing"
+            existingInsight={existingInsights.closingRate ?? null}
+          />
+        </div>
         <p className="mt-2 font-display text-3xl font-bold text-violet">
           {rates.closingRate === null ? "—" : formatPercent(rates.closingRate)}
         </p>
         <div className="mt-1 min-h-4">
           <RateDelta current={rates.closingRate} previous={previousRates?.closingRate ?? null} />
         </div>
-        <p className="mt-auto pt-3 text-xs text-muted-foreground">
-          {NUMBER_FORMAT.format(totals.salesClosed)} / {NUMBER_FORMAT.format(totals.callsAttended)}
-        </p>
+        <div className="mt-auto pt-3">
+          <p className="text-xs text-muted-foreground">
+            {NUMBER_FORMAT.format(totals.salesClosed)} / {NUMBER_FORMAT.format(totals.callsAttended)}
+          </p>
+          {/* closingRate has no market benchmark band today (lib/benchmarks.ts) */}
+          <TileBenchmarkStrip value={null} band={null} />
+        </div>
       </div>
 
       <div className="sticker-card flex flex-col border-violet/40 bg-paper-alt/60 p-5">
-        <p className="text-sm font-bold text-muted-foreground">Taux de no-show</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-bold text-muted-foreground">Taux de no-show</p>
+          <InsightTrigger
+            stage="showUpRate"
+            label="Taux de présence à l'appel (show-up)"
+            existingInsight={existingInsights.showUpRate ?? null}
+          />
+        </div>
         <p className="mt-2 font-display text-3xl font-bold text-violet">
           {rates.noShowRate === null ? "—" : formatPercent(rates.noShowRate)}
         </p>
         <div className="mt-1 min-h-4">
           <RateDelta current={rates.noShowRate} previous={previousRates?.noShowRate ?? null} />
         </div>
-        <p className="mt-auto pt-3 text-xs text-muted-foreground">
-          {NUMBER_FORMAT.format(missedCalls)} sur {NUMBER_FORMAT.format(callsBooked)} réservés
-          (Setting)
-        </p>
+        <div className="mt-auto pt-3">
+          <p className="text-xs text-muted-foreground">
+            {NUMBER_FORMAT.format(missedCalls)} sur {NUMBER_FORMAT.format(callsBooked)} réservés
+            (Setting)
+          </p>
+          {/* Same underlying ratio as the "présence à l'appel" benchmark,
+              just formulated negatively — see ClosingRates.showUpRate. */}
+          <TileBenchmarkStrip
+            value={rates.showUpRate}
+            band={benchmark.showUpRate}
+            sublabel="vs marché (présence à l'appel)"
+          />
+        </div>
       </div>
     </div>
   );
