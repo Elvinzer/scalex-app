@@ -1,95 +1,308 @@
 import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
 
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
-import { DiagnosticPendingState, StripeOptionalState } from "@/components/diagnostic-empty-state";
+import { CalcPopover } from "@/components/calc-popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
+import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { diagnostics } from "@/db/schema";
+import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
-import { getCurrentUser } from "@/lib/current-user";
+import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
+import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
+import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import {
-  categoryLabel,
-  diagnosticStatus,
-  formatUsd,
-  STATUS_LABELS,
-  type DiagnosticStatus,
-} from "@/lib/diagnostics";
+  computeDiagnosticPoints,
+  computeFullBenchmarkProjection,
+  computeMetricSummaries,
+} from "@/lib/diagnostic/cascade";
+import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
+import { formatEur } from "@/lib/currency";
+import { getCurrentUser } from "@/lib/current-user";
+import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { cn } from "@/lib/utils";
 
-const STATUS_STYLES: Record<DiagnosticStatus, string> = {
-  healthy: "bg-state-healthy-bg text-state-healthy",
-  caution: "bg-state-caution-bg text-state-caution",
-  critical: "bg-state-critical-bg text-state-critical",
+const PERIOD_LABELS: Record<string, string> = {
+  "3-months": "3 derniers mois",
+  "current-month": "mois en cours",
+  "12-months": "12 mois",
 };
 
-export default async function DiagnosticPage() {
+const STATUS_ICON: Record<string, string> = { ok: "✅", caution: "⚠️", critical: "❌", unmeasured: "❓" };
+const STATUS_BADGE: Record<string, string> = {
+  ok: "bg-state-healthy-bg text-state-healthy",
+  caution: "bg-state-caution-bg text-state-caution",
+  critical: "bg-state-critical-bg text-state-critical",
+  unmeasured: "bg-muted text-muted-foreground",
+};
+
+const MEASURE_HINTS: Record<string, string> = {
+  responseRate: "Renseigne tes premiers messages envoyés et tes conversations démarrées dans Datas.",
+  proposalRate: "Renseigne tes conversations démarrées et tes appels proposés dans Datas.",
+  bookingRate: "Renseigne tes appels proposés et réservés dans Datas.",
+  showUpRate: "Renseigne tes appels réservés et pris dans Datas.",
+  closingRate: "Renseigne tes appels pris et tes ventes conclues dans Datas.",
+};
+
+export default async function DiagnosticPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const { userId, user } = await getCurrentUser();
+  const params = await searchParams;
+  const period = params.period && PERIOD_LABELS[params.period] ? params.period : "3-months";
 
-  const rows = await db
-    .select()
-    .from(diagnostics)
-    .where(eq(diagnostics.userId, userId))
-    .orderBy(desc(diagnostics.dollarsLost));
+  const businessProfile = await getBusinessProfile(userId);
 
-  if (rows.length === 0) {
-    if (!user?.stripeConnectId) {
-      return (
-        <StripeOptionalState
-          title="Aucune catégorie diagnostiquée pour l'instant"
-          description="Connecte Stripe pour faire apparaître l'état de santé réel de ton business ici."
-        />
-      );
-    }
-    return <DiagnosticPendingState />;
+  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
+    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
+    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
+    getAllMonthlyMetrics(userId),
+  ]);
+
+  const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
+
+  const { settingTotals, closingTotals, cashContractedTotal, hasAnyMonthlyRow } = aggregatePeriodTotals({
+    months,
+    allMonthlyRows,
+    allSettingEntries,
+    allClosingEntries,
+  });
+
+  if (!hasAnyMonthlyRow) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-6 text-center">
+        <h1 className="text-2xl font-bold">Ton diagnostic</h1>
+        <p className="max-w-md text-muted-foreground">
+          Remplis au moins un mois dans Datas pour lancer ton diagnostic.
+        </p>
+        <Button size="lg" asChild className="mt-2">
+          <a href="/datas">Remplir mes datas →</a>
+        </Button>
+      </div>
+    );
   }
 
-  const maxDollarsLost = rows[0].dollarsLost;
-  const businessProfile = await getBusinessProfile(userId);
+  const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
+  const points = computeDiagnosticPoints({
+    settingTotals,
+    closingTotals,
+    benchmarks,
+    businessProfile,
+    cashContractedTotal,
+  });
+  const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks });
+  const followups = computeFollowupCompliance(businessProfile);
+  const projection = computeFullBenchmarkProjection({
+    settingTotals,
+    closingTotals,
+    benchmarks,
+    businessProfile,
+    cashContractedTotal,
+  });
+
+  const topPoints = points.slice(0, 3);
+  const totalExtraClients = Math.round(topPoints.reduce((sum, p) => sum + p.extraClients, 0) * 10) / 10;
+  const totalMonthlyGain = topPoints.some((p) => p.monthlyGain === null)
+    ? null
+    : topPoints.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0);
+  const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain);
+  const isThin = isBusinessProfileThin(businessProfile);
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold">Diagnostic</h1>
-        <p className="mt-1 text-muted-foreground">
-          L&apos;état de santé de chaque zone de ton business qu&apos;on surveille
-          aujourd&apos;hui.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Ton diagnostic</h1>
+          <p className="mt-1 text-muted-foreground">
+            J&apos;ai analysé tes chiffres des {PERIOD_LABELS[period]}. Voilà ce que ça donne.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {Object.entries(PERIOD_LABELS).map(([value, label]) => (
+            <Link
+              key={value}
+              href={`/diagnostic?period=${value}`}
+              className={cn(
+                "rounded-full border-2 px-3 py-1.5 text-sm font-bold",
+                period === value ? "border-signal bg-signal/15 text-signal" : "border-border text-muted-foreground"
+              )}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
       </div>
 
-      {isBusinessProfileThin(businessProfile) && <BusinessNudgeBanner />}
+      {isThin && <BusinessNudgeBanner />}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {rows.map((row) => {
-          const status = diagnosticStatus(row.dollarsLost, maxDollarsLost);
-          return (
-            <div key={row.id} className="sticker-card p-6">
-              <div className="flex items-start justify-between gap-3">
-                <p className="font-bold">{categoryLabel(row.category)}</p>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap",
-                    STATUS_STYLES[status]
+      {/* Bloc 1 — Le verdict */}
+      <div className="sticker-spotlight p-10">
+        <p className="text-sm font-medium text-mist/70">Potentiel total détecté</p>
+        <p className="mt-3 font-display text-6xl font-bold tabular-nums sm:text-7xl">
+          {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain)}/mois`}
+        </p>
+        <p className="mt-2 text-sm text-mist/70">
+          +{totalExtraClients} clients/mois possibles en corrigeant tes {topPoints.length} points les plus faibles
+        </p>
+        <div className="mt-4 flex items-center gap-2 text-xs text-mist/60">
+          {mainOffer?.price ? (
+            <span>
+              Calculé avec ton offre {mainOffer.name || "principale"} à {formatEur(mainOffer.price)}
+            </span>
+          ) : (
+            <span>Calculé avec ton panier moyen réel (aucune offre principale définie)</span>
+          )}
+          <CalcPopover explanation="Pour chaque point sous benchmark, je simule ton funnel avec CE taux ramené au niveau du marché (les autres restent réels), puis je multiplie les ventes en plus par le prix de ton offre. Je ne cumule que les 3 premiers points pour rester crédible." />
+        </div>
+      </div>
+
+      {/* Bloc 2 — Les points à améliorer */}
+      <div className="flex flex-col gap-4">
+        <h2 className="text-xl font-bold">Points à améliorer</h2>
+        {points.length === 0 && (
+          <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
+            Tous tes taux mesurés sont au niveau du benchmark. 🎉
+          </div>
+        )}
+        {points.map((point, index) => (
+          <div
+            key={point.key}
+            className={cn("sticker-card flex flex-col gap-4 p-6", index === 0 && "border-signal bg-signal/5")}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <span className="text-lg">{STATUS_ICON[point.status]}</span>
+                <div>
+                  <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                    #{index + 1} · {point.category}
+                  </p>
+                  <p className="mt-0.5 font-bold">{point.label}</p>
+                </div>
+              </div>
+            </div>
+
+            <RateVsBenchmarkBar currentRate={point.currentRatePercent / 100} benchmarkRate={point.benchmarkRatePercent / 100} />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-xl bg-muted p-3">
+                <p className="text-xs font-bold text-muted-foreground">Clients en plus</p>
+                <p className="mt-1 font-display text-xl font-bold">+{point.extraClients}/mois</p>
+              </div>
+              <div className="flex items-start justify-between rounded-xl bg-muted p-3">
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground">
+                    Gain{point.isPriceFallback ? " (panier moyen)" : ""}
+                  </p>
+                  <p className="mt-1 font-display text-xl font-bold">
+                    {point.monthlyGain === null ? "—" : `+${formatEur(point.monthlyGain)}/mois`}
+                  </p>
+                  {point.yearlyGain !== null && (
+                    <p className="text-xs text-muted-foreground">soit {formatEur(point.yearlyGain)} sur un an</p>
                   )}
-                >
-                  {STATUS_LABELS[status]}
+                </div>
+                <CalcPopover explanation={point.tooltip} />
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">{point.explanation}</p>
+
+            {index === 0 ? (
+              <Button asChild className="self-start">
+                <a href="/agent">Corriger avec l&apos;agent →</a>
+              </Button>
+            ) : (
+              <a href={`#metric-${point.key}`} className="text-sm font-medium text-muted-foreground hover:underline">
+                Voir le plan d&apos;action
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Bloc 3 — La vue complète */}
+      <div>
+        <h2 className="text-xl font-bold">Tout ton business en un coup d&apos;œil</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {summaries.map((summary) => (
+            <div key={summary.key} id={`metric-${summary.key}`} className="sticker-card p-5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold">{summary.label}</p>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.status])}>
+                  {STATUS_ICON[summary.status]}
                 </span>
               </div>
-              <p className="mt-3 font-display text-2xl font-bold tabular-nums">
-                {formatUsd(row.dollarsLost)}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">manque à gagner détecté</p>
+              {summary.status === "unmeasured" ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
+                      Pas encore mesuré — comment mesurer ça ?
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    <p className="text-muted-foreground">{MEASURE_HINTS[summary.key]}</p>
+                    <Button asChild size="sm" className="mt-3">
+                      <a href="/datas">Aller sur Datas →</a>
+                    </Button>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div className="mt-3">
+                  <RateVsBenchmarkBar
+                    currentRate={summary.currentRatePercent === null ? null : summary.currentRatePercent / 100}
+                    benchmarkRate={summary.benchmarkRatePercent / 100}
+                    compact
+                  />
+                </div>
+              )}
             </div>
-          );
-        })}
+          ))}
+
+          {followups.map((followup) => (
+            <div key={followup.key} className="sticker-card p-5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold">{followup.label}</p>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[followup.status])}>
+                  {followup.status === "ok" ? "✅" : followup.status === "critical" ? "❌" : "❓"}
+                </span>
+              </div>
+              {followup.status === "unmeasured" && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
+                      Pas encore renseigné — comment mesurer ça ?
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    <p className="text-muted-foreground">
+                      Indique si tu as une séquence de relance dans Mon business, section Vente.
+                    </p>
+                    <Button asChild size="sm" className="mt-3">
+                      <a href="/business">Aller sur Mon business →</a>
+                    </Button>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-bold text-muted-foreground">
-          D&apos;autres catégories arrivent bientôt
+      {/* Bloc 4 — Le simulateur cumulé */}
+      <div className="sticker-card-dashed p-6">
+        <p className="text-sm font-bold">Et si tu corrigeais tout ?</p>
+        <p className="mt-2 text-lg">
+          {projection.realSales === null ? "—" : `${Math.round(projection.realSales * 10) / 10} ventes/mois aujourd'hui`}
+          {" → "}
+          {projection.simulatedSales === null ? "—" : `${Math.round(projection.simulatedSales * 10) / 10} possibles`}
+          {projection.monthlyGain !== null && `, soit +${formatEur(projection.monthlyGain)}/mois`}
         </p>
-        <p className="mt-1 text-sm text-muted-foreground/80">
-          Acquisition, ascension et rétention rejoindront le diagnostic au fur et à mesure
-          des intégrations connectées.
+        <p className="mt-1 text-xs text-muted-foreground">
+          Projection si tout est au benchmark en même temps — différente de la somme des points ci-dessus (les
+          améliorations se multiplient entre elles).
         </p>
       </div>
     </div>

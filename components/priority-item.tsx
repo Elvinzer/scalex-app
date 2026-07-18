@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
-import type { DashboardBottleneck } from "@/lib/dashboard/bottlenecks";
+import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { cn } from "@/lib/utils";
 
 export function PriorityItem({
   rank,
-  bottleneck,
+  point,
 }: {
   rank: 1 | 2 | 3;
-  bottleneck: DashboardBottleneck;
+  point: DiagnosticPoint;
 }) {
   const isTop = rank === 1;
 
@@ -30,19 +30,19 @@ export function PriorityItem({
         </span>
         <div>
           <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-            {bottleneck.category}
+            {point.category}
           </p>
-          <p className="mt-0.5 font-bold">{bottleneck.label}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{bottleneck.explanation}</p>
+          <p className="mt-0.5 font-bold">{point.label}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{point.explanation}</p>
         </div>
       </div>
 
       <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
         <span
           className="rounded-full bg-signal/15 px-3 py-1 text-sm font-bold whitespace-nowrap text-signal"
-          title={bottleneck.tooltip}
+          title={point.tooltip}
         >
-          ≈ {formatEur(bottleneck.estimatedMonthlyLoss)}/mois perdus
+          {point.monthlyGain === null ? "+" + point.extraClients + " clients/mois" : `+${formatEur(point.monthlyGain)}/mois`}
         </span>
         {isTop ? (
           <Button asChild size="sm">

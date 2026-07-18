@@ -7,6 +7,7 @@ import {
   pgEnum,
   pgSchema,
   pgTable,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -271,3 +272,28 @@ export const monthlyMetrics = pgTable(
     uniqueIndex("monthly_metrics_user_year_month_idx").on(table.userId, table.year, table.month),
   ]
 );
+
+// The 5 funnel rates the /diagnostic cascade engine can benchmark and
+// simulate against — see lib/diagnostic/cascade.ts. Deliberately a single
+// value per (sector, metric), not the 3-tier {bas,moyen,bon} band used by
+// the older lib/benchmarks.ts (which keeps driving the Funnel's existing
+// tiles/meters, untouched) — the two systems are different in shape on
+// purpose, not an oversight; unifying them is separate follow-up work.
+export const diagnosticMetricEnum = pgEnum("diagnostic_metric", [
+  "responseRate",
+  "proposalRate",
+  "bookingRate",
+  "showUpRate",
+  "closingRate",
+]);
+
+// Lives in DB so values are adjustable without a redeploy, and so they can
+// later be replaced by real cross-user averages per sector. No user-facing
+// write path exists yet — seeded once via scripts/seed-benchmarks.ts.
+// sector: null = the global fallback row for that metric.
+export const benchmarks = pgTable("benchmarks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sector: prospectionSector("sector"),
+  metricKey: diagnosticMetricEnum("metric_key").notNull(),
+  value: real("value").notNull(), // 0-1 fraction
+});
