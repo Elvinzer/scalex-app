@@ -29,6 +29,17 @@ export default async function SettingsPage() {
       </div>
 
       <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">Mon business</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Décris ton offre, ton acquisition et ta delivery pour que Scale X calcule des
+          chiffres justes.
+        </p>
+        <Button asChild className="mt-4">
+          <a href="/business">Modifier mon business →</a>
+        </Button>
+      </div>
+
+      <div className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">Clé API Anthropic (BYOK)</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Ton agent utilise toujours ta propre clé : jamais partagée, jamais affichée en

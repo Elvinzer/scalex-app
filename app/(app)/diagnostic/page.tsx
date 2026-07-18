@@ -1,8 +1,11 @@
 import { desc, eq } from "drizzle-orm";
 
+import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { DiagnosticPendingState, StripeOptionalState } from "@/components/diagnostic-empty-state";
 import { db } from "@/db";
 import { diagnostics } from "@/db/schema";
+import { getBusinessProfile } from "@/lib/business/queries";
+import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { getCurrentUser } from "@/lib/current-user";
 import {
   categoryLabel,
@@ -41,6 +44,7 @@ export default async function DiagnosticPage() {
   }
 
   const maxDollarsLost = rows[0].dollarsLost;
+  const businessProfile = await getBusinessProfile(userId);
 
   return (
     <div className="flex flex-col gap-8">
@@ -51,6 +55,8 @@ export default async function DiagnosticPage() {
           aujourd&apos;hui.
         </p>
       </div>
+
+      {isBusinessProfileThin(businessProfile) && <BusinessNudgeBanner />}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {rows.map((row) => {

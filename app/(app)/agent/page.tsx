@@ -1,9 +1,12 @@
 import { desc, eq } from "drizzle-orm";
 
+import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { DiagnosticPendingState, StripeOptionalState } from "@/components/diagnostic-empty-state";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { diagnostics } from "@/db/schema";
+import { getBusinessProfile } from "@/lib/business/queries";
+import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { categoryAction, categoryLabel, formatUsd } from "@/lib/diagnostics";
 import { getCurrentUser } from "@/lib/current-user";
 
@@ -29,6 +32,7 @@ export default async function AgentPage() {
   }
 
   const hasApiKey = Boolean(user?.anthropicApiKeyEncrypted);
+  const businessProfile = await getBusinessProfile(userId);
 
   return (
     <div className="flex flex-col gap-8">
@@ -38,6 +42,8 @@ export default async function AgentPage() {
           Ce que ton agent recommande de corriger, à partir de ton propre diagnostic.
         </p>
       </div>
+
+      {isBusinessProfileThin(businessProfile) && <BusinessNudgeBanner />}
 
       {!hasApiKey && (
         <div className="sticker-card border-signal p-6">

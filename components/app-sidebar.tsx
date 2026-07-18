@@ -7,6 +7,7 @@ import {
   LogOut,
   Plug,
   Settings,
+  Store,
   Stethoscope,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,6 +24,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/business", label: "Mon business", icon: Store },
   { href: "/funnel", label: "Funnel", icon: Filter },
   { href: "/diagnostic", label: "Diagnostic", icon: Stethoscope },
   { href: "/agent", label: "Agent IA", icon: Bot },

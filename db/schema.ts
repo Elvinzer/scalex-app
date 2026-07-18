@@ -13,6 +13,13 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import type {
+  BusinessAcquisition,
+  BusinessDelivery,
+  BusinessIdentity,
+  BusinessSales,
+} from "@/lib/business/types";
+
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
 // tables declared with pgTable, not this pgSchema mirror).
@@ -153,6 +160,26 @@ export const closingKpiEntries = pgTable(
     uniqueIndex("closing_kpi_entries_user_date_idx").on(table.userId, table.date),
   ]
 );
+
+// The single source of truth for how a user's business actually works —
+// niche, offers, acquisition channels, delivery. One row per user; other
+// features (Dashboard €-lost, Funnel stages, Diagnostic, Agent IA) will read
+// from this in later phases instead of duplicating any of this data. See
+// lib/business/types.ts for the jsonb column shapes and lib/business/schema.ts
+// for the Zod validation applied before every write.
+export const businessProfile = pgTable("business_profile", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  identity: jsonb("identity").notNull().$type<BusinessIdentity>(),
+  acquisition: jsonb("acquisition").notNull().$type<BusinessAcquisition>(),
+  sales: jsonb("sales").notNull().$type<BusinessSales>(),
+  delivery: jsonb("delivery").notNull().$type<BusinessDelivery>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 // Every stage a funnel rate can come from — Setting (outreach → booking) and
 // Closing (show-up, closing) combined. See lib/setting/funnel.ts / lib/closing/metrics.ts.
