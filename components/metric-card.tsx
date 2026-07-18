@@ -18,8 +18,15 @@ export function MetricCard({ data }: { data: MetricCardData }) {
   }
 
   return (
-    <Link href={data.href} className="sticker-card flex flex-col p-5">
-      <p className="text-sm font-bold text-muted-foreground">{data.label}</p>
+    <Link href={data.href} className="sticker-card flex flex-col p-5" title={data.sourceHint}>
+      <div className="flex items-center gap-1.5">
+        <p className="text-sm font-bold text-muted-foreground">{data.label}</p>
+        {data.sourceHint && (
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+            manuel
+          </span>
+        )}
+      </div>
       <p className="mt-2 font-display text-3xl font-bold">{data.valueLabel}</p>
       <div className="mt-1 min-h-4">
         {data.deltaLabel && (

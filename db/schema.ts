@@ -240,3 +240,34 @@ export const sharedAgentUsage = pgTable(
     uniqueIndex("shared_agent_usage_user_period_idx").on(table.userId, table.periodMonth),
   ]
 );
+
+// Manual monthly entry (the "/datas" page) — coexists with the daily
+// settingKpiEntries/closingKpiEntries tables rather than replacing them.
+// Every metric is nullable: null means "not entered", never coerced to 0
+// (lib/monthly-metrics/completion.ts and lib/setting/funnel.ts's rate()
+// both depend on that distinction). Rates and completion are never stored
+// here — always computed live, per lib/monthly-metrics/rates.ts.
+export const monthlyMetrics = pgTable(
+  "monthly_metrics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    year: integer("year").notNull(),
+    month: integer("month").notNull(), // 1-12
+    cashCollected: integer("cash_collected"), // euros
+    cashContracted: integer("cash_contracted"), // euros
+    newFollowers: integer("new_followers"),
+    firstMessages: integer("first_messages"),
+    conversations: integer("conversations"),
+    callsProposed: integer("calls_proposed"),
+    callsBooked: integer("calls_booked"),
+    callsTaken: integer("calls_taken"),
+    salesClosed: integer("sales_closed"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("monthly_metrics_user_year_month_idx").on(table.userId, table.year, table.month),
+  ]
+);

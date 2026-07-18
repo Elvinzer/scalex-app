@@ -7,7 +7,9 @@ import { settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
-import { aggregateEntries, computeFunnelRates, findBottleneck } from "@/lib/setting/funnel";
+import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { isExactCalendarMonth, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
+import { computeFunnelRates, findBottleneck } from "@/lib/setting/funnel";
 
 import { getExistingStageInsights } from "../existing-insights";
 import { BottleneckCard } from "./bottleneck-card";
@@ -45,19 +47,31 @@ export default async function SettingPage({
     : allEntries;
   const hasEntriesInRange = entries.length > 0;
 
-  const totals = aggregateEntries(entries);
+  // When the selected range is exactly one calendar month, a monthly_metrics
+  // row for it (if any setting field is filled) wins wholesale over that
+  // month's daily entries — resolveMonthSettingTotals falls back to the
+  // daily aggregate unchanged when no such row exists (last-30-days/custom/
+  // all-time ranges, or a month with nothing entered in /datas).
+  const exactMonth = range ? isExactCalendarMonth(range) : null;
+  const monthlyRow = exactMonth ? await getMonthlyMetrics(userId, exactMonth.year, exactMonth.month) : null;
+
+  const totals = resolveMonthSettingTotals(monthlyRow, entries);
   const rates = computeFunnelRates(totals);
   const bottleneck = findBottleneck(rates);
 
   // Previous-period comparison for the stat tiles — no meaningful "previous"
   // window when viewing all-time history, so it's skipped in that case.
   const previousRange = range ? previousEquivalentRange(range) : null;
+  const previousExactMonth = previousRange ? isExactCalendarMonth(previousRange) : null;
+  const previousMonthlyRow = previousExactMonth
+    ? await getMonthlyMetrics(userId, previousExactMonth.year, previousExactMonth.month)
+    : null;
   const previousEntries = previousRange
     ? allEntries.filter(
         (entry) => entry.date >= previousRange.from && entry.date <= previousRange.to
       )
     : [];
-  const previousTotals = previousRange ? aggregateEntries(previousEntries) : null;
+  const previousTotals = previousRange ? resolveMonthSettingTotals(previousMonthlyRow, previousEntries) : null;
 
   return (
     <div className="flex flex-col gap-8">

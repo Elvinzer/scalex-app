@@ -1,15 +1,11 @@
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import type { BusinessProfileData } from "@/lib/business/types";
 import { formatEur } from "@/lib/currency";
-import {
-  previousEquivalentRange,
-  resolveDateRange,
-  toIsoDate,
-  todayUtc,
-  type DateRange,
-} from "@/lib/date-range";
-import { aggregateClosingEntries, computeClosingRates } from "@/lib/closing/metrics";
-import { aggregateEntries, formatPercent } from "@/lib/setting/funnel";
+import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
+import { computeClosingRates } from "@/lib/closing/metrics";
+import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
+import { resolveMonthCashCollected, resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
+import { formatPercent } from "@/lib/setting/funnel";
 
 import type { StripeActivity } from "./stripe-metrics";
 
@@ -17,7 +13,7 @@ type SettingEntry = typeof settingKpiEntries.$inferSelect;
 type ClosingEntry = typeof closingKpiEntries.$inferSelect;
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-const WEEKS = 8;
+const MONTHS = 8;
 
 export type MetricCard =
   | {
@@ -30,6 +26,7 @@ export type MetricCard =
       deltaDirection: "up" | "down" | null;
       sparklineValues: number[];
       sparklineLabels: string[];
+      sourceHint?: string;
     }
   | {
       key: string;
@@ -55,138 +52,135 @@ export function currentIsoWeekRange(): DateRange {
   return { from: toIsoDate(monday), to: toIsoDate(today) };
 }
 
-// The single window to fetch Stripe activity over — covers both the
-// current-vs-previous-30-days comparison (60 days) and the 8-week sparkline
-// (56 days) from one fetch, so lib/dashboard/stripe-metrics.ts only needs to
-// hit the Stripe API once per Dashboard load.
-export function dashboardStripeRange(): DateRange {
+type MonthBucket = { year: number; month: number; range: DateRange; label: string };
+
+// Last `count` calendar months, oldest first, ending with the current
+// (possibly still-in-progress) month — the merge unit shared with
+// lib/monthly-metrics/resolve.ts, since monthly_metrics can't be blended into
+// a rolling day-count window.
+function monthBuckets(count: number): MonthBucket[] {
   const today = todayUtc();
-  const start = new Date(today);
-  start.setUTCDate(start.getUTCDate() - 59);
-  return { from: toIsoDate(start), to: toIsoDate(today) };
-}
+  const buckets: MonthBucket[] = [];
 
-function shortWeekLabel(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-}
+  for (let i = count - 1; i >= 0; i--) {
+    const first = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - i, 1));
+    const year = first.getUTCFullYear();
+    const month = first.getUTCMonth() + 1;
+    const isCurrentMonth = i === 0;
+    const lastDay = new Date(Date.UTC(year, month, 0));
+    const to = isCurrentMonth ? today : lastDay;
 
-// 8 rolling 7-day buckets, oldest first, ending today — the closest honest
-// read of "8 dernières semaines" given KPI entries are captured daily, not
-// through a dedicated weekly form.
-function weekBuckets(): { from: string; to: string; label: string }[] {
-  const today = todayUtc();
-  const buckets: { from: string; to: string; label: string }[] = [];
-
-  for (let i = WEEKS - 1; i >= 0; i--) {
-    const to = new Date(today);
-    to.setUTCDate(to.getUTCDate() - i * 7);
-    const from = new Date(to);
-    from.setUTCDate(from.getUTCDate() - 6);
-    buckets.push({ from: toIsoDate(from), to: toIsoDate(to), label: shortWeekLabel(toIsoDate(to)) });
+    buckets.push({
+      year,
+      month,
+      range: { from: toIsoDate(first), to: toIsoDate(to) },
+      label: first.toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" }),
+    });
   }
 
   return buckets;
 }
 
+// Covers all 8 sparkline months in one Stripe fetch.
+export function dashboardStripeRange(): DateRange {
+  const buckets = monthBuckets(MONTHS);
+  return { from: buckets[0].range.from, to: buckets[buckets.length - 1].range.to };
+}
+
 function countDelta(current: number, previous: number): { label: string; direction: "up" | "down" | null } {
   const diff = current - previous;
-  if (diff === 0) return { label: "= vs période précédente", direction: null };
+  if (diff === 0) return { label: "= vs mois précédent", direction: null };
   const sign = diff > 0 ? "+" : "";
-  return {
-    label: `${sign}${NUMBER_FORMAT.format(diff)} vs période précédente`,
-    direction: diff > 0 ? "up" : "down",
-  };
+  return { label: `${sign}${NUMBER_FORMAT.format(diff)} vs mois précédent`, direction: diff > 0 ? "up" : "down" };
 }
 
 function rateDelta(current: number | null, previous: number | null): { label: string; direction: "up" | "down" | null } | null {
   if (current === null || previous === null) return null;
   const diffPts = Math.round((current - previous) * 100);
-  if (diffPts === 0) return { label: "= vs période précédente", direction: null };
+  if (diffPts === 0) return { label: "= vs mois précédent", direction: null };
   const sign = diffPts > 0 ? "+" : "";
-  return { label: `${sign}${diffPts} pts vs période précédente`, direction: diffPts > 0 ? "up" : "down" };
+  return { label: `${sign}${diffPts} pts vs mois précédent`, direction: diffPts > 0 ? "up" : "down" };
 }
 
 export function buildMetricCards({
   businessProfile,
   allSettingEntries,
   allClosingEntries,
+  allMonthlyRows,
   stripeActivity,
 }: {
   businessProfile: BusinessProfileData;
   allSettingEntries: SettingEntry[];
   allClosingEntries: ClosingEntry[];
+  allMonthlyRows: MonthlyMetricsRow[];
   stripeActivity: StripeActivity | null;
 }): MetricCard[] {
-  const currentRange = resolveDateRange("last-30-days", undefined, undefined)!;
-  const previousRange = previousEquivalentRange(currentRange);
-  const buckets = weekBuckets();
+  const buckets = monthBuckets(MONTHS);
 
-  const currentSetting = allSettingEntries.filter((entry) => inRange(entry.date, currentRange));
-  const previousSetting = allSettingEntries.filter((entry) => inRange(entry.date, previousRange));
-  const currentClosing = allClosingEntries.filter((entry) => inRange(entry.date, currentRange));
-  const previousClosing = allClosingEntries.filter((entry) => inRange(entry.date, previousRange));
+  const stripeRevenueEurFor = (range: DateRange): number | null => {
+    if (!stripeActivity) return null;
+    return (
+      stripeActivity.charges
+        .filter((charge) => inRange(toIsoDate(charge.createdAt), range))
+        .reduce((sum, charge) => sum + charge.amountCents, 0) / 100
+    );
+  };
 
-  const currentSettingTotals = aggregateEntries(currentSetting);
-  const previousSettingTotals = aggregateEntries(previousSetting);
-  const currentClosingTotals = aggregateClosingEntries(currentClosing);
-  const previousClosingTotals = aggregateClosingEntries(previousClosing);
-  const currentClosingRates = computeClosingRates(currentClosingTotals, currentSettingTotals.callsBooked);
-  const previousClosingRates = computeClosingRates(previousClosingTotals, previousSettingTotals.callsBooked);
+  const customerCountFor = (range: DateRange): number =>
+    stripeActivity
+      ? stripeActivity.customers.filter((customer) => inRange(toIsoDate(customer.createdAt), range)).length
+      : 0;
 
+  const resolved = buckets.map((bucket) => {
+    const monthlyRow = allMonthlyRows.find((row) => row.year === bucket.year && row.month === bucket.month) ?? null;
+    const dailySetting = allSettingEntries.filter((entry) => inRange(entry.date, bucket.range));
+    const dailyClosing = allClosingEntries.filter((entry) => inRange(entry.date, bucket.range));
+
+    const settingTotals = resolveMonthSettingTotals(monthlyRow, dailySetting);
+    const closingTotals = resolveMonthClosingTotals(monthlyRow, dailyClosing);
+    const closingRates = computeClosingRates(closingTotals, settingTotals.callsBooked);
+    const cash = resolveMonthCashCollected(monthlyRow, stripeRevenueEurFor(bucket.range));
+
+    return { bucket, monthlyRow, settingTotals, closingTotals, closingRates, cash };
+  });
+
+  const current = resolved[resolved.length - 1];
+  const previous = resolved[resolved.length - 2];
+
+  const hasAnySettingData = allSettingEntries.length > 0 || allMonthlyRows.some((row) => row.newFollowers !== null || row.callsBooked !== null);
+  const hasAnyClosingData = allClosingEntries.length > 0 || allMonthlyRows.some((row) => row.callsTaken !== null || row.salesClosed !== null);
   const directSalePage = businessProfile.acquisition.setting.enabled === "no";
-
-  const revenueCents = (start: string, end: string) =>
-    stripeActivity
-      ? stripeActivity.charges
-          .filter((charge) => {
-            const iso = toIsoDate(charge.createdAt);
-            return iso >= start && iso <= end;
-          })
-          .reduce((sum, charge) => sum + charge.amountCents, 0)
-      : 0;
-
-  const customerCount = (start: string, end: string) =>
-    stripeActivity
-      ? stripeActivity.customers.filter((customer) => {
-          const iso = toIsoDate(customer.createdAt);
-          return iso >= start && iso <= end;
-        }).length
-      : 0;
 
   const cards: MetricCard[] = [];
 
   // 1. CA encaissé
-  if (!stripeActivity) {
+  if (current.cash.amount === null) {
     cards.push({
       key: "revenue",
       label: "CA encaissé",
-      href: "/integrations",
+      href: "/datas",
       status: "missing",
-      reason: "Stripe non connecté",
-      ctaLabel: "Connecte Stripe",
+      reason: !stripeActivity ? "Stripe non connecté et rien saisi dans Datas" : "Rien saisi ce mois-ci",
+      ctaLabel: !stripeActivity ? "Connecte Stripe" : "Remplir dans Datas",
     });
   } else {
-    const currentEur = revenueCents(currentRange.from, currentRange.to) / 100;
-    const previousEur = revenueCents(previousRange.from, previousRange.to) / 100;
-    const delta = countDelta(Math.round(currentEur), Math.round(previousEur));
+    const previousAmount = previous.cash.amount ?? 0;
+    const delta = countDelta(Math.round(current.cash.amount), Math.round(previousAmount));
     cards.push({
       key: "revenue",
       label: "CA encaissé",
-      href: "/funnel/closing",
+      href: "/datas",
       status: "ok",
-      valueLabel: formatEur(currentEur),
+      valueLabel: formatEur(current.cash.amount),
       deltaLabel: delta.label,
       deltaDirection: delta.direction,
-      sparklineValues: buckets.map((bucket) => revenueCents(bucket.from, bucket.to) / 100),
-      sparklineLabels: buckets.map((bucket) => bucket.label),
+      sparklineValues: resolved.map((r) => r.cash.amount ?? 0),
+      sparklineLabels: resolved.map((r) => r.bucket.label),
+      sourceHint: current.cash.source === "manual" ? "Saisie manuelle" : undefined,
     });
   }
 
-  // 2. Nouveaux clients
+  // 2. Nouveaux clients — Stripe only, no manual equivalent in Datas.
   if (!stripeActivity) {
     cards.push({
       key: "new-customers",
@@ -197,75 +191,70 @@ export function buildMetricCards({
       ctaLabel: "Connecte Stripe",
     });
   } else {
-    const current = customerCount(currentRange.from, currentRange.to);
-    const previous = customerCount(previousRange.from, previousRange.to);
-    const delta = countDelta(current, previous);
+    const currentCount = customerCountFor(current.bucket.range);
+    const previousCount = customerCountFor(previous.bucket.range);
+    const delta = countDelta(currentCount, previousCount);
     cards.push({
       key: "new-customers",
       label: "Nouveaux clients",
-      href: "/funnel/closing",
+      href: "/integrations",
       status: "ok",
-      valueLabel: NUMBER_FORMAT.format(current),
+      valueLabel: NUMBER_FORMAT.format(currentCount),
       deltaLabel: delta.label,
       deltaDirection: delta.direction,
-      sparklineValues: buckets.map((bucket) => customerCount(bucket.from, bucket.to)),
-      sparklineLabels: buckets.map((bucket) => bucket.label),
+      sparklineValues: resolved.map((r) => customerCountFor(r.bucket.range)),
+      sparklineLabels: resolved.map((r) => r.bucket.label),
     });
   }
 
   if (!directSalePage) {
     // 3. Leads générés
-    if (allSettingEntries.length === 0) {
+    if (!hasAnySettingData) {
       cards.push({
         key: "leads",
         label: "Leads générés",
-        href: "/funnel/setting",
+        href: "/datas",
         status: "missing",
-        reason: "Aucun check-in enregistré",
-        ctaLabel: "Fais ton check-in",
+        reason: "Rien saisi pour l'instant",
+        ctaLabel: "Remplir dans Datas",
       });
     } else {
-      const delta = countDelta(currentSettingTotals.newSubscribers, previousSettingTotals.newSubscribers);
+      const delta = countDelta(current.settingTotals.newSubscribers, previous.settingTotals.newSubscribers);
       cards.push({
         key: "leads",
         label: "Leads générés",
-        href: "/funnel/setting",
+        href: "/datas",
         status: "ok",
-        valueLabel: NUMBER_FORMAT.format(currentSettingTotals.newSubscribers),
+        valueLabel: NUMBER_FORMAT.format(current.settingTotals.newSubscribers),
         deltaLabel: delta.label,
         deltaDirection: delta.direction,
-        sparklineValues: buckets.map((bucket) =>
-          aggregateEntries(allSettingEntries.filter((entry) => inRange(entry.date, bucket)))
-            .newSubscribers
-        ),
-        sparklineLabels: buckets.map((bucket) => bucket.label),
+        sparklineValues: resolved.map((r) => r.settingTotals.newSubscribers),
+        sparklineLabels: resolved.map((r) => r.bucket.label),
       });
     }
 
     // 4. RDV réservés
-    if (allSettingEntries.length === 0) {
+    if (!hasAnySettingData) {
       cards.push({
         key: "bookings",
         label: "RDV réservés",
-        href: "/funnel/setting",
+        href: "/datas",
         status: "missing",
-        reason: "Aucun check-in enregistré",
-        ctaLabel: "Fais ton check-in",
+        reason: "Rien saisi pour l'instant",
+        ctaLabel: "Remplir dans Datas",
       });
     } else {
-      const delta = countDelta(currentSettingTotals.callsBooked, previousSettingTotals.callsBooked);
+      const delta = countDelta(current.settingTotals.callsBooked, previous.settingTotals.callsBooked);
       cards.push({
         key: "bookings",
         label: "RDV réservés",
-        href: "/funnel/setting",
+        href: "/datas",
         status: "ok",
-        valueLabel: NUMBER_FORMAT.format(currentSettingTotals.callsBooked),
+        valueLabel: NUMBER_FORMAT.format(current.settingTotals.callsBooked),
         deltaLabel: delta.label,
         deltaDirection: delta.direction,
-        sparklineValues: buckets.map((bucket) =>
-          aggregateEntries(allSettingEntries.filter((entry) => inRange(entry.date, bucket))).callsBooked
-        ),
-        sparklineLabels: buckets.map((bucket) => bucket.label),
+        sparklineValues: resolved.map((r) => r.settingTotals.callsBooked),
+        sparklineLabels: resolved.map((r) => r.bucket.label),
       });
     }
   } else {
@@ -290,67 +279,61 @@ export function buildMetricCards({
   }
 
   // 5. Taux de closing
-  if (allClosingEntries.length === 0) {
+  if (!hasAnyClosingData) {
     cards.push({
       key: "closing-rate",
       label: "Taux de closing",
-      href: "/funnel/closing",
+      href: "/datas",
       status: "missing",
-      reason: "Aucun check-in enregistré",
-      ctaLabel: "Fais ton check-in",
+      reason: "Rien saisi pour l'instant",
+      ctaLabel: "Remplir dans Datas",
     });
   } else {
-    const delta = rateDelta(currentClosingRates.closingRate, previousClosingRates.closingRate);
+    const delta = rateDelta(current.closingRates.closingRate, previous.closingRates.closingRate);
     cards.push({
       key: "closing-rate",
       label: "Taux de closing",
-      href: "/funnel/closing",
+      href: "/datas",
       status: "ok",
-      valueLabel: currentClosingRates.closingRate === null ? "—" : formatPercent(currentClosingRates.closingRate),
+      valueLabel: current.closingRates.closingRate === null ? "—" : formatPercent(current.closingRates.closingRate),
       deltaLabel: delta?.label ?? null,
       deltaDirection: delta?.direction ?? null,
-      sparklineValues: buckets.map((bucket) => {
-        const closing = aggregateClosingEntries(allClosingEntries.filter((entry) => inRange(entry.date, bucket)));
-        const booked = aggregateEntries(allSettingEntries.filter((entry) => inRange(entry.date, bucket))).callsBooked;
-        return computeClosingRates(closing, booked).closingRate ?? 0;
-      }),
-      sparklineLabels: buckets.map((bucket) => bucket.label),
+      sparklineValues: resolved.map((r) => r.closingRates.closingRate ?? 0),
+      sparklineLabels: resolved.map((r) => r.bucket.label),
     });
   }
 
-  // 6. Panier moyen — real revenue ÷ real closed-sales count, not a static
-  // offer price, so it stays a traceable ratio of two real numbers.
-  const currentSales = currentClosingTotals.salesClosed;
-  const currentRevenueEur = revenueCents(currentRange.from, currentRange.to) / 100;
-  if (!stripeActivity || currentSales === 0) {
+  // 6. Panier moyen — resolved cash collected (same source as card 1) ÷ real
+  // closed-sales count, so it stays consistent with whichever source (Stripe
+  // or manual) is currently backing the revenue figure.
+  if (current.cash.amount === null || current.closingTotals.salesClosed === 0) {
     cards.push({
       key: "average-sale",
       label: "Panier moyen",
-      href: "/funnel/closing",
+      href: "/datas",
       status: "missing",
-      reason: !stripeActivity ? "Stripe non connecté" : "Aucune vente sur la période",
-      ctaLabel: !stripeActivity ? "Connecte Stripe" : "Fais ton check-in",
+      reason: current.cash.amount === null ? "Aucun revenu connu ce mois-ci" : "Aucune vente ce mois-ci",
+      ctaLabel: "Remplir dans Datas",
     });
   } else {
-    const previousSales = previousClosingTotals.salesClosed;
-    const previousRevenueEur = revenueCents(previousRange.from, previousRange.to) / 100;
-    const currentAvg = currentRevenueEur / currentSales;
-    const previousAvg = previousSales > 0 ? previousRevenueEur / previousSales : null;
+    const currentAvg = current.cash.amount / current.closingTotals.salesClosed;
+    const previousAvg =
+      previous.cash.amount !== null && previous.closingTotals.salesClosed > 0
+        ? previous.cash.amount / previous.closingTotals.salesClosed
+        : null;
     const delta = previousAvg === null ? null : countDelta(Math.round(currentAvg), Math.round(previousAvg));
     cards.push({
       key: "average-sale",
       label: "Panier moyen",
-      href: "/funnel/closing",
+      href: "/datas",
       status: "ok",
       valueLabel: formatEur(currentAvg),
       deltaLabel: delta?.label ?? null,
       deltaDirection: delta?.direction ?? null,
-      sparklineValues: buckets.map((bucket) => {
-        const closing = aggregateClosingEntries(allClosingEntries.filter((entry) => inRange(entry.date, bucket)));
-        if (closing.salesClosed === 0) return 0;
-        return revenueCents(bucket.from, bucket.to) / 100 / closing.salesClosed;
-      }),
-      sparklineLabels: buckets.map((bucket) => bucket.label),
+      sparklineValues: resolved.map((r) =>
+        r.cash.amount !== null && r.closingTotals.salesClosed > 0 ? r.cash.amount / r.closingTotals.salesClosed : 0
+      ),
+      sparklineLabels: resolved.map((r) => r.bucket.label),
     });
   }
 

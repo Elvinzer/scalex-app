@@ -8,24 +8,21 @@ import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { computeDashboardBottlenecks, getBottleneckUnlockHints } from "@/lib/dashboard/bottlenecks";
-import {
-  currentIsoWeekRange,
-  dashboardStripeRange,
-  inRange,
-  buildMetricCards,
-} from "@/lib/dashboard/metrics";
+import { currentIsoWeekRange, dashboardStripeRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { getStripeActivity } from "@/lib/dashboard/stripe-metrics";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
-import { resolveDateRange } from "@/lib/date-range";
-import { aggregateClosingEntries, computeClosingRates } from "@/lib/closing/metrics";
-import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
+import { toIsoDate, todayUtc } from "@/lib/date-range";
+import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
+import { computeClosingRates } from "@/lib/closing/metrics";
+import { computeFunnelRates } from "@/lib/setting/funnel";
 
 export default async function DashboardPage() {
   const { userId, user } = await getCurrentUser();
   const businessProfile = await getBusinessProfile(userId);
 
-  const [allSettingEntries, allClosingEntries] = await Promise.all([
+  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
     db
       .select()
       .from(settingKpiEntries)
@@ -36,6 +33,7 @@ export default async function DashboardPage() {
       .from(closingKpiEntries)
       .where(eq(closingKpiEntries.userId, userId))
       .orderBy(desc(closingKpiEntries.date)),
+    getAllMonthlyMetrics(userId),
   ]);
 
   const stripeActivity = await getStripeActivity(userId, dashboardStripeRange());
@@ -46,14 +44,26 @@ export default async function DashboardPage() {
     businessProfile,
     allSettingEntries,
     allClosingEntries,
+    allMonthlyRows,
     stripeActivity,
   });
 
-  const currentRange = resolveDateRange("last-30-days", undefined, undefined)!;
-  const currentSetting = allSettingEntries.filter((entry) => inRange(entry.date, currentRange));
-  const currentClosing = allClosingEntries.filter((entry) => inRange(entry.date, currentRange));
-  const currentSettingTotals = aggregateEntries(currentSetting);
-  const currentClosingTotals = aggregateClosingEntries(currentClosing);
+  // Current calendar month, merged: a monthly_metrics row (if any non-null
+  // field in a section) wins wholesale over that month's daily entries.
+  const today = todayUtc();
+  const currentYear = today.getUTCFullYear();
+  const currentMonth = today.getUTCMonth() + 1;
+  const currentMonthRange = { from: toIsoDate(new Date(Date.UTC(currentYear, currentMonth - 1, 1))), to: toIsoDate(today) };
+  const currentMonthlyRow = allMonthlyRows.find((row) => row.year === currentYear && row.month === currentMonth) ?? null;
+
+  const currentSettingTotals = resolveMonthSettingTotals(
+    currentMonthlyRow,
+    allSettingEntries.filter((entry) => inRange(entry.date, currentMonthRange))
+  );
+  const currentClosingTotals = resolveMonthClosingTotals(
+    currentMonthlyRow,
+    allClosingEntries.filter((entry) => inRange(entry.date, currentMonthRange))
+  );
   const mainOfferPrice = businessProfile.sales.offers.find((offer) => offer.isMain)?.price ?? null;
 
   const bottlenecks = computeDashboardBottlenecks({
@@ -67,8 +77,8 @@ export default async function DashboardPage() {
 
   const unlockHints = getBottleneckUnlockHints({
     mainOfferPrice,
-    hasSettingEntries: allSettingEntries.length > 0,
-    hasClosingEntries: allClosingEntries.length > 0,
+    hasSettingEntries: allSettingEntries.length > 0 || allMonthlyRows.some((row) => row.newFollowers !== null),
+    hasClosingEntries: allClosingEntries.length > 0 || allMonthlyRows.some((row) => row.callsTaken !== null),
   });
 
   const totalMonthlyLoss = bottlenecks.reduce((sum, b) => sum + b.estimatedMonthlyLoss, 0);
@@ -76,7 +86,8 @@ export default async function DashboardPage() {
   const weekRange = currentIsoWeekRange();
   const checkInDoneThisWeek =
     allSettingEntries.some((entry) => inRange(entry.date, weekRange)) ||
-    allClosingEntries.some((entry) => inRange(entry.date, weekRange));
+    allClosingEntries.some((entry) => inRange(entry.date, weekRange)) ||
+    currentMonthlyRow !== null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -112,7 +123,7 @@ export default async function DashboardPage() {
             📊 2 minutes pour mettre à jour tes chiffres de la semaine
           </p>
           <Button asChild size="sm" variant="outline">
-            <a href="/funnel/setting">Faire mon check-in</a>
+            <a href="/datas">Faire mon check-in</a>
           </Button>
         </div>
       )}
@@ -120,7 +131,7 @@ export default async function DashboardPage() {
       <div>
         <h2 className="text-xl font-bold">Tes chiffres clés</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          30 derniers jours, comparés aux 30 jours précédents.
+          Mois en cours, comparé au mois précédent.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {metricCards.map((card) => (

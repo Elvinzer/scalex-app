@@ -2,6 +2,7 @@
 
 import {
   Bot,
+  Database,
   Filter,
   LayoutDashboard,
   LogOut,
@@ -26,6 +27,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/business", label: "Mon business", icon: Store },
   { href: "/funnel", label: "Funnel", icon: Filter },
+  { href: "/datas", label: "Datas", icon: Database },
   { href: "/diagnostic", label: "Diagnostic", icon: Stethoscope },
   { href: "/agent", label: "Agent IA", icon: Bot },
   { href: "/integrations", label: "Intégrations", icon: Plug },

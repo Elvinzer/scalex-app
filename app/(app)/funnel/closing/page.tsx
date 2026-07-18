@@ -5,9 +5,15 @@ import { FunnelTabs } from "@/components/funnel-tabs";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
-import { aggregateClosingEntries, computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
+import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
+import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import {
+  isExactCalendarMonth,
+  resolveMonthClosingTotals,
+  resolveMonthSettingTotals,
+} from "@/lib/monthly-metrics/resolve";
 
 import { getExistingStageInsights } from "../existing-insights";
 import { ClosingBottleneckCard } from "./closing-bottleneck-card";
@@ -15,13 +21,6 @@ import { ClosingTiles } from "./closing-tiles";
 import { CsvImport } from "./csv-import";
 import { EntriesTable } from "./entries-table";
 import { EntryForm } from "./entry-form";
-
-function sumCallsBooked(entries: { date: string; callsBooked: number }[], range: { from: string; to: string } | null): number {
-  const filtered = range
-    ? entries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
-    : entries;
-  return filtered.reduce((sum, entry) => sum + entry.callsBooked, 0);
-}
 
 export default async function ClosingPage({
   searchParams,
@@ -52,22 +51,41 @@ export default async function ClosingPage({
     : allEntries;
   const hasEntriesInRange = entries.length > 0;
 
-  const callsBooked = sumCallsBooked(allSettingEntries, range);
-  const totals = aggregateClosingEntries(entries);
+  // When the selected range is exactly one calendar month, a monthly_metrics
+  // row for it (if any closing/setting field is filled) wins wholesale over
+  // that month's daily entries — resolveMonthClosingTotals/
+  // resolveMonthSettingTotals fall back to the daily aggregate unchanged
+  // when no such row exists (last-30-days/custom/all-time ranges, or a month
+  // with nothing entered in /datas).
+  const exactMonth = range ? isExactCalendarMonth(range) : null;
+  const monthlyRow = exactMonth ? await getMonthlyMetrics(userId, exactMonth.year, exactMonth.month) : null;
+
+  const settingEntriesInRange = range
+    ? allSettingEntries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
+    : allSettingEntries;
+  const callsBooked = resolveMonthSettingTotals(monthlyRow, settingEntriesInRange).callsBooked;
+  const totals = resolveMonthClosingTotals(monthlyRow, entries);
   const rates = computeClosingRates(totals, callsBooked);
   const bottleneck = findClosingBottleneck(rates);
 
   // Previous-period comparison — no meaningful "previous" window when
   // viewing all-time history, so it's skipped in that case.
   const previousRange = range ? previousEquivalentRange(range) : null;
+  const previousExactMonth = previousRange ? isExactCalendarMonth(previousRange) : null;
+  const previousMonthlyRow = previousExactMonth
+    ? await getMonthlyMetrics(userId, previousExactMonth.year, previousExactMonth.month)
+    : null;
   const previousEntries = previousRange
     ? allEntries.filter(
         (entry) => entry.date >= previousRange.from && entry.date <= previousRange.to
       )
     : [];
-  const previousTotals = previousRange ? aggregateClosingEntries(previousEntries) : null;
+  const previousSettingEntries = previousRange
+    ? allSettingEntries.filter((entry) => entry.date >= previousRange.from && entry.date <= previousRange.to)
+    : [];
+  const previousTotals = previousRange ? resolveMonthClosingTotals(previousMonthlyRow, previousEntries) : null;
   const previousRates = previousTotals
-    ? computeClosingRates(previousTotals, sumCallsBooked(allSettingEntries, previousRange))
+    ? computeClosingRates(previousTotals, resolveMonthSettingTotals(previousMonthlyRow, previousSettingEntries).callsBooked)
     : null;
 
   return (
