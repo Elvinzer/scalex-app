@@ -27,7 +27,7 @@ export function DatasPageClient({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Tes datas</h1>
+        <h1 className="text-3xl font-medium">Tes datas</h1>
         <p className="mt-1 text-muted-foreground">
           Remplis tes chiffres mois par mois. Tout le reste de l&apos;app se met à jour
           automatiquement.
@@ -42,7 +42,7 @@ export function DatasPageClient({
         >
           <ChevronLeft className="size-4" />
         </Link>
-        <p className="font-display text-xl font-bold">{year}</p>
+        <p className="font-display text-xl font-medium">{year}</p>
         <Link
           href={`/datas?year=${year + 1}`}
           className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"

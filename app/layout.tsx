@@ -1,22 +1,15 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const displayFont = Space_Grotesk({
-  variable: "--font-display",
-  weight: ["500", "600", "700"],
-  subsets: ["latin"],
-});
-
-const bodyFont = Plus_Jakarta_Sans({
-  variable: "--font-body",
-  weight: ["400", "500", "600", "700", "800"],
-  subsets: ["latin"],
-});
-
-const monoFont = IBM_Plex_Mono({
-  variable: "--font-mono",
-  weight: ["400", "500", "600"],
+// Design system "Hybride" — Inter everywhere (titles, body, numbers,
+// sidebar, buttons, inputs), weights 400/500 only. Mapped in globals.css's
+// @theme block onto --font-sans/--font-display/--font-mono so existing
+// font-display/font-mono Tailwind classes resolve to Inter too, without
+// touching every className across the app.
+const inter = Inter({
+  variable: "--font-inter",
+  weight: ["400", "500"],
   subsets: ["latin"],
 });
 
@@ -33,11 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} antialiased`}
-      >
-        {children}
-      </body>
+      <body className={`${inter.variable} antialiased`}>{children}</body>
     </html>
   );
 }

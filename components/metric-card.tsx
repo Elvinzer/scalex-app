@@ -8,26 +8,30 @@ import { cn } from "@/lib/utils";
 export function MetricCard({ data }: { data: MetricCardData }) {
   if (data.status === "missing") {
     return (
-      <Link href={data.href} className="sticker-card-dashed flex flex-col p-5">
-        <p className="text-sm font-bold text-muted-foreground">{data.label}</p>
+      <Link href={data.href} className="sticker-card-dashed flex flex-col p-4">
+        <p className="text-xs text-muted-foreground">{data.label}</p>
         <p className="mt-2 text-sm text-muted-foreground/80">Donnée manquante</p>
         <p className="mt-1 text-xs text-muted-foreground/70">{data.reason}</p>
-        <span className="mt-auto pt-3 text-sm font-bold text-signal">{data.ctaLabel} →</span>
+        <span className="mt-auto pt-3 text-sm font-medium text-accent">{data.ctaLabel} →</span>
       </Link>
     );
   }
 
   return (
-    <Link href={data.href} className="sticker-card flex flex-col p-5" title={data.sourceHint}>
+    <Link
+      href={data.href}
+      className="sticker-card flex flex-col p-4 hover:border-border-hover"
+      title={data.sourceHint}
+    >
       <div className="flex items-center gap-1.5">
-        <p className="text-sm font-bold text-muted-foreground">{data.label}</p>
+        <p className="text-xs text-muted-foreground">{data.label}</p>
         {data.sourceHint && (
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             manuel
           </span>
         )}
       </div>
-      <p className="mt-2 font-display text-3xl font-bold">{data.valueLabel}</p>
+      <p className="mt-1.5 text-xl font-medium tracking-[-0.01em]">{data.valueLabel}</p>
       <div className="mt-1 min-h-4">
         {data.deltaLabel && (
           <p

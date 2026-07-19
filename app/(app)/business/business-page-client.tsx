@@ -22,13 +22,15 @@ export function BusinessPageClient({ initialProfile }: { initialProfile: Busines
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="sticker-spotlight p-10">
-        <p className="text-sm font-medium text-mist/70">Mon business</p>
-        <h1 className="mt-1 text-3xl font-bold">
+      <div className="sticker-spotlight px-7 py-6">
+        <p className="text-xs text-mist/70">Mon business</p>
+        <h1 className="mt-1 text-xl font-medium tracking-[-0.01em]">
           Plus c&apos;est complet, plus ton diagnostic est précis.
         </h1>
         <div className="mt-6 flex items-center gap-4">
-          <p className="font-display text-5xl font-bold tabular-nums">{completion.percent}%</p>
+          <p className="text-[38px] leading-[1.1] font-medium tracking-[-0.02em] tabular-nums">
+            {completion.percent}%
+          </p>
           <p className="text-sm text-mist/70">complété</p>
         </div>
         <div className="mt-4 flex h-2 gap-1 overflow-hidden rounded-full bg-mist/15">

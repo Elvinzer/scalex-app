@@ -58,7 +58,7 @@ export function EntryForm() {
           max={today()}
           value={date}
           onChange={(event) => setDate(event.target.value)}
-          className="rounded-lg border-2 border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
         />
       </label>
 
@@ -76,7 +76,7 @@ export function EntryForm() {
               onChange={(event) =>
                 setCounts((prev) => ({ ...prev, [field.name]: event.target.value }))
               }
-              className="rounded-lg border-2 border-border bg-background px-3 py-2 text-sm outline-none tabular-nums focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none tabular-nums focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             />
           </label>
         ))}

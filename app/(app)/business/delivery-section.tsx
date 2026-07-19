@@ -8,7 +8,7 @@ import { CompletionBadge, SaveIndicator } from "./save-indicator";
 import { useDebouncedSave } from "./use-debounced-save";
 
 const inputClass =
-  "rounded-lg border-2 border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
 const SUPPORT_FORMATS: { value: SupportFormat; label: string }[] = [
   { value: "communaute", label: "Communauté" },
@@ -59,7 +59,7 @@ export function DeliverySection({
     <div className="sticker-card p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Délivrabilité</h2>
+          <h2 className="text-base font-medium">Délivrabilité</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Ce qui se passe une fois que quelqu&apos;un a acheté.
           </p>
@@ -72,7 +72,7 @@ export function DeliverySection({
 
       <div className="mt-6 flex flex-col gap-5">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-bold">Onboarding client</span>
+          <span className="font-medium">Onboarding client</span>
           <span className="text-xs text-muted-foreground">
             Décris le parcours des 7 premiers jours.
           </span>
@@ -86,7 +86,7 @@ export function DeliverySection({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-bold">Suivi client — format</span>
+            <span className="font-medium">Suivi client — format</span>
             <select
               value={value.support.format ?? ""}
               onChange={(event) =>
@@ -108,7 +108,7 @@ export function DeliverySection({
             </select>
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-bold">Fréquence</span>
+            <span className="font-medium">Fréquence</span>
             <input
               type="text"
               value={value.support.frequency}
@@ -120,9 +120,9 @@ export function DeliverySection({
         </div>
 
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-bold">Témoignages</p>
+          <p className="text-sm font-medium">Témoignages</p>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-xs font-bold text-muted-foreground">Combien collectés</span>
+            <span className="text-xs font-medium text-muted-foreground">Combien collectés</span>
             <input
               type="number"
               min={0}
@@ -148,8 +148,8 @@ export function DeliverySection({
                   onClick={() => toggleChannel(channel, !active)}
                   className={
                     active
-                      ? "rounded-full border-2 border-signal bg-signal/15 px-3 py-1.5 text-sm font-bold text-signal"
-                      : "rounded-full border-2 border-border bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-signal/50"
+                      ? "rounded-full border border-signal bg-signal/15 px-3 py-1.5 text-sm font-medium text-signal"
+                      : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-signal/50"
                   }
                 >
                   {channel}
@@ -159,17 +159,17 @@ export function DeliverySection({
           </div>
         </div>
 
-        <div className="rounded-xl border-2 border-border p-4">
+        <div className="rounded-xl border border-border p-4">
           <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-bold">Upsell / ascension</p>
+            <p className="text-sm font-medium">Upsell / ascension</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => update({ upsellOfferId: offers[0]?.id ?? "" })}
                 className={
                   hasUpsell
-                    ? "rounded-full border-2 border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
-                    : "rounded-full border-2 border-border px-3 py-1 text-xs font-medium text-muted-foreground"
+                    ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-medium text-signal"
+                    : "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
                 }
               >
                 Oui
@@ -179,8 +179,8 @@ export function DeliverySection({
                 onClick={() => update({ upsellOfferId: null })}
                 className={
                   !hasUpsell
-                    ? "rounded-full border-2 border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
-                    : "rounded-full border-2 border-border px-3 py-1 text-xs font-medium text-muted-foreground"
+                    ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-medium text-signal"
+                    : "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
                 }
               >
                 Non
@@ -190,7 +190,7 @@ export function DeliverySection({
 
           {hasUpsell && (
             <label className="mt-4 flex flex-col gap-1.5 text-sm">
-              <span className="font-bold">Offre concernée</span>
+              <span className="font-medium">Offre concernée</span>
               {offers.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   Ajoute d&apos;abord une offre dans la section Vente.

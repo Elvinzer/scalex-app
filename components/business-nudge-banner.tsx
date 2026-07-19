@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 // actually compute (Phase 1 of "Mon business"; see plan doc).
 export function BusinessNudgeBanner() {
   return (
-    <div className="sticker-card border-signal flex flex-col items-start justify-between gap-4 px-6 py-4 sm:flex-row sm:items-center">
+    <div className="flex flex-col items-start justify-between gap-4 rounded-[var(--radius-card)] border border-accent-border bg-accent-soft px-6 py-4 text-accent-text sm:flex-row sm:items-center">
       <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-signal/10 text-signal">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-border/40 text-accent-text">
           <Store className="size-4.5" />
         </span>
         <div>
-          <p className="text-sm font-bold">
+          <p className="text-sm font-medium">
             Renseigne tes offres dans Mon business pour chiffrer ton manque à gagner
           </p>
         </div>

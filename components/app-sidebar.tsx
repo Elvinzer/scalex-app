@@ -50,10 +50,10 @@ export function AppSidebar({ email }: { email: string }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col bg-ink px-3 py-7 text-mist">
       <div className="flex items-center gap-2.5 px-3 pb-7">
-        <div className="flex size-8 items-center justify-center rounded-lg border-2 border-mist bg-signal text-sm font-bold text-ink">
+        <div className="flex size-8 items-center justify-center rounded-lg border border-mist bg-signal text-sm font-medium text-ink">
           S
         </div>
-        <span className="font-display text-lg font-bold tracking-tight">Scale X</span>
+        <span className="font-display text-lg font-medium tracking-tight">Scale X</span>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
@@ -65,8 +65,8 @@ export function AppSidebar({ email }: { email: string }) {
               key={item.label}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
-                active ? "bg-signal text-ink" : "text-mist/75 hover:bg-mist/10 hover:text-mist"
+                "flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-medium transition-colors duration-150",
+                active ? "bg-white/10 text-on-dark" : "text-mist/75 hover:bg-mist/10 hover:text-mist"
               )}
             >
               <Icon className="size-4" />
@@ -78,7 +78,7 @@ export function AppSidebar({ email }: { email: string }) {
 
       <div className="border-t border-mist/15 px-3 pt-4">
         <div className="flex items-center gap-3 rounded-xl px-1 py-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-signal text-xs font-bold text-ink">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-on-dark">
             {initial}
           </div>
           <div className="min-w-0 flex-1">

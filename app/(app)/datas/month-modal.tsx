@@ -16,7 +16,7 @@ import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 import { saveMonthlyMetrics } from "./actions";
 
 const inputClass =
-  "rounded-lg border-2 border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
 function toDraft(row: MonthlyMetricsRow | null): MonthlyMetricsInput {
   return {
@@ -49,7 +49,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="font-bold">{label}</span>
+      <span className="font-medium">{label}</span>
       <input
         type="number"
         min={0}
@@ -173,7 +173,7 @@ export function MonthModal({
       <DialogContent>
         {pendingAction ? (
           <div className="flex flex-col gap-4 p-2 text-center">
-            <p className="font-bold">Tu as des modifications non enregistrées</p>
+            <p className="font-medium">Tu as des modifications non enregistrées</p>
             <div className="flex justify-center gap-3">
               <Button onClick={saveAndProceed} disabled={isPending}>
                 Enregistrer
@@ -195,7 +195,7 @@ export function MonthModal({
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <DialogTitle className="font-display text-lg font-bold">
+                <DialogTitle className="font-display text-lg font-medium">
                   {MONTH_LABELS[month - 1]} {year}
                 </DialogTitle>
                 <button
@@ -219,7 +219,7 @@ export function MonthModal({
 
             <div className="mt-6 flex flex-col gap-6">
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   💰 Finance
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -240,7 +240,7 @@ export function MonthModal({
               </div>
 
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   📩 Setting · prospection
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -287,7 +287,7 @@ export function MonthModal({
               </div>
 
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   📞 Closing
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">

@@ -30,7 +30,7 @@ export function InsightTrigger({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex shrink-0 items-center gap-1 whitespace-nowrap pl-2 text-[10.5px] font-bold text-signal hover:underline"
+        className="flex shrink-0 items-center gap-1 whitespace-nowrap pl-2 text-[10.5px] font-medium text-signal hover:underline"
       >
         <Sparkle className="size-[11px] fill-signal" />
         Insight

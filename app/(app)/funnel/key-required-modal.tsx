@@ -16,7 +16,7 @@ export function KeyRequiredModal({ onClose }: { onClose: () => void }) {
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
-          <p className="text-sm font-bold">Clé Anthropic requise</p>
+          <p className="text-sm font-medium">Clé Anthropic requise</p>
           <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Fermer">
             <X className="size-4" />
           </Button>

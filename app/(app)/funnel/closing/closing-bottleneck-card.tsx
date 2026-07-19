@@ -20,7 +20,7 @@ export function ClosingBottleneckCard({
   if (!bottleneck) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-bold">Pas encore assez de données</p>
+        <p className="text-sm font-medium">Pas encore assez de données</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Ajoute quelques jours de suite pour voir apparaître ton point de friction
           prioritaire.
@@ -34,13 +34,11 @@ export function ClosingBottleneckCard({
   const comparison = compareToBand(bottleneck.rate, band);
 
   return (
-    <div className="sticker-spotlight p-8">
-      <p className="text-sm font-bold text-signal">Ton plus gros point de friction</p>
+    <div className="sticker-spotlight px-7 py-6">
+      <p className="text-xs text-mist/70">Ton plus gros point de friction</p>
       <div className="mt-2 flex items-baseline gap-3">
-        <h2 className="text-2xl font-bold">{CLOSING_STAGE_LABELS[bottleneck.stage]}</h2>
-        <span className="font-display text-2xl font-bold tabular-nums text-state-critical">
-          {percent}%
-        </span>
+        <h2 className="text-xl font-medium tracking-[-0.01em]">{CLOSING_STAGE_LABELS[bottleneck.stage]}</h2>
+        <span className="text-xl font-medium tabular-nums text-negative">{percent}%</span>
       </div>
       <p className="mt-3 max-w-2xl text-sm text-mist/70">
         {CLOSING_STAGE_TIPS[bottleneck.stage]}

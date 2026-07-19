@@ -16,7 +16,7 @@ export function SaveIndicator({ status, error }: { status: SaveStatus; error: st
 
 export function CompletionBadge({ answered, total }: { answered: number; total: number }) {
   return (
-    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">
+    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
       {answered}/{total} renseigné{answered > 1 ? "s" : ""}
     </span>
   );

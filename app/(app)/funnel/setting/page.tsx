@@ -76,7 +76,7 @@ export default async function SettingPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Setting</h1>
+        <h1 className="text-3xl font-medium">Setting</h1>
         <p className="mt-1 text-muted-foreground">
           Ton funnel de prospection, jour par jour : nouveaux abonnés, premiers messages,
           conversations, appels proposés et réservés.
@@ -87,7 +87,7 @@ export default async function SettingPage({
 
       {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucun KPI enregistré pour l&apos;instant</p>
+          <p className="text-sm font-medium">Aucun KPI enregistré pour l&apos;instant</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoute ta première journée ci-dessous, ou importe un historique en CSV.
           </p>
@@ -102,7 +102,7 @@ export default async function SettingPage({
 
       {hasAnyEntries && !hasEntriesInRange && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune donnée sur cette période</p>
+          <p className="text-sm font-medium">Aucune donnée sur cette période</p>
           <p className="mt-1 text-sm text-muted-foreground">Choisis une autre plage ci-dessus.</p>
         </div>
       )}
@@ -110,7 +110,7 @@ export default async function SettingPage({
       {hasEntriesInRange && (
         <>
           <div className="sticker-card p-8">
-            <p className="text-sm font-bold">Funnel</p>
+            <p className="text-sm font-medium">Funnel</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Cumul sur {entries.length} jour{entries.length > 1 ? "s" : ""}
               {range ? ` — ${formatRangeDates(range)}` : " enregistrés"}.
@@ -139,7 +139,7 @@ export default async function SettingPage({
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold">Ajouter un jour</p>
+          <p className="text-sm font-medium">Ajouter un jour</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ressaisir une date déjà enregistrée la met à jour.
           </p>
@@ -149,7 +149,7 @@ export default async function SettingPage({
         </div>
 
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold">Importer un CSV</p>
+          <p className="text-sm font-medium">Importer un CSV</p>
           <div className="mt-6">
             <CsvImport />
           </div>
@@ -158,7 +158,7 @@ export default async function SettingPage({
 
       {hasEntriesInRange && (
         <div>
-          <p className="mb-3 text-sm font-bold">Historique</p>
+          <p className="mb-3 text-sm font-medium">Historique</p>
           <EntriesTable entries={entries} />
         </div>
       )}

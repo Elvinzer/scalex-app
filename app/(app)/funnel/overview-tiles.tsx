@@ -21,12 +21,12 @@ export function OverviewTiles({
         className="sticker-card flex items-center justify-between p-5 transition-colors hover:bg-muted/40"
       >
         <div>
-          <p className="text-sm font-bold">Setting</p>
+          <p className="text-sm font-medium">Setting</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {newSubscribers} abonnés · {responseRate === null ? "—" : formatPercent(responseRate)} de réponse
           </p>
         </div>
-        <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-signal">
+        <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-signal">
           Voir le détail
           <ArrowRight className="size-4" />
         </span>
@@ -37,12 +37,12 @@ export function OverviewTiles({
         className="sticker-card flex items-center justify-between p-5 transition-colors hover:bg-muted/40"
       >
         <div>
-          <p className="text-sm font-bold">Closing</p>
+          <p className="text-sm font-medium">Closing</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {callsAttended} appels pris · {closingRate === null ? "—" : formatPercent(closingRate)} de closing
           </p>
         </div>
-        <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-signal">
+        <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-signal">
           Voir le détail
           <ArrowRight className="size-4" />
         </span>

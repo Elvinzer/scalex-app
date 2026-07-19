@@ -200,12 +200,12 @@ export default function MarketingHomePage() {
 
       <nav className="sticky top-0 z-50 flex items-center justify-between border-b border-ink/10 bg-mist px-6 py-4 sm:px-12">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-8 items-center justify-center rounded-[10px] border-2 border-ink bg-signal font-display text-base font-bold text-ink">
+          <div className="flex size-8 items-center justify-center rounded-[10px] border border-ink bg-signal font-display text-base font-medium text-ink">
             S
           </div>
-          <span className="font-display text-lg font-bold">Scale X</span>
+          <span className="font-display text-lg font-medium">Scale X</span>
         </div>
-        <div className="hidden gap-8 text-sm font-semibold md:flex">
+        <div className="hidden gap-8 text-sm font-medium md:flex">
           <a href="#produit" className="hover:opacity-65">
             Produit
           </a>
@@ -230,7 +230,7 @@ export default function MarketingHomePage() {
           background: "linear-gradient(135deg, #ECE9FB 0%, #FBF7F0 45%, #FCEEDD 100%)",
         }}
       >
-        <span className="rounded-full border-2 border-ink bg-white px-5 py-2 text-[13px] font-bold">
+        <span className="rounded-full border border-ink bg-white px-5 py-2 text-[13px] font-medium">
           Pour les infopreneurs qui font $10k–100k/mois
         </span>
         <h1 className="max-w-4xl text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.06]">
@@ -253,28 +253,28 @@ export default function MarketingHomePage() {
           </Button>
           <a
             href="#comment-ca-marche"
-            className="flex items-center rounded-full border-2 border-ink bg-white px-8 py-4 text-base font-bold"
+            className="flex items-center rounded-full border border-ink bg-white px-8 py-4 text-base font-medium"
           >
             Voir comment ça marche
           </a>
         </div>
-        <p className="text-[13px] font-semibold tracking-wide text-ink/55 uppercase">
+        <p className="text-[13px] font-medium tracking-wide text-ink/55 uppercase">
           Connecté à Stripe en 2 min · Résultats en 24h · Aucune carte requise
         </p>
 
         <div className="sticker-card mt-6 w-full max-w-lg -rotate-1 p-7 text-left">
           <div className="mb-3.5 flex items-center justify-between">
-            <span className="rounded-full border-2 border-ink bg-signal px-3 py-1 text-xs font-bold text-ink">
+            <span className="rounded-full border border-ink bg-signal px-3 py-1 text-xs font-medium text-ink">
               Bottleneck #1 détecté
             </span>
-            <span className="rounded-full bg-state-healthy-bg px-3 py-1 text-xs font-bold text-state-healthy">
+            <span className="rounded-full bg-state-healthy-bg px-3 py-1 text-xs font-medium text-state-healthy">
               +12% MRR récupérable
             </span>
           </div>
-          <p className="mb-1 text-sm font-semibold text-muted-foreground">
+          <p className="mb-1 text-sm font-medium text-muted-foreground">
             Paiements échoués
           </p>
-          <p className="font-display text-5xl font-bold">$2,340</p>
+          <p className="font-display text-5xl font-medium">$2,340</p>
           <p className="mt-1.5 text-sm text-muted-foreground">
             manque à gagner détecté ce mois-ci
           </p>
@@ -290,18 +290,18 @@ export default function MarketingHomePage() {
         <div className="mt-16 grid gap-6 sm:grid-cols-3">
           {PROBLEMS.map((p) => (
             <div key={p.title} className="sticker-card p-8">
-              <div className="mb-5 flex size-11 items-center justify-center rounded-xl border-2 border-ink bg-signal font-display text-xl font-bold text-ink">
+              <div className="mb-5 flex size-11 items-center justify-center rounded-xl border border-ink bg-signal font-display text-xl font-medium text-ink">
                 {p.tag}
               </div>
-              <p className="mb-1.5 text-sm font-bold tracking-wide text-muted-foreground uppercase">
+              <p className="mb-1.5 text-sm font-medium tracking-wide text-muted-foreground uppercase">
                 {p.stat}
               </p>
-              <p className="mb-2.5 text-xl font-bold">{p.title}</p>
+              <p className="mb-2.5 text-xl font-medium">{p.title}</p>
               <p className="text-[15px] leading-relaxed text-muted-foreground">{p.desc}</p>
             </div>
           ))}
         </div>
-        <p className="mx-auto mt-14 max-w-xl text-center text-[17px] font-bold leading-relaxed">
+        <p className="mx-auto mt-14 max-w-xl text-center text-[17px] font-medium leading-relaxed">
           Un seul de ces problèmes, corrigé, peut représenter plus que ce que coûte Scale X
           sur 10 ans.
         </p>
@@ -318,10 +318,10 @@ export default function MarketingHomePage() {
           <div className="grid gap-9 sm:grid-cols-3">
             {STEPS.map((s) => (
               <div key={s.n}>
-                <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border-2 border-ink bg-white font-display text-xl font-bold">
+                <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border border-ink bg-white font-display text-xl font-medium">
                   {s.n}
                 </div>
-                <p className="mb-2.5 text-xl font-bold">{s.title}</p>
+                <p className="mb-2.5 text-xl font-medium">{s.title}</p>
                 <p className="text-[15.5px] leading-relaxed text-muted-foreground">{s.desc}</p>
               </div>
             ))}
@@ -331,7 +331,7 @@ export default function MarketingHomePage() {
 
       <section className="mx-auto max-w-5xl px-6 py-28 sm:px-12">
         <div className="mb-10 max-w-2xl">
-          <p className="mb-3 text-[12.5px] font-bold tracking-wide text-signal uppercase">
+          <p className="mb-3 text-[12.5px] font-medium tracking-wide text-signal uppercase">
             Écran app · après connexion
           </p>
           <h2 className="mb-3 text-[clamp(1.75rem,3.6vw,2.5rem)]">
@@ -345,8 +345,8 @@ export default function MarketingHomePage() {
         <div className="sticker-card flex min-h-[420px] overflow-hidden p-0">
           <div className="hidden w-56 shrink-0 flex-col bg-ink px-3 py-6 text-mist sm:flex">
             <div className="mb-6 flex items-center gap-2 px-2">
-              <div className="size-6 rounded-md border-2 border-mist bg-signal" />
-              <span className="font-display text-sm font-bold">Scale X</span>
+              <div className="size-6 rounded-md border border-mist bg-signal" />
+              <span className="font-display text-sm font-medium">Scale X</span>
             </div>
             <div className="flex flex-1 flex-col gap-1">
               {SIDEBAR_ITEMS.map((item) => (
@@ -354,8 +354,8 @@ export default function MarketingHomePage() {
                   key={item.label}
                   className={
                     item.active
-                      ? "rounded-lg bg-signal px-3 py-2 text-sm font-semibold text-ink"
-                      : "px-3 py-2 text-sm font-semibold text-mist/70"
+                      ? "rounded-lg bg-signal px-3 py-2 text-sm font-medium text-ink"
+                      : "px-3 py-2 text-sm font-medium text-mist/70"
                   }
                 >
                   {item.label}
@@ -364,35 +364,35 @@ export default function MarketingHomePage() {
             </div>
           </div>
           <div className="flex-1 bg-panel p-7">
-            <p className="mb-1 font-display text-xl font-bold">Dashboard</p>
+            <p className="mb-1 font-display text-xl font-medium">Dashboard</p>
             <p className="mb-5 text-sm text-muted-foreground">
               Vue d&apos;ensemble de ton business, aujourd&apos;hui.
             </p>
             <div className="sticker-spotlight mb-6 flex flex-wrap items-center justify-between gap-4 p-6">
               <div>
-                <span className="rounded-full bg-signal px-3 py-1 text-xs font-bold text-ink">
+                <span className="rounded-full bg-signal px-3 py-1 text-xs font-medium text-ink">
                   Bottleneck actuel
                 </span>
-                <p className="mt-3 font-display text-lg font-bold">
+                <p className="mt-3 font-display text-lg font-medium">
                   Paiements échoués : $2,340 détectés ce mois-ci
                 </p>
               </div>
-              <span className="shrink-0 rounded-full border-2 border-signal bg-signal px-4 py-2.5 text-sm font-bold text-ink">
+              <span className="shrink-0 rounded-full border border-signal bg-signal px-4 py-2.5 text-sm font-medium text-ink">
                 Voir le diagnostic complet →
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
               {PREVIEW_KPIS.map((kpi) => (
                 <div key={kpi.label} className="sticker-card p-4">
-                  <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
                     {kpi.label}
                   </p>
-                  <p className="mb-2 font-display text-xl font-bold">{kpi.value}</p>
+                  <p className="mb-2 font-display text-xl font-medium">{kpi.value}</p>
                   <span
                     className={
                       kpi.good
-                        ? "rounded-full bg-state-healthy-bg px-2.5 py-0.5 text-xs font-bold text-state-healthy"
-                        : "rounded-full bg-state-critical-bg px-2.5 py-0.5 text-xs font-bold text-state-critical"
+                        ? "rounded-full bg-state-healthy-bg px-2.5 py-0.5 text-xs font-medium text-state-healthy"
+                        : "rounded-full bg-state-critical-bg px-2.5 py-0.5 text-xs font-medium text-state-critical"
                     }
                   >
                     {kpi.delta}
@@ -416,10 +416,10 @@ export default function MarketingHomePage() {
         <div className="grid gap-6 sm:grid-cols-2">
           {FEATURES.map((f) => (
             <div key={f.title} className="sticker-card p-8">
-              <span className="mb-4 inline-block rounded-full border-2 border-ink bg-paper-alt px-3 py-1 text-[11.5px] font-bold tracking-wide">
+              <span className="mb-4 inline-block rounded-full border border-ink bg-paper-alt px-3 py-1 text-[11.5px] font-medium tracking-wide">
                 {f.tag}
               </span>
-              <p className="mb-2.5 text-xl font-bold">{f.title}</p>
+              <p className="mb-2.5 text-xl font-medium">{f.title}</p>
               <p className="text-[15px] leading-relaxed text-muted-foreground">{f.desc}</p>
             </div>
           ))}
@@ -439,21 +439,21 @@ export default function MarketingHomePage() {
               tier.highlight ? (
                 <div
                   key={tier.key}
-                  className="flex h-full flex-col rounded-2xl border-2 border-ink bg-ink px-8 py-9 text-mist"
+                  className="flex h-full flex-col rounded-2xl border border-ink bg-ink px-8 py-9 text-mist"
                   style={{ boxShadow: "7px 7px 0 var(--signal)" }}
                 >
-                  <span className="mb-4 self-start rounded-full bg-signal px-3.5 py-1 text-xs font-bold text-ink">
+                  <span className="mb-4 self-start rounded-full bg-signal px-3.5 py-1 text-xs font-medium text-ink">
                     Plus populaire
                   </span>
-                  <p className="mb-1 font-display text-xl font-bold">{tier.name}</p>
+                  <p className="mb-1 font-display text-xl font-medium">{tier.name}</p>
                   <p className="mb-5 text-sm text-mist/70">{tier.tagline}</p>
-                  <p className="mb-6 font-display text-4xl font-bold">
+                  <p className="mb-6 font-display text-4xl font-medium">
                     ${tier.price}
                     <span className="text-base font-medium text-mist/60">/mois</span>
                   </p>
                   {tier.feats.map((feat) => (
                     <div key={feat} className="mb-3 flex gap-2.5 text-sm">
-                      <span className="font-bold text-signal">✓</span>
+                      <span className="font-medium text-signal">✓</span>
                       <span>{feat}</span>
                     </div>
                   ))}
@@ -466,15 +466,15 @@ export default function MarketingHomePage() {
                 </div>
               ) : (
                 <div key={tier.key} className="sticker-card flex h-full flex-col px-8 py-9">
-                  <p className="mb-1 font-display text-xl font-bold">{tier.name}</p>
+                  <p className="mb-1 font-display text-xl font-medium">{tier.name}</p>
                   <p className="mb-5 text-sm text-muted-foreground">{tier.tagline}</p>
-                  <p className="mb-6 font-display text-4xl font-bold">
+                  <p className="mb-6 font-display text-4xl font-medium">
                     ${tier.price}
                     <span className="text-base font-medium text-muted-foreground">/mois</span>
                   </p>
                   {tier.feats.map((feat) => (
                     <div key={feat} className="mb-3 flex gap-2.5 text-sm text-muted-foreground">
-                      <span className="font-bold text-ink">✓</span>
+                      <span className="font-medium text-ink">✓</span>
                       <span>{feat}</span>
                     </div>
                   ))}
@@ -514,8 +514,8 @@ export default function MarketingHomePage() {
           <div className="flex flex-wrap justify-between gap-12 border-b border-mist/15 pb-11">
             <div className="max-w-70">
               <div className="mb-3.5 flex items-center gap-2.5">
-                <div className="size-7 rounded-lg border-2 border-mist bg-signal" />
-                <span className="font-display text-lg font-bold">Scale X</span>
+                <div className="size-7 rounded-lg border border-mist bg-signal" />
+                <span className="font-display text-lg font-medium">Scale X</span>
               </div>
               <p className="text-sm leading-relaxed text-mist/60">
                 Le diagnostic et l&apos;agent IA qui corrigent le bottleneck qui coûte le
@@ -524,7 +524,7 @@ export default function MarketingHomePage() {
             </div>
             <div className="flex flex-wrap gap-16">
               <div>
-                <p className="mb-4 text-[13px] font-bold tracking-wide text-mist/50 uppercase">
+                <p className="mb-4 text-[13px] font-medium tracking-wide text-mist/50 uppercase">
                   Produit
                 </p>
                 <div className="flex flex-col gap-3 text-[14.5px]">
@@ -540,7 +540,7 @@ export default function MarketingHomePage() {
                 </div>
               </div>
               <div>
-                <p className="mb-4 text-[13px] font-bold tracking-wide text-mist/50 uppercase">
+                <p className="mb-4 text-[13px] font-medium tracking-wide text-mist/50 uppercase">
                   Ressources
                 </p>
                 <div className="flex flex-col gap-3 text-[14.5px]">
@@ -553,7 +553,7 @@ export default function MarketingHomePage() {
                 </div>
               </div>
               <div>
-                <p className="mb-4 text-[13px] font-bold tracking-wide text-mist/50 uppercase">
+                <p className="mb-4 text-[13px] font-medium tracking-wide text-mist/50 uppercase">
                   Légal
                 </p>
                 <div className="flex flex-col gap-3 text-[14.5px]">

@@ -61,7 +61,7 @@ export function MarketBenchmarkAccordion({
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center justify-between gap-4 p-5 text-left"
       >
-        <span className="text-sm font-bold">Repères du marché — {sectorLabel}</span>
+        <span className="text-sm font-medium">Repères du marché — {sectorLabel}</span>
         <ChevronDown className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
@@ -76,7 +76,7 @@ export function MarketBenchmarkAccordion({
           </div>
 
           <div>
-            <p className="mt-6 mb-3 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+            <p className="mt-6 mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Setting · prospection
             </p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -96,7 +96,7 @@ export function MarketBenchmarkAccordion({
           </div>
 
           <div>
-            <p className="mt-8 mb-3 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+            <p className="mt-8 mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Closing · vente
             </p>
             <div className="grid gap-2 sm:grid-cols-2">

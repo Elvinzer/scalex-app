@@ -91,7 +91,7 @@ export default async function ClosingPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Closing</h1>
+        <h1 className="text-3xl font-medium">Closing</h1>
         <p className="mt-1 text-muted-foreground">
           Ce qui se passe une fois l&apos;appel réservé : présence à l&apos;appel, et
           conversion en vente.
@@ -102,7 +102,7 @@ export default async function ClosingPage({
 
       {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune donnée de closing enregistrée pour l&apos;instant</p>
+          <p className="text-sm font-medium">Aucune donnée de closing enregistrée pour l&apos;instant</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoute ta première journée ci-dessous, ou importe un historique en CSV.
           </p>
@@ -117,7 +117,7 @@ export default async function ClosingPage({
 
       {hasAnyEntries && !hasEntriesInRange && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune donnée sur cette période</p>
+          <p className="text-sm font-medium">Aucune donnée sur cette période</p>
           <p className="mt-1 text-sm text-muted-foreground">Choisis une autre plage ci-dessus.</p>
         </div>
       )}
@@ -150,7 +150,7 @@ export default async function ClosingPage({
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold">Ajouter un jour</p>
+          <p className="text-sm font-medium">Ajouter un jour</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ressaisir une date déjà enregistrée la met à jour.
           </p>
@@ -160,7 +160,7 @@ export default async function ClosingPage({
         </div>
 
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold">Importer un CSV</p>
+          <p className="text-sm font-medium">Importer un CSV</p>
           <div className="mt-6">
             <CsvImport />
           </div>
@@ -169,7 +169,7 @@ export default async function ClosingPage({
 
       {hasEntriesInRange && (
         <div>
-          <p className="mb-3 text-sm font-bold">Historique</p>
+          <p className="mb-3 text-sm font-medium">Historique</p>
           <EntriesTable entries={entries} />
         </div>
       )}

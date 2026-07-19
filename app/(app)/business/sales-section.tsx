@@ -8,7 +8,7 @@ import { CompletionBadge, SaveIndicator } from "./save-indicator";
 import { useDebouncedSave } from "./use-debounced-save";
 
 const inputClass =
-  "rounded-lg border-2 border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
 const OFFER_TYPES: { value: OfferType; label: string }[] = [
   { value: "formation", label: "Formation" },
@@ -85,7 +85,7 @@ export function SalesSection({
     <div className="sticker-card p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Vente</h2>
+          <h2 className="text-base font-medium">Vente</h2>
           <p className="mt-1 text-sm text-muted-foreground">Tes offres et ton process de closing.</p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -96,13 +96,13 @@ export function SalesSection({
 
       <div className="mt-6 flex flex-col gap-6">
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-bold">Offres</p>
+          <p className="text-sm font-medium">Offres</p>
 
           {value.offers.map((offer) => (
-            <div key={offer.id} className="flex flex-col gap-3 rounded-xl border-2 border-border p-4">
+            <div key={offer.id} className="flex flex-col gap-3 rounded-xl border border-border p-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Nom</span>
+                  <span className="font-medium text-muted-foreground">Nom</span>
                   <input
                     type="text"
                     value={offer.name}
@@ -111,7 +111,7 @@ export function SalesSection({
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Prix (€)</span>
+                  <span className="font-medium text-muted-foreground">Prix (€)</span>
                   <input
                     type="number"
                     min={0}
@@ -126,7 +126,7 @@ export function SalesSection({
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Type</span>
+                  <span className="font-medium text-muted-foreground">Type</span>
                   <select
                     value={offer.type ?? ""}
                     onChange={(event) =>
@@ -143,7 +143,7 @@ export function SalesSection({
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Mode de vente</span>
+                  <span className="font-medium text-muted-foreground">Mode de vente</span>
                   <select
                     value={offer.saleMode ?? ""}
                     onChange={(event) =>
@@ -162,7 +162,7 @@ export function SalesSection({
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Récurrence</span>
+                  <span className="font-medium text-muted-foreground">Récurrence</span>
                   <select
                     value={offer.recurrence ?? ""}
                     onChange={(event) =>
@@ -188,8 +188,8 @@ export function SalesSection({
                   onClick={() => updateOffer(offer.id, { isMain: !offer.isMain })}
                   className={
                     offer.isMain
-                      ? "rounded-full border-2 border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
-                      : "rounded-full border-2 border-border px-3 py-1 text-xs font-medium text-muted-foreground"
+                      ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-medium text-signal"
+                      : "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
                   }
                 >
                   {offer.isMain ? "Offre principale ✓" : "Définir comme offre principale"}
@@ -208,17 +208,17 @@ export function SalesSection({
           <button
             type="button"
             onClick={addOffer}
-            className="self-start rounded-full border-2 border-dashed border-border px-4 py-2 text-sm font-bold text-muted-foreground hover:border-signal hover:text-signal"
+            className="self-start rounded-full border border-dashed border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:border-signal hover:text-signal"
           >
             + Ajouter une offre
           </button>
         </div>
 
-        <div className="rounded-xl border-2 border-border p-4">
-          <p className="text-sm font-bold">Process de closing</p>
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-sm font-medium">Process de closing</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs">
-              <span className="font-bold text-muted-foreground">Qui close</span>
+              <span className="font-medium text-muted-foreground">Qui close</span>
               <select
                 value={value.closing.closer ?? ""}
                 onChange={(event) =>
@@ -237,7 +237,7 @@ export function SalesSection({
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs">
-              <span className="font-bold text-muted-foreground">Durée moyenne (min)</span>
+              <span className="font-medium text-muted-foreground">Durée moyenne (min)</span>
               <input
                 type="number"
                 min={0}
@@ -254,7 +254,7 @@ export function SalesSection({
               />
             </label>
             <label className="flex flex-col gap-1 text-xs">
-              <span className="font-bold text-muted-foreground">Script utilisé ?</span>
+              <span className="font-medium text-muted-foreground">Script utilisé ?</span>
               <select
                 value={value.closing.hasScript === null ? "" : value.closing.hasScript ? "yes" : "no"}
                 onChange={(event) =>
@@ -275,8 +275,8 @@ export function SalesSection({
           </div>
         </div>
 
-        <div className="rounded-xl border-2 border-border p-4">
-          <p className="text-sm font-bold">Relances</p>
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-sm font-medium">Relances</p>
           <div className="mt-3 flex flex-col gap-3">
             <FollowupToggle
               label="Séquence de relance non-acheteurs"
@@ -318,8 +318,8 @@ function FollowupToggle({
           onClick={() => onChange(true)}
           className={
             value === true
-              ? "rounded-full border-2 border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
-              : "rounded-full border-2 border-border px-3 py-1 text-xs font-medium text-muted-foreground"
+              ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-medium text-signal"
+              : "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
           }
         >
           Oui
@@ -329,8 +329,8 @@ function FollowupToggle({
           onClick={() => onChange(false)}
           className={
             value === false
-              ? "rounded-full border-2 border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
-              : "rounded-full border-2 border-border px-3 py-1 text-xs font-medium text-muted-foreground"
+              ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-medium text-signal"
+              : "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
           }
         >
           Non

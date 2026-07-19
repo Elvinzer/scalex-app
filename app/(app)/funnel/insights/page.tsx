@@ -30,7 +30,7 @@ export default async function FunnelInsightsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Insights</h1>
+        <h1 className="text-3xl font-medium">Insights</h1>
         <p className="mt-1 text-muted-foreground">
           Tout ce que l&apos;agent t&apos;a déjà suggéré sur ton funnel, et ce que tu as
           réellement mis en place.
@@ -41,7 +41,7 @@ export default async function FunnelInsightsPage() {
 
       {insights.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucun insight généré pour l&apos;instant</p>
+          <p className="text-sm font-medium">Aucun insight généré pour l&apos;instant</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Clique sur « Insight » sur une métrique du funnel pour en générer un.
           </p>
@@ -53,10 +53,10 @@ export default async function FunnelInsightsPage() {
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b-2 border-border text-left text-muted-foreground">
-                <th className="px-4 py-3 font-bold">Date</th>
-                <th className="px-4 py-3 font-bold">Étape</th>
-                <th className="px-4 py-3 font-bold">Insight</th>
-                <th className="px-4 py-3 font-bold">Mis en place ?</th>
+                <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium">Étape</th>
+                <th className="px-4 py-3 font-medium">Insight</th>
+                <th className="px-4 py-3 font-medium">Mis en place ?</th>
               </tr>
             </thead>
             <tbody>
@@ -65,7 +65,7 @@ export default async function FunnelInsightsPage() {
                   <td className="px-4 py-2.5 whitespace-nowrap text-muted-foreground">
                     {formatDateTime(insight.generatedAt)}
                   </td>
-                  <td className="px-4 py-2.5 font-semibold whitespace-nowrap">
+                  <td className="px-4 py-2.5 font-medium whitespace-nowrap">
                     {STAGE_TITLES[insight.stage]}
                   </td>
                   <td className="px-4 py-2.5">{insight.insightText}</td>

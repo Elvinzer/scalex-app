@@ -116,7 +116,7 @@ export function DateRangePicker() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 flex w-[min(90vw,640px)] flex-col rounded-lg border border-border bg-background shadow-lg sm:flex-row">
+        <div className="elevated absolute right-0 z-50 mt-2 flex w-[min(90vw,640px)] flex-col rounded-[var(--radius-card)] border border-border bg-card transition-opacity duration-150 sm:flex-row">
           <div className="flex w-full flex-col gap-1 border-b border-border p-3 sm:w-44 sm:border-b-0 sm:border-r">
             <PresetButton active={activePreset === "all"} onClick={() => applyPreset("all")}>
               {PRESET_LABELS.all}
@@ -263,7 +263,7 @@ function MonthGrid({
 
   return (
     <div className="flex-1">
-      <p className="mb-2 text-center text-sm font-bold">
+      <p className="mb-2 text-center text-sm font-medium">
         {monthLabel} {year}
       </p>
       <div className="grid grid-cols-7 gap-y-1 text-center text-xs">

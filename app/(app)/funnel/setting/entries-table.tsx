@@ -24,12 +24,12 @@ export function EntriesTable({ entries }: { entries: SettingKpiEntry[] }) {
       <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b-2 border-border text-left text-muted-foreground">
-            <th className="px-4 py-3 font-bold">Date</th>
-            <th className="px-4 py-3 font-bold">Abonnés</th>
-            <th className="px-4 py-3 font-bold">Messages</th>
-            <th className="px-4 py-3 font-bold">Conversations</th>
-            <th className="px-4 py-3 font-bold">Appels proposés</th>
-            <th className="px-4 py-3 font-bold">Appels réservés</th>
+            <th className="px-4 py-3 font-medium">Date</th>
+            <th className="px-4 py-3 font-medium">Abonnés</th>
+            <th className="px-4 py-3 font-medium">Messages</th>
+            <th className="px-4 py-3 font-medium">Conversations</th>
+            <th className="px-4 py-3 font-medium">Appels proposés</th>
+            <th className="px-4 py-3 font-medium">Appels réservés</th>
           </tr>
         </thead>
         <tbody>

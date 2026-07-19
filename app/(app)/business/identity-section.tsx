@@ -8,7 +8,7 @@ import { CompletionBadge, SaveIndicator } from "./save-indicator";
 import { useDebouncedSave } from "./use-debounced-save";
 
 const inputClass =
-  "rounded-lg border-2 border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
 export function IdentitySection({
   value,
@@ -33,7 +33,7 @@ export function IdentitySection({
     <div className="sticker-card p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Identité &amp; avatar</h2>
+          <h2 className="text-base font-medium">Identité &amp; avatar</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Décris qui tu vends et à qui.
           </p>
@@ -46,7 +46,7 @@ export function IdentitySection({
 
       <div className="mt-6 flex flex-col gap-5">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-bold">Niche / marché</span>
+          <span className="font-medium">Niche / marché</span>
           <input
             type="text"
             value={value.niche}
@@ -57,7 +57,7 @@ export function IdentitySection({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-bold">Avatar client</span>
+          <span className="font-medium">Avatar client</span>
           <span className="text-xs text-muted-foreground">
             Qui c&apos;est, son problème principal, son niveau de conscience.
           </span>
@@ -72,7 +72,7 @@ export function IdentitySection({
 
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-bold">CA mensuel actuel (€)</span>
+            <span className="font-medium">CA mensuel actuel (€)</span>
             <input
               type="number"
               min={0}
@@ -85,7 +85,7 @@ export function IdentitySection({
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-bold">Objectif de CA (€)</span>
+            <span className="font-medium">Objectif de CA (€)</span>
             <input
               type="number"
               min={0}
@@ -99,7 +99,7 @@ export function IdentitySection({
         </div>
 
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-bold">Mode d&apos;acquisition principal</span>
+          <span className="font-medium">Mode d&apos;acquisition principal</span>
           <select
             value={value.acquisitionMode ?? ""}
             onChange={(event) =>

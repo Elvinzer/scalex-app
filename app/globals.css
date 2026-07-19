@@ -7,10 +7,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-body);
-  --font-display: var(--font-display);
-  --font-mono: var(--font-mono);
-  --font-heading: var(--font-display);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-inter);
+  --font-mono: var(--font-inter);
+  --font-heading: var(--font-inter);
   --color-ink: var(--ink);
   --color-mist: var(--mist);
   --color-paper-alt: var(--paper-alt);
@@ -45,6 +45,20 @@
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
+  --color-border-hover: var(--border-hover);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-positive: var(--positive);
+  --color-positive-on-dark: var(--positive-on-dark);
+  --color-positive-soft: var(--positive-soft);
+  --color-negative: var(--negative);
+  --color-warning-text: var(--warning-text);
+  --color-warning-soft: var(--warning-soft);
+  --color-text-on-dark: var(--text-on-dark);
+  --color-text-on-dark-muted: var(--text-on-dark-muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -55,108 +69,153 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: 6px;
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: var(--radius-card);
+  --radius-3xl: var(--radius-hero);
+  --radius-4xl: var(--radius-hero);
 }
 
 :root {
-  /* Scale X "sticker style" identity — cream/lavender paper, thick ink
-     borders, one tweakable coral accent. See BUILD_LOG.md. */
-  --ink: #15131f;
-  --mist: #fbf7f0;
-  --vault: #ffffff;
-  --paper-alt: #efecfb;
-  --panel: #fcfaf6;
-  --signal: #ff6b4a;
-  --violet: #6d5cf6;
-  --gain: #ff6b4a;
-  --state-critical: #c4432a;
-  --state-critical-bg: #fde7e3;
-  --state-caution: #b5791f;
-  --state-caution-bg: #fbeed9;
-  --state-healthy: #3a7a3a;
-  --state-healthy-bg: #e9f5e3;
-  --state-unknown: #8a84a0;
-  --state-unknown-bg: #edeaf5;
+  /* Scale X "Hybride" design system — exact tokens from
+     DESIGN_SYSTEM_SCALEX.md §1. Light, airy canvas; ONE dark surface per
+     page; coral reserved for the single priority action. */
 
-  --background: var(--mist);
-  --foreground: var(--ink);
-  --card: var(--vault);
-  --card-foreground: var(--ink);
-  --popover: var(--vault);
-  --popover-foreground: var(--ink);
-  --primary: var(--signal);
-  --primary-foreground: var(--ink);
-  --secondary: var(--paper-alt);
-  --secondary-foreground: var(--ink);
-  --muted: #f5f2ec;
-  --muted-foreground: #6b6580;
-  --accent: var(--paper-alt);
-  --accent-foreground: var(--ink);
-  --destructive: var(--state-critical);
-  --border: color-mix(in oklch, var(--ink) 18%, transparent);
-  --input: color-mix(in oklch, var(--ink) 18%, transparent);
-  --ring: var(--signal);
+  /* Fonds */
+  --canvas: #faf9f6;
+  --surface: #ffffff;
+  --surface-dark: #16150f;
+  --surface-sunken: #f4f3ef;
+
+  /* Bordures */
+  --border-value: #eae8e2;
+  --border-hover: #d8d5cc;
+
+  /* Textes */
+  --text-primary: #16150f;
+  --text-secondary: #8d8b82;
+  --text-on-dark: #ffffff;
+  --text-on-dark-muted: #9b998f;
+
+  /* Accent — corail = action prioritaire uniquement */
+  --accent: #e8663c;
+  --accent-hover: #d55830;
+  --accent-soft: #fdf1ec;
+  --accent-border: #f5c4b3;
+  --accent-text: #712b13;
+
+  /* Sémantique — texte uniquement, jamais de fonds saturés */
+  --positive: #3b7a4a;
+  --positive-on-dark: #5dcaa5;
+  --positive-soft: #edf4ee;
+  --negative: #a32d2d;
+  --warning-text: #854f0b;
+  --warning-soft: #faf3e4;
+
+  /* Radius */
+  --radius-hero: 14px;
+  --radius-card: 12px;
+  --radius-control: 8px;
+
+  /* Ombres — uniquement pour les éléments flottants */
+  --shadow-float: 0 8px 24px rgba(22, 21, 15, 0.08);
+
+  /* Motion */
+  --transition: 150ms ease;
+
+  /* Legacy token names kept so every existing Tailwind class (bg-ink,
+     text-mist, bg-signal, border-border, bg-state-critical-bg...) picks up
+     the new palette automatically — no per-component renames needed. */
+  --ink: var(--text-primary);
+  --mist: var(--canvas);
+  --vault: var(--surface);
+  --paper-alt: var(--accent-soft);
+  --panel: var(--surface);
+  --signal: var(--accent);
+  --violet: #6d5cf6;
+  --gain: var(--accent);
+  --state-critical: var(--negative);
+  --state-critical-bg: #fbe9e9;
+  --state-caution: var(--warning-text);
+  --state-caution-bg: var(--warning-soft);
+  --state-healthy: var(--positive);
+  --state-healthy-bg: var(--positive-soft);
+  --state-unknown: var(--text-secondary);
+  --state-unknown-bg: var(--surface-sunken);
+
+  --background: var(--canvas);
+  --foreground: var(--text-primary);
+  --card: var(--surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--text-secondary);
+  --accent-foreground: var(--accent-text);
+  --destructive: var(--negative);
+  --border: var(--border-value);
+  --input: var(--border-value);
+  --ring: var(--accent);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.75rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: var(--surface-dark);
+  --sidebar-foreground: var(--text-on-dark);
+  --sidebar-primary: var(--surface-dark);
+  --sidebar-primary-foreground: var(--text-on-dark);
+  --sidebar-accent: var(--surface-dark);
+  --sidebar-accent-foreground: var(--text-on-dark);
+  --sidebar-border: color-mix(in oklch, var(--text-on-dark) 12%, transparent);
+  --sidebar-ring: var(--accent);
 }
 
 .dark {
-  --vault: #1a1e29;
+  --vault: var(--surface);
   --violet: #8778f8;
-  --state-critical: #e1594f;
-  --state-caution: #d99a4a;
-  --state-healthy: #34b980;
-  --state-unknown: #9aa0b4;
+  --state-critical: var(--negative);
+  --state-caution: var(--warning-text);
+  --state-healthy: var(--positive);
+  --state-unknown: var(--text-secondary);
 
-  --background: var(--ink);
-  --foreground: var(--mist);
-  --card: var(--vault);
-  --card-foreground: var(--mist);
-  --popover: var(--vault);
-  --popover-foreground: var(--mist);
-  --primary: var(--signal);
-  --primary-foreground: var(--ink);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: var(--mist);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: var(--mist);
-  --destructive: var(--state-critical);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: var(--signal);
+  --background: var(--canvas);
+  --foreground: var(--text-primary);
+  --card: var(--surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--text-secondary);
+  --accent-foreground: var(--accent-text);
+  --destructive: var(--negative);
+  --border: var(--border-value);
+  --input: var(--border-value);
+  --ring: var(--accent);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: var(--surface-dark);
+  --sidebar-foreground: var(--text-on-dark);
+  --sidebar-primary: var(--surface-dark);
+  --sidebar-primary-foreground: var(--text-on-dark);
+  --sidebar-accent: var(--surface-dark);
+  --sidebar-accent-foreground: var(--text-on-dark);
+  --sidebar-border: color-mix(in oklch, var(--text-on-dark) 12%, transparent);
+  --sidebar-ring: var(--accent);
 }
 
 @layer base {
@@ -165,6 +224,7 @@
   }
   body {
     @apply bg-background text-foreground relative;
+    line-height: 1.5;
   }
   html {
     @apply font-sans;
@@ -172,32 +232,40 @@
   h1,
   h2,
   h3 {
-    @apply font-display font-bold tracking-tight;
+    @apply font-display font-medium tracking-tight;
+    line-height: 1.2;
   }
 }
 
 @layer utilities {
-  /* Sticker card — the standard content card: thick ink border, hard
-     offset shadow, no blur. Replaces the old soft glow/gradient system. */
+  /* Standard content card — 1px border, no shadow. Cards never cast a
+     shadow; only floating elements (modals, dropdowns) do. */
   .sticker-card {
-    border: 2.5px solid var(--ink);
-    border-radius: var(--radius-2xl);
-    background: var(--card);
-    box-shadow: 7px 7px 0 var(--ink);
+    border: 1px solid var(--border-value);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+    transition: border-color var(--transition);
   }
 
-  /* Muted, locked/empty-state variant: dashed border, no shadow. */
+  /* Empty/locked-state variant: dashed border, muted background. */
   .sticker-card-dashed {
-    border: 2px dashed color-mix(in oklch, var(--ink) 25%, transparent);
-    border-radius: var(--radius-2xl);
-    background: var(--muted);
+    border: 1px dashed var(--border-value);
+    border-radius: var(--radius-card);
+    background: var(--surface);
   }
 
-  /* Hero/"spotlight" moment: solid ink card, cream text — the one place
-     per screen that should read as the headline, not another white card. */
+  /* The one dark surface per page — the block that carries the money
+     figure (Dashboard's "manque à gagner", Diagnostic's "potentiel total",
+     Funnel's friction card, Mon business' progress header). Never more than
+     one per page outside the sidebar. */
   .sticker-spotlight {
-    border-radius: var(--radius-2xl);
-    background: var(--ink);
-    color: var(--mist);
+    border-radius: var(--radius-hero);
+    background: var(--surface-dark);
+    color: var(--text-on-dark);
+  }
+
+  /* Floating elements only (modals, dropdowns, popovers). */
+  .elevated {
+    box-shadow: var(--shadow-float);
   }
 }

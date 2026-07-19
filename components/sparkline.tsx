@@ -26,7 +26,6 @@ export function Sparkline({
   }));
 
   const linePath = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const areaPath = `0,${height} ${linePath} ${width},${height}`;
 
   return (
     <svg
@@ -35,12 +34,11 @@ export function Sparkline({
       role="img"
       aria-label={`Évolution sur les ${values.length} derniers jours`}
     >
-      <polygon points={areaPath} fill="var(--signal)" opacity={0.12} />
       <polyline
         points={linePath}
         fill="none"
-        stroke="var(--signal)"
-        strokeWidth={2}
+        stroke="var(--text-secondary)"
+        strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />

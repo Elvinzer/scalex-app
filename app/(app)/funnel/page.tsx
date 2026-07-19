@@ -68,7 +68,7 @@ export default async function FunnelOverviewPage({
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Funnel</h1>
+          <h1 className="text-3xl font-medium">Funnel</h1>
           <p className="mt-1 text-muted-foreground">
             Tout ton parcours, de l&apos;abonné à la vente conclue — en une seule vue.
           </p>
@@ -80,7 +80,7 @@ export default async function FunnelOverviewPage({
 
       {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune donnée enregistrée pour l&apos;instant</p>
+          <p className="text-sm font-medium">Aucune donnée enregistrée pour l&apos;instant</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoute tes premières journées dans les onglets Setting et Closing ci-dessus.
           </p>
@@ -89,7 +89,7 @@ export default async function FunnelOverviewPage({
 
       {hasAnyEntries && !hasEntriesInRange && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune donnée sur cette période</p>
+          <p className="text-sm font-medium">Aucune donnée sur cette période</p>
           <p className="mt-1 text-sm text-muted-foreground">Choisis une autre plage ci-dessus.</p>
         </div>
       )}
@@ -99,7 +99,7 @@ export default async function FunnelOverviewPage({
           <OverviewBottleneckCard bottleneck={bottleneck} />
 
           <div className="sticker-card p-8">
-            <p className="text-sm font-bold">Funnel</p>
+            <p className="text-sm font-medium">Funnel</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Cumul sur {dayCount} jour{dayCount > 1 ? "s" : ""}
               {range ? ` — ${formatRangeDates(range)}` : " enregistrés"}.

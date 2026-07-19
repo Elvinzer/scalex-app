@@ -57,7 +57,7 @@ export function StageInsightPanel({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
-          <p className="text-sm font-bold">{label}</p>
+          <p className="text-sm font-medium">{label}</p>
           <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Fermer">
             <X className="size-4" />
           </Button>
@@ -69,7 +69,7 @@ export function StageInsightPanel({
             <button
               type="button"
               onClick={() => setMode("questions")}
-              className="mt-4 text-sm font-semibold text-signal"
+              className="mt-4 text-sm font-medium text-signal"
             >
               Refaire le diagnostic
             </button>
@@ -84,7 +84,7 @@ export function StageInsightPanel({
 
             {knowledge.questions.map((question) => (
               <fieldset key={question.id}>
-                <legend className="text-sm font-bold">{question.text}</legend>
+                <legend className="text-sm font-medium">{question.text}</legend>
                 <div className="mt-2 flex flex-col gap-2">
                   {question.options.map((option) => (
                     <label key={option.id} className="flex items-center gap-2 text-sm">
