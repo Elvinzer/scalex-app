@@ -227,7 +227,7 @@ export default function MarketingHomePage() {
       <header
         className="flex scroll-mt-24 flex-col items-center gap-7 px-6 pt-16 pb-32 text-center sm:px-12 sm:pt-20 sm:pb-36"
         style={{
-          background: "linear-gradient(135deg, #ECE9FB 0%, #FBF7F0 45%, #FCEEDD 100%)",
+          background: "linear-gradient(135deg, var(--accent-soft) 0%, var(--canvas) 100%)",
         }}
       >
         <span className="rounded-full border border-ink bg-white px-5 py-2 text-[13px] font-medium">
@@ -238,7 +238,7 @@ export default function MarketingHomePage() {
           <span className="inline-block rounded-lg bg-signal px-2.5">de l&apos;argent</span>{" "}
           chaque mois. On te dit où. Et on le corrige.
         </h1>
-        <p className="max-w-2xl text-lg leading-relaxed text-[#4B4760]">
+        <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
           Scale X connecte ton Stripe, isole le bottleneck qui te coûte le plus cher ce
           mois-ci, et déploie un agent IA qui te donne le plan d&apos;action pour le
           corriger. Fini les dashboards que personne ne regarde.
@@ -247,7 +247,7 @@ export default function MarketingHomePage() {
           <Button
             size="lg"
             asChild
-            className="px-8 py-6 text-base shadow-[6px_6px_0_var(--signal)]"
+            className="px-8 py-6 text-base"
           >
             <a href="/onboarding">Diagnostiquer mon business →</a>
           </Button>
@@ -509,7 +509,7 @@ export default function MarketingHomePage() {
         </Button>
       </section>
 
-      <footer className="bg-[#100e1a] px-6 py-16 text-mist sm:px-12">
+      <footer className="bg-ink px-6 py-16 text-mist sm:px-12">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-wrap justify-between gap-12 border-b border-mist/15 pb-11">
             <div className="max-w-70">

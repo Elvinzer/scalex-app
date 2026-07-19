@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { track } from "@/lib/analytics";
 import { db } from "@/db";
 import { monthlyMetrics } from "@/db/schema";
 import { monthlyMetricsInputSchema } from "@/lib/monthly-metrics/schema";
@@ -31,6 +32,11 @@ export async function saveMonthlyMetrics(
       target: [monthlyMetrics.userId, monthlyMetrics.year, monthlyMetrics.month],
       set: { ...parsed.data, updatedAt: new Date() },
     });
+
+  // Single shared action — covers Datas, the onboarding wizard's screen 2,
+  // and the weekly check-in modal automatically, so this fires exactly
+  // once per real call site rather than being duplicated in each.
+  await track("month_data_filled", userId, { month: `${year}-${String(month).padStart(2, "0")}` });
 
   revalidatePath("/datas");
   revalidatePath("/dashboard");

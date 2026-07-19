@@ -61,6 +61,26 @@ export const users = pgTable("users", {
   // of truth (token, connected_at).
   stripeConnectId: text("stripe_connect_id"),
   sector: prospectionSector("sector"),
+  // Set once the 3-screen /onboarding wizard finishes (or is skipped) —
+  // existing users are backfilled to true via migration default so they
+  // never see the flow. See app/onboarding/.
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
+  // Idempotency guard so the "business_profile_completed" analytics event
+  // (lib/analytics.ts) fires exactly once, the first time global completion
+  // crosses 80% — see lib/business/completion.ts's computeGlobalCompletion.
+  businessProfileCompletedAt: timestamp("business_profile_completed_at", { withTimezone: true }),
+  // Monday weekly-brief email opt-out (lib/inngest/functions/weekly-brief-email.ts).
+  weeklyEmailEnabled: boolean("weekly_email_enabled").notNull().default(true),
+  // Excludes founders'/QA accounts from the weekly email — set manually via
+  // DB for now, no admin UI toggle in this chantier.
+  isTestAccount: boolean("is_test_account").notNull().default(false),
+  // Snapshot of the one diagnostic rate the user most recently opened the
+  // "Améliorer" chat about, so the next weekly check-in can show a
+  // before/after ("ton taux est passé de X% à Y%"). One of the 5
+  // lib/diagnostic/benchmarks.ts MetricKey values, or null if no chat opened
+  // on a specific rate yet (e.g. "general"/"followupRecovery" don't set this).
+  lastImproveMetricKey: text("last_improve_metric_key"),
+  lastImproveMetricRateSnapshot: real("last_improve_metric_rate_snapshot"), // 0-1 fraction
 });
 
 export const stripeConnections = pgTable("stripe_connections", {
@@ -391,4 +411,56 @@ export const sales = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("sales_user_sale_date_idx").on(table.userId, table.saleDate)]
+);
+
+export const closingVideoOutcome = pgEnum("closing_video_outcome", ["closed", "not_closed", "pending"]);
+
+// Manual entry (the "/ventes/videos" page) — one row per closing call.
+// transcript/notes are pasted in by hand (no Whisper/audio-upload pipeline
+// in this codebase — url is an external link to wherever the recording is
+// hosted). Feeds lib/call-analysis-prompt-builder.ts for the "Analyser cet
+// appel" AI chat; deliberately not wired into Diagnostic (see plan doc —
+// an outcome win-rate tile would duplicate the existing closingRate metric).
+export const closingVideos = pgTable(
+  "closing_videos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientName: text("client_name").notNull(),
+    callDate: date("call_date", { mode: "string" }).notNull(),
+    url: text("url"),
+    transcript: text("transcript"),
+    notes: text("notes"),
+    outcome: closingVideoOutcome("outcome").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("closing_videos_user_call_date_idx").on(table.userId, table.callDate)]
+);
+
+// Manual entry (the "/acquisition/ads" page) — one row per ad campaign.
+// Rates (CTR, cost per lead/click) are never stored, always computed on
+// read — see lib/ad-campaigns/metrics.ts. Not wired into Diagnostic: no
+// existing CPL/CTR benchmark data exists to compare against.
+export const adCampaigns = pgTable(
+  "ad_campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    platform: text("platform").notNull(),
+    name: text("name").notNull(),
+    objective: text("objective"),
+    budget: integer("budget"), // euros
+    spend: integer("spend"), // euros
+    impressions: integer("impressions"),
+    clicks: integer("clicks"),
+    leads: integer("leads"),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("ad_campaigns_user_start_date_idx").on(table.userId, table.startDate)]
 );

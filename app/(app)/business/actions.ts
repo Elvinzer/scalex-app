@@ -1,9 +1,13 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { identifyUser, track } from "@/lib/analytics";
 import { db } from "@/db";
-import { businessProfile } from "@/db/schema";
+import { businessProfile, users } from "@/db/schema";
+import { computeGlobalCompletion } from "@/lib/business/completion";
+import { getBusinessProfile } from "@/lib/business/queries";
 import { businessProfileSectionSchemas } from "@/lib/business/schema";
 import { EMPTY_BUSINESS_PROFILE, type BusinessSection } from "@/lib/business/types";
 import { createClient } from "@/lib/supabase/server";
@@ -31,6 +35,26 @@ export async function saveBusinessSection(
       target: businessProfile.userId,
       set: { [section]: parsed.data, updatedAt: new Date() },
     });
+
+  // Keeps the PostHog person's niche/mrr_current in sync with reality
+  // instead of a stale one-time snapshot at login — see lib/analytics.ts.
+  if (section === "identity") {
+    const identity = parsed.data as { niche: string; mrrCurrent: number | null };
+    await identifyUser(userId, { niche: identity.niche, mrr_current: identity.mrrCurrent });
+  }
+
+  // business_profile_completed fires exactly once, the first time global
+  // completion crosses 80% — guarded by users.businessProfileCompletedAt so
+  // re-saving an already-complete profile never re-fires it.
+  const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (userRow && !userRow.businessProfileCompletedAt) {
+    const fullProfile = await getBusinessProfile(userId);
+    const { percent } = computeGlobalCompletion(fullProfile);
+    if (percent >= 80) {
+      await db.update(users).set({ businessProfileCompletedAt: new Date() }).where(eq(users.id, userId));
+      await track("business_profile_completed", userId);
+    }
+  }
 
   revalidatePath("/business");
   revalidatePath("/dashboard");

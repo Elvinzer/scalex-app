@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
+import { track } from "@/lib/analytics";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
 import { getAiProvider } from "@/lib/ai-provider";
@@ -52,6 +53,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
   }
   const { metricKey, followupKey, period, messages } = parsed.data;
+
+  // "messages" already includes the just-submitted user message (see
+  // components/improve-chat.tsx's handleSubmit) — so this request IS the
+  // 3rd user message exactly once, when the count first reaches 3.
+  if (messages.filter((m) => m.role === "user").length === 3) {
+    await track("improve_chat_engaged", userId);
+  }
 
   if (messages.length >= MAX_MESSAGES) {
     return NextResponse.json(

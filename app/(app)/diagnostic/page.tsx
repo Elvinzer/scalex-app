@@ -1,6 +1,8 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { Suspense } from "react";
 
+import { AutoOpenImprove } from "./auto-open-improve";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { CalcPopover } from "@/components/calc-popover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,6 +12,7 @@ import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
+import { track } from "@/lib/analytics";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import {
@@ -68,6 +71,7 @@ export default async function DiagnosticPage({
 }) {
   const { userId, user } = await getCurrentUser();
   const params = await searchParams;
+  await track("diagnostic_viewed", userId);
   const period = params.period && PERIOD_LABELS[params.period] ? params.period : "3-months";
 
   const businessProfile = await getBusinessProfile(userId);
@@ -143,6 +147,10 @@ export default async function DiagnosticPage({
 
   return (
     <div className="flex flex-col gap-8">
+      <Suspense fallback={null}>
+        <AutoOpenImprove />
+      </Suspense>
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[22px] leading-[1.2] font-medium tracking-[-0.01em]">Ton diagnostic</h1>

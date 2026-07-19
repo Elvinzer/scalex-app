@@ -4,7 +4,11 @@ import { computeFunnelRates, STAGE_LABELS, type FunnelTotals } from "@/lib/setti
 import { CLOSING_STAGE_LABELS } from "@/lib/closing/metrics";
 import type { BusinessProfileData } from "@/lib/business/types";
 
-import { METRIC_KEYS, type MetricKey } from "./benchmarks";
+// Deliberately from ./metric-keys, not ./benchmarks — the latter imports
+// "@/db" for getDiagnosticBenchmarks, which would otherwise get bundled
+// into any client component that imports labelFor/categoryFor from this
+// file (see app/(app)/diagnostic/auto-open-improve.tsx).
+import { METRIC_KEYS, type MetricKey } from "./metric-keys";
 
 // The order the spec's cascade actually flows in: firstMessagesSent is the
 // top of the funnel here — outreachRate (subscribers -> messages) has no
@@ -16,11 +20,12 @@ const CAUTION_THRESHOLD = 0.2; // relative gap below which a sub-benchmark rate 
 
 export type MetricStatus = "ok" | "caution" | "critical" | "unmeasured";
 
-function labelFor(key: MetricKey): string {
+// Exported for lib/diagnostic/onboarding-goulot.ts's relaxed-volume fallback.
+export function labelFor(key: MetricKey): string {
   return key === "showUpRate" || key === "closingRate" ? CLOSING_STAGE_LABELS[key] : STAGE_LABELS[key];
 }
 
-function categoryFor(key: MetricKey): "Setting" | "Closing" {
+export function categoryFor(key: MetricKey): "Setting" | "Closing" {
   return key === "showUpRate" || key === "closingRate" ? "Closing" : "Setting";
 }
 
@@ -119,7 +124,11 @@ function explanationFor(key: MetricKey, currentPct: number, benchmarkPct: number
   }
 }
 
-function buildRates(settingTotals: FunnelTotals, closingTotals: ClosingTotals): Record<MetricKey, number | null> {
+// Exported for lib/improve-chat-tracking.ts, which snapshots a single
+// metric's current rate when the "Améliorer" chat opens on it (for the
+// weekly check-in's before/after comparison) — reuses this instead of
+// re-deriving the field-to-MetricKey mapping.
+export function buildRates(settingTotals: FunnelTotals, closingTotals: ClosingTotals): Record<MetricKey, number | null> {
   const settingRates = computeFunnelRates(settingTotals);
   const closingRates = computeClosingRates(closingTotals, settingTotals.callsBooked);
   return {

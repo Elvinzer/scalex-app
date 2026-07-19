@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
+import { PostHogInit } from "@/components/posthog-init";
+
 // Design system "Hybride" — Inter everywhere (titles, body, numbers,
 // sidebar, buttons, inputs), weights 400/500 only. Mapped in globals.css's
 // @theme block onto --font-sans/--font-display/--font-mono so existing
@@ -26,7 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>{children}</body>
+      <body className={`${inter.variable} antialiased`}>
+        <PostHogInit />
+        {children}
+      </body>
     </html>
   );
 }

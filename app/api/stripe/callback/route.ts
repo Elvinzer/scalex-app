@@ -16,9 +16,7 @@ export async function GET(request: NextRequest) {
   const storedState = request.cookies.get("stripe_oauth_state")?.value;
 
   if (!code || !state || !storedState || state !== storedState) {
-    return NextResponse.redirect(
-      new URL("/onboarding?stripe_error=invalid_state", origin)
-    );
+    return NextResponse.redirect(new URL("/integrations", origin));
   }
 
   const supabase = await createClient();
@@ -35,9 +33,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!tokenResponse.access_token || !tokenResponse.stripe_user_id) {
-    return NextResponse.redirect(
-      new URL("/onboarding?stripe_error=exchange_failed", origin)
-    );
+    return NextResponse.redirect(new URL("/integrations", origin));
   }
 
   const values = {
@@ -65,9 +61,7 @@ export async function GET(request: NextRequest) {
 
   await inngest.send(stripeAccountConnected.create({ userId }));
 
-  const response = NextResponse.redirect(
-    new URL("/onboarding?step=scanning", origin)
-  );
+  const response = NextResponse.redirect(new URL("/integrations", origin));
   response.cookies.delete("stripe_oauth_state");
   return response;
 }

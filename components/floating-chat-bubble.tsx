@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { ImproveChat } from "@/components/improve-chat";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 
 // Global "discuter de tes datas" launcher — available on every authenticated
 // page (mounted once in app/(app)/layout.tsx). Opens the same chat drawer as
@@ -13,8 +14,13 @@ import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 export function FloatingChatBubble() {
   const [open, setOpen] = useState(false);
 
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) void recordImproveChatOpened("general");
+  }
+
   return (
-    <Drawer open={open} onOpenChange={setOpen}>
+    <Drawer open={open} onOpenChange={handleOpenChange}>
       <DrawerTrigger asChild>
         <button
           type="button"

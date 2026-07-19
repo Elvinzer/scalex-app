@@ -24,7 +24,9 @@ const ROLE_BY_METRIC: Record<ImproveMetricKey, string> = {
   general: "Tu es un consultant senior en croissance de business en ligne.",
 };
 
-function describeBusinessContext(profile: BusinessProfileData): string {
+// Exported so lib/call-analysis-prompt-builder.ts and lib/ad-copy-prompt-builder.ts
+// can reuse the same business-context description instead of re-deriving it.
+export function describeBusinessContext(profile: BusinessProfileData): string {
   const { identity, acquisition, sales, delivery } = profile;
   const lines: string[] = [];
 

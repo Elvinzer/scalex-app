@@ -4,15 +4,11 @@ import { db } from "@/db";
 import { benchmarks } from "@/db/schema";
 import type { SectorKey } from "@/lib/benchmarks";
 
-export type MetricKey = "responseRate" | "proposalRate" | "bookingRate" | "showUpRate" | "closingRate";
-
-export const METRIC_KEYS: MetricKey[] = [
-  "responseRate",
-  "proposalRate",
-  "bookingRate",
-  "showUpRate",
-  "closingRate",
-];
+// Re-exported for every existing server-side import site — kept here so
+// nothing else needs to change. Client components should import from
+// ./metric-keys directly instead (see that file's comment for why).
+export { METRIC_KEYS, type MetricKey } from "./metric-keys";
+import { METRIC_KEYS, type MetricKey } from "./metric-keys";
 
 // Sector-specific row wins per metric; falls back to the global (sector
 // null) row. Lives in DB per lib/diagnostic/cascade.ts's plan doc — distinct

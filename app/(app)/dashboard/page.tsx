@@ -1,5 +1,7 @@
 import { desc, eq } from "drizzle-orm";
+import { Suspense } from "react";
 
+import { CheckinTrigger } from "./checkin-trigger";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityItem } from "@/components/priority-item";
 import { Button } from "@/components/ui/button";
@@ -14,11 +16,16 @@ import { currentIsoWeekRange, dashboardStripeRange, inRange, buildMetricCards } 
 import { getStripeActivity } from "@/lib/dashboard/stripe-metrics";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { emptyMonthRow, getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 
 const PERIOD_MONTHS = 3;
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ checkin?: string; bandeau?: string }>;
+}) {
+  const params = await searchParams;
   const { userId, user } = await getCurrentUser();
   const businessProfile = await getBusinessProfile(userId);
 
@@ -72,9 +79,10 @@ export default async function DashboardPage() {
     : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0);
 
   const weekRange = currentIsoWeekRange();
-  const currentMonthlyRow = allMonthlyRows.find(
-    (row) => row.year === new Date().getUTCFullYear() && row.month === new Date().getUTCMonth() + 1
-  );
+  const currentYear = new Date().getUTCFullYear();
+  const currentMonth = new Date().getUTCMonth() + 1;
+  const currentMonthlyRow = allMonthlyRows.find((row) => row.year === currentYear && row.month === currentMonth);
+  const checkinInitialData = currentMonthlyRow ?? emptyMonthRow(currentYear, currentMonth);
   const checkInDoneThisWeek =
     allSettingEntries.some((entry) => inRange(entry.date, weekRange)) ||
     allClosingEntries.some((entry) => inRange(entry.date, weekRange)) ||
@@ -108,14 +116,22 @@ export default async function DashboardPage() {
         </Button>
       </div>
 
+      {params.bandeau === "incomplete_data" && (
+        <div className="rounded-2xl border border-dashed border-border bg-card/50 px-5 py-3">
+          <p className="text-sm font-medium">
+            📋 Complète tes chiffres pour ton diagnostic — pas encore assez de données pour calculer un goulot.
+          </p>
+        </div>
+      )}
+
       {!checkInDoneThisWeek && (
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-dashed border-border bg-card/50 px-5 py-3">
           <p className="text-sm font-medium">
             📊 2 minutes pour mettre à jour tes chiffres de la semaine
           </p>
-          <Button asChild size="sm" variant="outline">
-            <a href="/datas">Faire mon check-in</a>
-          </Button>
+          <Suspense fallback={null}>
+            <CheckinTrigger year={currentYear} month={currentMonth} initialData={checkinInitialData} />
+          </Suspense>
         </div>
       )}
 

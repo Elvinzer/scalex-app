@@ -54,14 +54,14 @@ const pillars: Pillar[] = [
     entries: [
       { type: "link", href: "/acquisition/contenu", label: "Contenu", icon: FileText },
       { type: "link", href: "/acquisition/setting", label: "Setting", icon: UserRoundCheck },
-      { type: "disabled", label: "Ads", icon: Megaphone },
+      { type: "link", href: "/acquisition/ads", label: "Ads", icon: Megaphone },
     ],
   },
   {
     label: "Ventes",
     entries: [
       { type: "link", href: "/ventes/suivi", label: "Suivi des ventes", icon: Receipt },
-      { type: "disabled", label: "Vidéos de closing", icon: Video },
+      { type: "link", href: "/ventes/videos", label: "Vidéos de closing", icon: Video },
       { type: "link", href: "/ventes/closing", label: "Closing", icon: Handshake },
     ],
   },
