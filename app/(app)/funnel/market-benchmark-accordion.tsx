@@ -10,8 +10,8 @@ import { BENCHMARK_DISCLAIMER, getBenchmark, SECTOR_LABELS, type SectorKey } fro
 import type { FunnelRates } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
-import { KeyRequiredModal } from "./key-required-modal";
-import { StageInsightPanel, type ExistingStageInsight } from "./stage-insight-panel";
+import { KeyRequiredModal } from "@/components/funnel-insights/key-required-modal";
+import { StageInsightPanel, type ExistingStageInsight } from "@/components/funnel-insights/stage-insight-panel";
 
 // The single source of truth for market benchmarks — every funnel stage
 // lives here, Setting and Closing combined, instead of being split across

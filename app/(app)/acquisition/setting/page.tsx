@@ -1,17 +1,16 @@
 import { desc, eq } from "drizzle-orm";
 
 import { DateRangePicker } from "@/components/date-range-picker";
-import { FunnelTabs } from "@/components/funnel-tabs";
 import { db } from "@/db";
 import { settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
+import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { isExactCalendarMonth, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
 import { computeFunnelRates, findBottleneck } from "@/lib/setting/funnel";
 
-import { getExistingStageInsights } from "../existing-insights";
 import { BottleneckCard } from "./bottleneck-card";
 import { CsvImport } from "./csv-import";
 import { EntriesTable } from "./entries-table";
@@ -82,8 +81,6 @@ export default async function SettingPage({
           conversations, appels proposés et réservés.
         </p>
       </div>
-
-      <FunnelTabs />
 
       {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">

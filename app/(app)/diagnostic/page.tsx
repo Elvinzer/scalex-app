@@ -12,6 +12,11 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
+import {
+  aggregateContentTotals,
+  computeContentMetricSummaries,
+  getContentDiagnosticBenchmarks,
+} from "@/lib/diagnostic/content-metrics";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import {
   computeDiagnosticPoints,
@@ -20,6 +25,7 @@ import {
 } from "@/lib/diagnostic/cascade";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
 import { formatEur } from "@/lib/currency";
+import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { cn } from "@/lib/utils";
@@ -44,6 +50,8 @@ const MEASURE_HINTS: Record<string, string> = {
   bookingRate: "Renseigne tes appels proposés et réservés dans Datas.",
   showUpRate: "Renseigne tes appels réservés et pris dans Datas.",
   closingRate: "Renseigne tes appels pris et tes ventes conclues dans Datas.",
+  content_click_rate: "Renseigne les vues et les clics de tes posts dans Contenu.",
+  content_lead_rate: "Renseigne les clics et les leads de tes posts dans Contenu.",
 };
 
 export default async function DiagnosticPage({
@@ -57,10 +65,11 @@ export default async function DiagnosticPage({
 
   const businessProfile = await getBusinessProfile(userId);
 
-  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
+  const [allSettingEntries, allClosingEntries, allMonthlyRows, allContentPosts] = await Promise.all([
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
     db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
     getAllMonthlyMetrics(userId),
+    getContentPosts(userId),
   ]);
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
@@ -87,6 +96,9 @@ export default async function DiagnosticPage({
   }
 
   const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
+  const contentBenchmarks = await getContentDiagnosticBenchmarks(user?.sector ?? null);
+  const contentTotals = aggregateContentTotals(months, allContentPosts);
+  const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
   const points = computeDiagnosticPoints({
     settingTotals,
     closingTotals,
@@ -240,6 +252,40 @@ export default async function DiagnosticPage({
                     <p className="text-muted-foreground">{MEASURE_HINTS[summary.key]}</p>
                     <Button asChild size="sm" variant="outline" className="mt-3">
                       <a href="/datas">Aller sur Datas →</a>
+                    </Button>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div className="mt-3">
+                  <RateVsBenchmarkBar
+                    currentRate={summary.currentRatePercent === null ? null : summary.currentRatePercent / 100}
+                    benchmarkRate={summary.benchmarkRatePercent / 100}
+                    compact
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+
+          {contentSummaries.map((summary) => (
+            <div key={summary.key} id={`metric-${summary.key}`} className="sticker-card p-5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">{summary.label}</p>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_BADGE[summary.status])}>
+                  {STATUS_ICON[summary.status]}
+                </span>
+              </div>
+              {summary.status === "unmeasured" ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
+                      Pas encore mesuré — comment mesurer ça ?
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    <p className="text-muted-foreground">{MEASURE_HINTS[summary.key]}</p>
+                    <Button asChild size="sm" variant="outline" className="mt-3">
+                      <a href="/acquisition/contenu">Aller sur Contenu →</a>
                     </Button>
                   </PopoverContent>
                 </Popover>

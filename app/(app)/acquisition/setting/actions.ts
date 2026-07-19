@@ -60,7 +60,7 @@ export async function saveSettingKpiEntry(
       },
     });
 
-  revalidatePath("/funnel/setting");
+  revalidatePath("/acquisition/setting");
   revalidatePath("/funnel");
   return { error: null };
 }
@@ -96,7 +96,7 @@ export async function updateSettingKpiEntryField(
     return { error: "Entrée introuvable" };
   }
 
-  revalidatePath("/funnel/setting");
+  revalidatePath("/acquisition/setting");
   revalidatePath("/funnel");
   return { error: null };
 }
@@ -131,7 +131,7 @@ export async function importSettingKpiCsv(rawCsv: string): Promise<ImportSetting
       },
     });
 
-  revalidatePath("/funnel/setting");
+  revalidatePath("/acquisition/setting");
   revalidatePath("/funnel");
   return { imported: rows.length, errors };
 }

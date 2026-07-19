@@ -5,7 +5,7 @@ import type { OverviewBottleneck } from "@/lib/funnel/overview";
 import { formatPercent, type FunnelRates, type FunnelTotals } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
-import { FunnelChart } from "./setting/funnel-chart";
+import { FunnelChart } from "@/app/(app)/acquisition/setting/funnel-chart";
 
 // Setting's own bar-list (FunnelChart) is reused as-is for the top group —
 // its stages and scale are self-contained. Closing only has two stages, so

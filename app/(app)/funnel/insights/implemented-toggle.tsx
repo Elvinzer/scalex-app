@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { setInsightImplemented } from "../insight-actions";
+import { setInsightImplemented } from "@/lib/funnel-insights/insight-actions";
 
 // Optimistic with rollback, same shape as setting/editable-kpi-cell.tsx.
 // value is tri-state: null = not yet answered, true/false = the user's answer.

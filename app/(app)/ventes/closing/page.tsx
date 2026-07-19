@@ -1,13 +1,13 @@
 import { desc, eq } from "drizzle-orm";
 
 import { DateRangePicker } from "@/components/date-range-picker";
-import { FunnelTabs } from "@/components/funnel-tabs";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
 import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
+import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import {
   isExactCalendarMonth,
@@ -15,7 +15,6 @@ import {
   resolveMonthSettingTotals,
 } from "@/lib/monthly-metrics/resolve";
 
-import { getExistingStageInsights } from "../existing-insights";
 import { ClosingBottleneckCard } from "./closing-bottleneck-card";
 import { ClosingTiles } from "./closing-tiles";
 import { CsvImport } from "./csv-import";
@@ -97,8 +96,6 @@ export default async function ClosingPage({
           conversion en vente.
         </p>
       </div>
-
-      <FunnelTabs />
 
       {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">

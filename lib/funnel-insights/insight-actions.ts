@@ -143,8 +143,8 @@ export async function generateFunnelStageInsight(
   });
 
   revalidatePath("/funnel");
-  revalidatePath("/funnel/setting");
-  revalidatePath("/funnel/closing");
+  revalidatePath("/acquisition/setting");
+  revalidatePath("/ventes/closing");
   revalidatePath("/funnel/insights");
   return { insightText: result.text, error: null };
 }

@@ -27,6 +27,10 @@ const GLOBAL = {
   bookingRate: 0.6,
   showUpRate: 0.7,
   closingRate: 0.3,
+  // Content mini-funnel (views -> clicks -> leads) — global only, no
+  // sector-specific data source exists yet.
+  content_click_rate: 0.015,
+  content_lead_rate: 0.3,
 };
 
 const SECTOR_OVERRIDES = {

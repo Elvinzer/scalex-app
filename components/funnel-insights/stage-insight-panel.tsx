@@ -5,8 +5,7 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { STAGE_KNOWLEDGE, type FunnelStageKey } from "@/lib/agent/knowledge";
-
-import { generateFunnelStageInsight } from "./insight-actions";
+import { generateFunnelStageInsight } from "@/lib/funnel-insights/insight-actions";
 
 export type ExistingStageInsight = { insightText: string } | null;
 

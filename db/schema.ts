@@ -20,6 +20,7 @@ import type {
   BusinessIdentity,
   BusinessSales,
 } from "@/lib/business/types";
+import type { SaleInstallment } from "@/lib/sales/types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -285,6 +286,10 @@ export const diagnosticMetricEnum = pgEnum("diagnostic_metric", [
   "bookingRate",
   "showUpRate",
   "closingRate",
+  // Content mini-funnel (views -> clicks -> leads) — separate from the
+  // 5-stage sales cascade above, see lib/content-posts/rates.ts.
+  "content_click_rate",
+  "content_lead_rate",
 ]);
 
 // Lives in DB so values are adjustable without a redeploy, and so they can
@@ -297,3 +302,66 @@ export const benchmarks = pgTable("benchmarks", {
   metricKey: diagnosticMetricEnum("metric_key").notNull(),
   value: real("value").notNull(), // 0-1 fraction
 });
+
+export const contentPostType = pgEnum("content_post_type", [
+  "post",
+  "reel",
+  "story",
+  "video",
+  "live",
+]);
+
+// Manual entry (the "/acquisition/contenu" page) — one row per published
+// post. Rates (engagement/click/view-to-lead) are never stored, always
+// computed on read from these counts — see lib/content-posts/rates.ts.
+export const contentPosts = pgTable(
+  "content_posts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    platform: text("platform").notNull(),
+    type: contentPostType("type").notNull(),
+    title: text("title").notNull(),
+    publishedAt: date("published_at", { mode: "string" }).notNull(),
+    url: text("url"),
+    views: integer("views").notNull(),
+    likes: integer("likes"),
+    comments: integer("comments"),
+    shares: integer("shares"),
+    clicks: integer("clicks"),
+    leads: integer("leads"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("content_posts_user_published_idx").on(table.userId, table.publishedAt)]
+);
+
+export const salePaymentType = pgEnum("sale_payment_type", ["one_shot", "installments"]);
+
+// Manual entry (the "/ventes/suivi" page). offerId refers to an id inside
+// business_profile.sales.offers (jsonb, no relational table) so it's plain
+// text, not a FK. installments is a jsonb array — same "array-in-jsonb"
+// pattern as business_profile.sales.offers, since an installment schedule
+// never needs to be queried/filtered independently of its sale — see
+// lib/sales/types.ts for its shape.
+export const sales = pgTable(
+  "sales",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientName: text("client_name").notNull(),
+    clientEmail: text("client_email"),
+    sourceChannel: text("source_channel"),
+    offerId: text("offer_id"),
+    totalPrice: integer("total_price").notNull(), // euros
+    paymentType: salePaymentType("payment_type").notNull(),
+    installments: jsonb("installments").$type<SaleInstallment[]>(),
+    saleDate: date("sale_date", { mode: "string" }).notNull(),
+    closer: text("closer"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("sales_user_sale_date_idx").on(table.userId, table.saleDate)]
+);

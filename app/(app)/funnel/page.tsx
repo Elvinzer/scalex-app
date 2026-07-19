@@ -11,7 +11,7 @@ import { formatRangeDates, paramValue, resolveDateRange } from "@/lib/date-range
 import { findOverviewBottleneck } from "@/lib/funnel/overview";
 import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
 
-import { getExistingStageInsights } from "./existing-insights";
+import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { MarketBenchmarkAccordion } from "./market-benchmark-accordion";
 import { OverviewBottleneckCard } from "./overview-bottleneck-card";
 import { OverviewFunnelChart } from "./overview-funnel-chart";

@@ -9,8 +9,8 @@ import type { ClosingRates, ClosingTotals } from "@/lib/closing/metrics";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
-import { InsightTrigger } from "../insight-trigger";
-import type { ExistingStageInsight } from "../stage-insight-panel";
+import { InsightTrigger } from "@/components/funnel-insights/insight-trigger";
+import type { ExistingStageInsight } from "@/components/funnel-insights/stage-insight-panel";
 
 type ClosingKpiEntry = typeof closingKpiEntries.$inferSelect;
 

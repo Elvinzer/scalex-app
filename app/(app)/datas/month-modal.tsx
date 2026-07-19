@@ -62,6 +62,20 @@ function NumberField({
   );
 }
 
+// Never auto-fills — always a dismissible suggestion the user applies by
+// clicking, per CLAUDE.md's rule against Contenu/Suivi des ventes silently
+// overwriting Datas numbers.
+function SuggestionBanner({ text, onApply }: { text: string; onApply: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-xs text-accent-text">
+      <span>{text}</span>
+      <button type="button" onClick={onApply} className="font-medium underline underline-offset-2">
+        Utiliser
+      </button>
+    </div>
+  );
+}
+
 type PendingAction = null | "close" | { type: "navigate"; delta: number };
 
 export function MonthModal({
@@ -69,6 +83,8 @@ export function MonthModal({
   month,
   initialData,
   monthRowsThisYear,
+  postLeadsThisMonth,
+  salesThisMonth,
   onClose,
   onNavigate,
 }: {
@@ -76,6 +92,8 @@ export function MonthModal({
   month: number;
   initialData: MonthlyMetricsRow | null;
   monthRowsThisYear: MonthlyMetricsRow[];
+  postLeadsThisMonth: number;
+  salesThisMonth: { contracted: number; collected: number; closedCount: number } | undefined;
   onClose: () => void;
   onNavigate: (nextYear: number, nextMonth: number) => void;
 }) {
@@ -237,6 +255,14 @@ export function MonthModal({
                 <p className="text-xs text-muted-foreground">
                   Cumul annuel collecté : {formatEur(cumulCollected)}
                 </p>
+                {salesThisMonth && salesThisMonth.contracted > 0 && salesThisMonth.contracted !== draft.cashContracted && (
+                  <SuggestionBanner
+                    text={`Tes ventes de Suivi des ventes totalisent ${formatEur(salesThisMonth.contracted)} contracté, ${formatEur(salesThisMonth.collected)} encaissé ce mois.`}
+                    onApply={() =>
+                      update({ cashContracted: salesThisMonth.contracted, cashCollected: salesThisMonth.collected })
+                    }
+                  />
+                )}
               </div>
 
               <div className="flex flex-col gap-3">
@@ -284,6 +310,12 @@ export function MonthModal({
                     {settingRates.bookingRate === null ? "—" : formatPercent(settingRates.bookingRate)}
                   </span>
                 </div>
+                {postLeadsThisMonth > 0 && postLeadsThisMonth !== draft.newFollowers && (
+                  <SuggestionBanner
+                    text={`Tes posts de Contenu totalisent ${postLeadsThisMonth} leads ce mois.`}
+                    onApply={() => update({ newFollowers: postLeadsThisMonth })}
+                  />
+                )}
               </div>
 
               <div className="flex flex-col gap-3">
@@ -319,6 +351,12 @@ export function MonthModal({
                   </span>
                   <span>Revenu par appel : {perCall === null ? "—" : formatEur(perCall)}</span>
                 </div>
+                {salesThisMonth && salesThisMonth.closedCount > 0 && salesThisMonth.closedCount !== draft.salesClosed && (
+                  <SuggestionBanner
+                    text={`Suivi des ventes recense ${salesThisMonth.closedCount} vente${salesThisMonth.closedCount > 1 ? "s" : ""} conclue${salesThisMonth.closedCount > 1 ? "s" : ""} ce mois.`}
+                    onApply={() => update({ salesClosed: salesThisMonth.closedCount })}
+                  />
+                )}
               </div>
 
               {saveError && <p className="text-sm text-state-critical">{saveError}</p>}

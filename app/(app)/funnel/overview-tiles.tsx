@@ -17,7 +17,7 @@ export function OverviewTiles({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Link
-        href="/funnel/setting"
+        href="/acquisition/setting"
         className="sticker-card flex items-center justify-between p-5 transition-colors hover:bg-muted/40"
       >
         <div>
@@ -33,7 +33,7 @@ export function OverviewTiles({
       </Link>
 
       <Link
-        href="/funnel/closing"
+        href="/ventes/closing"
         className="sticker-card flex items-center justify-between p-5 transition-colors hover:bg-muted/40"
       >
         <div>
