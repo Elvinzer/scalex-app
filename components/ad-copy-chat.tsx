@@ -1,5 +1,3 @@
-"use client";
-
 import { AiChatPanel, type ChatMessage } from "@/components/ai-chat-panel";
 
 export function AdCopyChat({ offerId, offerName }: { offerId: string | null; offerName: string | null }) {

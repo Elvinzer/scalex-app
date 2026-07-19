@@ -11,16 +11,7 @@ import {
   settingKpiEntryInputSchema,
   type EditableSettingKpiField,
 } from "@/lib/setting/schema";
-import { createClient } from "@/lib/supabase/server";
-
-async function requireUserId(): Promise<string> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) {
-    throw new Error("Session expirée, reconnecte-toi.");
-  }
-  return data.claims.sub as string;
-}
+import { requireUserId } from "@/lib/current-user";
 
 export async function saveSettingKpiEntry(
   formData: FormData

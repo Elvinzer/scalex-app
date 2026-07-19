@@ -81,6 +81,10 @@ export const users = pgTable("users", {
   // on a specific rate yet (e.g. "general"/"followupRecovery" don't set this).
   lastImproveMetricKey: text("last_improve_metric_key"),
   lastImproveMetricRateSnapshot: real("last_improve_metric_rate_snapshot"), // 0-1 fraction
+  // Idempotency guard for the weekly cron (lib/inngest/functions/weekly-brief-email.ts):
+  // skipped if set within the last 6 days, so a replayed function run never
+  // double-sends the Monday email.
+  lastWeeklyBriefSentAt: timestamp("last_weekly_brief_sent_at", { withTimezone: true }),
 });
 
 export const stripeConnections = pgTable("stripe_connections", {

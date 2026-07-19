@@ -1,5 +1,3 @@
-"use client";
-
 import { AiChatPanel, type ChatMessage } from "@/components/ai-chat-panel";
 
 export function CallAnalysisChat({ videoId, clientName }: { videoId: string; clientName: string }) {

@@ -14,14 +14,12 @@ import type { MonthWindow } from "./completed-months";
 // lib/diagnostic/content-metrics.ts's pair, not part of the 5-stage sales
 // cascade.
 export async function getTestimonialBenchmark(sector: SectorKey | null): Promise<number> {
-  const sectorRow = sector
-    ? (await db.select().from(benchmarks).where(eq(benchmarks.sector, sector))).find(
-        (row) => row.metricKey === "testimonial_rate"
-      )
-    : undefined;
-  const globalRow = (await db.select().from(benchmarks).where(isNull(benchmarks.sector))).find(
-    (row) => row.metricKey === "testimonial_rate"
-  );
+  const [sectorRows, globalRows] = await Promise.all([
+    sector ? db.select().from(benchmarks).where(eq(benchmarks.sector, sector)) : Promise.resolve([]),
+    db.select().from(benchmarks).where(isNull(benchmarks.sector)),
+  ]);
+  const sectorRow = sectorRows.find((row) => row.metricKey === "testimonial_rate");
+  const globalRow = globalRows.find((row) => row.metricKey === "testimonial_rate");
   return sectorRow?.value ?? globalRow?.value ?? 0;
 }
 

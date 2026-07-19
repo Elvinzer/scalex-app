@@ -27,8 +27,10 @@ const CONTENT_METRIC_LABELS: Record<ContentMetricKey, string> = {
 export async function getContentDiagnosticBenchmarks(
   sector: SectorKey | null
 ): Promise<Record<ContentMetricKey, number>> {
-  const rows = sector ? await db.select().from(benchmarks).where(eq(benchmarks.sector, sector)) : [];
-  const globalRows = await db.select().from(benchmarks).where(isNull(benchmarks.sector));
+  const [rows, globalRows] = await Promise.all([
+    sector ? db.select().from(benchmarks).where(eq(benchmarks.sector, sector)) : Promise.resolve([]),
+    db.select().from(benchmarks).where(isNull(benchmarks.sector)),
+  ]);
 
   const result = {} as Record<ContentMetricKey, number>;
   for (const key of CONTENT_METRIC_KEYS) {

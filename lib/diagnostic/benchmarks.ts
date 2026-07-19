@@ -15,10 +15,10 @@ import { METRIC_KEYS, type MetricKey } from "./metric-keys";
 // from lib/benchmarks.ts's 3-tier band system, which keeps driving the
 // Funnel's existing tiles/meters untouched.
 export async function getDiagnosticBenchmarks(sector: SectorKey | null): Promise<Record<MetricKey, number>> {
-  const rows = sector
-    ? await db.select().from(benchmarks).where(eq(benchmarks.sector, sector))
-    : [];
-  const globalRows = await db.select().from(benchmarks).where(isNull(benchmarks.sector));
+  const [rows, globalRows] = await Promise.all([
+    sector ? db.select().from(benchmarks).where(eq(benchmarks.sector, sector)) : Promise.resolve([]),
+    db.select().from(benchmarks).where(isNull(benchmarks.sector)),
+  ]);
 
   const result = {} as Record<MetricKey, number>;
   for (const key of METRIC_KEYS) {

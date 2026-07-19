@@ -7,15 +7,8 @@ import { db } from "@/db";
 import { sales } from "@/db/schema";
 import { saleInputSchema } from "@/lib/sales/schema";
 import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
-import { createClient } from "@/lib/supabase/server";
+import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import type { InstallmentStatus } from "@/lib/sales/types";
-
-async function requireUserId(): Promise<string | { error: string }> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return { error: "Session expirée, reconnecte-toi." };
-  return data.claims.sub as string;
-}
 
 export async function saveSale(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();

@@ -16,6 +16,27 @@ export async function getCurrentUser() {
   return { userId, user };
 }
 
+// Single source of truth for the "get the authenticated user's id or bail"
+// check duplicated across every Server Action in the app. Two variants
+// (throw vs. error-object) match the two return shapes those call sites
+// already use, so migrating them is a pure import swap.
+export async function requireUserId(): Promise<string> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (!data?.claims) {
+    throw new Error("Session expirée, reconnecte-toi.");
+  }
+  return data.claims.sub as string;
+}
+
+export async function requireUserIdOrError(): Promise<string | { error: string }> {
+  try {
+    return await requireUserId();
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Session expirée" };
+  }
+}
+
 // Called from both app/(app)/layout.tsx and app/onboarding/layout.tsx — the
 // only two entry points a session can land on right after auth. No
 // dedicated post-login server route exists (the Supabase email template

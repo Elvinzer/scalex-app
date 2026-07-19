@@ -4,14 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createTestimonial, deleteTestimonial, updateTestimonial } from "@/lib/testimonials/queries";
 import { testimonialInputSchema } from "@/lib/testimonials/schema";
-import { createClient } from "@/lib/supabase/server";
-
-async function requireUserId(): Promise<string | { error: string }> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return { error: "Session expirée, reconnecte-toi." };
-  return data.claims.sub as string;
-}
+import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 
 export async function saveTestimonial(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();

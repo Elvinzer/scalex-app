@@ -4,14 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { contentPostInputSchema } from "@/lib/content-posts/schema";
 import { createContentPost, deleteContentPost, updateContentPost } from "@/lib/content-posts/queries";
-import { createClient } from "@/lib/supabase/server";
-
-async function requireUserId(): Promise<string | { error: string }> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return { error: "Session expirée, reconnecte-toi." };
-  return data.claims.sub as string;
-}
+import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 
 export async function saveContentPost(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();

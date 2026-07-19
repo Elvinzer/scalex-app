@@ -41,18 +41,25 @@ export async function getStripeActivity(userId: string, range: DateRange): Promi
     const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
     const created = toUnixRange(range);
 
-    const charges: StripeActivity["charges"] = [];
-    for await (const charge of stripe.charges.list({ created, limit: 100 })) {
-      if (charge.status === "succeeded") {
-        charges.push({ createdAt: new Date(charge.created * 1000), amountCents: charge.amount });
+    async function collectCharges(): Promise<StripeActivity["charges"]> {
+      const charges: StripeActivity["charges"] = [];
+      for await (const charge of stripe.charges.list({ created, limit: 100 })) {
+        if (charge.status === "succeeded") {
+          charges.push({ createdAt: new Date(charge.created * 1000), amountCents: charge.amount });
+        }
       }
+      return charges;
     }
 
-    const customers: StripeActivity["customers"] = [];
-    for await (const customer of stripe.customers.list({ created, limit: 100 })) {
-      customers.push({ createdAt: new Date(customer.created * 1000) });
+    async function collectCustomers(): Promise<StripeActivity["customers"]> {
+      const customers: StripeActivity["customers"] = [];
+      for await (const customer of stripe.customers.list({ created, limit: 100 })) {
+        customers.push({ createdAt: new Date(customer.created * 1000) });
+      }
+      return customers;
     }
 
+    const [charges, customers] = await Promise.all([collectCharges(), collectCustomers()]);
     return { charges, customers };
   } catch (error) {
     console.error("Stripe activity fetch failed for user", userId, error);

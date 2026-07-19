@@ -27,23 +27,29 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const { userId, user } = await getCurrentUser();
-  const businessProfile = await getBusinessProfile(userId);
 
-  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-    db
-      .select()
-      .from(settingKpiEntries)
-      .where(eq(settingKpiEntries.userId, userId))
-      .orderBy(desc(settingKpiEntries.date)),
-    db
-      .select()
-      .from(closingKpiEntries)
-      .where(eq(closingKpiEntries.userId, userId))
-      .orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(userId),
-  ]);
+  // All four only depend on userId/user.sector, known above — run together
+  // instead of as 4 sequential round-trips.
+  const [businessProfile, [allSettingEntries, allClosingEntries, allMonthlyRows], stripeActivity, benchmarks] =
+    await Promise.all([
+      getBusinessProfile(userId),
+      Promise.all([
+        db
+          .select()
+          .from(settingKpiEntries)
+          .where(eq(settingKpiEntries.userId, userId))
+          .orderBy(desc(settingKpiEntries.date)),
+        db
+          .select()
+          .from(closingKpiEntries)
+          .where(eq(closingKpiEntries.userId, userId))
+          .orderBy(desc(closingKpiEntries.date)),
+        getAllMonthlyMetrics(userId),
+      ]),
+      getStripeActivity(userId, dashboardStripeRange()),
+      getDiagnosticBenchmarks(user?.sector ?? null),
+    ]);
 
-  const stripeActivity = await getStripeActivity(userId, dashboardStripeRange());
   const firstName = user?.email.split("@")[0] || "là";
 
   const metricCards = buildMetricCards({
@@ -63,7 +69,6 @@ export default async function DashboardPage({
     allSettingEntries,
     allClosingEntries,
   });
-  const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
 
   const points = hasAnyMonthlyRow
     ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal }).slice(0, 3)

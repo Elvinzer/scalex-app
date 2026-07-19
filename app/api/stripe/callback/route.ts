@@ -46,18 +46,19 @@ export async function GET(request: NextRequest) {
     scope: tokenResponse.scope ?? null,
   };
 
-  await db
-    .insert(stripeConnections)
-    .values(values)
-    .onConflictDoUpdate({
-      target: stripeConnections.userId,
-      set: { ...values, connectedAt: new Date() },
-    });
-
-  await db
-    .update(users)
-    .set({ stripeConnectId: tokenResponse.stripe_user_id })
-    .where(eq(users.id, userId));
+  // Independent writes to different tables — run together. inngest.send
+  // stays after: the job it triggers reads these two rows, so the event
+  // must only fire once both writes are confirmed.
+  await Promise.all([
+    db
+      .insert(stripeConnections)
+      .values(values)
+      .onConflictDoUpdate({
+        target: stripeConnections.userId,
+        set: { ...values, connectedAt: new Date() },
+      }),
+    db.update(users).set({ stripeConnectId: tokenResponse.stripe_user_id }).where(eq(users.id, userId)),
+  ]);
 
   await inngest.send(stripeAccountConnected.create({ userId }));
 

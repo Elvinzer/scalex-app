@@ -69,13 +69,13 @@ const FUNNEL_STEPS: { label: string; event: string; extraWhere?: string }[] = [
 export async function getActivationFunnel(): Promise<{ step: string; count: number }[]> {
   const cohortFilter = `person_id IN (SELECT DISTINCT person_id FROM events WHERE event = 'signup' AND timestamp > now() - INTERVAL 30 DAY)`;
 
-  const results: { step: string; count: number }[] = [];
-  for (const { label, event, extraWhere } of FUNNEL_STEPS) {
-    const conditions = [`event = '${event}'`, cohortFilter, extraWhere].filter(Boolean).join(" AND ");
-    const rows = await runHogQL(`SELECT count(DISTINCT person_id) FROM events WHERE ${conditions}`);
-    results.push({ step: label, count: toNumber(rows[0]?.[0]) });
-  }
-  return results;
+  return Promise.all(
+    FUNNEL_STEPS.map(async ({ label, event, extraWhere }) => {
+      const conditions = [`event = '${event}'`, cohortFilter, extraWhere].filter(Boolean).join(" AND ");
+      const rows = await runHogQL(`SELECT count(DISTINCT person_id) FROM events WHERE ${conditions}`);
+      return { step: label, count: toNumber(rows[0]?.[0]) };
+    })
+  );
 }
 
 // Block 3 — median minutes between signup and activation_reached, over the

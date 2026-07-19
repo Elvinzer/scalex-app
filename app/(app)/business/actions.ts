@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { identifyUser, track } from "@/lib/analytics";
 import { db } from "@/db";
@@ -52,7 +53,7 @@ export async function saveBusinessSection(
     const { percent } = computeGlobalCompletion(fullProfile);
     if (percent >= 80) {
       await db.update(users).set({ businessProfileCompletedAt: new Date() }).where(eq(users.id, userId));
-      await track("business_profile_completed", userId);
+      after(() => track("business_profile_completed", userId));
     }
   }
 

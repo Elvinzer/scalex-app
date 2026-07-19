@@ -16,14 +16,7 @@ import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeOnboardingGoulot, type OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
-import { createClient } from "@/lib/supabase/server";
-
-async function requireUserId(): Promise<string | { error: string }> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return { error: "Session expirée, reconnecte-toi." };
-  return data.claims.sub as string;
-}
+import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 
 // The single "previous full calendar month" window screen 2 collects data
 // for and screen 3 diagnoses — lastCompletedMonths(1) already builds

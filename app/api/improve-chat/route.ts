@@ -71,9 +71,9 @@ export async function POST(request: NextRequest) {
   // Server always recomputes the numbers from the authenticated user's own
   // data — never trusts a client-sent rate/€ figure, same rule as
   // lib/agent/insight.ts.
-  const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  const businessProfile = await getBusinessProfile(userId);
-  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
+  const [[userRow], businessProfile, allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
+    db.select().from(users).where(eq(users.id, userId)).limit(1),
+    getBusinessProfile(userId),
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
     db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
     getAllMonthlyMetrics(userId),

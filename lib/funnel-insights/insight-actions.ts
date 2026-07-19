@@ -11,8 +11,8 @@ import { resolveAgentKey } from "@/lib/agent/client";
 import { generateStageInsight } from "@/lib/agent/insight";
 import { STAGE_KNOWLEDGE, type FunnelStageKey } from "@/lib/agent/knowledge";
 import { aggregateClosingEntries, computeClosingRates } from "@/lib/closing/metrics";
+import { requireUserId } from "@/lib/current-user";
 import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
-import { createClient } from "@/lib/supabase/server";
 
 const stageSchema = z.enum([
   "outreachRate",
@@ -28,15 +28,6 @@ type SettingStageKey = (typeof SETTING_STAGES)[number];
 
 function isSettingStage(stage: FunnelStageKey): stage is SettingStageKey {
   return (SETTING_STAGES as readonly string[]).includes(stage);
-}
-
-async function requireUserId(): Promise<string> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) {
-    throw new Error("Session expirée, reconnecte-toi.");
-  }
-  return data.claims.sub as string;
 }
 
 // Every answer must match a known question id + option id for that stage —

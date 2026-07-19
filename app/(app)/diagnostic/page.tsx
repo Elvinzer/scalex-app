@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { after } from "next/server";
 import { Suspense } from "react";
 
 import { AutoOpenImprove } from "./auto-open-improve";
@@ -71,7 +72,7 @@ export default async function DiagnosticPage({
 }) {
   const { userId, user } = await getCurrentUser();
   const params = await searchParams;
-  await track("diagnostic_viewed", userId);
+  after(() => track("diagnostic_viewed", userId));
   const period = params.period && PERIOD_LABELS[params.period] ? params.period : "3-months";
 
   const businessProfile = await getBusinessProfile(userId);
@@ -107,11 +108,13 @@ export default async function DiagnosticPage({
     );
   }
 
-  const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
-  const contentBenchmarks = await getContentDiagnosticBenchmarks(user?.sector ?? null);
+  const [benchmarks, contentBenchmarks, testimonialBenchmark] = await Promise.all([
+    getDiagnosticBenchmarks(user?.sector ?? null),
+    getContentDiagnosticBenchmarks(user?.sector ?? null),
+    getTestimonialBenchmark(user?.sector ?? null),
+  ]);
   const contentTotals = aggregateContentTotals(months, allContentPosts);
   const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
-  const testimonialBenchmark = await getTestimonialBenchmark(user?.sector ?? null);
   const testimonialCount = aggregateTestimonialCount(months, allTestimonials);
   const testimonialSummary = computeTestimonialSummary({
     count: testimonialCount,
