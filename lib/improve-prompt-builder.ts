@@ -6,7 +6,7 @@ import { formatEur } from "@/lib/currency";
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 
-export type ImproveMetricKey = MetricKey | "followupRecovery";
+export type ImproveMetricKey = MetricKey | "followupRecovery" | "general";
 
 const ROLE_BY_METRIC: Record<ImproveMetricKey, string> = {
   responseRate:
@@ -21,9 +21,8 @@ const ROLE_BY_METRIC: Record<ImproveMetricKey, string> = {
     "Tu es un closer senior spécialisé en vente d'offres high-ticket par téléphone pour coachs et formateurs francophones.",
   followupRecovery:
     "Tu es un expert en séquences de relance : non-acheteurs, paniers abandonnés, paiements échoués.",
+  general: "Tu es un consultant senior en croissance de business en ligne.",
 };
-
-const DEFAULT_ROLE = "Tu es un consultant senior en croissance de business en ligne.";
 
 function describeBusinessContext(profile: BusinessProfileData): string {
   const { identity, acquisition, sales, delivery } = profile;
@@ -91,12 +90,25 @@ function describeRealNumbers(settingTotals: FunnelTotals, closingTotals: Closing
   ].join("\n");
 }
 
+function describeAllPoints(points: DiagnosticPoint[]): string {
+  if (points.length === 0) {
+    return "Tous les taux mesurés sont actuellement au niveau du benchmark — rien de critique à signaler.";
+  }
+  return points
+    .map(
+      (p, i) =>
+        `${i + 1}. ${p.label} (${p.category}) : ${p.currentRatePercent}% vs benchmark ${p.benchmarkRatePercent}%. ${p.explanation} Manque à gagner : ${p.monthlyGain !== null ? `${formatEur(p.monthlyGain)}/mois` : "non chiffrable"}.`
+    )
+    .join("\n");
+}
+
 export function buildImprovePrompt({
   metricKey,
   businessProfile,
   settingTotals,
   closingTotals,
   point,
+  points,
   followup,
 }: {
   metricKey: ImproveMetricKey;
@@ -104,15 +116,19 @@ export function buildImprovePrompt({
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
   point: DiagnosticPoint | null;
+  points?: DiagnosticPoint[];
   followup: FollowupCompliance | null;
 }): string {
-  const role = ROLE_BY_METRIC[metricKey] ?? DEFAULT_ROLE;
+  const role = ROLE_BY_METRIC[metricKey];
+  const isGeneral = metricKey === "general";
 
-  const gapDescription = point
-    ? `Point à améliorer : ${point.label} (${point.category}). Taux actuel : ${point.currentRatePercent}%, benchmark de la niche : ${point.benchmarkRatePercent}%. ${point.explanation} Manque à gagner estimé : ${point.monthlyGain !== null ? `${formatEur(point.monthlyGain)}/mois` : "non chiffrable (pas d'offre principale renseignée)"}.`
-    : followup
-      ? `Point à améliorer : ${followup.label}. Cette relance n'est pas en place aujourd'hui.`
-      : "Point à améliorer : non spécifié.";
+  const gapDescription = isGeneral
+    ? describeAllPoints(points ?? [])
+    : point
+      ? `Point à améliorer : ${point.label} (${point.category}). Taux actuel : ${point.currentRatePercent}%, benchmark de la niche : ${point.benchmarkRatePercent}%. ${point.explanation} Manque à gagner estimé : ${point.monthlyGain !== null ? `${formatEur(point.monthlyGain)}/mois` : "non chiffrable (pas d'offre principale renseignée)"}.`
+      : followup
+        ? `Point à améliorer : ${followup.label}. Cette relance n'est pas en place aujourd'hui.`
+        : "Point à améliorer : non spécifié.";
 
   return [
     "# RÔLE",
@@ -124,12 +140,16 @@ export function buildImprovePrompt({
     "# DONNÉES RÉELLES (3 derniers mois)",
     describeRealNumbers(settingTotals, closingTotals),
     "",
-    "# LE POINT À AMÉLIORER",
+    isGeneral ? "# LES POINTS À AMÉLIORER (classés par impact)" : "# LE POINT À AMÉLIORER",
     gapDescription,
     "",
     "# MISSION",
-    "Aide l'utilisateur à améliorer précisément CE point, en t'appuyant sur son business réel " +
-      "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques.",
+    isGeneral
+      ? "Aide l'utilisateur à comprendre et prioriser ses données, en t'appuyant sur son business réel " +
+        "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques. " +
+        "Il peut te poser des questions sur n'importe quel chiffre ou point ci-dessus."
+      : "Aide l'utilisateur à améliorer précisément CE point, en t'appuyant sur son business réel " +
+        "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques.",
     "",
     "# RÈGLES DE RÉPONSE",
     "- Tutoiement, français, direct, orienté action.",
@@ -137,6 +157,8 @@ export function buildImprovePrompt({
     "- Tu peux utiliser des listes à puces et du gras, jamais de titres markdown (#).",
     "- N'invente jamais un chiffre qui ne figure pas dans les données ci-dessus.",
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : " +
-      "commence par un message qui résume en une phrase le problème et propose une première piste concrète.",
+      (isGeneral
+        ? "commence par un résumé en une phrase de l'état général du business et demande ce qu'il veut creuser."
+        : "commence par un message qui résume en une phrase le problème et propose une première piste concrète."),
   ].join("\n");
 }

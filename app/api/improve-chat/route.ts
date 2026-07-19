@@ -18,7 +18,15 @@ import { createClient } from "@/lib/supabase/server";
 const MAX_MESSAGES = 20;
 
 const requestSchema = z.object({
-  metricKey: z.enum(["responseRate", "proposalRate", "bookingRate", "showUpRate", "closingRate", "followupRecovery"]),
+  metricKey: z.enum([
+    "responseRate",
+    "proposalRate",
+    "bookingRate",
+    "showUpRate",
+    "closingRate",
+    "followupRecovery",
+    "general",
+  ]),
   followupKey: z.enum(["nonBuyers", "noShow", "failedPayments"]).nullable().optional(),
   period: z.enum(["3-months", "current-month", "12-months"]),
   messages: z
@@ -92,6 +100,7 @@ export async function POST(request: NextRequest) {
     settingTotals,
     closingTotals,
     point,
+    points: metricKey === "general" ? points.slice(0, 3) : undefined,
     followup,
   });
 

@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { CalcPopover } from "@/components/calc-popover";
-import { ImproveButton } from "@/components/improve-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { Button } from "@/components/ui/button";
@@ -211,16 +210,9 @@ export default async function DiagnosticPage({
 
             <p className="text-sm text-muted-foreground">{point.explanation}</p>
 
-            <div className="self-start">
-              <ImproveButton
-                variant={index === 0 ? "primary" : "secondary"}
-                metricKey={point.key}
-                label={point.label}
-                currentRatePercent={point.currentRatePercent}
-                benchmarkRatePercent={point.benchmarkRatePercent}
-                period={period as "3-months" | "current-month" | "12-months"}
-              />
-            </div>
+            <a href={`#metric-${point.key}`} className="self-start text-sm font-medium text-muted-foreground hover:underline">
+              Voir le détail
+            </a>
           </div>
         ))}
       </div>
@@ -287,17 +279,6 @@ export default async function DiagnosticPage({
                     </Button>
                   </PopoverContent>
                 </Popover>
-              )}
-              {followup.status === "critical" && (
-                <div className="mt-2">
-                  <ImproveButton
-                    variant="secondary"
-                    metricKey="followupRecovery"
-                    followupKey={followup.key}
-                    label={followup.label}
-                    period={period as "3-months" | "current-month" | "12-months"}
-                  />
-                </div>
               )}
             </div>
           ))}
