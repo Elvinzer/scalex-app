@@ -91,8 +91,10 @@ function NavLink({ entry, pathname, indented }: { entry: LinkEntry; pathname: st
     <Link
       href={entry.href}
       className={cn(
-        "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
-        indented ? "pl-7" : "pl-3",
+        "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        indented
+          ? "pl-7 text-[13px] font-normal tracking-[-0.005em]"
+          : "pl-3 text-[13.5px] font-medium tracking-[-0.01em]",
         active
           ? "bg-linear-to-r from-accent/25 to-accent/5 text-on-dark shadow-[inset_2px_0_0_var(--accent)]"
           : "text-mist/75 hover:translate-x-0.5 hover:bg-mist/10 hover:text-mist"
@@ -107,10 +109,10 @@ function NavLink({ entry, pathname, indented }: { entry: LinkEntry; pathname: st
 function DisabledNavItem({ entry }: { entry: DisabledEntry }) {
   const Icon = entry.icon;
   return (
-    <div className="flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 pl-7 text-sm font-medium text-mist/40">
+    <div className="flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 pl-7 text-[13px] font-normal tracking-[-0.005em] text-mist/40">
       <Icon className="size-4" />
       {entry.label}
-      <span className="ml-auto rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-mist/50 uppercase">
+      <span className="ml-auto rounded-full bg-white/5 px-1.5 py-0.5 text-[9.5px] font-semibold tracking-[0.06em] text-mist/50 uppercase">
         Bientôt
       </span>
     </div>
@@ -133,7 +135,7 @@ function PillarSection({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-1 rounded-[var(--radius-control)] px-3 py-1.5 text-[11px] font-medium tracking-wide text-on-dark-muted uppercase transition-colors hover:text-mist"
+        className="flex w-full items-center gap-1 rounded-[var(--radius-control)] px-3 py-1.5 text-[10.5px] font-semibold tracking-[0.09em] text-on-dark-muted uppercase transition-colors hover:text-mist"
       >
         <ChevronRight className={cn("size-3 shrink-0 transition-transform duration-150", open && "rotate-90")} />
         {pillar.label}
@@ -209,7 +211,7 @@ export function AppSidebar({ email }: { email: string }) {
         >
           S
         </div>
-        <span className="font-display text-lg font-medium tracking-tight">Scale X</span>
+        <span className="font-display text-[17px] font-semibold tracking-[-0.015em]">Scale X</span>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
@@ -241,7 +243,7 @@ export function AppSidebar({ email }: { email: string }) {
             {initial}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-mist/85">{email}</p>
+            <p className="truncate text-[12.5px] font-medium tracking-[-0.005em] text-mist/85">{email}</p>
           </div>
           <button
             type="button"
