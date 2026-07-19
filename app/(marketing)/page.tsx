@@ -219,9 +219,14 @@ export default function MarketingHomePage() {
             FAQ
           </a>
         </div>
-        <Button asChild>
-          <a href="/onboarding">Diagnostiquer mon business</a>
-        </Button>
+        <div className="flex items-center gap-4">
+          <a href="/sign-in" className="hidden text-sm font-medium hover:opacity-65 sm:inline">
+            Se connecter
+          </a>
+          <Button asChild>
+            <a href="/onboarding">Diagnostiquer mon business</a>
+          </Button>
+        </div>
       </nav>
 
       <header
