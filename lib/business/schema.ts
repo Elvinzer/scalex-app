@@ -69,6 +69,13 @@ export const salesSchema = z.object({
   }),
 });
 
+const processStepSchema = z.object({
+  id: z.string().min(1).max(100),
+  title: z.string().max(200),
+  description: z.string().max(1000),
+  implemented: z.boolean(),
+});
+
 export const deliverySchema = z.object({
   onboardingDescription: z.string().max(4000),
   support: z.object({
@@ -80,6 +87,7 @@ export const deliverySchema = z.object({
     displayedOn: z.array(z.string().max(60)).max(20),
   }),
   upsellOfferId: z.string().max(100).nullable(),
+  processSteps: z.array(processStepSchema).max(30),
 });
 
 export const businessProfileSectionSchemas = {

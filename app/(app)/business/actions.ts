@@ -36,5 +36,6 @@ export async function saveBusinessSection(
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
   revalidatePath("/agent");
+  revalidatePath("/delivrabilite/process");
   return { error: null };
 }

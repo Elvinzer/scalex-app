@@ -97,11 +97,19 @@ export type Testimonials = {
   displayedOn: string[];
 };
 
+export type ProcessStep = {
+  id: string;
+  title: string;
+  description: string;
+  implemented: boolean;
+};
+
 export type BusinessDelivery = {
   onboardingDescription: string;
   support: Support;
   testimonials: Testimonials;
   upsellOfferId: string | null;
+  processSteps: ProcessStep[];
 };
 
 export type BusinessSection = "identity" | "acquisition" | "sales" | "delivery";
@@ -137,5 +145,6 @@ export const EMPTY_BUSINESS_PROFILE: BusinessProfileData = {
     support: { format: null, frequency: "" },
     testimonials: { count: null, displayedOn: [] },
     upsellOfferId: null,
+    processSteps: [],
   },
 };
