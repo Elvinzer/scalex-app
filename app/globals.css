@@ -49,6 +49,12 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-border: var(--accent-border);
   --color-accent-text: var(--accent-text);
+  --color-accent-2: var(--accent-2);
+  --color-accent-2-hover: var(--accent-2-hover);
+  --color-accent-2-soft: var(--accent-2-soft);
+  --color-accent-2-border: var(--accent-2-border);
+  --color-accent-2-text: var(--accent-2-text);
+  --color-surface-dark-2: var(--surface-dark-2);
   --color-border-hover: var(--border-hover);
   --color-surface-sunken: var(--surface-sunken);
   --color-positive: var(--positive);
@@ -79,14 +85,19 @@
 }
 
 :root {
-  /* Scale X "Hybride" design system — exact tokens from
-     DESIGN_SYSTEM_SCALEX.md §1. Light, airy canvas; ONE dark surface per
-     page; coral reserved for the single priority action. */
+  /* Scale X "Premium" design system (v2) — evolved from the original
+     "Hybride" minimal system: same light canvas + coral identity, but with
+     real depth (layered shadows, gradients, glow), a second brand accent
+     (violet) for variety, and richer surfaces. Structural rules relaxed on
+     purpose: more than one dark/spotlight surface per page is fine now,
+     more than one accent color is fine now — the goal is "premium and
+     modern", not the old one-CTA austerity. */
 
   /* Fonds */
   --canvas: #faf9f6;
   --surface: #ffffff;
   --surface-dark: #16150f;
+  --surface-dark-2: #211f2e;
   --surface-sunken: #f4f3ef;
 
   /* Bordures */
@@ -99,17 +110,36 @@
   --text-on-dark: #ffffff;
   --text-on-dark-muted: #9b998f;
 
-  /* Accent — corail = action prioritaire uniquement */
+  /* Accent 1 — corail, chaleur/action */
   --accent: #e8663c;
   --accent-hover: #d55830;
   --accent-soft: #fdf1ec;
   --accent-border: #f5c4b3;
   --accent-text: #712b13;
+  --accent-glow: rgba(232, 102, 60, 0.35);
 
-  /* Sémantique — texte uniquement, jamais de fonds saturés */
+  /* Accent 2 — violet, second accent de marque (analytics/IA, variété
+     visuelle) — anciennement un token "legacy" discret, promu ici. */
+  --accent-2: #6d5cf6;
+  --accent-2-hover: #5a48e0;
+  --accent-2-soft: #f1efff;
+  --accent-2-border: #cfc6fb;
+  --accent-2-text: #3c2f9e;
+  --accent-2-glow: rgba(109, 92, 246, 0.35);
+
+  /* Dégradés — CTA et surfaces sombres gagnent en profondeur au lieu
+     d'aplats plats. */
+  --gradient-accent: linear-gradient(135deg, #ef7a52 0%, var(--accent) 55%, #d94f27 100%);
+  --gradient-accent-2: linear-gradient(135deg, #8b7bfa 0%, var(--accent-2) 55%, #5a48e0 100%);
+  --gradient-dark: linear-gradient(160deg, #201e29 0%, var(--surface-dark) 55%, #0f0e0a 100%);
+  --gradient-mesh: radial-gradient(circle at 15% 20%, rgba(232, 102, 60, 0.16), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(109, 92, 246, 0.14), transparent 40%);
+
+  /* Sémantique — texte + fonds doux, un peu plus saturés qu'avant pour
+     porter davantage de couleur dans les badges/graphiques. */
   --positive: #3b7a4a;
   --positive-on-dark: #5dcaa5;
-  --positive-soft: #edf4ee;
+  --positive-soft: #e3f1e6;
   --negative: #a32d2d;
   --warning-text: #854f0b;
   --warning-soft: #faf3e4;
@@ -119,11 +149,19 @@
   --radius-card: 12px;
   --radius-control: 8px;
 
-  /* Ombres — uniquement pour les éléments flottants */
-  --shadow-float: 0 8px 24px rgba(22, 21, 15, 0.08);
+  /* Ombres — plus utilisées qu'avant : cartes au survol, pas seulement les
+     éléments flottants. Ombres superposées (ambiante + directionnelle)
+     pour une vraie sensation de profondeur plutôt qu'un simple flou. */
+  --shadow-xs: 0 1px 2px rgba(22, 21, 15, 0.04);
+  --shadow-sm: 0 2px 8px rgba(22, 21, 15, 0.06), 0 1px 2px rgba(22, 21, 15, 0.04);
+  --shadow-md: 0 8px 24px rgba(22, 21, 15, 0.08), 0 2px 6px rgba(22, 21, 15, 0.05);
+  --shadow-lg: 0 24px 64px rgba(22, 21, 15, 0.14), 0 8px 20px rgba(22, 21, 15, 0.08);
+  --shadow-float: var(--shadow-md);
 
-  /* Motion */
-  --transition: 150ms ease;
+  /* Motion — courbe "premium" (ease-out-expo) en plus du ease standard. */
+  --transition-fast: 100ms ease;
+  --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow: 360ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Legacy token names kept so every existing Tailwind class (bg-ink,
      text-mist, bg-signal, border-border, bg-state-critical-bg...) picks up
@@ -134,7 +172,7 @@
   --paper-alt: var(--accent-soft);
   --panel: var(--surface);
   --signal: var(--accent);
-  --violet: #6d5cf6;
+  --violet: var(--accent-2);
   --gain: var(--accent);
   --state-critical: var(--negative);
   --state-critical-bg: #fbe9e9;
@@ -238,13 +276,22 @@
 }
 
 @layer utilities {
-  /* Standard content card — 1px border, no shadow. Cards never cast a
-     shadow; only floating elements (modals, dropdowns) do. */
+  /* Standard content card — subtle border + a resting shadow, lifting
+     further on hover for real depth instead of a flat aplat. */
   .sticker-card {
     border: 1px solid var(--border-value);
     border-radius: var(--radius-card);
     background: var(--surface);
-    transition: border-color var(--transition);
+    box-shadow: var(--shadow-xs);
+    transition:
+      border-color var(--transition),
+      box-shadow var(--transition),
+      transform var(--transition);
+  }
+  .sticker-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
   }
 
   /* Empty/locked-state variant: dashed border, muted background. */
@@ -252,20 +299,110 @@
     border: 1px dashed var(--border-value);
     border-radius: var(--radius-card);
     background: var(--surface);
+    transition: border-color var(--transition);
+  }
+  .sticker-card-dashed:hover {
+    border-color: var(--border-hover);
   }
 
-  /* The one dark surface per page — the block that carries the money
-     figure (Dashboard's "manque à gagner", Diagnostic's "potentiel total",
-     Funnel's friction card, Mon business' progress header). Never more than
-     one per page outside the sidebar. */
+  /* The dark "spotlight" surface that carries the headline figure
+     (Dashboard's "manque à gagner", Diagnostic's "potentiel total", Mon
+     business' progress header...) — now a soft gradient + faint accent
+     mesh instead of a flat fill, for real depth. More than one per page is
+     fine now (structural rule relaxed) — use where a figure deserves
+     emphasis. */
   .sticker-spotlight {
+    position: relative;
     border-radius: var(--radius-hero);
-    background: var(--surface-dark);
+    background: var(--gradient-dark);
     color: var(--text-on-dark);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .sticker-spotlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-mesh);
+    pointer-events: none;
+  }
+  .sticker-spotlight > * {
+    position: relative;
   }
 
-  /* Floating elements only (modals, dropdowns, popovers). */
+  /* Floating elements (modals, dropdowns, popovers) — layered shadow for
+     genuine elevation, not just a soft blur. */
   .elevated {
-    box-shadow: var(--shadow-float);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Frosted overlay behind modals/drawers — replaces the old flat
+     bg-ink/50 tint with a blurred, higher-contrast backdrop. */
+  .glass-overlay {
+    background: color-mix(in oklch, var(--surface-dark) 65%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  /* Reusable hover-lift, for anything that isn't already a .sticker-card
+     (e.g. buttons, custom tiles). */
+  .hover-lift {
+    transition:
+      transform var(--transition),
+      box-shadow var(--transition);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Coral/violet gradient headline treatment — used sparingly, one accent
+     word or figure per screen, not whole paragraphs. */
+  .gradient-text {
+    background: linear-gradient(120deg, var(--accent) 0%, var(--accent-2) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  /* Colored glow ring, for the single most important CTA on a screen. */
+  .glow-accent {
+    box-shadow: 0 0 0 1px var(--accent-border), 0 8px 24px var(--accent-glow);
+  }
+  .glow-accent-2 {
+    box-shadow: 0 0 0 1px var(--accent-2-border), 0 8px 24px var(--accent-2-glow);
+  }
+
+  /* Entrance animation for hero blocks/cards — fades + rises in once on
+     mount. Respects reduced-motion. */
+  .animate-rise {
+    animation: rise-in var(--transition-slow) both;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--accent-border), 0 8px 24px var(--accent-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 1px var(--accent-border), 0 8px 36px 4px var(--accent-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
   }
 }

@@ -91,12 +91,14 @@ function NavLink({ entry, pathname, indented }: { entry: LinkEntry; pathname: st
     <Link
       href={entry.href}
       className={cn(
-        "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 text-sm font-medium transition-colors duration-150",
+        "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 text-sm font-medium transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
         indented ? "pl-7" : "pl-3",
-        active ? "bg-white/10 text-on-dark" : "text-mist/75 hover:bg-mist/10 hover:text-mist"
+        active
+          ? "bg-linear-to-r from-accent/25 to-accent/5 text-on-dark shadow-[inset_2px_0_0_var(--accent)]"
+          : "text-mist/75 hover:translate-x-0.5 hover:bg-mist/10 hover:text-mist"
       )}
     >
-      <Icon className="size-4" />
+      <Icon className={cn("size-4", active && "text-accent")} />
       {entry.label}
     </Link>
   );
@@ -196,9 +198,15 @@ export function AppSidebar({ email }: { email: string }) {
   const initial = email.charAt(0).toUpperCase() || "?";
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col bg-ink px-3 py-7 text-mist">
+    <aside
+      className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col px-3 py-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
+      style={{ background: "var(--gradient-dark)" }}
+    >
       <div className="flex items-center gap-2.5 px-3 pb-7">
-        <div className="flex size-8 items-center justify-center rounded-lg border border-mist bg-signal text-sm font-medium text-ink">
+        <div
+          className="flex size-8 items-center justify-center rounded-lg text-sm font-medium text-white shadow-[0_2px_8px_var(--accent-glow)]"
+          style={{ background: "var(--gradient-accent)" }}
+        >
           S
         </div>
         <span className="font-display text-lg font-medium tracking-tight">Scale X</span>

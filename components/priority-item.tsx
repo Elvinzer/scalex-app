@@ -16,15 +16,16 @@ export function PriorityItem({
     <div
       className={cn(
         "sticker-card flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between",
-        isTop && "border-signal bg-signal/5"
+        isTop && "border-accent/40 bg-linear-to-br from-accent-soft to-transparent"
       )}
     >
       <div className="flex items-start gap-4">
         <span
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-medium",
-            isTop ? "bg-signal text-white" : "bg-muted text-muted-foreground"
+            isTop ? "text-white shadow-[0_4px_14px_var(--accent-glow)]" : "bg-muted text-muted-foreground"
           )}
+          style={isTop ? { background: "var(--gradient-accent)" } : undefined}
         >
           {rank}
         </span>

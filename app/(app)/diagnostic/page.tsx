@@ -164,9 +164,12 @@ export default async function DiagnosticPage({
               key={value}
               href={`/diagnostic?period=${value}`}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-sm font-medium",
-                period === value ? "border-signal bg-signal/15 text-signal" : "border-border text-muted-foreground"
+                "rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-200",
+                period === value
+                  ? "border-transparent text-white shadow-[0_2px_10px_var(--accent-glow)]"
+                  : "border-border text-muted-foreground hover:border-border-hover"
               )}
+              style={period === value ? { background: "var(--gradient-accent)" } : undefined}
             >
               {label}
             </Link>
@@ -177,9 +180,9 @@ export default async function DiagnosticPage({
       {isThin && <BusinessNudgeBanner />}
 
       {/* Bloc 1 — Le verdict */}
-      <div className="sticker-spotlight px-7 py-6">
+      <div className="sticker-spotlight animate-rise px-7 py-6">
         <p className="text-xs text-mist/70">Potentiel total détecté</p>
-        <p className="mt-2 text-[38px] leading-[1.1] font-medium tracking-[-0.02em] tabular-nums">
+        <p className="gradient-text mt-2 text-[38px] leading-[1.1] font-medium tracking-[-0.02em] tabular-nums">
           {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain)}/mois`}
         </p>
         <p className="mt-2 text-sm text-mist/70">
@@ -208,7 +211,11 @@ export default async function DiagnosticPage({
         {points.map((point, index) => (
           <div
             key={point.key}
-            className={cn("sticker-card flex flex-col gap-4 p-6", index === 0 && "border-signal bg-signal/5")}
+            className={cn(
+              "sticker-card animate-rise flex flex-col gap-4 p-6",
+              index === 0 && "border-accent/40 bg-linear-to-br from-accent-soft to-transparent"
+            )}
+            style={{ animationDelay: `${index * 60}ms` }}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">

@@ -101,9 +101,9 @@ export default async function DashboardPage({
 
       {/* Bloc 1 — always the honest empty-state: no execution engine exists
           yet to attribute real recovered/generated value to (see plan doc). */}
-      <div className="sticker-spotlight px-7 py-6">
+      <div className="sticker-spotlight animate-rise px-7 py-6">
         <p className="text-xs text-mist/70">Manque à gagner détecté</p>
-        <p className="mt-2 text-[38px] leading-[1.1] font-medium tracking-[-0.02em] tabular-nums">
+        <p className="gradient-text mt-2 text-[38px] leading-[1.1] font-medium tracking-[-0.02em] tabular-nums">
           {formatEur(totalMonthlyLoss)}
         </p>
         <p className="mt-2 text-sm text-mist/70">
@@ -141,8 +141,10 @@ export default async function DashboardPage({
           Mois en cours, comparé au mois précédent.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {metricCards.map((card) => (
-            <MetricCard key={card.key} data={card} />
+          {metricCards.map((card, index) => (
+            <div key={card.key} className="animate-rise" style={{ animationDelay: `${index * 40}ms` }}>
+              <MetricCard data={card} />
+            </div>
           ))}
         </div>
       </div>
@@ -157,7 +159,9 @@ export default async function DashboardPage({
 
         <div className="mt-4 flex flex-col gap-4">
           {points.map((point, index) => (
-            <PriorityItem key={point.key} rank={(index + 1) as 1 | 2 | 3} point={point} />
+            <div key={point.key} className="animate-rise" style={{ animationDelay: `${index * 60}ms` }}>
+              <PriorityItem rank={(index + 1) as 1 | 2 | 3} point={point} />
+            </div>
           ))}
 
           {points.length < 3 && unlockHints.length > 0 && (
