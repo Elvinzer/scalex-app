@@ -24,7 +24,7 @@
       "Bash(npm install *)",
       "Bash(npx *)",
       "Bash(find *)",
-      "Bash(print *)",
+      "Bash(print  *)",
       "Bash(npm run *)",
       "Bash(npm audit*)",
       "Bash(sleep *)",
