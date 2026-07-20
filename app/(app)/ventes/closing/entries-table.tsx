@@ -24,9 +24,9 @@ export function EntriesTable({ entries }: { entries: ClosingKpiEntry[] }) {
       <table className="w-full min-w-[420px] text-sm">
         <thead>
           <tr className="border-b-2 border-border text-left text-muted-foreground">
-            <th className="px-4 py-3 font-medium">Date</th>
-            <th className="px-4 py-3 font-medium">Appels pris</th>
-            <th className="px-4 py-3 font-medium">Ventes conclues</th>
+            <th className="px-4 py-3 font-bold">Date</th>
+            <th className="px-4 py-3 font-bold">Appels pris</th>
+            <th className="px-4 py-3 font-bold">Ventes conclues</th>
           </tr>
         </thead>
         <tbody>

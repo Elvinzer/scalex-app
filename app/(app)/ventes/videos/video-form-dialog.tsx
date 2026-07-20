@@ -51,7 +51,7 @@ export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; t
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-medium">
+        <DialogTitle className="text-lg font-bold">
           {video ? "Modifier l'appel" : "Ajouter un appel"}
         </DialogTitle>
 

@@ -46,7 +46,7 @@ export function DatasPageClient({
         >
           <ChevronLeft className="size-4" />
         </Link>
-        <p className="font-display text-xl font-medium">{year}</p>
+        <p className="font-display text-xl font-bold">{year}</p>
         <Link
           href={`/datas?year=${year + 1}`}
           className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"

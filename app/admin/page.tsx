@@ -32,10 +32,10 @@ export default async function AdminPage() {
       </div>
 
       <div className="sticker-card p-6">
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-sm font-bold text-muted-foreground">
           North star — utilisateurs avec ≥ 1 conversation d&apos;amélioration cette semaine
         </p>
-        <p className="mt-2 font-display text-3xl font-medium tabular-nums">
+        <p className="mt-2 font-display text-3xl font-bold tabular-nums">
           {northStarCount === null ? "—" : northStarCount}
         </p>
         {northStarTrend && northStarTrend.length > 0 && (
@@ -55,7 +55,7 @@ export default async function AdminPage() {
       </div>
 
       <div className="sticker-card p-6">
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-sm font-bold text-muted-foreground">
           Funnel d&apos;activation — cohorte des 30 derniers jours
         </p>
         <div className="mt-4 flex flex-col gap-3">
@@ -67,9 +67,9 @@ export default async function AdminPage() {
               const percent = previous && previous > 0 ? Math.round((step.count / previous) * 100) : null;
               return (
                 <div key={step.step} className="flex items-center justify-between gap-4 border-b border-border pb-3 last:border-0">
-                  <p className="text-sm font-medium">{step.step}</p>
+                  <p className="text-sm font-bold">{step.step}</p>
                   <div className="flex items-center gap-3">
-                    <span className="font-display text-lg font-medium tabular-nums">{step.count}</span>
+                    <span className="font-display text-lg font-bold tabular-nums">{step.count}</span>
                     {percent !== null && <span className="text-xs text-muted-foreground">{percent}% du précédent</span>}
                   </div>
                 </div>
@@ -81,16 +81,16 @@ export default async function AdminPage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sticker-card p-6">
-          <p className="text-sm font-medium text-muted-foreground">Temps médian signup → activation</p>
-          <p className="mt-2 font-display text-3xl font-medium tabular-nums">
+          <p className="text-sm font-bold text-muted-foreground">Temps médian signup → activation</p>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums">
             {medianMinutes === null ? "—" : `${Math.round(medianMinutes)} min`}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">Objectif : moins de 15 min</p>
         </div>
 
         <div className="sticker-card p-6">
-          <p className="text-sm font-medium text-muted-foreground">Check-in 2 semaines de suite</p>
-          <p className="mt-2 font-display text-3xl font-medium tabular-nums">
+          <p className="text-sm font-bold text-muted-foreground">Check-in 2 semaines de suite</p>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums">
             {retentionRate === null ? "—" : `${retentionRate}%`}
           </p>
         </div>

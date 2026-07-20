@@ -49,7 +49,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="font-medium">{label}</span>
+      <span className="font-bold">{label}</span>
       <input
         type="number"
         min={0}
@@ -57,7 +57,7 @@ function NumberField({
         onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))}
         className={inputClass}
       />
-      {warning && <span className="text-xs font-medium text-state-caution">{warning}</span>}
+      {warning && <span className="text-xs font-bold text-state-caution">{warning}</span>}
     </label>
   );
 }
@@ -69,7 +69,7 @@ function SuggestionBanner({ text, onApply }: { text: string; onApply: () => void
   return (
     <div className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-xs text-accent-text">
       <span>{text}</span>
-      <button type="button" onClick={onApply} className="font-medium underline underline-offset-2">
+      <button type="button" onClick={onApply} className="font-bold underline underline-offset-2">
         Utiliser
       </button>
     </div>
@@ -191,7 +191,7 @@ export function MonthModal({
       <DialogContent>
         {pendingAction ? (
           <div className="flex flex-col gap-4 p-2 text-center">
-            <p className="font-medium">Tu as des modifications non enregistrées</p>
+            <p className="font-bold">Tu as des modifications non enregistrées</p>
             <div className="flex justify-center gap-3">
               <Button onClick={saveAndProceed} disabled={isPending}>
                 Enregistrer
@@ -213,7 +213,7 @@ export function MonthModal({
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <DialogTitle className="font-display text-lg font-medium">
+                <DialogTitle className="font-display text-lg font-bold">
                   {MONTH_LABELS[month - 1]} {year}
                 </DialogTitle>
                 <button
@@ -237,7 +237,7 @@ export function MonthModal({
 
             <div className="mt-6 flex flex-col gap-6">
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
                   💰 Finance
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -266,7 +266,7 @@ export function MonthModal({
               </div>
 
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
                   📩 Setting · prospection
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -319,7 +319,7 @@ export function MonthModal({
               </div>
 
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
                   📞 Closing
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -366,7 +366,7 @@ export function MonthModal({
                   {isPending ? "Enregistrement..." : "Enregistrer"}
                 </Button>
                 {saved && !isDirty && (
-                  <span className="text-sm font-medium text-state-healthy">Enregistré ✓</span>
+                  <span className="text-sm font-bold text-state-healthy">Enregistré ✓</span>
                 )}
               </div>
             </div>

@@ -24,7 +24,7 @@ export function CampaignsTable({ campaigns }: { campaigns: AdCampaignRow[] }) {
   if (campaigns.length === 0) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-medium">Aucune campagne enregistrée pour l&apos;instant</p>
+        <p className="text-sm font-bold">Aucune campagne enregistrée pour l&apos;instant</p>
         <p className="mt-1 text-sm text-muted-foreground">Ajoute ta première campagne ci-dessus.</p>
       </div>
     );
@@ -35,11 +35,11 @@ export function CampaignsTable({ campaigns }: { campaigns: AdCampaignRow[] }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border">
-            <th className="p-3 text-left text-xs font-medium text-muted-foreground">Campagne</th>
-            <th className="p-3 text-left text-xs font-medium text-muted-foreground">Plateforme</th>
-            <th className="p-3 text-right text-xs font-medium text-muted-foreground">Dépensé</th>
-            <th className="p-3 text-right text-xs font-medium text-muted-foreground">CTR</th>
-            <th className="p-3 text-right text-xs font-medium text-muted-foreground">Coût / lead</th>
+            <th className="p-3 text-left text-xs font-bold text-muted-foreground">Campagne</th>
+            <th className="p-3 text-left text-xs font-bold text-muted-foreground">Plateforme</th>
+            <th className="p-3 text-right text-xs font-bold text-muted-foreground">Dépensé</th>
+            <th className="p-3 text-right text-xs font-bold text-muted-foreground">CTR</th>
+            <th className="p-3 text-right text-xs font-bold text-muted-foreground">Coût / lead</th>
             <th className="p-3" />
           </tr>
         </thead>
@@ -49,7 +49,7 @@ export function CampaignsTable({ campaigns }: { campaigns: AdCampaignRow[] }) {
             return (
               <tr key={campaign.id} className="border-b border-border last:border-0">
                 <td className="p-3">
-                  <p className="font-medium">{campaign.name}</p>
+                  <p className="font-bold">{campaign.name}</p>
                   <p className="text-xs text-muted-foreground">{campaign.startDate}</p>
                 </td>
                 <td className="p-3 text-muted-foreground">{campaign.platform}</td>

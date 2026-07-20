@@ -20,7 +20,7 @@ export function CalcPopover({ explanation }: { explanation: string }) {
         </button>
       </PopoverTrigger>
       <PopoverContent>
-        <p className="font-medium">Comment c&apos;est calculé</p>
+        <p className="font-bold">Comment c&apos;est calculé</p>
         <p className="mt-1 text-muted-foreground">{explanation}</p>
       </PopoverContent>
     </Popover>

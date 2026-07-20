@@ -28,7 +28,7 @@ export function BusinessPageClient({ initialProfile }: { initialProfile: Busines
           Plus c&apos;est complet, plus ton diagnostic est précis.
         </h1>
         <div className="mt-6 flex items-center gap-4">
-          <p className="text-[38px] leading-[1.1] font-medium tracking-[-0.02em] tabular-nums">
+          <p className="text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
             {completion.percent}%
           </p>
           <p className="text-sm text-mist/70">complété</p>

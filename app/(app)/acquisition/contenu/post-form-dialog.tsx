@@ -80,7 +80,7 @@ export function PostFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-medium">
+        <DialogTitle className="text-lg font-bold">
           {post ? "Modifier le post" : "Ajouter un post"}
         </DialogTitle>
 

@@ -57,7 +57,7 @@ export function FunnelChart({
                   className={cn(
                     "font-mono text-xs tabular-nums",
                     isBottleneckConnector
-                      ? "font-medium text-state-critical"
+                      ? "font-bold text-state-critical"
                       : "text-muted-foreground"
                   )}
                 >
@@ -74,7 +74,7 @@ export function FunnelChart({
                   style={{ width: `${widthPercent}%` }}
                 />
               </div>
-              <div className="w-14 shrink-0 text-right font-display text-sm font-medium tabular-nums">
+              <div className="w-14 shrink-0 text-right font-display text-sm font-bold tabular-nums">
                 {value}
               </div>
             </div>

@@ -33,12 +33,12 @@ export default async function VideosPage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Appels enregistrés</p>
-          <p className="mt-2 font-display text-3xl font-medium">{videos.length}</p>
+          <p className="text-sm font-bold text-muted-foreground">Appels enregistrés</p>
+          <p className="mt-2 font-display text-3xl font-bold">{videos.length}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Ventes conclues</p>
-          <p className="mt-2 font-display text-3xl font-medium">{closedCount}</p>
+          <p className="text-sm font-bold text-muted-foreground">Ventes conclues</p>
+          <p className="mt-2 font-display text-3xl font-bold">{closedCount}</p>
         </div>
       </div>
 

@@ -92,7 +92,7 @@ function CountDelta({ current, previous }: { current: number; previous: number |
   return (
     <p
       className={cn(
-        "flex items-center gap-1 text-xs font-medium",
+        "flex items-center gap-1 text-xs font-bold",
         isUp ? "text-state-healthy" : "text-state-critical"
       )}
     >
@@ -115,7 +115,7 @@ function RateDelta({ current, previous }: { current: number | null; previous: nu
   return (
     <p
       className={cn(
-        "flex items-center gap-1 text-xs font-medium",
+        "flex items-center gap-1 text-xs font-bold",
         isUp ? "text-state-healthy" : "text-state-critical"
       )}
     >
@@ -153,8 +153,8 @@ export function StatTiles({
         if (tile.type === "count") {
           return (
             <div key={tile.key} className="sticker-card flex flex-col p-5">
-              <p className="text-sm font-medium text-muted-foreground">{tile.label}</p>
-              <p className="mt-2 font-display text-3xl font-medium">
+              <p className="text-sm font-bold text-muted-foreground">{tile.label}</p>
+              <p className="mt-2 font-display text-3xl font-bold">
                 {NUMBER_FORMAT.format(totals[tile.key])}
               </p>
               <div className="mt-1 min-h-4">
@@ -181,7 +181,7 @@ export function StatTiles({
             className="sticker-card flex flex-col border-violet/40 bg-paper-alt/60 p-5"
           >
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium text-muted-foreground">{tile.label}</p>
+              <p className="text-sm font-bold text-muted-foreground">{tile.label}</p>
               {tile.stage && (
                 <InsightTrigger
                   stage={tile.stage}
@@ -191,7 +191,7 @@ export function StatTiles({
                 />
               )}
             </div>
-            <p className="mt-2 font-display text-3xl font-medium text-violet">
+            <p className="mt-2 font-display text-3xl font-bold text-violet">
               {rateValue === null ? "—" : formatPercent(rateValue)}
             </p>
             <div className="mt-1 min-h-4">

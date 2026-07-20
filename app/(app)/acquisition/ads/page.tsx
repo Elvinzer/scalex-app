@@ -48,7 +48,7 @@ export default async function AdsPage() {
 
       {profile.sales.offers.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-medium">Aucune offre renseignée</p>
+          <p className="text-sm font-bold">Aucune offre renseignée</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoute tes offres dans Mon business pour que le chat de création de pub s&apos;appuie dessus.
           </p>
@@ -57,16 +57,16 @@ export default async function AdsPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Dépenses totales</p>
-          <p className="mt-2 font-display text-3xl font-medium">{formatEur(totalSpend)}</p>
+          <p className="text-sm font-bold text-muted-foreground">Dépenses totales</p>
+          <p className="mt-2 font-display text-3xl font-bold">{formatEur(totalSpend)}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">CTR moyen</p>
-          <p className="mt-2 font-display text-3xl font-medium">{avgCtr === null ? "—" : formatPercent(avgCtr)}</p>
+          <p className="text-sm font-bold text-muted-foreground">CTR moyen</p>
+          <p className="mt-2 font-display text-3xl font-bold">{avgCtr === null ? "—" : formatPercent(avgCtr)}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Coût par lead moyen</p>
-          <p className="mt-2 font-display text-3xl font-medium">{avgCpl === null ? "—" : formatEur(avgCpl)}</p>
+          <p className="text-sm font-bold text-muted-foreground">Coût par lead moyen</p>
+          <p className="mt-2 font-display text-3xl font-bold">{avgCpl === null ? "—" : formatEur(avgCpl)}</p>
         </div>
       </div>
 

@@ -17,7 +17,7 @@ export function FaqAccordion({ items }: { items: { q: string; a: string }[] }) {
               type="button"
               onClick={() => setOpenIndex(isOpen ? -1 : index)}
               aria-expanded={isOpen}
-              className="flex w-full items-center justify-between gap-4 text-left text-lg font-medium"
+              className="flex w-full items-center justify-between gap-4 text-left text-lg font-bold"
             >
               <span>{item.q}</span>
               <span className="shrink-0 text-xl" aria-hidden="true">

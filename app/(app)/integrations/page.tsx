@@ -19,14 +19,14 @@ export default async function IntegrationsPage() {
       <div className="sticker-card p-8">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="font-medium">Stripe</p>
+            <p className="font-bold">Stripe</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Accès en lecture seule à tes paiements. C&apos;est la source principale du
               diagnostic.
             </p>
           </div>
           {stripeConnected ? (
-            <span className="flex shrink-0 items-center gap-2 rounded-full bg-state-healthy-bg px-3 py-1 text-sm font-medium whitespace-nowrap text-state-healthy">
+            <span className="flex shrink-0 items-center gap-2 rounded-full bg-state-healthy-bg px-3 py-1 text-sm font-bold whitespace-nowrap text-state-healthy">
               <span className="size-2 rounded-full bg-state-healthy" />
               Connecté
             </span>
@@ -39,11 +39,11 @@ export default async function IntegrationsPage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-muted-foreground">À venir</p>
+        <p className="text-sm font-bold text-muted-foreground">À venir</p>
         {UPCOMING_INTEGRATIONS.map((name) => (
           <div key={name} className="sticker-card-dashed flex items-center justify-between p-6">
-            <p className="font-medium text-muted-foreground">{name}</p>
-            <span className="rounded-full bg-state-unknown-bg px-2.5 py-1 text-xs font-medium tracking-wide text-state-unknown uppercase">
+            <p className="font-bold text-muted-foreground">{name}</p>
+            <span className="rounded-full bg-state-unknown-bg px-2.5 py-1 text-xs font-bold tracking-wide text-state-unknown uppercase">
               Bientôt
             </span>
           </div>

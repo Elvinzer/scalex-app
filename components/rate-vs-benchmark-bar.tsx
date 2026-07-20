@@ -24,16 +24,16 @@ export function RateVsBenchmarkBar({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="font-medium text-signal">Toi</span>
-        <span className="font-medium">{formatPercent(currentRate)}</span>
+        <span className="font-bold text-signal">Toi</span>
+        <span className="font-bold">{formatPercent(currentRate)}</span>
       </div>
       <div className={cn("overflow-hidden rounded-full bg-muted", barHeight)}>
         <div className="h-full rounded-full bg-signal" style={{ width: `${currentPct}%` }} />
       </div>
 
       <div className="mt-1 flex items-center justify-between gap-2 text-xs">
-        <span className="font-medium text-muted-foreground">Benchmark</span>
-        <span className="font-medium text-muted-foreground">{formatPercent(benchmarkRate)}</span>
+        <span className="font-bold text-muted-foreground">Benchmark</span>
+        <span className="font-bold text-muted-foreground">{formatPercent(benchmarkRate)}</span>
       </div>
       <div className={cn("overflow-hidden rounded-full bg-muted", barHeight)}>
         <div className="h-full rounded-full bg-muted-foreground/50" style={{ width: `${benchmarkPct}%` }} />

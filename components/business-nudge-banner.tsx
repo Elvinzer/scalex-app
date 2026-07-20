@@ -13,7 +13,7 @@ export function BusinessNudgeBanner() {
           <Store className="size-4.5" />
         </span>
         <div>
-          <p className="text-sm font-medium">
+          <p className="text-sm font-bold">
             Renseigne tes offres dans Mon business pour chiffrer ton manque à gagner
           </p>
         </div>

@@ -68,7 +68,7 @@ export function AcquisitionSection({
     <div className="sticker-card p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-medium">Acquisition</h2>
+          <h2 className="text-base font-bold">Acquisition</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Comment tes prospects te trouvent.
           </p>
@@ -81,7 +81,7 @@ export function AcquisitionSection({
 
       <div className="mt-6 flex flex-col gap-6">
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium">Plateformes actives</p>
+          <p className="text-sm font-bold">Plateformes actives</p>
           <div className="flex flex-wrap gap-2">
             {PLATFORM_NAMES.map((name) => {
               const active = value.platforms.some((platform) => platform.name === name);
@@ -92,8 +92,8 @@ export function AcquisitionSection({
                   onClick={() => togglePlatform(name, !active)}
                   className={
                     active
-                      ? "rounded-full border border-signal bg-signal/15 px-3 py-1.5 text-sm font-medium text-signal"
-                      : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground hover:border-signal/50"
+                      ? "rounded-full border border-signal bg-signal/15 px-3 py-1.5 text-sm font-bold text-signal"
+                      : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-signal/50"
                   }
                 >
                   {name}
@@ -111,7 +111,7 @@ export function AcquisitionSection({
                 >
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="flex flex-col gap-1 text-xs">
-                      <span className="font-medium text-muted-foreground">{platform.name} — lien</span>
+                      <span className="font-bold text-muted-foreground">{platform.name} — lien</span>
                       <input
                         type="text"
                         value={platform.url}
@@ -121,7 +121,7 @@ export function AcquisitionSection({
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-xs">
-                      <span className="font-medium text-muted-foreground">Posts / semaine</span>
+                      <span className="font-bold text-muted-foreground">Posts / semaine</span>
                       <input
                         type="number"
                         min={0}
@@ -148,7 +148,7 @@ export function AcquisitionSection({
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">Type</span>
+              <span className="font-bold">Type</span>
               <select
                 value={value.leadMagnet.type ?? ""}
                 onChange={(event) =>
@@ -170,7 +170,7 @@ export function AcquisitionSection({
               </select>
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">Titre</span>
+              <span className="font-bold">Titre</span>
               <input
                 type="text"
                 value={value.leadMagnet.title}
@@ -180,7 +180,7 @@ export function AcquisitionSection({
             </label>
           </div>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Promesse</span>
+            <span className="font-bold">Promesse</span>
             <input
               type="text"
               value={value.leadMagnet.promise}
@@ -190,7 +190,7 @@ export function AcquisitionSection({
             />
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Lien</span>
+            <span className="font-bold">Lien</span>
             <input
               type="text"
               value={value.leadMagnet.url}
@@ -206,7 +206,7 @@ export function AcquisitionSection({
           onEnabledChange={(enabled) => update({ vsl: { ...value.vsl, enabled } })}
         >
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Lien</span>
+            <span className="font-bold">Lien</span>
             <input
               type="text"
               value={value.vsl.url}
@@ -216,7 +216,7 @@ export function AcquisitionSection({
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">Durée (min)</span>
+              <span className="font-bold">Durée (min)</span>
               <input
                 type="number"
                 min={0}
@@ -230,7 +230,7 @@ export function AcquisitionSection({
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">CTA principal</span>
+              <span className="font-bold">CTA principal</span>
               <input
                 type="text"
                 value={value.vsl.cta}
@@ -248,7 +248,7 @@ export function AcquisitionSection({
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">Canal</span>
+              <span className="font-bold">Canal</span>
               <input
                 type="text"
                 value={value.setting.channel}
@@ -258,7 +258,7 @@ export function AcquisitionSection({
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">Qui set</span>
+              <span className="font-bold">Qui set</span>
               <input
                 type="text"
                 value={value.setting.operator}
@@ -288,15 +288,15 @@ function ConditionalBlock({
   return (
     <div className="rounded-xl border border-border p-4">
       <div className="flex items-center justify-between gap-4">
-        <p className="text-sm font-medium">{title}</p>
+        <p className="text-sm font-bold">{title}</p>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => onEnabledChange("yes")}
             className={
               enabled === "yes"
-                ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-medium text-signal"
-                : "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
+                ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+                : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
             }
           >
             Oui
@@ -306,8 +306,8 @@ function ConditionalBlock({
             onClick={() => onEnabledChange("no")}
             className={
               enabled === "no"
-                ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-medium text-signal"
-                : "rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground"
+                ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+                : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
             }
           >
             Non

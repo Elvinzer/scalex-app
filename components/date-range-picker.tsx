@@ -108,7 +108,7 @@ export function DateRangePicker() {
       <button
         type="button"
         onClick={toggleOpen}
-        className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted/50"
+        className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-bold hover:bg-muted/50"
       >
         <Calendar className="h-4 w-4" />
         {triggerLabel}
@@ -198,7 +198,7 @@ export function DateRangePicker() {
                   type="button"
                   disabled={!draftStart || !draftEnd}
                   onClick={applyCustomRange}
-                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground disabled:opacity-50"
                 >
                   Mettre à jour
                 </button>
@@ -225,7 +225,7 @@ function PresetButton({
       type="button"
       onClick={onClick}
       className={`rounded-md px-2.5 py-1.5 text-left text-sm ${
-        active ? "bg-primary/15 font-medium" : "hover:bg-muted/50"
+        active ? "bg-primary/15 font-bold" : "hover:bg-muted/50"
       }`}
     >
       {children}
@@ -263,7 +263,7 @@ function MonthGrid({
 
   return (
     <div className="flex-1">
-      <p className="mb-2 text-center text-sm font-medium">
+      <p className="mb-2 text-center text-sm font-bold">
         {monthLabel} {year}
       </p>
       <div className="grid grid-cols-7 gap-y-1 text-center text-xs">

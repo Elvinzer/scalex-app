@@ -37,7 +37,7 @@ export function VideosTable({ videos }: { videos: ClosingVideoRow[] }) {
   if (videos.length === 0) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-medium">Aucun appel enregistré pour l&apos;instant</p>
+        <p className="text-sm font-bold">Aucun appel enregistré pour l&apos;instant</p>
         <p className="mt-1 text-sm text-muted-foreground">Ajoute ton premier appel ci-dessus.</p>
       </div>
     );
@@ -49,9 +49,9 @@ export function VideosTable({ videos }: { videos: ClosingVideoRow[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="p-3 text-left text-xs font-medium text-muted-foreground">Date</th>
-              <th className="p-3 text-left text-xs font-medium text-muted-foreground">Client</th>
-              <th className="p-3 text-left text-xs font-medium text-muted-foreground">Issue</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Date</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Client</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Issue</th>
               <th className="p-3" />
             </tr>
           </thead>
@@ -63,15 +63,15 @@ export function VideosTable({ videos }: { videos: ClosingVideoRow[] }) {
                   <td className="p-3 whitespace-nowrap text-muted-foreground">{video.callDate}</td>
                   <td className="p-3">
                     {video.url ? (
-                      <a href={video.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">
+                      <a href={video.url} target="_blank" rel="noreferrer" className="font-bold hover:underline">
                         {video.clientName}
                       </a>
                     ) : (
-                      <span className="font-medium">{video.clientName}</span>
+                      <span className="font-bold">{video.clientName}</span>
                     )}
                   </td>
                   <td className="p-3">
-                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", OUTCOME_BADGE[video.outcome])}>
+                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", OUTCOME_BADGE[video.outcome])}>
                       {OUTCOME_LABELS[video.outcome]}
                     </span>
                   </td>

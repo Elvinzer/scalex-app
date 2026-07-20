@@ -34,7 +34,7 @@ export function SaleDetailDrawer({ sale, open, onOpenChange }: { sale: SaleRow |
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <div className="flex items-center justify-between border-b border-border p-5">
-          <DrawerTitle className="text-lg font-medium">{sale.clientName}</DrawerTitle>
+          <DrawerTitle className="text-lg font-bold">{sale.clientName}</DrawerTitle>
           <DrawerClose asChild>
             <Button type="button" variant="ghost" size="icon-sm" aria-label="Fermer">
               ×
@@ -45,33 +45,33 @@ export function SaleDetailDrawer({ sale, open, onOpenChange }: { sale: SaleRow |
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5">
           <div className="grid grid-cols-2 gap-3">
             <div className="sticker-card p-4">
-              <p className="text-xs font-medium text-muted-foreground">Payé</p>
-              <p className="mt-1 font-display text-xl font-medium">{summary.paidTotal} €</p>
+              <p className="text-xs font-bold text-muted-foreground">Payé</p>
+              <p className="mt-1 font-display text-xl font-bold">{summary.paidTotal} €</p>
             </div>
             <div className="sticker-card p-4">
-              <p className="text-xs font-medium text-muted-foreground">En attente</p>
-              <p className="mt-1 font-display text-xl font-medium">{summary.pendingTotal} €</p>
+              <p className="text-xs font-bold text-muted-foreground">En attente</p>
+              <p className="mt-1 font-display text-xl font-bold">{summary.pendingTotal} €</p>
             </div>
             <div className="sticker-card p-4">
-              <p className="text-xs font-medium text-muted-foreground">Impayé</p>
-              <p className={cn("mt-1 font-display text-xl font-medium", summary.failedTotal > 0 && "text-state-critical")}>
+              <p className="text-xs font-bold text-muted-foreground">Impayé</p>
+              <p className={cn("mt-1 font-display text-xl font-bold", summary.failedTotal > 0 && "text-state-critical")}>
                 {summary.failedTotal} €
               </p>
             </div>
             <div className="sticker-card p-4">
-              <p className="text-xs font-medium text-muted-foreground">Prochaine échéance</p>
-              <p className="mt-1 font-display text-xl font-medium">{summary.nextDue ?? "—"}</p>
+              <p className="text-xs font-bold text-muted-foreground">Prochaine échéance</p>
+              <p className="mt-1 font-display text-xl font-bold">{summary.nextDue ?? "—"}</p>
             </div>
           </div>
 
           {sale.installments && sale.installments.length > 0 && (
             <div>
-              <p className="mb-2 text-sm font-medium">Échéances</p>
+              <p className="mb-2 text-sm font-bold">Échéances</p>
               <ul className="flex flex-col gap-2">
                 {sale.installments.map((installment, index) => (
                   <li key={index} className="flex items-center justify-between rounded-[var(--radius-control)] border border-border p-3 text-sm">
                     <div>
-                      <p className="font-medium">{installment.amount} €</p>
+                      <p className="font-bold">{installment.amount} €</p>
                       <p className="text-xs text-muted-foreground">
                         {installment.dueDate} — {STATUS_LABELS[installment.status]}
                       </p>

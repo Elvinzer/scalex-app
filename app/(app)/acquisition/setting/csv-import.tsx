@@ -42,7 +42,7 @@ export function CsvImport() {
       <a
         href="/setting-kpis-template.csv"
         download
-        className="self-start text-sm font-medium text-primary underline underline-offset-4"
+        className="self-start text-sm font-bold text-primary underline underline-offset-4"
       >
         Télécharger le modèle CSV
       </a>
@@ -54,7 +54,7 @@ export function CsvImport() {
           accept=".csv,text/csv"
           onChange={handleFileChange}
           disabled={isPending}
-          className="text-sm text-muted-foreground file:mr-4 file:rounded-full file:border file:border-ink file:bg-ink file:px-4 file:py-2 file:text-sm file:font-medium file:text-mist file:hover:opacity-90"
+          className="text-sm text-muted-foreground file:mr-4 file:rounded-full file:border file:border-ink file:bg-ink file:px-4 file:py-2 file:text-sm file:font-bold file:text-mist file:hover:opacity-90"
         />
       </div>
 
@@ -63,7 +63,7 @@ export function CsvImport() {
 
       {result && (
         <div className="rounded-xl border border-border bg-muted p-4 text-sm">
-          <p className="font-medium">
+          <p className="font-bold">
             {result.imported > 0
               ? `${result.imported} jour${result.imported > 1 ? "s" : ""} importé${result.imported > 1 ? "s" : ""}`
               : "Aucune ligne importée"}

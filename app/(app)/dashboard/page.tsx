@@ -97,7 +97,7 @@ export default async function DashboardPage({
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Salut, {firstName}</h1>
-        <p className="mt-1.5 text-sm font-medium text-muted-foreground">
+        <p className="mt-1.5 text-sm font-bold text-muted-foreground">
           {points.length > 0
             ? "Voici où en est ton business, et ce qu'il faut corriger en premier."
             : "Ton business tourne bien. Voici où creuser pour accélérer."}
@@ -111,7 +111,7 @@ export default async function DashboardPage({
         <p className="gradient-text mt-2 text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
           {formatEur(totalMonthlyLoss)}
         </p>
-        <p className="mt-2 text-sm font-semibold text-mist/70">
+        <p className="mt-2 text-sm font-bold text-mist/70">
           {points.length > 0
             ? `sur ${points.length} goulot${points.length > 1 ? "s" : ""} identifié${points.length > 1 ? "s" : ""}`
             : "renseigne ton offre et tes chiffres pour le chiffrer"}
@@ -142,7 +142,7 @@ export default async function DashboardPage({
 
       <div>
         <h2 className="text-base font-bold">Tes chiffres clés</h2>
-        <p className="mt-1 text-sm font-medium text-muted-foreground">
+        <p className="mt-1 text-sm font-bold text-muted-foreground">
           Mois en cours, comparé au mois précédent.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -157,7 +157,7 @@ export default async function DashboardPage({
       <div>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold">À corriger en priorité</h2>
-          <a href="/diagnostic" className="text-sm font-semibold text-muted-foreground hover:underline">
+          <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
             Voir le diagnostic complet →
           </a>
         </div>
@@ -172,7 +172,7 @@ export default async function DashboardPage({
           {points.length < 3 && unlockHints.length > 0 && (
             <div className="sticker-card-dashed p-6">
               <p className="text-sm font-bold">Débloquer plus de diagnostics</p>
-              <ul className="mt-2 flex flex-col gap-1 text-sm font-medium text-muted-foreground">
+              <ul className="mt-2 flex flex-col gap-1 text-sm font-bold text-muted-foreground">
                 {unlockHints.map((hint) => (
                   <li key={hint}>• {hint}</li>
                 ))}

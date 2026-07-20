@@ -30,7 +30,7 @@ export function MonthCard({
   if (isFuture) {
     return (
       <div className="sticker-card-dashed flex flex-col p-5 opacity-40">
-        <p className="font-medium">{MONTH_LABELS[monthIndex - 1]}</p>
+        <p className="font-bold">{MONTH_LABELS[monthIndex - 1]}</p>
         <p className="mt-2 text-sm text-muted-foreground">À venir</p>
       </div>
     );
@@ -46,14 +46,14 @@ export function MonthCard({
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="font-medium">{MONTH_LABELS[monthIndex - 1]}</p>
+        <p className="font-bold">{MONTH_LABELS[monthIndex - 1]}</p>
         {status === "complete" && (
-          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_BADGE.complete)}>
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE.complete)}>
             Complet
           </span>
         )}
         {status === "partial" && (
-          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_BADGE.partial)}>
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE.partial)}>
             {completion.count}/{completion.total} renseignés
           </span>
         )}
@@ -62,7 +62,7 @@ export function MonthCard({
       {status === "empty" && (
         <>
           <p className="mt-3 text-sm text-muted-foreground">Aucune donnée</p>
-          <span className="mt-auto pt-3 text-sm font-medium text-signal">+ Remplir</span>
+          <span className="mt-auto pt-3 text-sm font-bold text-signal">+ Remplir</span>
         </>
       )}
 

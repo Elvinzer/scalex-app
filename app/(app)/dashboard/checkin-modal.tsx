@@ -23,7 +23,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="font-medium">{label}</span>
+      <span className="font-bold">{label}</span>
       <input
         type="number"
         min={0}
@@ -87,12 +87,12 @@ export function CheckinModal({
             {feedback === "none" ? (
               <>
                 <p className="text-2xl">✅</p>
-                <p className="font-medium">Chiffres mis à jour</p>
+                <p className="font-bold">Chiffres mis à jour</p>
               </>
             ) : feedback.afterPercent > feedback.beforePercent ? (
               <>
                 <p className="text-2xl">📈</p>
-                <p className="font-medium">
+                <p className="font-bold">
                   Ton {feedback.label.toLowerCase()} est passé de {feedback.beforePercent}% à{" "}
                   {feedback.afterPercent}% depuis ta dernière session
                 </p>
@@ -100,7 +100,7 @@ export function CheckinModal({
             ) : (
               <>
                 <p className="text-2xl">🤔</p>
-                <p className="font-medium">
+                <p className="font-bold">
                   Toujours à {feedback.afterPercent}% sur ton {feedback.label.toLowerCase()} — on regarde pourquoi ?
                 </p>
                 <Button asChild size="sm" variant="outline" className="self-center">
@@ -114,7 +114,7 @@ export function CheckinModal({
           </div>
         ) : (
           <>
-            <DialogTitle className="font-display text-lg font-medium">Ton check-in de la semaine</DialogTitle>
+            <DialogTitle className="font-display text-lg font-bold">Ton check-in de la semaine</DialogTitle>
 
             <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-6">
               <div className="grid gap-3 sm:grid-cols-2">

@@ -150,7 +150,7 @@ export default async function DiagnosticPage({
               key={value}
               href={`/diagnostic?period=${value}`}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-200",
+                "rounded-full border px-3 py-1.5 text-sm font-bold transition-all duration-200",
                 period === value
                   ? "border-transparent text-white shadow-[0_2px_10px_var(--accent-glow)]"
                   : "border-border text-muted-foreground hover:border-border-hover"
@@ -168,7 +168,7 @@ export default async function DiagnosticPage({
       {/* Bloc 1 — Le verdict */}
       <div className="sticker-spotlight animate-rise px-7 py-6">
         <p className="text-xs text-mist/70">Potentiel total détecté</p>
-        <p className="gradient-text mt-2 text-[38px] leading-[1.1] font-medium tracking-[-0.02em] tabular-nums">
+        <p className="gradient-text mt-2 text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
           {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain)}/mois`}
         </p>
         <p className="mt-2 text-sm text-mist/70">
@@ -188,7 +188,7 @@ export default async function DiagnosticPage({
 
       {/* Bloc 2 — Les points à améliorer */}
       <div className="flex flex-col gap-4">
-        <h2 className="text-base font-medium">Points à améliorer</h2>
+        <h2 className="text-base font-bold">Points à améliorer</h2>
         {points.length === 0 && (
           <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
             Tous tes taux mesurés sont au niveau du benchmark. 🎉
@@ -207,10 +207,10 @@ export default async function DiagnosticPage({
               <div className="flex items-start gap-3">
                 <span className="text-lg">{STATUS_ICON[point.status]}</span>
                 <div>
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
                     #{index + 1} · {point.category}
                   </p>
-                  <p className="mt-0.5 font-medium">{point.label}</p>
+                  <p className="mt-0.5 font-bold">{point.label}</p>
                 </div>
               </div>
             </div>
@@ -219,15 +219,15 @@ export default async function DiagnosticPage({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl bg-muted p-3">
-                <p className="text-xs font-medium text-muted-foreground">Clients en plus</p>
-                <p className="mt-1 font-display text-xl font-medium">+{point.extraClients}/mois</p>
+                <p className="text-xs font-bold text-muted-foreground">Clients en plus</p>
+                <p className="mt-1 font-display text-xl font-bold">+{point.extraClients}/mois</p>
               </div>
               <div className="flex items-start justify-between rounded-xl bg-muted p-3">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">
+                  <p className="text-xs font-bold text-muted-foreground">
                     Gain{point.isPriceFallback ? " (panier moyen)" : ""}
                   </p>
-                  <p className="mt-1 font-display text-xl font-medium">
+                  <p className="mt-1 font-display text-xl font-bold">
                     {point.monthlyGain === null ? "—" : `+${formatEur(point.monthlyGain)}/mois`}
                   </p>
                   {point.yearlyGain !== null && (
@@ -240,7 +240,7 @@ export default async function DiagnosticPage({
 
             <p className="text-sm text-muted-foreground">{point.explanation}</p>
 
-            <a href={`#metric-${point.key}`} className="self-start text-sm font-medium text-muted-foreground hover:underline">
+            <a href={`#metric-${point.key}`} className="self-start text-sm font-bold text-muted-foreground hover:underline">
               Voir le détail
             </a>
           </div>
@@ -249,13 +249,13 @@ export default async function DiagnosticPage({
 
       {/* Bloc 3 — La vue complète */}
       <div>
-        <h2 className="text-base font-medium">Tout ton business en un coup d&apos;œil</h2>
+        <h2 className="text-base font-bold">Tout ton business en un coup d&apos;œil</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {summaries.map((summary) => (
             <div key={summary.key} id={`metric-${summary.key}`} className="sticker-card p-5">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">{summary.label}</p>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_BADGE[summary.status])}>
+                <p className="text-sm font-bold">{summary.label}</p>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.status])}>
                   {STATUS_ICON[summary.status]}
                 </span>
               </div>
@@ -288,8 +288,8 @@ export default async function DiagnosticPage({
           {contentSummaries.map((summary) => (
             <div key={summary.key} id={`metric-${summary.key}`} className="sticker-card p-5">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">{summary.label}</p>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_BADGE[summary.status])}>
+                <p className="text-sm font-bold">{summary.label}</p>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.status])}>
                   {STATUS_ICON[summary.status]}
                 </span>
               </div>
@@ -322,8 +322,8 @@ export default async function DiagnosticPage({
           {followups.map((followup) => (
             <div key={followup.key} className="sticker-card p-5">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">{followup.label}</p>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_BADGE[followup.status])}>
+                <p className="text-sm font-bold">{followup.label}</p>
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[followup.status])}>
                   {followup.status === "ok" ? "✅" : followup.status === "critical" ? "❌" : "❓"}
                 </span>
               </div>
@@ -351,7 +351,7 @@ export default async function DiagnosticPage({
 
       {/* Bloc 4 — Le simulateur cumulé */}
       <div className="sticker-card-dashed p-6">
-        <p className="text-sm font-medium">Et si tu corrigeais tout ?</p>
+        <p className="text-sm font-bold">Et si tu corrigeais tout ?</p>
         <p className="mt-2 text-lg">
           {projection.realSales === null ? "—" : `${Math.round(projection.realSales * 10) / 10} ventes/mois aujourd'hui`}
           {" → "}

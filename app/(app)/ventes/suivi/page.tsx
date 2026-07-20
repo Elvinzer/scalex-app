@@ -52,20 +52,20 @@ export default async function SuiviDesVentesPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">CA contracté ce mois</p>
-          <p className="mt-2 font-display text-3xl font-medium">{NUMBER_FORMAT.format(cashContracted)} €</p>
+          <p className="text-sm font-bold text-muted-foreground">CA contracté ce mois</p>
+          <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashContracted)} €</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">CA encaissé ce mois</p>
-          <p className="mt-2 font-display text-3xl font-medium">{NUMBER_FORMAT.format(cashCollected)} €</p>
+          <p className="text-sm font-bold text-muted-foreground">CA encaissé ce mois</p>
+          <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashCollected)} €</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Paiements en attente</p>
-          <p className="mt-2 font-display text-3xl font-medium">{NUMBER_FORMAT.format(pending)} €</p>
+          <p className="text-sm font-bold text-muted-foreground">Paiements en attente</p>
+          <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(pending)} €</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Impayés</p>
-          <p className={`mt-2 font-display text-3xl font-medium ${failed > 0 ? "text-state-critical" : ""}`}>
+          <p className="text-sm font-bold text-muted-foreground">Impayés</p>
+          <p className={`mt-2 font-display text-3xl font-bold ${failed > 0 ? "text-state-critical" : ""}`}>
             {NUMBER_FORMAT.format(failed)} €
           </p>
         </div>

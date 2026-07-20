@@ -33,7 +33,7 @@ export function IdentitySection({
     <div className="sticker-card p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-medium">Identité &amp; avatar</h2>
+          <h2 className="text-base font-bold">Identité &amp; avatar</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Décris qui tu vends et à qui.
           </p>
@@ -46,7 +46,7 @@ export function IdentitySection({
 
       <div className="mt-6 flex flex-col gap-5">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">Nom du business</span>
+          <span className="font-bold">Nom du business</span>
           <input
             type="text"
             value={value.businessName}
@@ -57,7 +57,7 @@ export function IdentitySection({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">Niche / marché</span>
+          <span className="font-bold">Niche / marché</span>
           <input
             type="text"
             value={value.niche}
@@ -68,7 +68,7 @@ export function IdentitySection({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">Avatar client</span>
+          <span className="font-bold">Avatar client</span>
           <span className="text-xs text-muted-foreground">
             Qui c&apos;est, son problème principal, son niveau de conscience.
           </span>
@@ -83,7 +83,7 @@ export function IdentitySection({
 
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">CA mensuel actuel (€)</span>
+            <span className="font-bold">CA mensuel actuel (€)</span>
             <input
               type="number"
               min={0}
@@ -96,7 +96,7 @@ export function IdentitySection({
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Objectif de CA (€)</span>
+            <span className="font-bold">Objectif de CA (€)</span>
             <input
               type="number"
               min={0}
@@ -110,7 +110,7 @@ export function IdentitySection({
         </div>
 
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">Mode d&apos;acquisition principal</span>
+          <span className="font-bold">Mode d&apos;acquisition principal</span>
           <select
             value={value.acquisitionMode ?? ""}
             onChange={(event) =>

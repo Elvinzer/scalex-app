@@ -62,7 +62,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="font-medium">{label}</span>
+      <span className="font-bold">{label}</span>
       <input
         type="number"
         min={0}
@@ -149,7 +149,7 @@ export function OnboardingFlow({
           </div>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Ta niche</span>
+            <span className="font-bold">Ta niche</span>
             <input
               type="text"
               required
@@ -161,7 +161,7 @@ export function OnboardingFlow({
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Nom de ton offre principale</span>
+            <span className="font-bold">Nom de ton offre principale</span>
             <input
               type="text"
               required
@@ -172,7 +172,7 @@ export function OnboardingFlow({
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">Prix (€)</span>
+            <span className="font-bold">Prix (€)</span>
             <input
               type="number"
               required
@@ -184,7 +184,7 @@ export function OnboardingFlow({
           </label>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium">Mode de vente</legend>
+            <legend className="text-sm font-bold">Mode de vente</legend>
             {(
               [
                 { value: "appel_closing", label: "Appel de closing" },
@@ -194,7 +194,7 @@ export function OnboardingFlow({
               <label
                 key={option.value}
                 className={cn(
-                  "flex cursor-pointer items-center rounded-[var(--radius-control)] border px-4 py-3 text-sm font-medium transition-colors",
+                  "flex cursor-pointer items-center rounded-[var(--radius-control)] border px-4 py-3 text-sm font-bold transition-colors",
                   saleMode === option.value ? "border-accent bg-accent-soft text-accent-text" : "border-border hover:bg-muted"
                 )}
               >
@@ -259,7 +259,7 @@ export function OnboardingFlow({
         <div className="flex flex-col gap-6 text-center">
           <div className="sticker-spotlight px-7 py-6 text-left">
             <p className="text-xs text-mist/70">{result.point.category} · {result.point.label}</p>
-            <p className="mt-2 text-[38px] leading-[1.1] font-medium tracking-[-0.02em] tabular-nums">
+            <p className="mt-2 text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
               {result.point.monthlyGain === null ? "—" : `≈ ${formatEur(result.point.monthlyGain)}/mois perdus`}
             </p>
             <p className="mt-2 text-sm text-mist/70">sur ce point</p>

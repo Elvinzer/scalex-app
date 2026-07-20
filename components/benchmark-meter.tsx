@@ -18,8 +18,8 @@ export function BenchmarkMeter({
     return (
       <div>
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="font-display text-lg font-medium">{value === null ? "—" : formatPercent(value)}</p>
+          <p className="text-sm font-bold text-muted-foreground">{label}</p>
+          <p className="font-display text-lg font-bold">{value === null ? "—" : formatPercent(value)}</p>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Pas de repère marché pour cette métrique sur ce secteur.
@@ -31,7 +31,7 @@ export function BenchmarkMeter({
   if (value === null) {
     return (
       <div>
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <p className="text-sm font-bold text-muted-foreground">{label}</p>
         <p className="mt-2 text-xs text-muted-foreground">Pas encore assez de données.</p>
       </div>
     );
@@ -45,8 +45,8 @@ export function BenchmarkMeter({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        <p className="font-display text-lg font-medium">{formatPercent(value)}</p>
+        <p className="text-sm font-bold text-muted-foreground">{label}</p>
+        <p className="font-display text-lg font-bold">{formatPercent(value)}</p>
       </div>
 
       <div className="relative mt-4 h-3">

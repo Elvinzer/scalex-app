@@ -46,7 +46,7 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
   if (sales.length === 0) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-medium">Aucune vente enregistrée pour l&apos;instant</p>
+        <p className="text-sm font-bold">Aucune vente enregistrée pour l&apos;instant</p>
         <p className="mt-1 text-sm text-muted-foreground">Ajoute ta première vente ci-dessus.</p>
       </div>
     );
@@ -58,10 +58,10 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="p-3 text-left text-xs font-medium text-muted-foreground">Date</th>
-              <th className="p-3 text-left text-xs font-medium text-muted-foreground">Client</th>
-              <th className="p-3 text-right text-xs font-medium text-muted-foreground">Prix</th>
-              <th className="p-3 text-left text-xs font-medium text-muted-foreground">Statut</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Date</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Client</th>
+              <th className="p-3 text-right text-xs font-bold text-muted-foreground">Prix</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Statut</th>
               <th className="p-3" />
             </tr>
           </thead>
@@ -73,10 +73,10 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                 onClick={() => setSelected(sale)}
               >
                 <td className="p-3 whitespace-nowrap text-muted-foreground">{sale.saleDate}</td>
-                <td className="p-3 font-medium">{sale.clientName}</td>
+                <td className="p-3 font-bold">{sale.clientName}</td>
                 <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(sale.totalPrice)} €</td>
                 <td className="p-3">
-                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_BADGE[summary.overallStatus])}>
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.overallStatus])}>
                     {STATUS_LABEL[summary.overallStatus]}
                   </span>
                 </td>

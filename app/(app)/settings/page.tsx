@@ -24,12 +24,12 @@ export default async function SettingsPage() {
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-medium text-muted-foreground">Compte</p>
-        <p className="mt-2 text-lg font-medium">{user?.email}</p>
+        <p className="text-sm font-bold text-muted-foreground">Compte</p>
+        <p className="mt-2 text-lg font-bold">{user?.email}</p>
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-medium text-muted-foreground">Mon business</p>
+        <p className="text-sm font-bold text-muted-foreground">Mon business</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Décris ton offre, ton acquisition et ta delivery pour que Scale X calcule des
           chiffres justes.
@@ -40,21 +40,21 @@ export default async function SettingsPage() {
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-medium text-muted-foreground">Clé API Anthropic (BYOK)</p>
+        <p className="text-sm font-bold text-muted-foreground">Clé API Anthropic (BYOK)</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Ton agent utilise toujours ta propre clé : jamais partagée, jamais affichée en
           clair.
         </p>
 
         {maskedKey && !keyInvalid && (
-          <p className="mt-4 inline-flex items-center rounded-full bg-signal/15 px-3 py-1 font-mono text-sm font-medium text-signal">
+          <p className="mt-4 inline-flex items-center rounded-full bg-signal/15 px-3 py-1 font-mono text-sm font-bold text-signal">
             {maskedKey}
           </p>
         )}
 
         {maskedKey && keyInvalid && (
           <div className="mt-4 rounded-xl border border-state-critical/40 bg-state-critical/10 p-3">
-            <p className="inline-flex items-center gap-2 font-mono text-sm font-medium text-state-critical">
+            <p className="inline-flex items-center gap-2 font-mono text-sm font-bold text-state-critical">
               <span className="size-2 rounded-full bg-state-critical" />
               {maskedKey} — ne fonctionne plus
             </p>
@@ -66,7 +66,7 @@ export default async function SettingsPage() {
         )}
 
         <div className="mt-6 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Comment obtenir ta clé</p>
+          <p className="font-bold text-foreground">Comment obtenir ta clé</p>
           <ol className="mt-2 list-decimal space-y-1 pl-4">
             <li>
               Va sur{" "}
@@ -74,7 +74,7 @@ export default async function SettingsPage() {
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-signal underline"
+                className="font-bold text-signal underline"
               >
                 console.anthropic.com
               </a>{" "}
@@ -95,11 +95,11 @@ export default async function SettingsPage() {
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-medium text-muted-foreground">Stripe</p>
+        <p className="text-sm font-bold text-muted-foreground">Stripe</p>
         {user?.stripeConnectId ? (
           <div className="mt-2 flex items-center gap-2">
             <span className="size-2 rounded-full bg-state-healthy" />
-            <p className="text-sm font-medium">Connecté : {user.stripeConnectId}</p>
+            <p className="text-sm font-bold">Connecté : {user.stripeConnectId}</p>
           </div>
         ) : (
           <>

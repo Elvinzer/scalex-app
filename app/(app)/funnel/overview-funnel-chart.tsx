@@ -31,7 +31,7 @@ export function OverviewFunnelChart({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p className="mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        <p className="mb-3 text-xs font-bold tracking-wide text-muted-foreground uppercase">
           Setting · prospection
         </p>
         <FunnelChart
@@ -42,7 +42,7 @@ export function OverviewFunnelChart({
       </div>
 
       <div>
-        <p className="mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        <p className="mb-3 text-xs font-bold tracking-wide text-muted-foreground uppercase">
           Closing · vente
         </p>
         <div className="flex flex-col gap-3">
@@ -55,7 +55,7 @@ export function OverviewFunnelChart({
             <span
               className={cn(
                 "font-mono text-xs tabular-nums",
-                isClosingRateBottleneck ? "font-medium text-state-critical" : "text-muted-foreground"
+                isClosingRateBottleneck ? "font-bold text-state-critical" : "text-muted-foreground"
               )}
             >
               {closingRate === null ? "—" : formatPercent(closingRate)}
@@ -81,7 +81,7 @@ function FunnelBar({ label, value, maxValue }: { label: string; value: number; m
           style={{ width: `${widthPercent}%` }}
         />
       </div>
-      <div className="w-14 shrink-0 text-right font-display text-sm font-medium tabular-nums">{value}</div>
+      <div className="w-14 shrink-0 text-right font-display text-sm font-bold tabular-nums">{value}</div>
     </div>
   );
 }

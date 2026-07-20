@@ -9,7 +9,7 @@ import { PostHogInit } from "@/components/posthog-init";
 // --font-sans/--font-display/--font-mono so existing font-display/font-mono
 // Tailwind classes resolve to Inter too, without touching every className
 // across the app. 600/700 are loaded alongside 400/500 because the app
-// uses font-semibold/font-bold widely (headings, emphasis) — without the
+// uses font-bold/font-bold widely (headings, emphasis) — without the
 // actual weight files, the browser fakes/synthesizes bold or falls back to
 // a different font entirely, which is what read as "thin"/inconsistent.
 const inter = Inter({

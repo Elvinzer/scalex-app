@@ -10,8 +10,8 @@ export function MetricCard({ data }: { data: MetricCardData }) {
     return (
       <Link href={data.href} className="sticker-card-dashed flex flex-col p-4">
         <p className="text-xs font-bold text-muted-foreground">{data.label}</p>
-        <p className="mt-2 text-sm font-medium text-muted-foreground/80">Donnée manquante</p>
-        <p className="mt-1 text-xs font-medium text-muted-foreground/70">{data.reason}</p>
+        <p className="mt-2 text-sm font-bold text-muted-foreground/80">Donnée manquante</p>
+        <p className="mt-1 text-xs font-bold text-muted-foreground/70">{data.reason}</p>
         <span className="mt-auto pt-3 text-sm font-bold text-accent">{data.ctaLabel} →</span>
       </Link>
     );
@@ -36,7 +36,7 @@ export function MetricCard({ data }: { data: MetricCardData }) {
         {data.deltaLabel && (
           <p
             className={cn(
-              "flex items-center gap-1 text-xs font-semibold",
+              "flex items-center gap-1 text-xs font-bold",
               data.deltaDirection === "up" && "text-state-healthy",
               data.deltaDirection === "down" && "text-state-critical",
               data.deltaDirection === null && "text-muted-foreground"

@@ -22,7 +22,7 @@ export function FunnelTabs() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+              "rounded-lg px-4 py-2 text-sm font-bold transition-colors",
               active ? "bg-ink text-mist" : "text-muted-foreground hover:text-foreground"
             )}
           >

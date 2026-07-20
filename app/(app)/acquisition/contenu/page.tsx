@@ -57,7 +57,7 @@ export default async function ContenuPage() {
 
       {platforms.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-medium">Aucune plateforme renseignée</p>
+          <p className="text-sm font-bold">Aucune plateforme renseignée</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoute tes plateformes de contenu dans Mon business pour les retrouver ici.
           </p>
@@ -66,16 +66,16 @@ export default async function ContenuPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Vues ce mois-ci</p>
-          <p className="mt-2 font-display text-3xl font-medium">{new Intl.NumberFormat("fr-FR").format(totalViewsThisMonth)}</p>
+          <p className="text-sm font-bold text-muted-foreground">Vues ce mois-ci</p>
+          <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat("fr-FR").format(totalViewsThisMonth)}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Taux de clic moyen</p>
-          <p className="mt-2 font-display text-3xl font-medium">{avgClickRate === null ? "—" : formatPercent(avgClickRate)}</p>
+          <p className="text-sm font-bold text-muted-foreground">Taux de clic moyen</p>
+          <p className="mt-2 font-display text-3xl font-bold">{avgClickRate === null ? "—" : formatPercent(avgClickRate)}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-medium text-muted-foreground">Leads attribués</p>
-          <p className="mt-2 font-display text-3xl font-medium">{new Intl.NumberFormat("fr-FR").format(totalLeadsThisMonth)}</p>
+          <p className="text-sm font-bold text-muted-foreground">Leads attribués</p>
+          <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat("fr-FR").format(totalLeadsThisMonth)}</p>
         </div>
       </div>
 

@@ -62,7 +62,7 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: AdCampaig
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-medium">
+        <DialogTitle className="text-lg font-bold">
           {campaign ? "Modifier la campagne" : "Ajouter une campagne"}
         </DialogTitle>
 

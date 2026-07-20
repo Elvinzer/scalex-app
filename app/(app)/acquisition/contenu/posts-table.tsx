@@ -49,7 +49,7 @@ export function PostsTable({ posts, platforms, topPostId }: { posts: ContentPost
       <button
         type="button"
         onClick={() => toggleSort(sortKeyValue)}
-        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground"
       >
         {label}
         {active ? sortDesc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" /> : <ChevronsUpDown className="size-3 opacity-40" />}
@@ -66,7 +66,7 @@ export function PostsTable({ posts, platforms, topPostId }: { posts: ContentPost
   if (posts.length === 0) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-medium">Aucun post enregistré pour l&apos;instant</p>
+        <p className="text-sm font-bold">Aucun post enregistré pour l&apos;instant</p>
         <p className="mt-1 text-sm text-muted-foreground">Ajoute ton premier post ci-dessus.</p>
       </div>
     );
@@ -78,8 +78,8 @@ export function PostsTable({ posts, platforms, topPostId }: { posts: ContentPost
         <thead>
           <tr className="border-b border-border">
             <th className="p-3 text-left"><SortHeader label="Date" sortKeyValue="publishedAt" /></th>
-            <th className="p-3 text-left text-xs font-medium text-muted-foreground">Titre</th>
-            <th className="p-3 text-left text-xs font-medium text-muted-foreground">Plateforme</th>
+            <th className="p-3 text-left text-xs font-bold text-muted-foreground">Titre</th>
+            <th className="p-3 text-left text-xs font-bold text-muted-foreground">Plateforme</th>
             <th className="p-3 text-right"><SortHeader label="Vues" sortKeyValue="views" /></th>
             <th className="p-3 text-right"><SortHeader label="Engagement" sortKeyValue="engagementRate" /></th>
             <th className="p-3 text-right"><SortHeader label="Clics" sortKeyValue="clickRate" /></th>
@@ -94,14 +94,14 @@ export function PostsTable({ posts, platforms, topPostId }: { posts: ContentPost
               <td className="p-3">
                 <div className="flex items-center gap-2">
                   {post.url ? (
-                    <a href={post.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">
+                    <a href={post.url} target="_blank" rel="noreferrer" className="font-bold hover:underline">
                       {post.title}
                     </a>
                   ) : (
-                    <span className="font-medium">{post.title}</span>
+                    <span className="font-bold">{post.title}</span>
                   )}
                   {post.id === topPostId && (
-                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium tracking-wide text-accent-text uppercase">
+                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-bold tracking-wide text-accent-text uppercase">
                       Top
                     </span>
                   )}

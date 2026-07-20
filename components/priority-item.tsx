@@ -34,7 +34,7 @@ export function PriorityItem({
             {point.category}
           </p>
           <p className="mt-0.5 font-bold">{point.label}</p>
-          <p className="mt-1 text-sm font-medium text-muted-foreground">{point.explanation}</p>
+          <p className="mt-1 text-sm font-bold text-muted-foreground">{point.explanation}</p>
         </div>
       </div>
 
@@ -50,7 +50,7 @@ export function PriorityItem({
             <a href={`/diagnostic?open=${point.key}`}>Améliorer ça →</a>
           </Button>
         ) : (
-          <a href="/diagnostic" className="text-sm font-semibold text-muted-foreground hover:underline">
+          <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
             Voir le détail
           </a>
         )}

@@ -34,7 +34,7 @@ function renderMarkdownLite(text: string) {
     const parts = line.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) =>
       part.startsWith("**") && part.endsWith("**") ? (
-        <strong key={i} className="font-medium">
+        <strong key={i} className="font-bold">
           {part.slice(2, -2)}
         </strong>
       ) : (
@@ -176,9 +176,9 @@ export function AiChatPanel({
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-border p-4">
         <div>
-          <DrawerTitle className="text-base font-medium">{title}</DrawerTitle>
+          <DrawerTitle className="text-base font-bold">{title}</DrawerTitle>
           {gapBadge && (
-            <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent-text">
+            <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent-text">
               {gapBadge}
             </span>
           )}

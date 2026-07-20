@@ -37,7 +37,7 @@ export function TileBenchmarkStrip({
 
   return (
     <div className="mt-3">
-      <p className="mb-1 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+      <p className="mb-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
         {sublabel}
       </p>
       <div className="relative h-1.5 overflow-hidden rounded-full">
@@ -52,7 +52,7 @@ export function TileBenchmarkStrip({
         />
       </div>
       {comparison && (
-        <p className="mt-1 text-[10.5px] font-medium">{CONCLUSION_LABELS[comparison]}</p>
+        <p className="mt-1 text-[10.5px] font-bold">{CONCLUSION_LABELS[comparison]}</p>
       )}
     </div>
   );

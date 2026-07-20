@@ -101,7 +101,7 @@ function DisabledNavItem({ entry }: { entry: DisabledEntry }) {
     <div className="flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 pl-7 text-[13px] font-bold tracking-[-0.005em] text-mist/40">
       <Icon className="size-4" />
       {entry.label}
-      <span className="ml-auto rounded-full bg-white/5 px-1.5 py-0.5 text-[9.5px] font-semibold tracking-[0.06em] text-mist/50 uppercase">
+      <span className="ml-auto rounded-full bg-white/5 px-1.5 py-0.5 text-[9.5px] font-bold tracking-[0.06em] text-mist/50 uppercase">
         Bientôt
       </span>
     </div>
@@ -111,7 +111,7 @@ function DisabledNavItem({ entry }: { entry: DisabledEntry }) {
 function PillarSection({ pillar, pathname }: { pillar: Pillar; pathname: string }) {
   return (
     <div className="mt-3 first:mt-0">
-      <p className="px-3 py-1 text-[10.5px] font-semibold tracking-[0.09em] text-on-dark-muted uppercase">
+      <p className="px-3 py-1 text-[10.5px] font-bold tracking-[0.09em] text-on-dark-muted uppercase">
         {pillar.label}
       </p>
       <div className="mt-1 flex flex-col gap-1">
@@ -139,11 +139,11 @@ function ProfileMenu({ businessName, email, onSignOut }: { businessName: string;
             type="button"
             className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 text-left transition-colors hover:bg-mist/10"
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-on-dark">
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-on-dark">
               {initial}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12.5px] font-medium tracking-[-0.005em] text-mist/90">
+              <p className="truncate text-[12.5px] font-bold tracking-[-0.005em] text-mist/90">
                 {businessName || "Mon business"}
               </p>
               <p className="truncate text-[11px] tracking-[-0.005em] text-mist/50">{email}</p>
@@ -159,7 +159,7 @@ function ProfileMenu({ businessName, email, onSignOut }: { businessName: string;
                 key={entry.href}
                 href={entry.href}
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+                className="flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-muted"
               >
                 <Icon className="size-4 text-muted-foreground" />
                 {entry.label}
@@ -198,12 +198,12 @@ export function AppSidebar({ email, businessName }: { email: string; businessNam
     >
       <div className="flex items-center gap-2.5 px-3 pb-7">
         <div
-          className="flex size-8 items-center justify-center rounded-lg text-sm font-medium text-white shadow-[0_2px_8px_var(--accent-glow)]"
+          className="flex size-8 items-center justify-center rounded-lg text-sm font-bold text-white shadow-[0_2px_8px_var(--accent-glow)]"
           style={{ background: "var(--gradient-accent)" }}
         >
           S
         </div>
-        <span className="font-display text-[17px] font-semibold tracking-[-0.015em]">Scale X</span>
+        <span className="font-display text-[17px] font-bold tracking-[-0.015em]">Scale X</span>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">

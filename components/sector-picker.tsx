@@ -17,7 +17,7 @@ export function SectorPicker({ sector }: { sector: SectorKey | null }) {
 
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="font-medium text-muted-foreground">Ton secteur</span>
+      <span className="font-bold text-muted-foreground">Ton secteur</span>
       <select
         defaultValue={sector ?? ""}
         onChange={handleChange}

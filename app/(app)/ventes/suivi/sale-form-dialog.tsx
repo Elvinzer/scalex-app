@@ -77,7 +77,7 @@ export function SaleFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-medium">{sale ? "Modifier la vente" : "Ajouter une vente"}</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{sale ? "Modifier la vente" : "Ajouter une vente"}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
