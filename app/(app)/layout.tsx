@@ -20,11 +20,16 @@ export default async function AppLayout({
 
   const email = data.claims.email;
   const userId = data.claims.sub as string;
-  if (typeof email === "string") {
-    await ensureUserRow(userId, email);
-  }
 
-  const businessProfile = await getBusinessProfile(userId);
+  // Runs on every navigation inside (app) — ensureUserRow (a write keyed
+  // only on userId/email) and getBusinessProfile (a read that doesn't
+  // depend on the users row existing, just a plain SELECT) are independent,
+  // so awaiting them one after another was a pure, avoidable round-trip on
+  // literally every page change.
+  const [, businessProfile] = await Promise.all([
+    typeof email === "string" ? ensureUserRow(userId, email) : Promise.resolve(),
+    getBusinessProfile(userId),
+  ]);
 
   return (
     <div className="flex min-h-screen bg-panel">

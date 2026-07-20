@@ -52,19 +52,24 @@ export default async function SettingPage({
   // daily aggregate unchanged when no such row exists (last-30-days/custom/
   // all-time ranges, or a month with nothing entered in /datas).
   const exactMonth = range ? isExactCalendarMonth(range) : null;
-  const monthlyRow = exactMonth ? await getMonthlyMetrics(userId, exactMonth.year, exactMonth.month) : null;
+  // Previous-period comparison for the stat tiles — no meaningful "previous"
+  // window when viewing all-time history, so it's skipped in that case.
+  // Computed before either fetch fires so both go out in parallel below —
+  // previousExactMonth only depends on `range` (already resolved), not on
+  // monthlyRow, so awaiting them one after another was an avoidable
+  // round-trip.
+  const previousRange = range ? previousEquivalentRange(range) : null;
+  const previousExactMonth = previousRange ? isExactCalendarMonth(previousRange) : null;
+
+  const [monthlyRow, previousMonthlyRow] = await Promise.all([
+    exactMonth ? getMonthlyMetrics(userId, exactMonth.year, exactMonth.month) : Promise.resolve(null),
+    previousExactMonth ? getMonthlyMetrics(userId, previousExactMonth.year, previousExactMonth.month) : Promise.resolve(null),
+  ]);
 
   const totals = resolveMonthSettingTotals(monthlyRow, entries);
   const rates = computeFunnelRates(totals);
   const bottleneck = findBottleneck(rates);
 
-  // Previous-period comparison for the stat tiles — no meaningful "previous"
-  // window when viewing all-time history, so it's skipped in that case.
-  const previousRange = range ? previousEquivalentRange(range) : null;
-  const previousExactMonth = previousRange ? isExactCalendarMonth(previousRange) : null;
-  const previousMonthlyRow = previousExactMonth
-    ? await getMonthlyMetrics(userId, previousExactMonth.year, previousExactMonth.month)
-    : null;
   const previousEntries = previousRange
     ? allEntries.filter(
         (entry) => entry.date >= previousRange.from && entry.date <= previousRange.to
