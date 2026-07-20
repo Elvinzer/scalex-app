@@ -6,17 +6,29 @@ import { useState } from "react";
 import { ImproveChat } from "@/components/improve-chat";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
+import { cn } from "@/lib/utils";
 
 // Global "discuter de tes datas" launcher — available on every authenticated
 // page (mounted once in app/(app)/layout.tsx). Opens the same chat drawer as
 // the per-metric flow, but in general mode (metricKey: "general") — the AI
 // gets the user's full diagnostic instead of one specific point.
-export function FloatingChatBubble() {
+//
+// hasUnseenInsight (computed server-side in app/(app)/layout.tsx) drives the
+// notification dot + pulsing glow — a proactive "the AI wants to tell you
+// something" cue rather than a purely decorative bubble. Dismissed locally
+// the moment the drawer is opened, for instant feedback, independent of
+// when the underlying server-side signal itself clears.
+export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsight?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const showNotification = hasUnseenInsight && !dismissed;
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (next) void recordImproveChatOpened("general");
+    if (next) {
+      setDismissed(true);
+      void recordImproveChatOpened("general");
+    }
   }
 
   return (
@@ -24,10 +36,19 @@ export function FloatingChatBubble() {
       <DrawerTrigger asChild>
         <button
           type="button"
-          aria-label="Discuter de tes datas"
-          className="fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent text-white shadow-[var(--shadow-float)] transition-colors duration-150 hover:bg-accent-hover"
+          aria-label={showNotification ? "L'IA a une remarque pour toi — discuter de tes datas" : "Discuter de tes datas"}
+          className={cn(
+            "fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent text-white shadow-[var(--shadow-float)] transition-colors duration-150 hover:bg-accent-hover",
+            showNotification && "animate-[glow-pulse_2s_ease-in-out_infinite]"
+          )}
         >
           <MessageCircle className="size-6" />
+          {showNotification && (
+            <span className="absolute -top-1 -right-1 flex size-4">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent-2 opacity-75" />
+              <span className="relative inline-flex size-4 rounded-full border-2 border-surface bg-accent-2" />
+            </span>
+          )}
         </button>
       </DrawerTrigger>
       <DrawerContent>

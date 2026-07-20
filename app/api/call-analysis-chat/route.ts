@@ -52,7 +52,16 @@ export async function POST(request: NextRequest) {
   const businessProfile = await getBusinessProfile(userId);
 
   const systemPrompt = buildCallAnalysisPrompt({ businessProfile, video });
-  const provider = getAiProvider();
+
+  let provider;
+  try {
+    provider = getAiProvider();
+  } catch {
+    return NextResponse.json(
+      { error: "L'IA n'est pas configurée côté serveur — préviens l'administrateur." },
+      { status: 503 }
+    );
+  }
 
   let upstream: Response;
   try {

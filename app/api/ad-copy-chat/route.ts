@@ -47,7 +47,16 @@ export async function POST(request: NextRequest) {
   const offer = offerId ? (businessProfile.sales.offers.find((o) => o.id === offerId) ?? null) : null;
 
   const systemPrompt = buildAdCopyPrompt({ businessProfile, offer });
-  const provider = getAiProvider();
+
+  let provider;
+  try {
+    provider = getAiProvider();
+  } catch {
+    return NextResponse.json(
+      { error: "L'IA n'est pas configurée côté serveur — préviens l'administrateur." },
+      { status: 503 }
+    );
+  }
 
   let upstream: Response;
   try {
