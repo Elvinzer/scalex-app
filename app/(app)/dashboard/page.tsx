@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
+import { DailyReportDialog } from "./daily-report-dialog";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityItem } from "@/components/priority-item";
 import { Button } from "@/components/ui/button";
@@ -95,13 +96,16 @@ export default async function DashboardPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Salut, {firstName}</h1>
-        <p className="mt-1.5 text-sm font-bold text-muted-foreground">
-          {points.length > 0
-            ? "Voici où en est ton business, et ce qu'il faut corriger en premier."
-            : "Ton business tourne bien. Voici où creuser pour accélérer."}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Salut, {firstName}</h1>
+          <p className="mt-1.5 text-sm font-bold text-muted-foreground">
+            {points.length > 0
+              ? "Voici où en est ton business, et ce qu'il faut corriger en premier."
+              : "Ton business tourne bien. Voici où creuser pour accélérer."}
+          </p>
+        </div>
+        <DailyReportDialog />
       </div>
 
       {/* Bloc 1 — always the honest empty-state: no execution engine exists

@@ -53,6 +53,7 @@ export async function saveSettingKpiEntry(
 
   revalidatePath("/acquisition/setting");
   revalidatePath("/funnel");
+  revalidatePath("/dashboard");
   return { error: null };
 }
 

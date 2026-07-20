@@ -47,6 +47,7 @@ export async function saveClosingKpiEntry(
 
   revalidatePath("/ventes/closing");
   revalidatePath("/funnel");
+  revalidatePath("/dashboard");
   return { error: null };
 }
 
