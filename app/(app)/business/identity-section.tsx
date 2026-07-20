@@ -46,6 +46,17 @@ export function IdentitySection({
 
       <div className="mt-6 flex flex-col gap-5">
         <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium">Nom du business</span>
+          <input
+            type="text"
+            value={value.businessName}
+            onChange={(event) => update({ businessName: event.target.value })}
+            placeholder="Ex : Scale X"
+            className={inputClass}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium">Niche / marché</span>
           <input
             type="text"

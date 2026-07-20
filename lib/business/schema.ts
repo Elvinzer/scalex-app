@@ -10,6 +10,7 @@ import { z } from "zod";
 const enabledFlag = z.enum(["yes", "no"]).nullable();
 
 export const identitySchema = z.object({
+  businessName: z.string().max(200),
   niche: z.string().max(200),
   avatarDescription: z.string().max(4000),
   mrrCurrent: z.number().nonnegative().nullable(),

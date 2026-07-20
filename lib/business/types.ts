@@ -6,6 +6,7 @@
 export type AcquisitionMode = "organique" | "ads" | "hybride";
 
 export type BusinessIdentity = {
+  businessName: string;
   niche: string;
   avatarDescription: string;
   mrrCurrent: number | null;
@@ -123,6 +124,7 @@ export type BusinessProfileData = {
 
 export const EMPTY_BUSINESS_PROFILE: BusinessProfileData = {
   identity: {
+    businessName: "",
     niche: "",
     avatarDescription: "",
     mrrCurrent: null,

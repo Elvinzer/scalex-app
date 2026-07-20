@@ -3,6 +3,7 @@
 import {
   Bot,
   ChevronRight,
+  ChevronsUpDown,
   Database,
   FileText,
   Filter,
@@ -24,6 +25,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +45,6 @@ type Pillar = { label: string; entries: NavEntry[] };
 // visible.
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { type: "link", href: "/business", label: "Mon business", icon: Store },
   { type: "link", href: "/funnel", label: "Funnel", icon: Filter },
   { type: "link", href: "/datas", label: "Datas", icon: Database },
 ];
@@ -77,6 +78,13 @@ const pillars: Pillar[] = [
 const bottomEntries: LinkEntry[] = [
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope },
   { type: "link", href: "/agent", label: "Agent IA", icon: Bot },
+];
+
+// Moved out of the main nav into the profile dropdown at the bottom of the
+// sidebar (see ProfileMenu) — these are account-level pages, not day-to-day
+// product pages.
+const profileMenuEntries: LinkEntry[] = [
+  { type: "link", href: "/business", label: "Mon business", icon: Store },
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
 ];
@@ -155,7 +163,60 @@ function PillarSection({
   );
 }
 
-export function AppSidebar({ email }: { email: string }) {
+function ProfileMenu({ businessName, email, onSignOut }: { businessName: string; email: string; onSignOut: () => void }) {
+  const [open, setOpen] = useState(false);
+  const initial = email.charAt(0).toUpperCase() || "?";
+
+  return (
+    <div className="flex items-center gap-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 text-left transition-colors hover:bg-mist/10"
+          >
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-on-dark">
+              {initial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12.5px] font-medium tracking-[-0.005em] text-mist/90">
+                {businessName || "Mon business"}
+              </p>
+              <p className="truncate text-[11px] tracking-[-0.005em] text-mist/50">{email}</p>
+            </div>
+            <ChevronsUpDown className="size-3.5 shrink-0 text-mist/40" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="top" align="start" sideOffset={10} className="w-56 p-1.5">
+          {profileMenuEntries.map((entry) => {
+            const Icon = entry.icon;
+            return (
+              <Link
+                key={entry.href}
+                href={entry.href}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                <Icon className="size-4 text-muted-foreground" />
+                {entry.label}
+              </Link>
+            );
+          })}
+        </PopoverContent>
+      </Popover>
+      <button
+        type="button"
+        onClick={onSignOut}
+        aria-label="Se déconnecter"
+        className="flex size-7 shrink-0 items-center justify-center rounded-lg text-mist/60 transition-colors hover:bg-state-critical/20 hover:text-state-critical"
+      >
+        <LogOut className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+export function AppSidebar({ email, businessName }: { email: string; businessName: string }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -197,8 +258,6 @@ export function AppSidebar({ email }: { email: string }) {
     router.refresh();
   }
 
-  const initial = email.charAt(0).toUpperCase() || "?";
-
   return (
     <aside
       className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col px-3 py-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
@@ -238,22 +297,7 @@ export function AppSidebar({ email }: { email: string }) {
       </nav>
 
       <div className="border-t border-mist/15 px-3 pt-4">
-        <div className="flex items-center gap-3 rounded-xl px-1 py-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-on-dark">
-            {initial}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[12.5px] font-medium tracking-[-0.005em] text-mist/85">{email}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            aria-label="Se déconnecter"
-            className="flex size-7 items-center justify-center rounded-lg text-mist/60 transition-colors hover:bg-state-critical/20 hover:text-state-critical"
-          >
-            <LogOut className="size-4" />
-          </button>
-        </div>
+        <ProfileMenu businessName={businessName} email={email} onSignOut={handleSignOut} />
       </div>
     </aside>
   );

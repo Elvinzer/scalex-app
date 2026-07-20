@@ -25,6 +25,7 @@ function isFilled(value: string | number | null | undefined): boolean {
 
 function identityCompletion(data: BusinessIdentity): SectionCompletion {
   const checks = [
+    isFilled(data.businessName),
     isFilled(data.niche),
     isFilled(data.avatarDescription),
     isFilled(data.mrrCurrent),
