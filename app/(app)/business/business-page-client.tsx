@@ -24,7 +24,7 @@ export function BusinessPageClient({ initialProfile }: { initialProfile: Busines
     <div className="flex flex-col gap-8">
       <div className="sticker-spotlight px-7 py-6">
         <p className="text-xs text-mist/70">Mon business</p>
-        <h1 className="mt-1 text-xl font-medium tracking-[-0.01em]">
+        <h1 className="mt-1 text-xl font-bold tracking-[-0.01em]">
           Plus c&apos;est complet, plus ton diagnostic est précis.
         </h1>
         <div className="mt-6 flex items-center gap-4">

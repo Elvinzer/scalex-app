@@ -39,7 +39,7 @@ export default async function ContenuPage() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-medium">Contenu</h1>
+          <h1 className="text-3xl font-bold">Contenu</h1>
           <p className="mt-1 text-muted-foreground">
             Performance de tes posts — vues, engagement, clics et leads générés.
           </p>

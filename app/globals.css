@@ -270,16 +270,17 @@
   h1,
   h2,
   h3 {
-    @apply font-display font-medium tracking-tight;
+    @apply font-display font-bold tracking-tight;
     line-height: 1.2;
   }
 }
 
 @layer utilities {
-  /* Standard content card — subtle border + a resting shadow, lifting
-     further on hover for real depth instead of a flat aplat. */
+  /* Standard content card — a visibly thicker border (was 1px — too faint
+     to read as a boundary) + a resting shadow, lifting further on hover
+     for real depth instead of a flat aplat. */
   .sticker-card {
-    border: 1px solid var(--border-value);
+    border: 2px solid var(--border-value);
     border-radius: var(--radius-card);
     background: var(--surface);
     box-shadow: var(--shadow-xs);
@@ -296,7 +297,7 @@
 
   /* Empty/locked-state variant: dashed border, muted background. */
   .sticker-card-dashed {
-    border: 1px dashed var(--border-value);
+    border: 2px dashed var(--border-value);
     border-radius: var(--radius-card);
     background: var(--surface);
     transition: border-color var(--transition);

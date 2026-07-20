@@ -17,7 +17,7 @@ export default async function SettingsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-medium">Réglages</h1>
+        <h1 className="text-3xl font-bold">Réglages</h1>
         <p className="mt-1 text-muted-foreground">
           Ton compte, ta clé Anthropic et tes intégrations.
         </p>

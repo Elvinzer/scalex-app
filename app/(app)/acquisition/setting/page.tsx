@@ -75,7 +75,7 @@ export default async function SettingPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-medium">Setting</h1>
+        <h1 className="text-3xl font-bold">Setting</h1>
         <p className="mt-1 text-muted-foreground">
           Ton funnel de prospection, jour par jour : nouveaux abonnés, premiers messages,
           conversations, appels proposés et réservés.

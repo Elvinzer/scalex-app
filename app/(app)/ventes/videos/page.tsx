@@ -16,7 +16,7 @@ export default async function VideosPage() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-medium">Vidéos de closing</h1>
+          <h1 className="text-3xl font-bold">Vidéos de closing</h1>
           <p className="mt-1 text-muted-foreground">
             Chaque appel de closing, avec transcription ou notes — et une analyse IA à la demande.
           </p>

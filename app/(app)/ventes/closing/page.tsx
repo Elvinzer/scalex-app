@@ -90,7 +90,7 @@ export default async function ClosingPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-medium">Closing</h1>
+        <h1 className="text-3xl font-bold">Closing</h1>
         <p className="mt-1 text-muted-foreground">
           Ce qui se passe une fois l&apos;appel réservé : présence à l&apos;appel, et
           conversion en vente.

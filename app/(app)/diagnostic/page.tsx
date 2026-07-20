@@ -89,7 +89,7 @@ export default async function DiagnosticPage({
   if (!hasAnyMonthlyRow) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-2xl font-medium">Ton diagnostic</h1>
+        <h1 className="text-2xl font-bold">Ton diagnostic</h1>
         <p className="max-w-md text-muted-foreground">
           Remplis au moins un mois dans Datas pour lancer ton diagnostic.
         </p>
@@ -139,7 +139,7 @@ export default async function DiagnosticPage({
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[22px] leading-[1.2] font-medium tracking-[-0.01em]">Ton diagnostic</h1>
+          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Ton diagnostic</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             J&apos;ai analysé tes chiffres des {PERIOD_LABELS[period]}. Voilà ce que ça donne.
           </p>

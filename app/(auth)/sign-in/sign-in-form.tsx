@@ -44,7 +44,7 @@ export function SignInForm() {
   if (status === "sent") {
     return (
       <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-medium">Check your email</h1>
+        <h1 className="text-2xl font-bold">Check your email</h1>
         <p className="text-sm text-muted-foreground">
           We sent a sign-in link to {email}.
         </p>
@@ -54,7 +54,7 @@ export function SignInForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-medium">Sign in to Scale X</h1>
+      <h1 className="text-2xl font-bold">Sign in to Scale X</h1>
 
       <Button
         type="button"

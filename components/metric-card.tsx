@@ -9,10 +9,10 @@ export function MetricCard({ data }: { data: MetricCardData }) {
   if (data.status === "missing") {
     return (
       <Link href={data.href} className="sticker-card-dashed flex flex-col p-4">
-        <p className="text-xs text-muted-foreground">{data.label}</p>
-        <p className="mt-2 text-sm text-muted-foreground/80">Donnée manquante</p>
-        <p className="mt-1 text-xs text-muted-foreground/70">{data.reason}</p>
-        <span className="mt-auto pt-3 text-sm font-medium text-accent">{data.ctaLabel} →</span>
+        <p className="text-xs font-bold text-muted-foreground">{data.label}</p>
+        <p className="mt-2 text-sm font-medium text-muted-foreground/80">Donnée manquante</p>
+        <p className="mt-1 text-xs font-medium text-muted-foreground/70">{data.reason}</p>
+        <span className="mt-auto pt-3 text-sm font-bold text-accent">{data.ctaLabel} →</span>
       </Link>
     );
   }
@@ -24,19 +24,19 @@ export function MetricCard({ data }: { data: MetricCardData }) {
       title={data.sourceHint}
     >
       <div className="flex items-center gap-1.5">
-        <p className="text-xs text-muted-foreground">{data.label}</p>
+        <p className="text-xs font-bold text-muted-foreground">{data.label}</p>
         {data.sourceHint && (
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
             manuel
           </span>
         )}
       </div>
-      <p className="mt-1.5 text-xl font-medium tracking-[-0.01em]">{data.valueLabel}</p>
+      <p className="mt-1.5 text-xl font-bold tracking-[-0.01em]">{data.valueLabel}</p>
       <div className="mt-1 min-h-4">
         {data.deltaLabel && (
           <p
             className={cn(
-              "flex items-center gap-1 text-xs font-medium",
+              "flex items-center gap-1 text-xs font-semibold",
               data.deltaDirection === "up" && "text-state-healthy",
               data.deltaDirection === "down" && "text-state-critical",
               data.deltaDirection === null && "text-muted-foreground"

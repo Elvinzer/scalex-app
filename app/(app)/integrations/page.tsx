@@ -10,7 +10,7 @@ export default async function IntegrationsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-medium">Intégrations</h1>
+        <h1 className="text-3xl font-bold">Intégrations</h1>
         <p className="mt-1 text-muted-foreground">
           Les sources de données que Scale X utilise pour ton diagnostic.
         </p>

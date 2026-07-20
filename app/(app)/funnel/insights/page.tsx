@@ -30,7 +30,7 @@ export default async function FunnelInsightsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-medium">Insights</h1>
+        <h1 className="text-3xl font-bold">Insights</h1>
         <p className="mt-1 text-muted-foreground">
           Tout ce que l&apos;agent t&apos;a déjà suggéré sur ton funnel, et ce que tu as
           réellement mis en place.

@@ -27,7 +27,7 @@ export default async function AdminPage() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
       <div>
-        <h1 className="text-[22px] leading-[1.2] font-medium tracking-[-0.01em]">Dashboard fondateurs</h1>
+        <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Dashboard fondateurs</h1>
         <p className="mt-1 text-sm text-muted-foreground">La boucle de valeur, mesurée.</p>
       </div>
 

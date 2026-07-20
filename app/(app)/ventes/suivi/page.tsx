@@ -34,7 +34,7 @@ export default async function SuiviDesVentesPage() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-medium">Suivi des ventes</h1>
+          <h1 className="text-3xl font-bold">Suivi des ventes</h1>
           <p className="mt-1 text-muted-foreground">
             Chaque vente, son échéancier et ses impayés — au-delà des seuls totaux du funnel.
           </p>

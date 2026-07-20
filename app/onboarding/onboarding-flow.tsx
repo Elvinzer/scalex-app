@@ -144,7 +144,7 @@ export function OnboardingFlow({
       {step === 1 && (
         <form onSubmit={handleScreen1Submit} className="flex flex-col gap-6">
           <div>
-            <h1 className="text-2xl font-medium">Ton offre</h1>
+            <h1 className="text-2xl font-bold">Ton offre</h1>
             <p className="mt-1 text-sm text-muted-foreground">60 secondes, 4 champs.</p>
           </div>
 
@@ -223,7 +223,7 @@ export function OnboardingFlow({
       {step === 2 && (
         <form onSubmit={handleScreen2Submit} className="flex flex-col gap-6">
           <div>
-            <h1 className="text-2xl font-medium">Tes chiffres de {previousMonthLabel}</h1>
+            <h1 className="text-2xl font-bold">Tes chiffres de {previousMonthLabel}</h1>
             <p className="mt-1 text-sm text-muted-foreground">Des chiffres approximatifs suffisent pour commencer.</p>
           </div>
 
@@ -276,7 +276,7 @@ export function OnboardingFlow({
 
       {step === 3 && result?.kind === "no_gap" && (
         <div className="flex flex-col gap-6 text-center">
-          <h1 className="text-2xl font-medium">Tes chiffres sont déjà solides 🎉</h1>
+          <h1 className="text-2xl font-bold">Tes chiffres sont déjà solides 🎉</h1>
           <p className="text-sm text-muted-foreground">
             Sur ce que tu as pu mesurer ce mois-ci, rien n&apos;est sous les standards de ta niche. Continue à
             remplir tes chiffres pour affiner ton diagnostic.
