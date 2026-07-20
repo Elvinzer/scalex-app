@@ -47,7 +47,7 @@ export function PriorityItem({
         </span>
         {isTop ? (
           <Button asChild size="sm">
-            <a href="/agent">Corriger avec l&apos;agent →</a>
+            <a href={`/diagnostic?open=${point.key}`}>Améliorer ça →</a>
           </Button>
         ) : (
           <a href="/diagnostic" className="text-sm font-medium text-muted-foreground hover:underline">

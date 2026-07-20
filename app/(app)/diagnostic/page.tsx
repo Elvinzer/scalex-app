@@ -27,17 +27,11 @@ import {
   computeFullBenchmarkProjection,
   computeMetricSummaries,
 } from "@/lib/diagnostic/cascade";
-import {
-  aggregateTestimonialCount,
-  computeTestimonialSummary,
-  getTestimonialBenchmark,
-} from "@/lib/diagnostic/delivery-metrics";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
 import { formatEur } from "@/lib/currency";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
-import { getTestimonials } from "@/lib/testimonials/queries";
 import { cn } from "@/lib/utils";
 
 const PERIOD_LABELS: Record<string, string> = {
@@ -62,7 +56,6 @@ const MEASURE_HINTS: Record<string, string> = {
   closingRate: "Renseigne tes appels pris et tes ventes conclues dans Datas.",
   content_click_rate: "Renseigne les vues et les clics de tes posts dans Contenu.",
   content_lead_rate: "Renseigne les clics et les leads de tes posts dans Contenu.",
-  testimonial_rate: "Collecte des témoignages dans Témoignages une fois que tu as assez de ventes conclues.",
 };
 
 export default async function DiagnosticPage({
@@ -77,12 +70,11 @@ export default async function DiagnosticPage({
 
   const businessProfile = await getBusinessProfile(userId);
 
-  const [allSettingEntries, allClosingEntries, allMonthlyRows, allContentPosts, allTestimonials] = await Promise.all([
+  const [allSettingEntries, allClosingEntries, allMonthlyRows, allContentPosts] = await Promise.all([
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
     db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
     getAllMonthlyMetrics(userId),
     getContentPosts(userId),
-    getTestimonials(userId),
   ]);
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
@@ -108,21 +100,12 @@ export default async function DiagnosticPage({
     );
   }
 
-  const [benchmarks, contentBenchmarks, testimonialBenchmark] = await Promise.all([
+  const [benchmarks, contentBenchmarks] = await Promise.all([
     getDiagnosticBenchmarks(user?.sector ?? null),
     getContentDiagnosticBenchmarks(user?.sector ?? null),
-    getTestimonialBenchmark(user?.sector ?? null),
   ]);
   const contentTotals = aggregateContentTotals(months, allContentPosts);
   const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
-  const testimonialCount = aggregateTestimonialCount(months, allTestimonials);
-  const testimonialSummary = computeTestimonialSummary({
-    count: testimonialCount,
-    salesClosed: closingTotals.salesClosed,
-    benchmark: testimonialBenchmark,
-  });
-  const processSteps = businessProfile.delivery.processSteps;
-  const processImplemented = processSteps.filter((step) => step.implemented).length;
   const points = computeDiagnosticPoints({
     settingTotals,
     closingTotals,
@@ -335,83 +318,6 @@ export default async function DiagnosticPage({
               )}
             </div>
           ))}
-
-          <div key={testimonialSummary.key} id={`metric-${testimonialSummary.key}`} className="sticker-card p-5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium">{testimonialSummary.label}</p>
-              <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_BADGE[testimonialSummary.status])}>
-                {STATUS_ICON[testimonialSummary.status]}
-              </span>
-            </div>
-            {testimonialSummary.status === "unmeasured" ? (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
-                    Pas encore mesuré — comment mesurer ça ?
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent>
-                  <p className="text-muted-foreground">{MEASURE_HINTS[testimonialSummary.key]}</p>
-                  <Button asChild size="sm" variant="outline" className="mt-3">
-                    <a href="/delivrabilite/temoignages">Aller sur Témoignages →</a>
-                  </Button>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <div className="mt-3">
-                <RateVsBenchmarkBar
-                  currentRate={testimonialSummary.currentRatePercent === null ? null : testimonialSummary.currentRatePercent / 100}
-                  benchmarkRate={testimonialSummary.benchmarkRatePercent / 100}
-                  compact
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="sticker-card p-5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium">Process de délivrabilité</p>
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-xs font-medium",
-                  processSteps.length === 0
-                    ? STATUS_BADGE.unmeasured
-                    : processImplemented === processSteps.length
-                      ? STATUS_BADGE.ok
-                      : processImplemented === 0
-                        ? STATUS_BADGE.critical
-                        : STATUS_BADGE.caution
-                )}
-              >
-                {processSteps.length === 0
-                  ? STATUS_ICON.unmeasured
-                  : processImplemented === processSteps.length
-                    ? STATUS_ICON.ok
-                    : processImplemented === 0
-                      ? STATUS_ICON.critical
-                      : STATUS_ICON.caution}
-              </span>
-            </div>
-            {processSteps.length === 0 ? (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
-                    Pas encore renseigné — comment mesurer ça ?
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent>
-                  <p className="text-muted-foreground">Définis ta checklist de délivrabilité dans Process.</p>
-                  <Button asChild size="sm" variant="outline" className="mt-3">
-                    <a href="/delivrabilite/process">Aller sur Process →</a>
-                  </Button>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                {processImplemented}/{processSteps.length} étapes en place
-              </p>
-            )}
-          </div>
 
           {followups.map((followup) => (
             <div key={followup.key} className="sticker-card p-5">

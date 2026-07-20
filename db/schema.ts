@@ -314,8 +314,6 @@ export const diagnosticMetricEnum = pgEnum("diagnostic_metric", [
   // 5-stage sales cascade above, see lib/content-posts/rates.ts.
   "content_click_rate",
   "content_lead_rate",
-  // Testimonials collected / sales closed — see lib/diagnostic/delivery-metrics.ts.
-  "testimonial_rate",
 ]);
 
 // Lives in DB so values are adjustable without a redeploy, and so they can
@@ -361,31 +359,6 @@ export const contentPosts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("content_posts_user_published_idx").on(table.userId, table.publishedAt)]
-);
-
-export const testimonialFormat = pgEnum("testimonial_format", ["texte", "video", "capture_ecran", "audio"]);
-
-// Manual entry (the "/delivrabilite/temoignages" page) — one row per
-// testimonial collected. Distinct from business_profile.delivery.testimonials
-// (a static declared count/channel-list edited in Mon business) — this table
-// is the operational log the two deliberately coexist, not a replacement.
-// url is an external link only (Loom, screenshot host...) — no file-upload
-// infra exists in this codebase yet.
-export const testimonials = pgTable(
-  "testimonials",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    clientName: text("client_name").notNull(),
-    format: testimonialFormat("format").notNull(),
-    content: text("content"),
-    url: text("url"),
-    collectedAt: date("collected_at", { mode: "string" }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [index("testimonials_user_collected_idx").on(table.userId, table.collectedAt)]
 );
 
 export const salePaymentType = pgEnum("sale_payment_type", ["one_shot", "installments"]);

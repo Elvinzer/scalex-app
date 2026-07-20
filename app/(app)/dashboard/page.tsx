@@ -117,7 +117,7 @@ export default async function DashboardPage({
             : "renseigne ton offre et tes chiffres pour le chiffrer"}
         </p>
         <Button size="lg" asChild className="mt-6">
-          <a href="/agent">Récupérer ce cash →</a>
+          <a href="/diagnostic">Récupérer ce cash →</a>
         </Button>
       </div>
 

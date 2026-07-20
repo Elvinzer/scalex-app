@@ -31,8 +31,6 @@ const GLOBAL = {
   // sector-specific data source exists yet.
   content_click_rate: 0.015,
   content_lead_rate: 0.3,
-  // Testimonials collected / sales closed — global only.
-  testimonial_rate: 0.2,
 };
 
 const SECTOR_OVERRIDES = {

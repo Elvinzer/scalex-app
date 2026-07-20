@@ -60,7 +60,5 @@ export async function saveBusinessSection(
   revalidatePath("/business");
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
-  revalidatePath("/agent");
-  revalidatePath("/delivrabilite/process");
   return { error: null };
 }

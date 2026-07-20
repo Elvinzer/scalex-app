@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  Bot,
-  ChevronRight,
   ChevronsUpDown,
   Database,
   FileText,
@@ -11,7 +9,6 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
-  MessagesSquare,
   Plug,
   Receipt,
   Settings,
@@ -19,11 +16,10 @@ import {
   Stethoscope,
   UserRoundCheck,
   Video,
-  Workflow,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createClient } from "@/lib/supabase/client";
@@ -37,12 +33,12 @@ type NavEntry = LinkEntry | DisabledEntry;
 
 type Pillar = { label: string; entries: NavEntry[] };
 
-// Sidebar mirrors the 3-pillar structure: top-level pages, then
-// ACQUISITION/VENTES/DÉLIVRABILITÉ each with their sub-items (collapsible,
-// collapsed by default — see PillarSection), then bottom-level pages.
-// "disabled" entries are pillar items not yet built — shown greyed out with
-// a "Bientôt" badge rather than omitted, so the full target structure stays
-// visible.
+// Sidebar mirrors the pillar structure: top-level pages, then
+// ACQUISITION/VENTES each with their sub-items (always shown, just under a
+// static section label — no collapse/expand, too few items per pillar to
+// justify the extra click), then bottom-level pages. "disabled" entries
+// are pillar items not yet built — shown greyed out with a "Bientôt" badge
+// rather than omitted, so the full target structure stays visible.
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { type: "link", href: "/funnel", label: "Funnel", icon: Filter },
@@ -66,18 +62,10 @@ const pillars: Pillar[] = [
       { type: "link", href: "/ventes/closing", label: "Closing", icon: Handshake },
     ],
   },
-  {
-    label: "Délivrabilité",
-    entries: [
-      { type: "link", href: "/delivrabilite/process", label: "Process", icon: Workflow },
-      { type: "link", href: "/delivrabilite/temoignages", label: "Témoignages", icon: MessagesSquare },
-    ],
-  },
 ];
 
 const bottomEntries: LinkEntry[] = [
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope },
-  { type: "link", href: "/agent", label: "Agent IA", icon: Bot },
 ];
 
 // Moved out of the main nav into the profile dropdown at the bottom of the
@@ -88,8 +76,6 @@ const profileMenuEntries: LinkEntry[] = [
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
 ];
-
-const STORAGE_KEY = "scalex-sidebar-open-pillars";
 
 function NavLink({ entry, pathname, indented }: { entry: LinkEntry; pathname: string; indented: boolean }) {
   const Icon = entry.icon;
@@ -127,38 +113,21 @@ function DisabledNavItem({ entry }: { entry: DisabledEntry }) {
   );
 }
 
-function PillarSection({
-  pillar,
-  pathname,
-  open,
-  onToggle,
-}: {
-  pillar: Pillar;
-  pathname: string;
-  open: boolean;
-  onToggle: () => void;
-}) {
+function PillarSection({ pillar, pathname }: { pillar: Pillar; pathname: string }) {
   return (
-    <div className="mt-1 first:mt-0">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-1 rounded-[var(--radius-control)] px-3 py-1.5 text-[10.5px] font-semibold tracking-[0.09em] text-on-dark-muted uppercase transition-colors hover:text-mist"
-      >
-        <ChevronRight className={cn("size-3 shrink-0 transition-transform duration-150", open && "rotate-90")} />
+    <div className="mt-3 first:mt-0">
+      <p className="px-3 py-1 text-[10.5px] font-semibold tracking-[0.09em] text-on-dark-muted uppercase">
         {pillar.label}
-      </button>
-      {open && (
-        <div className="flex flex-col gap-1">
-          {pillar.entries.map((entry) =>
-            entry.type === "disabled" ? (
-              <DisabledNavItem key={entry.label} entry={entry} />
-            ) : (
-              <NavLink key={entry.href} entry={entry} pathname={pathname} indented />
-            )
-          )}
-        </div>
-      )}
+      </p>
+      <div className="mt-1 flex flex-col gap-1">
+        {pillar.entries.map((entry) =>
+          entry.type === "disabled" ? (
+            <DisabledNavItem key={entry.label} entry={entry} />
+          ) : (
+            <NavLink key={entry.href} entry={entry} pathname={pathname} indented />
+          )
+        )}
+      </div>
     </div>
   );
 }
@@ -220,37 +189,6 @@ export function AppSidebar({ email, businessName }: { email: string; businessNam
   const pathname = usePathname();
   const router = useRouter();
 
-  // Collapsed by default. A pillar auto-opens the first time its own route
-  // is active (so navigating there never hides the active link); after
-  // that, the user's manual open/close choice persists across page loads.
-  const [openPillars, setOpenPillars] = useState<Set<string>>(() => new Set());
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    const fromStorage: string[] = stored ? JSON.parse(stored) : [];
-    const activePillar = pillars.find((pillar) =>
-      pillar.entries.some((entry) => entry.type === "link" && (pathname === entry.href || pathname.startsWith(`${entry.href}/`)))
-    );
-    const initial = new Set(fromStorage);
-    if (activePillar) initial.add(activePillar.label);
-    setOpenPillars(initial);
-    setHydrated(true);
-    // Only run once on mount — subsequent pathname changes shouldn't force
-    // a pillar back open if the user deliberately collapsed it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function togglePillar(label: string) {
-    setOpenPillars((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
-      return next;
-    });
-  }
-
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -278,16 +216,9 @@ export function AppSidebar({ email, businessName }: { email: string; businessNam
           <NavLink key={entry.href} entry={entry} pathname={pathname} indented={false} />
         ))}
 
-        {hydrated &&
-          pillars.map((pillar) => (
-            <PillarSection
-              key={pillar.label}
-              pillar={pillar}
-              pathname={pathname}
-              open={openPillars.has(pillar.label)}
-              onToggle={() => togglePillar(pillar.label)}
-            />
-          ))}
+        {pillars.map((pillar) => (
+          <PillarSection key={pillar.label} pillar={pillar} pathname={pathname} />
+        ))}
 
         <div className="mt-2 flex flex-col gap-1 border-t border-mist/15 pt-2">
           {bottomEntries.map((entry) => (
