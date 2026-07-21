@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Bot, LayoutDashboard, Send, Settings, Stethoscope, Target, Plug } from "lucide-react";
 
+import { Falco } from "@/components/falco/falco";
+import { FalcoScrollReveal } from "@/components/falco/falco-scroll-reveal";
 import { Button } from "@/components/ui/button";
 
 import { FaqAccordion } from "./faq-accordion";
@@ -248,7 +250,7 @@ export default function MarketingHomePage() {
           mois-ci, et déploie un agent IA qui te donne le plan d&apos;action pour le
           corriger. Fini les dashboards que personne ne regarde.
         </p>
-        <div className="flex flex-wrap justify-center gap-4">
+        <div className="flex flex-wrap items-end justify-center gap-4">
           <Button
             size="lg"
             asChild
@@ -256,6 +258,7 @@ export default function MarketingHomePage() {
           >
             <a href="/onboarding">Diagnostiquer mon business →</a>
           </Button>
+          <Falco variant="hero" size="md" animate="enter" priority className="hidden -ml-2 sm:block" />
           <a
             href="#comment-ca-marche"
             className="flex items-center rounded-full border border-ink bg-white px-8 py-4 text-base font-bold"
@@ -322,13 +325,13 @@ export default function MarketingHomePage() {
           </div>
           <div className="grid gap-9 sm:grid-cols-3">
             {STEPS.map((s) => (
-              <div key={s.n}>
+              <FalcoScrollReveal key={s.n}>
                 <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border border-ink bg-white font-display text-xl font-bold">
                   {s.n}
                 </div>
                 <p className="mb-2.5 text-xl font-bold">{s.title}</p>
                 <p className="text-[15.5px] leading-relaxed text-muted-foreground">{s.desc}</p>
-              </div>
+              </FalcoScrollReveal>
             ))}
           </div>
         </div>
@@ -374,17 +377,20 @@ export default function MarketingHomePage() {
               Vue d&apos;ensemble de ton business, aujourd&apos;hui.
             </p>
             <div className="sticker-spotlight mb-6 flex flex-wrap items-center justify-between gap-4 p-6">
-              <div>
-                <span className="rounded-full bg-signal px-3 py-1 text-xs font-bold text-ink">
-                  Bottleneck actuel
+              <div className="flex flex-wrap items-center gap-4">
+                <div>
+                  <span className="rounded-full bg-signal px-3 py-1 text-xs font-bold text-ink">
+                    Bottleneck actuel
+                  </span>
+                  <p className="mt-3 font-display text-lg font-bold">
+                    Paiements échoués : $2,340 détectés ce mois-ci
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full border border-signal bg-signal px-4 py-2.5 text-sm font-bold text-ink">
+                  Voir le diagnostic complet →
                 </span>
-                <p className="mt-3 font-display text-lg font-bold">
-                  Paiements échoués : $2,340 détectés ce mois-ci
-                </p>
               </div>
-              <span className="shrink-0 rounded-full border border-signal bg-signal px-4 py-2.5 text-sm font-bold text-ink">
-                Voir le diagnostic complet →
-              </span>
+              <Falco variant="dashboard" size="md" animate="float" className="hidden shrink-0 sm:block" />
             </div>
             <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
               {PREVIEW_KPIS.map((kpi) => (
@@ -420,12 +426,17 @@ export default function MarketingHomePage() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           {FEATURES.map((f) => (
-            <div key={f.title} className="sticker-card p-8">
-              <span className="mb-4 inline-block rounded-full border border-ink bg-paper-alt px-3 py-1 text-[11.5px] font-bold tracking-wide">
-                {f.tag}
-              </span>
-              <p className="mb-2.5 text-xl font-bold">{f.title}</p>
-              <p className="text-[15px] leading-relaxed text-muted-foreground">{f.desc}</p>
+            <div key={f.title} className="sticker-card flex flex-col gap-4 p-8 sm:flex-row sm:items-center">
+              <div className="flex-1">
+                <span className="mb-4 inline-block rounded-full border border-ink bg-paper-alt px-3 py-1 text-[11.5px] font-bold tracking-wide">
+                  {f.tag}
+                </span>
+                <p className="mb-2.5 text-xl font-bold">{f.title}</p>
+                <p className="text-[15px] leading-relaxed text-muted-foreground">{f.desc}</p>
+              </div>
+              {f.tag === "AGENT IA" && (
+                <Falco variant="insights" size="md" className="shrink-0 self-center" />
+              )}
             </div>
           ))}
         </div>
@@ -500,16 +511,22 @@ export default function MarketingHomePage() {
         <FaqAccordion items={FAQS} />
       </section>
 
-      <section className="bg-ink px-6 py-28 text-center text-mist sm:px-12">
-        <h2 className="mx-auto mb-5 max-w-2xl text-[clamp(1.9rem,4.5vw,2.9rem)] leading-tight">
+      <section className="relative overflow-hidden bg-ink px-6 py-28 text-center text-mist sm:px-12">
+        <Falco
+          variant="flying"
+          size="lg"
+          animate="fly-loop"
+          className="pointer-events-none absolute top-10 right-[8%] hidden opacity-90 sm:block"
+        />
+        <h2 className="relative mx-auto mb-5 max-w-2xl text-[clamp(1.9rem,4.5vw,2.9rem)] leading-tight">
           Ton prochain client va payer. La question, c&apos;est combien tu en perds avant
           qu&apos;il le fasse.
         </h2>
-        <p className="mx-auto mb-9 max-w-lg text-[17px] text-mist/70">
+        <p className="relative mx-auto mb-9 max-w-lg text-[17px] text-mist/70">
           Connecte Stripe, obtiens ton diagnostic, et laisse l&apos;agent te montrer où agir
           en premier.
         </p>
-        <Button asChild className="border-signal bg-signal px-8 py-6 text-base text-ink">
+        <Button asChild className="relative border-signal bg-signal px-8 py-6 text-base text-ink">
           <a href="/onboarding">Diagnostiquer mon business →</a>
         </Button>
       </section>

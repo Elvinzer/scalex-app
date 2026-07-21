@@ -15,10 +15,14 @@ export function CheckinTrigger({
   year,
   month,
   initialData,
+  settingSourced,
+  closingSourced,
 }: {
   year: number;
   month: number;
   initialData: MonthlyMetricsInput;
+  settingSourced: boolean;
+  closingSourced: boolean;
 }) {
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(() => searchParams.get("checkin") === "1");
@@ -28,7 +32,15 @@ export function CheckinTrigger({
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
         Faire mon check-in
       </Button>
-      <CheckinModal open={open} onClose={() => setOpen(false)} year={year} month={month} initialData={initialData} />
+      <CheckinModal
+        open={open}
+        onClose={() => setOpen(false)}
+        year={year}
+        month={month}
+        initialData={initialData}
+        settingSourced={settingSourced}
+        closingSourced={closingSourced}
+      />
     </>
   );
 }

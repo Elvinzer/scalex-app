@@ -38,6 +38,16 @@ function endOfMonthUtc(year: number, month: number): Date {
   return new Date(Date.UTC(year, month + 1, 0));
 }
 
+// month is 1-indexed (matches MONTH_LABELS[month - 1] elsewhere) — caps `to`
+// at today for the still-in-progress current month, same rule as
+// lib/dashboard/metrics.ts's monthBuckets.
+export function monthDateRange(year: number, month: number, today: Date = todayUtc()): DateRange {
+  const from = toIsoDate(startOfMonthUtc(year, month - 1));
+  const isCurrentMonth = year === today.getUTCFullYear() && month === today.getUTCMonth() + 1;
+  const to = isCurrentMonth ? toIsoDate(today) : toIsoDate(endOfMonthUtc(year, month - 1));
+  return { from, to };
+}
+
 function isValidIsoDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime());
 }

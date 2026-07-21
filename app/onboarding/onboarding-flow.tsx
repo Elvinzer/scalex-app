@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Falco } from "@/components/falco/falco";
 import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { formatEur } from "@/lib/currency";
@@ -143,9 +144,12 @@ export function OnboardingFlow({
 
       {step === 1 && (
         <form onSubmit={handleScreen1Submit} className="flex flex-col gap-6">
-          <div>
-            <h1 className="text-2xl font-bold">Ton offre</h1>
-            <p className="mt-1 text-sm text-muted-foreground">60 secondes, 4 champs.</p>
+          <div className="flex items-center gap-3">
+            <Falco variant="assistant" size="sm" />
+            <div>
+              <h1 className="text-2xl font-bold">Ton offre</h1>
+              <p className="mt-1 text-sm text-muted-foreground">60 secondes, 4 champs.</p>
+            </div>
           </div>
 
           <label className="flex flex-col gap-1.5 text-sm">
@@ -222,9 +226,12 @@ export function OnboardingFlow({
 
       {step === 2 && (
         <form onSubmit={handleScreen2Submit} className="flex flex-col gap-6">
-          <div>
-            <h1 className="text-2xl font-bold">Tes chiffres de {previousMonthLabel}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Des chiffres approximatifs suffisent pour commencer.</p>
+          <div className="flex items-center gap-3">
+            <Falco variant="assistant" size="sm" />
+            <div>
+              <h1 className="text-2xl font-bold">Tes chiffres de {previousMonthLabel}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">Des chiffres approximatifs suffisent pour commencer.</p>
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -276,6 +283,7 @@ export function OnboardingFlow({
 
       {step === 3 && result?.kind === "no_gap" && (
         <div className="flex flex-col gap-6 text-center">
+          <Falco variant="hero" size="lg" animate="enter" className="mx-auto" />
           <h1 className="text-2xl font-bold">Tes chiffres sont déjà solides 🎉</h1>
           <p className="text-sm text-muted-foreground">
             Sur ce que tu as pu mesurer ce mois-ci, rien n&apos;est sous les standards de ta niche. Continue à

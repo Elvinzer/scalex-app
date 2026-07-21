@@ -1,8 +1,8 @@
 "use client";
 
-import { MessageCircle } from "lucide-react";
 import { useState } from "react";
 
+import { Falco } from "@/components/falco/falco";
 import { ImproveChat } from "@/components/improve-chat";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
@@ -36,13 +36,18 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
       <DrawerTrigger asChild>
         <button
           type="button"
-          aria-label={showNotification ? "L'IA a une remarque pour toi — discuter de tes datas" : "Discuter de tes datas"}
+          aria-label={showNotification ? "Falco a une remarque pour toi — discuter de tes datas" : "Discuter avec Falco, ton copilote IA"}
           className={cn(
-            "fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent text-white shadow-[var(--shadow-float)] transition-colors duration-150 hover:bg-accent-hover",
+            "group fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent shadow-[var(--shadow-float)] transition-colors duration-150 hover:bg-accent-hover",
             showNotification && "animate-[glow-pulse_2s_ease-in-out_infinite]"
           )}
         >
-          <MessageCircle className="size-6" />
+          <Falco
+            variant="bust"
+            size="sm"
+            animate="idle"
+            className="border-2 border-white/20 transition-transform duration-200 group-hover:-rotate-3 group-hover:scale-110"
+          />
           {showNotification && (
             <span className="absolute -top-1 -right-1 flex size-4">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent-2 opacity-75" />

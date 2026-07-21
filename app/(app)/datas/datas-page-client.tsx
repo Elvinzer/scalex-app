@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 
 import { MonthCard } from "./month-card";
@@ -16,6 +17,8 @@ export function DatasPageClient({
   currentMonth,
   postLeadsByMonth,
   salesByMonth,
+  allSettingEntries,
+  allClosingEntries,
 }: {
   year: number;
   monthRows: MonthlyMetricsRow[];
@@ -23,6 +26,8 @@ export function DatasPageClient({
   currentMonth: number;
   postLeadsByMonth: Record<number, number>;
   salesByMonth: Record<number, { contracted: number; collected: number; closedCount: number }>;
+  allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
+  allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
 }) {
   const [open, setOpen] = useState<{ year: number; month: number } | null>(null);
 
@@ -84,6 +89,8 @@ export function DatasPageClient({
           monthRowsThisYear={open.year === year ? monthRows : []}
           postLeadsThisMonth={open.year === year ? (postLeadsByMonth[open.month] ?? 0) : 0}
           salesThisMonth={open.year === year ? salesByMonth[open.month] : undefined}
+          allSettingEntries={allSettingEntries}
+          allClosingEntries={allClosingEntries}
           onClose={() => setOpen(null)}
           onNavigate={(nextYear, nextMonth) => setOpen({ year: nextYear, month: nextMonth })}
         />

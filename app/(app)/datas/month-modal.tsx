@@ -2,21 +2,33 @@
 
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
+import { KpiNumberField, type KpiFieldSource } from "@/components/kpi-number-field";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { formatEur } from "@/lib/currency";
 import { computeClosingRates } from "@/lib/closing/metrics";
+import { monthDateRange } from "@/lib/date-range";
 import { MONTH_LABELS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
+import { resolveDailySourceOverlay, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import { revenuePerCall, toClosingTotals, toFunnelTotals } from "@/lib/monthly-metrics/rates";
 import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 
 import { saveMonthlyMetrics } from "./actions";
 
-const inputClass =
-  "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
+const SETTING_SOURCE: KpiFieldSource = {
+  text: "Cette valeur vient de ta saisie journalière dans Setting. Modifie-la directement là-bas.",
+  href: "/acquisition/setting",
+  linkLabel: "Aller à Setting",
+};
+const CLOSING_SOURCE: KpiFieldSource = {
+  text: "Cette valeur vient de ta saisie journalière dans Closing. Modifie-la directement là-bas.",
+  href: "/ventes/closing",
+  linkLabel: "Aller à Closing",
+};
 
 function toDraft(row: MonthlyMetricsRow | null): MonthlyMetricsInput {
   return {
@@ -36,35 +48,11 @@ function sameDraft(a: MonthlyMetricsInput, b: MonthlyMetricsInput): boolean {
   return (Object.keys(a) as (keyof MonthlyMetricsInput)[]).every((key) => a[key] === b[key]);
 }
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  warning,
-}: {
-  label: string;
-  value: number | null;
-  onChange: (next: number | null) => void;
-  warning?: string;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="font-bold">{label}</span>
-      <input
-        type="number"
-        min={0}
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))}
-        className={inputClass}
-      />
-      {warning && <span className="text-xs font-bold text-state-caution">{warning}</span>}
-    </label>
-  );
-}
-
 // Never auto-fills — always a dismissible suggestion the user applies by
 // clicking, per CLAUDE.md's rule against Contenu/Suivi des ventes silently
-// overwriting Datas numbers.
+// overwriting Datas numbers. (Doesn't apply to Setting/Closing daily entries
+// below — those measure the exact same field, not an independent estimate
+// from another module, so KpiNumberField's disabledReason auto-fills instead.)
 function SuggestionBanner({ text, onApply }: { text: string; onApply: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-xs text-accent-text">
@@ -85,6 +73,8 @@ export function MonthModal({
   monthRowsThisYear,
   postLeadsThisMonth,
   salesThisMonth,
+  allSettingEntries,
+  allClosingEntries,
   onClose,
   onNavigate,
 }: {
@@ -94,11 +84,20 @@ export function MonthModal({
   monthRowsThisYear: MonthlyMetricsRow[];
   postLeadsThisMonth: number;
   salesThisMonth: { contracted: number; collected: number; closedCount: number } | undefined;
+  allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
+  allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
   onClose: () => void;
   onNavigate: (nextYear: number, nextMonth: number) => void;
 }) {
   const router = useRouter();
-  const initial = toDraft(initialData);
+  // Recomputed on every month navigation (no server round-trip) — same
+  // pattern as monthRowsThisYear, which is also sliced client-side already.
+  const dailySourceOverlay = useMemo(
+    () => resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries),
+    [year, month, allSettingEntries, allClosingEntries]
+  );
+  const { settingSourced, closingSourced } = dailySourceOverlay;
+  const initial = { ...toDraft(initialData), ...dailySourceOverlay.overrides };
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initial);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -137,7 +136,8 @@ export function MonthModal({
 
   function handleSave(after?: () => void) {
     startTransition(async () => {
-      const result = await saveMonthlyMetrics(year, month, draft);
+      const payload = stripDailySourcedFields(draft, { settingSourced, closingSourced });
+      const result = await saveMonthlyMetrics(year, month, payload);
       if (result.error) {
         setSaveError(result.error);
         return;
@@ -241,12 +241,12 @@ export function MonthModal({
                   💰 Finance
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <NumberField
+                  <KpiNumberField
                     label="CA collecté (€)"
                     value={draft.cashCollected}
                     onChange={(v) => update({ cashCollected: v })}
                   />
-                  <NumberField
+                  <KpiNumberField
                     label="CA contracté (€)"
                     value={draft.cashContracted}
                     onChange={(v) => update({ cashContracted: v })}
@@ -270,30 +270,35 @@ export function MonthModal({
                   📩 Setting · prospection
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <NumberField
+                  <KpiNumberField
                     label="Nouveaux abonnés"
                     value={draft.newFollowers}
                     onChange={(v) => update({ newFollowers: v })}
+                    disabledReason={settingSourced ? SETTING_SOURCE : undefined}
                   />
-                  <NumberField
+                  <KpiNumberField
                     label="Premiers messages envoyés"
                     value={draft.firstMessages}
                     onChange={(v) => update({ firstMessages: v })}
+                    disabledReason={settingSourced ? SETTING_SOURCE : undefined}
                   />
-                  <NumberField
+                  <KpiNumberField
                     label="Conversations démarrées"
                     value={draft.conversations}
                     onChange={(v) => update({ conversations: v })}
+                    disabledReason={settingSourced ? SETTING_SOURCE : undefined}
                   />
-                  <NumberField
+                  <KpiNumberField
                     label="Appels proposés"
                     value={draft.callsProposed}
                     onChange={(v) => update({ callsProposed: v })}
+                    disabledReason={settingSourced ? SETTING_SOURCE : undefined}
                   />
-                  <NumberField
+                  <KpiNumberField
                     label="Appels réservés"
                     value={draft.callsBooked}
                     onChange={(v) => update({ callsBooked: v })}
+                    disabledReason={settingSourced ? SETTING_SOURCE : undefined}
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -310,7 +315,7 @@ export function MonthModal({
                     {settingRates.bookingRate === null ? "—" : formatPercent(settingRates.bookingRate)}
                   </span>
                 </div>
-                {postLeadsThisMonth > 0 && postLeadsThisMonth !== draft.newFollowers && (
+                {!settingSourced && postLeadsThisMonth > 0 && postLeadsThisMonth !== draft.newFollowers && (
                   <SuggestionBanner
                     text={`Tes posts de Contenu totalisent ${postLeadsThisMonth} leads ce mois.`}
                     onApply={() => update({ newFollowers: postLeadsThisMonth })}
@@ -323,17 +328,19 @@ export function MonthModal({
                   📞 Closing
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <NumberField
+                  <KpiNumberField
                     label="Appels pris"
                     value={draft.callsTaken}
                     onChange={(v) => update({ callsTaken: v })}
                     warning={callsTakenWarning}
+                    disabledReason={closingSourced ? CLOSING_SOURCE : undefined}
                   />
-                  <NumberField
+                  <KpiNumberField
                     label="Ventes conclues"
                     value={draft.salesClosed}
                     onChange={(v) => update({ salesClosed: v })}
                     warning={salesClosedWarning}
+                    disabledReason={closingSourced ? CLOSING_SOURCE : undefined}
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -351,7 +358,7 @@ export function MonthModal({
                   </span>
                   <span>Revenu par appel : {perCall === null ? "—" : formatEur(perCall)}</span>
                 </div>
-                {salesThisMonth && salesThisMonth.closedCount > 0 && salesThisMonth.closedCount !== draft.salesClosed && (
+                {!closingSourced && salesThisMonth && salesThisMonth.closedCount > 0 && salesThisMonth.closedCount !== draft.salesClosed && (
                   <SuggestionBanner
                     text={`Suivi des ventes recense ${salesThisMonth.closedCount} vente${salesThisMonth.closedCount > 1 ? "s" : ""} conclue${salesThisMonth.closedCount > 1 ? "s" : ""} ce mois.`}
                     onApply={() => update({ salesClosed: salesThisMonth.closedCount })}

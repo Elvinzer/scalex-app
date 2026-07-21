@@ -379,6 +379,23 @@
   .animate-rise {
     animation: rise-in var(--transition-slow) both;
   }
+
+  /* Falco mascot — idle loops + entrance. A static character pose can't
+     blink or redirect its gaze, so "alive" is limited to breathing, a
+     gentle float, and a settle-in on mount/reveal. All respect
+     reduced-motion. */
+  .falco-idle {
+    animation: falco-breathe 4s ease-in-out infinite;
+  }
+  .falco-float {
+    animation: falco-float 5s ease-in-out infinite;
+  }
+  .falco-fly-loop {
+    animation: falco-fly 2.4s ease-in-out infinite;
+  }
+  .falco-enter {
+    animation: falco-settle var(--transition-slow) both;
+  }
 }
 
 @keyframes rise-in {
@@ -402,8 +419,53 @@
   }
 }
 
+@keyframes falco-breathe {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.015) rotate(-0.8deg);
+  }
+}
+
+@keyframes falco-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes falco-fly {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(-2deg);
+  }
+  50% {
+    transform: translate(6px, -8px) rotate(2deg);
+  }
+}
+
+@keyframes falco-settle {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-rise {
+  .animate-rise,
+  .falco-idle,
+  .falco-float,
+  .falco-fly-loop,
+  .falco-enter {
     animation: none;
   }
 }

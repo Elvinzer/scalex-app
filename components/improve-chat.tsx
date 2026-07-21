@@ -3,6 +3,7 @@
 import { Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { Falco } from "@/components/falco/falco";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
 import type { ImproveMetricKey } from "@/lib/improve-prompt-builder";
 
@@ -177,13 +178,16 @@ export function ImproveChat({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-border p-4">
-        <div>
-          <DrawerTitle className="text-base font-bold">Améliorer : {title}</DrawerTitle>
-          {gapBadge && (
-            <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent-text">
-              {gapBadge}
-            </span>
-          )}
+        <div className="flex items-start gap-3">
+          <Falco variant="bust" size="sm" />
+          <div>
+            <DrawerTitle className="text-base font-bold">Améliorer : {title}</DrawerTitle>
+            {gapBadge && (
+              <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent-text">
+                {gapBadge}
+              </span>
+            )}
+          </div>
         </div>
         <DrawerClose className="flex size-7 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted">
           <X className="size-4" />
@@ -201,8 +205,13 @@ export function ImproveChat({
               </div>
             ) : (
               <div key={index} className="text-sm text-foreground">
-                {message.content ? renderMarkdownLite(message.content) : isStreaming && index === messages.length - 1 ? (
-                  <span className="text-muted-foreground">…</span>
+                {message.content ? (
+                  renderMarkdownLite(message.content)
+                ) : isStreaming && index === messages.length - 1 ? (
+                  <div className="flex items-center gap-2">
+                    <Falco variant="bust" size="sm" animate="idle" />
+                    <span className="text-muted-foreground">Falco réfléchit…</span>
+                  </div>
                 ) : null}
               </div>
             )

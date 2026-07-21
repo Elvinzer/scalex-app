@@ -3,6 +3,8 @@ import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
 import { DailyReportDialog } from "./daily-report-dialog";
+import { Falco } from "@/components/falco/falco";
+import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityItem } from "@/components/priority-item";
 import { Button } from "@/components/ui/button";
@@ -12,12 +14,15 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
+import { computeDiagnosticPoints, computeMetricHealthCards, resolveDealPrice } from "@/lib/diagnostic/cascade";
+import { MetricHealthCarousel } from "@/components/metric-health-carousel";
 import { currentIsoWeekRange, dashboardStripeRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { getStripeActivity } from "@/lib/dashboard/stripe-metrics";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { emptyMonthRow, getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
+import { monthDateRange } from "@/lib/date-range";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 const PERIOD_MONTHS = 3;
@@ -77,6 +82,14 @@ export default async function DashboardPage({
     ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal }).slice(0, 3)
     : [];
 
+  // Same inputs as `points` above — no extra query, nothing persisted, so
+  // this stays in sync with every existing revalidatePath("/dashboard") call
+  // (save Datas, save Mon business).
+  const healthCards = hasAnyMonthlyRow
+    ? computeMetricHealthCards({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })
+    : [];
+  const auditUrl = process.env.NEXT_PUBLIC_APP_URL || "scalex.app";
+
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
   const unlockHints: string[] = [];
   if (!hasAnyMonthlyRow) unlockHints.push("Remplis au moins un mois dans Datas");
@@ -90,7 +103,15 @@ export default async function DashboardPage({
   const currentYear = new Date().getUTCFullYear();
   const currentMonth = new Date().getUTCMonth() + 1;
   const currentMonthlyRow = allMonthlyRows.find((row) => row.year === currentYear && row.month === currentMonth);
-  const checkinInitialData = currentMonthlyRow ?? emptyMonthRow(currentYear, currentMonth);
+  const dailySourceOverlay = resolveDailySourceOverlay(
+    monthDateRange(currentYear, currentMonth),
+    allSettingEntries,
+    allClosingEntries
+  );
+  const checkinInitialData = {
+    ...(currentMonthlyRow ?? emptyMonthRow(currentYear, currentMonth)),
+    ...dailySourceOverlay.overrides,
+  };
   const checkInDoneThisWeek =
     allSettingEntries.some((entry) => inRange(entry.date, weekRange)) ||
     allClosingEntries.some((entry) => inRange(entry.date, weekRange)) ||
@@ -125,14 +146,15 @@ export default async function DashboardPage({
         <Button size="lg" asChild className="mt-6">
           <a href="/diagnostic">Récupérer ce cash →</a>
         </Button>
+        <Falco variant="dashboard" size="md" animate="float" className="pointer-events-none absolute right-4 bottom-0 hidden sm:block" />
       </div>
 
       {params.bandeau === "incomplete_data" && (
-        <div className="rounded-2xl border-2 border-dashed border-border bg-card/50 px-5 py-3">
-          <p className="text-sm font-bold">
-            📋 Complète tes chiffres pour ton diagnostic — pas encore assez de données pour calculer un goulot.
+        <FalcoEmptyState title="Complète tes chiffres pour ton diagnostic">
+          <p className="text-sm font-bold text-muted-foreground">
+            Pas encore assez de données pour calculer un goulot.
           </p>
-        </div>
+        </FalcoEmptyState>
       )}
 
       {!checkInDoneThisWeek && (
@@ -141,10 +163,31 @@ export default async function DashboardPage({
             📊 2 minutes pour mettre à jour tes chiffres de la semaine
           </p>
           <Suspense fallback={null}>
-            <CheckinTrigger year={currentYear} month={currentMonth} initialData={checkinInitialData} />
+            <CheckinTrigger
+              year={currentYear}
+              month={currentMonth}
+              initialData={checkinInitialData}
+              settingSourced={dailySourceOverlay.settingSourced}
+              closingSourced={dailySourceOverlay.closingSourced}
+            />
           </Suspense>
         </div>
       )}
+
+      <div>
+        <h2 className="text-base font-medium">Tes métriques vs le benchmark</h2>
+        {healthCards.length < 2 ? (
+          <FalcoEmptyState title="Complète tes chiffres pour débloquer tes cartes" className="mt-4">
+            <a href="/datas" className="mt-2 inline-block text-sm font-bold text-muted-foreground hover:underline">
+              Aller dans Datas →
+            </a>
+          </FalcoEmptyState>
+        ) : (
+          <div className="mt-4">
+            <MetricHealthCarousel cards={healthCards} auditUrl={auditUrl} />
+          </div>
+        )}
+      </div>
 
       <div>
         <h2 className="text-base font-bold">Tes chiffres clés</h2>
@@ -176,14 +219,13 @@ export default async function DashboardPage({
           ))}
 
           {points.length < 3 && unlockHints.length > 0 && (
-            <div className="sticker-card-dashed p-6">
-              <p className="text-sm font-bold">Débloquer plus de diagnostics</p>
+            <FalcoEmptyState title="Débloquer plus de diagnostics">
               <ul className="mt-2 flex flex-col gap-1 text-sm font-bold text-muted-foreground">
                 {unlockHints.map((hint) => (
                   <li key={hint}>• {hint}</li>
                 ))}
               </ul>
-            </div>
+            </FalcoEmptyState>
           )}
         </div>
       </div>

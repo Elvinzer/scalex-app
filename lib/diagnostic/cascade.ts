@@ -94,6 +94,23 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+// Shared by computeDiagnosticPoints and computeMetricHealthCards — both need
+// "what would sales look like if this one metric hit its benchmark," never
+// re-derive it independently.
+function gainForKey(
+  key: MetricKey,
+  benchmark: number,
+  rates: Record<MetricKey, number | null>,
+  messagesSent: number,
+  realSales: number | null,
+  dealPrice: DealPrice
+): { extraClients: number; monthlyGain: number | null; simulatedSales: number | null } {
+  const simulatedSales = simulateSales(messagesSent, rates, { [key]: benchmark });
+  const extraClients = realSales !== null && simulatedSales !== null ? round1(simulatedSales - realSales) : 0;
+  const monthlyGain = dealPrice.price !== null ? Math.round(extraClients * dealPrice.price) : null;
+  return { extraClients, monthlyGain, simulatedSales };
+}
+
 export type DiagnosticPoint = {
   key: MetricKey;
   category: "Setting" | "Closing";
@@ -208,10 +225,7 @@ export function computeDiagnosticPoints({
     if (status !== "caution" && status !== "critical") continue;
     // current, volume are non-null/large-enough here (status check guarantees it)
 
-    const simulatedSales = simulateSales(messagesSent, rates, { [key]: benchmark });
-    const extraClients =
-      realSales !== null && simulatedSales !== null ? round1(simulatedSales - realSales) : 0;
-    const monthlyGain = dealPrice.price !== null ? Math.round(extraClients * dealPrice.price) : null;
+    const { extraClients, monthlyGain, simulatedSales } = gainForKey(key, benchmark, rates, messagesSent, realSales, dealPrice);
     const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain);
     const yearlyGain = monthlyGain !== null && mainOffer?.recurrence === "mensuel" ? monthlyGain * 12 : null;
 
@@ -236,6 +250,92 @@ export function computeDiagnosticPoints({
   }
 
   return points.sort((a, b) => (b.monthlyGain ?? 0) - (a.monthlyGain ?? 0));
+}
+
+const CRITICAL_SCORE_MAX = 40;
+const CAUTION_SCORE_MAX = 70;
+
+// Anchored to the metric's already-computed status rather than a raw
+// current/benchmark ratio: a raw ratio would put every "caution" metric
+// (80-99% of benchmark, see computeMetricStatus's CAUTION_THRESHOLD) at
+// score 80-99 — tier vert per lib/diagnostic/health-tier.ts's thresholds —
+// mislabeling an under-benchmark metric as "above standard" on a card meant
+// to be shared publicly. Segmenting by status guarantees getHealthTier(score)
+// always agrees with the real status: critical -> 0-39, caution -> 40-69,
+// ok -> 70-100.
+function computeHealthScore(current: number, benchmark: number, status: "ok" | "caution" | "critical"): number {
+  const ratio = current / benchmark;
+  const cautionFloor = 1 - CAUTION_THRESHOLD; // 0.8 — same boundary computeMetricStatus uses
+
+  if (status === "ok") {
+    return Math.min(100, Math.round(CAUTION_SCORE_MAX + Math.min(Math.max(ratio - 1, 0), 1) * (100 - CAUTION_SCORE_MAX)));
+  }
+  if (status === "caution") {
+    return Math.round(CRITICAL_SCORE_MAX + ((ratio - cautionFloor) / CAUTION_THRESHOLD) * (CAUTION_SCORE_MAX - CRITICAL_SCORE_MAX));
+  }
+  return Math.max(0, Math.round((ratio / cautionFloor) * CRITICAL_SCORE_MAX));
+}
+
+export type MetricHealthCard = {
+  key: MetricKey;
+  category: "Setting" | "Closing";
+  label: string;
+  status: "ok" | "caution" | "critical";
+  valuePercent: number;
+  benchmarkPercent: number;
+  score: number;
+  extraClients: number;
+  monthlyGain: number | null; // null = no offer price configured (UI falls back to an "extraClients" wording)
+};
+
+// Dashboard's shareable health-carousel — every measured metric (unlike
+// computeDiagnosticPoints, which keeps only caution/critical), sorted by
+// monthlyGain descending so the already-healthy cards (gain 0) end up last.
+export function computeMetricHealthCards({
+  settingTotals,
+  closingTotals,
+  benchmarks,
+  businessProfile,
+  cashContractedTotal,
+}: {
+  settingTotals: FunnelTotals;
+  closingTotals: ClosingTotals;
+  benchmarks: Record<MetricKey, number>;
+  businessProfile: BusinessProfileData;
+  cashContractedTotal: number;
+}): MetricHealthCard[] {
+  const rates = buildRates(settingTotals, closingTotals);
+  const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
+  const messagesSent = settingTotals.firstMessagesSent;
+  const realSales = simulateSales(messagesSent, rates);
+
+  const cards: MetricHealthCard[] = [];
+
+  for (const key of METRIC_KEYS) {
+    const current = rates[key];
+    const benchmark = benchmarks[key];
+    const volume = volumeFor(key, settingTotals, closingTotals);
+    const status = computeMetricStatus(current, benchmark, volume);
+    if (status === "unmeasured") continue;
+    // current is non-null here (status check guarantees it)
+
+    const { extraClients, monthlyGain } =
+      status === "ok" ? { extraClients: 0, monthlyGain: 0 } : gainForKey(key, benchmark, rates, messagesSent, realSales, dealPrice);
+
+    cards.push({
+      key,
+      category: categoryFor(key),
+      label: labelFor(key),
+      status,
+      valuePercent: Math.round((current as number) * 100),
+      benchmarkPercent: Math.round(benchmark * 100),
+      score: computeHealthScore(current as number, benchmark, status),
+      extraClients,
+      monthlyGain,
+    });
+  }
+
+  return cards.sort((a, b) => (b.monthlyGain ?? 0) - (a.monthlyGain ?? 0));
 }
 
 export type FullBenchmarkProjection = {

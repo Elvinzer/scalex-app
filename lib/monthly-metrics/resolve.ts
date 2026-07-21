@@ -4,6 +4,7 @@ import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { aggregateEntries, type FunnelTotals } from "@/lib/setting/funnel";
 
 import { toClosingTotals, toFunnelTotals } from "./rates";
+import type { MonthlyMetricsInput } from "./types";
 import type { MonthlyMetricsRow } from "./queries";
 
 type SettingEntry = typeof settingKpiEntries.$inferSelect;
@@ -53,6 +54,63 @@ export function resolveMonthClosingTotals(
     return toClosingTotals(monthlyRow);
   }
   return aggregateClosingEntries(dailyEntriesInMonth);
+}
+
+export type DailySourceOverlay = {
+  settingSourced: boolean;
+  closingSourced: boolean;
+  overrides: Partial<MonthlyMetricsInput>;
+};
+
+// Every field the check-in/month form asks for that's already covered by a
+// daily Setting/Closing entry this month — the form should show these (not
+// the monthly row's own value) and disable editing, so there's only ever one
+// place to type each number. Whole-section, same granularity as
+// resolveMonthSettingTotals/resolveMonthClosingTotals above.
+export function resolveDailySourceOverlay(
+  monthRange: DateRange,
+  dailySettingEntries: SettingEntry[],
+  dailyClosingEntries: ClosingEntry[]
+): DailySourceOverlay {
+  const settingThisMonth = dailySettingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
+  const closingThisMonth = dailyClosingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
+
+  const settingSourced = settingThisMonth.length > 0;
+  const closingSourced = closingThisMonth.length > 0;
+  const overrides: Partial<MonthlyMetricsInput> = {};
+
+  if (settingSourced) {
+    const totals = aggregateEntries(settingThisMonth);
+    overrides.newFollowers = totals.newSubscribers;
+    overrides.firstMessages = totals.firstMessagesSent;
+    overrides.conversations = totals.conversationsStarted;
+    overrides.callsProposed = totals.callsProposed;
+    overrides.callsBooked = totals.callsBooked;
+  }
+  if (closingSourced) {
+    const totals = aggregateClosingEntries(closingThisMonth);
+    overrides.callsTaken = totals.callsAttended;
+    overrides.salesClosed = totals.salesClosed;
+  }
+
+  return { settingSourced, closingSourced, overrides };
+}
+
+// Called right before a save — replaces any daily-sourced field with null so
+// resolveMonthSettingTotals/resolveMonthClosingTotals's own fallback (not a
+// frozen snapshot written here) stays authoritative going forward.
+export function stripDailySourcedFields(
+  input: MonthlyMetricsInput,
+  overlay: Pick<DailySourceOverlay, "settingSourced" | "closingSourced">
+): MonthlyMetricsInput {
+  const result = { ...input };
+  if (overlay.settingSourced) {
+    for (const field of SETTING_FIELDS) result[field] = null;
+  }
+  if (overlay.closingSourced) {
+    for (const field of CLOSING_FIELDS) result[field] = null;
+  }
+  return result;
 }
 
 export type ResolvedCashCollected = { amount: number | null; source: "stripe" | "manual" | null };

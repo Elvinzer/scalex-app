@@ -3,37 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { KpiNumberField, type KpiFieldSource } from "@/components/kpi-number-field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 
 import { submitWeeklyCheckin, type CheckinFeedback } from "./actions";
 
-const inputClass =
-  "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
-
-function NumberField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number | null;
-  onChange: (next: number | null) => void;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="font-bold">{label}</span>
-      <input
-        type="number"
-        min={0}
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))}
-        className={inputClass}
-      />
-    </label>
-  );
-}
+const SETTING_SOURCE: KpiFieldSource = {
+  text: "Cette valeur vient de ta saisie journalière dans Setting. Modifie-la directement là-bas.",
+  href: "/acquisition/setting",
+  linkLabel: "Aller à Setting",
+};
+const CLOSING_SOURCE: KpiFieldSource = {
+  text: "Cette valeur vient de ta saisie journalière dans Closing. Modifie-la directement là-bas.",
+  href: "/ventes/closing",
+  linkLabel: "Aller à Closing",
+};
 
 export function CheckinModal({
   open,
@@ -41,12 +28,16 @@ export function CheckinModal({
   year,
   month,
   initialData,
+  settingSourced,
+  closingSourced,
 }: {
   open: boolean;
   onClose: () => void;
   year: number;
   month: number;
   initialData: MonthlyMetricsInput;
+  settingSourced: boolean;
+  closingSourced: boolean;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initialData);
@@ -63,7 +54,8 @@ export function CheckinModal({
     setError(null);
     setIsPending(true);
 
-    const result = await submitWeeklyCheckin(year, month, draft);
+    const payload = stripDailySourcedFields(draft, { settingSourced, closingSourced });
+    const result = await submitWeeklyCheckin(year, month, payload);
     setIsPending(false);
     if (result.error) {
       setError(result.error);
@@ -118,15 +110,50 @@ export function CheckinModal({
 
             <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-6">
               <div className="grid gap-3 sm:grid-cols-2">
-                <NumberField label="CA collecté (€)" value={draft.cashCollected} onChange={(v) => update({ cashCollected: v })} />
-                <NumberField label="CA contracté (€)" value={draft.cashContracted} onChange={(v) => update({ cashContracted: v })} />
-                <NumberField label="Nouveaux abonnés" value={draft.newFollowers} onChange={(v) => update({ newFollowers: v })} />
-                <NumberField label="Premiers messages envoyés" value={draft.firstMessages} onChange={(v) => update({ firstMessages: v })} />
-                <NumberField label="Conversations démarrées" value={draft.conversations} onChange={(v) => update({ conversations: v })} />
-                <NumberField label="Appels proposés" value={draft.callsProposed} onChange={(v) => update({ callsProposed: v })} />
-                <NumberField label="Appels réservés" value={draft.callsBooked} onChange={(v) => update({ callsBooked: v })} />
-                <NumberField label="Appels pris" value={draft.callsTaken} onChange={(v) => update({ callsTaken: v })} />
-                <NumberField label="Ventes conclues" value={draft.salesClosed} onChange={(v) => update({ salesClosed: v })} />
+                <KpiNumberField label="CA collecté (€)" value={draft.cashCollected} onChange={(v) => update({ cashCollected: v })} />
+                <KpiNumberField label="CA contracté (€)" value={draft.cashContracted} onChange={(v) => update({ cashContracted: v })} />
+                <KpiNumberField
+                  label="Nouveaux abonnés"
+                  value={draft.newFollowers}
+                  onChange={(v) => update({ newFollowers: v })}
+                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                />
+                <KpiNumberField
+                  label="Premiers messages envoyés"
+                  value={draft.firstMessages}
+                  onChange={(v) => update({ firstMessages: v })}
+                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                />
+                <KpiNumberField
+                  label="Conversations démarrées"
+                  value={draft.conversations}
+                  onChange={(v) => update({ conversations: v })}
+                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                />
+                <KpiNumberField
+                  label="Appels proposés"
+                  value={draft.callsProposed}
+                  onChange={(v) => update({ callsProposed: v })}
+                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                />
+                <KpiNumberField
+                  label="Appels réservés"
+                  value={draft.callsBooked}
+                  onChange={(v) => update({ callsBooked: v })}
+                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                />
+                <KpiNumberField
+                  label="Appels pris"
+                  value={draft.callsTaken}
+                  onChange={(v) => update({ callsTaken: v })}
+                  disabledReason={closingSourced ? CLOSING_SOURCE : undefined}
+                />
+                <KpiNumberField
+                  label="Ventes conclues"
+                  value={draft.salesClosed}
+                  onChange={(v) => update({ salesClosed: v })}
+                  disabledReason={closingSourced ? CLOSING_SOURCE : undefined}
+                />
               </div>
 
               {error && <p className="text-sm text-state-critical">{error}</p>}

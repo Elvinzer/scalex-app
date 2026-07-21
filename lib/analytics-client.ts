@@ -26,7 +26,11 @@ export function identifyClient(userId: string): void {
   posthog.identify(userId);
 }
 
-export type ClientAnalyticsEvent = "improve_chat_opened" | "improve_chat_engaged";
+export type ClientAnalyticsEvent =
+  | "improve_chat_opened"
+  | "improve_chat_engaged"
+  | "metric_card_share_opened"
+  | "metric_card_shared";
 
 export function trackClient(event: ClientAnalyticsEvent, properties?: Record<string, unknown>): void {
   if (!initialized) return;
