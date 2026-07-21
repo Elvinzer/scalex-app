@@ -85,7 +85,7 @@ export async function requirePermission(
 
 // Used by everything that stays account-owner-only regardless of role:
 // /settings (BYOK key, Stripe Connect), /settings/facturation,
-// /settings/equipe, /settings/roles.
+// /settings/equipe (members + roles/permissions).
 export async function requireOwner(userId: string): Promise<{ accountId: string } | null> {
   const context = await getAccountContext(userId);
   if (!context) return null;

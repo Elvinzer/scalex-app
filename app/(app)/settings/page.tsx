@@ -114,16 +114,12 @@ export default async function SettingsPage() {
       <div className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">Équipe</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Invite des membres et attribue-leur des rôles (setting, closing, financier...).
+          Invite des membres, attribue-leur des rôles (setting, closing, financier...) et
+          configure les accès de chaque rôle.
         </p>
-        <div className="mt-4 flex gap-3">
-          <Button asChild variant="outline">
-            <a href="/settings/equipe">Gérer l&apos;équipe →</a>
-          </Button>
-          <Button asChild variant="outline">
-            <a href="/settings/roles">Rôles &amp; permissions →</a>
-          </Button>
-        </div>
+        <Button asChild variant="outline" className="mt-4">
+          <a href="/settings/equipe">Gérer l&apos;équipe →</a>
+        </Button>
       </div>
 
       <div className="sticker-card p-8">

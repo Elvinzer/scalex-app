@@ -2,7 +2,7 @@
 // scoped to. Adding a new gateable page means adding a key here and to the
 // relevant page/Server Action; which ROLE gets which key is DB-configurable
 // (db/schema.ts's teamRoles.permissions) and editable by the account owner
-// at /settings/roles, not fixed in code. /settings, /integrations and team
+// at /settings/equipe, not fixed in code. /settings, /integrations and team
 // or billing management are deliberately absent — always owner-only,
 // non-grantable (BYOK key, Stripe Connect OAuth, Scale X billing, team
 // membership are account-level, not delegable to any role).
@@ -41,8 +41,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
 };
 
 // Seeded once per account, lazily, the first time an owner opens
-// /settings/equipe or /settings/roles (see lib/team/roles.ts) — freely
-// editable afterwards, including adding permissions beyond these defaults.
+// /settings/equipe (see lib/team/roles.ts) — freely editable afterwards,
+// including adding permissions beyond these defaults.
 export const DEFAULT_ROLES: { key: string; name: string; permissions: PermissionKey[] }[] = [
   { key: "setting", name: "Setting", permissions: ["acquisition:setting"] },
   { key: "closing", name: "Closing", permissions: ["ventes:closing"] },

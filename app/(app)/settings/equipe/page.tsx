@@ -6,11 +6,15 @@ import { requireOwnerOrRedirect } from "@/lib/team/context";
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
 import { ensureDefaultRoles } from "@/lib/team/roles";
 import { getRoles, getTeamMembers } from "@/lib/team/queries";
+import { PERMISSION_KEYS, PERMISSION_LABELS } from "@/lib/team/permissions";
 
+import { CreateRoleDialog } from "./create-role-dialog";
 import { InviteMemberDialog } from "./invite-member-dialog";
 import { MemberRow } from "./member-row";
+import { RoleCard } from "./role-card";
 
 const STATUS_LABELS: Record<string, string> = { invited: "Invitation envoyée", active: "Actif" };
+const PERMISSION_OPTIONS = PERMISSION_KEYS.map((key) => ({ key, label: PERMISSION_LABELS[key] }));
 
 export default async function EquipePage() {
   const userId = await requireUserId();
@@ -30,11 +34,8 @@ export default async function EquipePage() {
         <div>
           <h1 className="text-3xl font-bold">Équipe</h1>
           <p className="mt-1 text-muted-foreground">
-            Invite des membres et attribue-leur un ou plusieurs rôles — configurables dans{" "}
-            <a href="/settings/roles" className="font-bold text-signal underline">
-              Rôles &amp; permissions
-            </a>
-            .
+            Invite des membres et attribue-leur un ou plusieurs rôles — les accès de chaque rôle
+            se configurent juste en dessous.
           </p>
         </div>
         {subscriptionActive && (
@@ -91,6 +92,35 @@ export default async function EquipePage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex flex-wrap items-start justify-between gap-4 border-t border-border pt-8">
+        <div>
+          <h2 className="text-xl font-bold">Rôles &amp; permissions</h2>
+          <p className="mt-1 text-muted-foreground">
+            Ce que chaque rôle peut voir et éditer. Change-le à tout moment — ça s&apos;applique
+            immédiatement à tous les membres qui l&apos;ont.
+          </p>
+        </div>
+        <CreateRoleDialog
+          permissionOptions={PERMISSION_OPTIONS}
+          trigger={
+            <Button type="button" variant="outline">
+              <Plus className="size-4" />
+              Nouveau rôle
+            </Button>
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {roles.map((role) => (
+          <RoleCard
+            key={role.id}
+            role={{ id: role.id, name: role.name, permissions: role.permissions as string[], isDefault: role.isDefault }}
+            permissionOptions={PERMISSION_OPTIONS}
+          />
+        ))}
       </div>
     </div>
   );
