@@ -92,7 +92,7 @@ export const users = pgTable("users", {
   // skipped if set within the last 6 days, so a replayed function run never
   // double-sends the Monday email.
   lastWeeklyBriefSentAt: timestamp("last_weekly_brief_sent_at", { withTimezone: true }),
-});
+}).enableRLS();
 
 export const stripeConnections = pgTable("stripe_connections", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -113,7 +113,7 @@ export const stripeConnections = pgTable("stripe_connections", {
   connectedAt: timestamp("connected_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}).enableRLS();
 
 export const diagnostics = pgTable(
   "diagnostics",
@@ -137,7 +137,7 @@ export const diagnostics = pgTable(
     // idempotent across re-runs.
     uniqueIndex("diagnostics_user_category_idx").on(table.userId, table.category),
   ]
-);
+).enableRLS();
 
 // Manually entered — no integration behind this one. One row per user per
 // day; the manual form and the CSV import both upsert on (userId, date), so
@@ -170,7 +170,7 @@ export const settingKpiEntries = pgTable(
   (table) => [
     uniqueIndex("setting_kpi_entries_user_date_idx").on(table.userId, table.date),
   ]
-);
+).enableRLS();
 
 // Same shape/upsert semantics as settingKpiEntries — manually entered, one
 // row per user per day, (userId, date) upsert. callsAttended and salesClosed
@@ -199,7 +199,7 @@ export const closingKpiEntries = pgTable(
   (table) => [
     uniqueIndex("closing_kpi_entries_user_date_idx").on(table.userId, table.date),
   ]
-);
+).enableRLS();
 
 // The single source of truth for how a user's business actually works —
 // niche, offers, acquisition channels, delivery. One row per user; other
@@ -219,7 +219,7 @@ export const businessProfile = pgTable("business_profile", {
   delivery: jsonb("delivery").notNull().$type<BusinessDelivery>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 // Every stage a funnel rate can come from — Setting (outreach → booking) and
 // Closing (show-up, closing) combined. See lib/setting/funnel.ts / lib/closing/metrics.ts.
@@ -260,7 +260,7 @@ export const funnelStageInsights = pgTable(
     implementedAt: timestamp("implemented_at", { withTimezone: true }),
   },
   (table) => [index("funnel_stage_insights_user_idx").on(table.userId)]
-);
+).enableRLS();
 
 // Monthly per-user counter, incremented only when the shared fallback key is
 // used (BYOK calls cost Scale X nothing, so they're never counted here).
@@ -279,7 +279,7 @@ export const sharedAgentUsage = pgTable(
   (table) => [
     uniqueIndex("shared_agent_usage_user_period_idx").on(table.userId, table.periodMonth),
   ]
-);
+).enableRLS();
 
 // Manual monthly entry (the "/datas" page) — coexists with the daily
 // settingKpiEntries/closingKpiEntries tables rather than replacing them.
@@ -310,7 +310,7 @@ export const monthlyMetrics = pgTable(
   (table) => [
     uniqueIndex("monthly_metrics_user_year_month_idx").on(table.userId, table.year, table.month),
   ]
-);
+).enableRLS();
 
 // The 5 funnel rates the /diagnostic cascade engine can benchmark and
 // simulate against — see lib/diagnostic/cascade.ts. Deliberately a single
@@ -339,7 +339,7 @@ export const benchmarks = pgTable("benchmarks", {
   sector: prospectionSector("sector"),
   metricKey: diagnosticMetricEnum("metric_key").notNull(),
   value: real("value").notNull(), // 0-1 fraction
-});
+}).enableRLS();
 
 export const contentPostType = pgEnum("content_post_type", [
   "post",
@@ -373,7 +373,7 @@ export const contentPosts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("content_posts_user_published_idx").on(table.userId, table.publishedAt)]
-);
+).enableRLS();
 
 export const salePaymentType = pgEnum("sale_payment_type", ["one_shot", "installments"]);
 
@@ -402,7 +402,7 @@ export const sales = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("sales_user_sale_date_idx").on(table.userId, table.saleDate)]
-);
+).enableRLS();
 
 export const closingVideoOutcome = pgEnum("closing_video_outcome", ["closed", "not_closed", "pending"]);
 
@@ -428,7 +428,7 @@ export const closingVideos = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("closing_videos_user_call_date_idx").on(table.userId, table.callDate)]
-);
+).enableRLS();
 
 // Manual entry (the "/acquisition/ads" page) — one row per ad campaign.
 // Rates (CTR, cost per lead/click) are never stored, always computed on
@@ -454,7 +454,7 @@ export const adCampaigns = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("ad_campaigns_user_start_date_idx").on(table.userId, table.startDate)]
-);
+).enableRLS();
 
 // --- Team members, roles & permissions --------------------------------------
 // No separate "accounts" table: an account IS its owner's users.id (see
@@ -482,7 +482,7 @@ export const teamRoles = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("team_roles_account_key_idx").on(table.accountId, table.key)]
-);
+).enableRLS();
 
 export const teamMemberStatus = pgEnum("team_member_status", ["invited", "active", "removed"]);
 
@@ -513,7 +513,7 @@ export const teamMembers = pgTable(
     uniqueIndex("team_members_account_email_idx").on(table.accountId, table.email),
     index("team_members_member_user_idx").on(table.memberUserId),
   ]
-);
+).enableRLS();
 
 // Join table: a member can hold several roles at once (e.g. "setting" +
 // "closing"). No surrogate id — the (teamMemberId, roleId) pair is the
@@ -530,7 +530,7 @@ export const teamMemberRoles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.teamMemberId, table.roleId] })]
-);
+).enableRLS();
 
 // --- Scale X's own SaaS billing ---------------------------------------------
 // Distinct from Stripe Connect above (stripeConnections), which only reads a
@@ -555,7 +555,7 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 // One row per account (unique userId) — mirrors the account owner's Stripe
 // subscription state, kept in sync by the webhook. status is plain text, not
@@ -580,7 +580,7 @@ export const subscriptions = pgTable("subscriptions", {
   cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 // Idempotency ledger for the Stripe billing webhook
 // (app/api/webhooks/stripe-billing/route.ts) — the first Stripe webhook in
@@ -591,4 +591,4 @@ export const processedStripeEvents = pgTable("processed_stripe_events", {
   id: text("id").primaryKey(),
   type: text("type").notNull(),
   processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
