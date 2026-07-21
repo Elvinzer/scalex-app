@@ -123,6 +123,16 @@ export default async function SettingsPage() {
       </div>
 
       <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">Intégrations</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Stripe et les prochaines connexions (Kajabi, Brevo, Calendly...).
+        </p>
+        <Button asChild variant="outline" className="mt-4">
+          <a href="/integrations">Voir les intégrations →</a>
+        </Button>
+      </div>
+
+      <div className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">Stripe</p>
         {user?.stripeConnectId ? (
           <div className="mt-2 flex items-center gap-2">

@@ -4,11 +4,14 @@ import { after } from "next/server";
 import { Suspense } from "react";
 
 import { AutoOpenImprove } from "./auto-open-improve";
+import { FunnelTab } from "./funnel-tab";
+import { InsightsTab } from "./insights-tab";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { CalcPopover } from "@/components/calc-popover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
@@ -34,6 +37,12 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
+
+type DiagnosticTab = "overview" | "funnel" | "insights";
+
+function resolveTab(value: string | undefined): DiagnosticTab {
+  return value === "funnel" || value === "insights" ? value : "overview";
+}
 
 const PERIOD_LABELS: Record<string, string> = {
   "3-months": "3 derniers mois",
@@ -62,13 +71,58 @@ const MEASURE_HINTS: Record<string, string> = {
 export default async function DiagnosticPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{
+    period?: string;
+    tab?: string;
+    range?: string | string[];
+    from?: string | string[];
+    to?: string | string[];
+  }>;
 }) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "diagnostic");
   const params = await searchParams;
+  const tab = resolveTab(params.tab);
   after(() => track("diagnostic_viewed", userId));
   const period = params.period && PERIOD_LABELS[params.period] ? params.period : "3-months";
+  const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
+
+  const tabsHeader = (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Ton diagnostic</h1>
+      <Tabs value={tab}>
+        <TabsList>
+          <TabsTrigger value="overview" asChild>
+            <Link href="/diagnostic?tab=overview">Vue d&apos;ensemble</Link>
+          </TabsTrigger>
+          <TabsTrigger value="funnel" asChild>
+            <Link href="/diagnostic?tab=funnel">Funnel</Link>
+          </TabsTrigger>
+          <TabsTrigger value="insights" asChild>
+            <Link href="/diagnostic?tab=insights">Insights</Link>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </div>
+  );
+
+  if (tab === "funnel") {
+    return (
+      <div className="flex flex-col gap-8">
+        {tabsHeader}
+        <FunnelTab accountId={accountId} sector={user?.sector ?? null} hasWorkingKey={hasWorkingKey} searchParams={params} />
+      </div>
+    );
+  }
+
+  if (tab === "insights") {
+    return (
+      <div className="flex flex-col gap-8">
+        {tabsHeader}
+        <InsightsTab accountId={accountId} />
+      </div>
+    );
+  }
 
   const businessProfile = await getBusinessProfile(accountId);
 
@@ -90,14 +144,16 @@ export default async function DiagnosticPage({
 
   if (!hasAnyMonthlyRow) {
     return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-2xl font-bold">Ton diagnostic</h1>
-        <p className="max-w-md text-muted-foreground">
-          Remplis au moins un mois dans Datas pour lancer ton diagnostic.
-        </p>
-        <Button size="lg" asChild className="mt-2">
-          <a href="/datas">Remplir mes datas →</a>
-        </Button>
+      <div className="flex flex-col gap-8">
+        {tabsHeader}
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-6 text-center">
+          <p className="max-w-md text-muted-foreground">
+            Remplis au moins un mois dans Mes chiffres pour lancer ton diagnostic.
+          </p>
+          <Button size="lg" asChild className="mt-2">
+            <a href="/datas">Remplir mes chiffres →</a>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -139,18 +195,17 @@ export default async function DiagnosticPage({
         <AutoOpenImprove />
       </Suspense>
 
+      {tabsHeader}
+
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Ton diagnostic</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            J&apos;ai analysé tes chiffres des {PERIOD_LABELS[period]}. Voilà ce que ça donne.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          J&apos;ai analysé tes chiffres des {PERIOD_LABELS[period]}. Voilà ce que ça donne.
+        </p>
         <div className="flex gap-2">
           {Object.entries(PERIOD_LABELS).map(([value, label]) => (
             <Link
               key={value}
-              href={`/diagnostic?period=${value}`}
+              href={`/diagnostic?tab=overview&period=${value}`}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm font-bold transition-all duration-200",
                 period === value

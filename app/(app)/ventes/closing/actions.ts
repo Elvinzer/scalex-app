@@ -51,7 +51,7 @@ export async function saveClosingKpiEntry(
     });
 
   revalidatePath("/ventes/closing");
-  revalidatePath("/funnel");
+  revalidatePath("/diagnostic");
   revalidatePath("/dashboard");
   return { error: null };
 }
@@ -91,7 +91,7 @@ export async function updateClosingKpiEntryField(
   }
 
   revalidatePath("/ventes/closing");
-  revalidatePath("/funnel");
+  revalidatePath("/diagnostic");
   return { error: null };
 }
 
@@ -129,6 +129,6 @@ export async function importClosingKpiCsv(rawCsv: string): Promise<ImportClosing
     });
 
   revalidatePath("/ventes/closing");
-  revalidatePath("/funnel");
+  revalidatePath("/diagnostic");
   return { imported: rows.length, errors };
 }

@@ -44,7 +44,7 @@ export async function saveMonthlyMetrics(
 
   revalidatePath("/datas");
   revalidatePath("/dashboard");
-  revalidatePath("/funnel");
+  revalidatePath("/diagnostic");
   revalidatePath("/acquisition/setting");
   revalidatePath("/ventes/closing");
   return { error: null };

@@ -20,14 +20,14 @@ import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 import { saveMonthlyMetrics } from "./actions";
 
 const SETTING_SOURCE: KpiFieldSource = {
-  text: "Cette valeur vient de ta saisie journalière dans Setting. Modifie-la directement là-bas.",
+  text: "Calculé depuis ton suivi quotidien — modifier dans Avancé → Suivi setting quotidien.",
   href: "/acquisition/setting",
-  linkLabel: "Aller à Setting",
+  linkLabel: "Aller au suivi quotidien",
 };
 const CLOSING_SOURCE: KpiFieldSource = {
-  text: "Cette valeur vient de ta saisie journalière dans Closing. Modifie-la directement là-bas.",
+  text: "Calculé depuis ton suivi quotidien — modifier dans Avancé → Module closing quotidien.",
   href: "/ventes/closing",
-  linkLabel: "Aller à Closing",
+  linkLabel: "Aller au suivi quotidien",
 };
 
 function toDraft(row: MonthlyMetricsRow | null): MonthlyMetricsInput {

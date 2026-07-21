@@ -92,6 +92,18 @@ export const users = pgTable("users", {
   // skipped if set within the last 6 days, so a replayed function run never
   // double-sends the Monday email.
   lastWeeklyBriefSentAt: timestamp("last_weekly_brief_sent_at", { withTimezone: true }),
+  // Gates the whole "Avancé" hub (Ads, Bibliothèque d'appels, Setting
+  // quotidien, Closing quotidien, Équipe) as one unit — see
+  // components/app-sidebar.tsx and app/(app)/avance/page.tsx. Deliberately
+  // ONE flag, not five: every module under Avancé shares this same door.
+  // History (do NOT "simplify" this column away thinking false-by-default
+  // was always the case): first pushed with .default(true) so every
+  // pre-existing account got grandfathered in, then the declared default
+  // below was flipped to false and pushed again — Postgres's ALTER COLUMN
+  // SET DEFAULT only changes future inserts, it never rewrites existing
+  // rows, so pre-existing accounts stayed true and every signup after that
+  // second push starts false (self-activatable from /avance).
+  advancedModulesEnabled: boolean("advanced_modules_enabled").notNull().default(false),
 }).enableRLS();
 
 export const stripeConnections = pgTable("stripe_connections", {

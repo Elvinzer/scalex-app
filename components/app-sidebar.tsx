@@ -1,22 +1,18 @@
 "use client";
 
 import {
+  Boxes,
   ChevronsUpDown,
   Database,
   FileText,
-  Filter,
-  Handshake,
   LayoutDashboard,
   LogOut,
-  Megaphone,
-  Plug,
+  MessageCircle,
   Receipt,
   Settings,
   ShieldCheck,
   Store,
   Stethoscope,
-  UserRoundCheck,
-  Video,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,54 +27,69 @@ type IconType = React.ComponentType<{ className?: string; style?: React.CSSPrope
 
 // permission: which grantable key unlocks this entry for a team member (see
 // lib/team/permissions.ts) — absent means owner-only, never delegable
-// (Intégrations, Réglages: BYOK key, Stripe Connect, billing, team). The
-// account owner always sees everything regardless of this field.
-type LinkEntry = { type: "link"; href: string; label: string; icon: IconType; permission?: PermissionKey };
+// (Réglages: BYOK key, Stripe Connect, billing, team). alwaysVisible bypasses
+// both isOwner and permission entirely — for entries every account member
+// should see regardless of role (today, only Copilote IA: the chat isn't
+// data-sensitive the way a permission-gated page is). The account owner
+// always sees everything regardless of either field.
+type LinkEntry = { type: "link"; href: string; label: string; icon: IconType; permission?: PermissionKey; alwaysVisible?: true };
 type DisabledEntry = { type: "disabled"; label: string; icon: IconType };
 type NavEntry = LinkEntry | DisabledEntry;
 
 type Pillar = { label: string; entries: NavEntry[] };
 
-// Sidebar mirrors the pillar structure: top-level pages, then
-// ACQUISITION/VENTES each with their sub-items (always shown, just under a
-// static section label — no collapse/expand, too few items per pillar to
-// justify the extra click), then bottom-level pages. "disabled" entries
-// are pillar items not yet built — shown greyed out with a "Bientôt" badge
-// rather than omitted, so the full target structure stays visible.
+// CŒUR — the value-loop pages, always visible (permission-gated as before).
+// Funnel isn't here anymore: it's a tab inside Diagnostic now (see
+// app/(app)/diagnostic/page.tsx) — /funnel just redirects there. Mon
+// business moved up from the profile dropdown into the core nav (it's
+// required for the € calculations, not just an account setting).
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
-  { type: "link", href: "/funnel", label: "Funnel", icon: Filter, permission: "funnel" },
-  { type: "link", href: "/datas", label: "Datas", icon: Database, permission: "datas" },
+  { type: "link", href: "/datas", label: "Mes chiffres", icon: Database, permission: "datas" },
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
+  { type: "link", href: "/copilote", label: "Copilote IA", icon: MessageCircle, alwaysVisible: true },
+  { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
 ];
 
+// SECONDAIRE — grouped under one "Suivi" label. Ads, Setting, Vidéos de
+// closing and Closing used to live here too; they've moved behind the
+// Avancé hub (see advancedEntry below) to cut down on main-nav clutter for a
+// pre-PMF product — same pages, same permissions, just reached one hop
+// further via /avance instead of a permanent pillar entry.
 const pillars: Pillar[] = [
   {
-    label: "Acquisition",
-    entries: [
-      { type: "link", href: "/acquisition/contenu", label: "Contenu", icon: FileText, permission: "acquisition:contenu" },
-      { type: "link", href: "/acquisition/setting", label: "Setting", icon: UserRoundCheck, permission: "acquisition:setting" },
-      { type: "link", href: "/acquisition/ads", label: "Ads", icon: Megaphone, permission: "acquisition:ads" },
-    ],
-  },
-  {
-    label: "Ventes",
+    label: "Suivi",
     entries: [
       { type: "link", href: "/ventes/suivi", label: "Suivi des ventes", icon: Receipt, permission: "ventes:suivi" },
-      { type: "link", href: "/ventes/videos", label: "Vidéos de closing", icon: Video, permission: "ventes:videos" },
-      { type: "link", href: "/ventes/closing", label: "Closing", icon: Handshake, permission: "ventes:closing" },
+      { type: "link", href: "/acquisition/contenu", label: "Contenu", icon: FileText, permission: "acquisition:contenu" },
     ],
   },
 ];
 
-// Moved out of the main nav into the profile dropdown at the bottom of the
-// sidebar (see ProfileMenu) — these are account-level pages, not day-to-day
-// product pages. Intégrations/Réglages have no `permission`: owner-only.
-const profileMenuEntries: LinkEntry[] = [
-  { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
-  { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
-  { type: "link", href: "/settings", label: "Réglages", icon: Settings },
+// HORS-NAVIGATION — account-level pages under the profile dropdown
+// (ProfileMenu). Intégrations moved out of here into a link inside
+// /settings' own content (see app/(app)/settings/page.tsx) rather than a
+// separate profile-menu entry. Réglages has no `permission`: owner-only.
+const profileMenuEntries: LinkEntry[] = [{ type: "link", href: "/settings", label: "Réglages", icon: Settings }];
+
+// AVANCÉ — one flat nav line (not a Pillar: pillars always render
+// unconditionally, this one has its own visibility rule). Always shown to
+// anyone with access to at least one of the 5 modules behind it (Ads,
+// Bibliothèque d'appels, Setting quotidien, Closing quotidien, Équipe) —
+// the account's advancedModulesEnabled flag doesn't hide this link, it only
+// gates whether the hub's cards are unlocked or shown collapsed/"Activer"
+// (see app/(app)/avance/page.tsx) — flags control display, never access.
+const advancedEntry: LinkEntry = { type: "link", href: "/avance", label: "Avancé", icon: Boxes };
+const ADVANCED_PERMISSION_KEYS: readonly PermissionKey[] = [
+  "acquisition:ads",
+  "acquisition:setting",
+  "ventes:videos",
+  "ventes:closing",
 ];
+
+function hasAnyAdvancedAccess(isOwner: boolean, permissions: readonly PermissionKey[]): boolean {
+  return isOwner || permissions.some((key) => ADVANCED_PERMISSION_KEYS.includes(key));
+}
 
 // Separate from the permission model entirely — gated by isAdmin (the
 // ADMIN_EMAILS allowlist, see lib/admin.ts), not by role/permission or even
@@ -87,11 +98,22 @@ const profileMenuEntries: LinkEntry[] = [
 const adminEntry: LinkEntry = { type: "link", href: "/admin", label: "Panel admin", icon: ShieldCheck };
 
 function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonly PermissionKey[]): boolean {
+  if (entry.alwaysVisible) return true;
   if (isOwner) return true;
   return entry.permission !== undefined && permissions.includes(entry.permission);
 }
 
-function NavLink({ entry, pathname, indented }: { entry: LinkEntry; pathname: string; indented: boolean }) {
+function NavLink({
+  entry,
+  pathname,
+  indented,
+  badge,
+}: {
+  entry: LinkEntry;
+  pathname: string;
+  indented: boolean;
+  badge?: string;
+}) {
   const Icon = entry.icon;
   const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
 
@@ -108,6 +130,11 @@ function NavLink({ entry, pathname, indented }: { entry: LinkEntry; pathname: st
     >
       <Icon className="size-4" />
       {entry.label}
+      {badge && (
+        <span className="ml-auto rounded-full bg-accent-2/20 px-1.5 py-0.5 text-[9.5px] font-bold tracking-[0.06em] text-accent-2 uppercase">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -231,12 +258,14 @@ export function AppSidebar({
   isOwner,
   permissions,
   isAdmin,
+  advancedModulesEnabled,
 }: {
   email: string;
   businessName: string;
   isOwner: boolean;
   permissions: readonly PermissionKey[];
   isAdmin: boolean;
+  advancedModulesEnabled: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -273,6 +302,17 @@ export function AppSidebar({
         {pillars.map((pillar) => (
           <PillarSection key={pillar.label} pillar={pillar} pathname={pathname} isOwner={isOwner} permissions={permissions} />
         ))}
+
+        {hasAnyAdvancedAccess(isOwner, permissions) && (
+          <div className="mt-3">
+            <NavLink
+              entry={advancedEntry}
+              pathname={pathname}
+              indented={false}
+              badge={advancedModulesEnabled ? undefined : "Activer"}
+            />
+          </div>
+        )}
 
         {isAdmin && (
           <div className="mt-3">

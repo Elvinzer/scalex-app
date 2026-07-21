@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bot, LayoutDashboard, Send, Settings, Stethoscope, Target, Plug } from "lucide-react";
+import { LayoutDashboard, MessageCircle, Send, Settings, Stethoscope, Target, Plug } from "lucide-react";
 
 import { Falco } from "@/components/falco/falco";
 import { FalcoScrollReveal } from "@/components/falco/falco-scroll-reveal";
@@ -10,19 +10,19 @@ import { FaqAccordion } from "./faq-accordion";
 export const metadata: Metadata = {
   title: "Scale X · Trouve le goulot qui te coûte le plus cher, puis corrige-le avec l'IA",
   description:
-    "Scale X connecte ton Stripe, isole le bottleneck qui coûte le plus cher à ton info-business ce mois-ci, et déploie un agent Claude pour le corriger, pas juste un dashboard.",
+    "Scale X connecte ton Stripe, isole le bottleneck qui coûte le plus cher à ton info-business ce mois-ci, et déploie un copilote IA qui te conseille pour le corriger, pas juste un dashboard.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "Scale X · Trouve le goulot qui te coûte le plus cher",
     description:
-      "Diagnostic Stripe + agent IA qui corrige le bottleneck qui coûte le plus cher à ton info-business chaque mois.",
+      "Diagnostic Stripe + copilote IA qui te conseille pour corriger le bottleneck qui coûte le plus cher à ton info-business chaque mois.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Scale X · Trouve le goulot qui te coûte le plus cher",
     description:
-      "Diagnostic Stripe + agent IA qui corrige le bottleneck qui coûte le plus cher à ton info-business chaque mois.",
+      "Diagnostic Stripe + copilote IA qui te conseille pour corriger le bottleneck qui coûte le plus cher à ton info-business chaque mois.",
   },
 };
 
@@ -60,8 +60,8 @@ const STEPS = [
   },
   {
     n: "03",
-    title: "L'agent IA agit",
-    desc: "Tu reçois un plan d'action concret, ou tu laisses l'agent l'exécuter pour toi.",
+    title: "Le copilote IA te conseille",
+    desc: "Tu reçois un plan d'action concret, priorisé par impact $, pour l'améliorer toi-même.",
   },
 ];
 
@@ -72,7 +72,7 @@ const FEATURES = [
     desc: "Acquisition, ascension, rétention : un statut clair (Sain, À surveiller, Critique) pour chaque zone.",
   },
   {
-    tag: "AGENT IA",
+    tag: "COPILOTE IA",
     title: "Un agent propulsé par Claude",
     desc: "Il transforme chaque anomalie détectée en insight actionnable et en todo list priorisée par impact $.",
   },
@@ -108,7 +108,7 @@ const PRICING = [
     tagline: "Pour corriger activement chaque mois.",
     feats: [
       "Toutes les catégories",
-      "Agent IA illimité",
+      "Copilote IA illimité",
       "Alertes en temps réel",
       "Support prioritaire",
     ],
@@ -152,7 +152,7 @@ const SIDEBAR_ITEMS = [
   { label: "KPI", icon: Send, active: false },
   { label: "Diagnostic", icon: Stethoscope, active: false },
   { label: "Closing", icon: Target, active: false },
-  { label: "Agent IA", icon: Bot, active: false },
+  { label: "Copilote IA", icon: MessageCircle, active: false },
   { label: "Intégrations", icon: Plug, active: false },
   { label: "Réglages", icon: Settings, active: false },
 ];
@@ -171,7 +171,7 @@ const softwareApplicationJsonLd = {
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   description:
-    "Scale X diagnostique le goulot d'étranglement business qui coûte le plus cher à un info-business et déploie un agent IA qui le corrige, à partir du Stripe et de la clé Anthropic (BYOK) du client.",
+    "Scale X diagnostique le goulot d'étranglement business qui coûte le plus cher à un info-business et déploie un copilote IA qui conseille comment le corriger, à partir du Stripe et de la clé Anthropic (BYOK) du client.",
   offers: {
     "@type": "Offer",
     availability: "https://schema.org/PreOrder",
@@ -243,11 +243,11 @@ export default function MarketingHomePage() {
         <h1 className="max-w-4xl text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.06]">
           Ton business perd{" "}
           <span className="inline-block rounded-lg bg-signal px-2.5">de l&apos;argent</span>{" "}
-          chaque mois. On te dit où. Et on le corrige.
+          chaque mois. On te dit où. Et on t&apos;aide à le corriger.
         </h1>
         <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
           Scale X connecte ton Stripe, isole le bottleneck qui te coûte le plus cher ce
-          mois-ci, et déploie un agent IA qui te donne le plan d&apos;action pour le
+          mois-ci, et déploie un copilote IA qui te donne le plan d&apos;action pour le
           corriger. Fini les dashboards que personne ne regarde.
         </p>
         <div className="flex flex-wrap items-end justify-center gap-4">
@@ -434,7 +434,7 @@ export default function MarketingHomePage() {
                 <p className="mb-2.5 text-xl font-bold">{f.title}</p>
                 <p className="text-[15px] leading-relaxed text-muted-foreground">{f.desc}</p>
               </div>
-              {f.tag === "AGENT IA" && (
+              {f.tag === "COPILOTE IA" && (
                 <Falco variant="insights" size="md" className="shrink-0 self-center" />
               )}
             </div>
@@ -523,7 +523,7 @@ export default function MarketingHomePage() {
           qu&apos;il le fasse.
         </h2>
         <p className="relative mx-auto mb-9 max-w-lg text-[17px] text-mist/70">
-          Connecte Stripe, obtiens ton diagnostic, et laisse l&apos;agent te montrer où agir
+          Connecte Stripe, obtiens ton diagnostic, et laisse le copilote te montrer où agir
           en premier.
         </p>
         <Button asChild className="relative border-signal bg-signal px-8 py-6 text-base text-ink">
@@ -540,8 +540,8 @@ export default function MarketingHomePage() {
                 <span className="font-display text-lg font-bold">Scale X</span>
               </div>
               <p className="text-sm leading-relaxed text-mist/60">
-                Le diagnostic et l&apos;agent IA qui corrigent le bottleneck qui coûte le
-                plus cher à ton info-business.
+                Le diagnostic et le copilote IA qui te conseillent pour corriger le bottleneck
+                qui coûte le plus cher à ton info-business.
               </p>
             </div>
             <div className="flex flex-wrap gap-16">

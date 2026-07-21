@@ -9,8 +9,8 @@ import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
 import type { PermissionKey } from "@/lib/team/permissions";
 
 export type AccountContext =
-  | { isOwner: true; accountId: string; permissions: "all" }
-  | { isOwner: false; accountId: string; permissions: Set<string> };
+  | { isOwner: true; accountId: string; permissions: "all"; advancedModulesEnabled: boolean }
+  | { isOwner: false; accountId: string; permissions: Set<string>; advancedModulesEnabled: boolean };
 
 // Resolves which account a Supabase Auth user id acts on behalf of, and
 // with what permissions. No separate "accounts" table: an account IS its
@@ -34,7 +34,7 @@ export type AccountContext =
 // subscription directly rather than through this function).
 export const getAccountContext = cache(async (userId: string): Promise<AccountContext | null> => {
   const [[userRow], [membership]] = await Promise.all([
-    db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1),
+    db.select({ email: users.email, advancedModulesEnabled: users.advancedModulesEnabled }).from(users).where(eq(users.id, userId)).limit(1),
     db
       .select({ id: teamMembers.id, accountId: teamMembers.accountId })
       .from(teamMembers)
@@ -44,11 +44,11 @@ export const getAccountContext = cache(async (userId: string): Promise<AccountCo
   ]);
 
   if (userRow && isAdminEmail(userRow.email)) {
-    return { isOwner: true, accountId: userId, permissions: "all" };
+    return { isOwner: true, accountId: userId, permissions: "all", advancedModulesEnabled: userRow.advancedModulesEnabled };
   }
 
   if (!membership) {
-    return { isOwner: true, accountId: userId, permissions: "all" };
+    return { isOwner: true, accountId: userId, permissions: "all", advancedModulesEnabled: userRow?.advancedModulesEnabled ?? false };
   }
 
   const subscriptionActive = await hasActiveTeamSubscription(membership.accountId);
@@ -56,18 +56,28 @@ export const getAccountContext = cache(async (userId: string): Promise<AccountCo
     return null;
   }
 
-  const roles = await db
-    .select({ permissions: teamRoles.permissions })
-    .from(teamMemberRoles)
-    .innerJoin(teamRoles, eq(teamMemberRoles.roleId, teamRoles.id))
-    .where(eq(teamMemberRoles.teamMemberId, membership.id));
+  // The Avancé flag is account-level (the owner's row), not per-member — a
+  // team member inherits their account's flag rather than having their own.
+  const [[accountRow], roles] = await Promise.all([
+    db.select({ advancedModulesEnabled: users.advancedModulesEnabled }).from(users).where(eq(users.id, membership.accountId)).limit(1),
+    db
+      .select({ permissions: teamRoles.permissions })
+      .from(teamMemberRoles)
+      .innerJoin(teamRoles, eq(teamMemberRoles.roleId, teamRoles.id))
+      .where(eq(teamMemberRoles.teamMemberId, membership.id)),
+  ]);
 
   const permissions = new Set<string>();
   for (const role of roles) {
     for (const key of role.permissions as string[]) permissions.add(key);
   }
 
-  return { isOwner: false, accountId: membership.accountId, permissions };
+  return {
+    isOwner: false,
+    accountId: membership.accountId,
+    permissions,
+    advancedModulesEnabled: accountRow?.advancedModulesEnabled ?? false,
+  };
 });
 
 // Used by every page/Server Action gated to a specific role-grantable

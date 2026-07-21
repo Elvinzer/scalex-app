@@ -66,16 +66,23 @@ export async function generateFunnelStageInsight(
     return { insightText: null, error: error instanceof Error ? error.message : "Session expirée" };
   }
 
-  // Generating an insight is reachable from /funnel/insights, and also as a
-  // shortcut from /acquisition/setting or /ventes/closing — allowed if the
-  // caller has the stage-specific permission (matching whichever page they
-  // triggered it from) or the broader "funnel" permission.
+  // Generating an insight is reachable from the Funnel tab on /diagnostic,
+  // and also as a shortcut from /acquisition/setting or /ventes/closing —
+  // allowed if the caller has the stage-specific permission (matching
+  // whichever page they triggered it from), the broader "funnel" permission
+  // (kept for any pre-existing custom role, though the Funnel tab is gated
+  // by "diagnostic" now, not "funnel" — see components/app-sidebar.tsx), or
+  // "diagnostic" itself.
   const requiredKey: PermissionKey = isSettingStage(stage) ? "acquisition:setting" : "ventes:closing";
   const context = await getAccountContext(userId);
   if (!context) {
     return { insightText: null, error: "Tu n'as pas accès à cette section." };
   }
-  const allowed = context.isOwner || context.permissions.has(requiredKey) || context.permissions.has("funnel");
+  const allowed =
+    context.isOwner ||
+    context.permissions.has(requiredKey) ||
+    context.permissions.has("funnel") ||
+    context.permissions.has("diagnostic");
   if (!allowed) {
     return { insightText: null, error: "Tu n'as pas accès à cette section." };
   }
@@ -150,10 +157,9 @@ export async function generateFunnelStageInsight(
     outputTokens: result.outputTokens,
   });
 
-  revalidatePath("/funnel");
+  revalidatePath("/diagnostic");
   revalidatePath("/acquisition/setting");
   revalidatePath("/ventes/closing");
-  revalidatePath("/funnel/insights");
   return { insightText: result.text, error: null };
 }
 
@@ -178,7 +184,7 @@ export async function setInsightImplemented(
     return { error: error instanceof Error ? error.message : "Session expirée" };
   }
   const context = await getAccountContext(userId);
-  if (!context || (!context.isOwner && !context.permissions.has("funnel"))) {
+  if (!context || (!context.isOwner && !context.permissions.has("funnel") && !context.permissions.has("diagnostic"))) {
     return { error: "Tu n'as pas accès à cette section." };
   }
   const accountId = context.accountId;
@@ -195,6 +201,6 @@ export async function setInsightImplemented(
     return { error: "Insight introuvable" };
   }
 
-  revalidatePath("/funnel/insights");
+  revalidatePath("/diagnostic");
   return { error: null };
 }
