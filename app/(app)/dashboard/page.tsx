@@ -140,30 +140,41 @@ export default async function DashboardPage({
         <DailyReportDialog />
       </div>
 
-      {/* Bloc 1 — always the honest empty-state: no execution engine exists
-          yet to attribute real recovered/generated value to (see plan doc). */}
-      <div className="sticker-spotlight animate-rise px-7 py-6">
-        <Falco
-          pose={heroFalco.pose}
-          size="sm"
-          animate="enter"
-          withBubble
-          bubbleText={heroFalco.line}
-          bubbleOnDark
-          className="mb-5 hidden sm:flex"
-        />
-        <p className="text-xs font-bold text-mist/70">Manque à gagner détecté</p>
-        <p className="gradient-text mt-2 text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
-          {formatEur(totalMonthlyLoss)}
-        </p>
-        <p className="mt-2 text-sm font-bold text-mist/70">
-          {points.length > 0
-            ? `sur ${points.length} goulot${points.length > 1 ? "s" : ""} identifié${points.length > 1 ? "s" : ""}`
-            : "renseigne ton offre et tes chiffres pour le chiffrer"}
-        </p>
-        <Button size="lg" asChild className="mt-6">
-          <a href="/diagnostic">Récupérer ce cash →</a>
-        </Button>
+      {/* Bloc 1 — hero and benchmark widget share one row (grid) instead of
+          each spanning full width, so neither dominates the screen (see
+          plan doc re: no execution engine exists yet to attribute real
+          recovered/generated value to). The carousel's cards are shrunk via
+          CSS transform (see metric-health-carousel.tsx's DISPLAY_WIDTH_PX)
+          to actually fit next to the hero at a reasonable width. */}
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+        <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-4 px-6 py-4">
+          <Falco pose={heroFalco.pose} size="xs" animate="enter" className="hidden sm:flex" />
+          <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <p className="text-xs font-bold text-mist/70">Manque à gagner détecté</p>
+            <p className="gradient-text text-2xl font-bold tracking-[-0.01em] tabular-nums">
+              {formatEur(totalMonthlyLoss)}
+            </p>
+            <p className="text-xs text-mist/60">{heroFalco.line}</p>
+          </div>
+          <Button size="sm" asChild>
+            <a href="/diagnostic">Récupérer ce cash →</a>
+          </Button>
+        </div>
+
+        <div>
+          <h2 className="text-base font-bold">Tes métriques vs le benchmark</h2>
+          {healthCards.length < 2 ? (
+            <FalcoEmptyState title="Complète tes chiffres pour débloquer tes cartes" className="mt-3" showFalco={false}>
+              <a href="/datas" className="mt-2 inline-block text-sm font-bold text-muted-foreground hover:underline">
+                Aller dans Datas →
+              </a>
+            </FalcoEmptyState>
+          ) : (
+            <div className="mt-3">
+              <MetricHealthCarousel cards={healthCards} auditUrl={auditUrl} />
+            </div>
+          )}
+        </div>
       </div>
 
       {params.bandeau === "incomplete_data" && (
@@ -190,21 +201,6 @@ export default async function DashboardPage({
           </Suspense>
         </div>
       )}
-
-      <div>
-        <h2 className="text-base font-bold">Tes métriques vs le benchmark</h2>
-        {healthCards.length < 2 ? (
-          <FalcoEmptyState title="Complète tes chiffres pour débloquer tes cartes" className="mt-3" showFalco={false}>
-            <a href="/datas" className="mt-2 inline-block text-sm font-bold text-muted-foreground hover:underline">
-              Aller dans Datas →
-            </a>
-          </FalcoEmptyState>
-        ) : (
-          <div className="mt-3">
-            <MetricHealthCarousel cards={healthCards} auditUrl={auditUrl} />
-          </div>
-        )}
-      </div>
 
       <div>
         <h2 className="text-base font-bold">Tes chiffres clés</h2>

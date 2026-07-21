@@ -12,7 +12,18 @@ import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { cn } from "@/lib/utils";
 
 const SWIPE_THRESHOLD_PX = 40;
+// MetricHealthCard's own native rendered size — export always scales from
+// this (via CARD_WIDTH_PX below), independent of how small it's displayed
+// on screen. Keeping these separate means shrinking the on-screen carousel
+// (DISPLAY_WIDTH_PX) never touches the shareable PNG's fidelity.
 const CARD_WIDTH_PX = 340;
+// On-screen footprint — shrunk so the carousel can sit next to the Dashboard
+// hero instead of taking a full-width row. The native-size card is rendered
+// then visually scaled down via CSS transform (not by shrinking its own
+// width), so none of its internal padding/typography has to be touched.
+const DISPLAY_WIDTH_PX = 220;
+const DISPLAY_SCALE = DISPLAY_WIDTH_PX / CARD_WIDTH_PX;
+const DISPLAY_HEIGHT_PX = DISPLAY_WIDTH_PX / 0.8; // matches the card's aspect-[4/5]
 const EXPORT_WIDTH_PX = 1080; // export target is 1080x1350 (4:5 portrait) — height follows from the card's own aspect-[4/5]
 
 export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthCardData[]; auditUrl: string }) {
@@ -77,22 +88,38 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
           <ChevronLeft className="size-4" />
         </button>
 
-        <div className="w-[340px] overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div
+          className="overflow-hidden"
+          style={{ width: DISPLAY_WIDTH_PX, height: DISPLAY_HEIGHT_PX }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
           <div
             className="flex transition-transform duration-[320ms] ease-out"
             style={{ transform: `translateX(-${activeIndex * 100}%)` }}
           >
             {cards.map((card, index) => (
-              <div key={card.key} className="w-full shrink-0" aria-hidden={index !== activeIndex}>
-                <MetricHealthCard
-                  ref={(el) => {
-                    cardRefs.current[index] = el;
-                  }}
-                  card={card}
-                  auditUrl={auditUrl}
-                  hideAmounts={hideAmounts}
-                  withFalco={withFalco}
-                />
+              <div
+                key={card.key}
+                className="shrink-0 overflow-hidden"
+                style={{ width: DISPLAY_WIDTH_PX, height: DISPLAY_HEIGHT_PX }}
+                aria-hidden={index !== activeIndex}
+              >
+                {/* The card itself renders at its native CARD_WIDTH_PX (unchanged
+                    internals) and is only visually shrunk via transform — the
+                    ref stays on the untransformed node so exports keep full
+                    native-size fidelity, see handleShare above. */}
+                <div style={{ width: CARD_WIDTH_PX, transform: `scale(${DISPLAY_SCALE})`, transformOrigin: "top left" }}>
+                  <MetricHealthCard
+                    ref={(el) => {
+                      cardRefs.current[index] = el;
+                    }}
+                    card={card}
+                    auditUrl={auditUrl}
+                    hideAmounts={hideAmounts}
+                    withFalco={withFalco}
+                  />
+                </div>
               </div>
             ))}
           </div>
