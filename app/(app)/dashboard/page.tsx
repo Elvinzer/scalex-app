@@ -14,8 +14,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeDiagnosticPoints, computeMetricHealthCards, resolveDealPrice } from "@/lib/diagnostic/cascade";
-import { MetricHealthCarousel } from "@/components/metric-health-carousel";
+import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
 import { currentIsoWeekRange, dashboardStripeRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { getStripeActivity } from "@/lib/dashboard/stripe-metrics";
 import { formatEur } from "@/lib/currency";
@@ -82,14 +81,6 @@ export default async function DashboardPage({
     ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal }).slice(0, 3)
     : [];
 
-  // Same inputs as `points` above — no extra query, nothing persisted, so
-  // this stays in sync with every existing revalidatePath("/dashboard") call
-  // (save Datas, save Mon business).
-  const healthCards = hasAnyMonthlyRow
-    ? computeMetricHealthCards({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })
-    : [];
-  const auditUrl = process.env.NEXT_PUBLIC_APP_URL || "scalex.app";
-
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
   const unlockHints: string[] = [];
   if (!hasAnyMonthlyRow) unlockHints.push("Remplis au moins un mois dans Datas");
@@ -140,41 +131,21 @@ export default async function DashboardPage({
         <DailyReportDialog />
       </div>
 
-      {/* Bloc 1 — hero and benchmark widget share one row (grid) instead of
-          each spanning full width, so neither dominates the screen (see
-          plan doc re: no execution engine exists yet to attribute real
-          recovered/generated value to). The carousel's cards are shrunk via
-          CSS transform (see metric-health-carousel.tsx's DISPLAY_WIDTH_PX)
-          to actually fit next to the hero at a reasonable width. */}
-      <div className="grid items-start gap-5 lg:grid-cols-2">
-        <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-4 px-6 py-4">
-          <Falco pose={heroFalco.pose} size="xs" animate="enter" className="hidden sm:flex" />
-          <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-            <p className="text-xs font-bold text-mist/70">Manque à gagner détecté</p>
-            <p className="gradient-text text-2xl font-bold tracking-[-0.01em] tabular-nums">
-              {formatEur(totalMonthlyLoss)}
-            </p>
-            <p className="text-xs text-mist/60">{heroFalco.line}</p>
-          </div>
-          <Button size="sm" asChild>
-            <a href="/diagnostic">Récupérer ce cash →</a>
-          </Button>
+      {/* Bloc 1 — slim single-row hero banner. The benchmark widget is
+          pulled off the Dashboard for now (see git history to restore it —
+          components/metric-health-carousel.tsx is untouched). */}
+      <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-4 px-6 py-4">
+        <Falco pose={heroFalco.pose} size="xs" animate="enter" className="hidden sm:flex" />
+        <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <p className="text-xs font-bold text-mist/70">Manque à gagner détecté</p>
+          <p className="gradient-text text-2xl font-bold tracking-[-0.01em] tabular-nums">
+            {formatEur(totalMonthlyLoss)}
+          </p>
+          <p className="text-xs text-mist/60">{heroFalco.line}</p>
         </div>
-
-        <div>
-          <h2 className="text-base font-bold">Tes métriques vs le benchmark</h2>
-          {healthCards.length < 2 ? (
-            <FalcoEmptyState title="Complète tes chiffres pour débloquer tes cartes" className="mt-3" showFalco={false}>
-              <a href="/datas" className="mt-2 inline-block text-sm font-bold text-muted-foreground hover:underline">
-                Aller dans Datas →
-              </a>
-            </FalcoEmptyState>
-          ) : (
-            <div className="mt-3">
-              <MetricHealthCarousel cards={healthCards} auditUrl={auditUrl} />
-            </div>
-          )}
-        </div>
+        <Button size="sm" asChild>
+          <a href="/diagnostic">Récupérer ce cash →</a>
+        </Button>
       </div>
 
       {params.bandeau === "incomplete_data" && (
