@@ -8,6 +8,7 @@ import { FunnelTab } from "./funnel-tab";
 import { InsightsTab } from "./insights-tab";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { Falco } from "@/components/falco/falco";
+import { FalcoBubble } from "@/components/falco/falco-bubble";
 import { CalcPopover } from "@/components/calc-popover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
@@ -253,8 +254,15 @@ export default async function DiagnosticPage({
       <div className="flex flex-col gap-4">
         <h2 className="text-base font-bold">Points à améliorer</h2>
         {points.length === 0 && (
-          <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
-            Tous tes taux mesurés sont au niveau du benchmark. 🎉
+          <div className="sticker-card-dashed flex flex-col items-center gap-3 p-6 text-center">
+            <Falco
+              pose="happy"
+              size="md"
+              animate="enter"
+              withBubble
+              bubbleText="Tous tes taux mesurés sont au niveau du benchmark. Bravo !"
+              bubbleSide="left"
+            />
           </div>
         )}
         {points.map((point, index) => (
@@ -302,6 +310,15 @@ export default async function DiagnosticPage({
             </div>
 
             <p className="text-sm text-muted-foreground">{point.explanation}</p>
+
+            {index === 0 && (
+              <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
+                <Falco pose="alert" size="xs" animate="enter" />
+                <FalcoBubble arrow="left" className="max-w-none flex-1">
+                  C&apos;est mon conseil n°1 — attaque celui-là en premier, c&apos;est là qu&apos;est le plus gros levier.
+                </FalcoBubble>
+              </div>
+            )}
 
             <a href={`#metric-${point.key}`} className="self-start text-sm font-bold text-muted-foreground hover:underline">
               Voir le détail

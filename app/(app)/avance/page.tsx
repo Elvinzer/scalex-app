@@ -1,6 +1,7 @@
 import { Handshake, Megaphone, UserRoundCheck, Users, Video } from "lucide-react";
 import Link from "next/link";
 
+import { Falco } from "@/components/falco/falco";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/current-user";
 import { getAccountContext } from "@/lib/team/context";
@@ -43,12 +44,15 @@ export default async function AvancePage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold">Avancé</h1>
-        <p className="mt-1 text-muted-foreground">
-          Les modules au-delà de la boucle de valeur principale — toujours pleinement
-          fonctionnels, juste rangés ici pour ne pas encombrer le menu.
-        </p>
+      <div className="flex items-center gap-4">
+        <Falco pose="neutral" size="sm" animate="enter" className="hidden sm:flex" />
+        <div>
+          <h1 className="text-3xl font-bold">Avancé</h1>
+          <p className="mt-1 text-muted-foreground">
+            Les modules au-delà de la boucle de valeur principale — toujours pleinement
+            fonctionnels, juste rangés ici pour ne pas encombrer le menu.
+          </p>
+        </div>
       </div>
 
       {!advancedModulesEnabled && isOwner && (

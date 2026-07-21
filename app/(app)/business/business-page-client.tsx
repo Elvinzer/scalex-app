@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Falco, type FalcoPose } from "@/components/falco/falco";
 import { computeGlobalCompletion } from "@/lib/business/completion";
 import type { BusinessProfileData } from "@/lib/business/types";
 
@@ -20,9 +21,20 @@ export function BusinessPageClient({ initialProfile }: { initialProfile: Busines
   const [profile, setProfile] = useState(initialProfile);
   const completion = computeGlobalCompletion(profile);
 
+  const falcoPose: FalcoPose = completion.percent >= 80 ? "happy" : completion.percent >= 40 ? "neutral" : "sleeping";
+  const falcoLine =
+    completion.percent >= 80
+      ? "Nickel. J'ai tout ce qu'il me faut pour un diagnostic précis."
+      : completion.percent >= 40
+        ? "On progresse. Encore quelques réponses et je vois plus clair."
+        : "Aide-moi à te connaître — plus tu remplis, plus je peux t'aider.";
+
   return (
     <div className="flex flex-col gap-8">
       <div className="sticker-spotlight px-7 py-6">
+        <div className="mb-5 hidden sm:block">
+          <Falco pose={falcoPose} size="sm" animate="enter" withBubble bubbleText={falcoLine} bubbleOnDark />
+        </div>
         <p className="text-xs text-mist/70">Mon business</p>
         <h1 className="mt-1 text-xl font-bold tracking-[-0.01em]">
           Plus c&apos;est complet, plus ton diagnostic est précis.
