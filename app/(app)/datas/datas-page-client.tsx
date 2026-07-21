@@ -68,10 +68,13 @@ export function DatasPageClient({
           return (
             <MonthCard
               key={month}
+              year={year}
               monthIndex={month}
               row={rowFor(month)}
               isCurrent={isCurrent}
               isFuture={isFuture}
+              allSettingEntries={allSettingEntries}
+              allClosingEntries={allClosingEntries}
               onOpen={() => setOpen({ year, month })}
             />
           );
