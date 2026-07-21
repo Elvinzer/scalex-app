@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { funnelStageInsights } from "@/db/schema";
 import { STAGE_TITLES } from "@/lib/agent/knowledge";
 import { getCurrentUser } from "@/lib/current-user";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { ImplementedToggle } from "./implemented-toggle";
 
@@ -19,12 +20,13 @@ function formatDateTime(date: Date): string {
 }
 
 export default async function FunnelInsightsPage() {
-  const { userId } = await getCurrentUser();
+  const { userId, accountId } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "funnel");
 
   const insights = await db
     .select()
     .from(funnelStageInsights)
-    .where(eq(funnelStageInsights.userId, userId))
+    .where(eq(funnelStageInsights.userId, accountId))
     .orderBy(desc(funnelStageInsights.generatedAt));
 
   return (

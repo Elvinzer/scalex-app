@@ -14,6 +14,7 @@ import {
   resolveMonthClosingTotals,
   resolveMonthSettingTotals,
 } from "@/lib/monthly-metrics/resolve";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { ClosingBottleneckCard } from "./closing-bottleneck-card";
 import { ClosingTiles } from "./closing-tiles";
@@ -26,7 +27,8 @@ export default async function ClosingPage({
 }: {
   searchParams: Promise<{ range?: string | string[]; from?: string | string[]; to?: string | string[] }>;
 }) {
-  const { userId, user } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "ventes:closing");
   const params = await searchParams;
   const sector = user?.sector ?? null;
   const benchmark = getBenchmark(sector);
@@ -36,10 +38,10 @@ export default async function ClosingPage({
     db
       .select()
       .from(closingKpiEntries)
-      .where(eq(closingKpiEntries.userId, userId))
+      .where(eq(closingKpiEntries.userId, accountId))
       .orderBy(desc(closingKpiEntries.date)),
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)),
-    getExistingStageInsights(userId),
+    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)),
+    getExistingStageInsights(accountId),
   ]);
 
   const hasAnyEntries = allEntries.length > 0;
@@ -65,8 +67,8 @@ export default async function ClosingPage({
   const previousExactMonth = previousRange ? isExactCalendarMonth(previousRange) : null;
 
   const [monthlyRow, previousMonthlyRow] = await Promise.all([
-    exactMonth ? getMonthlyMetrics(userId, exactMonth.year, exactMonth.month) : Promise.resolve(null),
-    previousExactMonth ? getMonthlyMetrics(userId, previousExactMonth.year, previousExactMonth.month) : Promise.resolve(null),
+    exactMonth ? getMonthlyMetrics(accountId, exactMonth.year, exactMonth.month) : Promise.resolve(null),
+    previousExactMonth ? getMonthlyMetrics(accountId, previousExactMonth.year, previousExactMonth.month) : Promise.resolve(null),
   ]);
 
   const settingEntriesInRange = range

@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { monthlyMetrics } from "@/db/schema";
 import { monthlyMetricsInputSchema } from "@/lib/monthly-metrics/schema";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/team/context";
 
 export async function saveMonthlyMetrics(
   year: number,
@@ -19,6 +20,9 @@ export async function saveMonthlyMetrics(
     return { error: "Session expirée, reconnecte-toi." };
   }
   const userId = authData.claims.sub as string;
+  const access = await requirePermission(userId, "datas");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
 
   const parsed = monthlyMetricsInputSchema.safeParse(data);
   if (!parsed.success) {
@@ -27,7 +31,7 @@ export async function saveMonthlyMetrics(
 
   await db
     .insert(monthlyMetrics)
-    .values({ userId, year, month, ...parsed.data })
+    .values({ userId: accountId, year, month, ...parsed.data })
     .onConflictDoUpdate({
       target: [monthlyMetrics.userId, monthlyMetrics.year, monthlyMetrics.month],
       set: { ...parsed.data, updatedAt: new Date() },

@@ -4,16 +4,29 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/server";
+import { getAccountContext } from "@/lib/team/context";
 
 // Shared by every (app) page: the auth guard in app/(app)/layout.tsx
 // already ensures a session exists, so this trusts the claims are present.
+//
+// `userId` is always the logged-in Supabase Auth user (who you are).
+// `accountId` is who you act on behalf of — the owner's id for a team
+// member, same as userId for an owner (today's only case, unchanged
+// behavior). `user` is the ACCOUNT's row (business context: sector, BYOK
+// key, etc.) — for a team member this is deliberately the owner's row, not
+// their own, since the business belongs to the account, not the individual.
+// Callers that write account-scoped data must use accountId, not userId;
+// callers that record "who did this" (e.g. enteredByUserId) use userId.
 export async function getCurrentUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   const userId = data!.claims.sub as string;
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  return { userId, user };
+  const context = await getAccountContext(userId);
+  const accountId = context?.accountId ?? userId;
+
+  const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
+  return { userId, accountId, user };
 }
 
 // Single source of truth for the "get the authenticated user's id or bail"

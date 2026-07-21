@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getMonthlyMetricsForYear } from "@/lib/monthly-metrics/queries";
 import { todayUtc } from "@/lib/date-range";
 import { getSalesSummaryByMonth } from "@/lib/sales/queries";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { DatasPageClient } from "./datas-page-client";
 
@@ -11,7 +12,8 @@ export default async function DatasPage({
 }: {
   searchParams: Promise<{ year?: string }>;
 }) {
-  const { userId } = await getCurrentUser();
+  const { userId, accountId } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "datas");
   const params = await searchParams;
   const today = todayUtc();
   const currentYear = today.getUTCFullYear();
@@ -19,9 +21,9 @@ export default async function DatasPage({
 
   const year = params.year ? Number(params.year) : currentYear;
   const [monthRows, postLeadsByMonth, salesByMonth] = await Promise.all([
-    getMonthlyMetricsForYear(userId, year),
-    getPostLeadsSumByMonth(userId, year),
-    getSalesSummaryByMonth(userId, year),
+    getMonthlyMetricsForYear(accountId, year),
+    getPostLeadsSumByMonth(accountId, year),
+    getSalesSummaryByMonth(accountId, year),
   ]);
 
   return (

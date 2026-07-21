@@ -3,13 +3,15 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getClosingVideos } from "@/lib/closing-videos/queries";
 import { getCurrentUser } from "@/lib/current-user";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { VideoFormDialog } from "./video-form-dialog";
 import { VideosTable } from "./videos-table";
 
 export default async function VideosPage() {
-  const { userId } = await getCurrentUser();
-  const videos = await getClosingVideos(userId);
+  const { userId, accountId } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "ventes:videos");
+  const videos = await getClosingVideos(accountId);
   const closedCount = videos.filter((v) => v.outcome === "closed").length;
 
   return (

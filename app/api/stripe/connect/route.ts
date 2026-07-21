@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/team/context";
 import { requireEnv } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -12,6 +13,11 @@ export async function GET(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) {
     return NextResponse.redirect(new URL("/sign-in", origin));
+  }
+  // Owner-only: grants OAuth access to the account's real Stripe payments.
+  const access = await requireOwner(data.claims.sub as string);
+  if (!access) {
+    return NextResponse.redirect(new URL("/integrations", origin));
   }
 
   const state = randomBytes(16).toString("hex");

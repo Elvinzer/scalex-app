@@ -12,6 +12,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { businessProfileSectionSchemas } from "@/lib/business/schema";
 import { EMPTY_BUSINESS_PROFILE, type BusinessSection } from "@/lib/business/types";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/team/context";
 
 export async function saveBusinessSection(
   section: BusinessSection,
@@ -23,6 +24,9 @@ export async function saveBusinessSection(
     return { error: "Session expirée, reconnecte-toi." };
   }
   const userId = authData.claims.sub as string;
+  const access = await requirePermission(userId, "business");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
 
   const parsed = businessProfileSectionSchemas[section].safeParse(data);
   if (!parsed.success) {
@@ -31,7 +35,7 @@ export async function saveBusinessSection(
 
   await db
     .insert(businessProfile)
-    .values({ userId, ...EMPTY_BUSINESS_PROFILE, [section]: parsed.data })
+    .values({ userId: accountId, ...EMPTY_BUSINESS_PROFILE, [section]: parsed.data })
     .onConflictDoUpdate({
       target: businessProfile.userId,
       set: { [section]: parsed.data, updatedAt: new Date() },
@@ -47,12 +51,12 @@ export async function saveBusinessSection(
   // business_profile_completed fires exactly once, the first time global
   // completion crosses 80% — guarded by users.businessProfileCompletedAt so
   // re-saving an already-complete profile never re-fires it.
-  const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [userRow] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
   if (userRow && !userRow.businessProfileCompletedAt) {
-    const fullProfile = await getBusinessProfile(userId);
+    const fullProfile = await getBusinessProfile(accountId);
     const { percent } = computeGlobalCompletion(fullProfile);
     if (percent >= 80) {
-      await db.update(users).set({ businessProfileCompletedAt: new Date() }).where(eq(users.id, userId));
+      await db.update(users).set({ businessProfileCompletedAt: new Date() }).where(eq(users.id, accountId));
       after(() => track("business_profile_completed", userId));
     }
   }

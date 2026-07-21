@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/current-user";
+import { isAdminEmail } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
 
 // First role-gated route in this codebase — no `role` column exists on
 // `users`, so this is a simple email allowlist (ADMIN_EMAILS, comma
 // separated) rather than a DB-backed permission system, appropriate for a
 // two-person pre-PMF team. No sidebar (founders-only, not product chrome).
+// See lib/admin.ts's requireAdmin() for the equivalent check every Server
+// Action under app/admin/** must run independently (this layout doesn't
+// protect those — Server Actions are directly callable).
 //
 // Top-level route, not nested in (app) — unlike every page under
 // app/(app)/, there's no upstream layout that already guarantees a
@@ -20,9 +24,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   const { user } = await getCurrentUser();
-  const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((email) => email.trim().toLowerCase());
 
-  if (!user || !adminEmails.includes(user.email.toLowerCase())) {
+  if (!user || !isAdminEmail(user.email)) {
     redirect("/dashboard");
   }
 

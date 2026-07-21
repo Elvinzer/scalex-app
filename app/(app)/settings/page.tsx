@@ -1,10 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { decrypt } from "@/lib/crypto";
-import { getCurrentUser } from "@/lib/current-user";
+import { getCurrentUser, requireUserId } from "@/lib/current-user";
+import { requireOwnerOrRedirect } from "@/lib/team/context";
 
 import { ApiKeyForm } from "./api-key-form";
 
+// Owner-only: BYOK key, Stripe Connect, billing, team & role management are
+// all account-level actions, never delegable to a role — see
+// lib/team/permissions.ts.
 export default async function SettingsPage() {
+  const userId = await requireUserId();
+  await requireOwnerOrRedirect(userId);
+
   const { user } = await getCurrentUser();
 
   // Decrypted only to build a masked preview — the plaintext key is never
@@ -80,7 +87,7 @@ export default async function SettingsPage() {
               </a>{" "}
               et connecte-toi (ou crée un compte).
             </li>
-            <li>Ajoute quelques dollars de crédit dans Billing — sans ça, l&apos;API refuse tout appel.</li>
+            <li>Ajoute quelques dollars de crédit dans Billing - sans ça, l&apos;API refuse tout appel.</li>
             <li>
               Dans API Keys, clique « Create Key », donne-lui un nom (ex. « Scale X »), et copie
               la valeur qui commence par sk-ant-.
@@ -91,6 +98,31 @@ export default async function SettingsPage() {
 
         <div className="mt-6">
           <ApiKeyForm />
+        </div>
+      </div>
+
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">Facturation</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Ton abonnement Scale X - nécessaire pour inviter des membres d&apos;équipe.
+        </p>
+        <Button asChild variant="outline" className="mt-4">
+          <a href="/settings/facturation">Gérer mon abonnement →</a>
+        </Button>
+      </div>
+
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">Équipe</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Invite des membres et attribue-leur des rôles (setting, closing, financier...).
+        </p>
+        <div className="mt-4 flex gap-3">
+          <Button asChild variant="outline">
+            <a href="/settings/equipe">Gérer l&apos;équipe →</a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href="/settings/roles">Rôles &amp; permissions →</a>
+          </Button>
         </div>
       </div>
 

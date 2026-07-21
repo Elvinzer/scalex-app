@@ -13,6 +13,8 @@ import { STAGE_KNOWLEDGE, type FunnelStageKey } from "@/lib/agent/knowledge";
 import { aggregateClosingEntries, computeClosingRates } from "@/lib/closing/metrics";
 import { requireUserId } from "@/lib/current-user";
 import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
+import { getAccountContext } from "@/lib/team/context";
+import type { PermissionKey } from "@/lib/team/permissions";
 
 const stageSchema = z.enum([
   "outreachRate",
@@ -64,20 +66,35 @@ export async function generateFunnelStageInsight(
     return { insightText: null, error: error instanceof Error ? error.message : "Session expirée" };
   }
 
+  // Generating an insight is reachable from /funnel/insights, and also as a
+  // shortcut from /acquisition/setting or /ventes/closing — allowed if the
+  // caller has the stage-specific permission (matching whichever page they
+  // triggered it from) or the broader "funnel" permission.
+  const requiredKey: PermissionKey = isSettingStage(stage) ? "acquisition:setting" : "ventes:closing";
+  const context = await getAccountContext(userId);
+  if (!context) {
+    return { insightText: null, error: "Tu n'as pas accès à cette section." };
+  }
+  const allowed = context.isOwner || context.permissions.has(requiredKey) || context.permissions.has("funnel");
+  if (!allowed) {
+    return { insightText: null, error: "Tu n'as pas accès à cette section." };
+  }
+  const accountId = context.accountId;
+
   const answers = validateAnswers(stage, rawAnswers);
   if (!answers) {
     return { insightText: null, error: "Réponses invalides" };
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
   if (!user) {
     return { insightText: null, error: "Utilisateur introuvable" };
   }
 
   // Recompute the real rate server-side — never trust a client-sent number.
   const [settingEntries, closingEntries] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)),
+    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)),
+    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)),
   ]);
   const settingTotals = aggregateEntries(settingEntries);
   const settingRates = computeFunnelRates(settingTotals);
@@ -112,7 +129,7 @@ export async function generateFunnelStageInsight(
     // never flag the shared key, and never treat rate limits/network blips
     // as an invalid key.
     if (agentKey.source === "byok" && error instanceof Anthropic.AuthenticationError) {
-      await db.update(users).set({ anthropicApiKeyInvalid: true }).where(eq(users.id, userId));
+      await db.update(users).set({ anthropicApiKeyInvalid: true }).where(eq(users.id, accountId));
       revalidatePath("/settings");
       return {
         insightText: null,
@@ -124,7 +141,7 @@ export async function generateFunnelStageInsight(
   }
 
   await db.insert(funnelStageInsights).values({
-    userId,
+    userId: accountId,
     stage,
     answers,
     insightText: result.text,
@@ -160,12 +177,17 @@ export async function setInsightImplemented(
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Session expirée" };
   }
+  const context = await getAccountContext(userId);
+  if (!context || (!context.isOwner && !context.permissions.has("funnel"))) {
+    return { error: "Tu n'as pas accès à cette section." };
+  }
+  const accountId = context.accountId;
 
   const updated = await db
     .update(funnelStageInsights)
     .set({ implemented: parsed.data.implemented, implementedAt: new Date() })
     .where(
-      and(eq(funnelStageInsights.id, parsed.data.insightId), eq(funnelStageInsights.userId, userId))
+      and(eq(funnelStageInsights.id, parsed.data.insightId), eq(funnelStageInsights.userId, accountId))
     )
     .returning({ id: funnelStageInsights.id });
 

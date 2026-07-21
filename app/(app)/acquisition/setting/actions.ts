@@ -12,6 +12,7 @@ import {
   type EditableSettingKpiField,
 } from "@/lib/setting/schema";
 import { requireUserId } from "@/lib/current-user";
+import { requirePermission } from "@/lib/team/context";
 
 export async function saveSettingKpiEntry(
   formData: FormData
@@ -22,6 +23,9 @@ export async function saveSettingKpiEntry(
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Session expirée" };
   }
+  const access = await requirePermission(userId, "acquisition:setting");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
 
   const parsed = settingKpiEntryInputSchema.safeParse({
     date: formData.get("date"),
@@ -38,10 +42,11 @@ export async function saveSettingKpiEntry(
 
   await db
     .insert(settingKpiEntries)
-    .values({ userId, ...parsed.data })
+    .values({ userId: accountId, enteredByUserId: userId, ...parsed.data })
     .onConflictDoUpdate({
       target: [settingKpiEntries.userId, settingKpiEntries.date],
       set: {
+        enteredByUserId: userId,
         newSubscribers: parsed.data.newSubscribers,
         firstMessagesSent: parsed.data.firstMessagesSent,
         conversationsStarted: parsed.data.conversationsStarted,
@@ -68,6 +73,9 @@ export async function updateSettingKpiEntryField(
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Session expirée" };
   }
+  const access = await requirePermission(userId, "acquisition:setting");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
 
   if (!editableSettingKpiFields.includes(field)) {
     return { error: "Champ invalide" };
@@ -80,8 +88,8 @@ export async function updateSettingKpiEntryField(
 
   const updated = await db
     .update(settingKpiEntries)
-    .set({ [field]: parsed.data, updatedAt: new Date() })
-    .where(and(eq(settingKpiEntries.id, entryId), eq(settingKpiEntries.userId, userId)))
+    .set({ [field]: parsed.data, enteredByUserId: userId, updatedAt: new Date() })
+    .where(and(eq(settingKpiEntries.id, entryId), eq(settingKpiEntries.userId, accountId)))
     .returning({ id: settingKpiEntries.id });
 
   if (updated.length === 0) {
@@ -100,6 +108,11 @@ export type ImportSettingKpiCsvResult = {
 
 export async function importSettingKpiCsv(rawCsv: string): Promise<ImportSettingKpiCsvResult> {
   const userId = await requireUserId();
+  const access = await requirePermission(userId, "acquisition:setting");
+  if (!access) {
+    return { imported: 0, errors: [{ line: 0, message: "Tu n'as pas accès à cette section." }] };
+  }
+  const { accountId } = access;
 
   // Re-validated server-side even though csv-import.tsx already parsed it —
   // the client-side pass is UX only, never trusted for the actual write.
@@ -110,10 +123,11 @@ export async function importSettingKpiCsv(rawCsv: string): Promise<ImportSetting
 
   await db
     .insert(settingKpiEntries)
-    .values(rows.map((row) => ({ userId, ...row })))
+    .values(rows.map((row) => ({ userId: accountId, enteredByUserId: userId, ...row })))
     .onConflictDoUpdate({
       target: [settingKpiEntries.userId, settingKpiEntries.date],
       set: {
+        enteredByUserId: sql`excluded.entered_by_user_id`,
         newSubscribers: sql`excluded.new_subscribers`,
         firstMessagesSent: sql`excluded.first_messages_sent`,
         conversationsStarted: sql`excluded.conversations_started`,

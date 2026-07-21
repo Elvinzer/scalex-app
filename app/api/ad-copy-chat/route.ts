@@ -5,6 +5,7 @@ import { getAiProvider } from "@/lib/ai-provider";
 import { buildAdCopyPrompt } from "@/lib/ad-copy-prompt-builder";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/team/context";
 
 const MAX_MESSAGES = 20;
 
@@ -27,6 +28,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Session expirée, reconnecte-toi." }, { status: 401 });
   }
   const userId = data.claims.sub as string;
+  const access = await requirePermission(userId, "acquisition:ads");
+  if (!access) {
+    return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });
+  }
+  const { accountId } = access;
 
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -43,7 +49,7 @@ export async function POST(request: NextRequest) {
 
   // Server always re-fetches the business profile and looks up the offer by
   // id server-side — never trusts a client-sent offer blob.
-  const businessProfile = await getBusinessProfile(userId);
+  const businessProfile = await getBusinessProfile(accountId);
   const offer = offerId ? (businessProfile.sales.offers.find((o) => o.id === offerId) ?? null) : null;
 
   const systemPrompt = buildAdCopyPrompt({ businessProfile, offer });

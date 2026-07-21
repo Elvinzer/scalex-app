@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, resolveDateRange } from "@/lib/date-range";
 import { findOverviewBottleneck } from "@/lib/funnel/overview";
 import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { MarketBenchmarkAccordion } from "./market-benchmark-accordion";
@@ -22,7 +23,8 @@ export default async function FunnelOverviewPage({
 }: {
   searchParams: Promise<{ range?: string | string[]; from?: string | string[]; to?: string | string[] }>;
 }) {
-  const { userId, user } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "funnel");
   const params = await searchParams;
   const sector = user?.sector ?? null;
   const benchmark = getBenchmark(sector);
@@ -32,14 +34,14 @@ export default async function FunnelOverviewPage({
     db
       .select()
       .from(settingKpiEntries)
-      .where(eq(settingKpiEntries.userId, userId))
+      .where(eq(settingKpiEntries.userId, accountId))
       .orderBy(desc(settingKpiEntries.date)),
     db
       .select()
       .from(closingKpiEntries)
-      .where(eq(closingKpiEntries.userId, userId))
+      .where(eq(closingKpiEntries.userId, accountId))
       .orderBy(desc(closingKpiEntries.date)),
-    getExistingStageInsights(userId),
+    getExistingStageInsights(accountId),
   ]);
 
   const hasAnyEntries = allSettingEntries.length > 0 || allClosingEntries.length > 0;

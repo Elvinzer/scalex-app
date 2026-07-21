@@ -11,6 +11,15 @@ export default function ConfirmPage() {
   useEffect(() => {
     const supabase = createClient();
 
+    // Read directly off window.location instead of useSearchParams() — this
+    // page is entirely client-rendered (no SSR content depends on the
+    // query), and it avoids the Suspense boundary useSearchParams() would
+    // otherwise require. A team member accepting an invite never goes
+    // through the business-owner onboarding wizard — see
+    // app/invite/[token]/page.tsx.
+    const inviteToken = new URLSearchParams(window.location.search).get("invite");
+    const destination = inviteToken ? `/invite/${inviteToken}` : "/onboarding";
+
     // The default Supabase email template redirects here with the session
     // in the URL hash fragment — only the browser SDK can read that, a
     // server route handler never sees it. detectSessionInUrl (on by
@@ -19,13 +28,13 @@ export default function ConfirmPage() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        router.replace("/onboarding");
+        router.replace(destination);
       }
     });
 
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
-        router.replace("/onboarding");
+        router.replace(destination);
       }
     });
 

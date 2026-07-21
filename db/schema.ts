@@ -7,6 +7,7 @@ import {
   pgEnum,
   pgSchema,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -60,6 +61,12 @@ export const users = pgTable("users", {
   // "is this user connected to Stripe". stripe_connections stays the source
   // of truth (token, connected_at).
   stripeConnectId: text("stripe_connect_id"),
+  // Scale X's OWN Stripe customer id for this account (platform billing —
+  // see subscriptions below), created on first checkout attempt so retrying
+  // an abandoned checkout reuses the same Stripe Customer instead of
+  // minting duplicates. Distinct from stripeConnectId above (that one
+  // identifies the CLIENT's connected account, read-only).
+  stripeCustomerId: text("stripe_customer_id"),
   sector: prospectionSector("sector"),
   // Set once the 3-screen /onboarding wizard finishes (or is skipped) —
   // existing users are backfilled to true via migration default so they
@@ -142,6 +149,11 @@ export const settingKpiEntries = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // Which team member actually submitted this row, when it wasn't the
+    // account owner — null for owner-entered rows and for every row that
+    // predates team members. Set null (not cascaded) if that member is later
+    // removed, so historical entries keep their date/values.
+    enteredByUserId: uuid("entered_by_user_id").references(() => users.id, { onDelete: "set null" }),
     date: date("date", { mode: "string" }).notNull(),
     newSubscribers: integer("new_subscribers").notNull(),
     firstMessagesSent: integer("first_messages_sent").notNull(),
@@ -172,6 +184,8 @@ export const closingKpiEntries = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // Same rationale as settingKpiEntries.enteredByUserId.
+    enteredByUserId: uuid("entered_by_user_id").references(() => users.id, { onDelete: "set null" }),
     date: date("date", { mode: "string" }).notNull(),
     callsAttended: integer("calls_attended").notNull(),
     salesClosed: integer("sales_closed").notNull(),
@@ -441,3 +455,140 @@ export const adCampaigns = pgTable(
   },
   (table) => [index("ad_campaigns_user_start_date_idx").on(table.userId, table.startDate)]
 );
+
+// --- Team members, roles & permissions --------------------------------------
+// No separate "accounts" table: an account IS its owner's users.id (see
+// lib/team/context.ts). Every existing *KpiEntries-style table keeps scoping
+// by userId, which for a team member now means "the account they're acting
+// on behalf of", resolved server-side — never the member's own id.
+
+// One row per (account, role). Deliberately not a pg enum: an owner can
+// rename/re-scope a role's permissions after the fact without a migration.
+// permissions is a jsonb array of the fixed keys in lib/team/permissions.ts.
+// 3 default roles ("setting", "closing", "financier") are seeded lazily the
+// first time an owner opens the Équipe/Rôles screens.
+export const teamRoles = pgTable(
+  "team_roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    permissions: jsonb("permissions").notNull().$type<string[]>().default([]),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("team_roles_account_key_idx").on(table.accountId, table.key)]
+);
+
+export const teamMemberStatus = pgEnum("team_member_status", ["invited", "active", "removed"]);
+
+// One row per invited person per account. memberUserId stays null until the
+// invite is accepted — the invited person may not have a Supabase Auth
+// account yet, so email is the stable identifier before that. inviteToken is
+// cleared once accepted so a used invite link can never be replayed.
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    memberUserId: uuid("member_user_id").references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    status: teamMemberStatus("status").notNull().default("invited"),
+    inviteToken: text("invite_token").unique(),
+    inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
+    invitedByUserId: uuid("invited_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    invitedAt: timestamp("invited_at", { withTimezone: true }).notNull().defaultNow(),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("team_members_account_email_idx").on(table.accountId, table.email),
+    index("team_members_member_user_idx").on(table.memberUserId),
+  ]
+);
+
+// Join table: a member can hold several roles at once (e.g. "setting" +
+// "closing"). No surrogate id — the (teamMemberId, roleId) pair is the
+// identity, enforced as the actual primary key.
+export const teamMemberRoles = pgTable(
+  "team_member_roles",
+  {
+    teamMemberId: uuid("team_member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => teamRoles.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.teamMemberId, table.roleId] })]
+);
+
+// --- Scale X's own SaaS billing ---------------------------------------------
+// Distinct from Stripe Connect above (stripeConnections), which only reads a
+// CLIENT's Stripe account. This is Scale X's platform Stripe account,
+// billing the infopreneur — see lib/stripe/platform-client.ts.
+
+// Admin-editable via /admin/plans. features is a jsonb bag rather than fixed
+// columns so new gated capabilities can be added later without a migration —
+// today only teamMembersEnabled/maxTeamMembers are read, see
+// lib/billing/plan-gate.ts.
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  priceMonthlyCents: integer("price_monthly_cents").notNull(),
+  // Null until the plan has been saved once — a Stripe Price is created on
+  // save (app/admin/plans/actions.ts). Prices are immutable in Stripe:
+  // changing the amount later creates a NEW Price and archives the old one,
+  // then swaps this pointer, rather than mutating a Price in place.
+  stripePriceId: text("stripe_price_id"),
+  features: jsonb("features").notNull().$type<Record<string, unknown>>().default({}),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// One row per account (unique userId) — mirrors the account owner's Stripe
+// subscription state, kept in sync by the webhook. status is plain text, not
+// a pg enum: it mirrors Stripe's own status vocabulary directly ("active",
+// "trialing", "past_due", "canceled", ...), which Stripe can extend on its
+// own timeline, and this repo has no versioned migrations to ALTER TYPE
+// against (schema changes only go through `db:push`) — validated with Zod at
+// the webhook boundary instead, per CLAUDE.md's external-data rule.
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  planId: uuid("plan_id")
+    .notNull()
+    .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
+  stripeCustomerId: text("stripe_customer_id").notNull(),
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  status: text("status").notNull().default("incomplete"),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Idempotency ledger for the Stripe billing webhook
+// (app/api/webhooks/stripe-billing/route.ts) — the first Stripe webhook in
+// this codebase, so there's no existing table to extend. id is Stripe's own
+// event.id: inserting it is the atomic "have I seen this before" check (a
+// unique PK conflict means it was already processed).
+export const processedStripeEvents = pgTable("processed_stripe_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
+});

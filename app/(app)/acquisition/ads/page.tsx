@@ -7,14 +7,16 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatPercent } from "@/lib/setting/funnel";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { AdCopyTrigger } from "./ad-copy-trigger";
 import { CampaignFormDialog } from "./campaign-form-dialog";
 import { CampaignsTable } from "./campaigns-table";
 
 export default async function AdsPage() {
-  const { userId } = await getCurrentUser();
-  const [campaigns, profile] = await Promise.all([getAdCampaigns(userId), getBusinessProfile(userId)]);
+  const { userId, accountId } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "acquisition:ads");
+  const [campaigns, profile] = await Promise.all([getAdCampaigns(accountId), getBusinessProfile(accountId)]);
 
   const totalSpend = campaigns.reduce((sum, c) => sum + (c.spend ?? 0), 0);
   const ctrValues = campaigns.map((c) => computeCampaignMetrics(c).ctr).filter((v): v is number => v !== null);

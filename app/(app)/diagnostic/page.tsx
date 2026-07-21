@@ -32,6 +32,7 @@ import { formatEur } from "@/lib/currency";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
 
 const PERIOD_LABELS: Record<string, string> = {
@@ -63,18 +64,19 @@ export default async function DiagnosticPage({
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
-  const { userId, user } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "diagnostic");
   const params = await searchParams;
   after(() => track("diagnostic_viewed", userId));
   const period = params.period && PERIOD_LABELS[params.period] ? params.period : "3-months";
 
-  const businessProfile = await getBusinessProfile(userId);
+  const businessProfile = await getBusinessProfile(accountId);
 
   const [allSettingEntries, allClosingEntries, allMonthlyRows, allContentPosts] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(userId),
-    getContentPosts(userId),
+    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
+    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
+    getAllMonthlyMetrics(accountId),
+    getContentPosts(accountId),
   ]);
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);

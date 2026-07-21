@@ -15,6 +15,7 @@ import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
 import { buildImprovePrompt, type ImproveMetricKey } from "@/lib/improve-prompt-builder";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/team/context";
 
 const MAX_MESSAGES = 20;
 
@@ -47,6 +48,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Session expirée, reconnecte-toi." }, { status: 401 });
   }
   const userId = data.claims.sub as string;
+  const access = await requirePermission(userId, "diagnostic");
+  if (!access) {
+    return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });
+  }
+  const { accountId } = access;
 
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -72,11 +78,11 @@ export async function POST(request: NextRequest) {
   // data — never trusts a client-sent rate/€ figure, same rule as
   // lib/agent/insight.ts.
   const [[userRow], businessProfile, allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-    db.select().from(users).where(eq(users.id, userId)).limit(1),
-    getBusinessProfile(userId),
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(userId),
+    db.select().from(users).where(eq(users.id, accountId)).limit(1),
+    getBusinessProfile(accountId),
+    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
+    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
+    getAllMonthlyMetrics(accountId),
   ]);
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);

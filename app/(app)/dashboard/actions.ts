@@ -11,6 +11,7 @@ import { buildRates, labelFor } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/team/context";
 
 export type CheckinFeedback = { key: string; label: string; beforePercent: number; afterPercent: number } | null;
 
@@ -43,19 +44,22 @@ export async function submitWeeklyCheckin(
     return { error: "Session expirée, reconnecte-toi." };
   }
   const userId = authData.claims.sub as string;
+  const access = await requirePermission(userId, "dashboard");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
 
   const monthResult = await saveMonthlyMetrics(year, month, data);
   if (monthResult.error) return monthResult;
 
   await track("weekly_checkin_completed", userId);
 
-  const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [userRow] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
   let feedback: CheckinFeedback = null;
 
   if (userRow?.lastImproveMetricKey && userRow.lastImproveMetricRateSnapshot !== null) {
     const metricKey = userRow.lastImproveMetricKey;
     const before = userRow.lastImproveMetricRateSnapshot;
-    const after = await currentRateFor(userId, metricKey);
+    const after = await currentRateFor(accountId, metricKey);
 
     if (after !== null) {
       feedback = {
@@ -66,7 +70,7 @@ export async function submitWeeklyCheckin(
       };
       // Rolling snapshot: next check-in compares against THIS one, not the
       // original chat-open moment.
-      await db.update(users).set({ lastImproveMetricRateSnapshot: after }).where(eq(users.id, userId));
+      await db.update(users).set({ lastImproveMetricRateSnapshot: after }).where(eq(users.id, accountId));
     }
   }
 

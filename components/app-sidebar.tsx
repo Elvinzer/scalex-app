@@ -12,6 +12,7 @@ import {
   Plug,
   Receipt,
   Settings,
+  ShieldCheck,
   Store,
   Stethoscope,
   UserRoundCheck,
@@ -23,11 +24,16 @@ import { useState } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { createClient } from "@/lib/supabase/client";
+import type { PermissionKey } from "@/lib/team/permissions";
 import { cn } from "@/lib/utils";
 
 type IconType = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 
-type LinkEntry = { type: "link"; href: string; label: string; icon: IconType };
+// permission: which grantable key unlocks this entry for a team member (see
+// lib/team/permissions.ts) — absent means owner-only, never delegable
+// (Intégrations, Réglages: BYOK key, Stripe Connect, billing, team). The
+// account owner always sees everything regardless of this field.
+type LinkEntry = { type: "link"; href: string; label: string; icon: IconType; permission?: PermissionKey };
 type DisabledEntry = { type: "disabled"; label: string; icon: IconType };
 type NavEntry = LinkEntry | DisabledEntry;
 
@@ -40,39 +46,50 @@ type Pillar = { label: string; entries: NavEntry[] };
 // are pillar items not yet built — shown greyed out with a "Bientôt" badge
 // rather than omitted, so the full target structure stays visible.
 const topEntries: LinkEntry[] = [
-  { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { type: "link", href: "/funnel", label: "Funnel", icon: Filter },
-  { type: "link", href: "/datas", label: "Datas", icon: Database },
-  { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope },
+  { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
+  { type: "link", href: "/funnel", label: "Funnel", icon: Filter, permission: "funnel" },
+  { type: "link", href: "/datas", label: "Datas", icon: Database, permission: "datas" },
+  { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
 ];
 
 const pillars: Pillar[] = [
   {
     label: "Acquisition",
     entries: [
-      { type: "link", href: "/acquisition/contenu", label: "Contenu", icon: FileText },
-      { type: "link", href: "/acquisition/setting", label: "Setting", icon: UserRoundCheck },
-      { type: "link", href: "/acquisition/ads", label: "Ads", icon: Megaphone },
+      { type: "link", href: "/acquisition/contenu", label: "Contenu", icon: FileText, permission: "acquisition:contenu" },
+      { type: "link", href: "/acquisition/setting", label: "Setting", icon: UserRoundCheck, permission: "acquisition:setting" },
+      { type: "link", href: "/acquisition/ads", label: "Ads", icon: Megaphone, permission: "acquisition:ads" },
     ],
   },
   {
     label: "Ventes",
     entries: [
-      { type: "link", href: "/ventes/suivi", label: "Suivi des ventes", icon: Receipt },
-      { type: "link", href: "/ventes/videos", label: "Vidéos de closing", icon: Video },
-      { type: "link", href: "/ventes/closing", label: "Closing", icon: Handshake },
+      { type: "link", href: "/ventes/suivi", label: "Suivi des ventes", icon: Receipt, permission: "ventes:suivi" },
+      { type: "link", href: "/ventes/videos", label: "Vidéos de closing", icon: Video, permission: "ventes:videos" },
+      { type: "link", href: "/ventes/closing", label: "Closing", icon: Handshake, permission: "ventes:closing" },
     ],
   },
 ];
 
 // Moved out of the main nav into the profile dropdown at the bottom of the
 // sidebar (see ProfileMenu) — these are account-level pages, not day-to-day
-// product pages.
+// product pages. Intégrations/Réglages have no `permission`: owner-only.
 const profileMenuEntries: LinkEntry[] = [
-  { type: "link", href: "/business", label: "Mon business", icon: Store },
+  { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
 ];
+
+// Separate from the permission model entirely — gated by isAdmin (the
+// ADMIN_EMAILS allowlist, see lib/admin.ts), not by role/permission or even
+// isOwner. Only ever true for founders. app/admin/layout.tsx still does its
+// own server-side check regardless of this link being visible.
+const adminEntry: LinkEntry = { type: "link", href: "/admin", label: "Panel admin", icon: ShieldCheck };
+
+function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonly PermissionKey[]): boolean {
+  if (isOwner) return true;
+  return entry.permission !== undefined && permissions.includes(entry.permission);
+}
 
 function NavLink({ entry, pathname, indented }: { entry: LinkEntry; pathname: string; indented: boolean }) {
   const Icon = entry.icon;
@@ -108,14 +125,29 @@ function DisabledNavItem({ entry }: { entry: DisabledEntry }) {
   );
 }
 
-function PillarSection({ pillar, pathname }: { pillar: Pillar; pathname: string }) {
+function PillarSection({
+  pillar,
+  pathname,
+  isOwner,
+  permissions,
+}: {
+  pillar: Pillar;
+  pathname: string;
+  isOwner: boolean;
+  permissions: readonly PermissionKey[];
+}) {
+  const visibleEntries = pillar.entries.filter(
+    (entry) => entry.type === "disabled" || isEntryVisible(entry, isOwner, permissions)
+  );
+  if (visibleEntries.length === 0) return null;
+
   return (
     <div className="mt-3 first:mt-0">
       <p className="px-3 py-1 text-[10.5px] font-bold tracking-[0.09em] text-on-dark-muted uppercase">
         {pillar.label}
       </p>
       <div className="mt-1 flex flex-col gap-1">
-        {pillar.entries.map((entry) =>
+        {visibleEntries.map((entry) =>
           entry.type === "disabled" ? (
             <DisabledNavItem key={entry.label} entry={entry} />
           ) : (
@@ -127,9 +159,22 @@ function PillarSection({ pillar, pathname }: { pillar: Pillar; pathname: string 
   );
 }
 
-function ProfileMenu({ businessName, email, onSignOut }: { businessName: string; email: string; onSignOut: () => void }) {
+function ProfileMenu({
+  businessName,
+  email,
+  isOwner,
+  permissions,
+  onSignOut,
+}: {
+  businessName: string;
+  email: string;
+  isOwner: boolean;
+  permissions: readonly PermissionKey[];
+  onSignOut: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const initial = email.charAt(0).toUpperCase() || "?";
+  const visibleEntries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
     <div className="flex items-center gap-2">
@@ -152,7 +197,7 @@ function ProfileMenu({ businessName, email, onSignOut }: { businessName: string;
           </button>
         </PopoverTrigger>
         <PopoverContent side="top" align="start" sideOffset={10} className="w-56 p-1.5">
-          {profileMenuEntries.map((entry) => {
+          {visibleEntries.map((entry) => {
             const Icon = entry.icon;
             return (
               <Link
@@ -180,7 +225,19 @@ function ProfileMenu({ businessName, email, onSignOut }: { businessName: string;
   );
 }
 
-export function AppSidebar({ email, businessName }: { email: string; businessName: string }) {
+export function AppSidebar({
+  email,
+  businessName,
+  isOwner,
+  permissions,
+  isAdmin,
+}: {
+  email: string;
+  businessName: string;
+  isOwner: boolean;
+  permissions: readonly PermissionKey[];
+  isAdmin: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -190,6 +247,8 @@ export function AppSidebar({ email, businessName }: { email: string; businessNam
     router.push("/sign-in");
     router.refresh();
   }
+
+  const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
     <aside
@@ -207,17 +266,28 @@ export function AppSidebar({ email, businessName }: { email: string; businessNam
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
-        {topEntries.map((entry) => (
+        {visibleTopEntries.map((entry) => (
           <NavLink key={entry.href} entry={entry} pathname={pathname} indented={false} />
         ))}
 
         {pillars.map((pillar) => (
-          <PillarSection key={pillar.label} pillar={pillar} pathname={pathname} />
+          <PillarSection key={pillar.label} pillar={pillar} pathname={pathname} isOwner={isOwner} permissions={permissions} />
         ))}
+
+        {isAdmin && (
+          <div className="mt-3">
+            <p className="px-3 py-1 text-[10.5px] font-bold tracking-[0.09em] text-on-dark-muted uppercase">
+              Admin
+            </p>
+            <div className="mt-1 flex flex-col gap-1">
+              <NavLink entry={adminEntry} pathname={pathname} indented />
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="border-t border-mist/15 px-3 pt-4">
-        <ProfileMenu businessName={businessName} email={email} onSignOut={handleSignOut} />
+        <ProfileMenu businessName={businessName} email={email} isOwner={isOwner} permissions={permissions} onSignOut={handleSignOut} />
       </div>
     </aside>
   );

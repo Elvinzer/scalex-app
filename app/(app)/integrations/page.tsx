@@ -1,9 +1,14 @@
 import { Button } from "@/components/ui/button";
-import { getCurrentUser } from "@/lib/current-user";
+import { getCurrentUser, requireUserId } from "@/lib/current-user";
+import { requireOwnerOrRedirect } from "@/lib/team/context";
 
 const UPCOMING_INTEGRATIONS = ["Kajabi", "Brevo", "Calendly"];
 
+// Owner-only: connecting/disconnecting Stripe grants OAuth access to the
+// account's real payments data — never delegable to a role.
 export default async function IntegrationsPage() {
+  const userId = await requireUserId();
+  await requireOwnerOrRedirect(userId);
   const { user } = await getCurrentUser();
   const stripeConnected = Boolean(user?.stripeConnectId);
 

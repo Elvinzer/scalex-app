@@ -7,6 +7,7 @@ import { stripeConnections, users } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { inngest, stripeAccountConnected } from "@/lib/inngest/client";
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/team/context";
 import { requireEnv } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -25,6 +26,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-in", origin));
   }
   const userId = data.claims.sub as string;
+  // Same owner-only boundary as /api/stripe/connect (the route that starts
+  // this flow) — defense in depth in case this callback is ever hit
+  // directly.
+  const access = await requireOwner(userId);
+  if (!access) {
+    return NextResponse.redirect(new URL("/integrations", origin));
+  }
 
   const stripe = new Stripe(requireEnv("STRIPE_CONNECT_CLIENT_SECRET"));
   const tokenResponse = await stripe.oauth.token({

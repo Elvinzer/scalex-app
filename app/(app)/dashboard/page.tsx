@@ -18,6 +18,7 @@ import { getStripeActivity } from "@/lib/dashboard/stripe-metrics";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { emptyMonthRow, getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 const PERIOD_MONTHS = 3;
 
@@ -27,27 +28,28 @@ export default async function DashboardPage({
   searchParams: Promise<{ checkin?: string; bandeau?: string }>;
 }) {
   const params = await searchParams;
-  const { userId, user } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "dashboard");
 
-  // All four only depend on userId/user.sector, known above — run together
+  // All four only depend on accountId/user.sector, known above — run together
   // instead of as 4 sequential round-trips.
   const [businessProfile, [allSettingEntries, allClosingEntries, allMonthlyRows], stripeActivity, benchmarks] =
     await Promise.all([
-      getBusinessProfile(userId),
+      getBusinessProfile(accountId),
       Promise.all([
         db
           .select()
           .from(settingKpiEntries)
-          .where(eq(settingKpiEntries.userId, userId))
+          .where(eq(settingKpiEntries.userId, accountId))
           .orderBy(desc(settingKpiEntries.date)),
         db
           .select()
           .from(closingKpiEntries)
-          .where(eq(closingKpiEntries.userId, userId))
+          .where(eq(closingKpiEntries.userId, accountId))
           .orderBy(desc(closingKpiEntries.date)),
-        getAllMonthlyMetrics(userId),
+        getAllMonthlyMetrics(accountId),
       ]),
-      getStripeActivity(userId, dashboardStripeRange()),
+      getStripeActivity(accountId, dashboardStripeRange()),
       getDiagnosticBenchmarks(user?.sector ?? null),
     ]);
 

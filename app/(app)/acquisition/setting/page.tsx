@@ -10,6 +10,7 @@ import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insight
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { isExactCalendarMonth, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
 import { computeFunnelRates, findBottleneck } from "@/lib/setting/funnel";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { BottleneckCard } from "./bottleneck-card";
 import { CsvImport } from "./csv-import";
@@ -23,7 +24,8 @@ export default async function SettingPage({
 }: {
   searchParams: Promise<{ range?: string | string[]; from?: string | string[]; to?: string | string[] }>;
 }) {
-  const { userId, user } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "acquisition:setting");
   const params = await searchParams;
   const sector = user?.sector ?? null;
   const benchmark = getBenchmark(sector);
@@ -33,9 +35,9 @@ export default async function SettingPage({
     db
       .select()
       .from(settingKpiEntries)
-      .where(eq(settingKpiEntries.userId, userId))
+      .where(eq(settingKpiEntries.userId, accountId))
       .orderBy(desc(settingKpiEntries.date)),
-    getExistingStageInsights(userId),
+    getExistingStageInsights(accountId),
   ]);
 
   const hasAnyEntries = allEntries.length > 0;
@@ -62,8 +64,8 @@ export default async function SettingPage({
   const previousExactMonth = previousRange ? isExactCalendarMonth(previousRange) : null;
 
   const [monthlyRow, previousMonthlyRow] = await Promise.all([
-    exactMonth ? getMonthlyMetrics(userId, exactMonth.year, exactMonth.month) : Promise.resolve(null),
-    previousExactMonth ? getMonthlyMetrics(userId, previousExactMonth.year, previousExactMonth.month) : Promise.resolve(null),
+    exactMonth ? getMonthlyMetrics(accountId, exactMonth.year, exactMonth.month) : Promise.resolve(null),
+    previousExactMonth ? getMonthlyMetrics(accountId, previousExactMonth.year, previousExactMonth.month) : Promise.resolve(null),
   ]);
 
   const totals = resolveMonthSettingTotals(monthlyRow, entries);

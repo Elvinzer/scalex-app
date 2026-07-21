@@ -5,6 +5,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { SaleFormDialog } from "./sale-form-dialog";
 import { SalesTable } from "./sales-table";
@@ -17,8 +18,9 @@ function currentMonthPrefix(): string {
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
 export default async function SuiviDesVentesPage() {
-  const { userId } = await getCurrentUser();
-  const [sales, profile] = await Promise.all([getSales(userId), getBusinessProfile(userId)]);
+  const { userId, accountId } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "ventes:suivi");
+  const [sales, profile] = await Promise.all([getSales(accountId), getBusinessProfile(accountId)]);
   const offers = profile.sales.offers;
 
   const monthPrefix = currentMonthPrefix();

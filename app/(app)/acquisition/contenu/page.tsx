@@ -6,6 +6,7 @@ import { computePostRates } from "@/lib/content-posts/rates";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatPercent } from "@/lib/setting/funnel";
+import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { PostFormDialog } from "./post-form-dialog";
 import { PostsTable } from "./posts-table";
@@ -16,8 +17,9 @@ function currentMonthWindow(): { year: number; month: number } {
 }
 
 export default async function ContenuPage() {
-  const { userId } = await getCurrentUser();
-  const [posts, profile] = await Promise.all([getContentPosts(userId), getBusinessProfile(userId)]);
+  const { userId, accountId } = await getCurrentUser();
+  await requirePermissionOrRedirect(userId, "acquisition:contenu");
+  const [posts, profile] = await Promise.all([getContentPosts(accountId), getBusinessProfile(accountId)]);
   const platforms = profile.acquisition.platforms.map((platform) => platform.name).filter(Boolean);
 
   const { year, month } = currentMonthWindow();

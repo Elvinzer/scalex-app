@@ -6,6 +6,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { buildCallAnalysisPrompt } from "@/lib/call-analysis-prompt-builder";
 import { getClosingVideo } from "@/lib/closing-videos/queries";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/team/context";
 
 const MAX_MESSAGES = 20;
 
@@ -28,6 +29,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Session expirée, reconnecte-toi." }, { status: 401 });
   }
   const userId = data.claims.sub as string;
+  const access = await requirePermission(userId, "ventes:videos");
+  if (!access) {
+    return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });
+  }
+  const { accountId } = access;
 
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -45,11 +51,11 @@ export async function POST(request: NextRequest) {
   // Server always re-fetches the call by id AND verifies ownership — never
   // trusts a client-sent transcript/notes blob, same rule as
   // /api/improve-chat re-deriving its numbers server-side.
-  const video = await getClosingVideo(userId, videoId);
+  const video = await getClosingVideo(accountId, videoId);
   if (!video) {
     return NextResponse.json({ error: "Appel introuvable." }, { status: 404 });
   }
-  const businessProfile = await getBusinessProfile(userId);
+  const businessProfile = await getBusinessProfile(accountId);
 
   const systemPrompt = buildCallAnalysisPrompt({ businessProfile, video });
 
