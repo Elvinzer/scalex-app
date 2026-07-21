@@ -258,7 +258,7 @@ export default function MarketingHomePage() {
           >
             <a href="/onboarding">Diagnostiquer mon business →</a>
           </Button>
-          <Falco variant="hero" size="md" animate="enter" priority className="hidden -ml-2 sm:block" />
+          <Falco variant="hero" size="lg" animate="enter" priority className="hidden -ml-2 sm:block" />
           <a
             href="#comment-ca-marche"
             className="flex items-center rounded-full border border-ink bg-white px-8 py-4 text-base font-bold"
@@ -390,7 +390,7 @@ export default function MarketingHomePage() {
                   Voir le diagnostic complet →
                 </span>
               </div>
-              <Falco variant="dashboard" size="md" animate="float" className="hidden shrink-0 sm:block" />
+              <Falco variant="dashboard" size="lg" animate="float" className="hidden shrink-0 sm:block" />
             </div>
             <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
               {PREVIEW_KPIS.map((kpi) => (
@@ -435,7 +435,7 @@ export default function MarketingHomePage() {
                 <p className="text-[15px] leading-relaxed text-muted-foreground">{f.desc}</p>
               </div>
               {f.tag === "COPILOTE IA" && (
-                <Falco variant="insights" size="md" className="shrink-0 self-center" />
+                <Falco variant="insights" size="lg" className="shrink-0 self-center" />
               )}
             </div>
           ))}
@@ -514,7 +514,7 @@ export default function MarketingHomePage() {
       <section className="relative overflow-hidden bg-ink px-6 py-28 text-center text-mist sm:px-12">
         <Falco
           variant="flying"
-          size="lg"
+          size="xl"
           animate="fly-loop"
           className="pointer-events-none absolute top-10 right-[8%] hidden opacity-90 sm:block"
         />

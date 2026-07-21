@@ -11,13 +11,15 @@ export const metadata: Metadata = {
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-mist px-6 text-center">
-      <Falco variant="hero" size="lg" animate="enter" priority />
-      <div>
-        <h1 className="text-2xl font-bold">Falco n&apos;a pas trouvé cette page</h1>
-        <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          Le lien est cassé ou la page a été déplacée. Direction l&apos;accueil.
-        </p>
-      </div>
+      <Falco
+        pose="sleeping"
+        size="md"
+        animate="enter"
+        priority
+        withBubble
+        bubbleText="Je me suis perdu. On rentre à l'accueil ?"
+      />
+      <h1 className="text-2xl font-bold">Page introuvable</h1>
       <Link
         href="/"
         className="flex items-center rounded-full border border-ink bg-white px-6 py-3 text-sm font-bold hover:opacity-65"

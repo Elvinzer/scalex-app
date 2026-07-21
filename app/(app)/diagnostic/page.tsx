@@ -7,6 +7,7 @@ import { AutoOpenImprove } from "./auto-open-improve";
 import { FunnelTab } from "./funnel-tab";
 import { InsightsTab } from "./insights-tab";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
+import { Falco } from "@/components/falco/falco";
 import { CalcPopover } from "@/components/calc-popover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
@@ -189,6 +190,13 @@ export default async function DiagnosticPage({
   const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain);
   const isThin = isBusinessProfileThin(businessProfile);
 
+  // Falco's one-line verdict for the overview header (the single content
+  // Falco on this screen — only the overview tab, not Funnel/Insights).
+  const verdictLine =
+    topPoints.length > 0
+      ? `J'ai repéré ton goulot : ${topPoints[0].label}${totalMonthlyGain !== null ? ` — ≈${formatEur(totalMonthlyGain)}/mois à récupérer` : ""}.`
+      : "Tes taux mesurés sont au niveau du benchmark — solide.";
+
   return (
     <div className="flex flex-col gap-8">
       <Suspense fallback={null}>
@@ -198,9 +206,7 @@ export default async function DiagnosticPage({
       {tabsHeader}
 
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <p className="text-sm text-muted-foreground">
-          J&apos;ai analysé tes chiffres des {PERIOD_LABELS[period]}. Voilà ce que ça donne.
-        </p>
+        <Falco pose="thinking" size="sm" animate="enter" withBubble bubbleText={verdictLine} className="max-w-full" />
         <div className="flex gap-2">
           {Object.entries(PERIOD_LABELS).map(([value, label]) => (
             <Link

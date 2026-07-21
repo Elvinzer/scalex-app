@@ -18,6 +18,7 @@ const EXPORT_WIDTH_PX = 1080; // export target is 1080x1350 (4:5 portrait) — h
 export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthCardData[]; auditUrl: string }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [hideAmounts, setHideAmounts] = useState(false);
+  const [withFalco, setWithFalco] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const touchStartX = useRef<number | null>(null);
@@ -90,6 +91,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
                   card={card}
                   auditUrl={auditUrl}
                   hideAmounts={hideAmounts}
+                  withFalco={withFalco}
                 />
               </div>
             ))}
@@ -130,6 +132,15 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
             className="size-4 rounded border-border"
           />
           Masquer les montants
+        </label>
+        <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={withFalco}
+            onChange={(event) => setWithFalco(event.target.checked)}
+            className="size-4 rounded border-border"
+          />
+          Ajouter Falco
         </label>
       </div>
     </div>

@@ -45,7 +45,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
           <Falco
             variant="bust"
             size="sm"
-            animate="idle"
+            animate="none"
             className="border-2 border-white/20 transition-transform duration-200 group-hover:-rotate-3 group-hover:scale-110"
           />
           {showNotification && (

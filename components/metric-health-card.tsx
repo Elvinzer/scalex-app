@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 
+import { Falco } from "@/components/falco/falco";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import type { MetricHealthCard as MetricHealthCardData } from "@/lib/diagnostic/cascade";
 import { formatEur } from "@/lib/currency";
@@ -11,9 +12,10 @@ export const MetricHealthCard = forwardRef<
     card: MetricHealthCardData;
     auditUrl: string;
     hideAmounts: boolean;
+    withFalco?: boolean;
     className?: string;
   }
->(function MetricHealthCard({ card, auditUrl, hideAmounts, className }, ref) {
+>(function MetricHealthCard({ card, auditUrl, hideAmounts, withFalco = false, className }, ref) {
   const tier = getHealthTier(card.score);
   const barWidth = Math.min(100, Math.max(0, card.score));
 
@@ -75,6 +77,8 @@ export const MetricHealthCard = forwardRef<
       <p className="relative mt-auto pt-6 text-center text-[11px] text-[var(--text-on-dark-muted)]">
         Fais ton audit gratuit — {auditUrl}
       </p>
+
+      {withFalco && <Falco pose="neutral" size="sm" className="absolute right-4 bottom-4 z-10" />}
     </div>
   );
 });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Falco } from "@/components/falco/falco";
 import { KpiNumberField, type KpiFieldSource } from "@/components/kpi-number-field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -83,11 +84,14 @@ export function CheckinModal({
               </>
             ) : feedback.afterPercent > feedback.beforePercent ? (
               <>
-                <p className="text-2xl">📈</p>
-                <p className="font-bold">
-                  Ton {feedback.label.toLowerCase()} est passé de {feedback.beforePercent}% à{" "}
-                  {feedback.afterPercent}% depuis ta dernière session
-                </p>
+                <Falco
+                  pose="happy"
+                  size="md"
+                  animate="enter"
+                  withBubble
+                  bubbleText={`De ${feedback.beforePercent}% à ${feedback.afterPercent}% sur ton ${feedback.label.toLowerCase()} ! Je savais que tu l'avais.`}
+                  className="justify-center"
+                />
               </>
             ) : (
               <>

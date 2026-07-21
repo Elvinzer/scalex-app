@@ -99,6 +99,15 @@ export default async function DashboardPage({
     ? 0
     : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0);
 
+  // The Dashboard's single content Falco (the floating chat bubble is the
+  // one permitted exception). Pose + line reflect the same three states the
+  // page already derives — Falco accompanies the figure, never repeats it.
+  const heroFalco = !hasAnyMonthlyRow
+    ? { pose: "sleeping" as const, line: "Remplis tes chiffres, je tourne à vide." }
+    : points.length > 0
+      ? { pose: "alert" as const, line: "Ton goulot me coûte du sommeil. On le corrige ?" }
+      : { pose: "happy" as const, line: "Tout roule. On vise plus haut ?" };
+
   const weekRange = currentIsoWeekRange();
   const currentYear = new Date().getUTCFullYear();
   const currentMonth = new Date().getUTCMonth() + 1;
@@ -118,7 +127,7 @@ export default async function DashboardPage({
     currentMonthlyRow !== undefined;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Salut, {firstName}</h1>
@@ -134,6 +143,15 @@ export default async function DashboardPage({
       {/* Bloc 1 — always the honest empty-state: no execution engine exists
           yet to attribute real recovered/generated value to (see plan doc). */}
       <div className="sticker-spotlight animate-rise px-7 py-6">
+        <Falco
+          pose={heroFalco.pose}
+          size="sm"
+          animate="enter"
+          withBubble
+          bubbleText={heroFalco.line}
+          bubbleOnDark
+          className="mb-5 hidden sm:flex"
+        />
         <p className="text-xs font-bold text-mist/70">Manque à gagner détecté</p>
         <p className="gradient-text mt-2 text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
           {formatEur(totalMonthlyLoss)}
@@ -146,11 +164,10 @@ export default async function DashboardPage({
         <Button size="lg" asChild className="mt-6">
           <a href="/diagnostic">Récupérer ce cash →</a>
         </Button>
-        <Falco variant="dashboard" size="md" animate="float" className="pointer-events-none absolute right-4 bottom-0 hidden sm:block" />
       </div>
 
       {params.bandeau === "incomplete_data" && (
-        <FalcoEmptyState title="Complète tes chiffres pour ton diagnostic">
+        <FalcoEmptyState title="Complète tes chiffres pour ton diagnostic" showFalco={false}>
           <p className="text-sm font-bold text-muted-foreground">
             Pas encore assez de données pour calculer un goulot.
           </p>
@@ -175,15 +192,15 @@ export default async function DashboardPage({
       )}
 
       <div>
-        <h2 className="text-base font-medium">Tes métriques vs le benchmark</h2>
+        <h2 className="text-base font-bold">Tes métriques vs le benchmark</h2>
         {healthCards.length < 2 ? (
-          <FalcoEmptyState title="Complète tes chiffres pour débloquer tes cartes" className="mt-4">
+          <FalcoEmptyState title="Complète tes chiffres pour débloquer tes cartes" className="mt-3" showFalco={false}>
             <a href="/datas" className="mt-2 inline-block text-sm font-bold text-muted-foreground hover:underline">
               Aller dans Datas →
             </a>
           </FalcoEmptyState>
         ) : (
-          <div className="mt-4">
+          <div className="mt-3">
             <MetricHealthCarousel cards={healthCards} auditUrl={auditUrl} />
           </div>
         )}
@@ -194,7 +211,7 @@ export default async function DashboardPage({
         <p className="mt-1 text-sm font-bold text-muted-foreground">
           Mois en cours, comparé au mois précédent.
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {metricCards.map((card, index) => (
             <div key={card.key} className="animate-rise" style={{ animationDelay: `${index * 40}ms` }}>
               <MetricCard data={card} />
@@ -211,7 +228,7 @@ export default async function DashboardPage({
           </a>
         </div>
 
-        <div className="mt-4 flex flex-col gap-4">
+        <div className="mt-3 flex flex-col gap-3">
           {points.map((point, index) => (
             <div key={point.key} className="animate-rise" style={{ animationDelay: `${index * 60}ms` }}>
               <PriorityItem rank={(index + 1) as 1 | 2 | 3} point={point} />
@@ -219,7 +236,7 @@ export default async function DashboardPage({
           ))}
 
           {points.length < 3 && unlockHints.length > 0 && (
-            <FalcoEmptyState title="Débloquer plus de diagnostics">
+            <FalcoEmptyState title="Débloquer plus de diagnostics" showFalco={false}>
               <ul className="mt-2 flex flex-col gap-1 text-sm font-bold text-muted-foreground">
                 {unlockHints.map((hint) => (
                   <li key={hint}>• {hint}</li>

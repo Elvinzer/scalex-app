@@ -179,7 +179,7 @@ export function ImproveChat({
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-border p-4">
         <div className="flex items-start gap-3">
-          <Falco variant="bust" size="sm" />
+          <Falco pose="neutral" size="sm" />
           <div>
             <DrawerTitle className="text-base font-bold">Améliorer : {title}</DrawerTitle>
             {gapBadge && (
@@ -203,18 +203,17 @@ export function ImproveChat({
                   {message.content}
                 </div>
               </div>
-            ) : (
-              <div key={index} className="text-sm text-foreground">
-                {message.content ? (
-                  renderMarkdownLite(message.content)
-                ) : isStreaming && index === messages.length - 1 ? (
-                  <div className="flex items-center gap-2">
-                    <Falco variant="bust" size="sm" animate="idle" />
-                    <span className="text-muted-foreground">Falco réfléchit…</span>
-                  </div>
-                ) : null}
+            ) : message.content ? (
+              <div key={index} className="flex gap-2">
+                <Falco pose="neutral" size="xs" className="mt-0.5" />
+                <div className="flex-1 text-sm text-foreground">{renderMarkdownLite(message.content)}</div>
               </div>
-            )
+            ) : isStreaming && index === messages.length - 1 ? (
+              <div key={index} className="flex items-center gap-2">
+                <Falco pose="thinking" size="xs" />
+                <span className="text-sm text-muted-foreground">Falco réfléchit…</span>
+              </div>
+            ) : null
           )}
         </div>
       </div>
