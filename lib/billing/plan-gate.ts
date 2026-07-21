@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { subscriptionPlans, subscriptions } from "@/db/schema";
+import { subscriptionPlans, subscriptions, users } from "@/db/schema";
+import { isAdminEmail } from "@/lib/admin";
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
@@ -10,7 +11,15 @@ const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 // so a lapsed subscription cuts access immediately, not just future invites.
 // Same "single point of config, easy to re-tune per tier later" philosophy
 // as the shared-key quota, see lib/agent/quota.ts.
+//
+// Founders' own accounts always report an active/unlimited plan — no real
+// subscriptions row needed. lib/team/context.ts already bypasses this
+// function entirely for admins, but /settings/equipe and
+// /settings/facturation call it directly, so the bypass is duplicated here.
 export async function hasActiveTeamSubscription(accountId: string): Promise<boolean> {
+  const [adminRow] = await db.select({ email: users.email }).from(users).where(eq(users.id, accountId)).limit(1);
+  if (adminRow && isAdminEmail(adminRow.email)) return true;
+
   const [row] = await db
     .select({
       status: subscriptions.status,

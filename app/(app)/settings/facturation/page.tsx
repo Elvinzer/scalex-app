@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
+import { isAdminEmail } from "@/lib/admin";
 import { getAccountSubscription, getActivePlans } from "@/lib/billing/queries";
 import { formatUsdCents } from "@/lib/currency";
-import { requireUserId } from "@/lib/current-user";
+import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -16,6 +17,8 @@ const STATUS_LABELS: Record<string, string> = {
 export default async function FacturationPage() {
   const userId = await requireUserId();
   const access = await requireOwnerOrRedirect(userId);
+  const { user } = await getCurrentUser();
+  const isAdmin = Boolean(user?.email && isAdminEmail(user.email));
 
   const [subscription, plans] = await Promise.all([
     getAccountSubscription(access.accountId),
@@ -30,6 +33,16 @@ export default async function FacturationPage() {
           Ton abonnement Scale X - nécessaire pour inviter des membres d&apos;équipe.
         </p>
       </div>
+
+      {isAdmin && (
+        <div className="sticker-card p-8">
+          <p className="text-sm font-bold text-muted-foreground">Accès administrateur</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Compte fondateur — accès illimité à toutes les fonctionnalités (dont les membres
+            d&apos;équipe), sans abonnement requis.
+          </p>
+        </div>
+      )}
 
       {subscription && (
         <div className="sticker-card p-8">

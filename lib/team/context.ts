@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { teamMemberRoles, teamMembers, teamRoles } from "@/db/schema";
+import { teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
+import { isAdminEmail } from "@/lib/admin";
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
 import type { PermissionKey } from "@/lib/team/permissions";
 
@@ -24,13 +25,27 @@ export type AccountContext =
 // team members lose access immediately, not just future invites, per
 // CLAUDE.md ("l'infopreneur devra forcément avoir un abonnement"). Never
 // null for an owner — the gate only applies to delegated access.
+//
+// Founders (ADMIN_EMAILS, see lib/admin.ts) always get unconditional full
+// access to their own account — never gated by role permissions, and never
+// blocked by a lapsed/missing subscription (see the matching bypass in
+// lib/billing/plan-gate.ts's hasActiveTeamSubscription, for the couple of
+// call sites — /settings/equipe, /settings/facturation — that check the
+// subscription directly rather than through this function).
 export const getAccountContext = cache(async (userId: string): Promise<AccountContext | null> => {
-  const [membership] = await db
-    .select({ id: teamMembers.id, accountId: teamMembers.accountId })
-    .from(teamMembers)
-    .where(and(eq(teamMembers.memberUserId, userId), eq(teamMembers.status, "active")))
-    .orderBy(desc(teamMembers.joinedAt))
-    .limit(1);
+  const [[userRow], [membership]] = await Promise.all([
+    db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1),
+    db
+      .select({ id: teamMembers.id, accountId: teamMembers.accountId })
+      .from(teamMembers)
+      .where(and(eq(teamMembers.memberUserId, userId), eq(teamMembers.status, "active")))
+      .orderBy(desc(teamMembers.joinedAt))
+      .limit(1),
+  ]);
+
+  if (userRow && isAdminEmail(userRow.email)) {
+    return { isOwner: true, accountId: userId, permissions: "all" };
+  }
 
   if (!membership) {
     return { isOwner: true, accountId: userId, permissions: "all" };
