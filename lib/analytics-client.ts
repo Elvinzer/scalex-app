@@ -30,7 +30,9 @@ export type ClientAnalyticsEvent =
   | "improve_chat_opened"
   | "improve_chat_engaged"
   | "metric_card_share_opened"
-  | "metric_card_shared";
+  | "metric_card_shared"
+  | "score_badge_clicked"
+  | "score_modal_share_opened";
 
 export function trackClient(event: ClientAnalyticsEvent, properties?: Record<string, unknown>): void {
   if (!initialized) return;

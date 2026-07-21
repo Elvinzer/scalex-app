@@ -604,3 +604,24 @@ export const processedStripeEvents = pgTable("processed_stripe_events", {
   type: text("type").notNull(),
   processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
+
+// One row per user per day, written by the daily snapshot cron
+// (lib/inngest/functions/snapshot-scale-score.ts) — only when a score was
+// actually computable (see lib/diagnostic/scale-score.ts's ≥2-pillars-
+// covered rule). The sidebar badge/modal NEVER read the current score from
+// here — they always recompute live from the same engine the cron uses.
+// This table exists purely so "the score 7/30 days ago" and the 8-week
+// sparkline are answerable at all, which requires having persisted a point
+// on that day.
+export const scaleScoreHistory = pgTable(
+  "scale_score_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    score: integer("score").notNull(), // 0-100
+  },
+  (table) => [uniqueIndex("scale_score_history_user_date_idx").on(table.userId, table.date)]
+).enableRLS();

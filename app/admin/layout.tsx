@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/current-user";
@@ -29,5 +30,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/dashboard");
   }
 
-  return <div className="min-h-screen bg-panel px-8 py-10 sm:px-12 lg:px-16">{children}</div>;
+  return (
+    <div className="min-h-screen bg-panel px-8 py-10 sm:px-12 lg:px-16">
+      <div className="mx-auto max-w-5xl">
+        <a
+          href="/dashboard"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" />
+          Retour au dashboard
+        </a>
+      </div>
+      {children}
+    </div>
+  );
 }
