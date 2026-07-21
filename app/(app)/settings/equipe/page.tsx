@@ -34,7 +34,7 @@ export default async function EquipePage() {
         <div>
           <h1 className="text-3xl font-bold">Équipe</h1>
           <p className="mt-1 text-muted-foreground">
-            Invite des membres et attribue-leur un ou plusieurs rôles — les accès de chaque rôle
+            Invite des membres et attribue-leur un ou plusieurs rôles - les accès de chaque rôle
             se configurent juste en dessous.
           </p>
         </div>
@@ -98,7 +98,7 @@ export default async function EquipePage() {
         <div>
           <h2 className="text-xl font-bold">Rôles &amp; permissions</h2>
           <p className="mt-1 text-muted-foreground">
-            Ce que chaque rôle peut voir et éditer. Change-le à tout moment — ça s&apos;applique
+            Ce que chaque rôle peut voir et éditer. Change-le à tout moment - ça s&apos;applique
             immédiatement à tous les membres qui l&apos;ont.
           </p>
         </div>
