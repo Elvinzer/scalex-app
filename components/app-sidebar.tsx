@@ -121,7 +121,7 @@ function NavLink({
         indented ? "pl-7 text-[13px] tracking-[-0.005em]" : "pl-3 text-[13.5px] tracking-[-0.01em]",
         active
           ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]"
-          : "text-mist/75 hover:translate-x-0.5 hover:bg-mist/10 hover:text-mist"
+          : "text-white hover:translate-x-0.5 hover:bg-mist/10"
       )}
     >
       <Icon className="size-4" />

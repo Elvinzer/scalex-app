@@ -4,6 +4,7 @@ import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
 import { ApiKeyForm } from "./api-key-form";
+import { DangerZoneForm } from "./danger-zone-form";
 import { FalcoPreferencesForm } from "./falco-preferences-form";
 import { ProfileForm } from "./profile-form";
 import { StripeConnectionCard } from "./stripe-connection-card";
@@ -149,6 +150,13 @@ export default async function SettingsPage() {
       </div>
 
       <StripeConnectionCard stripeConnectId={user?.stripeConnectId ?? null} />
+
+      <div className="sticker-card border-state-critical/30 p-8">
+        <p className="text-sm font-bold text-state-critical">Zone dangereuse</p>
+        <div className="mt-4">
+          <DangerZoneForm email={user?.email ?? ""} />
+        </div>
+      </div>
     </div>
   );
 }

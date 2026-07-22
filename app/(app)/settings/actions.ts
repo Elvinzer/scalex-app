@@ -5,10 +5,35 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { stripeConnections, users } from "@/db/schema";
+import {
+  adCampaigns,
+  businessLevers,
+  businessProfile,
+  closingKpiEntries,
+  closingVideos,
+  contentPosts,
+  dataImports,
+  diagnostics,
+  funnelStageInsights,
+  improvementEvents,
+  journalNotes,
+  monthlyMetrics,
+  projects,
+  sales,
+  scaleScoreHistory,
+  settingKpiEntries,
+  sharedAgentUsage,
+  stripeConnections,
+  subscriptions,
+  teamMembers,
+  teamRoles,
+  todos,
+  users,
+} from "@/db/schema";
 import { validateAnthropicKey } from "@/lib/agent/validate-key";
 import { encrypt } from "@/lib/crypto";
 import { getPlatformStripeClient } from "@/lib/stripe/platform-client";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
 import { requireEnv } from "@/lib/utils";
@@ -144,5 +169,128 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
   await db.update(users).set({ stripeConnectId: null }).where(eq(users.id, access.accountId));
 
   revalidatePath("/settings");
+  return { error: null };
+}
+
+// Wipes every piece of business/diagnostic/journal/team data for this
+// account and resets the users row to a fresh-signup state — but
+// deliberately NEVER touches anthropicApiKeyEncrypted/Invalid,
+// stripeConnectId/stripe_connections, or stripeCustomerId/subscriptions:
+// the BYOK key, Stripe Connect link, and paid Scale X subscription are
+// account-level infrastructure, not "business data", and a reset must not
+// silently kill a subscription the user is still paying for. Contrast with
+// deleteAccount below, which does wipe those (by design, via cascade).
+export async function resetAccountData(): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (!data?.claims) {
+    return { error: "Session expirée, reconnecte-toi." };
+  }
+  const userId = data.claims.sub as string;
+
+  const access = await requireOwner(userId);
+  if (!access) {
+    return { error: "Seul le propriétaire du compte peut réinitialiser les données." };
+  }
+  const { accountId } = access;
+
+  await db.transaction(async (tx) => {
+    await tx.delete(improvementEvents).where(eq(improvementEvents.userId, accountId));
+    await tx.delete(journalNotes).where(eq(journalNotes.userId, accountId));
+    await tx.delete(todos).where(eq(todos.userId, accountId));
+    await tx.delete(projects).where(eq(projects.userId, accountId));
+    await tx.delete(scaleScoreHistory).where(eq(scaleScoreHistory.userId, accountId));
+    await tx.delete(adCampaigns).where(eq(adCampaigns.userId, accountId));
+    await tx.delete(closingVideos).where(eq(closingVideos.userId, accountId));
+    await tx.delete(sales).where(eq(sales.userId, accountId));
+    await tx.delete(contentPosts).where(eq(contentPosts.userId, accountId));
+    await tx.delete(businessLevers).where(eq(businessLevers.userId, accountId));
+    await tx.delete(dataImports).where(eq(dataImports.userId, accountId));
+    await tx.delete(monthlyMetrics).where(eq(monthlyMetrics.userId, accountId));
+    await tx.delete(sharedAgentUsage).where(eq(sharedAgentUsage.userId, accountId));
+    await tx.delete(funnelStageInsights).where(eq(funnelStageInsights.userId, accountId));
+    await tx.delete(businessProfile).where(eq(businessProfile.userId, accountId));
+    await tx.delete(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId));
+    await tx.delete(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId));
+    await tx.delete(diagnostics).where(eq(diagnostics.userId, accountId));
+    // teamMemberRoles cascades automatically from teamMembers' own FK.
+    await tx.delete(teamMembers).where(eq(teamMembers.accountId, accountId));
+    await tx.delete(teamRoles).where(eq(teamRoles.accountId, accountId));
+
+    await tx
+      .update(users)
+      .set({
+        onboardingCompleted: false,
+        businessProfileCompletedAt: null,
+        sector: null,
+        displayName: null,
+        avatarUrl: null,
+        lastImproveMetricKey: null,
+        lastImproveMetricRateSnapshot: null,
+        advancedModulesEnabled: false,
+      })
+      .where(eq(users.id, accountId));
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
+  return { error: null };
+}
+
+// Irreversible. Best-effort cleanup of external state (Stripe subscription,
+// Stripe Connect) so nothing keeps billing/connecting after the account is
+// gone, then deletes the Supabase Auth user itself — every table in
+// db/schema.ts cascades from users.id (which cascades from auth.users.id),
+// so this one call is what actually purges subscriptions/stripe_connections
+// and everything resetAccountData deliberately preserves. Unlike the
+// best-effort Stripe steps, a failure on THIS step is returned as an error
+// rather than swallowed — otherwise the user would believe their account
+// and login are gone when they aren't.
+export async function deleteAccount(confirmEmail: string): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (!data?.claims) {
+    return { error: "Session expirée, reconnecte-toi." };
+  }
+  const userId = data.claims.sub as string;
+
+  const access = await requireOwner(userId);
+  if (!access) {
+    return { error: "Seul le propriétaire du compte peut supprimer le compte." };
+  }
+  const { accountId } = access;
+
+  const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
+  if (!user || confirmEmail.trim().toLowerCase() !== user.email.toLowerCase()) {
+    return { error: "L'email saisi ne correspond pas à celui du compte." };
+  }
+
+  const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.userId, accountId)).limit(1);
+  if (subscription?.stripeSubscriptionId) {
+    try {
+      await getPlatformStripeClient().subscriptions.cancel(subscription.stripeSubscriptionId);
+    } catch (error) {
+      console.error("Stripe subscription cancel failed, deleting account anyway", error);
+    }
+  }
+
+  const [connection] = await db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1);
+  if (connection) {
+    try {
+      await getPlatformStripeClient().oauth.deauthorize({
+        client_id: requireEnv("STRIPE_CONNECT_CLIENT_ID"),
+        stripe_user_id: connection.stripeAccountId,
+      });
+    } catch (error) {
+      console.error("Stripe deauthorize failed, deleting account anyway", error);
+    }
+  }
+
+  const { error } = await getSupabaseAdminClient().auth.admin.deleteUser(accountId);
+  if (error) {
+    console.error("Supabase auth.admin.deleteUser failed", error);
+    return { error: "La suppression a échoué. Réessaie, ou contacte le support si ça persiste." };
+  }
+
   return { error: null };
 }
