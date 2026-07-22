@@ -33,6 +33,7 @@ const sql = postgres(env.DATABASE_URL, { prepare: false });
 const yesNo = (key, prompt) => ({ key, prompt, kind: "yes_no_notyet" });
 const stat = (key, prompt, unit) => ({ key, prompt, kind: "stat_number", ...(unit ? { unit } : {}) });
 const text = (key, prompt) => ({ key, prompt, kind: "stat_text" });
+const select = (key, prompt, options) => ({ key, prompt, kind: "select", options });
 
 const LEVERS = [
   // --- ACQUISITION ---
@@ -75,9 +76,16 @@ const LEVERS = [
     leverKey: "newsletter",
     label: "Newsletter",
     category: "acquisition",
-    questions: [yesNo("hasNewsletter", "Cadence régulière de newsletter (distincte des séquences) ?")],
-    benchmarkValue: null,
-    benchmarkStatKey: null,
+    questions: [
+      yesNo("hasNewsletter", "Cadence régulière de newsletter (distincte des séquences) ?"),
+      stat("openRate", "Taux d'ouverture, à peu près ?", "%"),
+      stat("ctr", "Taux de clic, à peu près ?", "%"),
+    ],
+    // Benchmark sur le clic (pas l'ouverture) — le clic reflète mieux
+    // l'intérêt réel de l'audience pour le contenu (voir
+    // lib/levers/benchmark-info.ts).
+    benchmarkValue: 0.03,
+    benchmarkStatKey: "ctr",
     formulaType: "none",
     formulaParams: {},
     effort: "faible",
@@ -134,6 +142,32 @@ const LEVERS = [
     effort: "faible",
     sortOrder: 7,
   },
+  {
+    leverKey: "ads",
+    label: "Publicité (Ads)",
+    category: "acquisition",
+    questions: [
+      yesNo("hasAds", "Tu fais de la publicité payante (Meta, Google, TikTok, LinkedIn) ?"),
+      select("channel", "Canal principal", [
+        "Meta — génération de leads",
+        "Meta — ecommerce",
+        "Google Search",
+        "TikTok — ecommerce",
+        "LinkedIn — B2B",
+      ]),
+      stat("monthlySpend", "Budget pub mensuel, à peu près ?", "€"),
+      stat("monthlyResults", "Leads ou clients générés par mois, à peu près ?"),
+    ],
+    // Pas de comparaison générique "leads_x_rate..." — le coût par résultat
+    // benchmark dépend du canal choisi, calculé à part (voir
+    // AD_CHANNEL_BENCHMARKS dans lib/levers/opportunities.ts).
+    benchmarkValue: null,
+    benchmarkStatKey: null,
+    formulaType: "none",
+    formulaParams: {},
+    effort: "moyen",
+    sortOrder: 8,
+  },
 
   // --- VENTE ---
   {
@@ -161,14 +195,14 @@ const LEVERS = [
       stat("showUpRate", "Taux de présence, à peu près ?", "%"),
       stat("ventes", "Ventes générées en moyenne par session ?"),
     ],
-    benchmarkValue: 0.4,
+    // "Bon niveau" de présence live (50-60%) — sourced benchmark table,
+    // see lib/levers/benchmark-info.ts. Previously 0.4, a rough guess.
+    benchmarkValue: 0.5,
     benchmarkStatKey: "showUpRate",
-    // A live masterclass converts a meaningfully larger share of an audience
-    // than a passive email (rate 0.06 vs email_marketing's 0.025) — the
-    // previous "none" formula undersold this lever badly (fell back to the
-    // generic effort-based estimate, ~2 clients/month regardless of reach).
     formulaType: "leads_x_rate_x_closing_x_price",
-    formulaParams: { rate: 0.06 },
+    // Clic CTA central (≈9%) from the sourced benchmark table — previously
+    // 0.06, a rough guess undersellling this lever.
+    formulaParams: { rate: 0.09 },
     effort: "moyen",
     sortOrder: 2,
   },

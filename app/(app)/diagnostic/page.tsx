@@ -106,7 +106,7 @@ export default async function DiagnosticPage({
             className="rounded-full border-2 border-accent px-3 text-accent-text data-[state=active]:border-accent data-[state=active]:bg-accent data-[state=active]:text-white"
           >
             <Link href="/diagnostic?tab=discovery" className="flex items-center gap-1.5">
-              Découverte
+              Optimisation
               {discoveryRemaining > 0 && (
                 <span className="rounded-full bg-accent-2/20 px-1.5 py-0.5 text-[10px] font-bold text-accent-2">
                   {discoveryRemaining}

@@ -657,7 +657,7 @@ export const leversCatalog = pgTable("levers_catalog", {
   category: text("category").notNull(), // "acquisition" | "vente" | "delivrabilite"
   // [] for the 4 levers resolved from business_profile instead (see
   // lib/levers/catalog.ts's resolveFromBusinessProfile) — never asked twice.
-  questions: jsonb("questions").notNull().$type<{ key: string; prompt: string; kind: "yes_no_notyet" | "stat_number" | "stat_text"; unit?: string }[]>(),
+  questions: jsonb("questions").notNull().$type<{ key: string; prompt: string; kind: "yes_no_notyet" | "stat_number" | "stat_text" | "select"; unit?: string; options?: string[] }[]>(),
   readsFromProfile: boolean("reads_from_profile").notNull().default(false),
   benchmarkValue: real("benchmark_value"), // 0-1 fraction; null = no comparable stat
   benchmarkStatKey: text("benchmark_stat_key"), // which businessLevers.stats key the benchmark applies to

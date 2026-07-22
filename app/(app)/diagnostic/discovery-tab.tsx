@@ -112,6 +112,7 @@ export async function DiscoveryTab({ accountId }: { accountId: string }) {
                 impactAmountEur={item.impactAmountEur}
                 impactExplanation={`${Math.round(item.statValue * 100)}% vs ${Math.round(item.benchmarkValue * 100)}% de benchmark. ${item.impactExplanation}`}
                 ctaLabel="Améliorer"
+                currentValue={item.statValue}
               />
             ))}
           </div>

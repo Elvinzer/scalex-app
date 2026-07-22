@@ -246,7 +246,7 @@ export default async function OverviewPage({
                 ))
               ) : (
                 <FalcoEmptyState title="Aucune opportunité identifiée pour l'instant" showFalco={false}>
-                  <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Découverte pour en débloquer.</p>
+                  <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Optimisation pour en débloquer.</p>
                 </FalcoEmptyState>
               )}
             </div>
@@ -258,7 +258,7 @@ export default async function OverviewPage({
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-bold">Tes leviers actifs</h2>
           <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
-            Voir la Découverte →
+            Voir l&apos;Optimisation →
           </a>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -266,7 +266,7 @@ export default async function OverviewPage({
             bestActiveLevers.map((lever) => <OverviewActiveLeverCard key={lever.leverKey} {...lever} />)
           ) : (
             <FalcoEmptyState title="Aucun levier actif renseigné pour l'instant" showFalco={false}>
-              <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Découverte pour les voir ici.</p>
+              <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Optimisation pour les voir ici.</p>
             </FalcoEmptyState>
           )}
         </div>

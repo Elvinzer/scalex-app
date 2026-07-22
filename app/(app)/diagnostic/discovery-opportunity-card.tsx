@@ -4,10 +4,12 @@ import { useState } from "react";
 
 import { CalcPopover } from "@/components/calc-popover";
 import { ImproveChat } from "@/components/improve-chat";
+import { LeverBenchmarkBar } from "@/components/lever-benchmark-bar";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { trackClient } from "@/lib/analytics-client";
 import { formatEur } from "@/lib/currency";
+import { LEVER_BENCHMARK_INFO } from "@/lib/levers/benchmark-info";
 import { cn } from "@/lib/utils";
 
 const EFFORT_LABEL: Record<"faible" | "moyen" | "eleve", string> = { faible: "Effort faible", moyen: "Effort moyen", eleve: "Effort élevé" };
@@ -28,6 +30,7 @@ export function DiscoveryOpportunityCard({
   impactAmountEur,
   impactExplanation,
   ctaLabel,
+  currentValue,
 }: {
   leverKey: string;
   label: string;
@@ -36,8 +39,12 @@ export function DiscoveryOpportunityCard({
   impactAmountEur: number | null;
   impactExplanation: string;
   ctaLabel: string;
+  // Only known for "actifs à surveiller" (the lever is active, this is its
+  // current KPI value) — absent for "à implémenter" (no current value yet).
+  currentValue?: number | null;
 }) {
   const [open, setOpen] = useState(false);
+  const info = LEVER_BENCHMARK_INFO[leverKey];
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -51,6 +58,7 @@ export function DiscoveryOpportunityCard({
           <div>
             <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{category}</p>
             <p className="mt-0.5 font-bold">{label}</p>
+            {info && <p className="mt-1 text-xs text-muted-foreground">{info.whatIsThis}</p>}
           </div>
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold whitespace-nowrap", EFFORT_CLASS[effort])}>
             {EFFORT_LABEL[effort]}
@@ -63,6 +71,16 @@ export function DiscoveryOpportunityCard({
           </p>
           <CalcPopover explanation={impactExplanation} />
         </div>
+
+        {info?.badMax !== undefined && info?.okMax !== undefined && (
+          <LeverBenchmarkBar
+            badMax={info.badMax}
+            okMax={info.okMax}
+            excellentAt={info.excellentAt}
+            currentValue={currentValue}
+            centralLabel={info.centralLabel}
+          />
+        )}
 
         {/* Violet, not coral — this opens the Copilote (IA), the token
             reserved for AI/analytics actions. Coral stays free for the

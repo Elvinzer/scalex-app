@@ -58,12 +58,27 @@ function LeverRow({ lever }: { lever: EditableLever }) {
           {statQuestions.map((question) => (
             <label key={question.key} className="flex flex-col gap-1 text-xs">
               <span className="font-bold text-muted-foreground">{question.prompt}</span>
-              <input
-                type={question.kind === "stat_number" ? "number" : "text"}
-                value={draft[question.key] ?? ""}
-                onChange={(event) => setDraft((prev) => ({ ...prev, [question.key]: event.target.value }))}
-                className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus-visible:border-accent"
-              />
+              {question.kind === "select" ? (
+                <select
+                  value={draft[question.key] ?? ""}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, [question.key]: event.target.value }))}
+                  className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus-visible:border-accent"
+                >
+                  <option value="">Choisir...</option>
+                  {question.options?.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type={question.kind === "stat_number" ? "number" : "text"}
+                  value={draft[question.key] ?? ""}
+                  onChange={(event) => setDraft((prev) => ({ ...prev, [question.key]: event.target.value }))}
+                  className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus-visible:border-accent"
+                />
+              )}
             </label>
           ))}
           <Button size="sm" variant="ghost" onClick={() => void handleSaveStats()} disabled={isPending} className="self-start">

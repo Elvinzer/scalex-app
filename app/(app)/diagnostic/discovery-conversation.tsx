@@ -18,18 +18,32 @@ const CATEGORY_LABEL: Record<LeverCatalogEntry["category"], string> = {
 };
 
 function StatField({ question, value, onChange }: { question: LeverQuestion; value: string; onChange: (v: string) => void }) {
+  const fieldClass =
+    "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
+
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-bold">
         {question.prompt}
         {question.unit && <span className="ml-1 font-normal text-muted-foreground">({question.unit})</span>}
       </span>
-      <input
-        type={question.kind === "stat_number" ? "number" : "text"}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
-      />
+      {question.kind === "select" ? (
+        <select value={value} onChange={(event) => onChange(event.target.value)} className={fieldClass}>
+          <option value="">Choisir...</option>
+          {question.options?.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type={question.kind === "stat_number" ? "number" : "text"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={fieldClass}
+        />
+      )}
     </label>
   );
 }

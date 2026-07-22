@@ -7,8 +7,9 @@ import type { BusinessProfileData } from "@/lib/business/types";
 export type LeverQuestion = {
   key: string;
   prompt: string;
-  kind: "yes_no_notyet" | "stat_number" | "stat_text";
+  kind: "yes_no_notyet" | "stat_number" | "stat_text" | "select";
   unit?: string;
+  options?: string[]; // only for kind: "select"
 };
 
 export type LeverCategory = "acquisition" | "vente" | "delivrabilite";
