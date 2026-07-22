@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import { cva } from "class-variance-authority";
 
@@ -10,6 +12,7 @@ import falcoInsights from "@/assets/falco/falco-insights.png";
 import { cn } from "@/lib/utils";
 
 import { FalcoBubble } from "./falco-bubble";
+import { useFalcoAnimationsEnabled } from "./falco-context";
 
 const FALCO_ASSETS = {
   hero: { src: falcoHero, alt: "Falco, la mascotte Scale X" },
@@ -63,7 +66,7 @@ const falcoVariants = cva("shrink-0 select-none", {
   },
 });
 
-type FalcoSize = keyof typeof SIZE_PX;
+export type FalcoSize = keyof typeof SIZE_PX;
 type FalcoAnimate = "none" | "idle" | "float" | "fly-loop" | "enter";
 
 export function Falco({
@@ -100,6 +103,13 @@ export function Falco({
   const resolvedVariant: FalcoVariant = pose ? POSE_TO_VARIANT[pose] : (variant ?? "bust");
   const asset = FALCO_ASSETS[resolvedVariant];
   const isBust = resolvedVariant === "bust";
+  const animationsEnabled = useFalcoAnimationsEnabled();
+  // Pose-aware entrance — replaces the generic `animate="enter"` fade with a
+  // morph matching the pose whenever one is known (see lib/falco-motion.ts;
+  // falco-morph-neutral is itself an alias of falco-settle, so pose="neutral"
+  // call sites look identical to before). Remounting with a new `key` per
+  // conversational turn is what replays this — no JS change-detection needed.
+  const morphClass = pose && animationsEnabled ? `falco-morph-${pose}` : undefined;
 
   const image = (
     <Image
@@ -109,6 +119,7 @@ export function Falco({
       sizes={`${isBust ? BUST_SIZE_PX[size] : SIZE_PX[size]}px`}
       className={cn(
         falcoVariants({ size, animate }),
+        morphClass,
         isBust && cn(BUST_SIZE_CLASS[size], "rounded-full object-cover object-top"),
         !withBubble && className
       )}

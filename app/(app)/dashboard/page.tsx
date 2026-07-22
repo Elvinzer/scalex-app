@@ -3,8 +3,8 @@ import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
 import { DailyReportDialog } from "./daily-report-dialog";
-import { Falco } from "@/components/falco/falco";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
+import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityItem } from "@/components/priority-item";
 import { Button } from "@/components/ui/button";
@@ -157,7 +157,7 @@ export default async function DashboardPage({
           pulled off the Dashboard for now (see git history to restore it —
           components/metric-health-carousel.tsx is untouched). */}
       <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-6 px-7 py-6">
-        <Falco pose={heroFalco.pose} size="sm" animate="enter" className="hidden sm:flex" />
+        <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden sm:flex" />
         <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
           <p className="text-sm font-bold text-mist/70">Manque à gagner détecté</p>
           <p className="figure-hero gradient-text">{formatEur(totalMonthlyLoss)}</p>

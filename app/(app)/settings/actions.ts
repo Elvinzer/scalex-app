@@ -90,6 +90,23 @@ export async function updateProfile(formData: FormData): Promise<{ error: string
   return { error: null };
 }
 
+// Personal preference — written via the logged-in userId, same as
+// updateProfile above (never accountId): each team member controls their
+// own animation comfort, independent of the OS-level prefers-reduced-motion
+// (see components/falco/falco-context.tsx).
+export async function updateFalcoPreferences(reduceFalcoAnimations: boolean): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (!data?.claims) {
+    return { error: "Session expirée, reconnecte-toi." };
+  }
+
+  await db.update(users).set({ reduceFalcoAnimations }).where(eq(users.id, data.claims.sub as string));
+
+  revalidatePath("/settings");
+  return { error: null };
+}
+
 export async function disconnectStripe(): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();

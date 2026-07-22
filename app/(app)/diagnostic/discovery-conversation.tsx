@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Falco } from "@/components/falco/falco";
-import { FalcoBubble } from "@/components/falco/falco-bubble";
+import { FalcoConversationTurn } from "@/components/falco/falco-conversation-turn";
+import { useFalcoListening } from "@/components/falco/use-falco-listening";
 import { Button } from "@/components/ui/button";
 import type { LeverCatalogEntry, LeverQuestion } from "@/lib/levers/catalog";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,19 @@ const CATEGORY_LABEL: Record<LeverCatalogEntry["category"], string> = {
   delivrabilite: "Délivrabilité",
 };
 
-function StatField({ question, value, onChange }: { question: LeverQuestion; value: string; onChange: (v: string) => void }) {
+function StatField({
+  question,
+  value,
+  onChange,
+  onFocus,
+  onBlur,
+}: {
+  question: LeverQuestion;
+  value: string;
+  onChange: (v: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+}) {
   const fieldClass =
     "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
@@ -28,7 +40,7 @@ function StatField({ question, value, onChange }: { question: LeverQuestion; val
         {question.unit && <span className="ml-1 font-normal text-muted-foreground">({question.unit})</span>}
       </span>
       {question.kind === "select" ? (
-        <select value={value} onChange={(event) => onChange(event.target.value)} className={fieldClass}>
+        <select value={value} onChange={(event) => onChange(event.target.value)} onFocus={onFocus} onBlur={onBlur} className={fieldClass}>
           <option value="">Choisir...</option>
           {question.options?.map((option) => (
             <option key={option} value={option}>
@@ -41,6 +53,8 @@ function StatField({ question, value, onChange }: { question: LeverQuestion; val
           type={question.kind === "stat_number" ? "number" : "text"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onFocus={onFocus}
+          onBlur={onBlur}
           className={fieldClass}
         />
       )}
@@ -83,6 +97,7 @@ export function DiscoveryConversation({
   const [statDraft, setStatDraft] = useState<Record<string, string>>({});
   const [answeredCount, setAnsweredCount] = useState(initialAnswered);
   const [isPending, setIsPending] = useState(false);
+  const listening = useFalcoListening();
 
   const lever = levers[index];
   const primaryQuestion = lever?.questions[0];
@@ -141,40 +156,45 @@ export function DiscoveryConversation({
 
       <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">{CATEGORY_LABEL[lever.category]}</p>
 
-      <div className="flex items-start gap-3">
-        <Falco pose="thinking" size="md" animate="enter" />
-        <FalcoBubble arrow="left" className="max-w-none flex-1">
-          {phase === "primary" ? primaryQuestion?.prompt : "Top. Un à-peu-près suffit sur les chiffres qui suivent."}
-        </FalcoBubble>
-      </div>
-
-      {phase === "primary" ? (
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => handlePrimaryAnswer("yes")} disabled={isPending}>
-            Oui
-          </Button>
-          <Button variant="secondary" onClick={() => handlePrimaryAnswer("no")} disabled={isPending}>
-            Non
-          </Button>
-          <Button variant="ghost" onClick={() => handlePrimaryAnswer("not_yet")} disabled={isPending}>
-            Pas encore
-          </Button>
-        </div>
-      ) : (
-        <form onSubmit={handleStatsSubmit} className="flex flex-col gap-4">
-          {statQuestions.map((question) => (
-            <StatField
-              key={question.key}
-              question={question}
-              value={statDraft[question.key] ?? ""}
-              onChange={(v) => setStatDraft((prev) => ({ ...prev, [question.key]: v }))}
-            />
-          ))}
-          <Button type="submit" disabled={isPending} className={cn("self-start", isPending && "opacity-70")}>
-            {isPending ? "..." : "Continuer →"}
-          </Button>
-        </form>
-      )}
+      <FalcoConversationTurn
+        key={`${lever.leverKey}-${phase}`}
+        pose={listening.pose ?? "thinking"}
+        falcoClassName={phase === "stats" ? listening.className : undefined}
+        bubbleText={phase === "primary" ? (primaryQuestion?.prompt ?? "") : "Top. Un à-peu-près suffit sur les chiffres qui suivent."}
+      >
+        {phase === "primary" ? (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => handlePrimaryAnswer("yes")} disabled={isPending}>
+              Oui
+            </Button>
+            <Button variant="secondary" onClick={() => handlePrimaryAnswer("no")} disabled={isPending}>
+              Non
+            </Button>
+            <Button variant="ghost" onClick={() => handlePrimaryAnswer("not_yet")} disabled={isPending}>
+              Pas encore
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleStatsSubmit} className="flex flex-col gap-4">
+            {statQuestions.map((question) => (
+              <StatField
+                key={question.key}
+                question={question}
+                value={statDraft[question.key] ?? ""}
+                onChange={(v) => {
+                  setStatDraft((prev) => ({ ...prev, [question.key]: v }));
+                  listening.onFieldChange();
+                }}
+                onFocus={listening.onFieldFocus}
+                onBlur={listening.onFieldBlur}
+              />
+            ))}
+            <Button type="submit" disabled={isPending} className={cn("self-start", isPending && "opacity-70")}>
+              {isPending ? "..." : "Continuer →"}
+            </Button>
+          </form>
+        )}
+      </FalcoConversationTurn>
     </div>
   );
 }

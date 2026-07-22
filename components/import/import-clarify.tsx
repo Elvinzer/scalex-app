@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { Falco } from "@/components/falco/falco";
-import { FalcoBubble } from "@/components/falco/falco-bubble";
+import { FalcoConversationTurn } from "@/components/falco/falco-conversation-turn";
+import { useFalcoListening } from "@/components/falco/use-falco-listening";
 import { Button } from "@/components/ui/button";
 import type { AnalyzeSheetResult } from "@/lib/import/schema";
 
@@ -70,6 +70,7 @@ export function ImportClarify({
   const [queue] = useState(() => buildQuestionQueue(initialSheets));
   const [index, setIndex] = useState(0);
   const [periodDraft, setPeriodDraft] = useState({ year: new Date().getUTCFullYear(), month: new Date().getUTCMonth() + 1 });
+  const listening = useFalcoListening();
 
   useEffect(() => {
     if (queue.length === 0) onResolved(sheets);
@@ -140,88 +141,97 @@ export function ImportClarify({
         </span>
       </div>
 
-      <div className="flex items-start gap-3">
-        <Falco pose="thinking" size="md" animate="enter" />
-        <FalcoBubble arrow="left" className="max-w-none flex-1">
-          {current.kind === "period"
+      <FalcoConversationTurn
+        key={index}
+        pose={listening.pose ?? "thinking"}
+        falcoClassName={current.kind === "period" ? listening.className : undefined}
+        bubbleText={
+          current.kind === "period"
             ? "Ces chiffres, c'est quel mois ?"
             : current.kind === "header"
               ? `C'est laquelle, ta ligne de titres, sur "${current.sheetName}" ?`
               : current.kind === "ads_confirm"
                 ? `Ta feuille "${current.sheetName}" ressemble à du tracking de pub. Je l'importe dans ton module Ads, ou je l'ignore ?`
-                : current.prompt}
-        </FalcoBubble>
-      </div>
-
-      {current.kind === "header" ? (
-        <div className="flex flex-col gap-2">
-          <div className="sticker-card overflow-x-auto p-3 text-xs">
-            <table className="w-full border-collapse">
-              <tbody>
-                {current.previewRows.map((row, rowIndex) => (
-                  <tr key={rowIndex} className="border-b border-border last:border-b-0">
-                    {row.map((cell, cellIndex) => (
-                      <td key={cellIndex} className="px-2 py-1 whitespace-nowrap">
-                        {cell || "—"}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                : current.prompt
+        }
+      >
+        {current.kind === "header" ? (
+          <div className="flex flex-col gap-2">
+            <div className="sticker-card overflow-x-auto p-3 text-xs">
+              <table className="w-full border-collapse">
+                <tbody>
+                  {current.previewRows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="border-b border-border last:border-b-0">
+                      {row.map((cell, cellIndex) => (
+                        <td key={cellIndex} className="px-2 py-1 whitespace-nowrap">
+                          {cell || "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {current.previewRows.map((_, rowIndex) => (
+                <Button key={rowIndex} variant="secondary" onClick={() => onHeaderRowChosen(current.sheetName, rowIndex)}>
+                  Ligne {rowIndex + 1}
+                </Button>
+              ))}
+            </div>
           </div>
+        ) : current.kind === "ads_confirm" ? (
           <div className="flex flex-wrap gap-2">
-            {current.previewRows.map((_, rowIndex) => (
-              <Button key={rowIndex} variant="secondary" onClick={() => onHeaderRowChosen(current.sheetName, rowIndex)}>
-                Ligne {rowIndex + 1}
+            <Button variant="secondary" onClick={() => handleAdsConfirmAnswer(current, true)}>
+              Importer dans Ads
+            </Button>
+            <Button variant="ghost" onClick={() => handleAdsConfirmAnswer(current, false)}>
+              Ignorer cette feuille
+            </Button>
+          </div>
+        ) : current.kind === "period" ? (
+          <div className="flex items-center gap-2">
+            <select
+              value={periodDraft.month}
+              onChange={(event) => setPeriodDraft((prev) => ({ ...prev, month: Number(event.target.value) }))}
+              onFocus={listening.onFieldFocus}
+              onBlur={listening.onFieldBlur}
+              className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              value={periodDraft.year}
+              onChange={(event) => {
+                setPeriodDraft((prev) => ({ ...prev, year: Number(event.target.value) }));
+                listening.onFieldChange();
+              }}
+              onFocus={listening.onFieldFocus}
+              onBlur={listening.onFieldBlur}
+              className="w-24 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent"
+            />
+            <Button size="sm" onClick={() => handlePeriodAnswer(current)}>
+              Continuer →
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {current.options.map((option) => (
+              <Button key={option} variant="secondary" onClick={() => handleColumnAnswer(current, option)}>
+                {FIELD_LABELS[option] ?? option}
               </Button>
             ))}
-          </div>
-        </div>
-      ) : current.kind === "ads_confirm" ? (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => handleAdsConfirmAnswer(current, true)}>
-            Importer dans Ads
-          </Button>
-          <Button variant="ghost" onClick={() => handleAdsConfirmAnswer(current, false)}>
-            Ignorer cette feuille
-          </Button>
-        </div>
-      ) : current.kind === "period" ? (
-        <div className="flex items-center gap-2">
-          <select
-            value={periodDraft.month}
-            onChange={(event) => setPeriodDraft((prev) => ({ ...prev, month: Number(event.target.value) }))}
-            className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent"
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            value={periodDraft.year}
-            onChange={(event) => setPeriodDraft((prev) => ({ ...prev, year: Number(event.target.value) }))}
-            className="w-24 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent"
-          />
-          <Button size="sm" onClick={() => handlePeriodAnswer(current)}>
-            Continuer →
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {current.options.map((option) => (
-            <Button key={option} variant="secondary" onClick={() => handleColumnAnswer(current, option)}>
-              {FIELD_LABELS[option] ?? option}
+            <Button variant="ghost" onClick={() => handleColumnAnswer(current, null)}>
+              Ignorer cette colonne
             </Button>
-          ))}
-          <Button variant="ghost" onClick={() => handleColumnAnswer(current, null)}>
-            Ignorer cette colonne
-          </Button>
-        </div>
-      )}
+          </div>
+        )}
+      </FalcoConversationTurn>
     </div>
   );
 }

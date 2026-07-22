@@ -3,8 +3,10 @@
 import { useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
+import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { Button } from "@/components/ui/button";
 import { trackClient } from "@/lib/analytics-client";
+import { falcoReactionClassName } from "@/lib/falco-events";
 import type { AnalyzeResponse, CommitImportPayload } from "@/lib/import/schema";
 
 import { commitImport } from "@/app/(app)/datas/import-actions";
@@ -140,8 +142,7 @@ export function ImportFlow({
     case "analyzing":
       return (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <Falco pose="thinking" size="md" animate="enter" />
-          <p className="text-sm text-muted-foreground">Falco trie ton fichier...</p>
+          <FalcoPondering isLoading pose="thinking" size="md" label="Falco trie ton fichier..." className="flex-col" />
         </div>
       );
 
@@ -171,8 +172,7 @@ export function ImportFlow({
     case "committing":
       return (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <Falco pose="thinking" size="md" animate="enter" />
-          <p className="text-sm text-muted-foreground">Import en cours...</p>
+          <FalcoPondering isLoading pose="thinking" size="md" label="Import en cours..." className="flex-col" />
         </div>
       );
 
@@ -195,7 +195,7 @@ export function ImportFlow({
     case "done":
       return (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <Falco pose="happy" size="md" animate="enter" />
+          <Falco pose="happy" size="md" animate="enter" className={falcoReactionClassName("value_imported")} />
           <p className="text-sm font-bold">
             C&apos;est rangé. {step.fieldsWritten} valeur{step.fieldsWritten > 1 ? "s" : ""} importée{step.fieldsWritten > 1 ? "s" : ""}, ton
             diagnostic est à jour.
@@ -206,7 +206,7 @@ export function ImportFlow({
     case "error":
       return (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <Falco pose="sleeping" size="md" animate="enter" />
+          <Falco pose="sleeping" size="md" animate="enter" className={falcoReactionClassName("benign_error_parsing")} />
           <p className="text-sm text-state-critical">{step.message}</p>
           <Button variant="secondary" onClick={() => setStep({ kind: "dropzone" })}>
             Réessayer

@@ -438,6 +438,92 @@
   .falco-enter {
     animation: falco-settle var(--motion-base) var(--ease-out) both;
   }
+
+  /* Bulles vivantes — lib/falco-motion.ts is the single source of truth for
+     these durations; every class below matches a name there 1:1. Never add
+     a Falco animation anywhere else (grep "falco-" here should find all of
+     them). */
+
+  /* A bubble's entrance — scales/rises in from Falco's side, delayed 150ms
+     so it visually starts AFTER Falco's own pose-morph (see .falco-morph-*
+     below) without any JS coordination between the two components. */
+  .falco-bubble-in {
+    animation: falco-bubble-in 220ms var(--ease-out) 150ms both;
+  }
+  .falco-bubble-out {
+    animation: falco-bubble-out 150ms var(--ease-out) both;
+  }
+  /* Falco's own micro "push" as a bubble appears next to him. */
+  .falco-nudge {
+    animation: falco-nudge 180ms var(--ease-out);
+  }
+  /* Typewriter caret — deliberately separate from .falco-blink (Falco's own
+     face-blink during listening): this one is a plain opacity blink on a
+     text "|", not a pose animation. */
+  .falco-cursor-blink {
+    animation: falco-cursor-blink 800ms step-end infinite;
+  }
+
+  /* Pose-morph accents — one per target pose, played once on mount (a new
+     `key` per conversational turn is what makes React remount and replay
+     this, see the 3 conversation flows). */
+  .falco-morph-happy {
+    animation: falco-morph-happy var(--motion-base) var(--ease-spring) both;
+  }
+  .falco-morph-thinking {
+    animation: falco-morph-thinking var(--motion-base) var(--ease-out) both;
+  }
+  .falco-morph-alert {
+    animation: falco-morph-alert var(--motion-base) var(--ease-in-out) both;
+  }
+  .falco-morph-sleeping {
+    animation: falco-morph-sleeping var(--motion-base) var(--ease-out) both;
+  }
+  .falco-morph-neutral {
+    animation: falco-settle var(--motion-base) var(--ease-out) both;
+  }
+
+  /* Listening (focus on a conversation's input) — held tilt, not a
+     one-shot keyframe, so it stays as long as the field has focus. */
+  .falco-tilt-listening {
+    transform: rotate(-4deg);
+    transition: transform var(--motion-base) var(--ease-out);
+  }
+  .falco-blink {
+    animation: falco-blink var(--motion-fast) var(--ease-in-out);
+  }
+  .falco-nod {
+    animation: falco-nod 350ms var(--ease-out);
+  }
+  /* One-shot reaction variants — lib/falco-events.ts maps event keys to
+     these. "happy-bounce" reuses the existing happy morph spring rather
+     than inventing a near-duplicate keyframe. */
+  .falco-happy-bounce {
+    animation: falco-morph-happy var(--motion-base) var(--ease-spring) both;
+  }
+  .falco-tilt-neutral {
+    animation: falco-tilt-neutral var(--motion-base) var(--ease-out) both;
+  }
+
+  /* Pondering (loading) — 3 dots in a wave, bounded by the isLoading prop
+     of FalcoPondering, never a standalone infinite loop in markup. */
+  .falco-pondering-dot {
+    animation: falco-pondering-dot 400ms ease-in-out infinite;
+  }
+  .falco-pondering-dot:nth-child(2) {
+    animation-delay: 120ms;
+  }
+  .falco-pondering-dot:nth-child(3) {
+    animation-delay: 240ms;
+  }
+
+  /* Page-greet — Falco's own entrance, distinct from .falco-enter (which
+     plays every remount): this one is deliberately named apart because
+     it's always paired with the sessionStorage "once per visit" gate in
+     FalcoPageGreet, never applied unconditionally. */
+  .falco-page-greet {
+    animation: falco-page-greet 250ms var(--ease-out) both;
+  }
 }
 
 @keyframes rise-in {
@@ -515,12 +601,183 @@
   }
 }
 
+@keyframes falco-bubble-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes falco-bubble-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes falco-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes falco-morph-happy {
+  0% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  60% {
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes falco-morph-thinking {
+  from {
+    opacity: 0.4;
+    transform: rotate(0deg);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-4deg);
+  }
+}
+
+@keyframes falco-morph-alert {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-2px);
+  }
+  40%,
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes falco-morph-sleeping {
+  from {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0.9;
+    transform: translateY(2px);
+  }
+}
+
+@keyframes falco-blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scaleY(0.9);
+  }
+}
+
+@keyframes falco-cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes falco-nod {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(3deg);
+  }
+  75% {
+    transform: rotate(-1deg);
+  }
+}
+
+@keyframes falco-tilt-neutral {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-3deg);
+  }
+}
+
+@keyframes falco-pondering-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes falco-page-greet {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-rise,
   .falco-idle,
   .falco-float,
   .falco-fly-loop,
-  .falco-enter {
+  .falco-enter,
+  .falco-bubble-in,
+  .falco-bubble-out,
+  .falco-nudge,
+  .falco-morph-happy,
+  .falco-morph-thinking,
+  .falco-morph-alert,
+  .falco-morph-sleeping,
+  .falco-morph-neutral,
+  .falco-blink,
+  .falco-nod,
+  .falco-pondering-dot,
+  .falco-page-greet,
+  .falco-cursor-blink,
+  .falco-happy-bounce,
+  .falco-tilt-neutral {
     animation: none;
+  }
+  .falco-tilt-listening {
+    transform: none;
+    transition: none;
   }
 }

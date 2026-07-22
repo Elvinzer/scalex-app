@@ -4,6 +4,7 @@ import { Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
+import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 
@@ -209,10 +210,7 @@ export function ImproveChat({
                 <div className="flex-1 text-sm text-foreground">{renderMarkdownLite(message.content)}</div>
               </div>
             ) : isStreaming && index === messages.length - 1 ? (
-              <div key={index} className="flex items-center gap-2">
-                <Falco pose="thinking" size="xs" />
-                <span className="text-sm text-muted-foreground">Falco réfléchit…</span>
-              </div>
+              <FalcoPondering key={index} isLoading size="xs" />
             ) : null
           )}
         </div>

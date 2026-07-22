@@ -4,6 +4,7 @@ import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
 import { ApiKeyForm } from "./api-key-form";
+import { FalcoPreferencesForm } from "./falco-preferences-form";
 import { ProfileForm } from "./profile-form";
 import { StripeConnectionCard } from "./stripe-connection-card";
 
@@ -44,6 +45,9 @@ export default async function SettingsPage() {
         </p>
         <div className="mt-4">
           <ProfileForm userId={userId} initialDisplayName={user?.displayName ?? null} initialAvatarUrl={user?.avatarUrl ?? null} />
+        </div>
+        <div className="mt-6 border-t border-border pt-6">
+          <FalcoPreferencesForm initialReduceAnimations={user?.reduceFalcoAnimations ?? false} />
         </div>
       </div>
 

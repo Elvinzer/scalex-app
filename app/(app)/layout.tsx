@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
 import { FloatingChatBubble } from "@/components/floating-chat-bubble";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
@@ -159,27 +160,29 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-panel">
-      <AppSidebar
-        email={typeof email === "string" ? email : ""}
-        businessName={businessProfile.identity.businessName}
-        displayName={userRow?.displayName ?? null}
-        avatarUrl={userRow?.avatarUrl ?? null}
-        isOwner={isOwner}
-        permissions={permissions}
-        isAdmin={isAdmin}
-        advancedModulesEnabled={advancedModulesEnabled}
-        scaleScore={canSeeScaleScore ? scaleScore : null}
-        scaleScoreDelta7d={scaleScoreDelta7d}
-        scaleScoreDelta30d={scaleScoreDelta30d}
-        scaleScoreSparkline={scaleScoreSparkline}
-        currentMonthlyRevenue={currentMonthlyRevenue}
-        potentialMonthlyRevenue={potentialMonthlyRevenue}
-      />
-      <main className="ml-64 flex-1 px-8 py-10 sm:px-12 lg:px-16">
-        <div className="mx-auto max-w-6xl">{children}</div>
-      </main>
-      <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
-    </div>
+    <FalcoPreferencesProvider reduceAnimations={userRow?.reduceFalcoAnimations ?? false}>
+      <div className="flex min-h-screen bg-panel">
+        <AppSidebar
+          email={typeof email === "string" ? email : ""}
+          businessName={businessProfile.identity.businessName}
+          displayName={userRow?.displayName ?? null}
+          avatarUrl={userRow?.avatarUrl ?? null}
+          isOwner={isOwner}
+          permissions={permissions}
+          isAdmin={isAdmin}
+          advancedModulesEnabled={advancedModulesEnabled}
+          scaleScore={canSeeScaleScore ? scaleScore : null}
+          scaleScoreDelta7d={scaleScoreDelta7d}
+          scaleScoreDelta30d={scaleScoreDelta30d}
+          scaleScoreSparkline={scaleScoreSparkline}
+          currentMonthlyRevenue={currentMonthlyRevenue}
+          potentialMonthlyRevenue={potentialMonthlyRevenue}
+        />
+        <main className="ml-64 flex-1 px-8 py-10 sm:px-12 lg:px-16">
+          <div className="mx-auto max-w-6xl">{children}</div>
+        </main>
+        <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
+      </div>
+    </FalcoPreferencesProvider>
   );
 }

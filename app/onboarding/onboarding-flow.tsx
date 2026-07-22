@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { DiscoveryConversation } from "@/app/(app)/diagnostic/discovery-conversation";
 import { Falco, type FalcoPose } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
+import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { ImportFlow } from "@/components/import/import-flow";
 import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
@@ -33,14 +34,16 @@ const EMPTY_MONTH: MonthlyMetricsInput = {
   salesClosed: null,
 };
 
-// Falco's lines, revealed with a gentle stagger (CSS rise-in, no typewriter,
-// nothing blocking) — the successive-bubble feel the brief asks for without
-// making the user wait on a timer.
+// Falco's lines, revealed with a gentle stagger (CSS rise-in on the wrapper,
+// staggered by `index`) — a plain-string child additionally typewriters its
+// own text (see FalcoBubble); JSX children (e.g. an interpolated <strong>)
+// fall back to the instant `children` path automatically, never blocked.
 function Bubble({ index, children }: { index: number; children: React.ReactNode }) {
+  const text = typeof children === "string" ? children : undefined;
   return (
     <div className="animate-rise self-start" style={{ animationDelay: `${index * 120}ms` }}>
-      <FalcoBubble arrow="none" className="max-w-[440px]">
-        {children}
+      <FalcoBubble arrow="none" className="max-w-[440px]" text={text} typewriter={!!text}>
+        {text ? undefined : children}
       </FalcoBubble>
     </div>
   );
@@ -211,7 +214,7 @@ export function OnboardingFlow({
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col gap-8 px-6 py-12">
       <div className="flex flex-col items-center gap-4">
-        <Falco pose={headerPose} size="lg" animate="enter" priority />
+        <Falco key={`${step}-${headerPose}`} pose={headerPose} size="lg" animate="enter" priority />
         <ProgressBar step={step} />
       </div>
 
@@ -343,7 +346,7 @@ export function OnboardingFlow({
             <NumberField label="Ventes conclues" value={monthDraft.salesClosed} onChange={(v) => updateMonth({ salesClosed: v })} />
           </div>
 
-          {isPending && <Bubble index={3}>Je calcule…</Bubble>}
+          {isPending && <FalcoPondering isLoading pose="thinking" size="xs" label="Je calcule…" className="self-start" />}
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <div className="mt-2 flex flex-col items-center gap-3">

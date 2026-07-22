@@ -111,6 +111,13 @@ export const users = pgTable("users", {
   // rows, so pre-existing accounts stayed true and every signup after that
   // second push starts false (self-activatable from /avance).
   advancedModulesEnabled: boolean("advanced_modules_enabled").notNull().default(false),
+  // Per-INDIVIDUAL preference (written via the logged-in userId, same
+  // pattern as displayName/avatarUrl above — never accountId), independent
+  // of the OS-level prefers-reduced-motion: some users want fewer Falco
+  // animations without disabling all system motion. See
+  // components/falco/falco-context.tsx's useFalcoAnimationsEnabled, which
+  // combines both signals.
+  reduceFalcoAnimations: boolean("reduce_falco_animations").notNull().default(false),
 }).enableRLS();
 
 export const stripeConnections = pgTable("stripe_connections", {
