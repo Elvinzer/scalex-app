@@ -270,6 +270,15 @@
     @apply bg-background text-foreground relative;
     line-height: 1.5;
   }
+  /* Native checkbox/radio/range widgets default to the browser's blue
+     accent-color when unstyled — this was the source of stray blue showing
+     up next to the coral action color everywhere in the app. One rule
+     instead of a className on every <input type="checkbox"/"radio">. */
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"] {
+    accent-color: var(--accent);
+  }
   html {
     @apply font-sans;
   }
