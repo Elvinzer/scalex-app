@@ -232,13 +232,44 @@ function buildGroups(sheets: AnalyzeSheetResult[]): ResolvedGroup[] {
   });
 }
 
+// Replaces the single "Aucune valeur exploitable détectée" message with one
+// that says WHERE it broke — the fixed date-serial bug (lib/import/aggregate.ts)
+// means this now only fires for genuinely different failures, each with its
+// own actionable text instead of one catch-all.
+function diagnoseNoUsableData(sheets: AnalyzeSheetResult[]): string {
+  const relevantSheets = sheets.filter((s) => s.mapping.targetTable !== "ignore");
+
+  if (relevantSheets.length === 0) {
+    const reasons = sheets.map((s) => s.mapping.ignoreReason).filter((r): r is string => Boolean(r));
+    return reasons.length > 0
+      ? `Toutes les feuilles ont été ignorées : ${reasons.join(" · ")}`
+      : "Aucune feuille de ce fichier ne correspond à un tableau de chiffres exploitable.";
+  }
+
+  // A date column was identified but every single value in it failed to
+  // parse (dateColumnValues from enrichMapping is "" for an unparseable
+  // cell — see lib/import/aggregate.ts's normalizeDateCellToIso), and there's
+  // no whole-sheet period to fall back on either.
+  const hasUnreadableDateColumn = relevantSheets.some(
+    (s) =>
+      s.mapping.targetTable === "monthly_metrics" &&
+      s.mapping.dateColumnName &&
+      !s.mapping.periodDetected &&
+      (s.mapping.dateColumnValues === null || s.mapping.dateColumnValues.every((v) => v.trim() === ""))
+  );
+  if (hasUnreadableDateColumn) {
+    return "Je vois des chiffres mais pas de dates valides dans la colonne repérée. Vérifie que la bonne colonne contient bien tes dates.";
+  }
+
+  return "Aucune valeur exploitable détectée dans les colonnes repérées. Vérifie que les bonnes colonnes sont bien remplies.";
+}
+
 export function ImportPreview({
   sheets,
   existingMonths,
   tokens,
   keySource,
   onCommit,
-  onExtracted,
   onCancel,
   isCommitting,
 }: {
@@ -247,11 +278,6 @@ export function ImportPreview({
   tokens: { inputTokens: number; outputTokens: number };
   keySource: "byok" | "shared";
   onCommit?: (payloads: CommitImportPayload[]) => void;
-  // Onboarding uses this instead of onCommit: no monthly_metrics row exists
-  // yet on a brand new account, so there's nothing to write or conflict
-  // with here — just hand the resolved values back so the existing
-  // step-2 form (saveOnboardingMonth) commits them, same as manual entry.
-  onExtracted?: (values: Record<string, number>, year: number, month: number) => void;
   onCancel: () => void;
   isCommitting: boolean;
 }) {
@@ -309,9 +335,7 @@ export function ImportPreview({
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <Falco pose="sleeping" size="md" animate="enter" />
-        <p className="text-sm text-muted-foreground">
-          Aucune valeur exploitable détectée. Vérifie le mois ciblé ou saisis tes chiffres à la main.
-        </p>
+        <p className="text-sm text-muted-foreground">{diagnoseNoUsableData(sheets)}</p>
         <Button variant="secondary" onClick={onCancel}>
           Annuler
         </Button>
@@ -320,15 +344,6 @@ export function ImportPreview({
   }
 
   function handleCommit() {
-    if (onExtracted) {
-      const first = groups[0];
-      const values = Object.fromEntries(
-        first.fields.filter((f) => typeof resolvedValue(first, f) === "number").map((f) => [f.targetField, resolvedValue(first, f) as number])
-      );
-      onExtracted(values, first.year, first.month);
-      return;
-    }
-
     // One commit call per distinct (sheet's targetTable) — a single file
     // can have sheets going to different tables (monthly_metrics + ads +
     // content_posts in the same workbook), and commitImportPayloadSchema
@@ -429,7 +444,7 @@ export function ImportPreview({
 
       <div className="flex gap-2">
         <Button onClick={handleCommit} disabled={isCommitting}>
-          {isCommitting ? "Import en cours..." : onExtracted ? "C'est bon ?" : `Importer ${groups.reduce((sum, g) => sum + g.fields.length, 0)} valeur(s)`}
+          {isCommitting ? "Import en cours..." : `Importer ${groups.reduce((sum, g) => sum + g.fields.length, 0)} valeur(s)`}
         </Button>
         <Button variant="secondary" onClick={onCancel} disabled={isCommitting}>
           Annuler

@@ -29,3 +29,13 @@ export function currentMonthWindow(): MonthWindow {
   const first = new Date(Date.UTC(year, month - 1, 1));
   return { year, month, range: { from: toIsoDate(first), to: toIsoDate(today) } };
 }
+
+// Builds a MonthWindow for an ARBITRARY (year, month), not one relative to
+// today — used by onboarding's finalizeOnboarding to diagnose over whatever
+// months actually have data (one manually-entered month, or however many a
+// smart import covered), rather than assuming "last completed month".
+export function monthWindowFor(year: number, month: number): MonthWindow {
+  const first = new Date(Date.UTC(year, month - 1, 1));
+  const last = new Date(Date.UTC(year, month, 0));
+  return { year, month, range: { from: toIsoDate(first), to: toIsoDate(last) } };
+}

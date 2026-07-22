@@ -44,18 +44,18 @@ function hasPendingQuestions(analysis: AnalyzeResponse): boolean {
 
 // Shared by both entry points (Mes chiffres drawer, onboarding inline) —
 // only what wraps this component differs (Drawer vs. inline layout), the
-// upload→analyze→clarify→preview state machine is identical. Onboarding
-// passes onExtracted instead of relying on the default commit path: a
-// brand new account has no monthly_metrics row yet to write/conflict with,
-// so it just needs the resolved values handed back to fill its own form.
+// upload→analyze→clarify→preview→commit state machine is identical for
+// both: onboarding used to special-case a single extracted month, but a
+// brand new account commits through commitImport exactly like any other
+// account (nothing there requires a pre-existing monthly_metrics row) —
+// onCommitted is enough for onboarding to know it's time to compute the
+// diagnosis, however many months the import actually covered.
 export function ImportFlow({
   source,
   onCommitted,
-  onExtracted,
 }: {
   source: "onboarding" | "datas";
   onCommitted?: () => void;
-  onExtracted?: (values: Record<string, number>, year: number, month: number) => void;
 }) {
   const [step, setStep] = useState<Step>({ kind: "dropzone" });
   // Kept around so a "which line is your header row?" answer can
@@ -162,8 +162,7 @@ export function ImportFlow({
           existingMonths={step.analysis.existingMonths}
           tokens={step.analysis.tokens}
           keySource={step.analysis.keySource}
-          onCommit={onExtracted ? undefined : handleCommit}
-          onExtracted={onExtracted}
+          onCommit={handleCommit}
           onCancel={() => handleAbandon("preview")}
           isCommitting={false}
         />

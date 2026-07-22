@@ -13,14 +13,16 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import type { Offer, SaleMode } from "@/lib/business/types";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
-import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { lastCompletedMonths, monthWindowFor } from "@/lib/diagnostic/completed-months";
 import { computeOnboardingGoulot, type OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 
-// The single "previous full calendar month" window screen 2 collects data
-// for and screen 3 diagnoses — lastCompletedMonths(1) already builds
-// exactly this, no need for separate date math.
+// The manual-entry form (screen 2's "Saisir à la main" path) still asks for
+// one specific month — lastCompletedMonths(1) is that window. The import
+// path no longer targets any single month (see finalizeOnboarding below):
+// the user can hand over as many months as their file has, and the goulot
+// engine sorts out what to do with them.
 export async function getOnboardingMonthWindow() {
   return lastCompletedMonths(1)[0];
 }
@@ -59,19 +61,15 @@ export async function saveOnboardingOffer(data: {
   return { error: null };
 }
 
-export async function saveOnboardingMonth(
-  year: number,
-  month: number,
-  data: unknown
-): Promise<{ error: string | null; result?: OnboardingGoulotResult }> {
-  const userId = await requireUserId();
-  if (typeof userId !== "string") return userId;
-
-  const monthResult = await saveMonthlyMetrics(year, month, data);
-  if (monthResult.error) return monthResult;
-
-  await track("onboarding_step_completed", userId, { step: 3 });
-
+// Shared tail end of onboarding screen 2, regardless of HOW the data got
+// there (manual entry writes exactly one month; a smart import can write
+// several at once — see completeOnboardingAfterImport below). Deliberately
+// diagnoses over every month that now has a monthly_metrics row, not a
+// fixed "last completed month" window: onboarding is a one-time event on a
+// brand new account, so whatever data exists at this point IS what the
+// user just gave us, and computeOnboardingGoulot doesn't care how many
+// months it's fed.
+async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingGoulotResult }> {
   const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const businessProfile = await getBusinessProfile(userId);
   const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
@@ -80,9 +78,9 @@ export async function saveOnboardingMonth(
     getAllMonthlyMetrics(userId),
   ]);
 
-  const monthWindow = lastCompletedMonths(1)[0];
+  const months = allMonthlyRows.map((row) => monthWindowFor(row.year, row.month));
   const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
-    months: [monthWindow],
+    months,
     allMonthlyRows,
     allSettingEntries,
     allClosingEntries,
@@ -100,6 +98,36 @@ export async function saveOnboardingMonth(
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
 
+  return { result };
+}
+
+export async function saveOnboardingMonth(
+  year: number,
+  month: number,
+  data: unknown
+): Promise<{ error: string | null; result?: OnboardingGoulotResult }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+
+  const monthResult = await saveMonthlyMetrics(year, month, data);
+  if (monthResult.error) return monthResult;
+
+  await track("onboarding_step_completed", userId, { step: 3 });
+  const { result } = await finalizeOnboarding(userId);
+  return { error: null, result };
+}
+
+// Called once a smart import has already committed however many months it
+// found (commitImport, via ImportFlow's normal onCommitted hook — no
+// special single-month extraction path anymore, see components/import/
+// import-flow.tsx) — this only computes the diagnosis and closes out
+// onboarding, it never writes monthly_metrics itself.
+export async function completeOnboardingAfterImport(): Promise<{ error: string | null; result?: OnboardingGoulotResult }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+
+  await track("onboarding_step_completed", userId, { step: 3 });
+  const { result } = await finalizeOnboarding(userId);
   return { error: null, result };
 }
 

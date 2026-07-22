@@ -17,7 +17,7 @@ import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
 import { cn } from "@/lib/utils";
 
-import { saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
+import { completeOnboardingAfterImport, saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
 
 const inputClass =
   "w-full rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
@@ -182,6 +182,28 @@ export function OnboardingFlow({
     setStep(3);
   }
 
+  // The import path no longer targets a single month — commitImport (called
+  // by ImportFlow's own onCommit) already wrote however many months the
+  // file had, so this only needs to compute the diagnosis over whatever
+  // now exists and close out onboarding. Same no_data/result handling as
+  // the manual path above.
+  async function handleImportCommitted() {
+    setError(null);
+    setIsPending(true);
+    const res = await completeOnboardingAfterImport();
+    setIsPending(false);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    if (res.result?.kind === "no_data") {
+      router.push("/dashboard?bandeau=incomplete_data");
+      return;
+    }
+    setResult(res.result ?? null);
+    setStep(3);
+  }
+
   // Optional questionnaire taking over the wizard — DiscoveryConversation
   // brings its own Falco + progress, so the 1..3 header is dropped here.
   // Answers persist one by one (saveLeverAnswer), so "Finir plus tard" keeps
@@ -297,18 +319,12 @@ export function OnboardingFlow({
       {step === 2 && step2Mode === "choice" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
-            Tes chiffres de {previousMonthLabel} — tu as un export ou une capture ? Glisse-le ici, je m&apos;occupe du
-            tri. Sinon on les remplit ensemble.
+            Tes chiffres — tu as un export ou une capture ? Glisse-le ici, je m&apos;occupe du tri, même si ça couvre
+            plusieurs mois. Sinon on les remplit ensemble pour {previousMonthLabel}.
           </Bubble>
-          <ImportFlow
-            source="onboarding"
-            onExtracted={(values, year, month) => {
-              void year;
-              void month;
-              setMonthDraft((prev) => ({ ...prev, ...values }));
-              setStep2Mode("manual");
-            }}
-          />
+          <ImportFlow source="onboarding" onCommitted={() => void handleImportCommitted()} />
+          {isPending && <FalcoPondering isLoading pose="thinking" size="xs" label="Je calcule…" className="self-start" />}
+          {error && <p className="text-sm text-state-critical">{error}</p>}
           <Button type="button" variant="ghost" className="self-center" onClick={() => setStep2Mode("manual")}>
             Saisir à la main
           </Button>
@@ -393,8 +409,8 @@ export function OnboardingFlow({
       {step === 3 && result?.kind === "no_gap" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
-            Tes chiffres sont déjà solides 🎉 Sur ce que tu as pu mesurer ce mois-ci, rien n&apos;est sous les
-            standards de ta niche. Continue à remplir tes chiffres pour affiner ton diagnostic.
+            Tes chiffres sont déjà solides 🎉 Sur ce que tu as pu mesurer, rien n&apos;est sous les standards de ta
+            niche. Continue à remplir tes chiffres pour affiner ton diagnostic.
           </Bubble>
           <Button size="lg" asChild className="w-full">
             <a href="/dashboard">Aller sur mon dashboard →</a>
