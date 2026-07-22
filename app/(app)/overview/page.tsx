@@ -197,76 +197,78 @@ export default async function OverviewPage({
           />
         </div>
 
-        <div className="flex flex-col gap-3">
-          <h2 className="text-base font-bold">Ton goulot actuel</h2>
-          {bottleneckPoint ? (
-            <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-4 px-6 py-4">
-              <Falco pose="alert" size="xs" animate="enter" className="hidden sm:flex" />
-              <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <p className="text-xs font-bold text-mist/70">{bottleneckPoint.label}</p>
-                <p className="gradient-text text-2xl font-bold tracking-[-0.01em] tabular-nums">
-                  {bottleneckPoint.monthlyGain === null ? "—" : formatEur(bottleneckPoint.monthlyGain)}
-                </p>
-                <p className="text-xs text-mist/60">manque à gagner détecté</p>
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3">
+            <h2 className="text-base font-bold">Ton goulot actuel</h2>
+            {bottleneckPoint ? (
+              <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-4 px-6 py-4">
+                <Falco pose="alert" size="xs" animate="enter" className="hidden sm:flex" />
+                <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <p className="text-xs font-bold text-mist/70">{bottleneckPoint.label}</p>
+                  <p className="gradient-text text-2xl font-bold tracking-[-0.01em] tabular-nums">
+                    {bottleneckPoint.monthlyGain === null ? "—" : formatEur(bottleneckPoint.monthlyGain)}
+                  </p>
+                  <p className="text-xs text-mist/60">manque à gagner détecté</p>
+                </div>
+                <Button size="sm" asChild>
+                  <a href={`/diagnostic?open=${bottleneckPoint.key}`}>Améliorer →</a>
+                </Button>
               </div>
-              <Button size="sm" asChild>
-                <a href={`/diagnostic?open=${bottleneckPoint.key}`}>Améliorer →</a>
-              </Button>
+            ) : (
+              <FalcoEmptyState title="Aucun goulot détecté sur cette période" showFalco={false}>
+                <p className="text-sm font-bold text-muted-foreground">Tout est au-dessus du benchmark. Bien joué.</p>
+              </FalcoEmptyState>
+            )}
+          </div>
+
+          {/* Fills the empty space left under the (short) goulot banner next
+              to the (tall) funnel — same section as before, just relocated. */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-bold">À mettre en place</h2>
+              <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
+                Tout voir →
+              </a>
             </div>
-          ) : (
-            <FalcoEmptyState title="Aucun goulot détecté sur cette période" showFalco={false}>
-              <p className="text-sm font-bold text-muted-foreground">Tout est au-dessus du benchmark. Bien joué.</p>
-            </FalcoEmptyState>
-          )}
+            <div className="flex flex-col gap-3">
+              {topOpportunities.length > 0 ? (
+                topOpportunities.map((opportunity) => (
+                  <DiscoveryOpportunityCard
+                    key={opportunity.leverKey}
+                    leverKey={opportunity.leverKey}
+                    label={opportunity.label}
+                    category={opportunity.category}
+                    effort={opportunity.effort}
+                    impactAmountEur={opportunity.impactAmountEur}
+                    impactExplanation={opportunity.impactExplanation}
+                    ctaLabel="En discuter avec le Copilote"
+                  />
+                ))
+              ) : (
+                <FalcoEmptyState title="Aucune opportunité identifiée pour l'instant" showFalco={false}>
+                  <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Découverte pour en débloquer.</p>
+                </FalcoEmptyState>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-bold">Tes leviers actifs</h2>
-            <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
-              Voir la Découverte →
-            </a>
-          </div>
-          <div className="flex flex-col gap-3">
-            {bestActiveLevers.length > 0 ? (
-              bestActiveLevers.map((lever) => <OverviewActiveLeverCard key={lever.leverKey} {...lever} />)
-            ) : (
-              <FalcoEmptyState title="Aucun levier actif renseigné pour l'instant" showFalco={false}>
-                <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Découverte pour les voir ici.</p>
-              </FalcoEmptyState>
-            )}
-          </div>
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold">Tes leviers actifs</h2>
+          <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
+            Voir la Découverte →
+          </a>
         </div>
-
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-bold">À mettre en place</h2>
-            <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
-              Tout voir →
-            </a>
-          </div>
-          <div className="flex flex-col gap-3">
-            {topOpportunities.length > 0 ? (
-              topOpportunities.map((opportunity) => (
-                <DiscoveryOpportunityCard
-                  key={opportunity.leverKey}
-                  leverKey={opportunity.leverKey}
-                  label={opportunity.label}
-                  category={opportunity.category}
-                  effort={opportunity.effort}
-                  impactAmountEur={opportunity.impactAmountEur}
-                  impactExplanation={opportunity.impactExplanation}
-                  ctaLabel="En discuter avec le Copilote"
-                />
-              ))
-            ) : (
-              <FalcoEmptyState title="Aucune opportunité identifiée pour l'instant" showFalco={false}>
-                <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Découverte pour en débloquer.</p>
-              </FalcoEmptyState>
-            )}
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {bestActiveLevers.length > 0 ? (
+            bestActiveLevers.map((lever) => <OverviewActiveLeverCard key={lever.leverKey} {...lever} />)
+          ) : (
+            <FalcoEmptyState title="Aucun levier actif renseigné pour l'instant" showFalco={false}>
+              <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Découverte pour les voir ici.</p>
+            </FalcoEmptyState>
+          )}
         </div>
       </div>
     </div>
