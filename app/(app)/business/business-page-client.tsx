@@ -27,7 +27,7 @@ export function BusinessPageClient({ initialProfile }: { initialProfile: Busines
       ? "Nickel. J'ai tout ce qu'il me faut pour un diagnostic précis."
       : completion.percent >= 40
         ? "On progresse. Encore quelques réponses et je vois plus clair."
-        : "Aide-moi à te connaître — plus tu remplis, plus je peux t'aider.";
+        : "Aide-moi à te connaître : plus tu remplis, plus je peux t'aider.";
 
   return (
     <div className="flex flex-col gap-8">

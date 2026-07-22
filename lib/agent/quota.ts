@@ -10,7 +10,7 @@ export const SHARED_KEY_MONTHLY_QUOTA: number | null = null;
 
 export class SharedKeyQuotaExceededError extends Error {
   constructor() {
-    super("Quota mensuel de la clé partagée atteint — ajoute ta propre clé Anthropic dans Réglages.");
+    super("Quota mensuel de la clé partagée atteint. Ajoute ta propre clé Anthropic dans Réglages.");
     this.name = "SharedKeyQuotaExceededError";
   }
 }

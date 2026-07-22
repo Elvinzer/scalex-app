@@ -27,7 +27,7 @@ export const closingRateKnowledge: StageKnowledge = {
       when: (answers) => answers.sales_script === "never",
       cause: "L'absence de structure dans l'appel laisse la conversation dériver sans aller jusqu'au closing",
       guidance:
-        "Mets en place un script de vente structuré (qualification, présentation de l'offre, traitement des objections, demande de closing explicite) — même en improvisant le ton, garde ces étapes fixes.",
+        "Mets en place un script de vente structuré (qualification, présentation de l'offre, traitement des objections, demande de closing explicite). Même en improvisant le ton, garde ces étapes fixes.",
     },
     {
       id: "budget-not-qualified",

@@ -97,7 +97,7 @@ export function CheckinModal({
               <>
                 <p className="text-2xl">🤔</p>
                 <p className="font-bold">
-                  Toujours à {feedback.afterPercent}% sur ton {feedback.label.toLowerCase()} — on regarde pourquoi ?
+                  Toujours à {feedback.afterPercent}% sur ton {feedback.label.toLowerCase()}. On regarde pourquoi ?
                 </p>
                 <Button asChild size="sm" variant="outline" className="self-center">
                   <a href={`/diagnostic?open=${feedback.key}`}>Reprendre le chat →</a>

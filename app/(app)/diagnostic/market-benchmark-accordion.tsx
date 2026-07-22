@@ -69,8 +69,8 @@ export function MarketBenchmarkAccordion({
         <div className="border-t border-border p-5 pt-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Où tu te situes vs des ordres de grandeur du secteur, sur chaque étape du funnel —
-              prospection et closing confondus. Clique un taux pour un diagnostic personnalisé.
+              Où tu te situes vs des ordres de grandeur du secteur, sur chaque étape du funnel
+              (prospection et closing confondus). Clique un taux pour un diagnostic personnalisé.
             </p>
             <SectorPicker sector={sector} />
           </div>

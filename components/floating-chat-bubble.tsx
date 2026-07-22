@@ -36,7 +36,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
       <DrawerTrigger asChild>
         <button
           type="button"
-          aria-label={showNotification ? "Falco a une remarque pour toi — discuter de tes datas" : "Discuter avec Falco, ton copilote IA"}
+          aria-label={showNotification ? "Falco a une remarque pour toi : discuter de tes datas" : "Discuter avec Falco, ton copilote IA"}
           className={cn(
             // Violet, not coral — this launches the Copilote (IA), the
             // token reserved for AI/analytics actions. Coral stays reserved

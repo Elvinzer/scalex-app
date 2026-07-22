@@ -23,7 +23,7 @@ export async function acceptInvite(token: string): Promise<{ error: string | nul
     return { error: "Cette invitation est invalide ou a expiré." };
   }
   if (!email || invite.email.toLowerCase() !== email) {
-    return { error: `Cette invitation est destinée à ${invite.email} — connecte-toi avec cette adresse.` };
+    return { error: `Cette invitation est destinée à ${invite.email}. Connecte-toi avec cette adresse.` };
   }
 
   await ensureUserRow(userId, email);

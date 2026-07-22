@@ -42,7 +42,7 @@ export async function saveAnthropicKey(
   if (validation === "unknown") {
     return {
       error:
-        "Impossible de vérifier ta clé pour l'instant (souci réseau côté Anthropic) — réessaie dans quelques instants.",
+        "Impossible de vérifier ta clé pour l'instant (souci réseau côté Anthropic). Réessaie dans quelques instants.",
     };
   }
 

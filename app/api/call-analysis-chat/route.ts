@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   if (messages.length >= MAX_MESSAGES) {
     return NextResponse.json(
-      { error: "Cette conversation a atteint sa limite de messages — ouvre-la à nouveau pour continuer." },
+      { error: "Cette conversation a atteint sa limite de messages. Ouvre-la à nouveau pour continuer." },
       { status: 400 }
     );
   }
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     provider = getAiProvider();
   } catch {
     return NextResponse.json(
-      { error: "L'IA n'est pas configurée côté serveur — préviens l'administrateur." },
+      { error: "L'IA n'est pas configurée côté serveur. Préviens l'administrateur." },
       { status: 503 }
     );
   }
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     });
   } catch {
     return NextResponse.json(
-      { error: "Impossible de joindre l'IA pour l'instant — réessaie dans un instant." },
+      { error: "Impossible de joindre l'IA pour l'instant. Réessaie dans un instant." },
       { status: 502 }
     );
   }
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!upstream.ok || !upstream.body) {
-    return NextResponse.json({ error: "L'IA n'a pas pu répondre — réessaie dans un instant." }, { status: 502 });
+    return NextResponse.json({ error: "L'IA n'a pas pu répondre. Réessaie dans un instant." }, { status: 502 });
   }
 
   return new Response(upstream.body, {

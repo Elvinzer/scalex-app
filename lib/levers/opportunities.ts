@@ -83,7 +83,7 @@ function fallbackEstimate(
   const amount = round(extraClients * dealPrice.price);
   return {
     amountEur: amount,
-    explanation: `Estimation indicative : ≈${extraClients} client${extraClients > 1 ? "s" : ""} en plus par mois × ${Math.round(dealPrice.price)}€ (prix de ton offre principale) — un ordre de grandeur pour un levier à effort ${lever.effort}, pas un calcul précis comme les leviers avec formule dédiée.`,
+    explanation: `Estimation indicative : ≈${extraClients} client${extraClients > 1 ? "s" : ""} en plus par mois × ${Math.round(dealPrice.price)}€ (prix de ton offre principale). Un ordre de grandeur pour un levier à effort ${lever.effort}, pas un calcul précis comme les leviers avec formule dédiée.`,
   };
 }
 

@@ -28,7 +28,7 @@ export const showUpRateKnowledge: StageKnowledge = {
       when: (answers) => answers.reminder === "none",
       cause: "L'absence de rappel avant l'appel laisse le prospect oublier ou déprioriser le rendez-vous",
       guidance:
-        "Mets en place un rappel automatique la veille et le jour même de l'appel — c'est souvent le levier le plus direct sur le no-show.",
+        "Mets en place un rappel automatique la veille et le jour même de l'appel. C'est souvent le levier le plus direct sur le no-show.",
     },
     {
       id: "reminder-day-before-only",

@@ -66,7 +66,7 @@ export function PriorityItem({
         <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
           <Falco pose="alert" size="xs" animate="enter" />
           <FalcoBubble arrow="left" className="max-w-none flex-1">
-            Je recommande de commencer par ça — c&apos;est ton point le plus rentable à corriger cette semaine.
+            Je recommande de commencer par ça : c&apos;est ton point le plus rentable à corriger cette semaine.
           </FalcoBubble>
         </div>
       )}

@@ -38,7 +38,7 @@ export default async function SuiviDesVentesPage() {
         <div>
           <h1 className="text-3xl font-bold">Suivi des ventes</h1>
           <p className="mt-1 text-muted-foreground">
-            Chaque vente, son échéancier et ses impayés — au-delà des seuls totaux du funnel.
+            Chaque vente, avec son échéancier et ses impayés, au-delà des seuls totaux du funnel.
           </p>
         </div>
         <SaleFormDialog

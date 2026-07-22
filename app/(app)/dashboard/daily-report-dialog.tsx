@@ -95,7 +95,7 @@ export function DailyReportDialog({ alreadyDoneToday }: { alreadyDoneToday: bool
       <DialogContent>
         <DialogTitle className="text-lg font-bold">Rapport Daily</DialogTitle>
         <p className="mt-1 text-sm text-muted-foreground">
-          Les chiffres de ton funnel pour une journée — setting et closing en un coup.
+          Les chiffres de ton funnel pour une journée : setting et closing en un coup.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">

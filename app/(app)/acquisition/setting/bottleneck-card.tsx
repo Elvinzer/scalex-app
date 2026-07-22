@@ -44,7 +44,7 @@ export function BottleneckCard({
       <p className="mt-3 max-w-2xl text-sm text-mist/70">{STAGE_TIPS[bottleneck.stage]}</p>
       {comparison === "below" && band && (
         <p className="mt-2 max-w-2xl text-sm text-mist/70">
-          C&apos;est aussi en dessous du repère bas du marché ({formatPercent(band.bas)}) — c&apos;est
+          C&apos;est aussi en dessous du repère bas du marché ({formatPercent(band.bas)}). C&apos;est
           probablement ta priorité numéro un.
         </p>
       )}

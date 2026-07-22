@@ -239,7 +239,7 @@ export function OnboardingFlow({
       {step === 2 && (
         <form onSubmit={handleScreen2Submit} className="flex flex-col gap-4">
           <Bubble index={0}>
-            Maintenant tes chiffres de {previousMonthLabel}. Des valeurs approx suffisent — je préfère un vrai
+            Maintenant tes chiffres de {previousMonthLabel}. Des valeurs approx suffisent, je préfère un vrai
             « à peu près » qu&apos;un faux précis.
           </Bubble>
 

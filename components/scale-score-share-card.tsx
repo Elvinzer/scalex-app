@@ -69,7 +69,7 @@ export const ScaleScoreShareCard = forwardRef<
       </div>
 
       <p className="relative mt-10 text-center text-[11px] text-[var(--text-on-dark-muted)]">
-        Fais ta projection gratuite — scalex.app
+        Fais ta projection gratuite sur scalex.app
       </p>
     </div>
   );

@@ -70,7 +70,7 @@ export async function DiscoveryTab({ accountId }: { accountId: string }) {
       <div className="flex items-center gap-3">
         <Falco pose="happy" size="sm" animate="enter" />
         <p className="text-sm font-bold text-muted-foreground">
-          Parcours terminé — voici ce que tu peux ajouter, et ce qui tourne déjà sous le radar.
+          Parcours terminé. Voici ce que tu peux ajouter, et ce qui tourne déjà sous le radar.
         </p>
       </div>
 
@@ -78,7 +78,7 @@ export async function DiscoveryTab({ accountId }: { accountId: string }) {
         <h2 className="text-base font-bold">À implémenter</h2>
         {toImplement.length === 0 ? (
           <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
-            Aucun levier absent détecté — tout est déjà en place.
+            Aucun levier absent détecté. Tout est déjà en place.
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">

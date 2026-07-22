@@ -75,7 +75,7 @@ export const MetricHealthCard = forwardRef<
       </p>
 
       <p className="relative mt-auto pt-6 text-center text-[11px] text-[var(--text-on-dark-muted)]">
-        Fais ton audit gratuit — {auditUrl}
+        Fais ton audit gratuit sur {auditUrl}
       </p>
 
       {withFalco && <Falco pose="neutral" size="sm" className="absolute right-4 bottom-4 z-10" />}

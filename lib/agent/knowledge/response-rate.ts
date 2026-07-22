@@ -29,7 +29,7 @@ export const responseRateKnowledge: StageKnowledge = {
       when: (answers) => answers.message_format === "template_text",
       cause: "Le message est perçu comme automatisé ou générique",
       guidance:
-        "Personnalise au moins les deux premières lignes avec un détail concret du profil (bio, dernier post) — c'est ce qui distingue un message d'un spam aux yeux du destinataire.",
+        "Personnalise au moins les deux premières lignes avec un détail concret du profil (bio, dernier post). C'est ce qui distingue un message d'un spam aux yeux du destinataire.",
     },
     {
       id: "voice-no-hook",
@@ -43,7 +43,7 @@ export const responseRateKnowledge: StageKnowledge = {
       when: (answers) => answers.personal_detail === "no",
       cause: "Absence de personnalisation quel que soit le format du message",
       guidance:
-        "Ajoute un détail spécifique au profil dès la première phrase — c'est souvent le facteur qui détermine si le message est lu jusqu'au bout.",
+        "Ajoute un détail spécifique au profil dès la première phrase. C'est souvent le facteur qui détermine si le message est lu jusqu'au bout.",
     },
   ],
 };

@@ -90,8 +90,8 @@ export function computeOnboardingGoulot({
     monthlyGain,
     yearlyGain,
     isPriceFallback: dealPrice.isFallback,
-    explanation: `${labelFor(key)} est à ${currentPct}% contre ${benchmarkPct}% en moyenne pour ta niche — première estimation sur un seul mois approximatif, à affiner avec plus de données.`,
-    tooltip: "Calculé sans le seuil de fiabilité habituel (volume encore trop faible pour être garanti) — une première estimation avec tes tout premiers chiffres.",
+    explanation: `${labelFor(key)} est à ${currentPct}% contre ${benchmarkPct}% en moyenne pour ta niche (première estimation sur un seul mois approximatif, à affiner avec plus de données).`,
+    tooltip: "Calculé sans le seuil de fiabilité habituel (volume encore trop faible pour être garanti). Une première estimation avec tes tout premiers chiffres.",
   };
 
   return { kind: "point", point };

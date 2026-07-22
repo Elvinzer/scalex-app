@@ -18,7 +18,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
         <h1 className="text-2xl font-bold">Invitation invalide</h1>
         <p className="text-sm text-muted-foreground">
-          Ce lien d&apos;invitation est invalide ou a expiré — demande à la personne qui t&apos;a
+          Ce lien d&apos;invitation est invalide ou a expiré. Demande à la personne qui t&apos;a
           invité de t&apos;en renvoyer un.
         </p>
       </div>

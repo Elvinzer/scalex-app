@@ -74,7 +74,7 @@ export const SECTOR_BENCHMARKS: Record<SectorKey, SectorBenchmark> = {
 };
 
 export const BENCHMARK_DISCLAIMER =
-  "Ces repères ne proviennent pas d'une étude académique ou d'un organisme officiel — il n'existe aucune base de données publique rigoureuse sur ce sujet. Ce sont des ordres de grandeur agrégés à partir de retours d'expérience courants dans l'écosystème coaching/infopreneuriat. À lire comme des repères indicatifs, jamais comme des statistiques certifiées.";
+  "Ces repères ne proviennent pas d'une étude académique ou d'un organisme officiel : il n'existe aucune base de données publique rigoureuse sur ce sujet. Ce sont des ordres de grandeur agrégés à partir de retours d'expérience courants dans l'écosystème coaching/infopreneuriat. À lire comme des repères indicatifs, jamais comme des statistiques certifiées.";
 
 export function getBenchmark(sector: SectorKey | null | undefined): SectorBenchmark {
   return sector ? SECTOR_BENCHMARKS[sector] : GLOBAL_BENCHMARK;

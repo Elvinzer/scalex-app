@@ -20,7 +20,7 @@ export default async function VideosPage() {
         <div>
           <h1 className="text-3xl font-bold">Vidéos de closing</h1>
           <p className="mt-1 text-muted-foreground">
-            Chaque appel de closing, avec transcription ou notes — et une analyse IA à la demande.
+            Chaque appel de closing, avec transcription ou notes, et une analyse IA à la demande.
           </p>
         </div>
         <VideoFormDialog

@@ -6,7 +6,7 @@ export type AgentKey = { source: "byok" | "shared"; apiKey: string };
 
 export class NoAgentKeyAvailableError extends Error {
   constructor() {
-    super("Aucune clé Anthropic disponible — ajoute ta clé dans Réglages.");
+    super("Aucune clé Anthropic disponible. Ajoute ta clé dans Réglages.");
     this.name = "NoAgentKeyAvailableError";
   }
 }

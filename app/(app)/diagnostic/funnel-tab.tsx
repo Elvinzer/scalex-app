@@ -72,7 +72,7 @@ export async function FunnelTab({
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <p className="text-sm text-muted-foreground">
-          Tout ton parcours, de l&apos;abonné à la vente conclue — en une seule vue.
+          Tout ton parcours, de l&apos;abonné à la vente conclue, en une seule vue.
         </p>
         {hasAnyEntries && <DateRangePicker />}
       </div>

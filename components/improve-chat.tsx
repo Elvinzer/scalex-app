@@ -77,7 +77,7 @@ async function streamChat(
 
   if (!response.ok || !response.body) {
     const data = await response.json().catch(() => null);
-    return { error: data?.error ?? "L'IA n'a pas pu répondre — réessaie dans un instant." };
+    return { error: data?.error ?? "L'IA n'a pas pu répondre. Réessaie dans un instant." };
   }
 
   const reader = response.body.getReader();

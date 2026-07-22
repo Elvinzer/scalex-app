@@ -23,7 +23,7 @@ export function KeyRequiredModal({ onClose }: { onClose: () => void }) {
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           Il te faut une clé Anthropic active pour générer un insight. Ajoute (ou remplace) ta
-          clé dans Réglages — ça prend deux minutes.
+          clé dans Réglages, ça prend deux minutes.
         </p>
         <Button asChild className="mt-5">
           <Link href="/settings">Aller dans Réglages →</Link>

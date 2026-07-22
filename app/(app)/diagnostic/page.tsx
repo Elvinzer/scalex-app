@@ -208,8 +208,8 @@ export default async function DiagnosticPage({
   // Falco on this screen).
   const verdictLine =
     topPoints.length > 0
-      ? `J'ai repéré ton goulot : ${topPoints[0].label}${totalMonthlyGain !== null ? ` — ≈${formatEur(totalMonthlyGain)}/mois à récupérer` : ""}.`
-      : "Tes taux mesurés sont au niveau du benchmark — solide.";
+      ? `J'ai repéré ton goulot : ${topPoints[0].label}${totalMonthlyGain !== null ? `, ≈${formatEur(totalMonthlyGain)}/mois à récupérer` : ""}.`
+      : "Tes taux mesurés sont au niveau du benchmark. Solide.";
 
   return (
     <div className="flex flex-col gap-8">
@@ -337,7 +337,7 @@ export default async function DiagnosticPage({
               <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
                 <Falco pose="alert" size="xs" animate="enter" />
                 <FalcoBubble arrow="left" className="max-w-none flex-1">
-                  C&apos;est mon conseil n°1 — attaque celui-là en premier, c&apos;est là qu&apos;est le plus gros levier.
+                  C&apos;est mon conseil n°1 : attaque celui-là en premier, c&apos;est là qu&apos;est le plus gros levier.
                 </FalcoBubble>
               </div>
             )}
@@ -481,7 +481,7 @@ export default async function DiagnosticPage({
           {projection.monthlyGain !== null && `, soit +${formatEur(projection.monthlyGain)}/mois`}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Projection si tout est au benchmark en même temps — différente de la somme des points ci-dessus (les
+          Projection si tout est au benchmark en même temps, différente de la somme des points ci-dessus (les
           améliorations se multiplient entre elles).
         </p>
       </div>

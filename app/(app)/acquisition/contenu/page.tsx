@@ -43,7 +43,7 @@ export default async function ContenuPage() {
         <div>
           <h1 className="text-3xl font-bold">Contenu</h1>
           <p className="mt-1 text-muted-foreground">
-            Performance de tes posts — vues, engagement, clics et leads générés.
+            Performance de tes posts : vues, engagement, clics et leads générés.
           </p>
         </div>
         <PostFormDialog

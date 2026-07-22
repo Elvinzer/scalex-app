@@ -25,7 +25,7 @@ export function HeroSection() {
           </h1>
 
           <p className="max-w-lg text-[17px] leading-relaxed text-muted-foreground">
-            Scale X analyse tout ton funnel d'infoproduit pour identifier là où tu perds du temps et de l'argent.
+            Scale X analyse tout ton funnel d&apos;infoproduit pour identifier là où tu perds du temps et de l&apos;argent.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">

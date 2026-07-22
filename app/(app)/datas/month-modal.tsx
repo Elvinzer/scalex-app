@@ -20,12 +20,12 @@ import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 import { saveMonthlyMetrics } from "./actions";
 
 const SETTING_SOURCE: KpiFieldSource = {
-  text: "Calculé depuis ton suivi quotidien — modifier dans Avancé → Suivi setting quotidien.",
+  text: "Calculé depuis ton suivi quotidien. Modifiable dans Avancé → Suivi setting quotidien.",
   href: "/acquisition/setting",
   linkLabel: "Aller au suivi quotidien",
 };
 const CLOSING_SOURCE: KpiFieldSource = {
-  text: "Calculé depuis ton suivi quotidien — modifier dans Avancé → Module closing quotidien.",
+  text: "Calculé depuis ton suivi quotidien. Modifiable dans Avancé → Module closing quotidien.",
   href: "/ventes/closing",
   linkLabel: "Aller au suivi quotidien",
 };
