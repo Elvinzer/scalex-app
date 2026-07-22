@@ -57,7 +57,7 @@ export default async function AppLayout({
       </div>
     );
   }
-  const { accountId, isOwner, advancedModulesEnabled } = context;
+  const { accountId, isOwner } = context;
   const permissions: readonly PermissionKey[] = isOwner ? PERMISSION_KEYS : [...context.permissions] as PermissionKey[];
   // Independent of isOwner/team roles — the founders-only allowlist behind
   // /admin (see lib/admin.ts). Nav visibility only; /admin/layout.tsx still
@@ -170,7 +170,6 @@ export default async function AppLayout({
           isOwner={isOwner}
           permissions={permissions}
           isAdmin={isAdmin}
-          advancedModulesEnabled={advancedModulesEnabled}
           scaleScore={canSeeScaleScore ? scaleScore : null}
           scaleScoreDelta7d={scaleScoreDelta7d}
           scaleScoreDelta30d={scaleScoreDelta30d}

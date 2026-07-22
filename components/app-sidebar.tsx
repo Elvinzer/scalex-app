@@ -36,8 +36,9 @@ type IconType = React.ComponentType<{ className?: string; style?: React.CSSPrope
 type LinkEntry = { type: "link"; href: string; label: string; icon: IconType; permission?: PermissionKey };
 
 // CŒUR — the value-loop pages, always visible (permission-gated as before).
-// Funnel/Insights aren't here (nor anywhere in Diagnostic anymore) — moved
-// to Avancé, see app/(app)/avance/page.tsx and app/(app)/avance/funnel|insights.
+// Funnel/Insights are gone entirely (were duplicate readings of what the
+// Diagnostic already shows — removed, not just hidden). Team/roles moved to
+// Mon business (app/(app)/business), Équipe card there.
 // Suivi des ventes/Contenu are flat entries here too — no more "Suivi"
 // pillar grouping (removed in an earlier simplification pass), just plain
 // items in the main menu like the rest.
@@ -68,12 +69,11 @@ const profileMenuEntries: LinkEntry[] = [
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
 ];
 
-// AVANCÉ — one flat nav line, own visibility rule below. Always shown to
-// anyone with access to at least one of the 5 modules behind it (Ads,
-// Bibliothèque d'appels, Setting quotidien, Closing quotidien, Équipe) —
-// the account's advancedModulesEnabled flag doesn't hide this link, it only
-// gates whether the hub's cards are unlocked or shown collapsed/"Activer"
-// (see app/(app)/avance/page.tsx) — flags control display, never access.
+// AVANCÉ — one flat nav line, own visibility rule below. Shown to anyone
+// with access to at least one of the modules teased behind it (Ads,
+// Bibliothèque d'appels, Setting quotidien, Closing quotidien). The hub is
+// now a "bientôt disponible" showcase (see app/(app)/avance/page.tsx) — no
+// activation flow anymore, hence the static "Bientôt" badge below.
 const advancedEntry: LinkEntry = { type: "link", href: "/avance", label: "Avancé", icon: Boxes };
 const ADVANCED_PERMISSION_KEYS: readonly PermissionKey[] = [
   "acquisition:ads",
@@ -127,7 +127,7 @@ function NavLink({
       <Icon className="size-4" />
       {entry.label}
       {badge && (
-        <span className="ml-auto rounded-full bg-accent-2/20 px-1.5 py-0.5 text-[9.5px] font-bold tracking-[0.06em] text-accent-2 uppercase">
+        <span className="ml-auto rounded-full bg-mist/15 px-1.5 py-0.5 text-[9.5px] font-bold tracking-[0.06em] text-mist/70 uppercase">
           {badge}
         </span>
       )}
@@ -222,7 +222,6 @@ export function AppSidebar({
   isOwner,
   permissions,
   isAdmin,
-  advancedModulesEnabled,
   scaleScore,
   scaleScoreDelta7d,
   scaleScoreDelta30d,
@@ -237,7 +236,6 @@ export function AppSidebar({
   isOwner: boolean;
   permissions: readonly PermissionKey[];
   isAdmin: boolean;
-  advancedModulesEnabled: boolean;
   scaleScore: ScaleScoreResult | null;
   scaleScoreDelta7d: number | null;
   scaleScoreDelta30d: number | null;
@@ -274,12 +272,7 @@ export function AppSidebar({
         {hasAnyAdvancedAccess(isOwner, permissions) && (
           <>
             <div className="my-3 h-px bg-white/20" />
-            <NavLink
-              entry={advancedEntry}
-              pathname={pathname}
-              indented={false}
-              badge={advancedModulesEnabled ? undefined : "Activer"}
-            />
+            <NavLink entry={advancedEntry} pathname={pathname} indented={false} badge="Bientôt" />
           </>
         )}
       </nav>

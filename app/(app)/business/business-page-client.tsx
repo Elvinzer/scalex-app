@@ -1,8 +1,11 @@
 "use client";
 
+import { Users } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Falco, type FalcoPose } from "@/components/falco/falco";
+import { Button } from "@/components/ui/button";
 import { computeGlobalCompletion } from "@/lib/business/completion";
 import type { BusinessProfileData } from "@/lib/business/types";
 
@@ -17,7 +20,13 @@ import { SalesSection } from "./sales-section";
 // needs the live Sales offers list) can react instantly without a reload.
 // Each section still persists itself via its own saveBusinessSection call —
 // this wrapper only mirrors state for display math.
-export function BusinessPageClient({ initialProfile }: { initialProfile: BusinessProfileData }) {
+export function BusinessPageClient({
+  initialProfile,
+  isOwner,
+}: {
+  initialProfile: BusinessProfileData;
+  isOwner: boolean;
+}) {
   const [profile, setProfile] = useState(initialProfile);
   const completion = computeGlobalCompletion(profile);
 
@@ -86,6 +95,28 @@ export function BusinessPageClient({ initialProfile }: { initialProfile: Busines
         offers={profile.sales.offers}
         onChange={(delivery) => setProfile((prev) => ({ ...prev, delivery }))}
       />
+
+      {/* Team & roles management belongs to the business itself — owner-only
+          (the /settings/equipe page re-checks server-side regardless). */}
+      {isOwner && (
+        <div className="sticker-card flex flex-wrap items-center justify-between gap-4 p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Users className="size-4.5" />
+            </div>
+            <div>
+              <p className="font-bold">Équipe</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Invite des membres, attribue-leur des rôles (setting, closing, financier…) et
+                configure leurs accès.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/settings/equipe">Gérer l&apos;équipe →</Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
