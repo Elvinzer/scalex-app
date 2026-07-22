@@ -57,10 +57,15 @@ export function DiscoveryConversation({
   levers: leversProp,
   initialTotal,
   initialAnswered,
+  onComplete,
 }: {
   levers: LeverCatalogEntry[]; // only the levers still needing a question, in order
   initialTotal: number;
   initialAnswered: number;
+  // When set, called instead of router.refresh() once the last lever is
+  // answered — lets the onboarding wizard reuse this component and route to
+  // the dashboard rather than swap to the (diagnostic-only) results view.
+  onComplete?: () => void;
 }) {
   const router = useRouter();
   // Snapshotted once on mount, deliberately ignoring subsequent `levers`
@@ -100,7 +105,9 @@ export function DiscoveryConversation({
     setPhase("primary");
 
     if (index + 1 >= levers.length) {
-      router.refresh(); // last lever answered — parent swaps to the results view
+      // last lever answered — hand control back to the parent
+      if (onComplete) onComplete();
+      else router.refresh(); // diagnostic parent swaps to the results view
       return;
     }
     setIndex(index + 1);

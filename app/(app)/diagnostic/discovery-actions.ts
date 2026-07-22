@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { businessLevers, improvementEvents } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getDiscoveryState } from "@/lib/levers/discovery";
 import { getLeversCatalog, resolveFromBusinessProfile } from "@/lib/levers/catalog";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
@@ -96,18 +97,8 @@ export async function saveLeverAnswer(
 export type DiscoveryProgress = { answered: number; total: number };
 
 export async function getDiscoveryProgress(accountId: string): Promise<DiscoveryProgress> {
-  const [businessProfile, catalog, answeredRows] = await Promise.all([
-    getBusinessProfile(accountId),
-    getLeversCatalog(),
-    db.select({ leverKey: businessLevers.leverKey }).from(businessLevers).where(eq(businessLevers.userId, accountId)),
-  ]);
-  const answeredKeys = new Set(answeredRows.map((r) => r.leverKey));
-
-  const answered = catalog.filter(
-    (lever) => (lever.readsFromProfile && resolveFromBusinessProfile(lever.leverKey, businessProfile) !== null) || answeredKeys.has(lever.leverKey)
-  ).length;
-
-  return { answered, total: catalog.length };
+  const { answered, total } = await getDiscoveryState(accountId);
+  return { answered, total };
 }
 
 const updateStatsSchema = z.object({

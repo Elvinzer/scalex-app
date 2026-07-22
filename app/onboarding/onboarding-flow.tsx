@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { DiscoveryConversation } from "@/app/(app)/diagnostic/discovery-conversation";
 import { Falco, type FalcoPose } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
 import { ImportFlow } from "@/components/import/import-flow";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { formatEur } from "@/lib/currency";
 import type { SaleMode } from "@/lib/business/types";
+import type { LeverCatalogEntry } from "@/lib/levers/catalog";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
 import { cn } from "@/lib/utils";
@@ -82,17 +84,44 @@ function NumberField({
   );
 }
 
+// Optional nudge into the levers questionnaire, shown under the step-3 reveal.
+// Secondary to the primary CTA and clearly skippable — the questionnaire is
+// facultatif per the brief.
+function DiscoveryInvite({ count, onStart }: { count: number; onStart: () => void }) {
+  if (count <= 0) return null;
+  return (
+    <div className="mt-2 flex flex-col gap-3 border-t border-border pt-4">
+      <Bubble index={0}>
+        Tu veux que je creuse encore ? J&apos;ai {count} question{count > 1 ? "s" : ""} rapide
+        {count > 1 ? "s" : ""} sur tes leviers. Facultatif — tu pourras le faire plus tard depuis ton diagnostic.
+      </Bubble>
+      <Button type="button" variant="outline" onClick={onStart} className="w-full">
+        Répondre au questionnaire (2 min)
+      </Button>
+    </div>
+  );
+}
+
 export function OnboardingFlow({
   previousMonthYear,
   previousMonthNum,
   previousMonthLabel,
+  discoveryLevers,
+  discoveryTotal,
+  discoveryAnswered,
 }: {
   previousMonthYear: number;
   previousMonthNum: number;
   previousMonthLabel: string;
+  discoveryLevers: LeverCatalogEntry[];
+  discoveryTotal: number;
+  discoveryAnswered: number;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Optional step-4 questionnaire, offered on the step-3 reveal — kept out of
+  // the 1..3 ProgressBar so it reads as a bonus, not a mandatory step.
+  const [showDiscovery, setShowDiscovery] = useState(false);
 
   const [niche, setNiche] = useState("");
   const [offerName, setOfferName] = useState("");
@@ -148,6 +177,26 @@ export function OnboardingFlow({
 
     setResult(res.result ?? null);
     setStep(3);
+  }
+
+  // Optional questionnaire taking over the wizard — DiscoveryConversation
+  // brings its own Falco + progress, so the 1..3 header is dropped here.
+  // Answers persist one by one (saveLeverAnswer), so "Finir plus tard" keeps
+  // everything already entered; onboardingCompleted is already true by now.
+  if (showDiscovery) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col gap-6 px-6 py-12">
+        <DiscoveryConversation
+          levers={discoveryLevers}
+          initialTotal={discoveryTotal}
+          initialAnswered={discoveryAnswered}
+          onComplete={() => router.push("/dashboard")}
+        />
+        <Button type="button" variant="ghost" className="self-center" onClick={() => router.push("/dashboard")}>
+          Finir plus tard →
+        </Button>
+      </div>
+    );
   }
 
   const headerPose: FalcoPose =
@@ -333,6 +382,8 @@ export function OnboardingFlow({
           <Button size="lg" asChild className="w-full">
             <a href={`/diagnostic?open=${result.point.key}`}>Améliorer ça maintenant →</a>
           </Button>
+
+          <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />
         </div>
       )}
 
@@ -345,6 +396,8 @@ export function OnboardingFlow({
           <Button size="lg" asChild className="w-full">
             <a href="/dashboard">Aller sur mon dashboard →</a>
           </Button>
+
+          <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />
         </div>
       )}
     </div>

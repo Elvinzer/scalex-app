@@ -7,6 +7,7 @@ import { AutoOpenImprove } from "./auto-open-improve";
 import { DiscoveryOpportunityCard } from "./discovery-opportunity-card";
 import { getDiscoveryProgress } from "./discovery-actions";
 import { DiscoveryTab } from "./discovery-tab";
+import { OptimisationEntryCard } from "./optimisation-entry-card";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { Falco } from "@/components/falco/falco";
@@ -15,7 +16,6 @@ import { CalcPopover } from "@/components/calc-popover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
@@ -89,40 +89,19 @@ export default async function DiagnosticPage({
   const discoveryProgress = await getDiscoveryProgress(accountId);
   const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
 
-  const tabsHeader = (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Ton diagnostic</h1>
-      <Tabs value={tab}>
-        <TabsList>
-          <TabsTrigger value="overview" asChild>
-            <Link href="/diagnostic?tab=overview">Vue d&apos;ensemble</Link>
-          </TabsTrigger>
-          {/* Orange pill instead of the default underline style — Découverte
-              is the one tab the brief wants visually called out, not just
-              another equal-weight tab. */}
-          <TabsTrigger
-            value="discovery"
-            asChild
-            className="rounded-full border-2 border-accent px-3 text-accent-text data-[state=active]:border-accent data-[state=active]:bg-accent data-[state=active]:text-white"
-          >
-            <Link href="/diagnostic?tab=discovery" className="flex items-center gap-1.5">
-              Optimisation
-              {discoveryRemaining > 0 && (
-                <span className="rounded-full bg-accent-2/20 px-1.5 py-0.5 text-[10px] font-bold text-accent-2">
-                  {discoveryRemaining}
-                </span>
-              )}
-            </Link>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-    </div>
+  const overviewHeader = (
+    <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Ton diagnostic</h1>
   );
 
   if (tab === "discovery") {
     return (
       <div className="flex flex-col gap-8">
-        {tabsHeader}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Optimisation</h1>
+          <Link href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
+            ← Retour au diagnostic
+          </Link>
+        </div>
         <DiscoveryTab accountId={accountId} />
       </div>
     );
@@ -149,7 +128,7 @@ export default async function DiagnosticPage({
   if (!hasAnyMonthlyRow) {
     return (
       <div className="flex flex-col gap-8">
-        {tabsHeader}
+        {overviewHeader}
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-6 text-center">
           <p className="max-w-md text-muted-foreground">
             Remplis au moins un mois dans Mes chiffres pour lancer ton diagnostic.
@@ -217,7 +196,7 @@ export default async function DiagnosticPage({
         <AutoOpenImprove />
       </Suspense>
 
-      {tabsHeader}
+      {overviewHeader}
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <Falco
@@ -233,7 +212,7 @@ export default async function DiagnosticPage({
           {Object.entries(PERIOD_LABELS).map(([value, label]) => (
             <Link
               key={value}
-              href={`/diagnostic?tab=overview&period=${value}`}
+              href={`/diagnostic?period=${value}`}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
                 // Soft tint for the selected filter, not a solid coral fill —
@@ -348,6 +327,14 @@ export default async function DiagnosticPage({
           </div>
         ))}
       </div>
+
+      {/* Point d'entrée du questionnaire d'optimisation — dans le flux, juste
+          avant les opportunités qu'il débloque (remplace l'ancien onglet). */}
+      <OptimisationEntryCard
+        answered={discoveryProgress.answered}
+        total={discoveryProgress.total}
+        remaining={discoveryRemaining}
+      />
 
       {topDiscoveryOpportunities.length > 0 && (
         <div className="flex flex-col gap-4">

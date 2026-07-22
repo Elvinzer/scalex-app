@@ -1,12 +1,11 @@
 import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { businessLevers, closingKpiEntries, settingKpiEntries } from "@/db/schema";
+import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { Falco } from "@/components/falco/falco";
-import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { getLeversCatalog, resolveFromBusinessProfile } from "@/lib/levers/catalog";
+import { getDiscoveryState } from "@/lib/levers/discovery";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 
@@ -17,27 +16,20 @@ import { DiscoveryListView, type EditableLever } from "./discovery-list-view";
 const PERIOD_MONTHS = 3;
 
 export async function DiscoveryTab({ accountId }: { accountId: string }) {
-  const [businessProfile, catalog, answeredRows, allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-    getBusinessProfile(accountId),
-    getLeversCatalog(),
-    db.select().from(businessLevers).where(eq(businessLevers.userId, accountId)),
+  const [
+    { businessProfile, catalog, remainingLevers, answered: resolvedCount, total, answeredByKey },
+    allSettingEntries,
+    allClosingEntries,
+    allMonthlyRows,
+  ] = await Promise.all([
+    getDiscoveryState(accountId),
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
     db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
     getAllMonthlyMetrics(accountId),
   ]);
 
-  const answeredByKey = new Map(answeredRows.map((row) => [row.leverKey, row]));
-  const remainingLevers = catalog.filter((lever) => {
-    if (lever.readsFromProfile) return resolveFromBusinessProfile(lever.leverKey, businessProfile) === null;
-    return !answeredByKey.has(lever.leverKey);
-  });
-
-  const resolvedCount = catalog.length - remainingLevers.length;
-
   if (remainingLevers.length > 0) {
-    return (
-      <DiscoveryConversation levers={remainingLevers} initialTotal={catalog.length} initialAnswered={resolvedCount} />
-    );
+    return <DiscoveryConversation levers={remainingLevers} initialTotal={total} initialAnswered={resolvedCount} />;
   }
 
   // Parcours terminé — cartes d'opportunité + vue liste éditable.
