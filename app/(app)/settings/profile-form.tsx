@@ -49,7 +49,8 @@ export function ProfileForm({
         .from("avatars")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (uploadError) {
-        setError("Upload impossible — réessaie.");
+        console.error("Avatar upload failed", uploadError);
+        setError(`Upload impossible : ${uploadError.message}`);
         return;
       }
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);

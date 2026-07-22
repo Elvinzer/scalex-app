@@ -35,7 +35,7 @@ const organizationJsonLd = {
   "@type": "Organization",
   name: "Scale X",
   url: "https://scalex.app",
-  logo: "https://scalex.app/scalex-wordmark.png",
+  logo: "https://scalex.app/icon.png",
 };
 
 const softwareApplicationJsonLd = {

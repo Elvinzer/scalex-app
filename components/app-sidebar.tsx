@@ -248,7 +248,7 @@ export function AppSidebar({
       style={{ background: "var(--gradient-dark)" }}
     >
       <Link href="/dashboard" className="flex items-center px-3 pb-7 transition-opacity hover:opacity-80">
-        <Image src="/scalex-wordmark.png" alt="Scale X" width={165} height={55} priority className="h-11 w-auto" />
+        <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-12 w-auto" />
       </Link>
 
       {/* -mx-3 cancels the aside's own px-3 so this reaches the sidebar's
