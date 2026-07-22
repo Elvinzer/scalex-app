@@ -248,13 +248,14 @@ export function AppSidebar({
       style={{ background: "var(--gradient-dark)" }}
     >
       <Link href="/dashboard" className="flex items-center px-3 pb-7 transition-opacity hover:opacity-80">
-        <Image src="/scalex-wordmark.png" alt="Scale X" width={132} height={44} priority className="h-9 w-auto" />
+        <Image src="/scalex-wordmark.png" alt="Scale X" width={165} height={55} priority className="h-11 w-auto" />
       </Link>
 
-      {/* Thicker/more opaque than the "Avancé" separator below (h-px bg-white/20)
-          on purpose — this one marks the header/nav boundary, a different kind
-          of division than a mid-nav group separator. */}
-      <div className="h-[3px] w-full rounded-full bg-white/30" />
+      {/* -mx-3 cancels the aside's own px-3 so this reaches the sidebar's
+          physical edges, not just the inner content width — thicker/more
+          opaque than the "Avancé" separator below (h-px bg-white/20) on
+          purpose, since this one marks the header/nav boundary. */}
+      <div className="-mx-3 h-[3px] bg-white" />
 
       <nav className="flex flex-1 flex-col gap-1 pt-4">
         {visibleTopEntries.map((entry) => (
@@ -284,6 +285,8 @@ export function AppSidebar({
           />
         </div>
       )}
+
+      <div className="-mx-3 mt-4 h-px bg-white/20" />
 
       <div className="px-3 pt-4">
         <ProfileMenu
