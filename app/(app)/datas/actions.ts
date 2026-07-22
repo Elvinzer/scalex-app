@@ -3,9 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { track } from "@/lib/analytics";
-import { db } from "@/db";
-import { monthlyMetrics } from "@/db/schema";
 import { monthlyMetricsInputSchema } from "@/lib/monthly-metrics/schema";
+import { writeMonthlyMetrics } from "@/lib/monthly-metrics/write";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -29,13 +28,7 @@ export async function saveMonthlyMetrics(
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
-  await db
-    .insert(monthlyMetrics)
-    .values({ userId: accountId, year, month, ...parsed.data })
-    .onConflictDoUpdate({
-      target: [monthlyMetrics.userId, monthlyMetrics.year, monthlyMetrics.month],
-      set: { ...parsed.data, updatedAt: new Date() },
-    });
+  await writeMonthlyMetrics(accountId, year, month, parsed.data);
 
   // Single shared action — covers Datas, the onboarding wizard's screen 2,
   // and the weekly check-in modal automatically, so this fires exactly

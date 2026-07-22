@@ -331,6 +331,37 @@ export const monthlyMetrics = pgTable(
   ]
 ).enableRLS();
 
+// One row per COMMITTED smart-data-import (lib/import/, app/api/import/) —
+// never written during analysis/clarification, only at actual commit or
+// explicit abandon. Serves two purposes at once: (1) file-hash + month dedup
+// ("tu as déjà importé ce fichier pour Mars") and (2) BYOK/shared token
+// logging for this feature, same shape as funnelStageInsights's
+// keySource/inputTokens/outputTokens (no shared token-logging helper exists
+// in this repo yet — every AI-calling feature logs its own).
+export const dataImportStatus = pgEnum("data_import_status", ["committed", "abandoned"]);
+
+export const dataImports = pgTable(
+  "data_imports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    fileHash: text("file_hash").notNull(),
+    targetYear: integer("target_year"),
+    targetMonth: integer("target_month"),
+    status: dataImportStatus("status").notNull(),
+    fieldsCount: integer("fields_count").notNull().default(0),
+    monthsCount: integer("months_count").notNull().default(0),
+    hadConflicts: boolean("had_conflicts").notNull().default(false),
+    keySource: text("key_source").notNull(), // "byok" | "shared"
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("data_imports_user_hash_idx").on(table.userId, table.fileHash)]
+).enableRLS();
+
 // The 5 funnel rates the /diagnostic cascade engine can benchmark and
 // simulate against — see lib/diagnostic/cascade.ts. Deliberately a single
 // value per (sector, metric), not the 3-tier {bas,moyen,bon} band used by

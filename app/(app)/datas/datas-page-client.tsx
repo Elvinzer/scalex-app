@@ -1,9 +1,13 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { ImportFlow } from "@/components/import/import-flow";
+import { Button } from "@/components/ui/button";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 
@@ -29,19 +33,42 @@ export function DatasPageClient({
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState<{ year: number; month: number } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const rowFor = (month: number) => monthRows.find((row) => row.month === month) ?? null;
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold">Mes chiffres</h1>
-        <p className="mt-1 text-muted-foreground">
-          Remplis tes chiffres mois par mois. Tout le reste de l&apos;app se met à jour
-          automatiquement.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Mes chiffres</h1>
+          <p className="mt-1 text-muted-foreground">
+            Remplis tes chiffres mois par mois. Tout le reste de l&apos;app se met à jour
+            automatiquement.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={() => setImportOpen(true)}>
+          <Upload className="size-4" />
+          Importer
+        </Button>
       </div>
+
+      <Drawer open={importOpen} onOpenChange={setImportOpen}>
+        <DrawerContent>
+          <div className="flex flex-col gap-4 p-4">
+            <DrawerTitle className="text-base font-bold">Importer tes chiffres</DrawerTitle>
+            <ImportFlow
+              source="datas"
+              onCommitted={() => {
+                router.refresh();
+                setImportOpen(false);
+              }}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       <div className="flex items-center justify-center gap-4">
         <Link

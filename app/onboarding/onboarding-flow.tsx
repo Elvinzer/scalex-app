@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Falco, type FalcoPose } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
+import { ImportFlow } from "@/components/import/import-flow";
 import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { formatEur } from "@/lib/currency";
@@ -100,6 +101,11 @@ export function OnboardingFlow({
 
   const [monthDraft, setMonthDraft] = useState<MonthlyMetricsInput>(EMPTY_MONTH);
   const [result, setResult] = useState<OnboardingGoulotResult | null>(null);
+  // "choice" shows the import option first (per brief); picking either
+  // path never blocks the other — a failed/partial import just falls
+  // through to "manual" with whatever was extracted already pre-filled,
+  // never a dead end or double entry.
+  const [step2Mode, setStep2Mode] = useState<"choice" | "manual">("choice");
 
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -236,7 +242,28 @@ export function OnboardingFlow({
         </form>
       )}
 
-      {step === 2 && (
+      {step === 2 && step2Mode === "choice" && (
+        <div className="flex flex-col gap-4">
+          <Bubble index={0}>
+            Tes chiffres de {previousMonthLabel} — tu as un export ou une capture ? Glisse-le ici, je m&apos;occupe du
+            tri. Sinon on les remplit ensemble.
+          </Bubble>
+          <ImportFlow
+            source="onboarding"
+            onExtracted={(values, year, month) => {
+              void year;
+              void month;
+              setMonthDraft((prev) => ({ ...prev, ...values }));
+              setStep2Mode("manual");
+            }}
+          />
+          <Button type="button" variant="ghost" className="self-center" onClick={() => setStep2Mode("manual")}>
+            Saisir à la main
+          </Button>
+        </div>
+      )}
+
+      {step === 2 && step2Mode === "manual" && (
         <form onSubmit={handleScreen2Submit} className="flex flex-col gap-4">
           <Bubble index={0}>
             Maintenant tes chiffres de {previousMonthLabel}. Des valeurs approx suffisent, je préfère un vrai

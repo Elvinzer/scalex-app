@@ -10,8 +10,8 @@ import type { MonthlyMetricsRow } from "./queries";
 type SettingEntry = typeof settingKpiEntries.$inferSelect;
 type ClosingEntry = typeof closingKpiEntries.$inferSelect;
 
-const SETTING_FIELDS = ["newFollowers", "firstMessages", "conversations", "callsProposed", "callsBooked"] as const;
-const CLOSING_FIELDS = ["callsTaken", "salesClosed"] as const;
+export const SETTING_FIELDS = ["newFollowers", "firstMessages", "conversations", "callsProposed", "callsBooked"] as const;
+export const CLOSING_FIELDS = ["callsTaken", "salesClosed"] as const;
 
 // True only when `range` is exactly one full calendar month — either a
 // completed month, or the still-in-progress current month (to = today).
