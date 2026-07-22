@@ -39,7 +39,7 @@ Règles absolues, non négociables :
 - Ne JAMAIS mapper une colonne de taux/pourcentage/ratio — ces valeurs sont toujours recalculées par l'app, jamais importées. Mets cette colonne dans unmapped_columns avec l'explication.
 - Ne JAMAIS inventer une valeur qui n'est pas explicitement dans le fichier.
 - confidence "high" seulement si le nom de colonne et les valeurs échantillon ne laissent aucun doute. Sinon "medium" ou "low", et ajoute une question dans "questions" (max 6 questions au total — au-delà, laisse la colonne en unmapped plutôt que de rajouter une question).
-- Chaque question doit citer 2-3 échantillons concrets de la colonne et proposer 2-3 champs cibles plausibles en options (jamais plus de 3).
+- Chaque question doit citer 2-3 échantillons concrets de la colonne et proposer 2-3 champs cibles plausibles en options (jamais plus de 3, jamais "ignore" — "Ignorer cette colonne" est ajouté automatiquement, ne le liste jamais toi-même).
 - dateColumnName : le nom EXACT (tel qu'il apparaît dans les colonnes) de la colonne qui contient une date par ligne, s'il y en a une — sert à regrouper les lignes par mois EN CODE (jamais toi qui comptes/additionnes). null si aucune colonne date exploitable.
 - Si aucune colonne date n'existe et qu'aucune période ne peut être déduite du fichier, periodDetected doit être null (ne devine jamais une période) — periodDetected ne sert que de repli quand dateColumnName est null.
 
@@ -62,7 +62,7 @@ const MAP_COLUMNS_TOOL: Anthropic.Tool = {
             targetField: { type: ["string", "null"], enum: [...ALL_TARGET_FIELDS, null] },
             confidence: { type: "string", enum: ["high", "medium", "low"] },
             granularity: { type: "string", enum: ["daily", "weekly", "monthly"] },
-            sampleValues: { type: "array", items: { type: "string" } },
+            sampleValues: { type: "array", items: { type: "string" }, maxItems: 5 },
           },
           required: ["sourceColumn", "targetField", "confidence", "granularity", "sampleValues"],
         },
@@ -75,12 +75,13 @@ const MAP_COLUMNS_TOOL: Anthropic.Tool = {
       unmappedColumns: { type: "array", items: { type: "string" } },
       questions: {
         type: "array",
+        maxItems: 6,
         items: {
           type: "object",
           properties: {
             sourceColumn: { type: "string" },
             prompt: { type: "string" },
-            options: { type: "array", items: { type: "string" } },
+            options: { type: "array", items: { type: "string", enum: [...ALL_TARGET_FIELDS] }, maxItems: 3 },
           },
           required: ["sourceColumn", "prompt", "options"],
         },
@@ -132,6 +133,47 @@ function looksLikeRateColumn(sampleValues: string[]): boolean {
   return nonEmpty.every((v) => /%\s*$/.test(v) || /^0?[.,]\d+$/.test(v));
 }
 
+const VALID_TARGET_FIELDS = new Set<string>(ALL_TARGET_FIELDS);
+
+// maxItems/enum in MAP_COLUMNS_TOOL's JSON schema already tell the model
+// the limits, but tool-use JSON schema enforcement by the model isn't
+// guaranteed — normalize here too so one out-of-bounds value (an oversized
+// sampleValues array, or "ignore" leaking into a column-level targetField/
+// option even though it's only ever valid as the sheet-level targetTable)
+// doesn't reject an otherwise-usable mapping outright. This feature exists
+// specifically to interpret unpredictable, off-format files, so minor model
+// drift gets absorbed here instead of 500ing the whole import over it.
+function normalizeModelInput(input: unknown): unknown {
+  if (typeof input !== "object" || input === null) return input;
+  const record = input as Record<string, unknown>;
+
+  const mappings = Array.isArray(record.mappings)
+    ? record.mappings.map((entry) => {
+        if (typeof entry !== "object" || entry === null) return entry;
+        const mappingEntry = entry as Record<string, unknown>;
+        const targetField =
+          typeof mappingEntry.targetField === "string" && !VALID_TARGET_FIELDS.has(mappingEntry.targetField)
+            ? null
+            : mappingEntry.targetField;
+        const sampleValues = Array.isArray(mappingEntry.sampleValues) ? mappingEntry.sampleValues.slice(0, 5) : mappingEntry.sampleValues;
+        return { ...mappingEntry, targetField, sampleValues };
+      })
+    : record.mappings;
+
+  const questions = Array.isArray(record.questions)
+    ? record.questions.slice(0, 6).map((entry) => {
+        if (typeof entry !== "object" || entry === null) return entry;
+        const questionEntry = entry as Record<string, unknown>;
+        const options = Array.isArray(questionEntry.options)
+          ? questionEntry.options.filter((option) => typeof option === "string" && VALID_TARGET_FIELDS.has(option)).slice(0, 3)
+          : questionEntry.options;
+        return { ...questionEntry, options };
+      })
+    : record.questions;
+
+  return { ...record, mappings, questions };
+}
+
 export type MapImportedFileResult = {
   result: ImportMappingResult;
   inputTokens: number;
@@ -162,7 +204,7 @@ export async function mapImportedFile(unit: MappableUnit, businessContext: strin
   // Never trust the model's declared tool schema compliance blindly —
   // re-validated with Zod here regardless (CLAUDE.md: no unvalidated `as`
   // on external input, and LLM output is external input).
-  const parsedResult = modelMappingSchema.safeParse(toolUseBlock.input);
+  const parsedResult = modelMappingSchema.safeParse(normalizeModelInput(toolUseBlock.input));
   if (!parsedResult.success) {
     throw new Error(`Mapping invalide retourné par le modèle : ${parsedResult.error.message}`);
   }

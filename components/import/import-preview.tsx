@@ -259,6 +259,51 @@ export function ImportPreview({
   const ignoredSheets = sheets.filter((s) => s.mapping.targetTable === "ignore");
   const unmappedColumns = sheets.flatMap((s) => (s.mapping.targetTable === "ignore" ? [] : s.mapping.unmappedColumns));
   const [conflictChoices, setConflictChoices] = useState<Record<string, "keep" | "replace">>({});
+  // Lets the user correct a value the AI misread before committing —
+  // keyed by group+field so edits don't leak across months/rows. Falls
+  // back to the computed value until the user actually touches a field.
+  const [valueOverrides, setValueOverrides] = useState<Record<string, number | string>>({});
+
+  function overrideKey(groupKey: string, targetField: string): string {
+    return `${groupKey}::${targetField}`;
+  }
+
+  function resolvedValue(group: ResolvedGroup, field: ResolvedGroup["fields"][number]): number | string {
+    const key = overrideKey(group.key, field.targetField);
+    return key in valueOverrides ? valueOverrides[key] : field.value;
+  }
+
+  function handleValueChange(group: ResolvedGroup, field: ResolvedGroup["fields"][number], raw: string) {
+    const key = overrideKey(group.key, field.targetField);
+    const next: number | string = STRING_FIELDS.has(field.targetField) ? raw : raw === "" ? 0 : Number(raw);
+    setValueOverrides((prev) => ({ ...prev, [key]: next }));
+  }
+
+  // Same editable input used both for a fresh value and for the "new"
+  // side of a conflict — the user can correct what the AI read before
+  // committing either way, not just accept/reject it as-is.
+  function renderValueField(group: ResolvedGroup, field: ResolvedGroup["fields"][number]) {
+    const value = resolvedValue(group, field);
+    if (STRING_FIELDS.has(field.targetField)) {
+      return (
+        <input
+          type="text"
+          value={String(value)}
+          onChange={(event) => handleValueChange(group, field, event.target.value)}
+          className="w-40 rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-right text-sm font-bold outline-none focus-visible:border-accent"
+        />
+      );
+    }
+    return (
+      <input
+        type="number"
+        min={0}
+        value={value as number}
+        onChange={(event) => handleValueChange(group, field, event.target.value)}
+        className="w-24 rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-right text-sm font-bold tabular-nums outline-none focus-visible:border-accent"
+      />
+    );
+  }
 
   if (groups.length === 0) {
     return (
@@ -277,7 +322,9 @@ export function ImportPreview({
   function handleCommit() {
     if (onExtracted) {
       const first = groups[0];
-      const values = Object.fromEntries(first.fields.filter((f) => typeof f.value === "number").map((f) => [f.targetField, f.value as number]));
+      const values = Object.fromEntries(
+        first.fields.filter((f) => typeof resolvedValue(first, f) === "number").map((f) => [f.targetField, resolvedValue(first, f) as number])
+      );
       onExtracted(values, first.year, first.month);
       return;
     }
@@ -300,7 +347,7 @@ export function ImportPreview({
         months: sheetGroups.map((group) => ({
           year: group.year,
           month: group.month,
-          values: Object.fromEntries(group.fields.map((f) => [f.targetField, f.value])),
+          values: Object.fromEntries(group.fields.map((f) => [f.targetField, resolvedValue(group, f)])),
           conflictChoices,
           incompleteDaysCount: group.incompleteDaysCount,
         })),
@@ -343,7 +390,7 @@ export function ImportPreview({
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-muted-foreground line-through">{String(existingValue)}</span>
                         <span>→</span>
-                        <span className="font-bold tabular-nums">{field.value}</span>
+                        {renderValueField(group, field)}
                         <select
                           value={conflictChoices[field.targetField] ?? "replace"}
                           onChange={(event) =>
@@ -356,7 +403,7 @@ export function ImportPreview({
                         </select>
                       </div>
                     ) : (
-                      <span className="font-bold tabular-nums">{field.value}</span>
+                      renderValueField(group, field)
                     )}
                   </div>
                 </div>
