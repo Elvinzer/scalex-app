@@ -14,6 +14,18 @@ import type { AnalyzeSheetResult } from "@/lib/import/schema";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
+// Dev-only detail appended to the generic message — never in production
+// (CLAUDE.md: no internal detail in client-facing errors), but "Une erreur
+// inattendue" with zero context was itself unactionable during this
+// feature's own debugging, so surface the real cause locally instead of
+// requiring a terminal to read server logs.
+function buildUnexpectedErrorMessage(fileName: string, error: unknown): string {
+  const base = `Une erreur inattendue est survenue en analysant ${fileName}. Réessaie, ou contacte le support si ça persiste.`;
+  if (process.env.NODE_ENV === "production") return base;
+  const detail = error instanceof Error ? error.message : String(error);
+  return `${base} [dev] ${detail}`;
+}
+
 function buildBusinessContext(businessProfile: Awaited<ReturnType<typeof getBusinessProfile>>): string {
   const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain);
   const lines = [
@@ -76,10 +88,24 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Compte introuvable." }, { status: 404 });
   }
 
-  const [{ apiKey, source: keySource }, businessProfile] = await Promise.all([
-    resolveAgentKey(accountRow),
-    getBusinessProfile(accountId),
-  ]);
+  // Wrapped explicitly — resolveAgentKey throws NoAgentKeyAvailableError
+  // when neither a BYOK key nor the shared fallback is configured, which
+  // previously went uncaught here (a raw 500 with no JSON body, which the
+  // client's response.json() then fails to parse, surfacing as a
+  // misleading "erreur réseau" instead of the real "no key configured").
+  let apiKey: string;
+  let keySource: "byok" | "shared";
+  let businessProfile: Awaited<ReturnType<typeof getBusinessProfile>>;
+  try {
+    const [resolvedKey, resolvedProfile] = await Promise.all([resolveAgentKey(accountRow), getBusinessProfile(accountId)]);
+    apiKey = resolvedKey.apiKey;
+    keySource = resolvedKey.source;
+    businessProfile = resolvedProfile;
+  } catch (error) {
+    console.error("Import analyze setup failed", error);
+    const message = error instanceof Error ? error.message : "Impossible de préparer l'analyse.";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
   const businessContext = buildBusinessContext(businessProfile);
 
   const results: AnalyzeSheetResult[] = [];
@@ -98,7 +124,7 @@ export async function POST(request: Request): Promise<Response> {
       }
       console.error("Import parse failed", file.name, error);
       return NextResponse.json(
-        { error: `Une erreur inattendue est survenue en analysant ${file.name}. Réessaie, ou contacte le support si ça persiste.` },
+        { error: buildUnexpectedErrorMessage(file.name, error) },
         { status: 500 }
       );
     }
@@ -137,11 +163,32 @@ export async function POST(request: Request): Promise<Response> {
           mapping: enrichMapping(parsed, { ...result, questions }),
         });
       } catch (error) {
-        console.error("Import mapping failed", file.name, unit.kind === "sheet" ? unit.sheet.name : unit.fileName, error);
-        return NextResponse.json(
-          { error: `Une erreur inattendue est survenue en analysant ${file.name}. Réessaie, ou contacte le support si ça persiste.` },
-          { status: 500 }
-        );
+        const sheetName = unit.kind === "sheet" ? unit.sheet.name : unit.fileName;
+        console.error("Import mapping failed", file.name, sheetName, error);
+        // One sheet failing to analyze (a model hiccup, a malformed tool
+        // response) must never abort the whole import — the OTHER sheets
+        // in the same workbook are independent and still worth showing.
+        // Surfaced as "ignored" with the real cause, same as any other
+        // ignored sheet — never a silent drop.
+        const detail = process.env.NODE_ENV === "production" ? "" : ` [dev] ${error instanceof Error ? error.message : String(error)}`;
+        results.push({
+          fileName: file.name,
+          sheetName,
+          fileHash: createHash("sha256").update(buffer).digest("hex"),
+          headerRowConfident: true,
+          previewRows: [],
+          mapping: {
+            sheetName,
+            targetTable: "ignore",
+            ignoreReason: `Impossible d'analyser cette feuille automatiquement.${detail}`,
+            mappings: [],
+            dateColumnName: null,
+            dateColumnValues: null,
+            periodDetected: null,
+            unmappedColumns: [],
+            questions: [],
+          },
+        });
       }
     }
   }

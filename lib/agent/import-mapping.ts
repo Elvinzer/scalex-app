@@ -6,7 +6,10 @@ import type { RawSheet } from "@/lib/import/parse";
 // Bump here when the model needs updating — single point of change, same
 // convention as lib/agent/insight.ts.
 const MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 4000;
+// Generous headroom for a wide sheet (many columns → many mappings/
+// questions in the response) — a cut-off tool_use response is invalid JSON
+// and was a plausible cause of "Mapping invalide retourné par le modèle".
+const MAX_TOKENS = 8000;
 const MAX_ROWS_SENT_TO_MODEL = 50; // sample only — never the full 2000-row cap, keeps tokens sane
 const MAX_PDF_CHARS_SENT_TO_MODEL = 20_000;
 
@@ -35,16 +38,26 @@ On te donne UNE feuille/fichier (tableau ou texte extrait) à la fois et tu dois
 
 Règles absolues, non négociables :
 - Une seule table cible (targetTable) par feuille : "monthly_metrics", "content_posts", "sales", "ad_campaigns", ou "ignore" si rien ne correspond manifestement (données de tiers/veille concurrentielle, notes libres, feuille de calcul annexe...).
-- "ignore" exige TOUJOURS un ignoreReason concret et court (ex: "Données de veille sur des comptes concurrents, pas tes métriques.") — jamais vide, jamais générique.
+- "ignore" exige TOUJOURS un ignoreReason concret et court (ex: "Données de veille sur des comptes concurrents, pas tes métriques.") — jamais vide, jamais générique. N'inclus PAS le champ ignoreReason du tout si targetTable n'est pas "ignore".
 - Ne JAMAIS mapper une colonne de taux/pourcentage/ratio — ces valeurs sont toujours recalculées par l'app, jamais importées. Mets cette colonne dans unmapped_columns avec l'explication.
 - Ne JAMAIS inventer une valeur qui n'est pas explicitement dans le fichier.
 - confidence "high" seulement si le nom de colonne et les valeurs échantillon ne laissent aucun doute. Sinon "medium" ou "low", et ajoute une question dans "questions" (max 6 questions au total — au-delà, laisse la colonne en unmapped plutôt que de rajouter une question).
 - Chaque question doit citer 2-3 échantillons concrets de la colonne et proposer 2-3 champs cibles plausibles en options (jamais plus de 3, jamais "ignore" — "Ignorer cette colonne" est ajouté automatiquement, ne le liste jamais toi-même).
-- dateColumnName : le nom EXACT (tel qu'il apparaît dans les colonnes) de la colonne qui contient une date par ligne, s'il y en a une — sert à regrouper les lignes par mois EN CODE (jamais toi qui comptes/additionnes). null si aucune colonne date exploitable.
-- Si aucune colonne date n'existe et qu'aucune période ne peut être déduite du fichier, periodDetected doit être null (ne devine jamais une période) — periodDetected ne sert que de repli quand dateColumnName est null.
+- Pour une colonne dont tu ne connais pas le champ cible : N'INCLUS PAS le champ targetField du tout pour cette entrée de mappings (ne mets jamais une chaîne vide ou inventée).
+- dateColumnName : le nom EXACT (tel qu'il apparaît dans les colonnes) de la colonne qui contient une date par ligne, s'il y en a une — sert à regrouper les lignes par mois EN CODE (jamais toi qui comptes/additionnes). N'inclus PAS ce champ du tout si aucune colonne date n'est exploitable.
+- periodDetected : uniquement un repli quand dateColumnName est absent. N'inclus PAS ce champ du tout si tu ne peux pas déduire une période précise (ne devine jamais).
 
 ${FIELD_DEFINITIONS}`;
 
+// Deliberately no `type: ["string", "null"]` unions anywhere below — nullable
+// unions in tool JSON schemas aren't uniformly honored across structured-
+// output implementations, and this schema needs to work reliably, not
+// showcase the fullest JSON Schema feature set. Every "nullable" concept
+// here (ignoreReason, targetField, dateColumnName, periodDetected) is
+// instead expressed as a plain-typed OPTIONAL field the model omits to mean
+// "none" — normalizeModelInput below fills in the real `null` our own Zod
+// schema expects before validation, so the rest of the app never sees the
+// difference between "omitted" and "explicitly null".
 const MAP_COLUMNS_TOOL: Anthropic.Tool = {
   name: "map_columns",
   description: "Retourne le mapping des colonnes d'une feuille vers les champs cibles de Scale X.",
@@ -52,25 +65,27 @@ const MAP_COLUMNS_TOOL: Anthropic.Tool = {
     type: "object",
     properties: {
       targetTable: { type: "string", enum: [...IMPORT_TARGET_TABLES] },
-      ignoreReason: { type: ["string", "null"] },
+      ignoreReason: { type: "string", description: 'Uniquement si targetTable === "ignore" — sinon omets ce champ.' },
       mappings: {
         type: "array",
         items: {
           type: "object",
           properties: {
             sourceColumn: { type: "string" },
-            targetField: { type: ["string", "null"], enum: [...ALL_TARGET_FIELDS, null] },
+            targetField: { type: "string", enum: [...ALL_TARGET_FIELDS], description: "Omets ce champ si le champ cible est inconnu." },
             confidence: { type: "string", enum: ["high", "medium", "low"] },
             granularity: { type: "string", enum: ["daily", "weekly", "monthly"] },
             sampleValues: { type: "array", items: { type: "string" }, maxItems: 5 },
           },
-          required: ["sourceColumn", "targetField", "confidence", "granularity", "sampleValues"],
+          required: ["sourceColumn", "confidence", "granularity", "sampleValues"],
         },
       },
-      dateColumnName: { type: ["string", "null"] },
+      dateColumnName: { type: "string", description: "Omets ce champ si aucune colonne date n'est exploitable." },
       periodDetected: {
-        type: ["object", "null"],
+        type: "object",
         properties: { year: { type: "number" }, month: { type: "number" } },
+        required: ["year", "month"],
+        description: "Omets ce champ si aucune période ne peut être déduite.",
       },
       unmappedColumns: { type: "array", items: { type: "string" } },
       questions: {
@@ -87,7 +102,7 @@ const MAP_COLUMNS_TOOL: Anthropic.Tool = {
         },
       },
     },
-    required: ["targetTable", "ignoreReason", "mappings", "dateColumnName", "periodDetected", "unmappedColumns", "questions"],
+    required: ["targetTable", "mappings", "unmappedColumns", "questions"],
   },
 };
 
@@ -135,14 +150,18 @@ function looksLikeRateColumn(sampleValues: string[]): boolean {
 
 const VALID_TARGET_FIELDS = new Set<string>(ALL_TARGET_FIELDS);
 
-// maxItems/enum in MAP_COLUMNS_TOOL's JSON schema already tell the model
-// the limits, but tool-use JSON schema enforcement by the model isn't
-// guaranteed — normalize here too so one out-of-bounds value (an oversized
-// sampleValues array, or "ignore" leaking into a column-level targetField/
-// option even though it's only ever valid as the sheet-level targetTable)
-// doesn't reject an otherwise-usable mapping outright. This feature exists
-// specifically to interpret unpredictable, off-format files, so minor model
-// drift gets absorbed here instead of 500ing the whole import over it.
+// maxItems/enum/required in MAP_COLUMNS_TOOL's JSON schema already tell the
+// model the shape, but tool-use schema enforcement by the model isn't
+// guaranteed — normalize here too so one out-of-bounds or missing value
+// (an oversized sampleValues array, "ignore" leaking into a column-level
+// targetField/option even though it's only ever valid as the sheet-level
+// targetTable, or an omitted optional field) never rejects an otherwise-
+// usable mapping outright. This feature exists specifically to interpret
+// unpredictable, off-format files, so minor model drift gets absorbed here
+// instead of 500ing the whole import over it. Also fills in the real
+// `null` our Zod schema expects for every field the tool schema now leaves
+// optional (ignoreReason/targetField/dateColumnName/periodDetected) —
+// omitted-by-the-model and explicit-null are treated identically.
 function normalizeModelInput(input: unknown): unknown {
   if (typeof input !== "object" || input === null) return input;
   const record = input as Record<string, unknown>;
@@ -152,13 +171,11 @@ function normalizeModelInput(input: unknown): unknown {
         if (typeof entry !== "object" || entry === null) return entry;
         const mappingEntry = entry as Record<string, unknown>;
         const targetField =
-          typeof mappingEntry.targetField === "string" && !VALID_TARGET_FIELDS.has(mappingEntry.targetField)
-            ? null
-            : mappingEntry.targetField;
-        const sampleValues = Array.isArray(mappingEntry.sampleValues) ? mappingEntry.sampleValues.slice(0, 5) : mappingEntry.sampleValues;
+          typeof mappingEntry.targetField === "string" && VALID_TARGET_FIELDS.has(mappingEntry.targetField) ? mappingEntry.targetField : null;
+        const sampleValues = Array.isArray(mappingEntry.sampleValues) ? mappingEntry.sampleValues.slice(0, 5) : [];
         return { ...mappingEntry, targetField, sampleValues };
       })
-    : record.mappings;
+    : [];
 
   const questions = Array.isArray(record.questions)
     ? record.questions.slice(0, 6).map((entry) => {
@@ -166,12 +183,23 @@ function normalizeModelInput(input: unknown): unknown {
         const questionEntry = entry as Record<string, unknown>;
         const options = Array.isArray(questionEntry.options)
           ? questionEntry.options.filter((option) => typeof option === "string" && VALID_TARGET_FIELDS.has(option)).slice(0, 3)
-          : questionEntry.options;
+          : [];
         return { ...questionEntry, options };
       })
-    : record.questions;
+    : [];
 
-  return { ...record, mappings, questions };
+  const ignoreReason = typeof record.ignoreReason === "string" && record.ignoreReason.trim().length > 0 ? record.ignoreReason : null;
+  const dateColumnName = typeof record.dateColumnName === "string" && record.dateColumnName.trim().length > 0 ? record.dateColumnName : null;
+  const periodDetected =
+    typeof record.periodDetected === "object" &&
+    record.periodDetected !== null &&
+    typeof (record.periodDetected as Record<string, unknown>).year === "number" &&
+    typeof (record.periodDetected as Record<string, unknown>).month === "number"
+      ? record.periodDetected
+      : null;
+  const unmappedColumns = Array.isArray(record.unmappedColumns) ? record.unmappedColumns : [];
+
+  return { ...record, mappings, questions, ignoreReason, dateColumnName, periodDetected, unmappedColumns };
 }
 
 export type MapImportedFileResult = {
@@ -187,14 +215,32 @@ export type MapImportedFileResult = {
 export async function mapImportedFile(unit: MappableUnit, businessContext: string, apiKey: string): Promise<MapImportedFileResult> {
   const client = new Anthropic({ apiKey });
 
-  const message = await client.messages.create({
-    model: MODEL,
-    max_tokens: MAX_TOKENS,
-    system: `${SYSTEM_PROMPT}\n\nContexte business de l'utilisateur :\n${businessContext}`,
-    tools: [MAP_COLUMNS_TOOL],
-    tool_choice: { type: "tool", name: "map_columns" },
-    messages: [{ role: "user", content: buildFileContent(unit) }],
-  });
+  let message: Anthropic.Message;
+  try {
+    message = await client.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      system: `${SYSTEM_PROMPT}\n\nContexte business de l'utilisateur :\n${businessContext}`,
+      tools: [MAP_COLUMNS_TOOL],
+      tool_choice: { type: "tool", name: "map_columns" },
+      messages: [{ role: "user", content: buildFileContent(unit) }],
+    });
+  } catch (error) {
+    // Turned into a clear, actionable message instead of leaking the raw
+    // SDK error up through the generic "erreur inattendue" catch-all — the
+    // most likely real-world cause (an invalid/expired BYOK key) deserves
+    // its own wording, not a stack trace.
+    if (error instanceof Anthropic.AuthenticationError) {
+      throw new Error("Ta clé Anthropic (BYOK) semble invalide ou expirée — vérifie-la dans Réglages.");
+    }
+    if (error instanceof Anthropic.RateLimitError) {
+      throw new Error("Limite de requêtes atteinte sur ta clé Anthropic — réessaie dans un instant.");
+    }
+    if (error instanceof Anthropic.APIError) {
+      throw new Error(`L'IA a renvoyé une erreur (${error.status ?? "?"}) : ${error.message}`);
+    }
+    throw error;
+  }
 
   const toolUseBlock = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
   if (!toolUseBlock) {
