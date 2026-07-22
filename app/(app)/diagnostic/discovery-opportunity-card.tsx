@@ -20,6 +20,16 @@ const EFFORT_CLASS: Record<"faible" | "moyen" | "eleve", string> = {
   eleve: "bg-state-critical-bg text-state-critical",
 };
 
+// Market-average time to FIRST results, by effort tier — an order-of-magnitude
+// expectation to encourage ("à minima les premiers résultats"), not a precise
+// forecast, hence "en moyenne". Tied to effort like FALLBACK_EXTRA_CLIENTS in
+// opportunities.ts rather than invented per-lever.
+const EFFORT_TIME_HORIZON: Record<"faible" | "moyen" | "eleve", string> = {
+  faible: "1 à 2 semaines",
+  moyen: "1 à 2 mois",
+  eleve: "3 à 6 mois",
+};
+
 // Local drawer, same technique as app/(app)/diagnostic/auto-open-improve.tsx
 // — no state lifted to the global floating bubble, no new AI role (reuses
 // the general Copilote as-is, per this chantier's confirmed scope).
@@ -82,6 +92,15 @@ export function DiscoveryOpportunityCard({
           <CalcPopover explanation={impactExplanation} />
         </div>
 
+        {/* Time-to-first-results horizon — only on "à implémenter" cards (a
+            lever not yet in place, i.e. no currentValue), to set an honest
+            expectation next to the € potential. */}
+        {currentValue === undefined && (
+          <p className="text-xs text-muted-foreground">
+            ⏱ Premiers résultats : ≈ {EFFORT_TIME_HORIZON[effort]} en moyenne
+          </p>
+        )}
+
         {info?.badMax !== undefined && info?.okMax !== undefined && (
           <LeverBenchmarkBar
             badMax={info.badMax}
@@ -92,10 +111,10 @@ export function DiscoveryOpportunityCard({
           />
         )}
 
-        {/* Violet, not coral — this opens the Copilote (IA), the token
-            reserved for AI/analytics actions. Coral stays free for the
-            page's single non-AI priority CTA. */}
-        <Button size="sm" variant="accent2" onClick={() => handleOpenChange(true)} className="self-start">
+        {/* Outline, not a filled accent — these cards are a grid of equivalent
+            options, none is THE priority CTA, so filled accents (corail =
+            priority, violet = IA) stay reserved for single, unique CTAs. */}
+        <Button size="sm" variant="outline" onClick={() => handleOpenChange(true)} className="self-start">
           {ctaLabel}
         </Button>
       </div>

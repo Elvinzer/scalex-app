@@ -43,6 +43,17 @@ Avant de dire qu'une tâche est terminée :
 - Validation (Zod) sur toute donnée qui traverse une frontière externe : payloads webhooks,
   inputs formulaire, réponses tool-use de l'agent. Jamais de `as` non validé sur du input externe.
 
+## Design system (DA)
+- N'utiliser QUE les couleurs de la DA : tokens CSS (`--accent`, `--accent-2`, `--state-*`,
+  `--muted`, etc.) et les `variant` du composant `Button`. Jamais de couleur hex/rgb en dur
+  ni de classe Tailwind de couleur brute (`bg-purple-500`, `text-blue-600`…) dans un composant.
+- Deux accents de marque, sémantique fixe : corail (`--accent`) = LE CTA prioritaire, unique
+  par écran ; violet (`--accent-2`, `variant="accent2"`) = actions IA/analytics uniquement.
+  Ne pas détourner l'un pour l'autre.
+- Une grille d'actions équivalentes (cartes répétées, listes) n'a PAS de CTA prioritaire :
+  utiliser `variant="outline"`, jamais un aplat d'accent répété sur chaque item (mur de couleur).
+- En cas de doute sur une couleur/variant, demander plutôt que d'inventer une teinte hors-DA.
+
 ## Règles non négociables (BYOK & Stripe Connect)
 - La clé API Anthropic du client est CHIFFRÉE en base, jamais en clair, jamais loggée,
   jamais renvoyée au frontend après la saisie initiale (afficher `sk-ant-...xxxx` masqué)

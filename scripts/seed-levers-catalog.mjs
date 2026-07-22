@@ -148,10 +148,17 @@ const LEVERS = [
     category: "acquisition",
     questions: [
       yesNo("hasAds", "Tu fais de la publicité payante (Meta, Google, TikTok, LinkedIn) ?"),
-      select("channel", "Canal principal", [
+      // Only the 5 channels present in AD_CHANNEL_BENCHMARKS (lib/levers/opportunities.ts)
+      // get a cost-per-result comparison; the others fall back to the generic
+      // effort-based estimate (no invented CPA). Prompt says "publicitaire" so
+      // the question stays self-explanatory once the yes/no context is gone.
+      select("channel", "Canal publicitaire principal", [
         "Meta — génération de leads",
         "Meta — ecommerce",
+        "Meta — trafic / notoriété",
         "Google Search",
+        "YouTube Ads",
+        "TikTok — génération de leads",
         "TikTok — ecommerce",
         "LinkedIn — B2B",
       ]),

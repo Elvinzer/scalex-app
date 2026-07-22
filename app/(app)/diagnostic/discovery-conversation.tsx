@@ -95,9 +95,15 @@ export function DiscoveryConversation({
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<"primary" | "stats">("primary");
   const [statDraft, setStatDraft] = useState<Record<string, string>>({});
-  const [answeredCount, setAnsweredCount] = useState(initialAnswered);
+  // Raw stat drafts keyed by lever index, so stepping back restores what was
+  // typed (answers persist server-side per lever, but the UI draft is local).
+  const [history, setHistory] = useState<Record<number, Record<string, string>>>({});
   const [isPending, setIsPending] = useState(false);
   const listening = useFalcoListening();
+
+  // Progress derived from the walk position (not a counter) so stepping back
+  // and forward keeps it consistent — `index` levers of the snapshot are done.
+  const answeredCount = initialAnswered + index;
 
   const lever = levers[index];
   const primaryQuestion = lever?.questions[0];
@@ -114,8 +120,7 @@ export function DiscoveryConversation({
     await saveLeverAnswer(lever.leverKey, status, numericStats);
     setIsPending(false);
 
-    const nextAnswered = answeredCount + 1;
-    setAnsweredCount(nextAnswered);
+    setHistory((prev) => ({ ...prev, [index]: stats }));
     setStatDraft({});
     setPhase("primary");
 
@@ -141,6 +146,24 @@ export function DiscoveryConversation({
     void advance("active", statDraft);
   }
 
+  // Step back to revise an answer. Within a lever, the stats phase falls back
+  // to its primary question first; otherwise we return to the previous lever
+  // and restore its draft. Re-answering just re-saves (saveLeverAnswer upserts).
+  const canGoBack = phase === "stats" || index > 0;
+  function goBack() {
+    if (isPending) return;
+    if (phase === "stats") {
+      setPhase("primary");
+      return;
+    }
+    if (index > 0) {
+      const prev = index - 1;
+      setIndex(prev);
+      setPhase("primary");
+      setStatDraft(history[prev] ?? {});
+    }
+  }
+
   if (!lever) return null;
 
   return (
@@ -154,7 +177,25 @@ export function DiscoveryConversation({
         </span>
       </div>
 
-      <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">{CATEGORY_LABEL[lever.category]}</p>
+      {canGoBack && (
+        <button
+          type="button"
+          onClick={goBack}
+          disabled={isPending}
+          className="-mb-2 self-start text-xs font-bold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+        >
+          ← Précédent
+        </button>
+      )}
+
+      {/* Category eyebrow + lever label — the label stays visible in the
+          stats phase too, so the user always knows which lever they're
+          detailing once the primary "yes/no" question (which carried the
+          context, e.g. "Tu fais de la publicité payante ?") is gone. */}
+      <div>
+        <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">{CATEGORY_LABEL[lever.category]}</p>
+        <p className="mt-0.5 text-base font-bold">{lever.label}</p>
+      </div>
 
       <FalcoConversationTurn
         key={`${lever.leverKey}-${phase}`}
