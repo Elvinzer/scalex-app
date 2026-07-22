@@ -4,16 +4,21 @@
 export function Sparkline({
   values,
   labels,
+  color = "var(--text-secondary)",
+  height = 40,
 }: {
   values: number[];
   labels: string[];
+  // Both optional — defaults match the original behavior exactly, so
+  // existing callers (MetricCard/Dashboard) are unaffected.
+  color?: string;
+  height?: number;
 }) {
   if (values.length < 2) {
-    return <div className="h-10 w-full" aria-hidden="true" />;
+    return <div className="w-full" style={{ height }} aria-hidden="true" />;
   }
 
   const width = 160;
-  const height = 40;
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);
   const range = max - min || 1;
@@ -30,14 +35,15 @@ export function Sparkline({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="h-10 w-full overflow-visible"
+      className="w-full overflow-visible"
+      style={{ height }}
       role="img"
       aria-label={`Évolution sur les ${values.length} derniers jours`}
     >
       <polyline
         points={linePath}
         fill="none"
-        stroke="var(--text-secondary)"
+        stroke={color}
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"

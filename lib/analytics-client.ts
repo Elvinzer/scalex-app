@@ -33,7 +33,8 @@ export type ClientAnalyticsEvent =
   | "metric_card_shared"
   | "score_badge_clicked"
   | "score_modal_share_opened"
-  | "opportunity_chat_opened";
+  | "opportunity_chat_opened"
+  | "overview_metric_switched";
 
 export function trackClient(event: ClientAnalyticsEvent, properties?: Record<string, unknown>): void {
   if (!initialized) return;

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BarChart3,
   Boxes,
   ChevronsUpDown,
   Database,
@@ -41,6 +42,10 @@ type LinkEntry = { type: "link"; href: string; label: string; icon: IconType; pe
 // grouping above them, just plain items in the main menu like the rest.
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
+  // Reuses the "dashboard" permission (same sensitivity level as Dashboard's
+  // own numbers) rather than introducing a new PermissionKey just for this
+  // exploration-only view.
+  { type: "link", href: "/overview", label: "Vue d'ensemble", icon: BarChart3, permission: "dashboard" },
   { type: "link", href: "/datas", label: "Mes chiffres", icon: Database, permission: "datas" },
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
   { type: "link", href: "/ventes/suivi", label: "Suivi des ventes", icon: Receipt, permission: "ventes:suivi" },
