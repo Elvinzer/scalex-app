@@ -163,8 +163,12 @@ const LEVERS = [
     ],
     benchmarkValue: 0.4,
     benchmarkStatKey: "showUpRate",
-    formulaType: "none",
-    formulaParams: {},
+    // A live masterclass converts a meaningfully larger share of an audience
+    // than a passive email (rate 0.06 vs email_marketing's 0.025) — the
+    // previous "none" formula undersold this lever badly (fell back to the
+    // generic effort-based estimate, ~2 clients/month regardless of reach).
+    formulaType: "leads_x_rate_x_closing_x_price",
+    formulaParams: { rate: 0.06 },
     effort: "moyen",
     sortOrder: 2,
   },

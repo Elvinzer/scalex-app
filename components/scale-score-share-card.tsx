@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { forwardRef } from "react";
 
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
@@ -19,10 +20,11 @@ function formatMultiplier(current: number, potential: number): string {
 }
 
 // Same dark shareable-card family as components/metric-health-card.tsx (bg
-// #16150F, tier glow, Scale X logo badge, footer CTA) — this is the Scale
+// #16150F, tier glow, Scale X wordmark, footer CTA) — this is the Scale
 // Score modal's variant: potential monthly revenue "if everything the app
-// flags gets fixed" instead of a single metric's %. Built from
-// computeFullBenchmarkProjection (app/(app)/layout.tsx), not a new formula.
+// flags gets fixed" instead of a single metric's %. Potential/current figures
+// come from app/(app)/layout.tsx (same top-3-bottlenecks basis as Dashboard's
+// "manque à gagner" — see that file's comment).
 export const ScaleScoreShareCard = forwardRef<
   HTMLDivElement,
   { score: number; currentMonthlyRevenue: number; potentialMonthlyRevenue: number; className?: string }
@@ -42,15 +44,7 @@ export const ScaleScoreShareCard = forwardRef<
       />
 
       <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span
-            className="flex size-8 items-center justify-center rounded-lg text-sm font-bold text-white"
-            style={{ background: "var(--gradient-accent)" }}
-          >
-            S
-          </span>
-          <span className="font-display text-lg font-bold text-[var(--text-on-dark)]">Scale X</span>
-        </div>
+        <Image src="/scalex-wordmark.png" alt="Scale X" width={200} height={50} className="h-7 w-auto" />
         <div className="text-right">
           <p className="text-[11px] tracking-wide text-[var(--text-on-dark-muted)] uppercase">{TIER_LABEL[tier.tier]}</p>
           <p className="font-display text-2xl font-bold tabular-nums" style={{ color: tier.colorText }}>

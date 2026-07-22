@@ -3,7 +3,6 @@
 import {
   BarChart3,
   Boxes,
-  CalendarDays,
   ChevronsUpDown,
   Database,
   FileText,
@@ -39,9 +38,14 @@ type LinkEntry = { type: "link"; href: string; label: string; icon: IconType; pe
 // CŒUR — the value-loop pages, always visible (permission-gated as before).
 // Funnel/Insights aren't here (nor anywhere in Diagnostic anymore) — moved
 // to Avancé, see app/(app)/avance/page.tsx and app/(app)/avance/funnel|insights.
-// Suivi des ventes/Contenu/Journal are flat entries here too — no more
-// "Suivi" pillar grouping (removed in an earlier simplification pass), just
-// plain items in the main menu like the rest.
+// Suivi des ventes/Contenu are flat entries here too — no more "Suivi"
+// pillar grouping (removed in an earlier simplification pass), just plain
+// items in the main menu like the rest.
+//
+// "Journal de bord" (/journal) is built (app/(app)/journal/) but
+// deliberately not linked here yet — hidden from the nav for later, not
+// deleted, per explicit request. Re-add a { href: "/journal", ... } entry
+// here (icon: CalendarDays) when it's ready to ship.
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
   // Reuses the "dashboard" permission (same sensitivity level as Dashboard's
@@ -52,10 +56,6 @@ const topEntries: LinkEntry[] = [
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
   { type: "link", href: "/ventes/suivi", label: "Suivi des ventes", icon: Receipt, permission: "ventes:suivi" },
   { type: "link", href: "/acquisition/contenu", label: "Contenu", icon: FileText, permission: "acquisition:contenu" },
-  // Same "dashboard" permission precedent as Vue d'ensemble above — no
-  // "SUIVI" group exists anymore in this sidebar (deliberately flattened),
-  // so this is a flat entry like everything else, not a reintroduced pillar.
-  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
 ];
 
 // HORS-NAVIGATION — account-level pages under the profile dropdown

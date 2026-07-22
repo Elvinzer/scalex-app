@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 
 import { Falco } from "@/components/falco/falco";
-import { CalcPopover } from "@/components/calc-popover";
 import { ScaleScoreShareCard } from "@/components/scale-score-share-card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -19,9 +18,6 @@ const TIER_LABEL: Record<"rouge" | "ambre" | "vert", string> = {
   ambre: "Santé correcte",
   vert: "Santé excellente",
 };
-
-const SCALE_SCORE_EXPLANATION =
-  "Ton Scale Score est la moyenne de 3 piliers : Acquisition (tes taux de prospection vs le benchmark de ta niche), Vente (tes taux de closing vs le benchmark), et Délivrabilité (à quel point tu as documenté ton process de delivery dans Mon business — en attendant une vraie métrique de rétention). Un pilier compte seulement s'il a assez de données ; le score global n'apparaît qu'à partir de 2 piliers renseignés.";
 
 const SPARKLINE_WIDTH = 240;
 const SPARKLINE_HEIGHT = 48;
@@ -39,46 +35,6 @@ function Sparkline({ points }: { points: ScaleScoreSparklinePoint[] }) {
     <svg width={SPARKLINE_WIDTH} height={SPARKLINE_HEIGHT} viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT}`} className="mt-1">
       <polyline points={coords.join(" ")} fill="none" stroke="var(--text-secondary)" strokeWidth={1.5} />
     </svg>
-  );
-}
-
-function PillarBar({
-  label,
-  score,
-  covered,
-  href,
-}: {
-  label: string;
-  score: number | null;
-  covered: boolean;
-  href: string;
-}) {
-  const tier = covered && score !== null ? getHealthTier(score) : null;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-bold">{label}</span>
-        {covered && score !== null ? (
-          <span className="font-bold tabular-nums" style={{ color: tier?.colorText }}>
-            {score}
-          </span>
-        ) : (
-          <a href={href} className="text-xs font-bold text-muted-foreground hover:underline">
-            À compléter →
-          </a>
-        )}
-      </div>
-      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${covered && score !== null ? score : 0}%`,
-            background: covered ? tier?.colorBar : "var(--border)",
-          }}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -101,16 +57,10 @@ export function ScaleScoreModal({
 }) {
   const shareCardRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const { score, pillars } = scaleScore;
+  const { score } = scaleScore;
   const tier = score !== null ? getHealthTier(score) : null;
   const hasRevenueProjection =
     score !== null && currentMonthlyRevenue !== null && potentialMonthlyRevenue !== null && potentialMonthlyRevenue > currentMonthlyRevenue;
-
-  const pillarHref: Record<string, string> = {
-    acquisition: "/datas",
-    vente: "/datas",
-    delivrabilite: "/business",
-  };
 
   async function handleShare() {
     const node = shareCardRef.current;
@@ -176,29 +126,12 @@ export function ScaleScoreModal({
                 </div>
               )}
 
-              <div className="flex flex-col gap-4">
-                {pillars.map((pillar) => (
-                  <PillarBar
-                    key={pillar.key}
-                    label={pillar.label}
-                    score={pillar.score}
-                    covered={pillar.covered}
-                    href={pillarHref[pillar.key]}
-                  />
-                ))}
-              </div>
-
               {sparkline.length >= 2 && (
                 <div>
                   <p className="text-xs font-bold text-muted-foreground">Évolution (8 dernières semaines)</p>
                   <Sparkline points={sparkline} />
                 </div>
               )}
-
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-muted-foreground">Comment c&apos;est calculé ?</span>
-                <CalcPopover explanation={SCALE_SCORE_EXPLANATION} />
-              </div>
 
               <div className="flex gap-2">
                 <Button asChild className="flex-1">

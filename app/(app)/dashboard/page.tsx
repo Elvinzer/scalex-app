@@ -156,16 +156,16 @@ export default async function DashboardPage({
       {/* Bloc 1 — slim single-row hero banner. The benchmark widget is
           pulled off the Dashboard for now (see git history to restore it —
           components/metric-health-carousel.tsx is untouched). */}
-      <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-4 px-6 py-4">
-        <Falco pose={heroFalco.pose} size="xs" animate="enter" className="hidden sm:flex" />
-        <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-          <p className="text-xs font-bold text-mist/70">Manque à gagner détecté</p>
-          <p className="gradient-text text-2xl font-bold tracking-[-0.01em] tabular-nums">
+      <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-6 px-8 py-7">
+        <Falco pose={heroFalco.pose} size="sm" animate="enter" className="hidden sm:flex" />
+        <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
+          <p className="text-sm font-bold text-mist/70">Manque à gagner détecté</p>
+          <p className="gradient-text text-4xl font-bold tracking-[-0.01em] tabular-nums">
             {formatEur(totalMonthlyLoss)}
           </p>
-          <p className="text-xs text-mist/60">{heroFalco.line}</p>
+          <p className="text-sm text-mist/60">{heroFalco.line}</p>
         </div>
-        <Button size="sm" asChild>
+        <Button size="lg" asChild>
           <a href="/diagnostic">Récupérer ce cash →</a>
         </Button>
       </div>

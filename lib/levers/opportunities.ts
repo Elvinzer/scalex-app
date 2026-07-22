@@ -24,6 +24,18 @@ export type LeverWatchItem = {
   statValue: number;
   benchmarkValue: number;
   score: number; // 0-100, same tier semantics as getHealthTier — NOT a cascade MetricKey score
+  impactAmountEur: number | null; // null = "Impact : à évaluer"
+  impactExplanation: string;
+};
+
+// Which of the lever's own answered `stats` fields represents its real
+// audience/reach size — used instead of the generic settingTotals.newSubscribers
+// whenever the user has actually entered it for that specific lever (their
+// email list size, their average webinar registrants...). Only levers with a
+// formula-relevant audience concept need an entry here.
+const LEVER_AUDIENCE_STAT_KEY: Record<string, string> = {
+  email_marketing: "listSize",
+  webinar: "inscrits",
 };
 
 function round(value: number): number {
@@ -126,6 +138,55 @@ function estimateImpact(
   return fallback();
 }
 
+// "Actifs à surveiller" — the lever IS running, just below its own
+// benchmark. Reuses the exact same formula/rate as estimateImpact above
+// (never a second formula to maintain), but applied only to the GAP between
+// the current stat and the benchmark, using the lever's OWN entered
+// audience size (LEVER_AUDIENCE_STAT_KEY) when the user provided one —
+// "combien tu laisses sur la table en restant sous le standard", grounded
+// in the real number they answered for this lever, not a generic estimate.
+function estimateWatchImpact(
+  lever: LeverCatalogEntry,
+  statValue: number,
+  benchmarkValue: number,
+  stats: Record<string, number | string>,
+  {
+    settingTotals,
+    closingTotals,
+    businessProfile,
+    cashContractedTotal,
+  }: {
+    settingTotals: FunnelTotals;
+    closingTotals: ClosingTotals;
+    businessProfile: BusinessProfileData;
+    cashContractedTotal: number;
+  }
+): { amountEur: number | null; explanation: string } {
+  if (lever.formulaType !== "leads_x_rate_x_closing_x_price") {
+    return { amountEur: null, explanation: "Pas de formule d'estimation pour ce levier pour l'instant." };
+  }
+
+  const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
+  const closingRate = buildRates(settingTotals, closingTotals).closingRate;
+  const audienceStatKey = LEVER_AUDIENCE_STAT_KEY[lever.leverKey];
+  const rawAudience = audienceStatKey ? stats[audienceStatKey] : undefined;
+  const audience = typeof rawAudience === "number" ? rawAudience : settingTotals.newSubscribers;
+
+  if (closingRate === null || dealPrice.price === null || audience <= 0) {
+    return { amountEur: null, explanation: "Pas encore assez de données pour chiffrer ce gain." };
+  }
+
+  const rate = lever.formulaParams.rate ?? 0;
+  const gapFraction = Math.max(0, benchmarkValue - statValue);
+  const missedLeads = audience * gapFraction;
+  const amount = round(missedLeads * rate * closingRate * dealPrice.price);
+
+  return {
+    amountEur: amount,
+    explanation: `En comblant l'écart (${Math.round(statValue * 100)}% → ${Math.round(benchmarkValue * 100)}%) sur ${Math.round(audience)} de ton audience${audienceStatKey ? " (celle que tu as renseignée)" : ""} × ${Math.round(rate * 100)}% de clic × ${Math.round(closingRate * 100)}% de closing réel × ${Math.round(dealPrice.price)}€.`,
+  };
+}
+
 export async function computeLeverOpportunities({
   accountId,
   businessProfile,
@@ -179,6 +240,12 @@ export async function computeLeverOpportunities({
       const rawValue = stats[lever.benchmarkStatKey];
       const statValue = typeof rawValue === "number" ? rawValue / 100 : null; // stats stored as whole percents (e.g. 35), benchmarkValue is a 0-1 fraction
       if (statValue !== null && statValue < lever.benchmarkValue) {
+        const { amountEur, explanation } = estimateWatchImpact(lever, statValue, lever.benchmarkValue, stats, {
+          settingTotals,
+          closingTotals,
+          businessProfile,
+          cashContractedTotal,
+        });
         toWatch.push({
           leverKey: lever.leverKey,
           label: lever.label,
@@ -186,6 +253,8 @@ export async function computeLeverOpportunities({
           statValue,
           benchmarkValue: lever.benchmarkValue,
           score: scoreAgainstBenchmark(statValue, lever.benchmarkValue),
+          impactAmountEur: amountEur,
+          impactExplanation: explanation,
         });
       }
     }

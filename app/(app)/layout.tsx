@@ -12,7 +12,7 @@ import { ensureUserRow } from "@/lib/current-user";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeFullBenchmarkProjection } from "@/lib/diagnostic/cascade";
+import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { computeScaleScore, type ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
@@ -102,13 +102,15 @@ export default async function AppLayout({
   let scaleScoreDelta30d: number | null = null;
   let scaleScoreSparkline: Awaited<ReturnType<typeof getScaleScoreSparkline>> = [];
   // "Mon CA si j'optimise tout" (Scale Score modal's share card) — current
-  // average monthly revenue vs. what computeFullBenchmarkProjection already
-  // computes as the ceiling if every measured rate hit its benchmark at
-  // once. Same 3-month window/inputs as scaleScore itself, no new formula:
-  // just cashContractedTotal averaged over the period, plus that
-  // projection's monthlyGain on top. Null whenever the projection can't be
-  // priced (no main offer / no sales yet) — the share card degrades
-  // gracefully rather than showing a fabricated number.
+  // average monthly revenue + the SAME top-3-bottlenecks-plus-top-3-Découverte
+  // sum as Dashboard's "manque à gagner" (app/(app)/dashboard/page.tsx),
+  // recomputed here from the same 3-month window/inputs. Deliberately NOT
+  // computeFullBenchmarkProjection (an earlier version used it) — that
+  // projects ALL 5 rates at benchmark simultaneously, a genuinely different,
+  // larger number by design (see its own comment in lib/diagnostic/cascade.ts)
+  // that never reconciled with the "manque à gagner" figure shown elsewhere,
+  // which was confusing shown side by side. Same null rule as Dashboard: if
+  // any of the top 3 points can't be priced, that portion is 0, not partial.
   const SCALE_SCORE_PERIOD_MONTHS = 3;
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
@@ -125,11 +127,14 @@ export default async function AppLayout({
     scaleScore = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
 
     if (cashContractedTotal > 0) {
-      const projection = computeFullBenchmarkProjection({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+      const topPoints = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal }).slice(0, 3);
+      const topPointsGain = topPoints.some((p) => p.monthlyGain === null)
+        ? 0
+        : topPoints.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0);
+
       // Same top-3 Découverte opportunities folded into Dashboard's "manque à
       // gagner" (app/(app)/dashboard/page.tsx) — added here too so "mon CA
-      // si j'optimise tout" reflects everything the app is flagging, not
-      // just the 5-metric cascade.
+      // si j'optimise tout" reflects everything the app is flagging.
       const { toImplement: discoveryOpportunities } = await computeLeverOpportunities({
         accountId,
         businessProfile,
@@ -141,8 +146,7 @@ export default async function AppLayout({
       const topDiscoveryGain = discoveryOpportunities.slice(0, 3).reduce((sum, o) => sum + (o.impactAmountEur ?? 0), 0);
 
       currentMonthlyRevenue = cashContractedTotal / SCALE_SCORE_PERIOD_MONTHS;
-      potentialMonthlyRevenue =
-        projection.monthlyGain !== null ? currentMonthlyRevenue + projection.monthlyGain + topDiscoveryGain : null;
+      potentialMonthlyRevenue = currentMonthlyRevenue + topPointsGain + topDiscoveryGain;
     }
 
     if (scaleScore.score !== null) {
