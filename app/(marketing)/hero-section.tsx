@@ -62,7 +62,7 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className="relative mx-auto w-full max-w-[520px] pt-6 pb-10 lg:pt-0">
+        <div className="relative mx-auto w-full max-w-[580px] pt-6 pb-10 lg:pt-0">
           <div
             aria-hidden
             className="absolute -bottom-6 left-1/2 size-56 -translate-x-1/2 rounded-full bg-accent/15 blur-3xl"
@@ -73,7 +73,7 @@ export function HeroSection() {
             size="xl"
             animate="enter"
             priority
-            className="absolute -bottom-10 -left-6 w-[150px] drop-shadow-[0_16px_28px_rgba(0,0,0,0.18)] sm:w-[180px]"
+            className="absolute -bottom-10 -left-14 w-[150px] drop-shadow-[0_16px_28px_rgba(0,0,0,0.18)] sm:-left-20 sm:w-[180px]"
           />
         </div>
       </div>

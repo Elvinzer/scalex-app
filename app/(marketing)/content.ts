@@ -122,8 +122,8 @@ export const LOSS_BREAKDOWN: { label: string; percent: number }[] = [
 ];
 
 export const TOP_LOSSES: { label: string; value: string; severity: "Élevé" | "Moyen" }[] = [
-  { label: "Campagnes sous-performantes", value: "32 460 €", severity: "Élevé" },
-  { label: "Fuites au checkout", value: "24 890 €", severity: "Élevé" },
+  { label: "Campagnes Meta", value: "32 460 €", severity: "Élevé" },
+  { label: "Abandon panier", value: "24 890 €", severity: "Élevé" },
   { label: "Leads non qualifiés", value: "18 220 €", severity: "Moyen" },
 ];
 

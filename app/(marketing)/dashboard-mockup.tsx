@@ -39,7 +39,7 @@ function LossDonut() {
 // deliberately sparse per the brief's "pas trop de stats" rule.
 export function DashboardMockup() {
   return (
-    <div className="w-full rounded-[22px] border border-border bg-white p-5 shadow-[var(--shadow-lg)] sm:p-7">
+    <div className="w-full rounded-[22px] border border-border bg-white p-6 shadow-[var(--shadow-lg)] sm:p-8">
       <div className="mb-5 flex items-center justify-between">
         <p className="font-display text-[15px] font-bold">Vue d&apos;ensemble</p>
         <span className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground">
@@ -82,13 +82,13 @@ export function DashboardMockup() {
           </div>
         </div>
 
-        <div className="rounded-[14px] border border-border p-4">
+        <div className="min-w-0 rounded-[14px] border border-border p-4">
           <p className="mb-3 text-[11px] font-semibold text-muted-foreground">Top pertes</p>
           <div className="flex flex-col gap-3">
             {TOP_LOSSES.map((loss) => (
-              <div key={loss.label} className="flex items-center justify-between gap-3 text-[13px]">
+              <div key={loss.label} className="flex items-center justify-between gap-2 text-[13px]">
                 <span className="min-w-0 truncate text-foreground">{loss.label}</span>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <span className="font-semibold">{loss.value}</span>
                   <span
                     className={
