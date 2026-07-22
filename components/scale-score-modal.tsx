@@ -5,6 +5,7 @@ import { toPng } from "html-to-image";
 
 import { Falco } from "@/components/falco/falco";
 import { CalcPopover } from "@/components/calc-popover";
+import { ScaleScoreShareCard } from "@/components/scale-score-share-card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { trackClient } from "@/lib/analytics-client";
@@ -87,17 +88,23 @@ export function ScaleScoreModal({
   scaleScore,
   delta30d,
   sparkline,
+  currentMonthlyRevenue,
+  potentialMonthlyRevenue,
 }: {
   open: boolean;
   onOpenChange: (next: boolean) => void;
   scaleScore: ScaleScoreResult;
   delta30d: number | null;
   sparkline: ScaleScoreSparklinePoint[];
+  currentMonthlyRevenue: number | null;
+  potentialMonthlyRevenue: number | null;
 }) {
-  const contentRef = useRef<HTMLDivElement>(null);
+  const shareCardRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const { score, pillars } = scaleScore;
   const tier = score !== null ? getHealthTier(score) : null;
+  const hasRevenueProjection =
+    score !== null && currentMonthlyRevenue !== null && potentialMonthlyRevenue !== null && potentialMonthlyRevenue > currentMonthlyRevenue;
 
   const pillarHref: Record<string, string> = {
     acquisition: "/datas",
@@ -106,7 +113,7 @@ export function ScaleScoreModal({
   };
 
   async function handleShare() {
-    const node = contentRef.current;
+    const node = shareCardRef.current;
     if (!node || isExporting) return;
     trackClient("score_modal_share_opened");
     setIsExporting(true);
@@ -124,7 +131,7 @@ export function ScaleScoreModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[480px]">
-        <div ref={contentRef} className="flex flex-col gap-6 bg-card">
+        <div className="flex flex-col gap-6 bg-card">
           {score === null ? (
             <div className="flex flex-col items-center gap-4 py-4 text-center">
               <Falco pose="sleeping" size="md" animate="enter" withBubble bubbleText="Il me faut tes chiffres pour te noter." />
@@ -142,23 +149,32 @@ export function ScaleScoreModal({
                 </p>
               </div>
 
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[52px] leading-none font-bold tabular-nums" style={{ color: tier?.colorText }}>
-                    {score}
-                  </span>
-                  <span className="text-sm text-muted-foreground">/100</span>
-                  <span className="text-sm font-bold" style={{ color: tier?.colorText }}>
-                    {tier && TIER_LABEL[tier.tier]}
-                  </span>
+              {hasRevenueProjection ? (
+                <ScaleScoreShareCard
+                  ref={shareCardRef}
+                  score={score}
+                  currentMonthlyRevenue={currentMonthlyRevenue}
+                  potentialMonthlyRevenue={potentialMonthlyRevenue}
+                />
+              ) : (
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[52px] leading-none font-bold tabular-nums" style={{ color: tier?.colorText }}>
+                      {score}
+                    </span>
+                    <span className="text-sm text-muted-foreground">/100</span>
+                    <span className="text-sm font-bold" style={{ color: tier?.colorText }}>
+                      {tier && TIER_LABEL[tier.tier]}
+                    </span>
+                  </div>
+                  {delta30d !== null && (
+                    <p className={cn("mt-1 text-sm font-bold", delta30d > 0 ? "text-positive" : "text-muted-foreground")}>
+                      {delta30d > 0 ? "↑" : delta30d < 0 ? "↓" : ""} {delta30d >= 0 ? "+" : ""}
+                      {delta30d} sur 30 jours
+                    </p>
+                  )}
                 </div>
-                {delta30d !== null && (
-                  <p className={cn("mt-1 text-sm font-bold", delta30d > 0 ? "text-positive" : "text-muted-foreground")}>
-                    {delta30d > 0 ? "↑" : delta30d < 0 ? "↓" : ""} {delta30d >= 0 ? "+" : ""}
-                    {delta30d} sur 30 jours
-                  </p>
-                )}
-              </div>
+              )}
 
               <div className="flex flex-col gap-4">
                 {pillars.map((pillar) => (

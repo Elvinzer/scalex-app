@@ -1,4 +1,4 @@
-import { Handshake, Megaphone, UserRoundCheck, Users, Video } from "lucide-react";
+import { Filter, Handshake, Lightbulb, Megaphone, UserRoundCheck, Users, Video } from "lucide-react";
 import Link from "next/link";
 
 import { Falco } from "@/components/falco/falco";
@@ -23,6 +23,10 @@ const MODULES: ModuleCard[] = [
   { label: "Bibliothèque d'appels", description: "Rejoue tes meilleurs appels de closing.", href: "/ventes/videos", icon: Video, permission: "ventes:videos" },
   { label: "Suivi setting quotidien", description: "Détail jour par jour de ton setting.", href: "/acquisition/setting", icon: UserRoundCheck, permission: "acquisition:setting" },
   { label: "Module closing quotidien", description: "Détail jour par jour de ton closing.", href: "/ventes/closing", icon: Handshake, permission: "ventes:closing" },
+  // Moved out of Diagnostic's tab bar — same "diagnostic" permission they
+  // already had as tabs, just their own routes now.
+  { label: "Funnel", description: "Tout ton parcours, de l'abonné à la vente conclue.", href: "/avance/funnel", icon: Filter, permission: "diagnostic" },
+  { label: "Insights", description: "Ce que l'agent t'a déjà suggéré sur ton funnel.", href: "/avance/insights", icon: Lightbulb, permission: "diagnostic" },
   { label: "Équipe", description: "Gère les rôles et accès de ton équipe.", href: "/settings/equipe", icon: Users, permission: null },
 ];
 

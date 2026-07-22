@@ -15,6 +15,7 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
+import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, dashboardStripeRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { getStripeActivity } from "@/lib/dashboard/stripe-metrics";
 import { formatEur } from "@/lib/currency";
@@ -86,9 +87,26 @@ export default async function DashboardPage({
   if (!hasAnyMonthlyRow) unlockHints.push("Remplis au moins un mois dans Datas");
   if (dealPrice.price === null) unlockHints.push("Renseigne ton offre principale dans Mon business");
 
-  const totalMonthlyLoss = points.some((p) => p.monthlyGain === null)
-    ? 0
-    : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0);
+  // Top 3 Découverte opportunities (same engine/ranking as the Découverte tab
+  // and /overview's own summary widget — already impact-sorted desc) folded
+  // into the same "manque à gagner" figure as the 3 cascade bottlenecks
+  // above, so the hero number reflects everything the app is currently
+  // flagging, not just the 5-metric funnel.
+  const { toImplement: discoveryOpportunities } = hasAnyMonthlyRow
+    ? await computeLeverOpportunities({
+        accountId,
+        businessProfile,
+        settingTotals,
+        closingTotals,
+        cashContractedTotal,
+        periodMonths: PERIOD_MONTHS,
+      })
+    : { toImplement: [] };
+  const topDiscoveryOpportunities = discoveryOpportunities.slice(0, 3);
+
+  const totalMonthlyLoss =
+    (points.some((p) => p.monthlyGain === null) ? 0 : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0)) +
+    topDiscoveryOpportunities.reduce((sum, o) => sum + (o.impactAmountEur ?? 0), 0);
 
   // The Dashboard's single content Falco (the floating chat bubble is the
   // one permitted exception). Pose + line reflect the same three states the
@@ -117,6 +135,10 @@ export default async function DashboardPage({
     allClosingEntries.some((entry) => inRange(entry.date, weekRange)) ||
     currentMonthlyRow !== undefined;
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const dailyReportDoneToday =
+    allSettingEntries.some((entry) => entry.date === todayIso) || allClosingEntries.some((entry) => entry.date === todayIso);
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
@@ -128,7 +150,7 @@ export default async function DashboardPage({
               : "Ton business tourne bien. Voici où creuser pour accélérer."}
           </p>
         </div>
-        <DailyReportDialog />
+        <DailyReportDialog alreadyDoneToday={dailyReportDoneToday} />
       </div>
 
       {/* Bloc 1 — slim single-row hero banner. The benchmark widget is

@@ -40,7 +40,7 @@ function StatField({ question, value, onChange }: { question: LeverQuestion; val
 // (saveLeverAnswer) so the parcours is genuinely interruptible: closing the
 // tab mid-way and coming back resumes exactly here, no local-only state.
 export function DiscoveryConversation({
-  levers,
+  levers: leversProp,
   initialTotal,
   initialAnswered,
 }: {
@@ -49,6 +49,16 @@ export function DiscoveryConversation({
   initialAnswered: number;
 }) {
   const router = useRouter();
+  // Snapshotted once on mount, deliberately ignoring subsequent `levers`
+  // prop updates: saveLeverAnswer calls revalidatePath("/diagnostic") after
+  // EVERY answer (not just the last), which re-renders the server parent
+  // and hands this component a shorter `levers` array mid-conversation. If
+  // `index` were applied to that live prop instead of a frozen snapshot,
+  // the array shift landing at the same time as the local index++ could
+  // skip straight past the next question. The snapshot keeps this
+  // component's own walk through the list stable regardless of when the
+  // server-side revalidation lands.
+  const [levers] = useState(leversProp);
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<"primary" | "stats">("primary");
   const [statDraft, setStatDraft] = useState<Record<string, string>>({});

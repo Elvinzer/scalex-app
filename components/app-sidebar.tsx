@@ -221,6 +221,8 @@ export function AppSidebar({
   scaleScoreDelta7d,
   scaleScoreDelta30d,
   scaleScoreSparkline,
+  currentMonthlyRevenue,
+  potentialMonthlyRevenue,
 }: {
   email: string;
   businessName: string;
@@ -234,6 +236,8 @@ export function AppSidebar({
   scaleScoreDelta7d: number | null;
   scaleScoreDelta30d: number | null;
   scaleScoreSparkline: ScaleScoreSparklinePoint[];
+  currentMonthlyRevenue: number | null;
+  potentialMonthlyRevenue: number | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -281,6 +285,8 @@ export function AppSidebar({
             delta7d={scaleScoreDelta7d}
             delta30d={scaleScoreDelta30d}
             sparkline={scaleScoreSparkline}
+            currentMonthlyRevenue={currentMonthlyRevenue}
+            potentialMonthlyRevenue={potentialMonthlyRevenue}
           />
         </div>
       )}

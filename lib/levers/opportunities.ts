@@ -39,6 +39,42 @@ function scoreAgainstBenchmark(current: number, benchmark: number): number {
   return Math.max(0, Math.min(100, Math.round(ratio * 100)));
 }
 
+// How many extra clients per month a lever could realistically bring in,
+// when there's no precise formula for it (formulaType "none") or the
+// precise formula's own inputs are missing — scaled by effort as a simple,
+// explainable proxy for "how much upside this kind of lever typically
+// carries" (a low-effort lever like a referral program moves the needle
+// less than a high-effort one like SEO, which pays off bigger if it works).
+// Multiplied by the account's OWN offer price (resolveDealPrice — main
+// offer price, or real avg deal size as fallback), never an invented price.
+// Deliberately NOT a percent-of-revenue model (an earlier version was) —
+// that undersold every lever on a business that's already making decent
+// money; "a few more clients a month" is the actual unit a lever moves,
+// and its € value should scale with what a client is actually worth here.
+const FALLBACK_EXTRA_CLIENTS_PER_MONTH: Record<LeverCatalogEntry["effort"], number> = {
+  faible: 1,
+  moyen: 2,
+  eleve: 3,
+};
+
+function fallbackEstimate(
+  lever: LeverCatalogEntry,
+  dealPrice: { price: number | null }
+): { amountEur: number | null; explanation: string } {
+  if (dealPrice.price === null) {
+    return {
+      amountEur: null,
+      explanation: "Configure ton offre principale (prix) dans Mon business, ou enregistre au moins une vente, pour estimer ce levier.",
+    };
+  }
+  const extraClients = FALLBACK_EXTRA_CLIENTS_PER_MONTH[lever.effort];
+  const amount = round(extraClients * dealPrice.price);
+  return {
+    amountEur: amount,
+    explanation: `Estimation indicative : ≈${extraClients} client${extraClients > 1 ? "s" : ""} en plus par mois × ${Math.round(dealPrice.price)}€ (prix de ton offre principale) — un ordre de grandeur pour un levier à effort ${lever.effort}, pas un calcul précis comme les leviers avec formule dédiée.`,
+  };
+}
+
 function estimateImpact(
   lever: LeverCatalogEntry,
   {
@@ -56,6 +92,7 @@ function estimateImpact(
   }
 ): { amountEur: number | null; explanation: string } {
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
+  const fallback = () => fallbackEstimate(lever, dealPrice);
 
   if (lever.formulaType === "leads_x_rate_x_closing_x_price") {
     const rate = lever.formulaParams.rate ?? 0;
@@ -63,7 +100,7 @@ function estimateImpact(
     const closingRate = rates.closingRate;
     const leadsActifs = settingTotals.newSubscribers;
     if (closingRate === null || dealPrice.price === null || leadsActifs === 0) {
-      return { amountEur: null, explanation: "Pas encore assez de données pour chiffrer ce levier." };
+      return fallback();
     }
     const amount = round(leadsActifs * rate * closingRate * dealPrice.price);
     return {
@@ -77,7 +114,7 @@ function estimateImpact(
     const priceFraction = lever.formulaParams.priceFraction ?? 0;
     const clientsPerMonth = closingTotals.salesClosed / periodMonths;
     if (dealPrice.price === null || clientsPerMonth === 0) {
-      return { amountEur: null, explanation: "Pas encore assez de données pour chiffrer ce levier." };
+      return fallback();
     }
     const amount = round(clientsPerMonth * takeRate * dealPrice.price * priceFraction);
     return {
@@ -86,7 +123,7 @@ function estimateImpact(
     };
   }
 
-  return { amountEur: null, explanation: "Pas de formule d'estimation pour ce levier pour l'instant." };
+  return fallback();
 }
 
 export async function computeLeverOpportunities({

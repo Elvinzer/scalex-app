@@ -19,11 +19,15 @@ export function ScaleScoreBadge({
   delta7d,
   delta30d,
   sparkline,
+  currentMonthlyRevenue,
+  potentialMonthlyRevenue,
 }: {
   scaleScore: ScaleScoreResult;
   delta7d: number | null;
   delta30d: number | null;
   sparkline: ScaleScoreSparklinePoint[];
+  currentMonthlyRevenue: number | null;
+  potentialMonthlyRevenue: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const { score, potentialScore } = scaleScore;
@@ -77,7 +81,15 @@ export function ScaleScoreBadge({
         </div>
       </button>
 
-      <ScaleScoreModal open={open} onOpenChange={handleOpenChange} scaleScore={scaleScore} delta30d={delta30d} sparkline={sparkline} />
+      <ScaleScoreModal
+        open={open}
+        onOpenChange={handleOpenChange}
+        scaleScore={scaleScore}
+        delta30d={delta30d}
+        sparkline={sparkline}
+        currentMonthlyRevenue={currentMonthlyRevenue}
+        potentialMonthlyRevenue={potentialMonthlyRevenue}
+      />
     </>
   );
 }

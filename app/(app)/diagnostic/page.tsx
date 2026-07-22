@@ -7,8 +7,6 @@ import { AutoOpenImprove } from "./auto-open-improve";
 import { DiscoveryOpportunityCard } from "./discovery-opportunity-card";
 import { getDiscoveryProgress } from "./discovery-actions";
 import { DiscoveryTab } from "./discovery-tab";
-import { FunnelTab } from "./funnel-tab";
-import { InsightsTab } from "./insights-tab";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { Falco } from "@/components/falco/falco";
@@ -44,10 +42,10 @@ import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
 
-type DiagnosticTab = "overview" | "funnel" | "insights" | "discovery";
+type DiagnosticTab = "overview" | "discovery";
 
 function resolveTab(value: string | undefined): DiagnosticTab {
-  return value === "funnel" || value === "insights" || value === "discovery" ? value : "overview";
+  return value === "discovery" ? value : "overview";
 }
 
 const PERIOD_LABELS: Record<string, string> = {
@@ -80,9 +78,6 @@ export default async function DiagnosticPage({
   searchParams: Promise<{
     period?: string;
     tab?: string;
-    range?: string | string[];
-    from?: string | string[];
-    to?: string | string[];
   }>;
 }) {
   const { userId, accountId, user } = await getCurrentUser();
@@ -91,7 +86,6 @@ export default async function DiagnosticPage({
   const tab = resolveTab(params.tab);
   after(() => track("diagnostic_viewed", userId));
   const period = params.period && PERIOD_LABELS[params.period] ? params.period : "3-months";
-  const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
   const discoveryProgress = await getDiscoveryProgress(accountId);
   const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
 
@@ -103,13 +97,14 @@ export default async function DiagnosticPage({
           <TabsTrigger value="overview" asChild>
             <Link href="/diagnostic?tab=overview">Vue d&apos;ensemble</Link>
           </TabsTrigger>
-          <TabsTrigger value="funnel" asChild>
-            <Link href="/diagnostic?tab=funnel">Funnel</Link>
-          </TabsTrigger>
-          <TabsTrigger value="insights" asChild>
-            <Link href="/diagnostic?tab=insights">Insights</Link>
-          </TabsTrigger>
-          <TabsTrigger value="discovery" asChild>
+          {/* Orange pill instead of the default underline style — Découverte
+              is the one tab the brief wants visually called out, not just
+              another equal-weight tab. */}
+          <TabsTrigger
+            value="discovery"
+            asChild
+            className="rounded-full border-2 border-accent px-3 text-accent-text data-[state=active]:border-accent data-[state=active]:bg-accent data-[state=active]:text-white"
+          >
             <Link href="/diagnostic?tab=discovery" className="flex items-center gap-1.5">
               Découverte
               {discoveryRemaining > 0 && (
@@ -123,24 +118,6 @@ export default async function DiagnosticPage({
       </Tabs>
     </div>
   );
-
-  if (tab === "funnel") {
-    return (
-      <div className="flex flex-col gap-8">
-        {tabsHeader}
-        <FunnelTab accountId={accountId} sector={user?.sector ?? null} hasWorkingKey={hasWorkingKey} searchParams={params} />
-      </div>
-    );
-  }
-
-  if (tab === "insights") {
-    return (
-      <div className="flex flex-col gap-8">
-        {tabsHeader}
-        <InsightsTab accountId={accountId} />
-      </div>
-    );
-  }
 
   if (tab === "discovery") {
     return (
@@ -228,7 +205,7 @@ export default async function DiagnosticPage({
   const isThin = isBusinessProfileThin(businessProfile);
 
   // Falco's one-line verdict for the overview header (the single content
-  // Falco on this screen — only the overview tab, not Funnel/Insights).
+  // Falco on this screen).
   const verdictLine =
     topPoints.length > 0
       ? `J'ai repéré ton goulot : ${topPoints[0].label}${totalMonthlyGain !== null ? ` — ≈${formatEur(totalMonthlyGain)}/mois à récupérer` : ""}.`
@@ -243,7 +220,15 @@ export default async function DiagnosticPage({
       {tabsHeader}
 
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <Falco pose="thinking" size="sm" animate="enter" withBubble bubbleText={verdictLine} className="max-w-full" />
+        <Falco
+          pose="thinking"
+          size="sm"
+          animate="enter"
+          withBubble
+          bubbleText={verdictLine}
+          className="max-w-full"
+          bubbleClassName="max-w-md"
+        />
         <div className="flex gap-2">
           {Object.entries(PERIOD_LABELS).map(([value, label]) => (
             <Link

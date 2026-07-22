@@ -78,6 +78,7 @@ export function Falco({
   bubbleText,
   bubbleOnDark = false,
   bubbleSide = "right",
+  bubbleClassName,
 }: {
   pose?: FalcoPose;
   variant?: FalcoVariant;
@@ -91,6 +92,10 @@ export function Falco({
   bubbleOnDark?: boolean;
   // Which side the bubble sits relative to Falco.
   bubbleSide?: "left" | "right";
+  // Overrides FalcoBubble's default max-w-[240px] — needed wherever
+  // bubbleText is a full generated sentence rather than a short quip (that
+  // default otherwise wraps/looks broken on long dynamic strings).
+  bubbleClassName?: string;
 }) {
   const resolvedVariant: FalcoVariant = pose ? POSE_TO_VARIANT[pose] : (variant ?? "bust");
   const asset = FALCO_ASSETS[resolvedVariant];
@@ -115,7 +120,7 @@ export function Falco({
   return (
     <div className={cn("flex items-center gap-3", bubbleSide === "left" && "flex-row-reverse", className)}>
       {image}
-      <FalcoBubble onDark={bubbleOnDark} arrow={bubbleSide === "left" ? "right" : "left"} floating>
+      <FalcoBubble onDark={bubbleOnDark} arrow={bubbleSide === "left" ? "right" : "left"} floating className={bubbleClassName}>
         {bubbleText}
       </FalcoBubble>
     </div>

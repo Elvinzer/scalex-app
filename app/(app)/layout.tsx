@@ -12,7 +12,9 @@ import { ensureUserRow } from "@/lib/current-user";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { computeFullBenchmarkProjection } from "@/lib/diagnostic/cascade";
 import { computeScaleScore, type ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -99,17 +101,49 @@ export default async function AppLayout({
   let scaleScoreDelta7d: number | null = null;
   let scaleScoreDelta30d: number | null = null;
   let scaleScoreSparkline: Awaited<ReturnType<typeof getScaleScoreSparkline>> = [];
+  // "Mon CA si j'optimise tout" (Scale Score modal's share card) — current
+  // average monthly revenue vs. what computeFullBenchmarkProjection already
+  // computes as the ceiling if every measured rate hit its benchmark at
+  // once. Same 3-month window/inputs as scaleScore itself, no new formula:
+  // just cashContractedTotal averaged over the period, plus that
+  // projection's monthlyGain on top. Null whenever the projection can't be
+  // priced (no main offer / no sales yet) — the share card degrades
+  // gracefully rather than showing a fabricated number.
+  const SCALE_SCORE_PERIOD_MONTHS = 3;
+  let currentMonthlyRevenue: number | null = null;
+  let potentialMonthlyRevenue: number | null = null;
 
   if (canSeeScaleScore && scaleScoreInputs) {
     const [allSettingEntries, allClosingEntries, allMonthlyRows] = scaleScoreInputs;
     const benchmarks = await getDiagnosticBenchmarks(userRow?.sector ?? null);
     const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
-      months: lastCompletedMonths(3),
+      months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),
       allMonthlyRows,
       allSettingEntries,
       allClosingEntries,
     });
     scaleScore = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+
+    if (cashContractedTotal > 0) {
+      const projection = computeFullBenchmarkProjection({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+      // Same top-3 Découverte opportunities folded into Dashboard's "manque à
+      // gagner" (app/(app)/dashboard/page.tsx) — added here too so "mon CA
+      // si j'optimise tout" reflects everything the app is flagging, not
+      // just the 5-metric cascade.
+      const { toImplement: discoveryOpportunities } = await computeLeverOpportunities({
+        accountId,
+        businessProfile,
+        settingTotals,
+        closingTotals,
+        cashContractedTotal,
+        periodMonths: SCALE_SCORE_PERIOD_MONTHS,
+      });
+      const topDiscoveryGain = discoveryOpportunities.slice(0, 3).reduce((sum, o) => sum + (o.impactAmountEur ?? 0), 0);
+
+      currentMonthlyRevenue = cashContractedTotal / SCALE_SCORE_PERIOD_MONTHS;
+      potentialMonthlyRevenue =
+        projection.monthlyGain !== null ? currentMonthlyRevenue + projection.monthlyGain + topDiscoveryGain : null;
+    }
 
     if (scaleScore.score !== null) {
       [scaleScoreDelta7d, scaleScoreDelta30d, scaleScoreSparkline] = await Promise.all([
@@ -135,6 +169,8 @@ export default async function AppLayout({
         scaleScoreDelta7d={scaleScoreDelta7d}
         scaleScoreDelta30d={scaleScoreDelta30d}
         scaleScoreSparkline={scaleScoreSparkline}
+        currentMonthlyRevenue={currentMonthlyRevenue}
+        potentialMonthlyRevenue={potentialMonthlyRevenue}
       />
       <main className="ml-64 flex-1 px-8 py-10 sm:px-12 lg:px-16">
         <div className="mx-auto max-w-6xl">{children}</div>

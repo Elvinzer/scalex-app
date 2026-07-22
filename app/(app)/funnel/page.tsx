@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
-// Funnel is now the "Funnel" tab inside Diagnostic (see
-// app/(app)/diagnostic/page.tsx + funnel-tab.tsx) — this route is kept alive
-// so no existing link/bookmark breaks, it just forwards. The merged page's
-// own requirePermissionOrRedirect(userId, "diagnostic") is the single source
-// of truth post-redirect, not repeated here.
+// Funnel moved again: was the "Funnel" tab inside Diagnostic, now its own
+// page under Avancé (see app/(app)/avance/funnel/page.tsx) — this route is
+// kept alive so no existing link/bookmark breaks, it just forwards. That
+// page's own requirePermissionOrRedirect(userId, "diagnostic") is the single
+// source of truth post-redirect, not repeated here.
 export default function FunnelPage() {
-  redirect("/diagnostic?tab=funnel");
+  redirect("/avance/funnel");
 }
