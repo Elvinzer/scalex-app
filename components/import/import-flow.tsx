@@ -18,10 +18,27 @@ type Step =
   | { kind: "analyzing" }
   | { kind: "clarify"; analysis: AnalyzeResponse }
   | { kind: "preview"; analysis: AnalyzeResponse }
-  | { kind: "duplicate_confirm"; payload: CommitImportPayload; previousMonth: string }
-  | { kind: "committing"; payload: CommitImportPayload }
+  | { kind: "duplicate_confirm"; payloads: CommitImportPayload[]; previousMonth: string }
+  | { kind: "committing"; payloads: CommitImportPayload[] }
   | { kind: "done"; fieldsWritten: number }
   | { kind: "error"; message: string };
+
+function questionCountFor(analysis: AnalyzeResponse): number {
+  return analysis.sheets.reduce((sum, sheet) => {
+    const headerQuestion = sheet.headerRowConfident ? 0 : 1;
+    const periodQuestion = sheet.mapping.targetTable !== "ignore" && sheet.mapping.dateColumnName === null && sheet.mapping.periodDetected === null ? 1 : 0;
+    return sum + sheet.mapping.questions.length + headerQuestion + periodQuestion;
+  }, 0);
+}
+
+function hasPendingQuestions(analysis: AnalyzeResponse): boolean {
+  return analysis.sheets.some(
+    (sheet) =>
+      sheet.mapping.questions.length > 0 ||
+      !sheet.headerRowConfident ||
+      (sheet.mapping.targetTable !== "ignore" && sheet.mapping.dateColumnName === null && sheet.mapping.periodDetected === null)
+  );
+}
 
 // Shared by both entry points (Mes chiffres drawer, onboarding inline) —
 // only what wraps this component differs (Drawer vs. inline layout), the
@@ -39,14 +56,18 @@ export function ImportFlow({
   onExtracted?: (values: Record<string, number>, year: number, month: number) => void;
 }) {
   const [step, setStep] = useState<Step>({ kind: "dropzone" });
+  // Kept around so a "which line is your header row?" answer can
+  // re-upload and re-analyze — the client only has 3 preview rows, not the
+  // full raw grid needed to re-slice headers/values itself.
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [headerOverrides, setHeaderOverrides] = useState<Record<string, number>>({});
 
-  async function handleFilesSelected(files: File[]) {
+  async function analyze(files: File[], overrides: Record<string, number>) {
     setStep({ kind: "analyzing" });
-    trackClient("import_started", { source, file_type: files[0]?.name.split(".").pop() ?? "unknown" });
-
     try {
       const formData = new FormData();
       for (const file of files) formData.append("files", file);
+      if (Object.keys(overrides).length > 0) formData.append("headerOverrides", JSON.stringify(overrides));
 
       const response = await fetch("/api/import/analyze", { method: "POST", body: formData });
       const body = (await response.json()) as AnalyzeResponse & { error?: string };
@@ -55,32 +76,55 @@ export function ImportFlow({
         return;
       }
 
-      const questionCount = body.files.reduce((sum, f) => sum + f.mapping.questions.length, 0);
-      if (questionCount > 0) trackClient("import_questions_asked", { count: questionCount });
+      const count = questionCountFor(body);
+      if (count > 0) trackClient("import_questions_asked", { count });
 
-      const hasQuestions = body.files.some((f) => f.mapping.questions.length > 0 || f.mapping.periodDetected === null);
-      setStep(hasQuestions ? { kind: "clarify", analysis: body } : { kind: "preview", analysis: body });
+      setStep(hasPendingQuestions(body) ? { kind: "clarify", analysis: body } : { kind: "preview", analysis: body });
     } catch {
       setStep({ kind: "error", message: "Erreur réseau pendant l'analyse du fichier." });
     }
   }
 
-  async function handleCommit(payload: CommitImportPayload) {
-    setStep({ kind: "committing", payload });
-    const result = await commitImport(payload);
+  async function handleFilesSelected(files: File[]) {
+    setPendingFiles(files);
+    setHeaderOverrides({});
+    trackClient("import_started", { source, file_type: files[0]?.name.split(".").pop() ?? "unknown" });
+    await analyze(files, {});
+  }
 
-    if (result.status === "duplicate_warning") {
-      const label = result.previousImport.targetMonth ? `${result.previousImport.targetMonth}/${result.previousImport.targetYear}` : "un mois précédent";
-      setStep({ kind: "duplicate_confirm", payload, previousMonth: label });
-      return;
-    }
-    if (result.status === "error") {
-      setStep({ kind: "error", message: result.error });
-      return;
+  async function handleHeaderRowChosen(sheetName: string, rowIndex: number) {
+    const nextOverrides = { ...headerOverrides, [sheetName]: rowIndex };
+    setHeaderOverrides(nextOverrides);
+    await analyze(pendingFiles, nextOverrides);
+  }
+
+  async function handleCommit(payloads: CommitImportPayload[]) {
+    setStep({ kind: "committing", payloads });
+
+    let totalFieldsWritten = 0;
+    let totalMonths = 0;
+    let hadConflicts = false;
+
+    for (const payload of payloads) {
+      const result = await commitImport(payload);
+
+      if (result.status === "duplicate_warning") {
+        const label = result.previousImport.targetMonth ? `${result.previousImport.targetMonth}/${result.previousImport.targetYear}` : "un mois précédent";
+        setStep({ kind: "duplicate_confirm", payloads, previousMonth: label });
+        return;
+      }
+      if (result.status === "error") {
+        setStep({ kind: "error", message: result.error });
+        return;
+      }
+
+      totalFieldsWritten += result.fieldsWritten;
+      totalMonths += result.monthsCount;
+      hadConflicts = hadConflicts || result.blockedFields.length > 0;
     }
 
-    trackClient("import_committed", { fields_count: result.fieldsWritten, months_count: result.monthsCount, had_conflicts: result.blockedFields.length > 0 });
-    setStep({ kind: "done", fieldsWritten: result.fieldsWritten });
+    trackClient("import_committed", { fields_count: totalFieldsWritten, months_count: totalMonths, had_conflicts: hadConflicts });
+    setStep({ kind: "done", fieldsWritten: totalFieldsWritten });
     onCommitted?.();
   }
 
@@ -104,15 +148,16 @@ export function ImportFlow({
     case "clarify":
       return (
         <ImportClarify
-          files={step.analysis.files}
-          onResolved={(files) => setStep({ kind: "preview", analysis: { ...step.analysis, files } })}
+          sheets={step.analysis.sheets}
+          onResolved={(sheets) => setStep({ kind: "preview", analysis: { ...step.analysis, sheets } })}
+          onHeaderRowChosen={handleHeaderRowChosen}
         />
       );
 
     case "preview":
       return (
         <ImportPreview
-          files={step.analysis.files}
+          sheets={step.analysis.sheets}
           existingMonths={step.analysis.existingMonths}
           tokens={step.analysis.tokens}
           keySource={step.analysis.keySource}
@@ -139,7 +184,7 @@ export function ImportFlow({
             Tu as déjà importé ce fichier pour <span className="font-bold">{step.previousMonth}</span>. Importer quand même ?
           </p>
           <div className="flex gap-2">
-            <Button onClick={() => handleCommit({ ...step.payload, confirmDuplicate: true })}>Importer quand même</Button>
+            <Button onClick={() => handleCommit(step.payloads.map((p) => ({ ...p, confirmDuplicate: true })))}>Importer quand même</Button>
             <Button variant="secondary" onClick={() => handleAbandon("duplicate_confirm")}>
               Annuler
             </Button>

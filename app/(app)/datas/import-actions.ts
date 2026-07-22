@@ -4,7 +4,7 @@ import { and, eq, gte, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { closingKpiEntries, dataImports, monthlyMetrics, sales, settingKpiEntries } from "@/db/schema";
+import { adCampaigns, closingKpiEntries, dataImports, monthlyMetrics, sales, settingKpiEntries } from "@/db/schema";
 import { createContentPost } from "@/lib/content-posts/queries";
 import { monthDateRange } from "@/lib/date-range";
 import { commitImportPayloadSchema, type CommitImportPayload } from "@/lib/import/schema";
@@ -156,8 +156,8 @@ export async function commitImport(payload: unknown): Promise<CommitImportResult
       });
       fieldsWritten += Object.keys(v).length;
     }
-  } else {
-    // "sales" — same append-only reasoning as content_posts above.
+  } else if (data.targetTable === "sales") {
+    // Append-only list — same reasoning as content_posts above.
     for (const month of data.months) {
       const v = month.values;
       await db.insert(sales).values({
@@ -169,6 +169,28 @@ export async function commitImport(payload: unknown): Promise<CommitImportResult
         paymentType: (v.paymentType as "one_shot" | "installments" | undefined) ?? "one_shot",
         saleDate: String(v.saleDate ?? `${month.year}-${String(month.month).padStart(2, "0")}-01`),
         closer: v.closer ? String(v.closer) : null,
+      });
+      fieldsWritten += Object.keys(v).length;
+    }
+  } else if (data.targetTable === "ad_campaigns") {
+    // Each entry here represents ONE CAMPAIGN (not a calendar month) —
+    // the client groups rows by campaign name and computes startDate/
+    // endDate as the min/max date in the sheet before sending this
+    // payload, same "repurpose months[] as one-row-per-entity" convention
+    // already used by content_posts/sales above. Append-only.
+    for (const month of data.months) {
+      const v = month.values;
+      await db.insert(adCampaigns).values({
+        userId: accountId,
+        platform: "import",
+        name: String(v.campaignName ?? "Campagne importée"),
+        budget: null,
+        spend: v.spend !== undefined ? Math.round(Number(v.spend)) : null,
+        impressions: v.impressions !== undefined ? Math.round(Number(v.impressions)) : null,
+        clicks: v.clicks !== undefined ? Math.round(Number(v.clicks)) : null,
+        leads: v.leads !== undefined ? Math.round(Number(v.leads)) : null,
+        startDate: String(v.startDate ?? `${month.year}-${String(month.month).padStart(2, "0")}-01`),
+        endDate: v.endDate ? String(v.endDate) : null,
       });
       fieldsWritten += Object.keys(v).length;
     }
