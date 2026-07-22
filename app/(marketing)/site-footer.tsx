@@ -11,19 +11,19 @@ const FOOTER_LINKS: { label: string; href: string }[] = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-white px-6 py-10 sm:px-10">
+    <footer className="border-t border-white/10 px-6 py-10 sm:px-10" style={{ background: "var(--gradient-dark)" }}>
       <div className="mx-auto flex max-w-[1360px] flex-col items-center gap-6 sm:flex-row sm:justify-between">
-        <Image src="/scalex-wordmark-light.png" alt="Scale X" width={295} height={100} className="h-12 w-auto" />
+        <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} className="h-12 w-auto" />
 
-        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13.5px] font-semibold text-muted-foreground">
+        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13.5px] font-semibold text-mist/70">
           {FOOTER_LINKS.map((link) => (
-            <a key={link.label} href={link.href} className="transition-colors hover:text-foreground">
+            <a key={link.label} href={link.href} className="transition-colors hover:text-mist">
               {link.label}
             </a>
           ))}
         </nav>
 
-        <p className="text-[12.5px] text-muted-foreground">© 2026 Scale X. Tous droits réservés.</p>
+        <p className="text-[12.5px] text-mist/50">© 2026 Scale X. Tous droits réservés.</p>
       </div>
     </footer>
   );

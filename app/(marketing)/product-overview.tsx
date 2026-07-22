@@ -72,8 +72,8 @@ function PerformanceChart() {
 
 export function ProductOverview() {
   return (
-    <section id="produit" className="mx-auto max-w-[1360px] scroll-mt-20 px-6 py-16 sm:px-10 sm:py-24">
-      <div className="grid items-center gap-14 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+    <section id="produit" className="scroll-mt-20 px-6 py-16 sm:px-10 sm:py-24">
+      <div className="mx-auto grid max-w-[1360px] items-center gap-14 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
         <div>
           <h2 className="mb-5 text-[clamp(1.9rem,3.4vw,2.6rem)] leading-tight font-bold text-foreground">
             Tout ton business, au même endroit.

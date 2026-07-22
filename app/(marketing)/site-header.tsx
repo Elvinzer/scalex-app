@@ -13,13 +13,13 @@ export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-white/85 backdrop-blur-md">
+    <header className="border-b border-white/10" style={{ background: "var(--gradient-dark)" }}>
       <div className="mx-auto flex h-24 max-w-[1360px] items-center justify-between px-6 sm:px-10">
         <Link href="/" className="flex shrink-0 items-center" onClick={() => setMobileOpen(false)}>
-          <Image src="/scalex-wordmark-light.png" alt="Scale X" width={295} height={100} priority className="h-14 w-auto" />
+          <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-14 w-auto" />
         </Link>
 
-        <nav className="hidden items-center gap-9 text-[14.5px] font-semibold text-foreground md:flex">
+        <nav className="hidden items-center gap-9 text-[14.5px] font-semibold text-mist/75 md:flex">
           {NAV_LINKS.map((link) => (
             <a key={link.href} href={link.href} className="transition-colors hover:text-accent">
               {link.label}
@@ -38,15 +38,15 @@ export function SiteHeader() {
           onClick={() => setMobileOpen((v) => !v)}
           aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
           aria-expanded={mobileOpen}
-          className="flex size-10 items-center justify-center rounded-[10px] border border-border text-foreground md:hidden"
+          className="flex size-10 items-center justify-center rounded-[10px] border border-white/20 text-mist md:hidden"
         >
           {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-border bg-white px-6 py-5 md:hidden">
-          <nav className="flex flex-col gap-4 text-[15px] font-semibold text-foreground">
+        <div className="border-t border-white/10 px-6 py-5 md:hidden" style={{ background: "var(--gradient-dark)" }}>
+          <nav className="flex flex-col gap-4 text-[15px] font-semibold text-mist/85">
             {NAV_LINKS.map((link) => (
               <a key={link.href} href={link.href} onClick={() => setMobileOpen(false)}>
                 {link.label}

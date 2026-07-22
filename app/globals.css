@@ -282,6 +282,15 @@
 }
 
 @layer utilities {
+  /* Faint dot grid — structure/relief for otherwise flat white sections
+     (marketing page). Dots use --border-value (the same light gray already
+     used for card borders everywhere) so it reads as "texture", not a new
+     color. 28px pitch keeps it fine-grained rather than a visible pattern. */
+  .bg-dot-grid {
+    background-image: radial-gradient(circle, var(--border-value) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
   /* Standard content card — a visibly thicker border (was 1px — too faint
      to read as a boundary) + a resting shadow, lifting further on hover
      for real depth instead of a flat aplat. */

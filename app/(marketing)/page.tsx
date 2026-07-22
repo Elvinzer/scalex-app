@@ -54,7 +54,7 @@ const softwareApplicationJsonLd = {
 
 export default function MarketingHomePage() {
   return (
-    <div className="bg-white">
+    <div className="bg-dot-grid bg-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
       <script
         type="application/ld+json"

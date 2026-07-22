@@ -9,8 +9,8 @@ const AVATAR_INITIALS = ["A", "S", "M"];
 
 export function HeroSection() {
   return (
-    <section className="mx-auto max-w-[1360px] px-6 pt-14 pb-20 sm:px-10 sm:pt-20 sm:pb-28">
-      <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-10">
+    <section className="px-6 pt-14 pb-20 sm:px-10 sm:pt-20 sm:pb-28">
+      <div className="mx-auto grid max-w-[1360px] items-center gap-14 lg:grid-cols-2 lg:gap-10">
         <div className="flex flex-col items-start gap-6">
           <span className="inline-flex items-center gap-2 rounded-full border border-accent-border bg-accent-soft px-4 py-2 text-[13px] font-semibold text-accent-text">
             Augmenter de 20 % ton acquisition, c&apos;est faire x3 sur ton CA.
@@ -73,7 +73,7 @@ export function HeroSection() {
             size="xl"
             animate="enter"
             priority
-            className="absolute -bottom-10 -left-14 w-[150px] drop-shadow-[0_16px_28px_rgba(0,0,0,0.18)] sm:-left-20 sm:w-[180px]"
+            className="absolute -bottom-10 -left-28 w-[150px] drop-shadow-[0_16px_28px_rgba(0,0,0,0.18)] sm:-left-36 sm:w-[180px]"
           />
         </div>
       </div>
