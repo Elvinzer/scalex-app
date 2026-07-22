@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { businessLevers } from "@/db/schema";
+import { businessLevers, improvementEvents } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getLeversCatalog, resolveFromBusinessProfile } from "@/lib/levers/catalog";
@@ -44,6 +44,16 @@ export async function saveLeverAnswer(
     await track("discovery_started", userId);
   }
 
+  // Read the prior status BEFORE the upsert — businessLevers.status is
+  // overwritten in place (no history table), so this is the only moment
+  // an "absent/not_answered → active" transition can ever be observed.
+  const [priorRow] = await db
+    .select({ status: businessLevers.status })
+    .from(businessLevers)
+    .where(and(eq(businessLevers.userId, accountId), eq(businessLevers.leverKey, parsed.data.leverKey)))
+    .limit(1);
+  const priorStatus = priorRow?.status ?? "not_answered";
+
   await db
     .insert(businessLevers)
     .values({ userId: accountId, leverKey: parsed.data.leverKey, status: parsed.data.status, stats: parsed.data.stats, answeredAt: new Date() })
@@ -66,6 +76,17 @@ export async function saveLeverAnswer(
   );
   if (!stillUnanswered) {
     await track("discovery_completed", userId);
+  }
+
+  if (priorStatus !== "active" && parsed.data.status === "active") {
+    const lever = catalog.find((l) => l.leverKey === parsed.data.leverKey);
+    await db.insert(improvementEvents).values({
+      userId: accountId,
+      date: new Date().toISOString().slice(0, 10),
+      type: "lever_activated",
+      label: `Levier activé : ${lever?.label ?? parsed.data.leverKey}`,
+      sourceId: parsed.data.leverKey,
+    });
   }
 
   revalidatePath("/diagnostic");

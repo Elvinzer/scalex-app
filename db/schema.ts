@@ -687,3 +687,107 @@ export const businessLevers = pgTable(
   },
   (table) => [uniqueIndex("business_levers_user_lever_idx").on(table.userId, table.leverKey)]
 ).enableRLS();
+
+// --- Journal de bord (calendrier + to-do + projets) -------------------------
+// Calendar auto-populates from improvement_events + the existing daily
+// setting/closing tables — the only manual input on this whole page is the
+// free-text daily note. No new metric-entry surface (CLAUDE.md's
+// simplification rule): monthly_metrics/setting_kpi_entries/
+// closing_kpi_entries stay canonical for numbers.
+
+export const projectStatus = pgEnum("project_status", ["active", "done"]);
+
+export type ProjectMilestone = { order: number; title: string; done: boolean; doneAt: string | null };
+
+export const projects = pgTable("projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  // "acquisition" | "vente" | "delivrabilite" | "autre" — plain text, same
+  // convention as leversCatalog.category/diagnostics.category (no real pg
+  // enum exists in this repo for this value set).
+  category: text("category").notNull(),
+  deadline: date("deadline", { mode: "string" }),
+  milestones: jsonb("milestones").notNull().default([]).$type<ProjectMilestone[]>(),
+  status: projectStatus("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+// projectId is nullable — most tasks are personal, never touching the
+// journal (see isBusinessImprovement below). onDelete "set null" so
+// deleting a project doesn't wipe out someone's to-do history.
+export const todos = pgTable(
+  "todos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    dueDate: date("due_date", { mode: "string" }),
+    done: boolean("done").notNull().default(false),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+    // OFF by default — per the brief, personal errands must never silently
+    // pollute the journal's improvement log. Only an explicit toggle (or
+    // linking to a project) makes a completed task count as an event.
+    isBusinessImprovement: boolean("is_business_improvement").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("todos_user_idx").on(table.userId)]
+).enableRLS();
+
+// One row per (user, date) — the day's free-text note, the only manual
+// field on the whole Journal page.
+export const journalNotes = pgTable(
+  "journal_notes",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    content: text("content").notNull().default(""),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.date] })]
+).enableRLS();
+
+export const improvementEventType = pgEnum("improvement_event_type", [
+  "insight_implemented",
+  "project_milestone_completed",
+  "todo_business_improvement",
+  "checkin_rate_improved",
+  "lever_activated",
+  "copilote_started",
+]);
+
+// The Journal calendar's single read source (✦ marker + "Ce que tu as
+// amélioré" in the day drawer) — written at the moment each of the 6
+// source events happens (see lib/funnel-insights/insight-actions.ts,
+// app/(app)/dashboard/actions.ts, app/(app)/diagnostic/discovery-actions.ts,
+// lib/improve-chat-tracking.ts, and this feature's own actions.ts for
+// milestones/todos). Never written to directly by a user — it aggregates.
+// `date` is the day it should appear under on the calendar, not necessarily
+// the same as createdAt (kept identical in practice, but named separately
+// for clarity since they're conceptually different fields).
+export const improvementEvents = pgTable(
+  "improvement_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    type: improvementEventType("type").notNull(),
+    label: text("label").notNull(),
+    // Free-form pointer back to the originating record (insight id,
+    // "projectId:milestoneOrder", todo id, metricKey, leverKey) — never a
+    // real FK since it points at different tables depending on `type`.
+    sourceId: text("source_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("improvement_events_user_date_idx").on(table.userId, table.date)]
+).enableRLS();

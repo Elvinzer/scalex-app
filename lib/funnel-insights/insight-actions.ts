@@ -6,10 +6,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { closingKpiEntries, funnelStageInsights, settingKpiEntries, users } from "@/db/schema";
+import { closingKpiEntries, funnelStageInsights, improvementEvents, settingKpiEntries, users } from "@/db/schema";
 import { resolveAgentKey } from "@/lib/agent/client";
 import { generateStageInsight } from "@/lib/agent/insight";
-import { STAGE_KNOWLEDGE, type FunnelStageKey } from "@/lib/agent/knowledge";
+import { STAGE_KNOWLEDGE, STAGE_TITLES, type FunnelStageKey } from "@/lib/agent/knowledge";
 import { aggregateClosingEntries, computeClosingRates } from "@/lib/closing/metrics";
 import { requireUserId } from "@/lib/current-user";
 import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
@@ -189,6 +189,17 @@ export async function setInsightImplemented(
   }
   const accountId = context.accountId;
 
+  // Read the prior value first — the journal only logs the false/null → true
+  // transition, never a re-toggle off or an already-true no-op.
+  const [before] = await db
+    .select({ implemented: funnelStageInsights.implemented, stage: funnelStageInsights.stage })
+    .from(funnelStageInsights)
+    .where(and(eq(funnelStageInsights.id, parsed.data.insightId), eq(funnelStageInsights.userId, accountId)))
+    .limit(1);
+  if (!before) {
+    return { error: "Insight introuvable" };
+  }
+
   const updated = await db
     .update(funnelStageInsights)
     .set({ implemented: parsed.data.implemented, implementedAt: new Date() })
@@ -199,6 +210,17 @@ export async function setInsightImplemented(
 
   if (updated.length === 0) {
     return { error: "Insight introuvable" };
+  }
+
+  if (!before.implemented && parsed.data.implemented) {
+    const today = new Date().toISOString().slice(0, 10);
+    await db.insert(improvementEvents).values({
+      userId: accountId,
+      date: today,
+      type: "insight_implemented",
+      label: `Insight mis en place : ${STAGE_TITLES[before.stage]}`,
+      sourceId: parsed.data.insightId,
+    });
   }
 
   revalidatePath("/diagnostic");

@@ -36,7 +36,11 @@ export type AnalyticsEvent =
   | "team_invite_accepted"
   | "discovery_started"
   | "discovery_completed"
-  | "overview_viewed";
+  | "overview_viewed"
+  | "journal_viewed"
+  | "todo_completed"
+  | "project_milestone_completed"
+  | "journal_note_written";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).
