@@ -23,7 +23,7 @@ export function FinalCta() {
               Découvre tes principales fuites et les actions qui auront le plus d&apos;impact.
             </p>
             <Button asChild size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
-              <a href="/onboarding">Demander une démo →</a>
+              <a href="/sign-in">Se connecter →</a>
             </Button>
           </div>
 

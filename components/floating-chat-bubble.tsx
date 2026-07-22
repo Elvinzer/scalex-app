@@ -46,7 +46,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
             variant="bust"
             size="sm"
             animate="none"
-            className="border-2 border-white/20 transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out)] group-hover:-rotate-3 group-hover:scale-110"
+            className="transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out)] group-hover:-rotate-3 group-hover:scale-110"
           />
           {showNotification && (
             <span className="absolute -top-1 -right-1 flex size-4">

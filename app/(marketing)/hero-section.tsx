@@ -31,7 +31,7 @@ export function HeroSection() {
 
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
-              <a href="/onboarding">Demander une démo</a>
+              <a href="/sign-in">Se connecter</a>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
               <a href="#produit">Voir la plateforme</a>

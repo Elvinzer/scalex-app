@@ -13,7 +13,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-white px-6 py-10 sm:px-10">
       <div className="mx-auto flex max-w-[1360px] flex-col items-center gap-6 sm:flex-row sm:justify-between">
-        <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} className="h-24 w-auto" />
+        <Image src="/scalex-wordmark-light.png" alt="Scale X" width={295} height={100} className="h-12 w-auto" />
 
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13.5px] font-semibold text-muted-foreground">
           {FOOTER_LINKS.map((link) => (

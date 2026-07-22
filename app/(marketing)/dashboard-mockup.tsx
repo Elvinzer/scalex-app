@@ -87,7 +87,7 @@ export function DashboardMockup() {
           <div className="flex flex-col gap-3">
             {TOP_LOSSES.map((loss) => (
               <div key={loss.label} className="flex items-center justify-between gap-3 text-[13px]">
-                <span className="text-foreground">{loss.label}</span>
+                <span className="min-w-0 truncate text-foreground">{loss.label}</span>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="font-semibold">{loss.value}</span>
                   <span
