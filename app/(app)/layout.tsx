@@ -125,6 +125,8 @@ export default async function AppLayout({
       <AppSidebar
         email={typeof email === "string" ? email : ""}
         businessName={businessProfile.identity.businessName}
+        displayName={userRow?.displayName ?? null}
+        avatarUrl={userRow?.avatarUrl ?? null}
         isOwner={isOwner}
         permissions={permissions}
         isAdmin={isAdmin}

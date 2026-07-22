@@ -95,7 +95,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
           onTouchEnd={onTouchEnd}
         >
           <div
-            className="flex transition-transform duration-[320ms] ease-out"
+            className="flex transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)]"
             style={{ transform: `translateX(-${activeIndex * 100}%)` }}
           >
             {cards.map((card, index) => (

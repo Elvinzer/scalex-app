@@ -4,6 +4,8 @@ import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
 import { ApiKeyForm } from "./api-key-form";
+import { ProfileForm } from "./profile-form";
+import { StripeConnectionCard } from "./stripe-connection-card";
 
 // Owner-only: BYOK key, Stripe Connect, billing, team & role management are
 // all account-level actions, never delegable to a role — see
@@ -33,6 +35,16 @@ export default async function SettingsPage() {
       <div className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">Compte</p>
         <p className="mt-2 text-lg font-bold">{user?.email}</p>
+      </div>
+
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">Profil</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Ta photo et ton pseudo, affichés dans le menu de gauche.
+        </p>
+        <div className="mt-4">
+          <ProfileForm userId={userId} initialDisplayName={user?.displayName ?? null} initialAvatarUrl={user?.avatarUrl ?? null} />
+        </div>
       </div>
 
       <div className="sticker-card p-8">
@@ -132,24 +144,7 @@ export default async function SettingsPage() {
         </Button>
       </div>
 
-      <div className="sticker-card p-8">
-        <p className="text-sm font-bold text-muted-foreground">Stripe</p>
-        {user?.stripeConnectId ? (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="size-2 rounded-full bg-state-healthy" />
-            <p className="text-sm font-bold">Connecté : {user.stripeConnectId}</p>
-          </div>
-        ) : (
-          <>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Connecte ton compte Stripe pour lancer le diagnostic.
-            </p>
-            <Button asChild variant="outline" className="mt-4">
-              <a href="/api/stripe/connect">Connecter Stripe</a>
-            </Button>
-          </>
-        )}
-      </div>
+      <StripeConnectionCard stripeConnectId={user?.stripeConnectId ?? null} />
     </div>
   );
 }

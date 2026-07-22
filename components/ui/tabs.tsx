@@ -21,7 +21,7 @@ export function TabsTrigger({ className, ...props }: React.ComponentProps<typeof
   return (
     <RadixTabs.Trigger
       className={cn(
-        "-mb-0.5 border-b-2 border-transparent px-4 py-2.5 text-sm font-bold text-muted-foreground transition-colors duration-150 data-[state=active]:border-accent data-[state=active]:text-foreground",
+        "-mb-0.5 border-b-2 border-transparent px-4 py-2.5 text-sm font-bold text-muted-foreground transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] data-[state=active]:border-accent data-[state=active]:text-foreground",
         className
       )}
       {...props}

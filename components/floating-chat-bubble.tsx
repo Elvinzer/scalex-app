@@ -38,7 +38,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
           type="button"
           aria-label={showNotification ? "Falco a une remarque pour toi — discuter de tes datas" : "Discuter avec Falco, ton copilote IA"}
           className={cn(
-            "group fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent shadow-[var(--shadow-float)] transition-colors duration-150 hover:bg-accent-hover",
+            "group fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent shadow-[var(--shadow-float)] transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-hover",
             showNotification && "animate-[glow-pulse_2s_ease-in-out_infinite]"
           )}
         >
@@ -46,7 +46,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
             variant="bust"
             size="sm"
             animate="none"
-            className="border-2 border-white/20 transition-transform duration-200 group-hover:-rotate-3 group-hover:scale-110"
+            className="border-2 border-white/20 transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out)] group-hover:-rotate-3 group-hover:scale-110"
           />
           {showNotification && (
             <span className="absolute -top-1 -right-1 flex size-4">

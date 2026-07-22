@@ -51,6 +51,13 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  // Shown in the sidebar's profile menu (components/app-sidebar.tsx) in place
+  // of businessName when set. Nullable — most accounts won't set one.
+  displayName: text("display_name"),
+  // Public URL from the Supabase Storage "avatars" bucket (see the SQL in
+  // the settings profile-form's implementation notes) — not our own upload
+  // endpoint, so this is just a URL string, never raw image bytes.
+  avatarUrl: text("avatar_url"),
   anthropicApiKeyEncrypted: text("anthropic_api_key_encrypted"),
   // True only when a previously-accepted BYOK key is now confirmed dead
   // (Anthropic returned 401 on a real call) — cleared automatically the next

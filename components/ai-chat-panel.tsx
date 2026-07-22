@@ -220,7 +220,7 @@ export function AiChatPanel({
         <button
           type="submit"
           disabled={isStreaming || limitReached || input.trim().length === 0}
-          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-white transition-colors duration-150 hover:bg-accent-hover disabled:opacity-50"
+          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-white transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-hover disabled:opacity-50"
         >
           <Send className="size-4" />
         </button>

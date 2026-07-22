@@ -250,7 +250,7 @@ export default async function DiagnosticPage({
               key={value}
               href={`/diagnostic?tab=overview&period=${value}`}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-sm font-bold transition-all duration-200",
+                "rounded-full border px-3 py-1.5 text-sm font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
                 period === value
                   ? "border-transparent text-white shadow-[0_2px_10px_var(--accent-glow)]"
                   : "border-border text-muted-foreground hover:border-border-hover"

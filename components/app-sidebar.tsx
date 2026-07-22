@@ -13,6 +13,7 @@ import {
   Store,
   Stethoscope,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -105,7 +106,7 @@ function NavLink({
     <Link
       href={entry.href}
       className={cn(
-        "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
         indented ? "pl-7 text-[13px] tracking-[-0.005em]" : "pl-3 text-[13.5px] tracking-[-0.01em]",
         active
           ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]"
@@ -125,6 +126,8 @@ function NavLink({
 
 function ProfileMenu({
   businessName,
+  displayName,
+  avatarUrl,
   email,
   isOwner,
   permissions,
@@ -132,6 +135,8 @@ function ProfileMenu({
   onSignOut,
 }: {
   businessName: string;
+  displayName: string | null;
+  avatarUrl: string | null;
   email: string;
   isOwner: boolean;
   permissions: readonly PermissionKey[];
@@ -151,12 +156,18 @@ function ProfileMenu({
             type="button"
             className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 text-left transition-colors hover:bg-mist/10"
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-on-dark">
-              {initial}
-            </div>
+            {avatarUrl ? (
+              <div className="relative size-7 shrink-0 overflow-hidden rounded-full">
+                <Image src={avatarUrl} alt="" fill sizes="28px" className="object-cover" />
+              </div>
+            ) : (
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-on-dark">
+                {initial}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-[12.5px] font-bold tracking-[-0.005em] text-mist/90">
-                {businessName || "Mon business"}
+                {displayName || businessName || "Mon business"}
               </p>
               <p className="truncate text-[11px] tracking-[-0.005em] text-mist/50">{email}</p>
             </div>
@@ -195,6 +206,8 @@ function ProfileMenu({
 export function AppSidebar({
   email,
   businessName,
+  displayName,
+  avatarUrl,
   isOwner,
   permissions,
   isAdmin,
@@ -206,6 +219,8 @@ export function AppSidebar({
 }: {
   email: string;
   businessName: string;
+  displayName: string | null;
+  avatarUrl: string | null;
   isOwner: boolean;
   permissions: readonly PermissionKey[];
   isAdmin: boolean;
@@ -232,17 +247,14 @@ export function AppSidebar({
       className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col px-3 py-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
       style={{ background: "var(--gradient-dark)" }}
     >
-      <div className="flex items-center gap-2.5 px-3 pb-7">
-        <div
-          className="flex size-8 items-center justify-center rounded-lg text-sm font-bold text-white shadow-[0_2px_8px_var(--accent-glow)]"
-          style={{ background: "var(--gradient-accent)" }}
-        >
-          S
-        </div>
-        <span className="font-display text-[17px] font-bold tracking-[-0.015em]">Scale X</span>
-      </div>
+      <Link href="/dashboard" className="flex items-center px-3 pb-7 transition-opacity hover:opacity-80">
+        <Image src="/scalex-wordmark.png" alt="Scale X" width={132} height={44} priority className="h-9 w-auto" />
+      </Link>
 
-      <div className="h-0.5 bg-mist/15" />
+      {/* Thicker/more opaque than the "Avancé" separator below (h-px bg-white/20)
+          on purpose — this one marks the header/nav boundary, a different kind
+          of division than a mid-nav group separator. */}
+      <div className="h-[3px] w-full rounded-full bg-white/30" />
 
       <nav className="flex flex-1 flex-col gap-1 pt-4">
         {visibleTopEntries.map((entry) => (
@@ -276,6 +288,8 @@ export function AppSidebar({
       <div className="px-3 pt-4">
         <ProfileMenu
           businessName={businessName}
+          displayName={displayName}
+          avatarUrl={avatarUrl}
           email={email}
           isOwner={isOwner}
           permissions={permissions}

@@ -77,7 +77,7 @@ function FunnelBar({ label, value, maxValue }: { label: string; value: number; m
       <div className="w-48 shrink-0 text-sm text-muted-foreground">{label}</div>
       <div className="relative h-8 flex-1 rounded-lg border border-ink/10 bg-muted">
         <div
-          className="h-full rounded-lg bg-signal transition-[width] duration-500 ease-out"
+          className="h-full rounded-lg bg-signal transition-[width] duration-[var(--motion-slow)] ease-[var(--ease-out)]"
           style={{ width: `${widthPercent}%` }}
         />
       </div>

@@ -17,7 +17,7 @@ export function PopoverContent({
       <RadixPopover.Content
         sideOffset={8}
         className={cn(
-          "sticker-card elevated z-50 w-72 p-4 text-sm duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] focus:outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95",
+          "sticker-card elevated z-50 w-72 p-4 text-sm duration-[var(--motion-fast)] ease-[var(--ease-out)] focus:outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95",
           className
         )}
         {...props}

@@ -253,7 +253,10 @@ export function computeDiagnosticPoints({
 }
 
 const CRITICAL_SCORE_MAX = 40;
-const CAUTION_SCORE_MAX = 70;
+// Exported: this is exactly the score a metric gets at ratio == 1 (current ==
+// benchmark) — the "if you just hit the standard" ceiling used by
+// lib/diagnostic/scale-score.ts's potentialScore projection.
+export const CAUTION_SCORE_MAX = 70;
 
 // Anchored to the metric's already-computed status rather than a raw
 // current/benchmark ratio: a raw ratio would put every "caution" metric
