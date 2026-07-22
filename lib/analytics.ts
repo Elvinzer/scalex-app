@@ -33,7 +33,9 @@ export type AnalyticsEvent =
   | "improve_chat_engaged"
   | "weekly_checkin_completed"
   | "weekly_brief_email_clicked"
-  | "team_invite_accepted";
+  | "team_invite_accepted"
+  | "discovery_started"
+  | "discovery_completed";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

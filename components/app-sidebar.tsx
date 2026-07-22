@@ -232,7 +232,7 @@ export function AppSidebar({
       className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col px-3 py-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
       style={{ background: "var(--gradient-dark)" }}
     >
-      <div className="flex items-center gap-2.5 border-b border-mist/15 px-3 pb-7">
+      <div className="flex items-center gap-2.5 px-3 pb-7">
         <div
           className="flex size-8 items-center justify-center rounded-lg text-sm font-bold text-white shadow-[0_2px_8px_var(--accent-glow)]"
           style={{ background: "var(--gradient-accent)" }}
@@ -241,6 +241,8 @@ export function AppSidebar({
         </div>
         <span className="font-display text-[17px] font-bold tracking-[-0.015em]">Scale X</span>
       </div>
+
+      <div className="h-0.5 bg-mist/15" />
 
       <nav className="flex flex-1 flex-col gap-1 pt-4">
         {visibleTopEntries.map((entry) => (
@@ -271,7 +273,7 @@ export function AppSidebar({
         </div>
       )}
 
-      <div className="border-t border-mist/15 px-3 pt-4">
+      <div className="px-3 pt-4">
         <ProfileMenu
           businessName={businessName}
           email={email}

@@ -4,8 +4,12 @@ import { after } from "next/server";
 import { Suspense } from "react";
 
 import { AutoOpenImprove } from "./auto-open-improve";
+import { DiscoveryOpportunityCard } from "./discovery-opportunity-card";
+import { getDiscoveryProgress } from "./discovery-actions";
+import { DiscoveryTab } from "./discovery-tab";
 import { FunnelTab } from "./funnel-tab";
 import { InsightsTab } from "./insights-tab";
+import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { Falco } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
@@ -40,10 +44,10 @@ import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
 
-type DiagnosticTab = "overview" | "funnel" | "insights";
+type DiagnosticTab = "overview" | "funnel" | "insights" | "discovery";
 
 function resolveTab(value: string | undefined): DiagnosticTab {
-  return value === "funnel" || value === "insights" ? value : "overview";
+  return value === "funnel" || value === "insights" || value === "discovery" ? value : "overview";
 }
 
 const PERIOD_LABELS: Record<string, string> = {
@@ -88,6 +92,8 @@ export default async function DiagnosticPage({
   after(() => track("diagnostic_viewed", userId));
   const period = params.period && PERIOD_LABELS[params.period] ? params.period : "3-months";
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
+  const discoveryProgress = await getDiscoveryProgress(accountId);
+  const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
 
   const tabsHeader = (
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -102,6 +108,16 @@ export default async function DiagnosticPage({
           </TabsTrigger>
           <TabsTrigger value="insights" asChild>
             <Link href="/diagnostic?tab=insights">Insights</Link>
+          </TabsTrigger>
+          <TabsTrigger value="discovery" asChild>
+            <Link href="/diagnostic?tab=discovery" className="flex items-center gap-1.5">
+              Découverte
+              {discoveryRemaining > 0 && (
+                <span className="rounded-full bg-accent-2/20 px-1.5 py-0.5 text-[10px] font-bold text-accent-2">
+                  {discoveryRemaining}
+                </span>
+              )}
+            </Link>
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -122,6 +138,15 @@ export default async function DiagnosticPage({
       <div className="flex flex-col gap-8">
         {tabsHeader}
         <InsightsTab accountId={accountId} />
+      </div>
+    );
+  }
+
+  if (tab === "discovery") {
+    return (
+      <div className="flex flex-col gap-8">
+        {tabsHeader}
+        <DiscoveryTab accountId={accountId} />
       </div>
     );
   }
@@ -175,6 +200,17 @@ export default async function DiagnosticPage({
   });
   const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks });
   const followups = computeFollowupCompliance(businessProfile);
+  // Max 2, highest impact first — never more, so it doesn't drown the real
+  // goulots above it (explicit rule from the Découverte brief).
+  const { toImplement: discoveryOpportunities } = await computeLeverOpportunities({
+    accountId,
+    businessProfile,
+    settingTotals,
+    closingTotals,
+    cashContractedTotal,
+    periodMonths: months.length,
+  });
+  const topDiscoveryOpportunities = discoveryOpportunities.slice(0, 2);
   const projection = computeFullBenchmarkProjection({
     settingTotals,
     closingTotals,
@@ -326,6 +362,26 @@ export default async function DiagnosticPage({
           </div>
         ))}
       </div>
+
+      {topDiscoveryOpportunities.length > 0 && (
+        <div className="flex flex-col gap-4">
+          <h2 className="text-base font-bold">Et si tu ajoutais ça ?</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {topDiscoveryOpportunities.map((opportunity) => (
+              <DiscoveryOpportunityCard
+                key={opportunity.leverKey}
+                leverKey={opportunity.leverKey}
+                label={opportunity.label}
+                category={opportunity.category}
+                effort={opportunity.effort}
+                impactAmountEur={opportunity.impactAmountEur}
+                impactExplanation={opportunity.impactExplanation}
+                ctaLabel="Mettre en place"
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bloc 3 — La vue complète */}
       <div>

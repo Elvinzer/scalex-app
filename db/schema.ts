@@ -625,3 +625,58 @@ export const scaleScoreHistory = pgTable(
   },
   (table) => [uniqueIndex("scale_score_history_user_date_idx").on(table.userId, table.date)]
 ).enableRLS();
+
+// --- Découverte (module de leviers non exploités) -----------------------
+// Deliberately NOT branched into the cascade engine's MetricKey (see
+// lib/diagnostic/cascade.ts) — that union is a sequential funnel
+// simulation (CASCADE_ORDER/simulateSales), and email/webinar/optin rates
+// aren't another stage of that SAME funnel. This is a parallel, independent
+// scoring path — see lib/levers/opportunities.ts.
+
+export const leverFormulaType = pgEnum("lever_formula_type", [
+  "leads_x_rate_x_closing_x_price",
+  "clients_x_takerate_x_price_fraction",
+  "none",
+]);
+
+// Config data, not code — seeded via scripts/seed-levers-catalog.mjs (same
+// pattern as scripts/seed-benchmarks.mjs), editable/extensible without a
+// redeploy for any lever using an EXISTING formulaType. A genuinely new
+// formula SHAPE still requires code in lib/levers/opportunities.ts.
+export const leversCatalog = pgTable("levers_catalog", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leverKey: text("lever_key").notNull().unique(),
+  label: text("label").notNull(),
+  category: text("category").notNull(), // "acquisition" | "vente" | "delivrabilite"
+  // [] for the 4 levers resolved from business_profile instead (see
+  // lib/levers/catalog.ts's resolveFromBusinessProfile) — never asked twice.
+  questions: jsonb("questions").notNull().$type<{ key: string; prompt: string; kind: "yes_no_notyet" | "stat_number" | "stat_text"; unit?: string }[]>(),
+  readsFromProfile: boolean("reads_from_profile").notNull().default(false),
+  benchmarkValue: real("benchmark_value"), // 0-1 fraction; null = no comparable stat
+  benchmarkStatKey: text("benchmark_stat_key"), // which businessLevers.stats key the benchmark applies to
+  formulaType: leverFormulaType("formula_type").notNull().default("none"),
+  formulaParams: jsonb("formula_params").notNull().default({}).$type<Record<string, number>>(),
+  effort: text("effort").notNull(), // "faible" | "moyen" | "eleve"
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").notNull().default(true), // soft-disable without deleting
+}).enableRLS();
+
+export const leverStatus = pgEnum("lever_status", ["active", "absent", "not_answered"]);
+
+// One row per (user, lever) once resolved — the 4 profile-backed levers
+// never get a row here (single source of truth stays business_profile).
+export const businessLevers = pgTable(
+  "business_levers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    leverKey: text("lever_key").notNull(),
+    status: leverStatus("status").notNull().default("not_answered"),
+    stats: jsonb("stats").notNull().default({}).$type<Record<string, number | string>>(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("business_levers_user_lever_idx").on(table.userId, table.leverKey)]
+).enableRLS();
