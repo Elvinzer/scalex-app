@@ -363,6 +363,7 @@ export default async function DiagnosticPage({
                 impactAmountEur={opportunity.impactAmountEur}
                 impactExplanation={opportunity.impactExplanation}
                 ctaLabel="Mettre en place"
+                sourcePage="diagnostic_overview"
               />
             ))}
           </div>

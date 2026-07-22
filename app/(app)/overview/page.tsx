@@ -242,6 +242,7 @@ export default async function OverviewPage({
                     impactAmountEur={opportunity.impactAmountEur}
                     impactExplanation={opportunity.impactExplanation}
                     ctaLabel="En discuter avec le Copilote"
+                    sourcePage="vue_ensemble"
                   />
                 ))
               ) : (

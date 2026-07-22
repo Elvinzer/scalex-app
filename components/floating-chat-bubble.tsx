@@ -5,13 +5,17 @@ import { useState } from "react";
 import { Falco } from "@/components/falco/falco";
 import { ImproveChat } from "@/components/improve-chat";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import type { ChatContext } from "@/lib/chat-context";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { cn } from "@/lib/utils";
 
+const GENERAL_CONTEXT: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "global_bubble" };
+
 // Global "discuter de tes datas" launcher — available on every authenticated
 // page (mounted once in app/(app)/layout.tsx). Opens the same chat drawer as
-// the per-metric flow, but in general mode (metricKey: "general") — the AI
-// gets the user's full diagnostic instead of one specific point.
+// the per-topic flow, but in general mode — the AI gets the user's full
+// diagnostic instead of one specific point, and the header shows "Copilote"
+// with no fake topic label (see components/improve-chat.tsx's header logic).
 //
 // hasUnseenInsight (computed server-side in app/(app)/layout.tsx) drives the
 // notification dot + pulsing glow — a proactive "the AI wants to tell you
@@ -27,7 +31,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
     setOpen(next);
     if (next) {
       setDismissed(true);
-      void recordImproveChatOpened("general");
+      void recordImproveChatOpened(GENERAL_CONTEXT);
     }
   }
 
@@ -60,9 +64,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
         </button>
       </DrawerTrigger>
       <DrawerContent>
-        {open && (
-          <ImproveChat metricKey="general" period="3-months" title="Tes datas" gapBadge={null} />
-        )}
+        {open && <ImproveChat context={GENERAL_CONTEXT} period="3-months" gapBadge={null} />}
       </DrawerContent>
     </Drawer>
   );

@@ -6,29 +6,26 @@ import { track } from "@/lib/analytics";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
 import { getAiProvider } from "@/lib/ai-provider";
+import { chatContextSchema } from "@/lib/chat-context";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
-import { buildImprovePrompt, type ImproveMetricKey } from "@/lib/improve-prompt-builder";
+import { buildImprovePrompt, type LeverPromptData } from "@/lib/improve-prompt-builder";
+import { LEVER_BENCHMARK_INFO } from "@/lib/levers/benchmark-info";
+import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
 const MAX_MESSAGES = 20;
 
+const METRIC_TOPIC_KEYS = ["responseRate", "proposalRate", "bookingRate", "showUpRate", "closingRate", "followupRecovery"] as const;
+
 const requestSchema = z.object({
-  metricKey: z.enum([
-    "responseRate",
-    "proposalRate",
-    "bookingRate",
-    "showUpRate",
-    "closingRate",
-    "followupRecovery",
-    "general",
-  ]),
+  context: chatContextSchema,
   followupKey: z.enum(["nonBuyers", "noShow", "failedPayments"]).nullable().optional(),
   period: z.enum(["3-months", "current-month", "12-months"]),
   messages: z
@@ -58,7 +55,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
   }
-  const { metricKey, followupKey, period, messages } = parsed.data;
+  const { context, followupKey, period, messages } = parsed.data;
 
   // "messages" already includes the just-submitted user message (see
   // components/improve-chat.tsx's handleSubmit) — so this request IS the
@@ -102,20 +99,69 @@ export async function POST(request: NextRequest) {
     cashContractedTotal,
   });
 
-  const point = metricKey === "followupRecovery" ? null : (points.find((p) => p.key === metricKey) ?? null);
-  const followup =
-    metricKey === "followupRecovery" && followupKey
-      ? (computeFollowupCompliance(businessProfile).find((f) => f.key === followupKey) ?? null)
-      : null;
+  // No silent fallback to "general" when a specific topic was requested —
+  // this is the actual fix for the generic-response bug (a missing/
+  // unresolvable topic used to just render the generic prompt). An
+  // explicit rejection surfaces the real problem (stale page, bad deep
+  // link, resolved/removed lever) instead of masking it as a normal reply.
+  let point = null as ReturnType<typeof computeDiagnosticPoints>[number] | null;
+  let followup = null as ReturnType<typeof computeFollowupCompliance>[number] | null;
+  let lever: LeverPromptData | null = null;
+
+  if (context.topicType === "metric") {
+    if (!context.topicKey || !(METRIC_TOPIC_KEYS as readonly string[]).includes(context.topicKey)) {
+      return NextResponse.json({ error: "Sujet invalide — recharge la page." }, { status: 400 });
+    }
+    if (context.topicKey === "followupRecovery") {
+      followup = followupKey ? (computeFollowupCompliance(businessProfile).find((f) => f.key === followupKey) ?? null) : null;
+      if (!followup) {
+        return NextResponse.json({ error: "Relance introuvable — recharge la page." }, { status: 400 });
+      }
+    } else {
+      point = points.find((p) => p.key === context.topicKey) ?? null;
+      if (!point) {
+        return NextResponse.json({ error: "Ce point n'est plus mesurable avec tes données actuelles — recharge la page." }, { status: 400 });
+      }
+    }
+  }
+
+  if (context.topicType === "lever") {
+    if (!context.topicKey) {
+      return NextResponse.json({ error: "Sujet invalide — recharge la page." }, { status: 400 });
+    }
+    // Recomputed server-side, never trusting a client-sent gain figure —
+    // same rule as the metric path above.
+    const { toImplement, toWatch } = await computeLeverOpportunities({
+      accountId,
+      businessProfile,
+      settingTotals,
+      closingTotals,
+      cashContractedTotal,
+      periodMonths: months.length,
+    });
+    const opportunity = toImplement.find((o) => o.leverKey === context.topicKey) ?? toWatch.find((o) => o.leverKey === context.topicKey);
+    const info = LEVER_BENCHMARK_INFO[context.topicKey];
+    if (!opportunity || !info) {
+      return NextResponse.json({ error: "Ce levier est introuvable — recharge la page." }, { status: 400 });
+    }
+    lever = {
+      label: opportunity.label,
+      category: opportunity.category,
+      whatIsThis: info.whatIsThis,
+      impactAmountEur: opportunity.impactAmountEur,
+      impactExplanation: opportunity.impactExplanation,
+    };
+  }
 
   const systemPrompt = buildImprovePrompt({
-    metricKey: metricKey as ImproveMetricKey,
+    context,
     businessProfile,
     settingTotals,
     closingTotals,
     point,
-    points: metricKey === "general" ? points.slice(0, 3) : undefined,
+    points: context.topicType === "general" ? points.slice(0, 3) : undefined,
     followup,
+    lever,
   });
 
   let provider;

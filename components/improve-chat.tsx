@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
-import type { ImproveMetricKey } from "@/lib/improve-prompt-builder";
+import type { ChatContext } from "@/lib/chat-context";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Period = "3-months" | "current-month" | "12-months";
@@ -62,7 +62,7 @@ function renderMarkdownLite(text: string) {
 
 async function streamChat(
   body: {
-    metricKey: ImproveMetricKey;
+    context: ChatContext;
     followupKey?: string | null;
     period: Period;
     messages: ChatMessage[];
@@ -110,16 +110,14 @@ async function streamChat(
 }
 
 export function ImproveChat({
-  metricKey,
+  context,
   followupKey,
   period,
-  title,
   gapBadge,
 }: {
-  metricKey: ImproveMetricKey;
+  context: ChatContext;
   followupKey?: string | null;
   period: Period;
-  title: string;
   gapBadge: string | null;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -143,7 +141,7 @@ export function ImproveChat({
     setIsStreaming(true);
     setMessages([...history, { role: "assistant", content: "" }]);
 
-    const result = await streamChat({ metricKey, followupKey, period, messages: history }, (token) => {
+    const result = await streamChat({ context, followupKey, period, messages: history }, (token) => {
       setMessages((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
@@ -181,7 +179,9 @@ export function ImproveChat({
         <div className="flex items-start gap-3">
           <Falco pose="neutral" size="sm" />
           <div>
-            <DrawerTitle className="text-base font-bold">Améliorer : {title}</DrawerTitle>
+            <DrawerTitle className="text-base font-bold">
+              {context.topicType === "general" ? "Copilote" : `Améliorer : ${context.topicLabel}`}
+            </DrawerTitle>
             {gapBadge && (
               <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
                 {gapBadge}

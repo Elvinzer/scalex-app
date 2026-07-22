@@ -7,8 +7,9 @@ import { ImproveChat } from "@/components/improve-chat";
 import { LeverBenchmarkBar } from "@/components/lever-benchmark-bar";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import { trackClient } from "@/lib/analytics-client";
+import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
+import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { LEVER_BENCHMARK_INFO } from "@/lib/levers/benchmark-info";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ export function DiscoveryOpportunityCard({
   impactExplanation,
   ctaLabel,
   currentValue,
+  sourcePage,
 }: {
   leverKey: string;
   label: string;
@@ -42,13 +44,21 @@ export function DiscoveryOpportunityCard({
   // Only known for "actifs à surveiller" (the lever is active, this is its
   // current KPI value) — absent for "à implémenter" (no current value yet).
   currentValue?: number | null;
+  // Where this card is rendered — for improve_chat_opened's source_page.
+  sourcePage: string;
 }) {
   const [open, setOpen] = useState(false);
   const info = LEVER_BENCHMARK_INFO[leverKey];
 
+  const chatContext: ChatContext = { topicType: "lever", topicKey: leverKey, topicLabel: label, sourcePage };
+  const gapBadge =
+    currentValue !== undefined && currentValue !== null && info?.okMax !== undefined
+      ? `${Math.round(currentValue * 100)}% → objectif ${Math.round(info.okMax * 100)}%`
+      : null;
+
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (next) trackClient("opportunity_chat_opened", { lever_key: leverKey });
+    if (next) void recordImproveChatOpened(chatContext);
   }
 
   return (
@@ -91,7 +101,7 @@ export function DiscoveryOpportunityCard({
       </div>
 
       <Drawer open={open} onOpenChange={handleOpenChange}>
-        <DrawerContent>{open && <ImproveChat metricKey="general" period="3-months" title={label} gapBadge={null} />}</DrawerContent>
+        <DrawerContent>{open && <ImproveChat context={chatContext} period="3-months" gapBadge={gapBadge} />}</DrawerContent>
       </Drawer>
     </>
   );

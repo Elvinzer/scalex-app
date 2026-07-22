@@ -5,6 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { closingKpiEntries, improvementEvents, settingKpiEntries, users } from "@/db/schema";
 import { track } from "@/lib/analytics";
+import type { ChatContext } from "@/lib/chat-context";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { METRIC_KEYS, type MetricKey } from "@/lib/diagnostic/benchmarks";
 import { buildRates, labelFor } from "@/lib/diagnostic/cascade";
@@ -17,21 +18,31 @@ function isMetricKey(value: string): value is MetricKey {
 }
 
 // Called from the client the moment the "Améliorer" drawer opens
-// (components/floating-chat-bubble.tsx, app/(app)/diagnostic/auto-open-improve.tsx)
-// — server-side per the analytics plan's "reliability first" rule. Also
-// snapshots the metric's current rate onto users.lastImproveMetricKey/
-// lastImproveMetricRateSnapshot (only for the 5 single-rate cascade
-// metrics — "general"/"followupRecovery" aren't one comparable number) so
-// the next weekly check-in can show a before/after.
-export async function recordImproveChatOpened(metricKey: string): Promise<void> {
+// (components/floating-chat-bubble.tsx, app/(app)/diagnostic/auto-open-improve.tsx,
+// app/(app)/diagnostic/discovery-opportunity-card.tsx) — server-side per
+// the analytics plan's "reliability first" rule. The single canonical
+// improve_chat_opened event for every topic type (previously the lever
+// cards fired a separate, disconnected opportunity_chat_opened instead —
+// removed, this is the one source of truth now). Also snapshots the
+// metric's current rate onto users.lastImproveMetricKey/
+// lastImproveMetricRateSnapshot (only for topicType "metric" — a lever has
+// no single comparable rate, extending this to levers is a separate
+// follow-up, not part of this fix) so the next weekly check-in can show a
+// before/after.
+export async function recordImproveChatOpened(context: ChatContext): Promise<void> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) return;
   const userId = data.claims.sub as string;
 
-  await track("improve_chat_opened", userId, { metric_key: metricKey });
+  await track("improve_chat_opened", userId, {
+    topic_type: context.topicType,
+    topic_key: context.topicKey,
+    source_page: context.sourcePage,
+  });
 
-  if (!isMetricKey(metricKey)) return;
+  if (context.topicType !== "metric" || !context.topicKey || !isMetricKey(context.topicKey)) return;
+  const metricKey = context.topicKey;
 
   const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
