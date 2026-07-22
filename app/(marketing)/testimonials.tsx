@@ -3,9 +3,9 @@ import { TESTIMONIALS } from "./content";
 // Placeholder quotes/names — clearly swappable content, see content.ts.
 export function Testimonials() {
   return (
-    <section id="avis" className="mx-auto max-w-[1360px] scroll-mt-20 px-6 py-16 sm:px-10 sm:py-24">
+    <section id="avis" className="mx-auto max-w-[1360px] scroll-mt-24 px-6 py-16 sm:px-10 sm:py-24">
       <h2 className="mb-14 text-center text-[clamp(1.9rem,3.4vw,2.6rem)] font-bold text-foreground">
-        Ils ont repris le contrôle de leur croissance.
+        Ils nous ont fait confiance
       </h2>
 
       <div className="grid gap-5 sm:grid-cols-3">

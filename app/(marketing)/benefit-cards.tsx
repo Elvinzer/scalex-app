@@ -2,7 +2,7 @@ import { BENEFITS } from "./content";
 
 export function BenefitCards() {
   return (
-    <section id="fonctionnalites" className="mx-auto max-w-[1360px] scroll-mt-20 px-6 py-16 sm:px-10 sm:py-20">
+    <section id="fonctionnalites" className="mx-auto max-w-[1360px] scroll-mt-24 px-6 py-16 sm:px-10 sm:py-20">
       <div className="grid gap-5 sm:grid-cols-3">
         {BENEFITS.map((benefit) => {
           const Icon = benefit.icon;

@@ -1,8 +1,8 @@
 import Image from "next/image";
 
 const FOOTER_LINKS: { label: string; href: string }[] = [
-  { label: "Produit", href: "#produit" },
   { label: "Fonctionnalités", href: "#fonctionnalites" },
+  { label: "Produit", href: "#produit" },
   { label: "Tarifs", href: "#tarifs" },
   { label: "Contact", href: "mailto:contact@scalex.app" },
   { label: "Mentions légales", href: "#" },

@@ -72,20 +72,20 @@ function PerformanceChart() {
 
 export function ProductOverview() {
   return (
-    <section id="produit" className="scroll-mt-20 px-6 py-16 sm:px-10 sm:py-24">
+    <section id="produit" className="scroll-mt-24 px-6 py-16 sm:px-10 sm:py-24">
       <div className="mx-auto grid max-w-[1360px] items-center gap-14 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
         <div>
           <h2 className="mb-5 text-[clamp(1.9rem,3.4vw,2.6rem)] leading-tight font-bold text-foreground">
-            Tout ton business, au même endroit.
+            Tout ton business au même endroit
           </h2>
           <ul className="mb-7 flex flex-col gap-3">
             <li className="flex items-start gap-2.5 text-[15px] text-foreground">
               <span className="mt-0.5 text-accent">✓</span>
-              Une vue claire de tes pertes et de tes opportunités.
+              Une vue claire de tes pertes et de tes opportunités
             </li>
             <li className="flex items-start gap-2.5 text-[15px] text-foreground">
               <span className="mt-0.5 text-accent">✓</span>
-              Un suivi précis des actions et de leur impact.
+              Un suivi précis des actions et de leur impact
             </li>
           </ul>
           <Button asChild variant="outline" size="lg" className="rounded-[12px] px-7">

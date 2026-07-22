@@ -6,8 +6,8 @@ import { Search, Target, Zap, type LucideIcon } from "lucide-react";
 // (placeholder content, clearly swappable) can be updated in one place.
 
 export const NAV_LINKS: { label: string; href: string }[] = [
-  { label: "Produit", href: "#produit" },
   { label: "Fonctionnalités", href: "#fonctionnalites" },
+  { label: "Produit", href: "#produit" },
   { label: "Tarifs", href: "#tarifs" },
   { label: "Avis", href: "#avis" },
 ];
@@ -41,18 +41,18 @@ export const RESULT_METRICS: { value: string; label: string }[] = [
 export const HOW_IT_WORKS_STEPS: { n: string; title: string; description: string }[] = [
   {
     n: "01",
-    title: "Diagnostiquer",
-    description: "Scale X analyse les données de ton business et repère les fuites.",
+    title: "Diagnostique",
+    description: "Scale X analyse les données de ton business et repère les fuites",
   },
   {
     n: "02",
-    title: "Prioriser",
-    description: "Les opportunités sont classées selon leur impact et leur urgence.",
+    title: "Solutions",
+    description: "On te donne les solutions à implémenter dans TON business",
   },
   {
     n: "03",
-    title: "Corriger",
-    description: "Tu exécutes un plan clair et mesures les résultats obtenus.",
+    title: "Implémentation",
+    description: "Tu exécutes et tu track les résultats.",
   },
 ];
 
