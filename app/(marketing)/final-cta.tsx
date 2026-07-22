@@ -17,10 +17,10 @@ export function FinalCta() {
         <div className="relative grid items-center gap-10 lg:grid-cols-[1.2fr_auto]">
           <div>
             <h2 className="mb-4 text-[clamp(1.9rem,3.6vw,2.7rem)] leading-tight font-bold text-foreground">
-              Récupère ce que ton business perd.
+              Falco sera avec toi pour scaler ton business
             </h2>
             <p className="mb-7 max-w-lg text-[16px] leading-relaxed text-foreground/70">
-              Découvre tes principales fuites et les actions qui auront le plus d&apos;impact.
+              Découvre tout de suite ce que tu peux faire pour exploser ton activité
             </p>
             <Button asChild size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
               <a href="/sign-in">Se connecter →</a>

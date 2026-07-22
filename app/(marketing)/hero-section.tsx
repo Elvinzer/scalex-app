@@ -25,8 +25,7 @@ export function HeroSection() {
           </h1>
 
           <p className="max-w-lg text-[17px] leading-relaxed text-muted-foreground">
-            Scale X analyse ton acquisition, ta conversion, ton closing, ta rétention et tes
-            opérations pour identifier précisément les fuites qui ralentissent ta croissance.
+            Scale X analyse tout ton funnel d'infoproduit pour identifier là où tu perds du temps et de l'argent.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -56,7 +55,7 @@ export function HeroSection() {
                 ))}
               </div>
               <p className="text-[12.5px] font-semibold text-muted-foreground">
-                Déjà adopté par plus de 2 500 entrepreneurs ambitieux
+                Déjà adopté par plus de 2 500 entrepreneurs
               </p>
             </div>
           </div>
