@@ -80,15 +80,15 @@ export function DailyReportDialog({ alreadyDoneToday }: { alreadyDoneToday: bool
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {/* Coral (default) variant instead of the previous outline button —
-            this is meant to be the day's main call-to-action, not a subtle
-            secondary link. The dot signals "not done yet" the same way the
-            weekly check-in banner already does. */}
-        <Button type="button" className="relative">
+        {/* Secondary variant — coral is reserved for the page's single
+            priority CTA ("Récupérer ce cash →" in the hero banner above).
+            The dot still signals "not done yet" so this stays prominent
+            without competing for the one coral slot on the screen. */}
+        <Button type="button" variant="secondary" className="relative">
           <FileText className="size-4" />
           Rapport Daily
           {!alreadyDoneToday && (
-            <span aria-hidden className="absolute -top-1 -right-1 size-2.5 rounded-full bg-accent-2 ring-2 ring-card" />
+            <span aria-hidden className="absolute -top-1 -right-1 size-2.5 rounded-full bg-state-caution ring-2 ring-card" />
           )}
         </Button>
       </DialogTrigger>

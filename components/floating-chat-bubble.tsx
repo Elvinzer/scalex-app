@@ -38,8 +38,11 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
           type="button"
           aria-label={showNotification ? "Falco a une remarque pour toi — discuter de tes datas" : "Discuter avec Falco, ton copilote IA"}
           className={cn(
-            "group fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent shadow-[var(--shadow-float)] transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-hover",
-            showNotification && "animate-[glow-pulse_2s_ease-in-out_infinite]"
+            // Violet, not coral — this launches the Copilote (IA), the
+            // token reserved for AI/analytics actions. Coral stays reserved
+            // for the page's own priority CTA underneath.
+            "group fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent-2 shadow-[var(--shadow-float)] transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-2-hover",
+            showNotification && "animate-[glow-pulse-accent2_2s_ease-in-out_infinite]"
           )}
         >
           <Falco
@@ -50,8 +53,8 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
           />
           {showNotification && (
             <span className="absolute -top-1 -right-1 flex size-4">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent-2 opacity-75" />
-              <span className="relative inline-flex size-4 rounded-full border-2 border-surface bg-accent-2" />
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-state-caution opacity-75" />
+              <span className="relative inline-flex size-4 rounded-full border-2 border-surface bg-state-caution" />
             </span>
           )}
         </button>

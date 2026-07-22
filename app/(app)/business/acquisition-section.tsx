@@ -92,8 +92,8 @@ export function AcquisitionSection({
                   onClick={() => togglePlatform(name, !active)}
                   className={
                     active
-                      ? "rounded-full border border-signal bg-signal/15 px-3 py-1.5 text-sm font-bold text-signal"
-                      : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-signal/50"
+                      ? "rounded-full border border-positive bg-positive-soft px-3 py-1.5 text-sm font-bold text-positive"
+                      : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-positive/50"
                   }
                 >
                   {name}
@@ -295,7 +295,7 @@ function ConditionalBlock({
             onClick={() => onEnabledChange("yes")}
             className={
               enabled === "yes"
-                ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+                ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
                 : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
             }
           >
@@ -306,7 +306,7 @@ function ConditionalBlock({
             onClick={() => onEnabledChange("no")}
             className={
               enabled === "no"
-                ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+                ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
                 : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
             }
           >

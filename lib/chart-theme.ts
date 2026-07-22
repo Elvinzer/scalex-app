@@ -30,7 +30,7 @@ export const chartAxisProps = {
 export const chartTooltipStyle: CSSProperties = {
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
+  borderRadius: "var(--radius-control)",
   boxShadow: "var(--shadow-float)",
   fontSize: 13,
   padding: "8px 12px",

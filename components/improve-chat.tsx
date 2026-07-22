@@ -183,7 +183,7 @@ export function ImproveChat({
           <div>
             <DrawerTitle className="text-base font-bold">Améliorer : {title}</DrawerTitle>
             {gapBadge && (
-              <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent-text">
+              <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
                 {gapBadge}
               </span>
             )}
@@ -230,7 +230,7 @@ export function ImproveChat({
         <button
           type="submit"
           disabled={isStreaming || limitReached || input.trim().length === 0}
-          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-white transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-hover disabled:opacity-50"
+          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-2 text-white transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-2-hover disabled:opacity-50"
         >
           <Send className="size-4" />
         </button>

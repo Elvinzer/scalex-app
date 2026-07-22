@@ -236,11 +236,12 @@ export default async function DiagnosticPage({
               href={`/diagnostic?tab=overview&period=${value}`}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+                // Soft tint for the selected filter, not a solid coral fill —
+                // coral stays reserved for the page's one priority CTA.
                 period === value
-                  ? "border-transparent text-white shadow-[0_2px_10px_var(--accent-glow)]"
+                  ? "border-accent-border bg-accent-soft text-accent-text"
                   : "border-border text-muted-foreground hover:border-border-hover"
               )}
-              style={period === value ? { background: "var(--gradient-accent)" } : undefined}
             >
               {label}
             </Link>
@@ -253,7 +254,7 @@ export default async function DiagnosticPage({
       {/* Bloc 1 — Le verdict */}
       <div className="sticker-spotlight animate-rise px-7 py-6">
         <p className="text-xs text-mist/70">Potentiel total détecté</p>
-        <p className="gradient-text mt-2 text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
+        <p className="figure-hero gradient-text mt-2">
           {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain)}/mois`}
         </p>
         <p className="mt-2 text-sm text-mist/70">
@@ -312,14 +313,14 @@ export default async function DiagnosticPage({
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl bg-muted p-3">
                 <p className="text-xs font-bold text-muted-foreground">Clients en plus</p>
-                <p className="mt-1 font-display text-xl font-bold">+{point.extraClients}/mois</p>
+                <p className="mt-1 font-display text-xl font-bold tabular-nums">+{point.extraClients}/mois</p>
               </div>
               <div className="flex items-start justify-between rounded-xl bg-muted p-3">
                 <div>
                   <p className="text-xs font-bold text-muted-foreground">
                     Gain{point.isPriceFallback ? " (panier moyen)" : ""}
                   </p>
-                  <p className="mt-1 font-display text-xl font-bold">
+                  <p className="mt-1 font-display text-xl font-bold tabular-nums">
                     {point.monthlyGain === null ? "—" : `+${formatEur(point.monthlyGain)}/mois`}
                   </p>
                   {point.yearlyGain !== null && (

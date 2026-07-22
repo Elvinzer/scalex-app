@@ -56,7 +56,9 @@ export function MonthCard({
       onClick={onOpen}
       className={cn(
         "sticker-card flex flex-col p-5 text-left transition-transform hover:-translate-y-0.5",
-        isCurrent && "border-signal"
+        // Neutral emphasis for "current month" — coral is reserved for
+        // actions, not a locator, so this isn't the brand accent.
+        isCurrent && "border-ink"
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -76,15 +78,17 @@ export function MonthCard({
       {status === "empty" && (
         <>
           <p className="mt-3 text-sm text-muted-foreground">Aucune donnée</p>
-          <span className="mt-auto pt-3 text-sm font-bold text-signal">+ Remplir</span>
+          <span className="mt-auto pt-3 text-sm font-bold text-foreground">+ Remplir</span>
         </>
       )}
 
       {status !== "empty" && (
         <div className="mt-3 flex flex-col gap-1 text-sm text-muted-foreground">
-          <p>{data.cashCollected !== null ? formatEur(data.cashCollected) : "—"} collectés</p>
-          <p>{data.salesClosed !== null ? data.salesClosed : "—"} ventes conclues</p>
-          <p>
+          <p className="font-bold text-foreground tabular-nums">
+            {data.cashCollected !== null ? formatEur(data.cashCollected) : "—"} collectés
+          </p>
+          <p className="tabular-nums">{data.salesClosed !== null ? data.salesClosed : "—"} ventes conclues</p>
+          <p className="tabular-nums">
             {(() => {
               const closingRate = rate(data.salesClosed ?? 0, data.callsTaken ?? 0);
               return closingRate === null ? "—" : formatPercent(closingRate);

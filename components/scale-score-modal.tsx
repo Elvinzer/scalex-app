@@ -109,7 +109,7 @@ export function ScaleScoreModal({
               ) : (
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[52px] leading-none font-bold tabular-nums" style={{ color: tier?.colorText }}>
+                    <span className="figure-score" style={{ color: tier?.colorText }}>
                       {score}
                     </span>
                     <span className="text-sm text-muted-foreground">/100</span>

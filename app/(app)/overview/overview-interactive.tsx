@@ -37,7 +37,7 @@ function OverviewMetricCard({ data, onSelect }: { data: MetricCardData; onSelect
   return (
     <button type="button" onClick={onSelect} className="sticker-card flex w-full flex-col p-4 text-left hover:border-border-hover">
       <p className="text-xs font-bold text-muted-foreground">{data.label}</p>
-      <p className="mt-1.5 text-xl font-bold tracking-[-0.01em]">{data.valueLabel}</p>
+      <p className="mt-1.5 text-xl font-bold tracking-[-0.01em] tabular-nums">{data.valueLabel}</p>
       <div className="mt-1 min-h-4">
         {data.deltaLabel && (
           <p

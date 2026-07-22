@@ -121,8 +121,10 @@ function TodoRow({ todo, projects }: { todo: Todo; projects: { id: string; name:
         disabled={isPending}
         aria-label={todo.done ? "Marquer comme à faire" : "Marquer comme terminée"}
         className={cn(
-          "flex size-4.5 shrink-0 items-center justify-center rounded-[5px] border-2 transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)]",
-          todo.done ? "border-accent bg-accent text-white" : "border-border"
+          "flex size-5 shrink-0 items-center justify-center rounded-[5px] border-2 transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+          // Positive/"done" state, not coral — coral stays reserved for
+          // actions, not a completion marker.
+          todo.done ? "border-positive bg-positive text-white" : "border-border"
         )}
       >
         {todo.done && "✓"}
@@ -167,7 +169,7 @@ export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: 
   return (
     <div className="sticker-card p-5">
       <div className="mb-3 flex items-center justify-between">
-        <p className="font-display text-base font-bold">À faire</p>
+        <h2 className="text-base font-bold">À faire</h2>
         <span className="text-xs font-bold text-muted-foreground">
           {todos.filter((t) => t.done).length}/{todos.length}
         </span>

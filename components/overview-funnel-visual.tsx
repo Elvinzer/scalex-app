@@ -144,7 +144,7 @@ export function OverviewFunnelVisual({
 
   return (
     <div>
-      <p className="mb-4 text-sm font-bold">Ton funnel</p>
+      <h2 className="mb-4 text-base font-bold">Ton funnel</h2>
 
       <div className="flex flex-col items-center">
         {stages.map((stage, index) => {

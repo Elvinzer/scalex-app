@@ -188,7 +188,7 @@ export function SalesSection({
                   onClick={() => updateOffer(offer.id, { isMain: !offer.isMain })}
                   className={
                     offer.isMain
-                      ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+                      ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
                       : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
                   }
                 >
@@ -318,7 +318,7 @@ function FollowupToggle({
           onClick={() => onChange(true)}
           className={
             value === true
-              ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+              ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
               : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
           }
         >
@@ -329,7 +329,7 @@ function FollowupToggle({
           onClick={() => onChange(false)}
           className={
             value === false
-              ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+              ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
               : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
           }
         >

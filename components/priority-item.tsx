@@ -43,13 +43,15 @@ export function PriorityItem({
 
         <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
           <span
-            className="rounded-full bg-signal/15 px-3 py-1 text-sm font-bold whitespace-nowrap text-signal"
+            className="rounded-full bg-positive-soft px-3 py-1 text-sm font-bold whitespace-nowrap text-positive tabular-nums"
             title={point.tooltip}
           >
             {point.monthlyGain === null ? "+" + point.extraClients + " clients/mois" : `+${formatEur(point.monthlyGain)}/mois`}
           </span>
           {isTop ? (
-            <Button asChild size="sm">
+            // Secondary, not coral — the page's one coral CTA is the hero
+            // banner's "Récupérer ce cash →", which already points here.
+            <Button asChild size="sm" variant="secondary">
               <a href={`/diagnostic?open=${point.key}`}>Améliorer ça →</a>
             </Button>
           ) : (

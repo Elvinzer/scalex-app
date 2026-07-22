@@ -58,13 +58,16 @@ export function DiscoveryOpportunityCard({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <p className="font-display text-lg font-bold">
+          <p className="font-display text-lg font-bold tabular-nums">
             {impactAmountEur === null ? "Impact : à évaluer" : `≈ ${formatEur(impactAmountEur)}/mois`}
           </p>
           <CalcPopover explanation={impactExplanation} />
         </div>
 
-        <Button size="sm" onClick={() => handleOpenChange(true)} className="self-start">
+        {/* Violet, not coral — this opens the Copilote (IA), the token
+            reserved for AI/analytics actions. Coral stays free for the
+            page's single non-AI priority CTA. */}
+        <Button size="sm" variant="accent2" onClick={() => handleOpenChange(true)} className="self-start">
           {ctaLabel}
         </Button>
       </div>

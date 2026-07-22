@@ -81,9 +81,9 @@ export function JournalCalendar({
   return (
     <div className="sticker-card p-6">
       <div className="mb-5 flex items-center justify-between">
-        <p className="font-display text-lg font-bold">
+        <h2 className="text-base font-bold">
           {MONTH_LABELS[month - 1]} {year}
-        </p>
+        </h2>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon-sm" onClick={handlePrev} aria-label="Mois précédent">
             <ChevronLeft className="size-4" />
@@ -125,13 +125,18 @@ export function JournalCalendar({
               onClick={() => setSelected(journalDay ?? { date: cell.date, totals: { newSubscribers: 0, firstMessagesSent: 0, conversationsStarted: 0, callsProposed: 0, callsBooked: 0, callsAttended: 0, salesClosed: 0 }, hasActivity: false, score: null, events: [], note: "" })}
               className={cn(
                 "flex aspect-square flex-col items-center justify-start gap-1 rounded-[10px] border border-transparent p-1.5 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
-                cell.isToday && "border-accent"
+                // Neutral emphasis for "today" — coral is reserved for
+                // actions, not a locator.
+                cell.isToday && "border-ink"
               )}
             >
               <span className="text-xs font-bold tabular-nums">{cell.day}</span>
               {tier && <span aria-hidden className="size-1.5 rounded-full" style={{ background: tier.colorBar }} />}
-              {keyNumber && <span className="text-[10px] leading-none text-muted-foreground">{keyNumber}</span>}
-              {hasImprovement && <span className="text-[11px] leading-none text-accent">✦</span>}
+              {keyNumber && <span className="text-[10px] leading-none text-muted-foreground tabular-nums">{keyNumber}</span>}
+              {/* Positive/achievement marker, not coral — this signals a
+                  completed improvement, closer to a "good" status than an
+                  action. */}
+              {hasImprovement && <span className="text-[11px] leading-none text-positive">✦</span>}
             </button>
           );
         })}

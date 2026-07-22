@@ -40,26 +40,27 @@ export function BusinessPageClient({ initialProfile }: { initialProfile: Busines
           Plus c&apos;est complet, plus ton diagnostic est précis.
         </h1>
         <div className="mt-6 flex items-center gap-4">
-          <p className="text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
-            {completion.percent}%
-          </p>
+          <p className="figure-hero">{completion.percent}%</p>
           <p className="text-sm text-mist/70">complété</p>
         </div>
+        {/* Neutral opacity ramp instead of 4 brand colors — coral and violet
+            are both reserved (action / Copilote), so a completion-by-section
+            legend that isn't either of those uses one neutral tone instead. */}
         <div className="mt-4 flex h-2 gap-1 overflow-hidden rounded-full bg-mist/15">
           <div
-            className="bg-violet transition-[flex-basis]"
+            className="bg-text-on-dark transition-[flex-basis]"
             style={{ flexBasis: `${completion.bySection.identity.percent / 4}%` }}
           />
           <div
-            className="bg-signal transition-[flex-basis]"
+            className="bg-text-on-dark/70 transition-[flex-basis]"
             style={{ flexBasis: `${completion.bySection.acquisition.percent / 4}%` }}
           />
           <div
-            className="bg-state-healthy transition-[flex-basis]"
+            className="bg-text-on-dark/45 transition-[flex-basis]"
             style={{ flexBasis: `${completion.bySection.sales.percent / 4}%` }}
           />
           <div
-            className="bg-gain transition-[flex-basis]"
+            className="bg-text-on-dark/25 transition-[flex-basis]"
             style={{ flexBasis: `${completion.bySection.delivery.percent / 4}%` }}
           />
         </div>

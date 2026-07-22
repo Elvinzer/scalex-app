@@ -148,8 +148,8 @@ export function DeliverySection({
                   onClick={() => toggleChannel(channel, !active)}
                   className={
                     active
-                      ? "rounded-full border border-signal bg-signal/15 px-3 py-1.5 text-sm font-bold text-signal"
-                      : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-signal/50"
+                      ? "rounded-full border border-positive bg-positive-soft px-3 py-1.5 text-sm font-bold text-positive"
+                      : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-positive/50"
                   }
                 >
                   {channel}
@@ -168,7 +168,7 @@ export function DeliverySection({
                 onClick={() => update({ upsellOfferId: offers[0]?.id ?? "" })}
                 className={
                   hasUpsell
-                    ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+                    ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
                     : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
                 }
               >
@@ -179,7 +179,7 @@ export function DeliverySection({
                 onClick={() => update({ upsellOfferId: null })}
                 className={
                   !hasUpsell
-                    ? "rounded-full border border-signal bg-signal/15 px-3 py-1 text-xs font-bold text-signal"
+                    ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
                     : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
                 }
               >

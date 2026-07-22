@@ -144,7 +144,7 @@ export default async function DashboardPage({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Salut, {firstName}</h1>
-          <p className="mt-1.5 text-sm font-bold text-muted-foreground">
+          <p className="mt-1.5 text-sm text-muted-foreground">
             {points.length > 0
               ? "Voici où en est ton business, et ce qu'il faut corriger en premier."
               : "Ton business tourne bien. Voici où creuser pour accélérer."}
@@ -156,13 +156,11 @@ export default async function DashboardPage({
       {/* Bloc 1 — slim single-row hero banner. The benchmark widget is
           pulled off the Dashboard for now (see git history to restore it —
           components/metric-health-carousel.tsx is untouched). */}
-      <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-6 px-8 py-7">
+      <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-6 px-7 py-6">
         <Falco pose={heroFalco.pose} size="sm" animate="enter" className="hidden sm:flex" />
         <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
           <p className="text-sm font-bold text-mist/70">Manque à gagner détecté</p>
-          <p className="gradient-text text-4xl font-bold tracking-[-0.01em] tabular-nums">
-            {formatEur(totalMonthlyLoss)}
-          </p>
+          <p className="figure-hero gradient-text">{formatEur(totalMonthlyLoss)}</p>
           <p className="text-sm text-mist/60">{heroFalco.line}</p>
         </div>
         <Button size="lg" asChild>
@@ -179,7 +177,7 @@ export default async function DashboardPage({
       )}
 
       {!checkInDoneThisWeek && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border-2 border-dashed border-border bg-card/50 px-5 py-3">
+        <div className="sticker-card-dashed flex items-center justify-between gap-4 px-5 py-3">
           <p className="text-sm font-bold">
             📊 2 minutes pour mettre à jour tes chiffres de la semaine
           </p>
@@ -197,9 +195,7 @@ export default async function DashboardPage({
 
       <div>
         <h2 className="text-base font-bold">Tes chiffres clés</h2>
-        <p className="mt-1 text-sm font-bold text-muted-foreground">
-          Mois en cours, comparé au mois précédent.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Mois en cours, comparé au mois précédent.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {metricCards.map((card, index) => (
             <div key={card.key} className="animate-rise" style={{ animationDelay: `${index * 40}ms` }}>
@@ -226,7 +222,7 @@ export default async function DashboardPage({
 
           {points.length < 3 && unlockHints.length > 0 && (
             <FalcoEmptyState title="Débloquer plus de diagnostics" showFalco={false}>
-              <ul className="mt-2 flex flex-col gap-1 text-sm font-bold text-muted-foreground">
+              <ul className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
                 {unlockHints.map((hint) => (
                   <li key={hint}>• {hint}</li>
                 ))}

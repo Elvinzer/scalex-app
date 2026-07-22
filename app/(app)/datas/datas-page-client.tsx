@@ -36,7 +36,7 @@ export function DatasPageClient({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Tes datas</h1>
+        <h1 className="text-3xl font-bold">Mes chiffres</h1>
         <p className="mt-1 text-muted-foreground">
           Remplis tes chiffres mois par mois. Tout le reste de l&apos;app se met à jour
           automatiquement.

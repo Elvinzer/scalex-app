@@ -31,7 +31,7 @@ export function MetricCard({ data }: { data: MetricCardData }) {
           </span>
         )}
       </div>
-      <p className="mt-1.5 text-xl font-bold tracking-[-0.01em]">{data.valueLabel}</p>
+      <p className="mt-1.5 text-xl font-bold tracking-[-0.01em] tabular-nums">{data.valueLabel}</p>
       <div className="mt-1 min-h-4">
         {data.deltaLabel && (
           <p

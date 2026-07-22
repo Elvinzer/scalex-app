@@ -86,7 +86,9 @@ export function OverviewRevenueChart({
               onClick={() => onSelectMetric(key)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-bold transition-colors",
-                key === selectedMetric ? "bg-accent text-white" : "text-muted-foreground hover:text-foreground"
+                // Soft tint for the selected toggle, not a solid coral fill —
+                // coral stays reserved for the page's one priority CTA.
+                key === selectedMetric ? "bg-accent-soft text-accent-text" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {METRIC_TOGGLE_LABELS[key]}

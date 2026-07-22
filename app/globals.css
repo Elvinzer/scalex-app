@@ -372,6 +372,29 @@
     box-shadow: var(--shadow-md);
   }
 
+  /* The one "headline figure" treatment for money/percentage hero numbers
+     (Dashboard's manque à gagner, Diagnostic's potentiel total, Mon
+     business' % complété) — previously three different arbitrary sizes
+     (36/38/52px) for the same visual role. Always pair with tabular-nums so
+     the figure doesn't reflow the surrounding layout when its value changes. */
+  .figure-hero {
+    font-size: 2.25rem; /* text-4xl */
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Scale Score's own figure (a /100 score, not a money amount) — kept
+     deliberately larger/distinct from .figure-hero since it's a different
+     unit and the single number the whole modal exists to show. */
+  .figure-score {
+    font-size: 3.25rem; /* 52px */
+    line-height: 1;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Coral/violet gradient headline treatment — used sparingly, one accent
      word or figure per screen, not whole paragraphs. */
   .gradient-text {
@@ -435,6 +458,19 @@
   }
   50% {
     box-shadow: 0 0 0 1px var(--accent-border), 0 8px 36px 4px var(--accent-glow);
+  }
+}
+
+/* Same pulse, violet — for the Copilote launcher (accent-2 is the IA
+   token), so its notification glow matches its own fill color instead of
+   borrowing the coral one. */
+@keyframes glow-pulse-accent2 {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--accent-2-border), 0 8px 24px var(--accent-2-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 1px var(--accent-2-border), 0 8px 36px 4px var(--accent-2-glow);
   }
 }
 

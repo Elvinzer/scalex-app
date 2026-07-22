@@ -70,7 +70,7 @@ export function DayDrawer({ day, onClose }: { day: JournalDay | null; onClose: (
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
                 Stats hebdo dans ton{" "}
-                <a href="/dashboard" className="font-bold text-accent hover:underline">
+                <a href="/dashboard" className="font-bold text-foreground hover:underline">
                   check-in
                 </a>
                 .

@@ -32,7 +32,7 @@ function ProgressBar({ percent }: { percent: number }) {
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
       <div
         ref={barRef}
-        className="h-full origin-left rounded-full bg-accent transition-transform duration-[var(--motion-slow)] ease-[var(--ease-out)]"
+        className="h-full origin-left rounded-full bg-positive transition-transform duration-[var(--motion-slow)] ease-[var(--ease-out)]"
         style={{ transform: "scaleX(0)" }}
       />
     </div>
@@ -80,7 +80,7 @@ export function ProjectPanel({ projects, todos }: { projects: Project[]; todos: 
   return (
     <div className="sticker-card p-5">
       <div className="mb-3 flex items-center justify-between">
-        <p className="font-display text-base font-bold">Projets en cours</p>
+        <h2 className="text-base font-bold">Projets en cours</h2>
         <NewProjectDialog />
       </div>
 
