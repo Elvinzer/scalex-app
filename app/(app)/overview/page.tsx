@@ -14,8 +14,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
-import { buildMetricCards, dashboardStripeRange, inRange } from "@/lib/dashboard/metrics";
-import { getStripeActivity } from "@/lib/dashboard/stripe-metrics";
+import { buildMetricCards, inRange } from "@/lib/dashboard/metrics";
 import { computeDiagnosticPoints, computeMetricHealthCards } from "@/lib/diagnostic/cascade";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
@@ -24,7 +23,6 @@ import { findOverviewBottleneck } from "@/lib/funnel/overview";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { resolveMonthCashCollected, resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
-import { toIsoDate } from "@/lib/date-range";
 import { computeFunnelRates } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -88,19 +86,15 @@ export default async function OverviewPage({
     );
   }
 
-  // Widest range covering both this period's monthly series and buildMetricCards'
-  // own fixed 8-month sparkline window — one Stripe fetch, both consumers filter
-  // the same raw records in code (never pre-aggregated, per CLAUDE.md).
-  const dashStripeRange = dashboardStripeRange();
-  const overviewStripeRange =
-    months.length > 0 && months[0].range.from < dashStripeRange.from
-      ? { from: months[0].range.from, to: dashStripeRange.to }
-      : dashStripeRange;
-  const stripeActivity = await getStripeActivity(accountId, overviewStripeRange);
-
   // Bloc 1 — reuses Dashboard's own card builder as-is (same 6 cards it
   // computes internally); we only display the 4 the brief asks for.
-  const allMetricCards = buildMetricCards({ businessProfile, allSettingEntries, allClosingEntries, allMonthlyRows, stripeActivity });
+  const allMetricCards = buildMetricCards({
+    businessProfile,
+    allSettingEntries,
+    allClosingEntries,
+    allMonthlyRows,
+    isStripeConnected: Boolean(user?.stripeConnectId),
+  });
   const metricCards = allMetricCards.filter((card) => METRIC_CARD_KEYS.includes(card.key));
 
   // Bloc 2/3/4 — same aggregation engine as Dashboard/Diagnostic for the
@@ -125,11 +119,6 @@ export default async function OverviewPage({
   // instead of summed. "hasX" flags mirror lib/dashboard/metrics.ts's own
   // hasAnySettingData/hasAnyClosingData check so a month with nothing
   // entered renders as a real gap (null), never a fabricated 0.
-  const stripeRevenueEurFor = (range: MonthWindow["range"]): number | null =>
-    stripeActivity
-      ? stripeActivity.charges.filter((c) => inRange(toIsoDate(c.createdAt), range)).reduce((sum, c) => sum + c.amountCents, 0) / 100
-      : null;
-
   const monthlySeries = months.map(({ year, month, range }) => {
     const monthlyRow = allMonthlyRows.find((row) => row.year === year && row.month === month) ?? null;
     const dailySetting = allSettingEntries.filter((e) => inRange(e.date, range));
@@ -139,7 +128,7 @@ export default async function OverviewPage({
 
     const monthSetting = resolveMonthSettingTotals(monthlyRow, dailySetting);
     const monthClosing = resolveMonthClosingTotals(monthlyRow, dailyClosing);
-    const cash = resolveMonthCashCollected(monthlyRow, stripeRevenueEurFor(range));
+    const cash = resolveMonthCashCollected(monthlyRow);
     const label = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" });
 
     return {

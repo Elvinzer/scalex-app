@@ -14,12 +14,16 @@ import { writeMonthlyMetrics } from "@/lib/monthly-metrics/write";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
+export type BlockedField = { field: string; reason: string };
+
 export type CommitImportResult =
   | { status: "duplicate_warning"; previousImport: { targetYear: number | null; targetMonth: number | null; createdAt: Date } }
-  | { status: "committed"; fieldsWritten: number; monthsCount: number; blockedFields: string[] }
+  | { status: "committed"; fieldsWritten: number; monthsCount: number; blockedFields: BlockedField[] }
   | { status: "error"; error: string };
 
 const PROTECTED_FIELDS = new Set<string>([...SETTING_FIELDS, ...CLOSING_FIELDS]);
+const DAILY_ROLLUP_REASON = "Ce chiffre vient de ton suivi quotidien, il est déjà à jour.";
+const STRIPE_SOURCED_REASON = "Ce chiffre vient de Stripe, il est déjà à jour.";
 
 async function resolveAuth(): Promise<{ accountId: string } | { error: string }> {
   const supabase = await createClient();
@@ -58,7 +62,7 @@ async function protectedFieldsForMonth(accountId: string, year: number, month: n
 async function commitMonthlyMetricsMonth(
   accountId: string,
   month: CommitImportPayload["months"][number]
-): Promise<{ fieldsWritten: number; blocked: string[] }> {
+): Promise<{ fieldsWritten: number; blocked: BlockedField[] }> {
   const [protectedFields, [existingRow]] = await Promise.all([
     protectedFieldsForMonth(accountId, month.year, month.month),
     db
@@ -82,13 +86,20 @@ async function commitMonthlyMetricsMonth(
       }
     : { ...EMPTY_MONTHLY_METRICS };
 
-  const blocked: string[] = [];
+  const blocked: BlockedField[] = [];
   let fieldsWritten = 0;
 
   for (const [field, rawValue] of Object.entries(month.values)) {
     if (!(field in base)) continue; // not a monthly_metrics field — ignore rather than crash
     if (PROTECTED_FIELDS.has(field) && protectedFields.has(field)) {
-      blocked.push(field);
+      blocked.push({ field, reason: DAILY_ROLLUP_REASON });
+      continue;
+    }
+    // cashCollected is the one monthly_metrics field the Stripe sync can own
+    // (lib/stripe/sync-write.ts) — "stale" (Stripe disconnected) is NOT
+    // protected, since manual entry reopens once Stripe is gone.
+    if (field === "cashCollected" && existingRow?.cashCollectedSource === "stripe") {
+      blocked.push({ field, reason: STRIPE_SOURCED_REASON });
       continue;
     }
     const choice = month.conflictChoices?.[field];
@@ -128,13 +139,13 @@ export async function commitImport(payload: unknown): Promise<CommitImportResult
   }
 
   let fieldsWritten = 0;
-  const blockedFields = new Set<string>();
+  const blockedFieldsByName = new Map<string, BlockedField>();
 
   if (data.targetTable === "monthly_metrics") {
     for (const month of data.months) {
       const result = await commitMonthlyMetricsMonth(accountId, month);
       fieldsWritten += result.fieldsWritten;
-      for (const field of result.blocked) blockedFields.add(field);
+      for (const blocked of result.blocked) blockedFieldsByName.set(blocked.field, blocked);
     }
   } else if (data.targetTable === "content_posts") {
     // Append-only list — an imported "liste de posts" always creates new
@@ -216,5 +227,5 @@ export async function commitImport(payload: unknown): Promise<CommitImportResult
   revalidatePath("/diagnostic");
   revalidatePath("/overview");
 
-  return { status: "committed", fieldsWritten, monthsCount: data.months.length, blockedFields: [...blockedFields] };
+  return { status: "committed", fieldsWritten, monthsCount: data.months.length, blockedFields: [...blockedFieldsByName.values()] };
 }

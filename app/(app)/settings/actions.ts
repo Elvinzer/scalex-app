@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -165,10 +165,27 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
     }
   }
 
+  // Freeze, never erase: every month Stripe was still the source of truth
+  // for keeps its last-known figure, just marked "stale" — datas/month-modal.tsx
+  // shows the frozen-value banner and reopens manual entry; "stripe_stale" is
+  // deliberately never a target of the import-block in
+  // app/(app)/datas/import-actions.ts, unlike a live "stripe" source.
+  await db
+    .update(monthlyMetrics)
+    .set({ cashCollectedSource: "stripe_stale" })
+    .where(and(eq(monthlyMetrics.userId, access.accountId), eq(monthlyMetrics.cashCollectedSource, "stripe")));
+  await db
+    .update(monthlyMetrics)
+    .set({ newCustomersSource: "stripe_stale" })
+    .where(and(eq(monthlyMetrics.userId, access.accountId), eq(monthlyMetrics.newCustomersSource, "stripe")));
+
   await db.delete(stripeConnections).where(eq(stripeConnections.userId, access.accountId));
   await db.update(users).set({ stripeConnectId: null }).where(eq(users.id, access.accountId));
 
   revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/datas");
+  revalidatePath("/overview");
   return { error: null };
 }
 

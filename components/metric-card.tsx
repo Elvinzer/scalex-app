@@ -26,8 +26,13 @@ export function MetricCard({ data }: { data: MetricCardData }) {
       <div className="flex items-center gap-1.5">
         <p className="text-xs font-bold text-muted-foreground">{data.label}</p>
         {data.sourceHint && (
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-            manuel
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+              data.sourceHint === "Stripe" ? "bg-signal/15 text-signal" : "bg-muted text-muted-foreground"
+            )}
+          >
+            {data.sourceHint}
           </span>
         )}
       </div>

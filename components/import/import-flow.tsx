@@ -9,7 +9,7 @@ import { trackClient } from "@/lib/analytics-client";
 import { falcoReactionClassName } from "@/lib/falco-events";
 import type { AnalyzeResponse, CommitImportPayload } from "@/lib/import/schema";
 
-import { commitImport } from "@/app/(app)/datas/import-actions";
+import { commitImport, type BlockedField } from "@/app/(app)/datas/import-actions";
 
 import { ImportClarify } from "./import-clarify";
 import { ImportDropzone } from "./import-dropzone";
@@ -22,7 +22,7 @@ type Step =
   | { kind: "preview"; analysis: AnalyzeResponse }
   | { kind: "duplicate_confirm"; payloads: CommitImportPayload[]; previousMonth: string }
   | { kind: "committing"; payloads: CommitImportPayload[] }
-  | { kind: "done"; fieldsWritten: number }
+  | { kind: "done"; fieldsWritten: number; blockedFields: BlockedField[] }
   | { kind: "error"; message: string };
 
 function questionCountFor(analysis: AnalyzeResponse): number {
@@ -105,7 +105,7 @@ export function ImportFlow({
 
     let totalFieldsWritten = 0;
     let totalMonths = 0;
-    let hadConflicts = false;
+    const blockedFieldsByName = new Map<string, BlockedField>();
 
     for (const payload of payloads) {
       const result = await commitImport(payload);
@@ -122,11 +122,15 @@ export function ImportFlow({
 
       totalFieldsWritten += result.fieldsWritten;
       totalMonths += result.monthsCount;
-      hadConflicts = hadConflicts || result.blockedFields.length > 0;
+      for (const blocked of result.blockedFields) blockedFieldsByName.set(blocked.field, blocked);
     }
 
-    trackClient("import_committed", { fields_count: totalFieldsWritten, months_count: totalMonths, had_conflicts: hadConflicts });
-    setStep({ kind: "done", fieldsWritten: totalFieldsWritten });
+    trackClient("import_committed", {
+      fields_count: totalFieldsWritten,
+      months_count: totalMonths,
+      had_conflicts: blockedFieldsByName.size > 0,
+    });
+    setStep({ kind: "done", fieldsWritten: totalFieldsWritten, blockedFields: [...blockedFieldsByName.values()] });
     onCommitted?.();
   }
 
@@ -199,6 +203,13 @@ export function ImportFlow({
             C&apos;est rangé. {step.fieldsWritten} valeur{step.fieldsWritten > 1 ? "s" : ""} importée{step.fieldsWritten > 1 ? "s" : ""}, ton
             diagnostic est à jour.
           </p>
+          {step.blockedFields.length > 0 && (
+            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+              {step.blockedFields.map((blocked) => (
+                <p key={blocked.field}>{blocked.reason}</p>
+              ))}
+            </div>
+          )}
         </div>
       );
 

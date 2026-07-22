@@ -30,6 +30,16 @@ const CLOSING_SOURCE: KpiFieldSource = {
   linkLabel: "Aller au suivi quotidien",
 };
 
+const SYNC_DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+function stripeSource(syncedAt: Date | null): KpiFieldSource {
+  return {
+    text: syncedAt ? `Synchronisé depuis Stripe le ${SYNC_DATE_FORMAT.format(syncedAt)}.` : "Synchronisé depuis Stripe.",
+    href: "/integrations",
+    linkLabel: "Voir mes intégrations",
+  };
+}
+
 function toDraft(row: MonthlyMetricsRow | null): MonthlyMetricsInput {
   return {
     cashCollected: row?.cashCollected ?? null,
@@ -98,6 +108,9 @@ export function MonthModal({
   );
   const { settingSourced, closingSourced } = dailySourceOverlay;
   const initial = { ...toDraft(initialData), ...dailySourceOverlay.overrides };
+  const cashCollectedSynced = initialData?.cashCollectedSource === "stripe";
+  const cashCollectedStale = initialData?.cashCollectedSource === "stripe_stale";
+  const newCustomersSynced = initialData?.newCustomersSource === "stripe" || initialData?.newCustomersSource === "stripe_stale";
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initial);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -240,17 +253,33 @@ export function MonthModal({
                 <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
                   💰 Finance
                 </p>
+                {cashCollectedStale && (
+                  <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-xs font-bold text-state-caution">
+                    Stripe déconnecté — chiffres figés au{" "}
+                    {initialData?.cashCollectedSyncedAt ? SYNC_DATE_FORMAT.format(initialData.cashCollectedSyncedAt) : "?"}. Tu
+                    peux à nouveau saisir ce champ à la main.
+                  </div>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <KpiNumberField
                     label="CA collecté (€)"
                     value={draft.cashCollected}
                     onChange={(v) => update({ cashCollected: v })}
+                    disabledReason={cashCollectedSynced ? stripeSource(initialData?.cashCollectedSyncedAt ?? null) : undefined}
                   />
                   <KpiNumberField
                     label="CA contracté (€)"
                     value={draft.cashContracted}
                     onChange={(v) => update({ cashContracted: v })}
                   />
+                  {newCustomersSynced && (
+                    <KpiNumberField
+                      label="Nouveaux clients"
+                      value={initialData?.newCustomers ?? null}
+                      onChange={() => {}}
+                      disabledReason={stripeSource(initialData?.newCustomersSyncedAt ?? null)}
+                    />
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Cumul annuel collecté : {formatEur(cumulCollected)}

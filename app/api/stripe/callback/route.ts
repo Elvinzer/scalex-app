@@ -52,6 +52,14 @@ export async function GET(request: NextRequest) {
       ? encrypt(tokenResponse.refresh_token)
       : null,
     scope: tokenResponse.scope ?? null,
+    // Always present in practice on an OAuth token response — defaults true
+    // to match the column default if Stripe ever omits it. The sync
+    // (lib/inngest/functions/sync-stripe-account.ts) refuses to run at all
+    // when this is false, so test/live data is never mixed.
+    livemode: tokenResponse.livemode ?? true,
+    // Reset on every (re)connect — the Inngest job flips this to
+    // "completed"/"failed" once the 12-month sync finishes.
+    initialSyncStatus: "pending" as const,
   };
 
   // Independent writes to different tables — run together. inngest.send
@@ -63,7 +71,7 @@ export async function GET(request: NextRequest) {
       .values(values)
       .onConflictDoUpdate({
         target: stripeConnections.userId,
-        set: { ...values, connectedAt: new Date() },
+        set: { ...values, connectedAt: new Date(), initialSyncCompletedAt: null },
       }),
     db.update(users).set({ stripeConnectId: tokenResponse.stripe_user_id }).where(eq(users.id, userId)),
   ]);

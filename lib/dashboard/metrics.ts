@@ -4,10 +4,13 @@ import { formatEur } from "@/lib/currency";
 import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
-import { resolveMonthCashCollected, resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
+import {
+  resolveMonthCashCollected,
+  resolveMonthClosingTotals,
+  resolveMonthNewCustomers,
+  resolveMonthSettingTotals,
+} from "@/lib/monthly-metrics/resolve";
 import { formatPercent } from "@/lib/setting/funnel";
-
-import type { StripeActivity } from "./stripe-metrics";
 
 type SettingEntry = typeof settingKpiEntries.$inferSelect;
 type ClosingEntry = typeof closingKpiEntries.$inferSelect;
@@ -81,12 +84,6 @@ function monthBuckets(count: number): MonthBucket[] {
   return buckets;
 }
 
-// Covers all 8 sparkline months in one Stripe fetch.
-export function dashboardStripeRange(): DateRange {
-  const buckets = monthBuckets(MONTHS);
-  return { from: buckets[0].range.from, to: buckets[buckets.length - 1].range.to };
-}
-
 function countDelta(current: number, previous: number): { label: string; direction: "up" | "down" | null } {
   const diff = current - previous;
   if (diff === 0) return { label: "= vs mois précédent", direction: null };
@@ -107,29 +104,19 @@ export function buildMetricCards({
   allSettingEntries,
   allClosingEntries,
   allMonthlyRows,
-  stripeActivity,
+  isStripeConnected,
 }: {
   businessProfile: BusinessProfileData;
   allSettingEntries: SettingEntry[];
   allClosingEntries: ClosingEntry[];
   allMonthlyRows: MonthlyMetricsRow[];
-  stripeActivity: StripeActivity | null;
+  // Whether stripeConnections has a row for this account — no longer a live
+  // fetch (lib/stripe/sync-write.ts persists straight into monthlyRow, see
+  // resolveMonthCashCollected/resolveMonthNewCustomers below), just gates the
+  // "missing data" card copy (connected-but-not-yet-synced vs never connected).
+  isStripeConnected: boolean;
 }): MetricCard[] {
   const buckets = monthBuckets(MONTHS);
-
-  const stripeRevenueEurFor = (range: DateRange): number | null => {
-    if (!stripeActivity) return null;
-    return (
-      stripeActivity.charges
-        .filter((charge) => inRange(toIsoDate(charge.createdAt), range))
-        .reduce((sum, charge) => sum + charge.amountCents, 0) / 100
-    );
-  };
-
-  const customerCountFor = (range: DateRange): number =>
-    stripeActivity
-      ? stripeActivity.customers.filter((customer) => inRange(toIsoDate(customer.createdAt), range)).length
-      : 0;
 
   const resolved = buckets.map((bucket) => {
     const monthlyRow = allMonthlyRows.find((row) => row.year === bucket.year && row.month === bucket.month) ?? null;
@@ -139,9 +126,10 @@ export function buildMetricCards({
     const settingTotals = resolveMonthSettingTotals(monthlyRow, dailySetting);
     const closingTotals = resolveMonthClosingTotals(monthlyRow, dailyClosing);
     const closingRates = computeClosingRates(closingTotals, settingTotals.callsBooked);
-    const cash = resolveMonthCashCollected(monthlyRow, stripeRevenueEurFor(bucket.range));
+    const cash = resolveMonthCashCollected(monthlyRow);
+    const newCustomers = resolveMonthNewCustomers(monthlyRow);
 
-    return { bucket, monthlyRow, settingTotals, closingTotals, closingRates, cash };
+    return { bucket, monthlyRow, settingTotals, closingTotals, closingRates, cash, newCustomers };
   });
 
   const current = resolved[resolved.length - 1];
@@ -160,8 +148,8 @@ export function buildMetricCards({
       label: "CA encaissé",
       href: "/datas",
       status: "missing",
-      reason: !stripeActivity ? "Stripe non connecté et rien saisi dans Datas" : "Rien saisi ce mois-ci",
-      ctaLabel: !stripeActivity ? "Connecte Stripe" : "Remplir dans Datas",
+      reason: !isStripeConnected ? "Stripe non connecté et rien saisi dans Datas" : "Rien saisi ce mois-ci",
+      ctaLabel: !isStripeConnected ? "Connecte Stripe" : "Remplir dans Datas",
     });
   } else {
     const previousAmount = previous.cash.amount ?? 0;
@@ -176,34 +164,35 @@ export function buildMetricCards({
       deltaDirection: delta.direction,
       sparklineValues: resolved.map((r) => r.cash.amount ?? 0),
       sparklineLabels: resolved.map((r) => r.bucket.label),
-      sourceHint: current.cash.source === "manual" ? "Saisie manuelle" : undefined,
+      sourceHint:
+        current.cash.source === "manual" ? "Saisie manuelle" : current.cash.source === "stripe" ? "Stripe" : undefined,
     });
   }
 
   // 2. Nouveaux clients — Stripe only, no manual equivalent in Datas.
-  if (!stripeActivity) {
+  if (current.newCustomers.amount === null) {
     cards.push({
       key: "new-customers",
       label: "Nouveaux clients",
       href: "/integrations",
       status: "missing",
-      reason: "Stripe non connecté",
+      reason: !isStripeConnected ? "Stripe non connecté" : "Synchronisation en cours",
       ctaLabel: "Connecte Stripe",
     });
   } else {
-    const currentCount = customerCountFor(current.bucket.range);
-    const previousCount = customerCountFor(previous.bucket.range);
-    const delta = countDelta(currentCount, previousCount);
+    const previousCount = previous.newCustomers.amount ?? 0;
+    const delta = countDelta(current.newCustomers.amount, previousCount);
     cards.push({
       key: "new-customers",
       label: "Nouveaux clients",
       href: "/integrations",
       status: "ok",
-      valueLabel: NUMBER_FORMAT.format(currentCount),
+      valueLabel: NUMBER_FORMAT.format(current.newCustomers.amount),
       deltaLabel: delta.label,
       deltaDirection: delta.direction,
-      sparklineValues: resolved.map((r) => customerCountFor(r.bucket.range)),
+      sparklineValues: resolved.map((r) => r.newCustomers.amount ?? 0),
       sparklineLabels: resolved.map((r) => r.bucket.label),
+      sourceHint: "Stripe",
     });
   }
 

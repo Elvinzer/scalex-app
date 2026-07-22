@@ -16,8 +16,7 @@ import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
-import { currentIsoWeekRange, dashboardStripeRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
-import { getStripeActivity } from "@/lib/dashboard/stripe-metrics";
+import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { emptyMonthRow, getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
@@ -36,27 +35,25 @@ export default async function DashboardPage({
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
 
-  // All four only depend on accountId/user.sector, known above — run together
-  // instead of as 4 sequential round-trips.
-  const [businessProfile, [allSettingEntries, allClosingEntries, allMonthlyRows], stripeActivity, benchmarks] =
-    await Promise.all([
-      getBusinessProfile(accountId),
-      Promise.all([
-        db
-          .select()
-          .from(settingKpiEntries)
-          .where(eq(settingKpiEntries.userId, accountId))
-          .orderBy(desc(settingKpiEntries.date)),
-        db
-          .select()
-          .from(closingKpiEntries)
-          .where(eq(closingKpiEntries.userId, accountId))
-          .orderBy(desc(closingKpiEntries.date)),
-        getAllMonthlyMetrics(accountId),
-      ]),
-      getStripeActivity(accountId, dashboardStripeRange()),
-      getDiagnosticBenchmarks(user?.sector ?? null),
-    ]);
+  // All three only depend on accountId/user.sector, known above — run
+  // together instead of as sequential round-trips.
+  const [businessProfile, [allSettingEntries, allClosingEntries, allMonthlyRows], benchmarks] = await Promise.all([
+    getBusinessProfile(accountId),
+    Promise.all([
+      db
+        .select()
+        .from(settingKpiEntries)
+        .where(eq(settingKpiEntries.userId, accountId))
+        .orderBy(desc(settingKpiEntries.date)),
+      db
+        .select()
+        .from(closingKpiEntries)
+        .where(eq(closingKpiEntries.userId, accountId))
+        .orderBy(desc(closingKpiEntries.date)),
+      getAllMonthlyMetrics(accountId),
+    ]),
+    getDiagnosticBenchmarks(user?.sector ?? null),
+  ]);
 
   const firstName = user?.email.split("@")[0] || "là";
 
@@ -65,7 +62,7 @@ export default async function DashboardPage({
     allSettingEntries,
     allClosingEntries,
     allMonthlyRows,
-    stripeActivity,
+    isStripeConnected: Boolean(user?.stripeConnectId),
   });
 
   // Same engine and same default period as /diagnostic, so "the goulot

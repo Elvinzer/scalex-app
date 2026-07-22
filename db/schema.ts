@@ -139,6 +139,16 @@ export const stripeConnections = pgTable("stripe_connections", {
   connectedAt: timestamp("connected_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  // Captured from the OAuth token response (tokenResponse.livemode) — the
+  // sync (lib/stripe/sync.ts) refuses to run against a test-mode connected
+  // account, never mixing test/live data into monthly_metrics.
+  livemode: boolean("livemode").notNull().default(true),
+  // Tracks the one-time automatic 12-month sync triggered on connect (see
+  // lib/inngest/functions/sync-stripe-account.ts) — "pending" until that job
+  // finishes. No granular per-month progress in this phase (that needs the
+  // resync-button/polling infra, deferred).
+  initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
+  initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
 }).enableRLS();
 
 export const diagnostics = pgTable(
@@ -323,8 +333,33 @@ export const monthlyMetrics = pgTable(
     year: integer("year").notNull(),
     month: integer("month").notNull(), // 1-12
     cashCollected: integer("cash_collected"), // euros
+    // "stripe" | "stripe_stale" | null (null = manual/unset) — set by
+    // lib/stripe/sync.ts, never by the manual save path. "stale" means the
+    // account disconnected (app/(app)/settings/actions.ts's disconnectStripe):
+    // the value is kept as the last-known figure but manual entry reopens.
+    // See lib/monthly-metrics/resolve.ts's resolveMonthCashCollected for the
+    // read side, and app/(app)/datas/import-actions.ts for the write-block.
+    cashCollectedSource: text("cash_collected_source"),
+    cashCollectedSyncedAt: timestamp("cash_collected_synced_at", { withTimezone: true }),
+    // The manual value that existed the FIRST time Stripe claimed this field
+    // — captured once, never overwritten again (even on re-sync), per
+    // CLAUDE.md's rule that a prior manual entry is never destroyed, only
+    // masked.
+    cashCollectedManualBackup: integer("cash_collected_manual_backup"),
     cashContracted: integer("cash_contracted"), // euros
+    // Top-of-funnel leads/audience growth (newSubscribers in the Setting
+    // funnel, see lib/monthly-metrics/rates.ts's toFunnelTotals) — NOT the
+    // same concept as newCustomers below (Stripe's paying-customer count).
+    // Deliberately never touched by the Stripe sync.
     newFollowers: integer("new_followers"),
+    // Stripe's "nouveaux clients" (customers with ≥1 succeeded charge that
+    // month) — a genuinely new field, no manual entry ever existed for this
+    // (the old live-only lib/dashboard/stripe-metrics.ts computed it
+    // on-the-fly and never persisted it), so unlike cashCollected there is no
+    // manual value to ever preserve/backup.
+    newCustomers: integer("new_customers"),
+    newCustomersSource: text("new_customers_source"), // "stripe" | "stripe_stale" | null
+    newCustomersSyncedAt: timestamp("new_customers_synced_at", { withTimezone: true }),
     firstMessages: integer("first_messages"),
     conversations: integer("conversations"),
     callsProposed: integer("calls_proposed"),

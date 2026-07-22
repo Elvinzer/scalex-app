@@ -113,17 +113,28 @@ export function stripDailySourcedFields(
   return result;
 }
 
-export type ResolvedCashCollected = { amount: number | null; source: "stripe" | "manual" | null };
+export type ResolvedField = { amount: number | null; source: "stripe" | "stripe_stale" | "manual" | null };
 
-// Stripe wins whenever it has data for the month — manual entry is the
-// fallback only, never added together.
-export function resolveMonthCashCollected(
-  monthlyRow: MonthlyMetricsRow | null,
-  stripeRevenueForMonth: number | null
-): ResolvedCashCollected {
-  if (stripeRevenueForMonth !== null) return { amount: stripeRevenueForMonth, source: "stripe" };
-  if (monthlyRow?.cashCollected !== null && monthlyRow?.cashCollected !== undefined) {
-    return { amount: monthlyRow.cashCollected, source: "manual" };
+// Stripe wins whenever the field is Stripe-sourced (fresh or stale) — manual
+// entry is the fallback only, never added together. No live Stripe fetch
+// anymore: lib/stripe/sync-write.ts persists the value straight into
+// monthly_metrics with a *Source column, so this is now a plain read.
+export function resolveMonthCashCollected(monthlyRow: MonthlyMetricsRow | null): ResolvedField {
+  if (!monthlyRow) return { amount: null, source: null };
+  if (monthlyRow.cashCollectedSource === "stripe" || monthlyRow.cashCollectedSource === "stripe_stale") {
+    return { amount: monthlyRow.cashCollected, source: monthlyRow.cashCollectedSource };
+  }
+  if (monthlyRow.cashCollected !== null) return { amount: monthlyRow.cashCollected, source: "manual" };
+  return { amount: null, source: null };
+}
+
+// "Nouveaux clients" (Stripe-only, see db/schema.ts's newCustomers comment)
+// — distinct from resolveMonthSettingTotals' newSubscribers/newFollowers,
+// which stays purely manual/daily-rollup and untouched by Stripe.
+export function resolveMonthNewCustomers(monthlyRow: MonthlyMetricsRow | null): ResolvedField {
+  if (!monthlyRow) return { amount: null, source: null };
+  if (monthlyRow.newCustomersSource === "stripe" || monthlyRow.newCustomersSource === "stripe_stale") {
+    return { amount: monthlyRow.newCustomers, source: monthlyRow.newCustomersSource };
   }
   return { amount: null, source: null };
 }

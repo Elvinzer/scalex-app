@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 // "where does this value come from," for fields auto-filled from another
 // section (Setting/Closing daily entries) and disabled here to avoid
 // double entry.
-export function SourcePopover({ text, href, linkLabel }: { text: string; href: string; linkLabel: string }) {
+export function SourcePopover({ text, href, linkLabel }: { text: string; href?: string; linkLabel?: string }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -22,9 +22,11 @@ export function SourcePopover({ text, href, linkLabel }: { text: string; href: s
       </PopoverTrigger>
       <PopoverContent>
         <p className="text-muted-foreground">{text}</p>
-        <a href={href} className="mt-1 inline-block font-bold text-signal hover:underline">
-          {linkLabel} →
-        </a>
+        {href && (
+          <a href={href} className="mt-1 inline-block font-bold text-signal hover:underline">
+            {linkLabel} →
+          </a>
+        )}
       </PopoverContent>
     </Popover>
   );

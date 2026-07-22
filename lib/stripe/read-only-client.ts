@@ -2,7 +2,7 @@ import Stripe from "stripe";
 
 type ReadOnlyResource<T> = Pick<T, Extract<keyof T, "list" | "retrieve">>;
 
-type ReadOnlyStripeClient = {
+export type ReadOnlyStripeClient = {
   charges: ReadOnlyResource<Stripe["charges"]>;
   invoices: ReadOnlyResource<Stripe["invoices"]>;
   refunds: ReadOnlyResource<Stripe["refunds"]>;

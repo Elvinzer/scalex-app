@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 const inputClass =
   "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
-export type KpiFieldSource = { text: string; href: string; linkLabel: string };
+export type KpiFieldSource = { text: string; href?: string; linkLabel?: string };
 
 // Shared by checkin-modal.tsx and month-modal.tsx (previously two near-
 // identical local copies) — extended here with an optional disabledReason:
