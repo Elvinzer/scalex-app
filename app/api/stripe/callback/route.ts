@@ -76,7 +76,18 @@ export async function GET(request: NextRequest) {
     db.update(users).set({ stripeConnectId: tokenResponse.stripe_user_id }).where(eq(users.id, userId)),
   ]);
 
-  await inngest.send(stripeAccountConnected.create({ userId }));
+  // Best-effort — the connection itself is already durably saved above by
+  // this point. A local Inngest Dev Server hiccup (or Inngest Cloud being
+  // briefly unreachable) must never turn a successful Stripe connection into
+  // a crashed OAuth callback; the 12-month sync just won't kick off
+  // automatically (the "Synchronisation en cours…" banner on /integrations
+  // will stay on "pending" until the account reconnects or a Phase 2 resync
+  // button exists).
+  try {
+    await inngest.send(stripeAccountConnected.create({ userId }));
+  } catch (error) {
+    console.error("inngest.send(stripeAccountConnected) failed, Stripe connection saved anyway", error);
+  }
 
   const response = NextResponse.redirect(new URL("/integrations", origin));
   response.cookies.delete("stripe_oauth_state");
