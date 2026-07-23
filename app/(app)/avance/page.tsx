@@ -29,8 +29,7 @@ export default function AvancePage() {
         <div>
           <h1 className="text-3xl font-bold">Avancé</h1>
           <p className="mt-1 text-muted-foreground">
-            Les prochains modules pour aller plus loin, une fois ta boucle de valeur en place.
-            En préparation — on les ouvre bientôt.
+            Falco te prépare du gros contenuu, ça arrive très bientôt !
           </p>
         </div>
       </div>
