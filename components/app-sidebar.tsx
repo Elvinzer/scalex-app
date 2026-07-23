@@ -8,6 +8,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  Plug,
   Receipt,
   Settings,
   ShieldCheck,
@@ -61,12 +62,12 @@ const topEntries: LinkEntry[] = [
 
 // HORS-NAVIGATION — account-level pages under the profile dropdown
 // (ProfileMenu). Mon business moved back here (was briefly promoted to the
-// core nav). Intégrations lives as a link inside /settings' own content
-// (see app/(app)/settings/page.tsx) rather than a separate profile-menu
-// entry. Réglages has no `permission`: owner-only.
+// core nav). Réglages/Intégrations have no `permission`: owner-only, same
+// gate as their pages' own requireOwnerOrRedirect.
 const profileMenuEntries: LinkEntry[] = [
   { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
+  { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
 ];
 
 // AVANCÉ — one flat nav line, own visibility rule below. Shown to anyone
