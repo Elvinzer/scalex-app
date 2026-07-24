@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { Button } from "@/components/ui/button";
+import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
@@ -21,7 +22,11 @@ function currentMonthWindow(): { year: number; month: number } {
 export default async function ContenuPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:contenu");
-  const [posts, profile] = await Promise.all([getContentPosts(accountId), getBusinessProfile(accountId)]);
+  const [posts, profile, agent] = await Promise.all([
+    getContentPosts(accountId),
+    getBusinessProfile(accountId),
+    getAgentByKey("content"),
+  ]);
   const platforms = profile.acquisition.platforms.map((platform) => platform.name).filter(Boolean);
 
   const { year, month } = currentMonthWindow();
@@ -43,14 +48,18 @@ export default async function ContenuPage() {
     avgClickRate !== null
       ? `Ton taux de clic moyen est de ${formatPercent(avgClickRate)} ce mois-ci.`
       : "Aucun post suivi ce mois-ci — ajoute ton premier post pour voir tes chiffres.";
-  // No supported MetricKey for Contenu's own ContentMetricKey system in the
-  // Copilote pipeline yet — general topic stays safe (never a rejected/naked
-  // drawer), same call as Ads/Suivi des ventes below.
-  const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "acquisition_contenu" };
+  const chatContext: ChatContext = { topicType: "lever", topicKey: "content", topicLabel: "Contenu", sourcePage: "acquisition_contenu" };
 
   return (
     <div className="flex flex-col gap-8">
-      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+      <AgentBanner
+        stateText={stateText}
+        ctaLabel="Améliorer →"
+        chatContext={chatContext}
+        mode="optimiser"
+        agentName={agent?.name}
+        agentIconKey={agent?.falcoSkinIcon}
+      />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

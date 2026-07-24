@@ -5,6 +5,7 @@ import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
 import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
+import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { track } from "@/lib/analytics";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
@@ -28,7 +29,11 @@ export default async function MailPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:mail");
 
-  const [campaigns, lever] = await Promise.all([getEmailCampaigns(accountId), getLeverStatus(accountId, LEVER_KEY)]);
+  const [campaigns, lever, agent] = await Promise.all([
+    getEmailCampaigns(accountId),
+    getLeverStatus(accountId, LEVER_KEY),
+    getAgentByKey(LEVER_KEY),
+  ]);
 
   const mode: "optimiser" | "demarrer" | "decouverte" =
     lever.status === "active" || campaigns.length > 0
@@ -48,6 +53,9 @@ export default async function MailPage() {
           stateText="Pas encore vu si tu fais de l'emailing — une question rapide."
           ctaLabel="Améliorer →"
           chatContext={chatContext}
+          mode={mode}
+          agentName={agent?.name}
+          agentIconKey={agent?.falcoSkinIcon}
         />
         <div>
           <h1 className="text-3xl font-bold">Mail</h1>
@@ -73,6 +81,9 @@ export default async function MailPage() {
           ctaLabel="Améliorer →"
           chatContext={chatContext}
           falcoPose="thinking"
+          mode={mode}
+          agentName={agent?.name}
+          agentIconKey={agent?.falcoSkinIcon}
         />
         <div>
           <h1 className="text-3xl font-bold">Mail</h1>
@@ -115,7 +126,14 @@ export default async function MailPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+      <AgentBanner
+        stateText={stateText}
+        ctaLabel="Améliorer →"
+        chatContext={chatContext}
+        mode={mode}
+        agentName={agent?.name}
+        agentIconKey={agent?.falcoSkinIcon}
+      />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

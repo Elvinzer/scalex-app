@@ -1,22 +1,17 @@
+import type { AgentRegistryRow } from "@/lib/agent/agents-registry";
+import type { LeverAgentData } from "@/lib/agent/lever-agent-data";
 import type { ClosingTotals } from "@/lib/closing/metrics";
 import type { ChatContext } from "@/lib/chat-context";
 import type { MetricKey } from "@/lib/diagnostic/benchmarks";
 import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import type { FollowupCompliance } from "@/lib/diagnostic/followups";
-import type { LeverCategory } from "@/lib/levers/catalog";
 import { formatEur } from "@/lib/currency";
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 
 export type ImproveMetricKey = MetricKey | "followupRecovery" | "general";
 
-export type LeverPromptData = {
-  label: string;
-  category: LeverCategory;
-  whatIsThis: string;
-  impactAmountEur: number | null;
-  impactExplanation: string;
-};
+export type LeverMode = "optimiser" | "demarrer" | "decouverte";
 
 const ROLE_BY_METRIC: Record<ImproveMetricKey, string> = {
   responseRate:
@@ -35,14 +30,6 @@ const ROLE_BY_METRIC: Record<ImproveMetricKey, string> = {
     "Tu es un consultant senior en croissance de business en ligne. Si une question touche une métrique ou un " +
     "levier suivi par l'app, signale-le brièvement et propose d'ouvrir la conversation dédiée à ce sujet pour " +
     "creuser en profondeur — sans jamais forcer, l'utilisateur choisit.",
-};
-
-const ROLE_BY_LEVER_CATEGORY: Record<LeverCategory, string> = {
-  acquisition:
-    "Tu es un expert en acquisition pour infopreneurs francophones (génération de trafic, leads, nouveaux canaux).",
-  vente: "Tu es un expert en vente et conversion pour offres high-ticket (funnels, closing, argumentaire).",
-  delivrabilite:
-    "Tu es un expert en rétention et expérience client pour infopreneurs (onboarding, ascension, fidélisation).",
 };
 
 // Exported so lib/call-analysis-prompt-builder.ts and lib/ad-copy-prompt-builder.ts
@@ -125,6 +112,20 @@ function describeAllPoints(points: DiagnosticPoint[]): string {
     .join("\n");
 }
 
+const LEVER_MISSION_BY_MODE: Record<LeverMode, string> = {
+  optimiser:
+    "Aide l'utilisateur à améliorer précisément ce levier, en t'appuyant sur les données ci-dessus (son business " +
+    "réel, ses vrais chiffres) — jamais des conseils génériques. Vise à faire progresser son résultat actuel vers " +
+    "le benchmark, ou à consolider ce qui marche déjà s'il est déjà au niveau.",
+  demarrer:
+    "L'utilisateur n'a pas encore ce levier en place. Aide-le à le lancer étape par étape, en référence au plan " +
+    "de démarrage déjà affiché sur sa page — des actions concrètes et immédiatement exécutables, jamais de " +
+    "conseils théoriques.",
+  decouverte:
+    "L'utilisateur découvre tout juste ce levier. Aide-le à clarifier où il en est aujourd'hui et donne-lui une " +
+    "première action simple pour avancer.",
+};
+
 export function buildImprovePrompt({
   context,
   businessProfile,
@@ -133,7 +134,9 @@ export function buildImprovePrompt({
   point,
   points,
   followup,
-  lever,
+  agent,
+  leverAgentData,
+  mode,
 }: {
   context: ChatContext;
   businessProfile: BusinessProfileData;
@@ -142,7 +145,9 @@ export function buildImprovePrompt({
   point: DiagnosticPoint | null;
   points?: DiagnosticPoint[];
   followup: FollowupCompliance | null;
-  lever?: LeverPromptData | null;
+  agent?: AgentRegistryRow | null;
+  leverAgentData?: LeverAgentData | null;
+  mode?: LeverMode | null;
 }): string {
   const isGeneral = context.topicType === "general";
   const isLever = context.topicType === "lever";
@@ -152,18 +157,18 @@ export function buildImprovePrompt({
   // couldn't resolve — these ?? fallbacks are a safety net, not the
   // intended path, so they stay generic rather than throwing mid-prompt.
   const role = isLever
-    ? (lever ? ROLE_BY_LEVER_CATEGORY[lever.category] : ROLE_BY_METRIC.general)
+    ? (agent?.systemPromptTemplate ?? ROLE_BY_METRIC.general)
     : (ROLE_BY_METRIC[context.topicKey as ImproveMetricKey] ?? ROLE_BY_METRIC.general);
 
   // Never a generic fallback when a specific topic was requested — the
   // caller (app/api/improve-chat/route.ts) already rejects the request
   // before this point if topicType is "metric"/"lever" but the matching
-  // point/lever couldn't be resolved server-side, so `lever`/`point` being
-  // present here is guaranteed whenever topicType demands it.
+  // point/agent data couldn't be resolved server-side, so `leverAgentData`/
+  // `point` being present here is guaranteed whenever topicType demands it.
   const gapDescription = isGeneral
     ? describeAllPoints(points ?? [])
-    : isLever && lever
-      ? `Levier à mettre en place ou à améliorer : ${lever.label} (${lever.category}). ${lever.whatIsThis} ${lever.impactExplanation} Gain estimé : ${lever.impactAmountEur !== null ? `${formatEur(lever.impactAmountEur)}/mois` : "non chiffrable"}.`
+    : isLever && leverAgentData
+      ? leverAgentData.metricsBlock
       : point
         ? `Point à améliorer : ${point.label} (${point.category}). Taux actuel : ${point.currentRatePercent}%, benchmark de la niche : ${point.benchmarkRatePercent}%. ${point.explanation} Manque à gagner estimé : ${point.monthlyGain !== null ? `${formatEur(point.monthlyGain)}/mois` : "non chiffrable (pas d'offre principale renseignée)"}.`
         : followup
@@ -171,6 +176,7 @@ export function buildImprovePrompt({
           : "Point à améliorer : non spécifié.";
 
   const topicLabel = context.topicLabel ?? "";
+  const leverMode: LeverMode = mode ?? "optimiser";
 
   return [
     "# RÔLE",
@@ -182,7 +188,7 @@ export function buildImprovePrompt({
     "# DONNÉES RÉELLES (3 derniers mois)",
     describeRealNumbers(settingTotals, closingTotals),
     "",
-    isGeneral ? "# LES POINTS À AMÉLIORER (classés par impact)" : "# LE SUJET DE CETTE CONVERSATION",
+    isGeneral ? "# LES POINTS À AMÉLIORER (classés par impact)" : isLever ? "# DONNÉES DU LEVIER" : "# LE SUJET DE CETTE CONVERSATION",
     gapDescription,
     "",
     "# MISSION",
@@ -190,21 +196,31 @@ export function buildImprovePrompt({
       ? "Aide l'utilisateur à comprendre et prioriser ses données, en t'appuyant sur son business réel " +
         "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques. " +
         "Il peut te poser des questions sur n'importe quel chiffre ou point ci-dessus."
-      : "Aide l'utilisateur à améliorer précisément CE sujet, en t'appuyant sur son business réel " +
-        "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques.",
+      : isLever
+        ? LEVER_MISSION_BY_MODE[leverMode]
+        : "Aide l'utilisateur à améliorer précisément CE sujet, en t'appuyant sur son business réel " +
+          "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques.",
     "",
     "# RÈGLES DE RÉPONSE",
     "- Tutoiement, français, direct, orienté action.",
-    "- Réponses courtes (3-6 phrases sauf si l'utilisateur demande un script ou une liste détaillée).",
     "- Tu peux utiliser des listes à puces et du gras, jamais de titres markdown (#).",
     "- N'invente jamais un chiffre qui ne figure pas dans les données ci-dessus.",
     ...(isGeneral
-      ? []
-      : [
-          `- Ta conversation porte sur ${topicLabel}. Chaque réponse doit faire avancer CE sujet : diagnostic, plan, scripts, suivi des résultats.`,
-          `- Si l'utilisateur digresse sur un sujet sans rapport : réponds brièvement (2 phrases max) puis ramène la conversation vers le sujet ("Revenons à ton ${topicLabel} — on en était à…").`,
-          "- Si l'utilisateur veut explicitement changer de sujet (une autre métrique ou un autre levier) : propose-lui d'ouvrir la conversation dédiée à ce sujet plutôt que de mélanger les deux ici.",
-        ]),
+      ? ["- Réponses courtes (3-6 phrases sauf si l'utilisateur demande un script ou une liste détaillée)."]
+      : isLever && agent
+        ? [
+            `- Concret uniquement : donne le texte, le script ou le message prêt à copier-coller, adapté à SON avatar et SES prix — jamais un conseil générique du type "améliore ton copywriting".`,
+            "- Maximum 300 mots par réponse. Termine TOUJOURS par une seule question qui fait avancer.",
+            `- Ta conversation porte UNIQUEMENT sur ${topicLabel}. Si l'utilisateur pose une question hors sujet, réponds en 2 phrases maximum puis ramène la conversation vers ${topicLabel}. S'il insiste, indique-lui la page compétente sans traiter le fond : "Ça, c'est le rayon de ${agent.name} — tu le trouves sur la page ${topicLabel}."`,
+            `- Ne promets jamais un résultat chiffré ("tu vas gagner X€") : reste sur des estimations prudentes ("de l'ordre de", "≈").`,
+            "- Ne recommande jamais un outil concurrent de Scale X.",
+          ]
+        : [
+            "- Réponses courtes (3-6 phrases sauf si l'utilisateur demande un script ou une liste détaillée).",
+            `- Ta conversation porte sur ${topicLabel}. Chaque réponse doit faire avancer CE sujet : diagnostic, plan, scripts, suivi des résultats.`,
+            `- Si l'utilisateur digresse sur un sujet sans rapport : réponds brièvement (2 phrases max) puis ramène la conversation vers le sujet ("Revenons à ton ${topicLabel} — on en était à…").`,
+            "- Si l'utilisateur veut explicitement changer de sujet (une autre métrique ou un autre levier) : propose-lui d'ouvrir la conversation dédiée à ce sujet plutôt que de mélanger les deux ici.",
+          ]),
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : " +
       (isGeneral
         ? "commence par un résumé en une phrase de l'état général du business et demande ce qu'il veut creuser."

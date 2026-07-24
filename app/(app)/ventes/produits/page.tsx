@@ -1,4 +1,5 @@
 import { AgentBanner } from "@/components/agent-banner";
+import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
@@ -13,9 +14,10 @@ export default async function ProduitsPage() {
   await requirePermissionOrRedirect(userId, "business");
 
   const today = todayUtc();
-  const [profile, monthSales] = await Promise.all([
+  const [profile, monthSales, agent] = await Promise.all([
     getBusinessProfile(accountId),
     getSalesForMonth(accountId, today.getUTCFullYear(), today.getUTCMonth() + 1),
+    getAgentByKey("produits"),
   ]);
 
   const offerStats: OfferStats[] = profile.sales.offers.map((offer) => {
@@ -33,12 +35,18 @@ export default async function ProduitsPage() {
   const stateText = mainOffer
     ? `Ton offre principale : ${mainOffer.name || "sans nom"}.`
     : "Aucune offre principale définie pour l'instant.";
-  // No lever/metric tied to this page — general topic, same as Contenu.
-  const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "ventes_produits" };
+  const chatContext: ChatContext = { topicType: "lever", topicKey: "produits", topicLabel: "Produits", sourcePage: "ventes_produits" };
 
   return (
     <div className="flex flex-col gap-8">
-      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+      <AgentBanner
+        stateText={stateText}
+        ctaLabel="Améliorer →"
+        chatContext={chatContext}
+        mode="optimiser"
+        agentName={agent?.name}
+        agentIconKey={agent?.falcoSkinIcon}
+      />
       <div>
         <h1 className="text-3xl font-bold">Produits</h1>
         <p className="mt-1 text-muted-foreground">Tes offres, et leurs chiffres du mois.</p>

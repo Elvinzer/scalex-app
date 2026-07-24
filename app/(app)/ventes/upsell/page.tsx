@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
 import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
+import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
@@ -26,10 +27,11 @@ export default async function UpsellPage() {
   await requirePermissionOrRedirect(userId, "ventes:upsell");
 
   const today = todayUtc();
-  const [profile, leverRow, monthSales] = await Promise.all([
+  const [profile, leverRow, monthSales, agent] = await Promise.all([
     getBusinessProfile(accountId),
     getLeverStatus(accountId, LEVER_KEY),
     getSalesForMonth(accountId, today.getUTCFullYear(), today.getUTCMonth() + 1),
+    getAgentByKey(LEVER_KEY),
   ]);
 
   const profileActive = resolveFromBusinessProfile(LEVER_KEY, profile) === "active";
@@ -55,6 +57,9 @@ export default async function UpsellPage() {
           ctaLabel="Améliorer →"
           chatContext={chatContext}
           falcoPose="thinking"
+          mode={mode}
+          agentName={agent?.name}
+          agentIconKey={agent?.falcoSkinIcon}
         />
         <div>
           <h1 className="text-3xl font-bold">Upsell</h1>
@@ -100,7 +105,14 @@ export default async function UpsellPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+      <AgentBanner
+        stateText={stateText}
+        ctaLabel="Améliorer →"
+        chatContext={chatContext}
+        mode={mode}
+        agentName={agent?.name}
+        agentIconKey={agent?.falcoSkinIcon}
+      />
 
       <div>
         <h1 className="text-3xl font-bold">Upsell</h1>

@@ -4,6 +4,7 @@ import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { db } from "@/db";
 import { settingKpiEntries } from "@/db/schema";
+import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBenchmark } from "@/lib/benchmarks";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
@@ -23,13 +24,9 @@ import { FunnelChart } from "./funnel-chart";
 
 // outreachRate is a FunnelStage but not one of the 5 diagnostic-engine
 // MetricKeys (lib/diagnostic/metric-keys.ts) — labelFor() only accepts real
-// MetricKeys, so it needs its own label and can never become the
-// AgentBanner's ChatContext topic (falls back to "general" instead).
+// MetricKeys, so it needs its own label for the stateText sentence below.
 function stageLabel(stage: FunnelStage): string {
   return stage === "outreachRate" ? "Taux de sollicitation" : labelFor(stage);
-}
-function isDiagnosticMetricStage(stage: FunnelStage): stage is Exclude<FunnelStage, "outreachRate"> {
-  return stage !== "outreachRate";
 }
 import { StatTiles } from "./stat-tiles";
 
@@ -45,13 +42,14 @@ export default async function SettingPage({
   const benchmark = getBenchmark(sector);
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
-  const [allEntries, existingInsights] = await Promise.all([
+  const [allEntries, existingInsights, agent] = await Promise.all([
     db
       .select()
       .from(settingKpiEntries)
       .where(eq(settingKpiEntries.userId, accountId))
       .orderBy(desc(settingKpiEntries.date)),
     getExistingStageInsights(accountId),
+    getAgentByKey("setting"),
   ]);
 
   const hasAnyEntries = allEntries.length > 0;
@@ -97,14 +95,18 @@ export default async function SettingPage({
     hasEntriesInRange && bottleneck
       ? `Ton taux le plus faible du funnel : ${stageLabel(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
       : "Tu n'as pas encore de données de prospection sur cette période.";
-  const chatContext: ChatContext =
-    hasEntriesInRange && bottleneck && isDiagnosticMetricStage(bottleneck.stage)
-      ? { topicType: "metric", topicKey: bottleneck.stage, topicLabel: stageLabel(bottleneck.stage), sourcePage: "acquisition_setting" }
-      : { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "acquisition_setting" };
+  const chatContext: ChatContext = { topicType: "lever", topicKey: "setting", topicLabel: "Setting", sourcePage: "acquisition_setting" };
 
   return (
     <div className="flex flex-col gap-8">
-      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+      <AgentBanner
+        stateText={stateText}
+        ctaLabel="Améliorer →"
+        chatContext={chatContext}
+        mode="optimiser"
+        agentName={agent?.name}
+        agentIconKey={agent?.falcoSkinIcon}
+      />
 
       <div>
         <h1 className="text-3xl font-bold">Setting</h1>

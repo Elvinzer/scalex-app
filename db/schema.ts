@@ -607,6 +607,53 @@ export const leverStarterProgress = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.leverKey] })]
 ).enableRLS();
 
+// --- Agents spécialisés par levier (Copilote Groq) --------------------------
+// Config data, not code — one row per lever/page-specific agent persona,
+// editable without a redeploy, seeded via scripts/seed-agents-registry.mjs
+// (same pattern as leversCatalog/leverStarterPlans). leverKey is only set
+// for the 3 agents backed by a real levers_catalog entry (email_marketing,
+// ads, upsell_ascension) — content/setting/closing/produits have none, they
+// pull their "données du levier" block from other existing sources instead
+// (see lib/agent/lever-agent-data.ts). falcoSkinAssetKey stays null until
+// real per-agent Falco illustrations exist — falcoSkinIcon (a lucide-react
+// key) is the shipped badge in the meantime. provider defaults to "groq" and
+// is not read anywhere yet — reserved for the discussed Claude-vs-Llama A/B,
+// architecture-ready, feature OFF.
+export const agentsRegistry = pgTable("agents_registry", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agentKey: text("agent_key").notNull().unique(),
+  leverKey: text("lever_key"),
+  name: text("name").notNull(),
+  falcoSkinIcon: text("falco_skin_icon").notNull(),
+  falcoSkinAssetKey: text("falco_skin_asset_key"),
+  systemPromptTemplate: text("system_prompt_template").notNull(),
+  temperature: real("temperature").notNull().default(0.7),
+  provider: text("provider").notNull().default("groq"),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+// Persisted per (user, agentKey) conversation — unlike the rest of the
+// Copilote (metric/general topics stay ephemeral, reset on drawer close),
+// lever-agent chats survive across opens. Capped at MAX_MESSAGES (20, same
+// constant as app/api/improve-chat/route.ts) by simply never inserting past
+// it — the route's existing "conversation full" check already stops new
+// sends at that point, so nothing here needs to prune.
+export const agentChatMessages = pgTable(
+  "agent_chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    agentKey: text("agent_key").notNull(),
+    role: text("role").notNull(), // "user" | "assistant"
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("agent_chat_messages_user_agent_idx").on(table.userId, table.agentKey, table.createdAt)]
+).enableRLS();
+
 // --- Team members, roles & permissions --------------------------------------
 // No separate "accounts" table: an account IS its owner's users.id (see
 // lib/team/context.ts). Every existing *KpiEntries-style table keeps scoping

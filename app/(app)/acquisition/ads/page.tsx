@@ -7,6 +7,7 @@ import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
+import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
 import { track } from "@/lib/analytics";
@@ -38,10 +39,11 @@ const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
 export default async function AdsPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
-  const [campaigns, profile, lever] = await Promise.all([
+  const [campaigns, profile, lever, agent] = await Promise.all([
     getAdCampaigns(accountId),
     getBusinessProfile(accountId),
     getLeverStatus(accountId, LEVER_KEY),
+    getAgentByKey(LEVER_KEY),
   ]);
 
   const mode: "optimiser" | "demarrer" =
@@ -49,9 +51,9 @@ export default async function AdsPage() {
 
   after(() => track("lever_page_viewed", userId, { lever: LEVER_KEY, mode }));
 
-  if (mode === "demarrer") {
-    const chatContext: ChatContext = { topicType: "lever", topicKey: LEVER_KEY, topicLabel: "Ads", sourcePage: "acquisition_ads" };
+  const chatContext: ChatContext = { topicType: "lever", topicKey: LEVER_KEY, topicLabel: "Ads", sourcePage: "acquisition_ads" };
 
+  if (mode === "demarrer") {
     const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
       db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
       db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
@@ -68,6 +70,9 @@ export default async function AdsPage() {
             stateText="Les ads ne sont pas prioritaires pour l'instant."
             ctaLabel="Améliorer →"
             chatContext={chatContext}
+            mode={mode}
+            agentName={agent?.name}
+            agentIconKey={agent?.falcoSkinIcon}
           />
           <div>
             <h1 className="text-3xl font-bold">Ads</h1>
@@ -98,6 +103,9 @@ export default async function AdsPage() {
           ctaLabel="Améliorer →"
           chatContext={chatContext}
           falcoPose="thinking"
+          mode={mode}
+          agentName={agent?.name}
+          agentIconKey={agent?.falcoSkinIcon}
         />
         <div>
           <h1 className="text-3xl font-bold">Ads</h1>
@@ -135,12 +143,17 @@ export default async function AdsPage() {
     avgCtr !== null
       ? `CTR moyen de ${formatPercent(avgCtr)}, coût par lead moyen de ${avgCpl === null ? "—" : formatEur(avgCpl)}.`
       : "Aucune campagne suivie pour l'instant.";
-  // No MetricKey for Ads in the Copilote pipeline yet — general topic.
-  const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "acquisition_ads" };
 
   return (
     <div className="flex flex-col gap-8">
-      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+      <AgentBanner
+        stateText={stateText}
+        ctaLabel="Améliorer →"
+        chatContext={chatContext}
+        mode={mode}
+        agentName={agent?.name}
+        agentIconKey={agent?.falcoSkinIcon}
+      />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

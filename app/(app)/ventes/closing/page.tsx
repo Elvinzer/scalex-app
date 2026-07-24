@@ -4,6 +4,7 @@ import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
+import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBenchmark } from "@/lib/benchmarks";
 import type { ChatContext } from "@/lib/chat-context";
 import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
@@ -37,7 +38,7 @@ export default async function ClosingPage({
   const benchmark = getBenchmark(sector);
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
-  const [allEntries, allSettingEntries, existingInsights] = await Promise.all([
+  const [allEntries, allSettingEntries, existingInsights, agent] = await Promise.all([
     db
       .select()
       .from(closingKpiEntries)
@@ -45,6 +46,7 @@ export default async function ClosingPage({
       .orderBy(desc(closingKpiEntries.date)),
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)),
     getExistingStageInsights(accountId),
+    getAgentByKey("closing"),
   ]);
 
   const hasAnyEntries = allEntries.length > 0;
@@ -99,14 +101,18 @@ export default async function ClosingPage({
     hasEntriesInRange && bottleneck
       ? `Ton taux le plus faible du closing : ${labelFor(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
       : "Tu n'as pas encore de données de closing sur cette période.";
-  const chatContext: ChatContext =
-    hasEntriesInRange && bottleneck
-      ? { topicType: "metric", topicKey: bottleneck.stage, topicLabel: labelFor(bottleneck.stage), sourcePage: "ventes_closing" }
-      : { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "ventes_closing" };
+  const chatContext: ChatContext = { topicType: "lever", topicKey: "closing", topicLabel: "Closing", sourcePage: "ventes_closing" };
 
   return (
     <div className="flex flex-col gap-8">
-      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+      <AgentBanner
+        stateText={stateText}
+        ctaLabel="Améliorer →"
+        chatContext={chatContext}
+        mode="optimiser"
+        agentName={agent?.name}
+        agentIconKey={agent?.falcoSkinIcon}
+      />
 
       <div>
         <h1 className="text-3xl font-bold">Closing</h1>

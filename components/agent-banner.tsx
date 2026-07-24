@@ -23,6 +23,9 @@ export function AgentBanner({
   falcoPose = "thinking",
   period = "3-months",
   gapBadge = null,
+  mode = null,
+  agentName,
+  agentIconKey,
 }: {
   stateText: string;
   ctaLabel: string;
@@ -30,12 +33,20 @@ export function AgentBanner({
   falcoPose?: FalcoPose;
   period?: "3-months" | "current-month" | "12-months";
   gapBadge?: string | null;
+  // Only meaningful for topicType: "lever" pages with a double/triple mode —
+  // threads through to the request body so buildImprovePrompt picks the
+  // right MISSION wording (Optimiser/Démarrer/Découverte).
+  mode?: "optimiser" | "demarrer" | "decouverte" | null;
+  // Resolved agent display (server-computed, from agents_registry) — shown
+  // in the drawer header instead of the generic "Améliorer : {topicLabel}".
+  agentName?: string;
+  agentIconKey?: string;
 }) {
   const [open, setOpen] = useState(false);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (next) void recordImproveChatOpened(chatContext);
+    if (next) void recordImproveChatOpened(chatContext, mode);
   }
 
   return (
@@ -49,7 +60,18 @@ export function AgentBanner({
       </div>
 
       <Drawer open={open} onOpenChange={handleOpenChange}>
-        <DrawerContent>{open && <ImproveChat context={chatContext} period={period} gapBadge={gapBadge} />}</DrawerContent>
+        <DrawerContent>
+          {open && (
+            <ImproveChat
+              context={chatContext}
+              period={period}
+              gapBadge={gapBadge}
+              mode={mode}
+              agentName={agentName}
+              agentIconKey={agentIconKey}
+            />
+          )}
+        </DrawerContent>
       </Drawer>
     </>
   );

@@ -29,7 +29,7 @@ function isMetricKey(value: string): value is MetricKey {
 // no single comparable rate, extending this to levers is a separate
 // follow-up, not part of this fix) so the next weekly check-in can show a
 // before/after.
-export async function recordImproveChatOpened(context: ChatContext): Promise<void> {
+export async function recordImproveChatOpened(context: ChatContext, mode?: string | null): Promise<void> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) return;
@@ -40,6 +40,14 @@ export async function recordImproveChatOpened(context: ChatContext): Promise<voi
     topic_key: context.topicKey,
     source_page: context.sourcePage,
   });
+
+  // Additive: the specific agent_key/mode pairing, alongside (not instead
+  // of) the generic improve_chat_opened above — that event already powers
+  // existing PostHog dashboards (lib/posthog-query.ts), this is scoped only
+  // to lever-agent pages.
+  if (context.topicType === "lever" && context.topicKey) {
+    await track("agent_chat_opened", userId, { agent_key: context.topicKey, mode: mode ?? null });
+  }
 
   if (context.topicType !== "metric" || !context.topicKey || !isMetricKey(context.topicKey)) return;
   const metricKey = context.topicKey;

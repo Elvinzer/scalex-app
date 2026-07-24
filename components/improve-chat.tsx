@@ -1,15 +1,18 @@
 "use client";
 
-import { Send, X } from "lucide-react";
+import { RotateCcw, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
+import { LeverAgentIcon } from "@/components/lever-agent-icon";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
+import { clearAgentChatHistory, loadAgentChatHistory } from "@/lib/agent/chat-history-actions";
 import type { ChatContext } from "@/lib/chat-context";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Period = "3-months" | "current-month" | "12-months";
+type LeverMode = "optimiser" | "demarrer" | "decouverte";
 
 const MAX_MESSAGES = 20;
 
@@ -66,6 +69,7 @@ async function streamChat(
     context: ChatContext;
     followupKey?: string | null;
     period: Period;
+    mode?: LeverMode | null;
     messages: ChatMessage[];
   },
   onToken: (token: string) => void
@@ -115,17 +119,24 @@ export function ImproveChat({
   followupKey,
   period,
   gapBadge,
+  mode = null,
+  agentName,
+  agentIconKey,
 }: {
   context: ChatContext;
   followupKey?: string | null;
   period: Period;
   gapBadge: string | null;
+  mode?: LeverMode | null;
+  agentName?: string;
+  agentIconKey?: string;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasOpenedRef = useRef(false);
+  const isLeverAgent = context.topicType === "lever" && context.topicKey !== null;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -134,6 +145,22 @@ export function ImproveChat({
   useEffect(() => {
     if (hasOpenedRef.current) return;
     hasOpenedRef.current = true;
+
+    // Lever-agent conversations persist across drawer opens — hydrate from
+    // DB instead of always auto-opening. Metric/general stay ephemeral,
+    // unchanged.
+    if (isLeverAgent && context.topicKey) {
+      void (async () => {
+        const history = await loadAgentChatHistory(context.topicKey!);
+        if (history.length > 0) {
+          setMessages(history);
+        } else {
+          void send([]);
+        }
+      })();
+      return;
+    }
+
     void send([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -142,7 +169,7 @@ export function ImproveChat({
     setIsStreaming(true);
     setMessages([...history, { role: "assistant", content: "" }]);
 
-    const result = await streamChat({ context, followupKey, period, messages: history }, (token) => {
+    const result = await streamChat({ context, followupKey, period, mode, messages: history }, (token) => {
       setMessages((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
@@ -172,6 +199,16 @@ export function ImproveChat({
     void send(nextHistory);
   }
 
+  // Without this, once the 20 stored messages are reached a lever-agent
+  // conversation would stay maxed out forever (persistence made the cap
+  // permanent instead of per-drawer-open) — lets the user start over.
+  async function handleNewConversation() {
+    if (!context.topicKey || isStreaming) return;
+    await clearAgentChatHistory(context.topicKey);
+    setMessages([]);
+    void send([]);
+  }
+
   const limitReached = messages.length >= MAX_MESSAGES;
 
   return (
@@ -180,9 +217,12 @@ export function ImproveChat({
         <div className="flex items-start gap-3">
           <Falco pose="neutral" size="sm" />
           <div>
-            <DrawerTitle className="text-base font-bold">
-              {context.topicType === "general" ? "Copilote" : `Améliorer : ${context.topicLabel}`}
-            </DrawerTitle>
+            <div className="flex items-center gap-2">
+              {agentIconKey && <LeverAgentIcon iconKey={agentIconKey} />}
+              <DrawerTitle className="text-base font-bold">
+                {agentName ?? (context.topicType === "general" ? "Copilote" : `Améliorer : ${context.topicLabel}`)}
+              </DrawerTitle>
+            </div>
             {gapBadge && (
               <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
                 {gapBadge}
@@ -190,9 +230,23 @@ export function ImproveChat({
             )}
           </div>
         </div>
-        <DrawerClose className="flex size-7 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted">
-          <X className="size-4" />
-        </DrawerClose>
+        <div className="flex shrink-0 items-center gap-1">
+          {isLeverAgent && messages.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleNewConversation()}
+              disabled={isStreaming}
+              aria-label="Nouvelle conversation"
+              title="Nouvelle conversation"
+              className="flex size-7 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted disabled:opacity-50"
+            >
+              <RotateCcw className="size-3.5" />
+            </button>
+          )}
+          <DrawerClose className="flex size-7 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted">
+            <X className="size-4" />
+          </DrawerClose>
+        </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">

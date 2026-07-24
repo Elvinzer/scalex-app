@@ -45,7 +45,9 @@ export type AnalyticsEvent =
   | "stripe_sync_failed"
   | "lever_page_viewed"
   | "lever_started"
-  | "lever_starter_step_done";
+  | "lever_starter_step_done"
+  | "agent_chat_opened"
+  | "agent_chat_engaged";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

@@ -25,6 +25,14 @@ const FALCO_ASSETS = {
 
 export type FalcoVariant = keyof typeof FALCO_ASSETS;
 
+// Extension point for per-agent illustrated skins (agents_registry.falco_skin_asset_key,
+// lib/agent/agents-registry.ts): today every agent shares this single
+// character + a small icon badge (components/lever-agent-icon.tsx) next to
+// it — no per-agent art exists yet. Once real illustrations exist, add them
+// as new FALCO_ASSETS entries (assets/falco/v2/, already the documented
+// dormant location above) and resolve them here by falcoSkinAssetKey — no
+// other call site needs to change.
+
 // Semantic pose → concrete asset. No dedicated "sleeping" art exists yet;
 // it falls back to `assistant` (calm, non-alarming) — a future v2 asset
 // (assets/falco/v2/, currently dormant) can be slotted in here without
