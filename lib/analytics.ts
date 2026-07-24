@@ -47,7 +47,10 @@ export type AnalyticsEvent =
   | "lever_started"
   | "lever_starter_step_done"
   | "agent_chat_opened"
-  | "agent_chat_engaged";
+  | "agent_chat_engaged"
+  | "copilote_page_viewed"
+  | "copilote_agent_selected"
+  | "copilote_switch_from_redirect";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

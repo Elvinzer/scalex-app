@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -9,7 +10,7 @@ import { FalcoSkinImage } from "@/components/falco/falco-skin-image";
 import { ImproveChat } from "@/components/improve-chat";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
-import { FALCO_SKIN_CHAT_LABEL, resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
+import { FALCO_SKIN_CHAT_LABEL, resolveAgentKeyForRoute, resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +98,13 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
   const [dismissed, setDismissed] = useState(false);
   const showNotification = hasUnseenInsight && !dismissed;
   const chatLabel = skin ? FALCO_SKIN_CHAT_LABEL[skin] : "Falco, ton copilote IA";
+  // Deep link to the full hub — precise (route→agent, not skin→agent, so no
+  // ambiguity between e.g. Setting/Ads sharing the "acquisition" skin); a
+  // page with no matching agent just links to the hub with no ?agent= param.
+  const copiloteHref = (() => {
+    const agentKey = resolveAgentKeyForRoute(pathname);
+    return agentKey ? `/copilote?agent=${agentKey}` : "/copilote";
+  })();
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -130,7 +138,18 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
         </button>
       </DrawerTrigger>
       <DrawerContent>
-        {open && <ImproveChat context={GENERAL_CONTEXT} period="3-months" gapBadge={null} falcoSkin={skin} />}
+        {open && (
+          <div className="flex h-full flex-col">
+            <div className="flex justify-end border-b border-border px-4 py-2">
+              <Link href={copiloteHref} className="text-xs font-bold text-muted-foreground hover:underline">
+                Ouvrir dans le Copilote →
+              </Link>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ImproveChat context={GENERAL_CONTEXT} period="3-months" gapBadge={null} falcoSkin={skin} />
+            </div>
+          </div>
+        )}
       </DrawerContent>
     </Drawer>
   );

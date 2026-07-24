@@ -163,6 +163,12 @@ export async function POST(request: NextRequest) {
     leverMode = mode ?? "optimiser";
   }
 
+  // Persistence covers "lever" (keyed by agent_key) and "general" (the
+  // Copilote hub's generalist thread, keyed by the reserved "general"
+  // string — agent_chat_messages.agent_key has no FK, so this needs no
+  // schema change) — "metric" stays fully ephemeral, unchanged.
+  const persistKey = agent ? agent.agentKey : context.topicType === "general" ? "general" : null;
+
   const systemPrompt = buildImprovePrompt({
     context,
     businessProfile,
@@ -186,13 +192,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Persistence only applies to lever-agent conversations (metric/general
-  // stay ephemeral, exactly as before). "messages" already includes the
-  // just-submitted user message — nothing to persist on the very first
-  // call, which opens with an empty array.
+  // "messages" already includes the just-submitted user message — nothing
+  // to persist on the very first call, which opens with an empty array.
   const lastMessage = messages[messages.length - 1];
-  if (agent && lastMessage?.role === "user") {
-    await appendAgentChatMessage(accountId, agent.agentKey, "user", lastMessage.content);
+  if (persistKey && lastMessage?.role === "user") {
+    await appendAgentChatMessage(accountId, persistKey, "user", lastMessage.content);
   }
 
   let upstream: Response;
@@ -228,15 +232,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "L'IA n'a pas pu répondre. Réessaie dans un instant." }, { status: 502 });
   }
 
-  // Tee the stream when a lever agent is involved: forward chunks to the
+  // Tee the stream when the conversation persists: forward chunks to the
   // client unchanged while accumulating the assembled reply to persist once
-  // the stream ends. Metric/general paths pass the body straight through,
+  // the stream ends. The metric path passes the body straight through,
   // untouched.
-  const body = agent
+  const body = persistKey
     ? upstream.body.pipeThrough(
         createSseAccumulatorStream(async (fullText) => {
           if (fullText.trim().length > 0) {
-            await appendAgentChatMessage(accountId, agent.agentKey, "assistant", fullText);
+            await appendAgentChatMessage(accountId, persistKey, "assistant", fullText);
           }
         })
       )

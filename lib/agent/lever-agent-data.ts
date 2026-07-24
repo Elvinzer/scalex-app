@@ -21,7 +21,17 @@ import type { FunnelTotals } from "@/lib/setting/funnel";
 import { getSales } from "@/lib/sales/queries";
 import { todayUtc } from "@/lib/date-range";
 
-export type LeverAgentData = { metricsBlock: string; impactAmountEur: number | null; impactExplanation: string };
+export type LeverAgentData = {
+  metricsBlock: string;
+  impactAmountEur: number | null;
+  impactExplanation: string;
+  // "18% → objectif 35%" — null when there's no single rate to show (an
+  // absent lever with nothing measured yet, or a lever like Produits that
+  // isn't a rate to optimize in the first place). Used by the Copilote hub
+  // panel/chat header, same formatting as discovery-opportunity-card.tsx's
+  // own gapBadge.
+  gapBadge: string | null;
+};
 
 export type LeverAgentDataContext = {
   accountId: string;
@@ -37,10 +47,14 @@ export type LeverAgentDataContext = {
 
 const NO_GAIN_EXPLANATION = "Pas de calcul de gain chiffré pour ce levier — c'est une question de structure, pas d'un taux à corriger.";
 
+function formatGapBadge(statValue: number, benchmarkValue: number): string {
+  return `${Math.round(statValue * 100)}% → objectif ${Math.round(benchmarkValue * 100)}%`;
+}
+
 async function resolveOpportunityBlock(
   agentKey: string,
   ctx: LeverAgentDataContext
-): Promise<{ impactAmountEur: number | null; impactExplanation: string; label: string } | null> {
+): Promise<{ impactAmountEur: number | null; impactExplanation: string; label: string; gapBadge: string | null } | null> {
   const { toImplement, toWatch } = await computeLeverOpportunities({
     accountId: ctx.accountId,
     businessProfile: ctx.businessProfile,
@@ -49,9 +63,18 @@ async function resolveOpportunityBlock(
     cashContractedTotal: ctx.cashContractedTotal,
     periodMonths: ctx.periodMonths,
   });
-  const opportunity = toImplement.find((o) => o.leverKey === agentKey) ?? toWatch.find((o) => o.leverKey === agentKey);
+  // toWatch (active but below benchmark) carries a real statValue/benchmarkValue
+  // to build a gap badge from; toImplement (absent) has nothing measured yet.
+  const watchEntry = toWatch.find((o) => o.leverKey === agentKey);
+  const implementEntry = toImplement.find((o) => o.leverKey === agentKey);
+  const opportunity = implementEntry ?? watchEntry;
   if (!opportunity) return null;
-  return { impactAmountEur: opportunity.impactAmountEur, impactExplanation: opportunity.impactExplanation, label: opportunity.label };
+  return {
+    impactAmountEur: opportunity.impactAmountEur,
+    impactExplanation: opportunity.impactExplanation,
+    label: opportunity.label,
+    gapBadge: watchEntry ? formatGapBadge(watchEntry.statValue, watchEntry.benchmarkValue) : null,
+  };
 }
 
 async function buildEmailMarketingData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
@@ -78,6 +101,7 @@ async function buildEmailMarketingData(ctx: LeverAgentDataContext): Promise<Leve
     metricsBlock: `${gainLine}\n\nDerniers envois :\n${recentLines}`,
     impactAmountEur: opportunity?.impactAmountEur ?? null,
     impactExplanation: opportunity?.impactExplanation ?? "Ce levier est actif, pas de manque à gagner identifié pour l'instant.",
+    gapBadge: opportunity?.gapBadge ?? null,
   };
 }
 
@@ -102,6 +126,7 @@ async function buildAdsData(ctx: LeverAgentDataContext): Promise<LeverAgentData>
     metricsBlock: `${gainLine}\n\nDernières campagnes :\n${recentLines}`,
     impactAmountEur: opportunity?.impactAmountEur ?? null,
     impactExplanation: opportunity?.impactExplanation ?? "Ce levier est actif, pas de manque à gagner identifié pour l'instant.",
+    gapBadge: opportunity?.gapBadge ?? null,
   };
 }
 
@@ -124,6 +149,7 @@ async function buildUpsellData(ctx: LeverAgentDataContext): Promise<LeverAgentDa
     metricsBlock: `Take-rate sur la période : ${takeRate === null ? "non mesurable" : formatPercent(takeRate)}.\n${gainLine}\n\nDerniers upsells :\n${recentLines}`,
     impactAmountEur: opportunity?.impactAmountEur ?? null,
     impactExplanation: opportunity?.impactExplanation ?? "Ce levier est actif, pas de manque à gagner identifié pour l'instant.",
+    gapBadge: opportunity?.gapBadge ?? null,
   };
 }
 
@@ -144,16 +170,21 @@ async function buildContentData(ctx: LeverAgentDataContext): Promise<LeverAgentD
       ? recent.map((p) => `- ${p.title} (${p.platform}, ${p.publishedAt}) : ${p.views} vues, ${p.clicks ?? 0} clics, ${p.leads ?? 0} leads.`).join("\n")
       : "Aucun post enregistré pour l'instant.";
 
+  // Worst-performing metric (if any) drives the gap badge, same "headline"
+  // convention as buildDiagnosticPointsData below.
+  const worst = summaries.filter((s) => s.currentRatePercent !== null).sort((a, b) => (a.currentRatePercent ?? 0) - (b.currentRatePercent ?? 0))[0];
+
   return {
     metricsBlock: `${summaryLines}\n\nDerniers posts :\n${recentLines}`,
     impactAmountEur: null,
     impactExplanation: "Pas de simulation de gain chiffré pour le contenu — pas de cascade directe jusqu'à la vente pour ce levier.",
+    gapBadge: worst ? `${worst.currentRatePercent}% → objectif ${worst.benchmarkRatePercent}%` : null,
   };
 }
 
 function buildDiagnosticPointsData(points: DiagnosticPoint[], emptyMessage: string): LeverAgentData {
   if (points.length === 0) {
-    return { metricsBlock: emptyMessage, impactAmountEur: null, impactExplanation: emptyMessage };
+    return { metricsBlock: emptyMessage, impactAmountEur: null, impactExplanation: emptyMessage, gapBadge: null };
   }
   const lines = points.map(
     (p) => `- ${p.label} : ${p.currentRatePercent}% vs benchmark ${p.benchmarkRatePercent}%. ${p.explanation} Manque à gagner : ${p.monthlyGain !== null ? `${formatEur(p.monthlyGain)}/mois` : "non chiffrable"}.`
@@ -163,6 +194,7 @@ function buildDiagnosticPointsData(points: DiagnosticPoint[], emptyMessage: stri
     metricsBlock: lines.join("\n"),
     impactAmountEur: headline.monthlyGain,
     impactExplanation: headline.explanation,
+    gapBadge: `${headline.currentRatePercent}% → objectif ${headline.benchmarkRatePercent}%`,
   };
 }
 
@@ -200,6 +232,7 @@ async function buildProduitsData(ctx: LeverAgentDataContext): Promise<LeverAgent
     metricsBlock: lines.join("\n"),
     impactAmountEur: null,
     impactExplanation: NO_GAIN_EXPLANATION,
+    gapBadge: null,
   };
 }
 

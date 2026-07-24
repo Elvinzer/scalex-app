@@ -71,3 +71,56 @@ export const AGENT_KEY_TO_SKIN: Record<string, FalcoSkinKey> = {
   produits: "vente",
   upsell_ascension: "vente",
 };
+
+// "Voir la page du levier →" (Copilote hub chat header) and the panel's
+// deep links (bubble's "Ouvrir dans le Copilote →" does the reverse lookup).
+export const AGENT_KEY_TO_ROUTE: Record<string, string> = {
+  email_marketing: "/acquisition/mail",
+  content: "/acquisition/contenu",
+  setting: "/acquisition/setting",
+  ads: "/acquisition/ads",
+  closing: "/ventes/closing",
+  produits: "/ventes/produits",
+  upsell_ascension: "/ventes/upsell",
+};
+
+// "Spécialité" line under each agent's name in the Copilote hub panel —
+// short and factual, distinct from the agent's own persona/system prompt.
+export const AGENT_KEY_TO_SPECIALTY: Record<string, string> = {
+  email_marketing: "Email marketing",
+  content: "Contenu organique",
+  setting: "Prospection & DM",
+  ads: "Publicité payante",
+  closing: "Vente & closing",
+  produits: "Offres & pricing",
+  upsell_ascension: "Ascension client",
+};
+
+// Same topicLabel each lever's own page already uses in its ChatContext —
+// reused here so the Copilote hub's "Ça, c'est le rayon de Falco X — tu le
+// trouves sur la page Y" phrasing stays identical regardless of where the
+// conversation is opened from.
+export const AGENT_KEY_TO_TOPIC_LABEL: Record<string, string> = {
+  email_marketing: "Emailing",
+  content: "Contenu",
+  setting: "Setting",
+  ads: "Ads",
+  closing: "Closing",
+  produits: "Produits",
+  upsell_ascension: "Upsell",
+};
+
+// Reverse of AGENT_KEY_TO_ROUTE, for the floating bubble's "Ouvrir dans le
+// Copilote →" deep link — only resolves when the current route maps 1:1 to
+// a real agent (e.g. /acquisition/mail); routes whose skin is shared by
+// several agents (both Setting and Ads use "acquisition") or with no agent
+// at all fall back to the hub with no ?agent= param, never a guess.
+export function resolveAgentKeyForRoute(pathname: string): string | null {
+  let best: { agentKey: string; route: string } | null = null;
+  for (const [agentKey, route] of Object.entries(AGENT_KEY_TO_ROUTE)) {
+    if (pathname.startsWith(route) && (best === null || route.length > best.route.length)) {
+      best = { agentKey, route };
+    }
+  }
+  return best?.agentKey ?? null;
+}

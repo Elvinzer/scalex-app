@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  MessageCircle,
   Plug,
   Settings,
   ShieldCheck,
@@ -86,6 +87,9 @@ const topEntries: LinkEntry[] = [
     anyOfPermissions: ["ventes:suivi", "ventes:closing"],
   },
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
+  // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
+  // même permission que le Copilote partout ailleurs dans l'app.
+  { type: "link", href: "/copilote", label: "Copilote", icon: MessageCircle, permission: "diagnostic" },
 ];
 
 // HORS-NAVIGATION — account-level pages under the profile dropdown
