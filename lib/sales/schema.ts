@@ -20,6 +20,9 @@ export const saleInputSchema = z.object({
   installments: z.array(installmentSchema).nullable(),
   saleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   closer: z.string().nullable(),
+  hasUpsell: z.boolean(),
+  upsellOfferId: z.string().nullable(),
+  upsellAmount: z.number().int().min(0).nullable(),
 });
 
 export type SaleInput = z.infer<typeof saleInputSchema>;

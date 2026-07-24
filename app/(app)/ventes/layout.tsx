@@ -18,8 +18,10 @@ export default async function VentesLayout({ children }: { children: React.React
   }
 
   const tabs: PillarTab[] = [
-    { href: "/ventes/closing", label: "Closing", visible: hasAccess("ventes:closing") && advancedModulesEnabled },
+    { href: "/ventes/produits", label: "Produits", visible: hasAccess("business") },
     { href: "/ventes/suivi", label: "Suivi des ventes", visible: hasAccess("ventes:suivi") },
+    { href: "/ventes/closing", label: "Closing", visible: hasAccess("ventes:closing") && advancedModulesEnabled },
+    { href: "/ventes/upsell", label: "Upsell", visible: hasAccess("ventes:upsell") },
   ]
     .filter((tab) => tab.visible)
     .map(({ href, label }) => ({ href, label }));

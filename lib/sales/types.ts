@@ -20,6 +20,9 @@ export type SaleRow = {
   installments: SaleInstallment[] | null;
   saleDate: string;
   closer: string | null;
+  hasUpsell: boolean;
+  upsellOfferId: string | null;
+  upsellAmount: number | null; // euros
   createdAt: string;
 };
 

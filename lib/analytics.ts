@@ -42,7 +42,10 @@ export type AnalyticsEvent =
   | "project_milestone_completed"
   | "journal_note_written"
   | "stripe_sync_completed"
-  | "stripe_sync_failed";
+  | "stripe_sync_failed"
+  | "lever_page_viewed"
+  | "lever_started"
+  | "lever_starter_step_done";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

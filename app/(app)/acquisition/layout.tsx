@@ -22,6 +22,7 @@ export default async function AcquisitionLayout({ children }: { children: React.
 
   const tabs: PillarTab[] = [
     { href: "/acquisition/contenu", label: "Contenu", visible: hasAccess("acquisition:contenu") },
+    { href: "/acquisition/mail", label: "Mail", visible: hasAccess("acquisition:mail") },
     { href: "/acquisition/setting", label: "Setting", visible: hasAccess("acquisition:setting") && advancedModulesEnabled },
     { href: "/acquisition/ads", label: "Ads", visible: hasAccess("acquisition:ads") && advancedModulesEnabled },
   ]

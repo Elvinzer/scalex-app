@@ -19,6 +19,9 @@ function toRow(row: typeof sales.$inferSelect): SaleRow {
     installments: row.installments,
     saleDate: row.saleDate,
     closer: row.closer,
+    hasUpsell: row.hasUpsell,
+    upsellOfferId: row.upsellOfferId,
+    upsellAmount: row.upsellAmount,
     createdAt: row.createdAt.toISOString(),
   };
 }

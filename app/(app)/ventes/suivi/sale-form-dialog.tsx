@@ -31,6 +31,9 @@ export function SaleFormDialog({
   const [paymentType, setPaymentType] = useState<"one_shot" | "installments">(sale?.paymentType ?? "one_shot");
   const [installmentCount, setInstallmentCount] = useState(sale?.installments?.length ?? 3);
   const [saleDate, setSaleDate] = useState(sale?.saleDate ?? today());
+  const [hasUpsell, setHasUpsell] = useState(sale?.hasUpsell ?? false);
+  const [upsellOfferId, setUpsellOfferId] = useState(sale?.upsellOfferId ?? "");
+  const [upsellAmount, setUpsellAmount] = useState<string>(sale?.upsellAmount !== null && sale?.upsellAmount !== undefined ? String(sale.upsellAmount) : "");
 
   const preview = useMemo(() => {
     if (paymentType !== "installments") return null;
@@ -61,6 +64,9 @@ export function SaleFormDialog({
       installments: paymentType === "installments" ? (sale?.installments && sale.paymentType === "installments" ? sale.installments : preview) : null,
       saleDate,
       closer: String(formData.get("closer") ?? "") || null,
+      hasUpsell,
+      upsellOfferId: hasUpsell ? upsellOfferId || null : null,
+      upsellAmount: hasUpsell ? Number(upsellAmount) || 0 : null,
     };
 
     startTransition(async () => {
@@ -216,6 +222,52 @@ export function SaleFormDialog({
               )}
             </div>
           )}
+
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={hasUpsell}
+                onChange={(event) => setHasUpsell(event.target.checked)}
+                className="size-4"
+              />
+              <span>Upsell pris ?</span>
+            </label>
+
+            {hasUpsell && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5 text-sm">
+                  <span className="text-muted-foreground">Offre d&apos;upsell</span>
+                  {offers.length > 0 ? (
+                    <select
+                      value={upsellOfferId}
+                      onChange={(event) => setUpsellOfferId(event.target.value)}
+                      className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+                    >
+                      <option value="">—</option>
+                      {offers.map((offer) => (
+                        <option key={offer.id} value={offer.id}>
+                          {offer.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Aucune offre renseignée dans Mon business.</p>
+                  )}
+                </label>
+                <label className="flex flex-col gap-1.5 text-sm">
+                  <span className="text-muted-foreground">Montant upsell (€)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={upsellAmount}
+                    onChange={(event) => setUpsellAmount(event.target.value)}
+                    className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none tabular-nums focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
 
           {error && <p className="text-sm text-state-critical">{error}</p>}
 

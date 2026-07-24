@@ -14,9 +14,11 @@ export const PERMISSION_KEYS = [
   "acquisition:contenu",
   "acquisition:setting",
   "acquisition:ads",
+  "acquisition:mail",
   "ventes:suivi",
   "ventes:videos",
   "ventes:closing",
+  "ventes:upsell",
   "business",
 ] as const;
 
@@ -34,9 +36,11 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "acquisition:contenu": "Acquisition — Contenu",
   "acquisition:setting": "Acquisition — Setting",
   "acquisition:ads": "Acquisition — Ads",
+  "acquisition:mail": "Acquisition — Mail",
   "ventes:suivi": "Ventes — Suivi des ventes",
   "ventes:videos": "Ventes — Vidéos de closing",
   "ventes:closing": "Ventes — Closing",
+  "ventes:upsell": "Ventes — Upsell",
   business: "Mon business",
 };
 

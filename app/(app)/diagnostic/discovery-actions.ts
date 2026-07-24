@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { businessLevers, improvementEvents } from "@/db/schema";
+import { businessLevers } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getDiscoveryState } from "@/lib/levers/discovery";
 import { getLeversCatalog, resolveFromBusinessProfile } from "@/lib/levers/catalog";
+import { setLeverStatus } from "@/lib/levers/status";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -45,23 +46,7 @@ export async function saveLeverAnswer(
     await track("discovery_started", userId);
   }
 
-  // Read the prior status BEFORE the upsert — businessLevers.status is
-  // overwritten in place (no history table), so this is the only moment
-  // an "absent/not_answered → active" transition can ever be observed.
-  const [priorRow] = await db
-    .select({ status: businessLevers.status })
-    .from(businessLevers)
-    .where(and(eq(businessLevers.userId, accountId), eq(businessLevers.leverKey, parsed.data.leverKey)))
-    .limit(1);
-  const priorStatus = priorRow?.status ?? "not_answered";
-
-  await db
-    .insert(businessLevers)
-    .values({ userId: accountId, leverKey: parsed.data.leverKey, status: parsed.data.status, stats: parsed.data.stats, answeredAt: new Date() })
-    .onConflictDoUpdate({
-      target: [businessLevers.userId, businessLevers.leverKey],
-      set: { status: parsed.data.status, stats: parsed.data.stats, answeredAt: new Date(), updatedAt: new Date() },
-    });
+  await setLeverStatus(accountId, parsed.data.leverKey, parsed.data.status, parsed.data.stats);
 
   // Fires once, the moment the LAST unresolved lever (of the ones that
   // actually need asking — the 4 profile-backed levers are never asked)
@@ -77,17 +62,6 @@ export async function saveLeverAnswer(
   );
   if (!stillUnanswered) {
     await track("discovery_completed", userId);
-  }
-
-  if (priorStatus !== "active" && parsed.data.status === "active") {
-    const lever = catalog.find((l) => l.leverKey === parsed.data.leverKey);
-    await db.insert(improvementEvents).values({
-      userId: accountId,
-      date: new Date().toISOString().slice(0, 10),
-      type: "lever_activated",
-      label: `Levier activé : ${lever?.label ?? parsed.data.leverKey}`,
-      sourceId: parsed.data.leverKey,
-    });
   }
 
   revalidatePath("/diagnostic");

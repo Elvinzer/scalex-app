@@ -491,6 +491,13 @@ export const sales = pgTable(
     installments: jsonb("installments").$type<SaleInstallment[]>(),
     saleDate: date("sale_date", { mode: "string" }).notNull(),
     closer: text("closer"),
+    // Optional per-sale upsell (checkbox in the existing sale-form-dialog.tsx
+    // — never a separate entry point/table, per the "no double entry" rule).
+    // upsellOfferId refers to business_profile.sales.offers, same
+    // text-not-FK convention as offerId above.
+    hasUpsell: boolean("has_upsell").notNull().default(false),
+    upsellOfferId: text("upsell_offer_id"),
+    upsellAmount: integer("upsell_amount"), // euros
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("sales_user_sale_date_idx").on(table.userId, table.saleDate)]
@@ -546,6 +553,58 @@ export const adCampaigns = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("ad_campaigns_user_start_date_idx").on(table.userId, table.startDate)]
+).enableRLS();
+
+// Manual entry (the "/acquisition/mail" page) — one row per email campaign.
+// Rates (open rate, CTR) are never stored, always computed on read — see
+// lib/email-campaigns/metrics.ts. Parallel module, same pattern as
+// content_posts/ad_campaigns: not wired into the cascade.ts diagnostic
+// engine or Scale Score (see lib/diagnostic/content-metrics.ts's own
+// comment on why an external source stays separate).
+export const emailCampaigns = pgTable(
+  "email_campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sentAt: date("sent_at", { mode: "string" }).notNull(),
+    subject: text("subject"),
+    sends: integer("sends").notNull(),
+    opens: integer("opens"),
+    clicks: integer("clicks"),
+    revenueAttributed: integer("revenue_attributed"), // euros
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("email_campaigns_user_sent_at_idx").on(table.userId, table.sentAt)]
+).enableRLS();
+
+// --- Plans de démarrage (mode "Démarrer" des pages leviers) -----------------
+// Content lives in DB (editable without redeploy, same jsonb-array
+// convention as leversCatalog.questions) — seeded via
+// scripts/seed-lever-starter-plans.mjs, same pattern as
+// scripts/seed-levers-catalog.mjs.
+
+export const leverStarterPlans = pgTable("lever_starter_plans", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leverKey: text("lever_key").notNull().unique(),
+  steps: jsonb("steps").notNull().$type<{ order: number; title: string }[]>(),
+}).enableRLS();
+
+// Per-ACCOUNT progress on a starter plan — separate from the content above
+// since which steps are checked is account state, not catalog config.
+export const leverStarterProgress = pgTable(
+  "lever_starter_progress",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    leverKey: text("lever_key").notNull(),
+    completedSteps: jsonb("completed_steps").notNull().default([]).$type<number[]>(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.leverKey] })]
 ).enableRLS();
 
 // --- Team members, roles & permissions --------------------------------------

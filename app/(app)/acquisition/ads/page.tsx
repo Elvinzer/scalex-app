@@ -1,24 +1,127 @@
 import { Plus } from "lucide-react";
+import { after } from "next/server";
 
 import { AgentBanner } from "@/components/agent-banner";
+import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
+import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
+import { db } from "@/db";
+import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
+import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
+import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
+import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { getLeverImpactEstimate } from "@/lib/levers/impact";
+import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
+import { getLeverStatus } from "@/lib/levers/status";
+import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { desc, eq } from "drizzle-orm";
 
+import { activateAdsLever, toggleAdsStarterStep } from "./actions";
 import { AdCopyTrigger } from "./ad-copy-trigger";
 import { CampaignFormDialog } from "./campaign-form-dialog";
 import { CampaignsTable } from "./campaigns-table";
 
+const LEVER_KEY = "ads";
+// No settings UI for this — a hardcoded threshold below which running ads
+// isn't the priority lever yet, same "explicit constant, no new config"
+// approach as every other benchmark in lib/levers/opportunities.ts.
+const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
+
 export default async function AdsPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
-  const [campaigns, profile] = await Promise.all([getAdCampaigns(accountId), getBusinessProfile(accountId)]);
+  const [campaigns, profile, lever] = await Promise.all([
+    getAdCampaigns(accountId),
+    getBusinessProfile(accountId),
+    getLeverStatus(accountId, LEVER_KEY),
+  ]);
+
+  const mode: "optimiser" | "demarrer" =
+    campaigns.length > 0 || lever.status === "active" ? "optimiser" : "demarrer";
+
+  after(() => track("lever_page_viewed", userId, { lever: LEVER_KEY, mode }));
+
+  if (mode === "demarrer") {
+    const chatContext: ChatContext = { topicType: "lever", topicKey: LEVER_KEY, topicLabel: "Ads", sourcePage: "acquisition_ads" };
+
+    const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
+      db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
+      db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
+      getAllMonthlyMetrics(accountId),
+    ]);
+    const months = lastCompletedMonths(3);
+    const { cashContractedTotal } = aggregatePeriodTotals({ months, allMonthlyRows, allSettingEntries, allClosingEntries });
+    const avgMonthlyRevenue = cashContractedTotal / months.length;
+
+    if (avgMonthlyRevenue < ADS_MIN_MONTHLY_REVENUE_EUR) {
+      return (
+        <div className="flex flex-col gap-8">
+          <AgentBanner
+            stateText="Les ads ne sont pas prioritaires pour l'instant."
+            ctaLabel="Améliorer →"
+            chatContext={chatContext}
+          />
+          <div>
+            <h1 className="text-3xl font-bold">Ads</h1>
+            <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
+          </div>
+          <div className="sticker-card-dashed p-6 text-center">
+            <p className="text-sm font-bold">Pas prioritaire pour l&apos;instant</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Avec un CA moyen de {formatEur(Math.round(avgMonthlyRevenue))}/mois sur les 3 derniers mois, mieux vaut
+              d&apos;abord consolider ton acquisition organique avant d&apos;investir en ads.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    const [plan, progress, impact] = await Promise.all([
+      getStarterPlan(LEVER_KEY),
+      getStarterProgress(accountId, LEVER_KEY),
+      getLeverImpactEstimate(accountId, LEVER_KEY),
+    ]);
+    const allDone = plan !== null && plan.length > 0 && plan.every((step) => progress.includes(step.order));
+
+    return (
+      <div className="flex flex-col gap-8">
+        <AgentBanner
+          stateText="Tu n'as pas encore de campagnes ads — Falco peut t'aider à démarrer."
+          ctaLabel="Améliorer →"
+          chatContext={chatContext}
+          falcoPose="thinking"
+        />
+        <div>
+          <h1 className="text-3xl font-bold">Ads</h1>
+          <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
+        </div>
+        {impact && <LeverImpactEstimate amountEur={impact.amountEur} explanation={impact.explanation} />}
+        {plan && (
+          <LeverStarterPlanCard
+            steps={plan}
+            completedSteps={progress}
+            canActivate={allDone}
+            onToggleStep={async (order) => {
+              "use server";
+              await toggleAdsStarterStep(order);
+            }}
+            onActivate={async () => {
+              "use server";
+              await activateAdsLever();
+            }}
+          />
+        )}
+      </div>
+    );
+  }
 
   const totalSpend = campaigns.reduce((sum, c) => sum + (c.spend ?? 0), 0);
   const ctrValues = campaigns.map((c) => computeCampaignMetrics(c).ctr).filter((v): v is number => v !== null);
