@@ -1,7 +1,9 @@
 import { Plus } from "lucide-react";
 
+import { AgentBanner } from "@/components/agent-banner";
 import { Button } from "@/components/ui/button";
 import { getBusinessProfile } from "@/lib/business/queries";
+import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
@@ -37,8 +39,19 @@ export default async function ContenuPage() {
     .filter((entry) => entry.rates.viewToLeadRate !== null)
     .sort((a, b) => (b.rates.viewToLeadRate ?? 0) - (a.rates.viewToLeadRate ?? 0))[0]?.post ?? null;
 
+  const stateText =
+    avgClickRate !== null
+      ? `Ton taux de clic moyen est de ${formatPercent(avgClickRate)} ce mois-ci.`
+      : "Aucun post suivi ce mois-ci — ajoute ton premier post pour voir tes chiffres.";
+  // No supported MetricKey for Contenu's own ContentMetricKey system in the
+  // Copilote pipeline yet — general topic stays safe (never a rejected/naked
+  // drawer), same call as Ads/Suivi des ventes below.
+  const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "acquisition_contenu" };
+
   return (
     <div className="flex flex-col gap-8">
+      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Contenu</h1>

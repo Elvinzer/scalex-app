@@ -1,12 +1,15 @@
 import { desc, eq } from "drizzle-orm";
 
+import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
+import type { ChatContext } from "@/lib/chat-context";
 import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
+import { labelFor } from "@/lib/diagnostic/cascade";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import {
@@ -92,8 +95,19 @@ export default async function ClosingPage({
     ? computeClosingRates(previousTotals, resolveMonthSettingTotals(previousMonthlyRow, previousSettingEntries).callsBooked)
     : null;
 
+  const stateText =
+    hasEntriesInRange && bottleneck
+      ? `Ton taux le plus faible du closing : ${labelFor(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
+      : "Tu n'as pas encore de données de closing sur cette période.";
+  const chatContext: ChatContext =
+    hasEntriesInRange && bottleneck
+      ? { topicType: "metric", topicKey: bottleneck.stage, topicLabel: labelFor(bottleneck.stage), sourcePage: "ventes_closing" }
+      : { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "ventes_closing" };
+
   return (
     <div className="flex flex-col gap-8">
+      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+
       <div>
         <h1 className="text-3xl font-bold">Closing</h1>
         <p className="mt-1 text-muted-foreground">

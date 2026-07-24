@@ -5,11 +5,11 @@ import {
   Boxes,
   ChevronsUpDown,
   Database,
-  FileText,
+  Handshake,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Plug,
-  Receipt,
   Settings,
   ShieldCheck,
   Store,
@@ -32,17 +32,33 @@ type IconType = React.ComponentType<{ className?: string; style?: React.CSSPrope
 
 // permission: which grantable key unlocks this entry for a team member (see
 // lib/team/permissions.ts) — absent means owner-only, never delegable
-// (Réglages: BYOK key, Stripe Connect, billing, team). The account owner
-// always sees everything regardless of this field.
-type LinkEntry = { type: "link"; href: string; label: string; icon: IconType; permission?: PermissionKey };
+// (Réglages: BYOK key, Stripe Connect, billing, team). anyOfPermissions is
+// for a PILLAR entry that fans out into several sub-pages (Acquisition,
+// Vente) — visible if the account has access to at least one of them,
+// same "any" logic hasAnyAdvancedAccess below already uses for "Avancé".
+// The account owner always sees everything regardless of either field.
+type LinkEntry = {
+  type: "link";
+  href: string;
+  label: string;
+  icon: IconType;
+  permission?: PermissionKey;
+  anyOfPermissions?: readonly PermissionKey[];
+};
 
 // CŒUR — the value-loop pages, always visible (permission-gated as before).
 // Funnel/Insights are gone entirely (were duplicate readings of what the
 // Diagnostic already shows — removed, not just hidden). Team/roles moved to
 // Mon business (app/(app)/business), Équipe card there.
-// Suivi des ventes/Contenu are flat entries here too — no more "Suivi"
-// pillar grouping (removed in an earlier simplification pass), just plain
-// items in the main menu like the rest.
+//
+// Acquisition/Vente are pillar entries — each fans out into a tab sub-menu
+// (app/(app)/acquisition/layout.tsx, app/(app)/ventes/layout.tsx) rather than
+// being flat items here: Contenu and Suivi des ventes used to be standalone
+// entries, now live as tabs under their pillar (same URLs, unchanged).
+// Setting/Closing/Ads existed in code with NO nav entry point at all before
+// this restructuring (only teased in the dead "Avancé" showcase) — they're
+// now reachable as tabs too, still gated behind the same advancedModulesEnabled
+// flag (computed in each pillar layout, not here).
 //
 // "Journal de bord" (/journal) is built (app/(app)/journal/) but
 // deliberately not linked here yet — hidden from the nav for later, not
@@ -55,9 +71,21 @@ const topEntries: LinkEntry[] = [
   // exploration-only view.
   { type: "link", href: "/overview", label: "Vue d'ensemble", icon: BarChart3, permission: "dashboard" },
   { type: "link", href: "/datas", label: "Mes chiffres", icon: Database, permission: "datas" },
+  {
+    type: "link",
+    href: "/acquisition",
+    label: "Acquisition",
+    icon: Megaphone,
+    anyOfPermissions: ["acquisition:contenu", "acquisition:setting", "acquisition:ads"],
+  },
+  {
+    type: "link",
+    href: "/ventes",
+    label: "Vente",
+    icon: Handshake,
+    anyOfPermissions: ["ventes:suivi", "ventes:closing"],
+  },
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
-  { type: "link", href: "/ventes/suivi", label: "Suivi des ventes", icon: Receipt, permission: "ventes:suivi" },
-  { type: "link", href: "/acquisition/contenu", label: "Contenu", icon: FileText, permission: "acquisition:contenu" },
 ];
 
 // HORS-NAVIGATION — account-level pages under the profile dropdown
@@ -97,7 +125,9 @@ const adminEntry: LinkEntry = { type: "link", href: "/admin", label: "Panel admi
 
 function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonly PermissionKey[]): boolean {
   if (isOwner) return true;
-  return entry.permission !== undefined && permissions.includes(entry.permission);
+  if (entry.permission !== undefined) return permissions.includes(entry.permission);
+  if (entry.anyOfPermissions) return entry.anyOfPermissions.some((key) => permissions.includes(key));
+  return false;
 }
 
 function NavLink({

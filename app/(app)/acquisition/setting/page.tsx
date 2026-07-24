@@ -1,15 +1,18 @@
 import { desc, eq } from "drizzle-orm";
 
+import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { db } from "@/db";
 import { settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
+import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
+import { labelFor } from "@/lib/diagnostic/cascade";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { isExactCalendarMonth, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
-import { computeFunnelRates, findBottleneck } from "@/lib/setting/funnel";
+import { computeFunnelRates, findBottleneck, type FunnelStage } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { BottleneckCard } from "./bottleneck-card";
@@ -17,6 +20,17 @@ import { CsvImport } from "./csv-import";
 import { EntriesTable } from "./entries-table";
 import { EntryForm } from "./entry-form";
 import { FunnelChart } from "./funnel-chart";
+
+// outreachRate is a FunnelStage but not one of the 5 diagnostic-engine
+// MetricKeys (lib/diagnostic/metric-keys.ts) — labelFor() only accepts real
+// MetricKeys, so it needs its own label and can never become the
+// AgentBanner's ChatContext topic (falls back to "general" instead).
+function stageLabel(stage: FunnelStage): string {
+  return stage === "outreachRate" ? "Taux de sollicitation" : labelFor(stage);
+}
+function isDiagnosticMetricStage(stage: FunnelStage): stage is Exclude<FunnelStage, "outreachRate"> {
+  return stage !== "outreachRate";
+}
 import { StatTiles } from "./stat-tiles";
 
 export default async function SettingPage({
@@ -79,8 +93,19 @@ export default async function SettingPage({
     : [];
   const previousTotals = previousRange ? resolveMonthSettingTotals(previousMonthlyRow, previousEntries) : null;
 
+  const stateText =
+    hasEntriesInRange && bottleneck
+      ? `Ton taux le plus faible du funnel : ${stageLabel(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
+      : "Tu n'as pas encore de données de prospection sur cette période.";
+  const chatContext: ChatContext =
+    hasEntriesInRange && bottleneck && isDiagnosticMetricStage(bottleneck.stage)
+      ? { topicType: "metric", topicKey: bottleneck.stage, topicLabel: stageLabel(bottleneck.stage), sourcePage: "acquisition_setting" }
+      : { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "acquisition_setting" };
+
   return (
     <div className="flex flex-col gap-8">
+      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+
       <div>
         <h1 className="text-3xl font-bold">Setting</h1>
         <p className="mt-1 text-muted-foreground">

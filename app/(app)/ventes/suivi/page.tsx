@@ -1,7 +1,9 @@
 import { Plus } from "lucide-react";
 
+import { AgentBanner } from "@/components/agent-banner";
 import { Button } from "@/components/ui/button";
 import { getBusinessProfile } from "@/lib/business/queries";
+import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
@@ -32,8 +34,17 @@ export default async function SuiviDesVentesPage() {
   const pending = summaries.reduce((sum, summary) => sum + summary.pendingTotal, 0);
   const failed = summaries.reduce((sum, summary) => sum + summary.failedTotal, 0);
 
+  const stateText =
+    salesThisMonth.length > 0
+      ? `${salesThisMonth.length} vente${salesThisMonth.length > 1 ? "s" : ""} ce mois, ${NUMBER_FORMAT.format(cashCollected)} € encaissé.`
+      : "Aucune vente enregistrée ce mois-ci.";
+  // No MetricKey for Suivi des ventes in the Copilote pipeline — general topic.
+  const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "ventes_suivi" };
+
   return (
     <div className="flex flex-col gap-8">
+      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Suivi des ventes</h1>

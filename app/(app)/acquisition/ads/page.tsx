@@ -1,9 +1,11 @@
 import { Plus } from "lucide-react";
 
+import { AgentBanner } from "@/components/agent-banner";
 import { Button } from "@/components/ui/button";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
 import { getBusinessProfile } from "@/lib/business/queries";
+import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatPercent } from "@/lib/setting/funnel";
@@ -26,8 +28,17 @@ export default async function AdsPage() {
     .filter((v): v is number => v !== null);
   const avgCpl = cplValues.length > 0 ? cplValues.reduce((sum, v) => sum + v, 0) / cplValues.length : null;
 
+  const stateText =
+    avgCtr !== null
+      ? `CTR moyen de ${formatPercent(avgCtr)}, coût par lead moyen de ${avgCpl === null ? "—" : formatEur(avgCpl)}.`
+      : "Aucune campagne suivie pour l'instant.";
+  // No MetricKey for Ads in the Copilote pipeline yet — general topic.
+  const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "acquisition_ads" };
+
   return (
     <div className="flex flex-col gap-8">
+      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Ads</h1>
