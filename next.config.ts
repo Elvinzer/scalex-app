@@ -1,3 +1,4 @@
+import bundleAnalyzer from "@next/bundle-analyzer";
 import type { NextConfig } from "next";
 import path from "node:path";
 
@@ -15,4 +16,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Opt-in bundle composition report (docs/perf-audit.md's methodology) — a
+// no-op unless ANALYZE=true, so normal `npm run build`/`npm run dev` are
+// unaffected. Requires a webpack build (`next build`, no --turbopack) since
+// the analyzer hooks into webpack's compilation, not Turbopack's:
+// `ANALYZE=true npx next build`.
+const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
+
+export default withBundleAnalyzer(nextConfig);

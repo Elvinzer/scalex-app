@@ -1,11 +1,11 @@
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
 import { FloatingChatBubble } from "@/components/floating-chat-bubble";
 import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { FALCO_SKIN_KEYS } from "@/lib/falco-skins";
 import { getBusinessProfile } from "@/lib/business/queries";
@@ -16,8 +16,8 @@ import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { computeScaleScore, type ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountContext } from "@/lib/team/context";
@@ -77,13 +77,7 @@ export default async function AppLayout({
   const [businessProfile, [userRow], scaleScoreInputs] = await Promise.all([
     getBusinessProfile(accountId),
     db.select().from(users).where(eq(users.id, accountId)).limit(1),
-    canSeeScaleScore
-      ? Promise.all([
-          db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-          db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-          getAllMonthlyMetrics(accountId),
-        ])
-      : Promise.resolve(null),
+    canSeeScaleScore ? getDiagnosticKpiRawData(accountId) : Promise.resolve(null),
   ]);
 
   // Proactive "the AI has something to say" signal for the floating bubble
@@ -118,7 +112,7 @@ export default async function AppLayout({
   let potentialMonthlyRevenue: number | null = null;
 
   if (canSeeScaleScore && scaleScoreInputs) {
-    const [allSettingEntries, allClosingEntries, allMonthlyRows] = scaleScoreInputs;
+    const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
     const benchmarks = await getDiagnosticBenchmarks(userRow?.sector ?? null);
     const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
       months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -7,7 +8,6 @@ import { DiscoveryConversation } from "@/app/(app)/diagnostic/discovery-conversa
 import { Falco, type FalcoPose } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
-import { ImportFlow } from "@/components/import/import-flow";
 import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { formatEur } from "@/lib/currency";
@@ -18,6 +18,15 @@ import type { OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot"
 import { cn } from "@/lib/utils";
 
 import { completeOnboardingAfterImport, saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
+
+// Same reasoning as app/(app)/datas/datas-page-client.tsx: ImportFlow pulls
+// exceljs/pdf-parse/papaparse (≈380 Ko gzip) but only renders once the user
+// reaches the import step, so a static import was shipping those in this
+// flow's initial JS unconditionally.
+const ImportFlow = dynamic(() => import("@/components/import/import-flow").then((m) => m.ImportFlow), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">Chargement…</div>,
+});
 
 const inputClass =
   "w-full rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";

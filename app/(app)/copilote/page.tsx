@@ -1,8 +1,8 @@
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { after } from "next/server";
 
 import { db } from "@/db";
-import { businessLevers, closingKpiEntries, settingKpiEntries } from "@/db/schema";
+import { businessLevers } from "@/db/schema";
 import { getAllAgents } from "@/lib/agent/agents-registry";
 import { getLastMessagesByAgent } from "@/lib/agent/chat-history";
 import { resolveLeverAgentData, type LeverAgentDataContext } from "@/lib/agent/lever-agent-data";
@@ -13,7 +13,7 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CopilotePageClient } from "./copilote-page-client";
@@ -25,14 +25,12 @@ export default async function CopilotePage({ searchParams }: { searchParams: Pro
 
   after(() => track("copilote_page_viewed", userId));
 
-  const [agents, leverRows, lastMessages, businessProfile, allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
+  const [agents, leverRows, lastMessages, businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }] = await Promise.all([
     getAllAgents(),
     db.select({ leverKey: businessLevers.leverKey, status: businessLevers.status }).from(businessLevers).where(eq(businessLevers.userId, accountId)),
     getLastMessagesByAgent(accountId),
     getBusinessProfile(accountId),
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(accountId),
+    getDiagnosticKpiRawData(accountId),
   ]);
 
   const months = lastCompletedMonths(3);

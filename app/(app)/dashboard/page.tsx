@@ -1,4 +1,3 @@
-import { desc, eq } from "drizzle-orm";
 import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
@@ -8,18 +7,17 @@ import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityItem } from "@/components/priority-item";
 import { Button } from "@/components/ui/button";
-import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
-import { emptyMonthRow, getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
@@ -36,22 +34,13 @@ export default async function DashboardPage({
   await requirePermissionOrRedirect(userId, "dashboard");
 
   // All three only depend on accountId/user.sector, known above — run
-  // together instead of as sequential round-trips.
-  const [businessProfile, [allSettingEntries, allClosingEntries, allMonthlyRows], benchmarks] = await Promise.all([
+  // together instead of as sequential round-trips. getBusinessProfile/
+  // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
+  // per request, so this is deduped against app/(app)/layout.tsx's own call
+  // to the same functions for the Scale Score badge.
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks] = await Promise.all([
     getBusinessProfile(accountId),
-    Promise.all([
-      db
-        .select()
-        .from(settingKpiEntries)
-        .where(eq(settingKpiEntries.userId, accountId))
-        .orderBy(desc(settingKpiEntries.date)),
-      db
-        .select()
-        .from(closingKpiEntries)
-        .where(eq(closingKpiEntries.userId, accountId))
-        .orderBy(desc(closingKpiEntries.date)),
-      getAllMonthlyMetrics(accountId),
-    ]),
+    getDiagnosticKpiRawData(accountId),
     getDiagnosticBenchmarks(user?.sector ?? null),
   ]);
 

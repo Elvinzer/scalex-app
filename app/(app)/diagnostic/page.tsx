@@ -1,4 +1,3 @@
-import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { after } from "next/server";
 import { Suspense } from "react";
@@ -16,8 +15,6 @@ import { CalcPopover } from "@/components/calc-popover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { Button } from "@/components/ui/button";
-import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { track } from "@/lib/analytics";
@@ -34,11 +31,11 @@ import {
   computeFullBenchmarkProjection,
   computeMetricSummaries,
 } from "@/lib/diagnostic/cascade";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
 import { formatEur } from "@/lib/currency";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
 
@@ -109,10 +106,8 @@ export default async function DiagnosticPage({
 
   const businessProfile = await getBusinessProfile(accountId);
 
-  const [allSettingEntries, allClosingEntries, allMonthlyRows, allContentPosts] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(accountId),
+  const [{ allSettingEntries, allClosingEntries, allMonthlyRows }, allContentPosts] = await Promise.all([
+    getDiagnosticKpiRawData(accountId),
     getContentPosts(accountId),
   ]);
 

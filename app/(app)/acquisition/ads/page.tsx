@@ -5,8 +5,6 @@ import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
 import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
-import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
@@ -17,14 +15,13 @@ import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
 import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
 import { getLeverStatus } from "@/lib/levers/status";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
-import { desc, eq } from "drizzle-orm";
 
 import { activateAdsLever, toggleAdsStarterStep } from "./actions";
 import { AdCopyTrigger } from "./ad-copy-trigger";
@@ -56,11 +53,7 @@ export default async function AdsPage() {
   const falcoSkin = resolveFalcoSkin("/acquisition/ads");
 
   if (mode === "demarrer") {
-    const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-      db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-      db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-      getAllMonthlyMetrics(accountId),
-    ]);
+    const { allSettingEntries, allClosingEntries, allMonthlyRows } = await getDiagnosticKpiRawData(accountId);
     const months = lastCompletedMonths(3);
     const { cashContractedTotal } = aggregatePeriodTotals({ months, allMonthlyRows, allSettingEntries, allClosingEntries });
     const avgMonthlyRevenue = cashContractedTotal / months.length;

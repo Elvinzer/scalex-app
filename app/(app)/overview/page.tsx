@@ -1,4 +1,3 @@
-import { desc, eq } from "drizzle-orm";
 import { after } from "next/server";
 
 import { Falco } from "@/components/falco/falco";
@@ -7,8 +6,6 @@ import { OverviewActiveLeverCard } from "@/components/overview-active-lever-card
 import { OverviewFunnelVisual } from "@/components/overview-funnel-visual";
 import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
 import { Button } from "@/components/ui/button";
-import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { computeClosingRates } from "@/lib/closing/metrics";
@@ -19,9 +16,9 @@ import { computeDiagnosticPoints, computeMetricHealthCards } from "@/lib/diagnos
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { findOverviewBottleneck } from "@/lib/funnel/overview";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { resolveMonthCashCollected, resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
 import { computeFunnelRates } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
@@ -56,13 +53,9 @@ export default async function OverviewPage({
 
   const months = periodToMonths(period);
 
-  const [businessProfile, [allSettingEntries, allClosingEntries, allMonthlyRows], benchmarks] = await Promise.all([
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks] = await Promise.all([
     getBusinessProfile(accountId),
-    Promise.all([
-      db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-      db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-      getAllMonthlyMetrics(accountId),
-    ]),
+    getDiagnosticKpiRawData(accountId),
     getDiagnosticBenchmarks(user?.sector ?? null),
   ]);
 

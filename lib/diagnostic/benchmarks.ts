@@ -1,4 +1,5 @@
 import { eq, isNull } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { benchmarks } from "@/db/schema";
@@ -14,7 +15,11 @@ import { METRIC_KEYS, type MetricKey } from "./metric-keys";
 // null) row. Lives in DB per lib/diagnostic/cascade.ts's plan doc — distinct
 // from lib/benchmarks.ts's 3-tier band system, which keeps driving the
 // Funnel's existing tiles/meters untouched.
-export async function getDiagnosticBenchmarks(sector: SectorKey | null): Promise<Record<MetricKey, number>> {
+// cache()-wrapped: called independently by app/(app)/layout.tsx (Scale
+// Score badge) and by whichever page also needs the diagnostic engine
+// (Dashboard, Diagnostic, Overview, Copilote, Ads) on every navigation —
+// same sector, same rows, deduped per request like getAccountContext.
+export const getDiagnosticBenchmarks = cache(async (sector: SectorKey | null): Promise<Record<MetricKey, number>> => {
   const [rows, globalRows] = await Promise.all([
     sector ? db.select().from(benchmarks).where(eq(benchmarks.sector, sector)) : Promise.resolve([]),
     db.select().from(benchmarks).where(isNull(benchmarks.sector)),
@@ -27,4 +32,4 @@ export async function getDiagnosticBenchmarks(sector: SectorKey | null): Promise
     result[key] = sectorRow?.value ?? globalRow?.value ?? 0;
   }
   return result;
-}
+});

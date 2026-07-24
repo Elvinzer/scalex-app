@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -17,7 +18,11 @@ import { getAccountContext } from "@/lib/team/context";
 // their own, since the business belongs to the account, not the individual.
 // Callers that write account-scoped data must use accountId, not userId;
 // callers that record "who did this" (e.g. enteredByUserId) use userId.
-export async function getCurrentUser() {
+// cache()-wrapped for the same reason as getAccountContext below (which
+// this already calls, itself memoized) — layout.tsx and the page it wraps
+// both call getCurrentUser() independently on every navigation; without
+// this, that's a redundant `users` row fetch every time, on every page.
+export const getCurrentUser = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   const userId = data!.claims.sub as string;
@@ -27,7 +32,7 @@ export async function getCurrentUser() {
 
   const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
   return { userId, accountId, user };
-}
+});
 
 // Single source of truth for the "get the authenticated user's id or bail"
 // check duplicated across every Server Action in the app. Two variants

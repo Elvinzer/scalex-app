@@ -1,12 +1,12 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
-import { ImportFlow } from "@/components/import/import-flow";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
@@ -14,6 +14,15 @@ import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 
 import { MonthCard } from "./month-card";
 import { MonthModal } from "./month-modal";
+
+// ImportFlow pulls exceljs/pdf-parse/papaparse (≈380 Ko gzip combined) —
+// it only ever renders inside the Drawer below, closed by default, so a
+// static import shipped those in this page's initial JS for nothing.
+// ssr: false is correct: never needed for the first server-rendered paint.
+const ImportFlow = dynamic(() => import("@/components/import/import-flow").then((m) => m.ImportFlow), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">Chargement…</div>,
+});
 
 export function DatasPageClient({
   year,
