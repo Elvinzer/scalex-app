@@ -266,7 +266,10 @@ export const CAUTION_SCORE_MAX = 70;
 // to be shared publicly. Segmenting by status guarantees getHealthTier(score)
 // always agrees with the real status: critical -> 0-39, caution -> 40-69,
 // ok -> 70-100.
-function computeHealthScore(current: number, benchmark: number, status: "ok" | "caution" | "critical"): number {
+// Exported for lib/diagnostic/priority.ts, which needs the same 0-100
+// health/tier-compatible score for lever-adjacent metric candidates instead
+// of re-deriving it.
+export function computeHealthScore(current: number, benchmark: number, status: "ok" | "caution" | "critical"): number {
   const ratio = current / benchmark;
   const cautionFloor = 1 - CAUTION_THRESHOLD; // 0.8 — same boundary computeMetricStatus uses
 

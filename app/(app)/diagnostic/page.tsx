@@ -8,6 +8,9 @@ import { getDiscoveryProgress } from "./discovery-actions";
 import { DiscoveryTab } from "./discovery-tab";
 import { OptimisationEntryCard } from "./optimisation-entry-card";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
+import { computePriorityScores } from "@/lib/diagnostic/priority";
+import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
+import { RecommendedForYou } from "./recommended-for-you";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { Falco } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
@@ -136,9 +139,10 @@ export default async function DiagnosticPage({
     );
   }
 
-  const [benchmarks, contentBenchmarks] = await Promise.all([
+  const [benchmarks, contentBenchmarks, priorityRules] = await Promise.all([
     getDiagnosticBenchmarks(user?.sector ?? null),
     getContentDiagnosticBenchmarks(user?.sector ?? null),
+    getPriorityRules(),
   ]);
   const contentTotals = aggregateContentTotals(months, allContentPosts);
   const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
@@ -162,6 +166,21 @@ export default async function DiagnosticPage({
     periodMonths: months.length,
   });
   const topDiscoveryOpportunities = discoveryOpportunities.slice(0, 2);
+
+  const monthlyRevenueEur = cashContractedTotal / months.length;
+  const { recommendations } = computePriorityScores({
+    points,
+    discoveryOpportunities,
+    businessProfile,
+    monthlyRevenueEur,
+    rules: priorityRules,
+  });
+  if (recommendations.length > 0) {
+    after(() =>
+      track("diagnostic_reco_shown", userId, { count: recommendations.length, top_lever: recommendations[0].candidate.key })
+    );
+  }
+
   const projection = computeFullBenchmarkProjection({
     settingTotals,
     closingTotals,
@@ -225,6 +244,12 @@ export default async function DiagnosticPage({
 
       {isThin && <BusinessNudgeBanner />}
 
+      <RecommendedForYou
+        recommendations={recommendations}
+        fallbackOpportunities={discoveryOpportunities.slice(0, 3)}
+        totalPointsCount={points.length}
+      />
+
       {/* Bloc 1 — Le verdict */}
       <div className="sticker-spotlight animate-rise px-7 py-6">
         <p className="text-xs text-mist/70">Potentiel total détecté</p>
@@ -247,7 +272,7 @@ export default async function DiagnosticPage({
       </div>
 
       {/* Bloc 2 — Les points à améliorer */}
-      <div className="flex flex-col gap-4">
+      <div id="points-a-ameliorer" className="flex flex-col gap-4">
         <h2 className="text-base font-bold">Points à améliorer</h2>
         {points.length === 0 && (
           <div className="sticker-card-dashed flex flex-col items-center gap-3 p-6 text-center">

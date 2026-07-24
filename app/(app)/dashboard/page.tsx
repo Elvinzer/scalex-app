@@ -11,8 +11,10 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
+import { computeDiagnosticPoints, resolveDealPrice, type DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
+import { computePriorityScores } from "@/lib/diagnostic/priority";
+import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { formatEur } from "@/lib/currency";
@@ -38,10 +40,11 @@ export default async function DashboardPage({
   // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
   // per request, so this is deduped against app/(app)/layout.tsx's own call
   // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks] = await Promise.all([
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks, priorityRules] = await Promise.all([
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
     getDiagnosticBenchmarks(user?.sector ?? null),
+    getPriorityRules(),
   ]);
 
   const firstName = user?.email.split("@")[0] || "là";
@@ -64,9 +67,10 @@ export default async function DashboardPage({
     allClosingEntries,
   });
 
-  const points = hasAnyMonthlyRow
-    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal }).slice(0, 3)
+  const allPoints = hasAnyMonthlyRow
+    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })
     : [];
+  const points = allPoints.slice(0, 3);
 
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
   const unlockHints: string[] = [];
@@ -89,6 +93,23 @@ export default async function DashboardPage({
       })
     : { toImplement: [] };
   const topDiscoveryOpportunities = discoveryOpportunities.slice(0, 3);
+
+  // Same engine as /diagnostic (lib/diagnostic/priority.ts) so the #1
+  // "goulot actuel" agrees between the two pages — only rank 1 is
+  // priority-driven; ranks 2-3 stay on the plain €-sort below them
+  // (nothing in the brief asks for the whole top-3 to be re-ranked).
+  const monthlyRevenueEur = cashContractedTotal / PERIOD_MONTHS;
+  const { recommendations } = hasAnyMonthlyRow
+    ? computePriorityScores({ points: allPoints, discoveryOpportunities, businessProfile, monthlyRevenueEur, rules: priorityRules })
+    : { recommendations: [] };
+  const topRecommendation = recommendations[0] ?? null;
+
+  // Ranks 2-3 fill in from the plain €-sorted list, skipping whichever
+  // metric point rank 1 already covers (a lever-type rank 1 has no
+  // equivalent in allPoints, so nothing needs excluding in that case).
+  const fillerPoints = allPoints
+    .filter((p) => p.key !== topRecommendation?.candidate.sourceMetricPoint?.key)
+    .slice(0, topRecommendation ? 2 : 3);
 
   const totalMonthlyLoss =
     (points.some((p) => p.monthlyGain === null) ? 0 : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0)) +
@@ -200,9 +221,35 @@ export default async function DashboardPage({
         </div>
 
         <div className="mt-3 flex flex-col gap-3">
-          {points.map((point, index) => (
-            <div key={point.key} className="animate-rise" style={{ animationDelay: `${index * 60}ms` }}>
-              <PriorityItem rank={(index + 1) as 1 | 2 | 3} point={point} />
+          {topRecommendation ? (
+            <div className="animate-rise">
+              {topRecommendation.candidate.type === "lever" ? (
+                <PriorityItem
+                  rank={1}
+                  leverWinner={{
+                    leverKey: topRecommendation.candidate.key,
+                    label: topRecommendation.candidate.label,
+                    category: topRecommendation.candidate.category,
+                    monthlyGainEur: topRecommendation.candidate.monthlyGainEur,
+                  }}
+                />
+              ) : (
+                // sourceMetricPoint is always set for type "metric" (see
+                // collectCandidates in lib/diagnostic/priority.ts).
+                <PriorityItem rank={1} point={topRecommendation.candidate.sourceMetricPoint as DiagnosticPoint} />
+              )}
+            </div>
+          ) : (
+            points[0] && (
+              <div className="animate-rise">
+                <PriorityItem rank={1} point={points[0]} />
+              </div>
+            )
+          )}
+
+          {(topRecommendation ? fillerPoints : points.slice(1)).map((point, index) => (
+            <div key={point.key} className="animate-rise" style={{ animationDelay: `${(index + 1) * 60}ms` }}>
+              <PriorityItem rank={(index + 2) as 2 | 3} point={point} />
             </div>
           ))}
 

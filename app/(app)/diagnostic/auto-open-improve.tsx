@@ -18,15 +18,28 @@ function isMetricKey(value: string): value is MetricKey {
 // ("Améliorer ça maintenant →" links to /diagnostic?open=<metricKey>) —
 // deliberately NOT a persistent per-point button on this page (that was
 // removed earlier in favor of the global floating chat bubble only).
+//
+// Also handles the Dashboard's #1-priority-is-a-lever deep link
+// (/diagnostic?openLever=<leverKey>&openLeverLabel=<label>, see
+// components/priority-item.tsx's lever branch) — independent of `open`
+// above, nothing changes for the metric case. The label travels via its
+// own query param rather than a client-side leverKey→label lookup: no such
+// mapping exists client-side today (labelFor below only covers MetricKey).
 export function AutoOpenImprove() {
   const searchParams = useSearchParams();
   const openParam = searchParams.get("open");
-  const [open, setOpen] = useState(Boolean(openParam && isMetricKey(openParam)));
+  const openLeverParam = searchParams.get("openLever");
+  const openLeverLabelParam = searchParams.get("openLeverLabel");
+  const [open, setOpen] = useState(
+    Boolean((openParam && isMetricKey(openParam)) || openLeverParam)
+  );
 
   const metricKey = openParam && isMetricKey(openParam) ? openParam : null;
   const context: ChatContext | null = metricKey
     ? { topicType: "metric", topicKey: metricKey, topicLabel: labelFor(metricKey), sourcePage: "diagnostic_deep_link" }
-    : null;
+    : openLeverParam
+      ? { topicType: "lever", topicKey: openLeverParam, topicLabel: openLeverLabelParam, sourcePage: "diagnostic_deep_link" }
+      : null;
 
   useEffect(() => {
     if (context) {

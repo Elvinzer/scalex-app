@@ -5,13 +5,74 @@ import { formatEur } from "@/lib/currency";
 import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { cn } from "@/lib/utils";
 
-export function PriorityItem({
-  rank,
-  point,
-}: {
-  rank: 1 | 2 | 3;
-  point: DiagnosticPoint;
-}) {
+export type LeverWinner = { leverKey: string; label: string; category: string; monthlyGainEur: number };
+
+type PriorityItemProps =
+  | { rank: 1 | 2 | 3; point: DiagnosticPoint; leverWinner?: undefined }
+  | { rank: 1 | 2 | 3; point?: undefined; leverWinner: LeverWinner };
+
+// The priority engine's #1 pick (lib/diagnostic/priority.ts) can be a lever
+// opportunity rather than one of the 5 cascade metrics — this component
+// stays the one canonical priority row for both, instead of forking a
+// near-duplicate for the lever case.
+export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
+  if (leverWinner) {
+    const isTop = rank === 1;
+    return (
+      <div
+        className={cn(
+          "sticker-card flex flex-col gap-4 p-6",
+          isTop && "border-accent/40 bg-linear-to-br from-accent-soft to-transparent"
+        )}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <span
+              className={cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold",
+                isTop ? "text-white shadow-[0_4px_14px_var(--accent-glow)]" : "bg-muted text-muted-foreground"
+              )}
+              style={isTop ? { background: "var(--gradient-accent)" } : undefined}
+            >
+              {rank}
+            </span>
+            <div>
+              <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{leverWinner.category}</p>
+              <p className="mt-0.5 font-bold">{leverWinner.label}</p>
+              <p className="mt-1 text-sm font-bold text-muted-foreground">Pas encore en place.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
+            <span className="rounded-full bg-positive-soft px-3 py-1 text-sm font-bold whitespace-nowrap text-positive tabular-nums">
+              ≈{formatEur(leverWinner.monthlyGainEur)}/mois
+            </span>
+            {isTop ? (
+              <Button asChild size="sm" variant="secondary">
+                <a href={`/diagnostic?openLever=${leverWinner.leverKey}&openLeverLabel=${encodeURIComponent(leverWinner.label)}`}>
+                  Améliorer ça →
+                </a>
+              </Button>
+            ) : (
+              <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
+                Voir le détail
+              </a>
+            )}
+          </div>
+        </div>
+
+        {isTop && (
+          <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
+            <Falco pose="alert" size="xs" animate="enter" />
+            <FalcoBubble arrow="left" className="max-w-none flex-1">
+              Je recommande de commencer par ça : c&apos;est ton point le plus rentable à corriger cette semaine.
+            </FalcoBubble>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const isTop = rank === 1;
 
   return (

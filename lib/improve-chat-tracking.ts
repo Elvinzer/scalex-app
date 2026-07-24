@@ -98,3 +98,17 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
     });
   }
 }
+
+// Called from the Diagnostic hero block's recommendation cards
+// (components/priority-recommendation-card.tsx) when its CTA is clicked —
+// additive to recordImproveChatOpened above (not a replacement), scoped to
+// this one hero-block context so the click-through rate per rank can be
+// measured independently of the generic improve_chat_opened event.
+export async function recordPriorityRecoClicked(leverOrMetricKey: string, rank: number, priorityScore: number): Promise<void> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (!data?.claims) return;
+  const userId = data.claims.sub as string;
+
+  await track("diagnostic_reco_clicked", userId, { lever: leverOrMetricKey, rank, priority_score: priorityScore });
+}

@@ -50,7 +50,9 @@ export type AnalyticsEvent =
   | "agent_chat_engaged"
   | "copilote_page_viewed"
   | "copilote_agent_selected"
-  | "copilote_switch_from_redirect";
+  | "copilote_switch_from_redirect"
+  | "diagnostic_reco_shown"
+  | "diagnostic_reco_clicked";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

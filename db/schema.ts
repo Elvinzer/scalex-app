@@ -867,6 +867,39 @@ export const businessLevers = pgTable(
   (table) => [uniqueIndex("business_levers_user_lever_idx").on(table.userId, table.leverKey)]
 ).enableRLS();
 
+// --- Priorisation intelligente (Diagnostic) ------------------------------
+// Config data, not code — seeded via scripts/seed-priority-rules.mjs (same
+// pattern as scripts/seed-levers-catalog.mjs). `condition` is a closed enum
+// (not a free-form/eval'd expression), dispatched by a plain switch in
+// lib/diagnostic/priority.ts — same precedent as leverFormulaType above.
+// Expected `params` keys per condition (flat jsonb, same shape convention as
+// leversCatalog.formulaParams):
+//   lever_revenue_gate            -> { leverKey: string, revenueThresholdEur: number }
+//   lever_requires_main_offer     -> { leverKey: string }
+//   metric_near_benchmark         -> { gapThresholdFraction: number }
+//   top_funnel_when_closing_leaks -> { closingGapThresholdFraction: number }
+//   quick_win_low_effort          -> { minGainEur: number }
+export const priorityRuleCondition = pgEnum("priority_rule_condition", [
+  "lever_revenue_gate",
+  "lever_requires_main_offer",
+  "metric_near_benchmark",
+  "top_funnel_when_closing_leaks",
+  "quick_win_low_effort",
+]);
+
+export const priorityRules = pgTable("priority_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  condition: priorityRuleCondition("condition").notNull(),
+  params: jsonb("params").notNull().default({}).$type<Record<string, number | string>>(),
+  // Multiplier applied to a candidate's pertinence when this rule's
+  // condition matches — <1 demotes, >1 boosts (product of all matching
+  // rules capped at 1 in code, never in the DB).
+  factor: real("factor").notNull(),
+  reasonTemplate: text("reason_template").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
 // --- Journal de bord (calendrier + to-do + projets) -------------------------
 // Calendar auto-populates from improvement_events + the existing daily
 // setting/closing tables — the only manual input on this whole page is the
