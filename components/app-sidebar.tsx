@@ -2,7 +2,6 @@
 
 import {
   BarChart3,
-  Boxes,
   ChevronsUpDown,
   Database,
   Handshake,
@@ -35,8 +34,7 @@ type IconType = React.ComponentType<{ className?: string; style?: React.CSSPrope
 // lib/team/permissions.ts) — absent means owner-only, never delegable
 // (Réglages: BYOK key, Stripe Connect, billing, team). anyOfPermissions is
 // for a PILLAR entry that fans out into several sub-pages (Acquisition,
-// Vente) — visible if the account has access to at least one of them,
-// same "any" logic hasAnyAdvancedAccess below already uses for "Avancé".
+// Vente) — visible if the account has access to at least one of them.
 // The account owner always sees everything regardless of either field.
 type LinkEntry = {
   type: "link";
@@ -56,10 +54,10 @@ type LinkEntry = {
 // (app/(app)/acquisition/layout.tsx, app/(app)/ventes/layout.tsx) rather than
 // being flat items here: Contenu and Suivi des ventes used to be standalone
 // entries, now live as tabs under their pillar (same URLs, unchanged).
-// Setting/Closing/Ads existed in code with NO nav entry point at all before
-// this restructuring (only teased in the dead "Avancé" showcase) — they're
-// now reachable as tabs too, still gated behind the same advancedModulesEnabled
-// flag (computed in each pillar layout, not here).
+// Setting/Ads/Closing (the former "Avancé" showcase modules) are
+// deliberately set aside again — not rendered as tabs by their pillar
+// layout, not linked anywhere. Copilote (below) replaces the old "Avancé"
+// nav entry.
 //
 // "Journal de bord" (/journal) is built (app/(app)/journal/) but
 // deliberately not linked here yet — hidden from the nav for later, not
@@ -101,23 +99,6 @@ const profileMenuEntries: LinkEntry[] = [
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
 ];
-
-// AVANCÉ — one flat nav line, own visibility rule below. Shown to anyone
-// with access to at least one of the modules teased behind it (Ads,
-// Bibliothèque d'appels, Setting quotidien, Closing quotidien). The hub is
-// now a "bientôt disponible" showcase (see app/(app)/avance/page.tsx) — no
-// activation flow anymore, hence the static "Bientôt" badge below.
-const advancedEntry: LinkEntry = { type: "link", href: "/avance", label: "Avancé", icon: Boxes };
-const ADVANCED_PERMISSION_KEYS: readonly PermissionKey[] = [
-  "acquisition:ads",
-  "acquisition:setting",
-  "ventes:videos",
-  "ventes:closing",
-];
-
-function hasAnyAdvancedAccess(isOwner: boolean, permissions: readonly PermissionKey[]): boolean {
-  return isOwner || permissions.some((key) => ADVANCED_PERMISSION_KEYS.includes(key));
-}
 
 // Separate from the permission model entirely — gated by isAdmin (the
 // ADMIN_EMAILS allowlist, see lib/admin.ts), not by role/permission or even
@@ -303,13 +284,6 @@ export function AppSidebar({
         {visibleTopEntries.map((entry) => (
           <NavLink key={entry.href} entry={entry} pathname={pathname} indented={false} />
         ))}
-
-        {hasAnyAdvancedAccess(isOwner, permissions) && (
-          <>
-            <div className="my-3 h-px bg-white/20" />
-            <NavLink entry={advancedEntry} pathname={pathname} indented={false} badge="Bientôt" />
-          </>
-        )}
       </nav>
 
       {scaleScore && (
