@@ -8,6 +8,7 @@ import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
+import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -49,6 +50,7 @@ export default async function ContenuPage() {
       ? `Ton taux de clic moyen est de ${formatPercent(avgClickRate)} ce mois-ci.`
       : "Aucun post suivi ce mois-ci — ajoute ton premier post pour voir tes chiffres.";
   const chatContext: ChatContext = { topicType: "lever", topicKey: "content", topicLabel: "Contenu", sourcePage: "acquisition_contenu" };
+  const falcoSkin = resolveFalcoSkin("/acquisition/contenu");
 
   return (
     <div className="flex flex-col gap-8">
@@ -59,6 +61,7 @@ export default async function ContenuPage() {
         mode="optimiser"
         agentName={agent?.name}
         agentIconKey={agent?.falcoSkinIcon}
+        falcoSkin={falcoSkin}
       />
 
       <div className="flex flex-wrap items-start justify-between gap-4">

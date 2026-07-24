@@ -10,6 +10,7 @@ import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatEur } from "@/lib/currency";
 import { todayUtc } from "@/lib/date-range";
+import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { resolveFromBusinessProfile } from "@/lib/levers/catalog";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
 import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
@@ -41,6 +42,7 @@ export default async function UpsellPage() {
   after(() => track("lever_page_viewed", userId, { lever: LEVER_KEY, mode }));
 
   const chatContext: ChatContext = { topicType: "lever", topicKey: LEVER_KEY, topicLabel: "Upsell", sourcePage: "ventes_upsell" };
+  const falcoSkin = resolveFalcoSkin("/ventes/upsell");
 
   if (mode === "demarrer") {
     const [plan, progress, impact] = await Promise.all([
@@ -60,6 +62,7 @@ export default async function UpsellPage() {
           mode={mode}
           agentName={agent?.name}
           agentIconKey={agent?.falcoSkinIcon}
+          falcoSkin={falcoSkin}
         />
         <div>
           <h1 className="text-3xl font-bold">Upsell</h1>
@@ -112,6 +115,7 @@ export default async function UpsellPage() {
         mode={mode}
         agentName={agent?.name}
         agentIconKey={agent?.falcoSkinIcon}
+        falcoSkin={falcoSkin}
       />
 
       <div>

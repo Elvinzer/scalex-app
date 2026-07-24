@@ -11,6 +11,7 @@ import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metric
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { labelFor } from "@/lib/diagnostic/cascade";
+import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import {
@@ -102,6 +103,7 @@ export default async function ClosingPage({
       ? `Ton taux le plus faible du closing : ${labelFor(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
       : "Tu n'as pas encore de données de closing sur cette période.";
   const chatContext: ChatContext = { topicType: "lever", topicKey: "closing", topicLabel: "Closing", sourcePage: "ventes_closing" };
+  const falcoSkin = resolveFalcoSkin("/ventes/closing");
 
   return (
     <div className="flex flex-col gap-8">
@@ -112,6 +114,7 @@ export default async function ClosingPage({
         mode="optimiser"
         agentName={agent?.name}
         agentIconKey={agent?.falcoSkinIcon}
+        falcoSkin={falcoSkin}
       />
 
       <div>

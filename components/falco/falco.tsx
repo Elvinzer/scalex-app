@@ -9,10 +9,12 @@ import falcoDashboard from "@/assets/falco/falco-dashboard.png";
 import falcoFlying from "@/assets/falco/falco-flying.png";
 import falcoHero from "@/assets/falco/falco-hero.png";
 import falcoInsights from "@/assets/falco/falco-insights.png";
+import type { FalcoSkinKey } from "@/lib/falco-skins";
 import { cn } from "@/lib/utils";
 
 import { FalcoBubble } from "./falco-bubble";
 import { useFalcoAnimationsEnabled } from "./falco-context";
+import { FalcoSkinImage } from "./falco-skin-image";
 
 const FALCO_ASSETS = {
   hero: { src: falcoHero, alt: "Falco, la mascotte Scale X" },
@@ -24,14 +26,6 @@ const FALCO_ASSETS = {
 } as const;
 
 export type FalcoVariant = keyof typeof FALCO_ASSETS;
-
-// Extension point for per-agent illustrated skins (agents_registry.falco_skin_asset_key,
-// lib/agent/agents-registry.ts): today every agent shares this single
-// character + a small icon badge (components/lever-agent-icon.tsx) next to
-// it — no per-agent art exists yet. Once real illustrations exist, add them
-// as new FALCO_ASSETS entries (assets/falco/v2/, already the documented
-// dormant location above) and resolve them here by falcoSkinAssetKey — no
-// other call site needs to change.
 
 // Semantic pose → concrete asset. No dedicated "sleeping" art exists yet;
 // it falls back to `assistant` (calm, non-alarming) — a future v2 asset
@@ -77,9 +71,23 @@ const falcoVariants = cva("shrink-0 select-none", {
 export type FalcoSize = keyof typeof SIZE_PX;
 type FalcoAnimate = "none" | "idle" | "float" | "fly-loop" | "enter";
 
+// Same animate→class mapping as falcoVariants above, but without its `size`
+// half (which assumes the xs/sm/md/lg/xl scale calibrated for the SVG bust
+// assets) — skins are sized explicitly via `skinSizePx` instead.
+const ANIMATE_CLASS: Record<FalcoAnimate, string> = {
+  none: "",
+  idle: "falco-idle",
+  float: "falco-float",
+  "fly-loop": "falco-fly-loop",
+  enter: "falco-enter",
+};
+
 export function Falco({
   pose,
   variant,
+  skin,
+  portrait = false,
+  skinSizePx = 64,
   size = "md",
   animate = "none",
   priority,
@@ -93,6 +101,17 @@ export function Falco({
 }: {
   pose?: FalcoPose;
   variant?: FalcoVariant;
+  // Per-page illustrated skin (lib/falco-skins.ts) — when set, this takes
+  // over rendering entirely (pose/variant/size are ignored) but the
+  // withBubble wrapping below stays identical, so bubble-carrying call
+  // sites (e.g. Diagnostic's verdict line) don't need any other change.
+  skin?: FalcoSkinKey;
+  // Renders the head/shoulders crop instead of the full-body skin (chat
+  // bubble/drawer/message-avatar sizes). Ignored without `skin`.
+  portrait?: boolean;
+  // Explicit pixel size for skin/portrait — their real-world gabarits
+  // (56-64/72-80/32/24px) don't line up with the xs/sm/md/lg/xl scale below.
+  skinSizePx?: number;
   size?: FalcoSize;
   animate?: FalcoAnimate;
   priority?: boolean;
@@ -117,9 +136,21 @@ export function Falco({
   // falco-morph-neutral is itself an alias of falco-settle, so pose="neutral"
   // call sites look identical to before). Remounting with a new `key` per
   // conversational turn is what replays this — no JS change-detection needed.
-  const morphClass = pose && animationsEnabled ? `falco-morph-${pose}` : undefined;
+  // Skins are a single frame per key (no blink/expression variants), so this
+  // morph is skipped for them — only the animate transform (breathing,
+  // bounce...) still applies, via ANIMATE_CLASS below.
+  const morphClass = !skin && pose && animationsEnabled ? `falco-morph-${pose}` : undefined;
 
-  const image = (
+  const image = skin ? (
+    <FalcoSkinImage
+      skin={skin}
+      portrait={portrait}
+      sizePx={skinSizePx}
+      alt={alt}
+      priority={priority}
+      className={cn(ANIMATE_CLASS[animate], !withBubble && className)}
+    />
+  ) : (
     <Image
       src={asset.src}
       alt={alt ?? asset.alt}

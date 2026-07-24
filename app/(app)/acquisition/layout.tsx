@@ -1,5 +1,6 @@
 import { PillarTabs, type PillarTab } from "@/components/pillar-tabs";
 import { getCurrentUser } from "@/lib/current-user";
+import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { getAccountContext } from "@/lib/team/context";
 
 // Setting/Ads existed in code already but were linked from NO navigation
@@ -20,17 +21,26 @@ export default async function AcquisitionLayout({ children }: { children: React.
     return isOwner || permissions.has(key);
   }
 
-  const tabs: PillarTab[] = [
+  const visibleTabs = [
     { href: "/acquisition/contenu", label: "Contenu", visible: hasAccess("acquisition:contenu") },
     { href: "/acquisition/mail", label: "Mail", visible: hasAccess("acquisition:mail") },
     { href: "/acquisition/setting", label: "Setting", visible: hasAccess("acquisition:setting") && advancedModulesEnabled },
     { href: "/acquisition/ads", label: "Ads", visible: hasAccess("acquisition:ads") && advancedModulesEnabled },
-  ]
-    .filter((tab) => tab.visible)
-    .map(({ href, label }) => ({ href, label }));
+  ].filter((tab) => tab.visible);
+
+  const tabs: PillarTab[] = visibleTabs.map(({ href, label }) => ({ href, label }));
+
+  // Prefetch this pillar's own tabs' skins — switching tabs shouldn't
+  // require a fresh image fetch each time.
+  const skinsToPrefetch = Array.from(
+    new Set(visibleTabs.map((tab) => resolveFalcoSkin(tab.href)).filter((skin): skin is FalcoSkinKey => skin !== null))
+  );
 
   return (
     <div className="flex flex-col gap-6">
+      {skinsToPrefetch.map((skin) => (
+        <link key={skin} rel="prefetch" as="image" href={`/falco/skins/falco-skin-${skin}.webp`} />
+      ))}
       <h1 className="text-3xl font-bold">Acquisition</h1>
       <PillarTabs tabs={tabs} />
       {children}

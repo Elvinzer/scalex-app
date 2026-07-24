@@ -7,6 +7,7 @@ import { ImproveChat } from "@/components/improve-chat";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
+import type { FalcoSkinKey } from "@/lib/falco-skins";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 
 // The single dark block on a lever page (design system rule: one CTA, one
@@ -26,6 +27,7 @@ export function AgentBanner({
   mode = null,
   agentName,
   agentIconKey,
+  falcoSkin,
 }: {
   stateText: string;
   ctaLabel: string;
@@ -41,6 +43,9 @@ export function AgentBanner({
   // in the drawer header instead of the generic "Améliorer : {topicLabel}".
   agentName?: string;
   agentIconKey?: string;
+  // Per-page illustrated skin (lib/falco-skins.ts), resolved by the page
+  // from its own known route. Falls back to the generic bust when absent.
+  falcoSkin?: FalcoSkinKey | null;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -51,8 +56,14 @@ export function AgentBanner({
 
   return (
     <>
-      <div className="flex items-center gap-4 rounded-[var(--radius-card)] bg-[var(--surface-dark)] px-6 py-5">
-        <Falco pose={falcoPose} size="sm" />
+      <div className="relative flex items-center gap-4 overflow-visible rounded-[var(--radius-card)] bg-[var(--surface-dark)] px-6 py-5">
+        {falcoSkin ? (
+          <div className="relative w-16 shrink-0 self-stretch">
+            <Falco skin={falcoSkin} skinSizePx={64} priority className="absolute -top-2 left-0" />
+          </div>
+        ) : (
+          <Falco pose={falcoPose} size="sm" />
+        )}
         <p className="flex-1 text-sm font-bold text-[var(--text-on-dark)]">{stateText}</p>
         <Button onClick={() => handleOpenChange(true)} className="shrink-0">
           {ctaLabel}
@@ -69,6 +80,7 @@ export function AgentBanner({
               mode={mode}
               agentName={agentName}
               agentIconKey={agentIconKey}
+              falcoSkin={falcoSkin}
             />
           )}
         </DrawerContent>

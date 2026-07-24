@@ -12,6 +12,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { formatEur } from "@/lib/currency";
 import { computeEmailCampaignMetrics } from "@/lib/email-campaigns/metrics";
 import { getEmailCampaigns } from "@/lib/email-campaigns/queries";
+import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
 import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
 import { getLeverStatus } from "@/lib/levers/status";
@@ -45,6 +46,7 @@ export default async function MailPage() {
   after(() => track("lever_page_viewed", userId, { lever: LEVER_KEY, mode }));
 
   const chatContext: ChatContext = { topicType: "lever", topicKey: LEVER_KEY, topicLabel: "Emailing", sourcePage: "acquisition_mail" };
+  const falcoSkin = resolveFalcoSkin("/acquisition/mail");
 
   if (mode === "decouverte") {
     return (
@@ -56,6 +58,7 @@ export default async function MailPage() {
           mode={mode}
           agentName={agent?.name}
           agentIconKey={agent?.falcoSkinIcon}
+          falcoSkin={falcoSkin}
         />
         <div>
           <h1 className="text-3xl font-bold">Mail</h1>
@@ -84,6 +87,7 @@ export default async function MailPage() {
           mode={mode}
           agentName={agent?.name}
           agentIconKey={agent?.falcoSkinIcon}
+          falcoSkin={falcoSkin}
         />
         <div>
           <h1 className="text-3xl font-bold">Mail</h1>
@@ -133,6 +137,7 @@ export default async function MailPage() {
         mode={mode}
         agentName={agent?.name}
         agentIconKey={agent?.falcoSkinIcon}
+        falcoSkin={falcoSkin}
       />
 
       <div className="flex flex-wrap items-start justify-between gap-4">

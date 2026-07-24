@@ -10,6 +10,7 @@ import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { labelFor } from "@/lib/diagnostic/cascade";
+import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { isExactCalendarMonth, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
@@ -96,6 +97,7 @@ export default async function SettingPage({
       ? `Ton taux le plus faible du funnel : ${stageLabel(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
       : "Tu n'as pas encore de données de prospection sur cette période.";
   const chatContext: ChatContext = { topicType: "lever", topicKey: "setting", topicLabel: "Setting", sourcePage: "acquisition_setting" };
+  const falcoSkin = resolveFalcoSkin("/acquisition/setting");
 
   return (
     <div className="flex flex-col gap-8">
@@ -106,6 +108,7 @@ export default async function SettingPage({
         mode="optimiser"
         agentName={agent?.name}
         agentIconKey={agent?.falcoSkinIcon}
+        falcoSkin={falcoSkin}
       />
 
       <div>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Falco } from "@/components/falco/falco";
 import { ImportFlow } from "@/components/import/import-flow";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -42,12 +43,15 @@ export function DatasPageClient({
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Mes chiffres</h1>
-          <p className="mt-1 text-muted-foreground">
-            Remplis tes chiffres mois par mois. Tout le reste de l&apos;app se met à jour
-            automatiquement.
-          </p>
+        <div className="flex items-center gap-4">
+          <Falco skin="chiffres" skinSizePx={80} priority className="-mt-2" />
+          <div>
+            <h1 className="text-3xl font-bold">Mes chiffres</h1>
+            <p className="mt-1 text-muted-foreground">
+              Remplis tes chiffres mois par mois. Tout le reste de l&apos;app se met à jour
+              automatiquement.
+            </p>
+          </div>
         </div>
         <Button variant="secondary" onClick={() => setImportOpen(true)}>
           <Upload className="size-4" />

@@ -200,8 +200,8 @@ export default async function DiagnosticPage({
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <Falco
-          pose="thinking"
-          size="sm"
+          skin="diagnostic"
+          skinSizePx={80}
           animate="enter"
           withBubble
           bubbleText={verdictLine}

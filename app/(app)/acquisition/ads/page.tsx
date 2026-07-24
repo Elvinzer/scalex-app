@@ -17,6 +17,7 @@ import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
 import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
 import { getLeverStatus } from "@/lib/levers/status";
@@ -52,6 +53,7 @@ export default async function AdsPage() {
   after(() => track("lever_page_viewed", userId, { lever: LEVER_KEY, mode }));
 
   const chatContext: ChatContext = { topicType: "lever", topicKey: LEVER_KEY, topicLabel: "Ads", sourcePage: "acquisition_ads" };
+  const falcoSkin = resolveFalcoSkin("/acquisition/ads");
 
   if (mode === "demarrer") {
     const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
@@ -73,6 +75,7 @@ export default async function AdsPage() {
             mode={mode}
             agentName={agent?.name}
             agentIconKey={agent?.falcoSkinIcon}
+            falcoSkin={falcoSkin}
           />
           <div>
             <h1 className="text-3xl font-bold">Ads</h1>
@@ -106,6 +109,7 @@ export default async function AdsPage() {
           mode={mode}
           agentName={agent?.name}
           agentIconKey={agent?.falcoSkinIcon}
+          falcoSkin={falcoSkin}
         />
         <div>
           <h1 className="text-3xl font-bold">Ads</h1>
@@ -153,6 +157,7 @@ export default async function AdsPage() {
         mode={mode}
         agentName={agent?.name}
         agentIconKey={agent?.falcoSkinIcon}
+        falcoSkin={falcoSkin}
       />
 
       <div className="flex flex-wrap items-start justify-between gap-4">

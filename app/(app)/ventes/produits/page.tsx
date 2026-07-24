@@ -4,6 +4,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { todayUtc } from "@/lib/date-range";
+import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getSalesForMonth } from "@/lib/sales/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -36,6 +37,7 @@ export default async function ProduitsPage() {
     ? `Ton offre principale : ${mainOffer.name || "sans nom"}.`
     : "Aucune offre principale définie pour l'instant.";
   const chatContext: ChatContext = { topicType: "lever", topicKey: "produits", topicLabel: "Produits", sourcePage: "ventes_produits" };
+  const falcoSkin = resolveFalcoSkin("/ventes/produits");
 
   return (
     <div className="flex flex-col gap-8">
@@ -46,6 +48,7 @@ export default async function ProduitsPage() {
         mode="optimiser"
         agentName={agent?.name}
         agentIconKey={agent?.falcoSkinIcon}
+        falcoSkin={falcoSkin}
       />
       <div>
         <h1 className="text-3xl font-bold">Produits</h1>

@@ -9,6 +9,7 @@ import { LeverAgentIcon } from "@/components/lever-agent-icon";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
 import { clearAgentChatHistory, loadAgentChatHistory } from "@/lib/agent/chat-history-actions";
 import type { ChatContext } from "@/lib/chat-context";
+import type { FalcoSkinKey } from "@/lib/falco-skins";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type Period = "3-months" | "current-month" | "12-months";
@@ -122,6 +123,7 @@ export function ImproveChat({
   mode = null,
   agentName,
   agentIconKey,
+  falcoSkin,
 }: {
   context: ChatContext;
   followupKey?: string | null;
@@ -130,6 +132,10 @@ export function ImproveChat({
   mode?: LeverMode | null;
   agentName?: string;
   agentIconKey?: string;
+  // Purely visual — resolved by the caller (AgentBanner from its own page's
+  // route, or the floating bubble from usePathname()) via lib/falco-skins.ts.
+  // Never affects ChatContext/the agent resolved server-side.
+  falcoSkin?: FalcoSkinKey | null;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -215,7 +221,11 @@ export function ImproveChat({
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-border p-4">
         <div className="flex items-start gap-3">
-          <Falco pose="neutral" size="sm" />
+          {falcoSkin ? (
+            <Falco skin={falcoSkin} portrait skinSizePx={32} className="rounded-full" priority />
+          ) : (
+            <Falco pose="neutral" size="sm" />
+          )}
           <div>
             <div className="flex items-center gap-2">
               {agentIconKey && <LeverAgentIcon iconKey={agentIconKey} />}
@@ -260,7 +270,11 @@ export function ImproveChat({
               </div>
             ) : message.content ? (
               <div key={index} className="flex gap-2">
-                <Falco pose="neutral" size="xs" className="mt-0.5" />
+                {falcoSkin ? (
+                  <Falco skin={falcoSkin} portrait skinSizePx={24} className="mt-0.5 rounded-full" />
+                ) : (
+                  <Falco pose="neutral" size="xs" className="mt-0.5" />
+                )}
                 <div className="flex-1 text-sm text-foreground">{renderMarkdownLite(message.content)}</div>
               </div>
             ) : isStreaming && index === messages.length - 1 ? (

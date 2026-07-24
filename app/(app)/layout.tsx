@@ -7,6 +7,7 @@ import { FloatingChatBubble } from "@/components/floating-chat-bubble";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
+import { FALCO_SKIN_KEYS } from "@/lib/falco-skins";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { ensureUserRow } from "@/lib/current-user";
@@ -161,6 +162,12 @@ export default async function AppLayout({
 
   return (
     <FalcoPreferencesProvider reduceAnimations={userRow?.reduceFalcoAnimations ?? false}>
+      {/* Portraits are tiny (<20 Ko each) — preloaded once globally so the
+          floating chat bubble's crossfade never waits on a first fetch,
+          wherever navigation lands first. */}
+      {FALCO_SKIN_KEYS.map((skin) => (
+        <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
+      ))}
       <div className="flex min-h-screen bg-panel">
         <AppSidebar
           email={typeof email === "string" ? email : ""}
