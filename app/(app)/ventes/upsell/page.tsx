@@ -76,9 +76,12 @@ export default async function UpsellPage() {
           agentIconKey={agent?.falcoSkinIcon}
           falcoSkin={falcoSkin}
         />
-        <div>
-          <h1 className="text-3xl font-bold">Upsell</h1>
-          <p className="mt-1 text-muted-foreground">Proposer une offre complémentaire après la vente principale.</p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Upsell</h1>
+            <p className="mt-1 text-muted-foreground">Proposer une offre complémentaire après la vente principale.</p>
+          </div>
+          <AddUpsellDialog currentSales={profile.sales} />
         </div>
         {impact && <LeverImpactEstimate amountEur={impact.amountEur} explanation={impact.explanation} />}
         {plan && (

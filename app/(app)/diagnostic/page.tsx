@@ -256,12 +256,6 @@ export default async function DiagnosticPage({
 
       {isThin && <BusinessNudgeBanner />}
 
-      <RecommendedForYou
-        recommendations={recommendations}
-        fallbackOpportunities={discoveryOpportunities.slice(0, 3)}
-        totalPointsCount={points.length}
-      />
-
       {/* Bloc 1 — Le verdict */}
       <div className="sticker-spotlight animate-rise px-7 py-6">
         <p className="text-xs text-mist/70">Potentiel total détecté</p>
@@ -282,6 +276,12 @@ export default async function DiagnosticPage({
           <CalcPopover explanation="Pour chaque point sous benchmark, je simule ton funnel avec CE taux ramené au niveau du marché (les autres restent réels), puis je multiplie les ventes en plus par le prix de ton offre. Je ne cumule que les 3 premiers points pour rester crédible." />
         </div>
       </div>
+
+      <RecommendedForYou
+        recommendations={recommendations}
+        fallbackOpportunities={discoveryOpportunities.slice(0, 3)}
+        totalPointsCount={points.length}
+      />
 
       {/* Bloc 2 — Les points à améliorer */}
       <div id="points-a-ameliorer" className="flex flex-col gap-4">

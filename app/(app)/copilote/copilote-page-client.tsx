@@ -13,8 +13,11 @@ const STORAGE_KEY = "copilote:lastAgent";
 // Consolidated to 4 agents (was 7 — see lib/agent/lever-agent-data.ts and
 // app/api/improve-chat/route.ts's AGENT_KEY_CONSOLIDATION): Mail, Contenu
 // unchanged; Ventes absorbs Closing+Produits+Upsell; CEO Vision absorbs
-// Setting+Ads.
-const DISPLAY_ORDER = ["email_marketing", "content", "ventes", "ceo_vision"];
+// Setting+Ads. CEO Vision itself removed from this hub's visible list on
+// request — the agent/its data/its drawer access elsewhere (AgentBanner on
+// /acquisition/pipeline, /acquisition/setters, etc.) are untouched, only
+// hidden from this panel.
+const DISPLAY_ORDER = ["email_marketing", "content", "ventes"];
 
 type AgentSummary = { agentKey: string; leverKey: string | null; name: string; falcoSkinIcon: string };
 type AgentDataSummary = { gapBadge: string | null; impactAmountEur: number | null } | null;
@@ -116,40 +119,47 @@ export function CopilotePageClient({
             : "demarrer";
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col gap-4 lg:flex-row lg:gap-0">
-      <div className="lg:hidden">
-        <AgentPanel items={items} selectedAgentKey={selectedAgentKey} onSelect={selectAgent} compact />
+    <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
+      <div>
+        <h1 className="text-3xl font-bold">Copilote</h1>
+        <p className="mt-1 text-muted-foreground">Ton équipe d&apos;experts IA — chacun connaît déjà tes chiffres.</p>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-border lg:rounded-r-none">
-        {selectedItem ? (
-          // Keyed by agentKey so switching agents always fully remounts the
-          // thread (fresh messages/isStreaming/history-loaded state) instead
-          // of reusing the previous agent's component instance — without
-          // this, a stuck stream on one agent stayed stuck even after
-          // picking a different one, since the mount-effect never re-fires
-          // on the same instance.
-          <ChatErrorBoundary key={selectedItem.agentKey}>
-            <CopiloteChatPanel
-              agentKey={selectedItem.agentKey}
-              name={selectedItem.name}
-              skin={selectedItem.skin}
-              gapBadge={selectedAgentData?.gapBadge ?? null}
-              mode={selectedMode}
-              agentNameToKey={agentNameToKey}
-              onSelectAgent={handleRedirect}
-            />
-          </ChatErrorBoundary>
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-            <Falco pose="neutral" size="md" />
-            <p className="max-w-sm text-sm text-muted-foreground">Choisis ton expert à droite. Chacun connaît déjà tes chiffres.</p>
-          </div>
-        )}
-      </div>
+      <div className="flex flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-0">
+        <div className="lg:hidden">
+          <AgentPanel items={items} selectedAgentKey={selectedAgentKey} onSelect={selectAgent} compact />
+        </div>
 
-      <div className="hidden w-[280px] shrink-0 lg:block">
-        <AgentPanel items={items} selectedAgentKey={selectedAgentKey} onSelect={selectAgent} />
+        <div className="flex flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-border lg:rounded-r-none">
+          {selectedItem ? (
+            // Keyed by agentKey so switching agents always fully remounts the
+            // thread (fresh messages/isStreaming/history-loaded state) instead
+            // of reusing the previous agent's component instance — without
+            // this, a stuck stream on one agent stayed stuck even after
+            // picking a different one, since the mount-effect never re-fires
+            // on the same instance.
+            <ChatErrorBoundary key={selectedItem.agentKey}>
+              <CopiloteChatPanel
+                agentKey={selectedItem.agentKey}
+                name={selectedItem.name}
+                skin={selectedItem.skin}
+                gapBadge={selectedAgentData?.gapBadge ?? null}
+                mode={selectedMode}
+                agentNameToKey={agentNameToKey}
+                onSelectAgent={handleRedirect}
+              />
+            </ChatErrorBoundary>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+              <Falco pose="neutral" size="md" />
+              <p className="max-w-sm text-sm text-muted-foreground">Choisis ton expert à droite. Chacun connaît déjà tes chiffres.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="hidden w-[280px] shrink-0 lg:block">
+          <AgentPanel items={items} selectedAgentKey={selectedAgentKey} onSelect={selectAgent} />
+        </div>
       </div>
     </div>
   );

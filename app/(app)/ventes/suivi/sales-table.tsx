@@ -27,7 +27,11 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; setters: SetterRow[]; offers: Offer[] }) {
-  const [selected, setSelected] = useState<SaleRow | null>(null);
+  // Tracks only the id, not the sale object itself — so after an edit
+  // revalidates `sales` from the server, the drawer re-derives the fresh
+  // row below instead of showing the stale snapshot captured at click time.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = selectedId ? (sales.find((sale) => sale.id === selectedId) ?? null) : null;
   const [setterFilter, setSetterFilter] = useState("");
   const [, startTransition] = useTransition();
 
@@ -106,7 +110,7 @@ export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; sette
               <tr
                 key={sale.id}
                 className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
-                onClick={() => setSelected(sale)}
+                onClick={() => setSelectedId(sale.id)}
               >
                 <td className="p-3 whitespace-nowrap text-muted-foreground">{sale.saleDate}</td>
                 <td className="p-3 font-bold">{sale.clientName}</td>
@@ -138,7 +142,7 @@ export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; sette
         </table>
       </div>
 
-      <SaleDetailDrawer sale={selected} offers={offers} setters={setters} open={selected !== null} onOpenChange={(open) => !open && setSelected(null)} />
+      <SaleDetailDrawer sale={selected} offers={offers} setters={setters} open={selected !== null} onOpenChange={(open) => !open && setSelectedId(null)} />
     </>
   );
 }

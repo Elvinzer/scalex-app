@@ -298,6 +298,18 @@ export default async function DashboardPage({
               </ul>
             </FalcoEmptyState>
           )}
+
+          {/* Genuinely nothing to show — not a "need more data" case
+              (unlockHints empty) and no point/lever is below benchmark.
+              Previously rendered nothing at all here, reading as broken;
+              same "all good" pattern as /diagnostic's own empty state. */}
+          {!topRecommendation && !points[0] && unlockHints.length === 0 && (
+            <FalcoEmptyState title="Rien à corriger en priorité pour l'instant" showFalco={false}>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Tous tes taux mesurés sont au niveau du benchmark. Continue comme ça.
+              </p>
+            </FalcoEmptyState>
+          )}
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
 
 import { setInstallmentStatus } from "./actions";
+import { SaleFormDialog } from "./sale-form-dialog";
 
 const STATUS_LABELS: Record<string, string> = {
   upcoming: "À venir",
@@ -51,11 +52,14 @@ export function SaleDetailDrawer({
       <DrawerContent>
         <div className="flex items-center justify-between border-b border-border p-5">
           <DrawerTitle className="text-lg font-bold">{sale.clientName}</DrawerTitle>
-          <DrawerClose asChild>
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Fermer">
-              ×
-            </Button>
-          </DrawerClose>
+          <div className="flex items-center gap-1">
+            <SaleFormDialog offers={offers} setters={setters} sale={sale} trigger={<Button type="button" variant="outline" size="sm">Modifier</Button>} />
+            <DrawerClose asChild>
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Fermer">
+                ×
+              </Button>
+            </DrawerClose>
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5">
