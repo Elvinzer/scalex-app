@@ -50,9 +50,7 @@ export function Sparkline({
       />
       {points.map((point, index) => (
         <circle key={index} cx={point.x} cy={point.y} r={5} fill="transparent">
-          <title>
-            {point.label} — {point.value}
-          </title>
+          <title>{`${point.label} — ${point.value}`}</title>
         </circle>
       ))}
     </svg>
