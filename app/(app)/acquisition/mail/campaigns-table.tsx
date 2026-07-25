@@ -4,23 +4,18 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { getHealthTier } from "@/lib/diagnostic/health-tier";
+import { ItemScoreButton } from "@/components/item-score-button";
+import type { ChatContext } from "@/lib/chat-context";
+import type { FalcoSkinKey } from "@/lib/falco-skins";
 import { computeCampaignScore, computeEmailCampaignMetrics } from "@/lib/email-campaigns/metrics";
 import type { EmailCampaignRow } from "@/lib/email-campaigns/types";
 import { formatEur } from "@/lib/currency";
 import { formatPercent } from "@/lib/setting/funnel";
-import { cn } from "@/lib/utils";
 
 import { removeEmailCampaign } from "./actions";
 import { CampaignFormDialog } from "./campaign-form-dialog";
 
 type SortKey = "sentAt" | "sends" | "openRate" | "ctr" | "revenueAttributed" | "score";
-
-const TIER_CLASS: Record<"rouge" | "ambre" | "vert", string> = {
-  rouge: "bg-state-critical-bg text-state-critical",
-  ambre: "bg-state-caution-bg text-state-caution",
-  vert: "bg-state-healthy-bg text-state-healthy",
-};
 
 // "Top" badge = best CTR among this month's sends — a light nudge, not a
 // score; ties or a single campaign this month just don't get a badge race.
@@ -39,7 +34,17 @@ function bestCtrIdThisMonth(campaigns: EmailCampaignRow[]): string | null {
   return bestId;
 }
 
-export function CampaignsTable({ campaigns }: { campaigns: EmailCampaignRow[] }) {
+export function CampaignsTable({
+  campaigns,
+  agentName,
+  agentIconKey,
+  falcoSkin,
+}: {
+  campaigns: EmailCampaignRow[];
+  agentName?: string;
+  agentIconKey?: string;
+  falcoSkin?: FalcoSkinKey | null;
+}) {
   const [, startTransition] = useTransition();
   const [sortKey, setSortKey] = useState<SortKey>("sentAt");
   const [sortDesc, setSortDesc] = useState(true);
@@ -144,9 +149,16 @@ export function CampaignsTable({ campaigns }: { campaigns: EmailCampaignRow[] })
                 {score === null ? (
                   <span className="text-muted-foreground">—</span>
                 ) : (
-                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold tabular-nums", TIER_CLASS[getHealthTier(score).tier])}>
-                    {score}
-                  </span>
+                  <ItemScoreButton
+                    score={score}
+                    chatContext={
+                      { topicType: "lever", topicKey: "email_marketing", topicLabel: "Emailing", sourcePage: "acquisition_mail_score" } satisfies ChatContext
+                    }
+                    seedQuestion={`Pourquoi ma campagne "${campaign.name}" a un score de ${score}/100 ? Comment je peux l'améliorer ?`}
+                    agentName={agentName}
+                    agentIconKey={agentIconKey}
+                    falcoSkin={falcoSkin}
+                  />
                 )}
               </td>
               <td className="p-3">

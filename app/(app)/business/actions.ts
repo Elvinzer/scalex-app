@@ -64,5 +64,7 @@ export async function saveBusinessSection(
   revalidatePath("/business");
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
+  revalidatePath("/ventes/produits");
+  revalidatePath("/ventes/upsell");
   return { error: null };
 }

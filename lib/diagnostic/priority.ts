@@ -1,6 +1,5 @@
 import type { BusinessProfileData } from "@/lib/business/types";
 import { formatEur } from "@/lib/currency";
-import type { LeverOpportunity } from "@/lib/levers/opportunities";
 
 import type { DiagnosticPoint } from "./cascade";
 import { computeHealthScore } from "./cascade";
@@ -31,6 +30,29 @@ const EFFORT_LABEL: Record<Effort, string> = { faible: "faible", moyen: "moyen",
 const PRIORITY_THRESHOLD = 35;
 const MAX_RECOMMENDATIONS = 3;
 
+// Normalized shape a caller must map its lever candidates into before
+// calling computePriorityScores — decouples this module from
+// lib/levers/opportunities.ts's two distinct shapes (LeverOpportunity for
+// absent levers, LeverWatchItem for active-but-underperforming ones) so
+// each page can choose which pool of levers it wants scored: Diagnostic's
+// hero still recommends absent levers ("commence par…", starting something
+// new is in scope there); Dashboard's "à corriger en priorité" only wants
+// levers already in place (see isActive below), never a "go set this up"
+// suggestion.
+export type LeverCandidateInput = {
+  leverKey: string;
+  label: string;
+  category: string;
+  impactAmountEur: number | null;
+  effort: Effort;
+  healthScore: number;
+  // true = already active, just underperforming (an entry from toWatch);
+  // false = not yet implemented at all (an entry from toImplement). Only
+  // changes the "why" wording (already-in-place vs not-yet-in-place
+  // phrasing) — the scoring formula itself is identical either way.
+  isActive: boolean;
+};
+
 export type PriorityCandidate = {
   type: "metric" | "lever";
   key: string; // MetricKey for "metric", leverKey for "lever"
@@ -39,9 +61,9 @@ export type PriorityCandidate = {
   monthlyGainEur: number; // never null here — null-impact candidates are excluded before this type exists
   effort: Effort;
   extraClientsPerMonth: number | null; // metric only; levers have no comparable field
-  healthScore: number; // getHealthTier-compatible 0-100; fixed at 0 for an absent lever (no measured rate to place it)
+  healthScore: number; // getHealthTier-compatible 0-100
+  isActive: boolean; // always true for "metric" — a measured funnel rate is definitionally already in place
   sourceMetricPoint?: DiagnosticPoint;
-  sourceLeverOpportunity?: LeverOpportunity;
 };
 
 export type PriorityFactorHit = {
@@ -73,7 +95,7 @@ function resolveReasonTemplate(template: string, tokens: Record<string, string |
   return template.replace(/{{(\w+)}}/g, (match, key: string) => (key in tokens ? String(tokens[key]) : match));
 }
 
-function collectCandidates(points: DiagnosticPoint[], discoveryOpportunities: LeverOpportunity[]): PriorityCandidate[] {
+function collectCandidates(points: DiagnosticPoint[], leverCandidates: LeverCandidateInput[]): PriorityCandidate[] {
   const metricCandidates: PriorityCandidate[] = points
     .filter((point) => point.monthlyGain !== null)
     .map((point) => ({
@@ -85,24 +107,25 @@ function collectCandidates(points: DiagnosticPoint[], discoveryOpportunities: Le
       effort: METRIC_EFFORT[point.key],
       extraClientsPerMonth: point.extraClients,
       healthScore: computeHealthScore(point.currentRatePercent / 100, point.benchmarkRatePercent / 100, point.status),
+      isActive: true,
       sourceMetricPoint: point,
     }));
 
-  const leverCandidates: PriorityCandidate[] = discoveryOpportunities
-    .filter((opportunity) => opportunity.impactAmountEur !== null)
-    .map((opportunity) => ({
+  const leverPriorityCandidates: PriorityCandidate[] = leverCandidates
+    .filter((lever) => lever.impactAmountEur !== null)
+    .map((lever) => ({
       type: "lever" as const,
-      key: opportunity.leverKey,
-      label: opportunity.label,
-      category: opportunity.category,
-      monthlyGainEur: opportunity.impactAmountEur as number,
-      effort: opportunity.effort,
+      key: lever.leverKey,
+      label: lever.label,
+      category: lever.category,
+      monthlyGainEur: lever.impactAmountEur as number,
+      effort: lever.effort,
       extraClientsPerMonth: null,
-      healthScore: 0,
-      sourceLeverOpportunity: opportunity,
+      healthScore: lever.healthScore,
+      isActive: lever.isActive,
     }));
 
-  return [...metricCandidates, ...leverCandidates];
+  return [...metricCandidates, ...leverPriorityCandidates];
 }
 
 // Dispatch by closed enum + jsonb params, never eval'd — same precedent as
@@ -173,14 +196,13 @@ function evaluateRule(
 }
 
 function buildWhy(candidate: PriorityCandidate, factorHits: PriorityFactorHit[]): string {
-  const leadSentence =
-    candidate.type === "metric"
-      ? `C'est ≈${formatEur(candidate.monthlyGainEur)}/mois à récupérer${
-          candidate.extraClientsPerMonth ? ` (+${candidate.extraClientsPerMonth} clients/mois)` : ""
-        }.`
-      : `${candidate.label} n'est pas encore en place : ≈${formatEur(candidate.monthlyGainEur)}/mois de potentiel estimé.`;
+  const leadSentence = candidate.isActive
+    ? `C'est ≈${formatEur(candidate.monthlyGainEur)}/mois à récupérer${
+        candidate.extraClientsPerMonth ? ` (+${candidate.extraClientsPerMonth} clients/mois)` : ""
+      }.`
+    : `${candidate.label} n'est pas encore en place : ≈${formatEur(candidate.monthlyGainEur)}/mois de potentiel estimé.`;
 
-  const effortSentence = `Effort ${EFFORT_LABEL[candidate.effort]} pour ${candidate.type === "metric" ? "le corriger" : "le mettre en place"}.`;
+  const effortSentence = `Effort ${EFFORT_LABEL[candidate.effort]} pour ${candidate.isActive ? "le corriger" : "le mettre en place"}.`;
 
   const strongestHit = [...factorHits].sort((a, b) => Math.abs(b.factor - 1) - Math.abs(a.factor - 1))[0];
 
@@ -189,18 +211,18 @@ function buildWhy(candidate: PriorityCandidate, factorHits: PriorityFactorHit[])
 
 export function computePriorityScores({
   points,
-  discoveryOpportunities,
+  leverCandidates,
   businessProfile,
   monthlyRevenueEur,
   rules,
 }: {
   points: DiagnosticPoint[];
-  discoveryOpportunities: LeverOpportunity[];
+  leverCandidates: LeverCandidateInput[];
   businessProfile: BusinessProfileData;
   monthlyRevenueEur: number;
   rules: PriorityRule[];
 }): { recommendations: PriorityRecommendation[] } {
-  const candidates = collectCandidates(points, discoveryOpportunities);
+  const candidates = collectCandidates(points, leverCandidates);
   if (candidates.length === 0) return { recommendations: [] };
 
   const maxGain = Math.max(...candidates.map((c) => c.monthlyGainEur));

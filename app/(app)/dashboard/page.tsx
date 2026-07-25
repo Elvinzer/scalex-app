@@ -25,6 +25,19 @@ import { monthDateRange } from "@/lib/date-range";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 const PERIOD_MONTHS = 3;
+// buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
+// swap — excluded here so Dashboard's existing grid doesn't silently gain a
+// 7th card nobody asked for on this page.
+const DASHBOARD_METRIC_CARD_KEYS = [
+  "revenue",
+  "new-customers",
+  "leads",
+  "bookings",
+  "sales-page-conversion",
+  "checkout-visitors",
+  "closing-rate",
+  "average-sale",
+];
 
 export default async function DashboardPage({
   searchParams,
@@ -55,7 +68,7 @@ export default async function DashboardPage({
     allClosingEntries,
     allMonthlyRows,
     isStripeConnected: Boolean(user?.stripeConnectId),
-  });
+  }).filter((card) => DASHBOARD_METRIC_CARD_KEYS.includes(card.key));
 
   // Same engine and same default period as /diagnostic, so "the goulot
   // actuel" is identical on both pages — see lib/diagnostic/cascade.ts.
@@ -77,12 +90,11 @@ export default async function DashboardPage({
   if (!hasAnyMonthlyRow) unlockHints.push("Remplis au moins un mois dans Datas");
   if (dealPrice.price === null) unlockHints.push("Renseigne ton offre principale dans Mon business");
 
-  // Top 3 Découverte opportunities (same engine/ranking as the Découverte tab
-  // and /overview's own summary widget — already impact-sorted desc) folded
-  // into the same "manque à gagner" figure as the 3 cascade bottlenecks
-  // above, so the hero number reflects everything the app is currently
-  // flagging, not just the 5-metric funnel.
-  const { toImplement: discoveryOpportunities } = hasAnyMonthlyRow
+  // Top 3 active-but-underperforming levers (toWatch, best-first) — NOT
+  // toImplement (absent levers). "À corriger en priorité" means improving
+  // something already in place (mail, conversion rates, etc.), never a
+  // "go set this up" suggestion — that's Découverte's job, on /diagnostic.
+  const { toWatch } = hasAnyMonthlyRow
     ? await computeLeverOpportunities({
         accountId,
         businessProfile,
@@ -91,8 +103,8 @@ export default async function DashboardPage({
         cashContractedTotal,
         periodMonths: PERIOD_MONTHS,
       })
-    : { toImplement: [] };
-  const topDiscoveryOpportunities = discoveryOpportunities.slice(0, 3);
+    : { toWatch: [] };
+  const topActiveLevers = [...toWatch].sort((a, b) => b.score - a.score).slice(0, 3);
 
   // Same engine as /diagnostic (lib/diagnostic/priority.ts) so the #1
   // "goulot actuel" agrees between the two pages — only rank 1 is
@@ -100,7 +112,26 @@ export default async function DashboardPage({
   // (nothing in the brief asks for the whole top-3 to be re-ranked).
   const monthlyRevenueEur = cashContractedTotal / PERIOD_MONTHS;
   const { recommendations } = hasAnyMonthlyRow
-    ? computePriorityScores({ points: allPoints, discoveryOpportunities, businessProfile, monthlyRevenueEur, rules: priorityRules })
+    ? computePriorityScores({
+        points: allPoints,
+        // effort defaults to "faible": tuning a lever that's already running
+        // is inherently less work than building it from scratch (the
+        // question levers_catalog.effort actually answers) — no per-lever
+        // "how hard to improve" data exists, so this is a deliberate,
+        // documented calibration rather than a real per-lever figure.
+        leverCandidates: toWatch.map((watch) => ({
+          leverKey: watch.leverKey,
+          label: watch.label,
+          category: watch.category,
+          impactAmountEur: watch.impactAmountEur,
+          effort: "faible" as const,
+          healthScore: watch.score,
+          isActive: true,
+        })),
+        businessProfile,
+        monthlyRevenueEur,
+        rules: priorityRules,
+      })
     : { recommendations: [] };
   const topRecommendation = recommendations[0] ?? null;
 
@@ -111,9 +142,13 @@ export default async function DashboardPage({
     .filter((p) => p.key !== topRecommendation?.candidate.sourceMetricPoint?.key)
     .slice(0, topRecommendation ? 2 : 3);
 
+  // "Manque à gagner" = improvements possible on elements already in place
+  // (the cascade bottlenecks + active-but-underperforming levers) — NOT
+  // Découverte's absent-lever "possibilities", which never counted toward
+  // something concrete existing yet.
   const totalMonthlyLoss =
     (points.some((p) => p.monthlyGain === null) ? 0 : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0)) +
-    topDiscoveryOpportunities.reduce((sum, o) => sum + (o.impactAmountEur ?? 0), 0);
+    topActiveLevers.reduce((sum, w) => sum + (w.impactAmountEur ?? 0), 0);
 
   // The Dashboard's single content Falco (the floating chat bubble is the
   // one permitted exception). Pose + line reflect the same three states the
@@ -231,6 +266,7 @@ export default async function DashboardPage({
                     label: topRecommendation.candidate.label,
                     category: topRecommendation.candidate.category,
                     monthlyGainEur: topRecommendation.candidate.monthlyGainEur,
+                    isActive: topRecommendation.candidate.isActive,
                   }}
                 />
               ) : (

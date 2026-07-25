@@ -171,7 +171,18 @@ export default async function DiagnosticPage({
   const monthlyRevenueEur = cashContractedTotal / months.length;
   const { recommendations } = computePriorityScores({
     points,
-    discoveryOpportunities,
+    // Absent levers stay in scope here — Diagnostic's hero legitimately
+    // suggests starting something new ("commence par…"), unlike Dashboard's
+    // "à corriger en priorité" which only wants already-active levers.
+    leverCandidates: discoveryOpportunities.map((opportunity) => ({
+      leverKey: opportunity.leverKey,
+      label: opportunity.label,
+      category: opportunity.category,
+      impactAmountEur: opportunity.impactAmountEur,
+      effort: opportunity.effort,
+      healthScore: 0,
+      isActive: false,
+    })),
     businessProfile,
     monthlyRevenueEur,
     rules: priorityRules,

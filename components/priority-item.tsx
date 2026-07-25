@@ -5,7 +5,7 @@ import { formatEur } from "@/lib/currency";
 import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { cn } from "@/lib/utils";
 
-export type LeverWinner = { leverKey: string; label: string; category: string; monthlyGainEur: number };
+export type LeverWinner = { leverKey: string; label: string; category: string; monthlyGainEur: number; isActive: boolean };
 
 type PriorityItemProps =
   | { rank: 1 | 2 | 3; point: DiagnosticPoint; leverWinner?: undefined }
@@ -39,7 +39,9 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
             <div>
               <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{leverWinner.category}</p>
               <p className="mt-0.5 font-bold">{leverWinner.label}</p>
-              <p className="mt-1 text-sm font-bold text-muted-foreground">Pas encore en place.</p>
+              <p className="mt-1 text-sm font-bold text-muted-foreground">
+                {leverWinner.isActive ? "En place, mais sous le benchmark." : "Pas encore en place."}
+              </p>
             </div>
           </div>
 

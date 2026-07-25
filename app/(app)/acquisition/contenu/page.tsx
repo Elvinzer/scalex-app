@@ -108,7 +108,15 @@ export default async function ContenuPage() {
         </div>
       </div>
 
-      <PostsTable posts={posts} platforms={platforms} topPostId={topPost?.id ?? null} contentBenchmarks={contentBenchmarks} />
+      <PostsTable
+        posts={posts}
+        platforms={platforms}
+        topPostId={topPost?.id ?? null}
+        contentBenchmarks={contentBenchmarks}
+        agentName={agent?.name}
+        agentIconKey={agent?.falcoSkinIcon}
+        falcoSkin={falcoSkin}
+      />
     </div>
   );
 }

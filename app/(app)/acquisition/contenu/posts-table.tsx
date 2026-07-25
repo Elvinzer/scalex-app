@@ -4,8 +4,10 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ItemScoreButton } from "@/components/item-score-button";
+import type { ChatContext } from "@/lib/chat-context";
+import type { FalcoSkinKey } from "@/lib/falco-skins";
 import type { ContentMetricKey } from "@/lib/diagnostic/content-metrics";
-import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { computePostRates, computePostScore } from "@/lib/content-posts/rates";
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import { formatPercent } from "@/lib/setting/funnel";
@@ -18,22 +20,22 @@ type SortKey = "publishedAt" | "views" | "engagementRate" | "clickRate" | "viewT
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
-const TIER_CLASS: Record<"rouge" | "ambre" | "vert", string> = {
-  rouge: "bg-state-critical-bg text-state-critical",
-  ambre: "bg-state-caution-bg text-state-caution",
-  vert: "bg-state-healthy-bg text-state-healthy",
-};
-
 export function PostsTable({
   posts,
   platforms,
   topPostId,
   contentBenchmarks,
+  agentName,
+  agentIconKey,
+  falcoSkin,
 }: {
   posts: ContentPostRow[];
   platforms: string[];
   topPostId: string | null;
   contentBenchmarks: Record<ContentMetricKey, number>;
+  agentName?: string;
+  agentIconKey?: string;
+  falcoSkin?: FalcoSkinKey | null;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
   const [sortDesc, setSortDesc] = useState(true);
@@ -149,9 +151,16 @@ export function PostsTable({
                 {score === null ? (
                   <span className="text-muted-foreground">—</span>
                 ) : (
-                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold tabular-nums", TIER_CLASS[getHealthTier(score).tier])}>
-                    {score}
-                  </span>
+                  <ItemScoreButton
+                    score={score}
+                    chatContext={
+                      { topicType: "lever", topicKey: "content", topicLabel: "Contenu", sourcePage: "acquisition_contenu_score" } satisfies ChatContext
+                    }
+                    seedQuestion={`Pourquoi mon post "${post.title}" a un score de ${score}/100 ? Comment je peux l'améliorer ?`}
+                    agentName={agentName}
+                    agentIconKey={agentIconKey}
+                    falcoSkin={falcoSkin}
+                  />
                 )}
               </td>
               <td className="p-3">

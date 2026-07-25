@@ -170,8 +170,14 @@ export const AgentChatThread = forwardRef<
     // redirect chips in assistant messages (see renderMarkdownLite above).
     agentNameToKey?: Record<string, string>;
     onSelectAgent?: (agentKey: string) => void;
+    // A specific opening question to ask on top of whatever's already in the
+    // thread (e.g. "pourquoi mon post X a un score de 62/100 ?") — used by
+    // per-item score badges (posts-table.tsx/campaigns-table.tsx) that open
+    // this SAME persisted lever thread rather than a one-off conversation.
+    // Fires exactly once per mount, after history (if any) has loaded.
+    seedQuestion?: string;
   }
->(function AgentChatThread({ context, followupKey, period, mode = null, falcoSkin, agentNameToKey, onSelectAgent }, ref) {
+>(function AgentChatThread({ context, followupKey, period, mode = null, falcoSkin, agentNameToKey, onSelectAgent, seedQuestion }, ref) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -195,7 +201,10 @@ export const AgentChatThread = forwardRef<
     if (isPersisted) {
       void (async () => {
         const history = await loadAgentChatHistory(storageKey);
-        if (history.length > 0) {
+        if (seedQuestion) {
+          setMessages(history);
+          void send([...history, { role: "user", content: seedQuestion }]);
+        } else if (history.length > 0) {
           setMessages(history);
         } else {
           void send([]);
@@ -204,7 +213,7 @@ export const AgentChatThread = forwardRef<
       return;
     }
 
-    void send([]);
+    void send(seedQuestion ? [{ role: "user", content: seedQuestion }] : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

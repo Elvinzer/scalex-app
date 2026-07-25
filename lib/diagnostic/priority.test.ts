@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { EMPTY_BUSINESS_PROFILE, type BusinessProfileData, type Offer } from "@/lib/business/types";
-import type { LeverOpportunity } from "@/lib/levers/opportunities";
 
 import type { DiagnosticPoint } from "./cascade";
-import { computePriorityScores } from "./priority";
+import { computePriorityScores, type LeverCandidateInput } from "./priority";
 import type { PriorityRule } from "./priority-rules";
 
 const RULES: PriorityRule[] = [
@@ -62,13 +61,15 @@ function point(overrides: Partial<DiagnosticPoint> & Pick<DiagnosticPoint, "key"
   };
 }
 
-function opportunity(overrides: Partial<LeverOpportunity> & Pick<LeverOpportunity, "leverKey">): LeverOpportunity {
+// Absent-lever candidate (mirrors what /diagnostic passes — isActive: false).
+function absentLever(overrides: Partial<LeverCandidateInput> & Pick<LeverCandidateInput, "leverKey">): LeverCandidateInput {
   return {
     label: "Test lever",
     category: "acquisition",
     effort: "moyen",
     impactAmountEur: 1000,
-    impactExplanation: "",
+    healthScore: 0,
+    isActive: false,
     ...overrides,
   };
 }
@@ -82,7 +83,7 @@ describe("computePriorityScores", () => {
   it("demotes a big-€ ads opportunity below the threshold when monthly revenue is too low", () => {
     const { recommendations } = computePriorityScores({
       points: [],
-      discoveryOpportunities: [opportunity({ leverKey: "ads", impactAmountEur: 5000, effort: "moyen" })],
+      leverCandidates: [absentLever({ leverKey: "ads", impactAmountEur: 5000, effort: "moyen" })],
       businessProfile: EMPTY_BUSINESS_PROFILE,
       monthlyRevenueEur: 1000,
       rules: RULES,
@@ -94,7 +95,7 @@ describe("computePriorityScores", () => {
   it("demotes an upsell opportunity below the threshold when there is no main offer", () => {
     const { recommendations } = computePriorityScores({
       points: [],
-      discoveryOpportunities: [opportunity({ leverKey: "upsell_ascension", impactAmountEur: 5000, effort: "moyen" })],
+      leverCandidates: [absentLever({ leverKey: "upsell_ascension", impactAmountEur: 5000, effort: "moyen" })],
       businessProfile: EMPTY_BUSINESS_PROFILE,
       monthlyRevenueEur: 10000,
       rules: RULES,
@@ -106,9 +107,9 @@ describe("computePriorityScores", () => {
   it("does not demote the same ads/upsell opportunities once revenue and main offer are present", () => {
     const { recommendations } = computePriorityScores({
       points: [],
-      discoveryOpportunities: [
-        opportunity({ leverKey: "ads", impactAmountEur: 5000, effort: "moyen" }),
-        opportunity({ leverKey: "upsell_ascension", impactAmountEur: 4000, effort: "moyen" }),
+      leverCandidates: [
+        absentLever({ leverKey: "ads", impactAmountEur: 5000, effort: "moyen" }),
+        absentLever({ leverKey: "upsell_ascension", impactAmountEur: 4000, effort: "moyen" }),
       ],
       businessProfile: withMainOffer(),
       monthlyRevenueEur: 10000,
@@ -124,7 +125,7 @@ describe("computePriorityScores", () => {
     const nearPoint = point({ key: "responseRate", status: "caution", currentRatePercent: 29, benchmarkRatePercent: 30, monthlyGain: 400 });
     const { recommendations } = computePriorityScores({
       points: [nearPoint],
-      discoveryOpportunities: [],
+      leverCandidates: [],
       businessProfile: EMPTY_BUSINESS_PROFILE,
       monthlyRevenueEur: 10000,
       rules: RULES,
@@ -140,7 +141,7 @@ describe("computePriorityScores", () => {
     const closingPoint = point({ key: "closingRate", category: "Closing", currentRatePercent: 5, benchmarkRatePercent: 20, monthlyGain: 500 });
     const { recommendations } = computePriorityScores({
       points: [settingPoint, closingPoint],
-      discoveryOpportunities: [],
+      leverCandidates: [],
       businessProfile: EMPTY_BUSINESS_PROFILE,
       monthlyRevenueEur: 10000,
       rules: RULES,
@@ -155,7 +156,7 @@ describe("computePriorityScores", () => {
     const quickWinPoint = point({ key: "responseRate", currentRatePercent: 10, benchmarkRatePercent: 30, monthlyGain: 1000 });
     const { recommendations } = computePriorityScores({
       points: [quickWinPoint],
-      discoveryOpportunities: [],
+      leverCandidates: [],
       businessProfile: EMPTY_BUSINESS_PROFILE,
       monthlyRevenueEur: 10000,
       rules: doubleBoostRules,
@@ -166,11 +167,11 @@ describe("computePriorityScores", () => {
 
   it("returns exactly one recommendation when only one candidate clears the threshold", () => {
     const strongPoint = point({ key: "responseRate", currentRatePercent: 10, benchmarkRatePercent: 30, monthlyGain: 3000 });
-    const weakLever = opportunity({ leverKey: "ads", impactAmountEur: 5000, effort: "moyen" }); // demoted by revenue gate
+    const weakLever = absentLever({ leverKey: "ads", impactAmountEur: 5000, effort: "moyen" }); // demoted by revenue gate
 
     const { recommendations } = computePriorityScores({
       points: [strongPoint],
-      discoveryOpportunities: [weakLever],
+      leverCandidates: [weakLever],
       businessProfile: EMPTY_BUSINESS_PROFILE,
       monthlyRevenueEur: 1000,
       rules: RULES,
@@ -187,11 +188,11 @@ describe("computePriorityScores", () => {
     // Much bigger raw € than the point above, so it dominates gain_normalisé
     // and leaves the point's own normalized gain tiny — on top of being
     // gated by low revenue itself.
-    const gatedLever = opportunity({ leverKey: "ads", impactAmountEur: 5000, effort: "eleve" });
+    const gatedLever = absentLever({ leverKey: "ads", impactAmountEur: 5000, effort: "eleve" });
 
     const { recommendations } = computePriorityScores({
       points: [nearBenchmarkPoint],
-      discoveryOpportunities: [gatedLever],
+      leverCandidates: [gatedLever],
       businessProfile: EMPTY_BUSINESS_PROFILE,
       monthlyRevenueEur: 1000,
       rules: RULES,
@@ -202,11 +203,11 @@ describe("computePriorityScores", () => {
 
   it("never treats a null-impact metric point or lever opportunity as a candidate", () => {
     const unpriced = point({ key: "responseRate", monthlyGain: null });
-    const unestimated = opportunity({ leverKey: "seo_blog", impactAmountEur: null });
+    const unestimated = absentLever({ leverKey: "seo_blog", impactAmountEur: null });
 
     const { recommendations } = computePriorityScores({
       points: [unpriced],
-      discoveryOpportunities: [unestimated],
+      leverCandidates: [unestimated],
       businessProfile: EMPTY_BUSINESS_PROFILE,
       monthlyRevenueEur: 10000,
       rules: RULES,

@@ -176,7 +176,7 @@ export default async function MailPage() {
         </div>
       </div>
 
-      <CampaignsTable campaigns={campaigns} />
+      <CampaignsTable campaigns={campaigns} agentName={agent?.name} agentIconKey={agent?.falcoSkinIcon} falcoSkin={falcoSkin} />
     </div>
   );
 }

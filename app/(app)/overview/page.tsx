@@ -1,6 +1,5 @@
 import { after } from "next/server";
 
-import { Falco } from "@/components/falco/falco";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { MetricSummaryCard } from "@/components/metric-summary-card";
 import { OverviewActiveLeverCard } from "@/components/overview-active-lever-card";
@@ -11,10 +10,9 @@ import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import { getContentPosts } from "@/lib/content-posts/queries";
-import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { buildMetricCards, inRange } from "@/lib/dashboard/metrics";
-import { computeDiagnosticPoints, computeMetricHealthCards, computeMetricSummaries } from "@/lib/diagnostic/cascade";
+import { computeMetricHealthCards, computeMetricSummaries } from "@/lib/diagnostic/cascade";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { aggregateContentTotals, computeContentMetricSummaries, getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-metrics";
 import { lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
@@ -29,7 +27,7 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { OverviewInteractive } from "./overview-interactive";
 import { PeriodSelect } from "./period-select";
 
-const METRIC_CARD_KEYS = ["revenue", "leads", "sales-page-conversion", "closing-rate", "average-sale"];
+const METRIC_CARD_KEYS = ["revenue", "show-up-rate", "sales-page-conversion", "closing-rate", "average-sale"];
 
 function periodToMonths(period: string): MonthWindow[] {
   const all = lastCompletedMonths(12);
@@ -96,7 +94,7 @@ export default async function OverviewPage({
 
   // Bloc 2/3/4 — same aggregation engine as Dashboard/Diagnostic for the
   // selected period, so numbers agree everywhere.
-  const { settingTotals, closingTotals, cashContractedTotal, hasAnyMonthlyRow } = aggregatePeriodTotals({
+  const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
     months,
     allMonthlyRows,
     allSettingEntries,
@@ -113,10 +111,6 @@ export default async function OverviewPage({
   const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks });
   const contentTotals = aggregateContentTotals(months, allContentPosts);
   const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
-
-  const bottleneckPoint = hasAnyMonthlyRow
-    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })[0]
-    : undefined;
 
   // Per-month series for the main chart — reuses the exact same resolve
   // functions as buildMetricCards/aggregatePeriodTotals, just kept per-month
@@ -190,32 +184,7 @@ export default async function OverviewPage({
         </div>
 
         <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-3">
-            <h2 className="text-base font-bold">Ton goulot actuel</h2>
-            {bottleneckPoint ? (
-              <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-4 px-6 py-4">
-                <Falco pose="alert" size="xs" animate="enter" className="hidden sm:flex" />
-                <div className="flex flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                  <p className="text-xs font-bold text-mist/70">{bottleneckPoint.label}</p>
-                  <p className="gradient-text text-2xl font-bold tracking-[-0.01em] tabular-nums">
-                    {bottleneckPoint.monthlyGain === null ? "—" : formatEur(bottleneckPoint.monthlyGain)}
-                  </p>
-                  <p className="text-xs text-mist/60">manque à gagner détecté</p>
-                </div>
-                <Button size="sm" asChild>
-                  <a href={`/diagnostic?open=${bottleneckPoint.key}`}>Améliorer →</a>
-                </Button>
-              </div>
-            ) : (
-              <FalcoEmptyState title="Aucun goulot détecté sur cette période" showFalco={false}>
-                <p className="text-sm font-bold text-muted-foreground">Tout est au-dessus du benchmark. Bien joué.</p>
-              </FalcoEmptyState>
-            )}
-          </div>
-
-          {/* Fills the empty space left under the (short) goulot banner next
-              to the (tall) funnel — same section as before, just relocated.
-              Same gauge/component as Diagnostic's "Tout ton business en un
+          {/* Same gauge/component as Diagnostic's "Tout ton business en un
               coup d'œil" (Bloc 3), so you can spot which pillar to improve
               without leaving Overview. */}
           <div>

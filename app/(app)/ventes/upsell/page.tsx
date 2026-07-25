@@ -23,6 +23,7 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
 
 import { activateUpsellLever, toggleUpsellStarterStep } from "./actions";
+import { AddUpsellDialog } from "./add-upsell-dialog";
 
 const LEVER_KEY = "upsell_ascension";
 // Same 20% reference already shown on the aggregate take-rate tile below —
@@ -141,9 +142,12 @@ export default async function UpsellPage() {
         falcoSkin={falcoSkin}
       />
 
-      <div>
-        <h1 className="text-3xl font-bold">Upsell</h1>
-        <p className="mt-1 text-muted-foreground">Le suivi de tes offres complémentaires après la vente principale.</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Upsell</h1>
+          <p className="mt-1 text-muted-foreground">Le suivi de tes offres complémentaires après la vente principale.</p>
+        </div>
+        <AddUpsellDialog currentSales={profile.sales} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">

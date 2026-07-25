@@ -292,7 +292,36 @@ export function buildMetricCards({
     });
   }
 
-  // 6. Panier moyen — resolved cash collected (same source as card 1) ÷ real
+  // 6. Taux de show up — same closingRates already computed above (card 5),
+  // just a different field of it. Gated on hasAnyClosingData like closing
+  // rate: showUpRate depends on both callsAttended (closing) and callsBooked
+  // (setting), but closing data is the one actually missing when neither is
+  // filled in yet.
+  if (!hasAnyClosingData) {
+    cards.push({
+      key: "show-up-rate",
+      label: "Taux de show up",
+      href: "/datas",
+      status: "missing",
+      reason: "Rien saisi pour l'instant",
+      ctaLabel: "Remplir dans Datas",
+    });
+  } else {
+    const delta = rateDelta(current.closingRates.showUpRate, previous.closingRates.showUpRate);
+    cards.push({
+      key: "show-up-rate",
+      label: "Taux de show up",
+      href: "/datas",
+      status: "ok",
+      valueLabel: current.closingRates.showUpRate === null ? "—" : formatPercent(current.closingRates.showUpRate),
+      deltaLabel: delta?.label ?? null,
+      deltaDirection: delta?.direction ?? null,
+      sparklineValues: resolved.map((r) => r.closingRates.showUpRate ?? 0),
+      sparklineLabels: resolved.map((r) => r.bucket.label),
+    });
+  }
+
+  // 7. Panier moyen — resolved cash collected (same source as card 1) ÷ real
   // closed-sales count, so it stays consistent with whichever source (Stripe
   // or manual) is currently backing the revenue figure.
   if (current.cash.amount === null || current.closingTotals.salesClosed === 0) {

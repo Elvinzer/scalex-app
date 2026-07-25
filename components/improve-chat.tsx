@@ -27,6 +27,7 @@ export function ImproveChat({
   agentName,
   agentIconKey,
   falcoSkin,
+  seedQuestion,
 }: {
   context: ChatContext;
   followupKey?: string | null;
@@ -39,6 +40,9 @@ export function ImproveChat({
   // route, or the floating bubble from usePathname()) via lib/falco-skins.ts.
   // Never affects ChatContext/the agent resolved server-side.
   falcoSkin?: FalcoSkinKey | null;
+  // See AgentChatThread's own doc — an opening question to fire on top of
+  // this thread (e.g. a specific post/campaign's score), asked once on open.
+  seedQuestion?: string;
 }) {
   const isPersisted = context.topicType !== "metric";
   const threadRef = useRef<AgentChatThreadHandle>(null);
@@ -84,7 +88,15 @@ export function ImproveChat({
         </div>
       </div>
 
-      <AgentChatThread ref={threadRef} context={context} followupKey={followupKey} period={period} mode={mode} falcoSkin={falcoSkin} />
+      <AgentChatThread
+        ref={threadRef}
+        context={context}
+        followupKey={followupKey}
+        period={period}
+        mode={mode}
+        falcoSkin={falcoSkin}
+        seedQuestion={seedQuestion}
+      />
     </div>
   );
 }
