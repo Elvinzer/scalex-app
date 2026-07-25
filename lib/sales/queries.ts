@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { sales } from "@/db/schema";
@@ -28,10 +29,17 @@ function toRow(row: typeof sales.$inferSelect): SaleRow {
   };
 }
 
-export async function getSales(userId: string): Promise<SaleRow[]> {
+// Cached per-request (React's cache()) — buildVentesData (lib/agent/
+// lever-agent-data.ts) fans out to 3 sub-builders that each call this
+// independently for the same account within one Copilote page load; only
+// read-only page renders call getSales (no Server Action reads-then-writes
+// it in the same request), so memoizing here is safe and removes 3x
+// redundant concurrent queries — same root cause and fix as
+// lib/levers/catalog.ts's getLeversCatalog.
+export const getSales = cache(async (userId: string): Promise<SaleRow[]> => {
   const rows = await db.select().from(sales).where(eq(sales.userId, userId)).orderBy(desc(sales.saleDate));
   return rows.map(toRow);
-}
+});
 
 export async function getSalesForMonth(userId: string, year: number, month: number): Promise<SaleRow[]> {
   const from = `${year}-${String(month).padStart(2, "0")}-01`;

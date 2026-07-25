@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { leversCatalog } from "@/db/schema";
@@ -31,7 +32,17 @@ export type LeverCatalogEntry = {
 
 export const TOTAL_LEVER_COUNT_FALLBACK = 19; // used only if the catalog table is ever empty
 
-export async function getLeversCatalog(): Promise<LeverCatalogEntry[]> {
+// Cached per-request (React's cache(), same precedent as
+// lib/diagnostic/request-cache.ts's getDiagnosticKpiRawData) — this global,
+// argument-less catalog was being fetched independently by every agent
+// builder that calls computeLeverOpportunities (email_marketing, ventes→
+// upsell, ceo_vision→ads), so a single Copilote page load could fire 3+
+// identical concurrent queries against it. That redundant concurrent load
+// (combined with the identical business_levers query below) is what caused
+// /copilote's server-side data fetch to intermittently hang/error against
+// the Postgres pooler — deduping here removes the redundant load instead of
+// just papering over the symptom with a timeout.
+export const getLeversCatalog = cache(async (): Promise<LeverCatalogEntry[]> => {
   const rows = await db
     .select()
     .from(leversCatalog)
@@ -52,7 +63,7 @@ export async function getLeversCatalog(): Promise<LeverCatalogEntry[]> {
       effort: row.effort as "faible" | "moyen" | "eleve",
       sortOrder: row.sortOrder,
     }));
-}
+});
 
 // The 4 levers explicitly called out in the brief as "already in
 // business_profile, never re-ask" — each resolved from the CLOSEST real

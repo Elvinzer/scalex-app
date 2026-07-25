@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { businessLevers } from "@/db/schema";
@@ -277,6 +278,17 @@ function estimateWatchImpact(
   };
 }
 
+// Cached per-request, keyed by the plain accountId string (React's cache()
+// memoizes correctly on primitive args, unlike the object-shaped params
+// computeLeverOpportunities itself takes) — this exact query was being
+// fired once per agent builder that calls this function (up to 3x
+// concurrently per Copilote page load, for the same account), which is
+// what caused the intermittent server-side hang on /copilote (see
+// lib/levers/catalog.ts's getLeversCatalog for the full explanation).
+const getAnsweredLeverRows = cache(async (accountId: string) => {
+  return db.select().from(businessLevers).where(eq(businessLevers.userId, accountId));
+});
+
 export async function computeLeverOpportunities({
   accountId,
   businessProfile,
@@ -292,10 +304,7 @@ export async function computeLeverOpportunities({
   cashContractedTotal: number;
   periodMonths: number;
 }): Promise<{ toImplement: LeverOpportunity[]; toWatch: LeverWatchItem[] }> {
-  const [catalog, answeredRows] = await Promise.all([
-    getLeversCatalog(),
-    db.select().from(businessLevers).where(eq(businessLevers.userId, accountId)),
-  ]);
+  const [catalog, answeredRows] = await Promise.all([getLeversCatalog(), getAnsweredLeverRows(accountId)]);
   const answeredByKey = new Map(answeredRows.map((row) => [row.leverKey, row]));
 
   const toImplement: LeverOpportunity[] = [];
