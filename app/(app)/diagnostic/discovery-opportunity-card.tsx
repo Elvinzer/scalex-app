@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
-import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
+import { recordDiagnosticAddClicked, recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { LEVER_BENCHMARK_INFO } from "@/lib/levers/benchmark-info";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +43,7 @@ export function DiscoveryOpportunityCard({
   ctaLabel,
   currentValue,
   sourcePage,
+  mode,
 }: {
   leverKey: string;
   label: string;
@@ -56,6 +57,10 @@ export function DiscoveryOpportunityCard({
   currentValue?: number | null;
   // Where this card is rendered — for improve_chat_opened's source_page.
   sourcePage: string;
+  // Only Diagnostic's "Ajouter" section passes this — every other call
+  // site (RecommendedForYou's fallback, discovery-tab) leaves the agent
+  // thread's mode unset, unchanged from before.
+  mode?: "demarrer" | null;
 }) {
   const [open, setOpen] = useState(false);
   const info = LEVER_BENCHMARK_INFO[leverKey];
@@ -68,7 +73,13 @@ export function DiscoveryOpportunityCard({
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (next) void recordImproveChatOpened(chatContext);
+    if (next) {
+      void recordImproveChatOpened(chatContext);
+      // Every current call site of this card represents an absent lever
+      // shown on /diagnostic (page.tsx, recommended-for-you.tsx's fallback,
+      // discovery-tab.tsx) — always semantically a "diagnostic add" click.
+      void recordDiagnosticAddClicked(leverKey);
+    }
   }
 
   return (
@@ -120,7 +131,7 @@ export function DiscoveryOpportunityCard({
       </div>
 
       <Drawer open={open} onOpenChange={handleOpenChange}>
-        <DrawerContent>{open && <ImproveChat context={chatContext} period="3-months" gapBadge={gapBadge} />}</DrawerContent>
+        <DrawerContent>{open && <ImproveChat context={chatContext} period="3-months" gapBadge={gapBadge} mode={mode} />}</DrawerContent>
       </Drawer>
     </>
   );

@@ -303,12 +303,18 @@ export async function computeLeverOpportunities({
   closingTotals: ClosingTotals;
   cashContractedTotal: number;
   periodMonths: number;
-}): Promise<{ toImplement: LeverOpportunity[]; toWatch: LeverWatchItem[] }> {
+}): Promise<{ toImplement: LeverOpportunity[]; toWatch: LeverWatchItem[]; strong: LeverWatchItem[] }> {
   const [catalog, answeredRows] = await Promise.all([getLeversCatalog(), getAnsweredLeverRows(accountId)]);
   const answeredByKey = new Map(answeredRows.map((row) => [row.leverKey, row]));
 
   const toImplement: LeverOpportunity[] = [];
   const toWatch: LeverWatchItem[] = [];
+  // Active levers AT OR ABOVE their own benchmark — the branch every loop
+  // below silently discarded until now (only "below benchmark" was ever
+  // collected, into toWatch). Same shape/scoring as toWatch, just the
+  // flipped comparison — feeds Diagnostic's "Tes points forts" collapsed
+  // list, not a new formula.
+  const strong: LeverWatchItem[] = [];
 
   for (const lever of catalog) {
     const profileStatus = lever.readsFromProfile ? resolveFromBusinessProfile(lever.leverKey, businessProfile) : null;
@@ -342,8 +348,8 @@ export async function computeLeverOpportunities({
     if (status === "active" && lever.leverKey === "ads") {
       const stats = answeredByKey.get(lever.leverKey)?.stats ?? {};
       const result = estimateAdsEfficiency(stats, { settingTotals, closingTotals, businessProfile, cashContractedTotal, periodMonths });
-      if (result && result.efficiencyRatio < 1) {
-        toWatch.push({
+      if (result) {
+        const entry: LeverWatchItem = {
           leverKey: lever.leverKey,
           label: lever.label,
           category: lever.category,
@@ -352,7 +358,9 @@ export async function computeLeverOpportunities({
           score: scoreAgainstBenchmark(result.efficiencyRatio, 1),
           impactAmountEur: result.amountEur,
           impactExplanation: result.explanation,
-        });
+        };
+        if (result.efficiencyRatio < 1) toWatch.push(entry);
+        else strong.push(entry);
       }
     }
 
@@ -377,12 +385,24 @@ export async function computeLeverOpportunities({
           impactAmountEur: amountEur,
           impactExplanation: explanation,
         });
+      } else if (statValue !== null) {
+        strong.push({
+          leverKey: lever.leverKey,
+          label: lever.label,
+          category: lever.category,
+          statValue,
+          benchmarkValue: lever.benchmarkValue,
+          score: scoreAgainstBenchmark(statValue, lever.benchmarkValue),
+          impactAmountEur: null,
+          impactExplanation: "Ce levier est déjà au niveau du benchmark — pas de manque à gagner à chiffrer ici.",
+        });
       }
     }
   }
 
   toImplement.sort((a, b) => (b.impactAmountEur ?? -1) - (a.impactAmountEur ?? -1));
   toWatch.sort((a, b) => a.score - b.score);
+  strong.sort((a, b) => b.score - a.score);
 
-  return { toImplement, toWatch };
+  return { toImplement, toWatch, strong };
 }

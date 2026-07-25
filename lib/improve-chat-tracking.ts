@@ -112,3 +112,18 @@ export async function recordPriorityRecoClicked(leverOrMetricKey: string, rank: 
 
   await track("diagnostic_reco_clicked", userId, { lever: leverOrMetricKey, rank, priority_score: priorityScore });
 }
+
+// Diagnostic's "Ajouter" section — distinct from the generic
+// improve_chat_opened/diagnostic_reco_clicked above, so the click ratio
+// against "Optimiser" (tracked server-side in app/(app)/diagnostic/page.tsx
+// via the existing ?open=/?openLever= query params — no client wiring
+// needed there, the CTA is a plain navigating link) shows where user
+// attention actually goes.
+export async function recordDiagnosticAddClicked(leverKey: string): Promise<void> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (!data?.claims) return;
+  const userId = data.claims.sub as string;
+
+  await track("diagnostic_add_clicked", userId, { lever: leverKey });
+}

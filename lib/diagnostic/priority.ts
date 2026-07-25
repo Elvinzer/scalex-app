@@ -209,7 +209,13 @@ function buildWhy(candidate: PriorityCandidate, factorHits: PriorityFactorHit[])
   return [leadSentence, effortSentence, strongestHit?.reason].filter(Boolean).join(" ");
 }
 
-export function computePriorityScores({
+// Full scoring pass (gain × pertinence × faisabilité), sorted best-first,
+// with NO confidence threshold and NO slice — computePriorityScores below
+// applies both on top of this for its "confident top picks" hero use case.
+// Exported separately for callers that want the complete ranked list
+// instead (Diagnostic's Section 1 full list and Section 2's Ajouter sort,
+// both reusing this exact formula rather than re-deriving a second one).
+export function scoreCandidates({
   points,
   leverCandidates,
   businessProfile,
@@ -221,9 +227,9 @@ export function computePriorityScores({
   businessProfile: BusinessProfileData;
   monthlyRevenueEur: number;
   rules: PriorityRule[];
-}): { recommendations: PriorityRecommendation[] } {
+}): PriorityRecommendation[] {
   const candidates = collectCandidates(points, leverCandidates);
-  if (candidates.length === 0) return { recommendations: [] };
+  if (candidates.length === 0) return [];
 
   const maxGain = Math.max(...candidates.map((c) => c.monthlyGainEur));
 
@@ -249,9 +255,18 @@ export function computePriorityScores({
     };
   });
 
+  return scored.sort((a, b) => b.breakdown.score - a.breakdown.score);
+}
+
+export function computePriorityScores(args: {
+  points: DiagnosticPoint[];
+  leverCandidates: LeverCandidateInput[];
+  businessProfile: BusinessProfileData;
+  monthlyRevenueEur: number;
+  rules: PriorityRule[];
+}): { recommendations: PriorityRecommendation[] } {
   return {
-    recommendations: scored
-      .sort((a, b) => b.breakdown.score - a.breakdown.score)
+    recommendations: scoreCandidates(args)
       .filter((r) => r.breakdown.score > PRIORITY_THRESHOLD)
       .slice(0, MAX_RECOMMENDATIONS),
   };

@@ -8,7 +8,7 @@ import { getDiscoveryProgress } from "./discovery-actions";
 import { DiscoveryTab } from "./discovery-tab";
 import { OptimisationEntryCard } from "./optimisation-entry-card";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
-import { computePriorityScores } from "@/lib/diagnostic/priority";
+import { computePriorityScores, scoreCandidates } from "@/lib/diagnostic/priority";
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
 import { RecommendedForYou } from "./recommended-for-you";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
@@ -16,6 +16,8 @@ import { Falco } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
 import { CalcPopover } from "@/components/calc-popover";
 import { MetricSummaryCard } from "@/components/metric-summary-card";
+import { OverviewActiveLeverCard } from "@/components/overview-active-lever-card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,7 @@ import {
   computeFullBenchmarkProjection,
   computeMetricSummaries,
 } from "@/lib/diagnostic/cascade";
+import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
 import { formatEur } from "@/lib/currency";
@@ -55,7 +58,6 @@ const PERIOD_LABELS: Record<string, string> = {
   "12-months": "12 mois",
 };
 
-const STATUS_ICON: Record<string, string> = { ok: "✅", caution: "⚠️", critical: "❌", unmeasured: "❓" };
 const STATUS_BADGE: Record<string, string> = {
   ok: "bg-state-healthy-bg text-state-healthy",
   caution: "bg-state-caution-bg text-state-caution",
@@ -79,6 +81,12 @@ export default async function DiagnosticPage({
   searchParams: Promise<{
     period?: string;
     tab?: string;
+    // Set by clicking Section 1's "Améliorer ça →" CTA (components/priority-item.tsx's
+    // pattern, reused inline below) — read here only to detect the click
+    // server-side for diagnostic_optimize_clicked; AutoOpenImprove still
+    // owns actually opening the drawer from these same params.
+    open?: string;
+    openLever?: string;
   }>;
 }) {
   const { userId, accountId, user } = await getCurrentUser();
@@ -156,9 +164,7 @@ export default async function DiagnosticPage({
   });
   const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks });
   const followups = computeFollowupCompliance(businessProfile);
-  // Max 2, highest impact first — never more, so it doesn't drown the real
-  // goulots above it (explicit rule from the Découverte brief).
-  const { toImplement: discoveryOpportunities } = await computeLeverOpportunities({
+  const { toImplement: discoveryOpportunities, toWatch, strong } = await computeLeverOpportunities({
     accountId,
     businessProfile,
     settingTotals,
@@ -166,14 +172,57 @@ export default async function DiagnosticPage({
     cashContractedTotal,
     periodMonths: months.length,
   });
-  const topDiscoveryOpportunities = discoveryOpportunities.slice(0, 2);
 
   const monthlyRevenueEur = cashContractedTotal / months.length;
+
+  // Active-only lever candidates — Optimiser NEVER surfaces an absent
+  // lever (that's Ajouter's job), the actual bug this chantier fixes: the
+  // hero used to score discoveryOpportunities (absent levers) here, mixing
+  // the two pools the brief explicitly forbids mixing.
+  const activeLeverCandidates = toWatch.map((watch) => ({
+    leverKey: watch.leverKey,
+    label: watch.label,
+    category: watch.category,
+    impactAmountEur: watch.impactAmountEur,
+    effort: "faible" as const, // no per-lever effort exists once already active — same calibration Dashboard uses for the identical case
+    healthScore: watch.score,
+    isActive: true,
+  }));
+
   const { recommendations } = computePriorityScores({
     points,
-    // Absent levers stay in scope here — Diagnostic's hero legitimately
-    // suggests starting something new ("commence par…"), unlike Dashboard's
-    // "à corriger en priorité" which only wants already-active levers.
+    leverCandidates: activeLeverCandidates,
+    businessProfile,
+    monthlyRevenueEur,
+    rules: priorityRules,
+  });
+  if (recommendations.length > 0) {
+    after(() =>
+      track("diagnostic_reco_shown", userId, { count: recommendations.length, top_lever: recommendations[0].candidate.key })
+    );
+  }
+
+  // Section 1's full unified list — cascade points + active-but-underperforming
+  // levers, ranked by the exact same gain×pertinence×faisabilité formula
+  // (lib/diagnostic/priority.ts), never a raw €-sort. A Map back to the
+  // source LeverWatchItem is needed because PriorityCandidate doesn't carry
+  // statValue/benchmarkValue (only the pre-computed healthScore) — those
+  // raw numbers are what the rate-vs-benchmark bar below needs to render.
+  const watchByKey = new Map(toWatch.map((watch) => [watch.leverKey, watch]));
+  const optimizeList = scoreCandidates({
+    points,
+    leverCandidates: activeLeverCandidates,
+    businessProfile,
+    monthlyRevenueEur,
+    rules: priorityRules,
+  });
+
+  // Section 2 — same formula, absent levers only (isActive: false), so the
+  // existing pertinence rules (lever_revenue_gate/lever_requires_main_offer
+  // — e.g. "ne pas proposer les ads sans budget") shape the sort order
+  // instead of a raw impact-only sort.
+  const addList = scoreCandidates({
+    points: [],
     leverCandidates: discoveryOpportunities.map((opportunity) => ({
       leverKey: opportunity.leverKey,
       label: opportunity.label,
@@ -187,10 +236,17 @@ export default async function DiagnosticPage({
     monthlyRevenueEur,
     rules: priorityRules,
   });
-  if (recommendations.length > 0) {
-    after(() =>
-      track("diagnostic_reco_shown", userId, { count: recommendations.length, top_lever: recommendations[0].candidate.key })
-    );
+  const addByKey = new Map(discoveryOpportunities.map((o) => [o.leverKey, o]));
+
+  const strongCount = summaries.filter((s) => s.status === "ok").length + strong.length;
+
+  after(() => track("diagnostic_optimize_viewed", userId, { points_count: optimizeList.length }));
+  after(() => track("diagnostic_add_viewed", userId, { opportunities_count: addList.length }));
+  // The CTA in Section 1 is a plain <a href="/diagnostic?open=..."> (or
+  // ?openLever=...) — clicking it reloads this exact page, so the click is
+  // observable server-side on the very next render, no client wiring needed.
+  if (params.open || params.openLever) {
+    after(() => track("diagnostic_optimize_clicked", userId, { lever: params.open ?? params.openLever ?? "" }));
   }
 
   const projection = computeFullBenchmarkProjection({
@@ -256,138 +312,215 @@ export default async function DiagnosticPage({
 
       {isThin && <BusinessNudgeBanner />}
 
-      {/* Bloc 1 — Le verdict */}
-      <div className="sticker-spotlight animate-rise px-7 py-6">
-        <p className="text-xs text-mist/70">Potentiel total détecté</p>
-        <p className="figure-hero gradient-text mt-2">
-          {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain)}/mois`}
-        </p>
-        <p className="mt-2 text-sm text-mist/70">
-          +{totalExtraClients} clients/mois possibles en corrigeant tes {topPoints.length} points les plus faibles
-        </p>
-        <div className="mt-4 flex items-center gap-2 text-xs text-mist/60">
-          {mainOffer?.price ? (
-            <span>
-              Calculé avec ton offre {mainOffer.name || "principale"} à {formatEur(mainOffer.price)}
-            </span>
-          ) : (
-            <span>Calculé avec ton panier moyen réel (aucune offre principale définie)</span>
-          )}
-          <CalcPopover explanation="Pour chaque point sous benchmark, je simule ton funnel avec CE taux ramené au niveau du marché (les autres restent réels), puis je multiplie les ventes en plus par le prix de ton offre. Je ne cumule que les 3 premiers points pour rester crédible." />
+      {/* ============================= SECTION 1 — OPTIMISER ============================= */}
+      <div className="flex flex-col gap-8">
+        <div>
+          <h2 className="text-lg font-bold">Optimise ce que tu fais déjà</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Tes leviers actifs, comparés au benchmark de ta niche.</p>
         </div>
+
+        {/* Le total "Optimiser" — calculé uniquement sur les 3 premiers points
+            cascade, ouverture visuelle de cette section. */}
+        <div className="sticker-spotlight animate-rise px-7 py-6">
+          <p className="text-xs text-mist/70">Potentiel total détecté</p>
+          <p className="figure-hero gradient-text mt-2">
+            {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain)}/mois`}
+          </p>
+          <p className="mt-2 text-sm text-mist/70">
+            +{totalExtraClients} clients/mois possibles en corrigeant tes {topPoints.length} points les plus faibles
+          </p>
+          <div className="mt-4 flex items-center gap-2 text-xs text-mist/60">
+            {mainOffer?.price ? (
+              <span>
+                Calculé avec ton offre {mainOffer.name || "principale"} à {formatEur(mainOffer.price)}
+              </span>
+            ) : (
+              <span>Calculé avec ton panier moyen réel (aucune offre principale définie)</span>
+            )}
+            <CalcPopover explanation="Pour chaque point sous benchmark, je simule ton funnel avec CE taux ramené au niveau du marché (les autres restent réels), puis je multiplie les ventes en plus par le prix de ton offre. Je ne cumule que les 3 premiers points pour rester crédible." />
+          </div>
+        </div>
+
+        <RecommendedForYou
+          recommendations={recommendations}
+          fallbackOpportunities={discoveryOpportunities.slice(0, 3)}
+          totalPointsCount={points.length}
+        />
+
+        <div id="points-a-ameliorer" className="flex flex-col gap-4">
+          <h3 className="text-base font-bold">Points à améliorer</h3>
+          {optimizeList.length === 0 && (
+            <div className="sticker-card-dashed flex flex-col items-center gap-3 p-6 text-center">
+              <Falco
+                pose="happy"
+                size="md"
+                animate="enter"
+                withBubble
+                bubbleText="Tes leviers actifs sont solides. Regarde du côté d'Ajouter pour la suite."
+                bubbleSide="left"
+              />
+            </div>
+          )}
+          {optimizeList.map((recommendation, index) => {
+            const { candidate } = recommendation;
+            const tier = getHealthTier(candidate.healthScore);
+            const isLever = candidate.type === "lever";
+            const watchItem = isLever ? watchByKey.get(candidate.key) : undefined;
+            const currentRate = isLever ? (watchItem?.statValue ?? null) : candidate.sourceMetricPoint!.currentRatePercent / 100;
+            const benchmarkRate = isLever ? (watchItem?.benchmarkValue ?? null) : candidate.sourceMetricPoint!.benchmarkRatePercent / 100;
+            const explanation = isLever ? (watchItem?.impactExplanation ?? "") : candidate.sourceMetricPoint!.explanation;
+            const tooltip = isLever ? (watchItem?.impactExplanation ?? "") : candidate.sourceMetricPoint!.tooltip;
+            const href = isLever
+              ? `/diagnostic?openLever=${candidate.key}&openLeverLabel=${encodeURIComponent(candidate.label)}`
+              : `/diagnostic?open=${candidate.key}`;
+
+            return (
+              <div
+                key={`${candidate.type}-${candidate.key}`}
+                className={cn(
+                  "sticker-card animate-rise flex flex-col gap-4 p-6",
+                  index === 0 && "border-accent/40 bg-linear-to-br from-accent-soft to-transparent"
+                )}
+                style={{ animationDelay: `${index * 60}ms` }}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <span
+                      className="mt-0.5 rounded-full px-2 py-0.5 text-xs font-bold"
+                      style={{ background: `${tier.colorBar}22`, color: tier.colorText }}
+                    >
+                      {tier.tier === "vert" ? "✅" : tier.tier === "ambre" ? "⚠️" : "❌"}
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                        #{index + 1} · {candidate.category}
+                      </p>
+                      <p className="mt-0.5 font-bold">{candidate.label}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {currentRate !== null && benchmarkRate !== null && (
+                  <RateVsBenchmarkBar currentRate={currentRate} benchmarkRate={benchmarkRate} />
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  {candidate.extraClientsPerMonth !== null ? (
+                    <div className="rounded-xl bg-muted p-3">
+                      <p className="text-xs font-bold text-muted-foreground">Clients en plus</p>
+                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{candidate.extraClientsPerMonth}/mois</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-muted p-3">
+                      <p className="text-xs font-bold text-muted-foreground">Statut</p>
+                      <p className="mt-1 text-sm font-bold">{candidate.isActive ? "En place, sous le benchmark" : "—"}</p>
+                    </div>
+                  )}
+                  <div className="flex items-start justify-between rounded-xl bg-muted p-3">
+                    <div>
+                      <p className="text-xs font-bold text-muted-foreground">Gain</p>
+                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{formatEur(candidate.monthlyGainEur)}/mois</p>
+                    </div>
+                    <CalcPopover explanation={tooltip} />
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground">{explanation}</p>
+
+                {index === 0 && (
+                  <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
+                    <Falco pose="alert" size="xs" animate="enter" />
+                    <FalcoBubble arrow="left" className="max-w-none flex-1">
+                      C&apos;est mon conseil n°1 : attaque celui-là en premier, c&apos;est là qu&apos;est le plus gros levier.
+                    </FalcoBubble>
+                  </div>
+                )}
+
+                <a href={href} className="self-start text-sm font-bold text-muted-foreground hover:underline">
+                  Voir le détail
+                </a>
+              </div>
+            );
+          })}
+        </div>
+
+        {strongCount > 0 && (
+          <Accordion type="single" collapsible>
+            <AccordionItem value="points-forts" className="sticker-card-dashed rounded-xl border-0 px-5">
+              <AccordionTrigger>
+                <span className="rounded-full bg-state-healthy-bg px-2 py-0.5 text-xs font-bold text-state-healthy">
+                  Tes points forts ({strongCount}) ▸
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {summaries
+                  .filter((s) => s.status === "ok")
+                  .map((summary) => (
+                    <MetricSummaryCard
+                      key={summary.key}
+                      summary={summary}
+                      measureHint={MEASURE_HINTS[summary.key]}
+                      measureHintHref="/datas"
+                      measureHintLabel="Aller sur Datas →"
+                    />
+                  ))}
+                {strong.map((item) => (
+                  <OverviewActiveLeverCard
+                    key={item.leverKey}
+                    label={item.label}
+                    category={item.category}
+                    statValue={item.statValue}
+                    benchmarkValue={item.benchmarkValue}
+                    score={item.score}
+                  />
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
       </div>
 
-      <RecommendedForYou
-        recommendations={recommendations}
-        fallbackOpportunities={discoveryOpportunities.slice(0, 3)}
-        totalPointsCount={points.length}
-      />
+      {/* ============================== SECTION 2 — AJOUTER ============================== */}
+      <div className="flex flex-col gap-8">
+        <div>
+          <h2 className="text-lg font-bold">Ce que tu pourrais ajouter</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Des leviers que tu n&apos;exploites pas encore, classés par potentiel.</p>
+        </div>
 
-      {/* Bloc 2 — Les points à améliorer */}
-      <div id="points-a-ameliorer" className="flex flex-col gap-4">
-        <h2 className="text-base font-bold">Points à améliorer</h2>
-        {points.length === 0 && (
-          <div className="sticker-card-dashed flex flex-col items-center gap-3 p-6 text-center">
-            <Falco
-              pose="happy"
-              size="md"
-              animate="enter"
-              withBubble
-              bubbleText="Tous tes taux mesurés sont au niveau du benchmark. Bravo !"
-              bubbleSide="left"
-            />
+        {addList.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {addList.map(({ candidate }) => {
+              const opportunity = addByKey.get(candidate.key)!;
+              return (
+                <DiscoveryOpportunityCard
+                  key={opportunity.leverKey}
+                  leverKey={opportunity.leverKey}
+                  label={opportunity.label}
+                  category={opportunity.category}
+                  effort={opportunity.effort}
+                  impactAmountEur={opportunity.impactAmountEur}
+                  impactExplanation={opportunity.impactExplanation}
+                  ctaLabel="Démarrer avec Falco →"
+                  sourcePage="diagnostic_overview"
+                  mode="demarrer"
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
+            Aucun levier supplémentaire identifié pour l&apos;instant.
           </div>
         )}
-        {points.map((point, index) => (
-          <div
-            key={point.key}
-            className={cn(
-              "sticker-card animate-rise flex flex-col gap-4 p-6",
-              index === 0 && "border-accent/40 bg-linear-to-br from-accent-soft to-transparent"
-            )}
-            style={{ animationDelay: `${index * 60}ms` }}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <span className="text-lg">{STATUS_ICON[point.status]}</span>
-                <div>
-                  <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                    #{index + 1} · {point.category}
-                  </p>
-                  <p className="mt-0.5 font-bold">{point.label}</p>
-                </div>
-              </div>
-            </div>
 
-            <RateVsBenchmarkBar currentRate={point.currentRatePercent / 100} benchmarkRate={point.benchmarkRatePercent / 100} />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-xl bg-muted p-3">
-                <p className="text-xs font-bold text-muted-foreground">Clients en plus</p>
-                <p className="mt-1 font-display text-xl font-bold tabular-nums">+{point.extraClients}/mois</p>
-              </div>
-              <div className="flex items-start justify-between rounded-xl bg-muted p-3">
-                <div>
-                  <p className="text-xs font-bold text-muted-foreground">
-                    Gain{point.isPriceFallback ? " (panier moyen)" : ""}
-                  </p>
-                  <p className="mt-1 font-display text-xl font-bold tabular-nums">
-                    {point.monthlyGain === null ? "—" : `+${formatEur(point.monthlyGain)}/mois`}
-                  </p>
-                  {point.yearlyGain !== null && (
-                    <p className="text-xs text-muted-foreground">soit {formatEur(point.yearlyGain)} sur un an</p>
-                  )}
-                </div>
-                <CalcPopover explanation={point.tooltip} />
-              </div>
-            </div>
-
-            <p className="text-sm text-muted-foreground">{point.explanation}</p>
-
-            {index === 0 && (
-              <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
-                <Falco pose="alert" size="xs" animate="enter" />
-                <FalcoBubble arrow="left" className="max-w-none flex-1">
-                  C&apos;est mon conseil n°1 : attaque celui-là en premier, c&apos;est là qu&apos;est le plus gros levier.
-                </FalcoBubble>
-              </div>
-            )}
-
-            <a href={`#metric-${point.key}`} className="self-start text-sm font-bold text-muted-foreground hover:underline">
-              Voir le détail
-            </a>
-          </div>
-        ))}
+        {discoveryRemaining > 0 && (
+          <OptimisationEntryCard
+            answered={discoveryProgress.answered}
+            total={discoveryProgress.total}
+            remaining={discoveryRemaining}
+          />
+        )}
       </div>
-
-      {/* Point d'entrée du questionnaire d'optimisation — dans le flux, juste
-          avant les opportunités qu'il débloque (remplace l'ancien onglet). */}
-      <OptimisationEntryCard
-        answered={discoveryProgress.answered}
-        total={discoveryProgress.total}
-        remaining={discoveryRemaining}
-      />
-
-      {topDiscoveryOpportunities.length > 0 && (
-        <div className="flex flex-col gap-4">
-          <h2 className="text-base font-bold">Et si tu ajoutais ça ?</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {topDiscoveryOpportunities.map((opportunity) => (
-              <DiscoveryOpportunityCard
-                key={opportunity.leverKey}
-                leverKey={opportunity.leverKey}
-                label={opportunity.label}
-                category={opportunity.category}
-                effort={opportunity.effort}
-                impactAmountEur={opportunity.impactAmountEur}
-                impactExplanation={opportunity.impactExplanation}
-                ctaLabel="Mettre en place"
-                sourcePage="diagnostic_overview"
-              />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Bloc 3 — La vue complète */}
       <div>
