@@ -5,6 +5,7 @@ import { businessLevers } from "@/db/schema";
 import type { ClosingTotals } from "@/lib/closing/metrics";
 import { formatEur } from "@/lib/currency";
 import { buildRates, resolveDealPrice } from "@/lib/diagnostic/cascade";
+import { scoreAgainstBenchmark } from "@/lib/scoring";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import type { BusinessProfileData } from "@/lib/business/types";
 import { getLeversCatalog, resolveFromBusinessProfile, type LeverCatalogEntry } from "./catalog";
@@ -138,15 +139,6 @@ function estimateAdsEfficiency(
     amountEur: amount,
     explanation: `En atteignant le coût par lead benchmark de ce canal (≈${formatEur(round(benchmark.cpa))} vs ${formatEur(round(actualCpa))} actuellement), ton budget actuel te ramènerait ≈${Math.round(extraResults * 10) / 10} leads de plus × ${Math.round(closingRate * 100)}% de closing réel × ${formatEur(round(dealPrice.price))}.`,
   };
-}
-
-// Same shape of reasoning as lib/diagnostic/cascade.ts's computeHealthScore
-// (ratio-to-benchmark, capped 0-100) but deliberately NOT that function or
-// that type — this scores levers outside the 5-key cascade union on
-// purpose (see db/schema.ts's comment above leversCatalog).
-function scoreAgainstBenchmark(current: number, benchmark: number): number {
-  const ratio = current / benchmark;
-  return Math.max(0, Math.min(100, Math.round(ratio * 100)));
 }
 
 // How many extra clients per month a lever could realistically bring in,

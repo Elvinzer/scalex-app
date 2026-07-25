@@ -236,26 +236,58 @@ async function buildProduitsData(ctx: LeverAgentDataContext): Promise<LeverAgent
   };
 }
 
-// One builder per agentKey — each reuses the SAME query/compute functions the
-// corresponding page already calls for its own UI (no new business logic).
-// Returns null only when agentKey matches no known builder (the caller
-// treats that as "agent introuvable", same as an unresolved agent row).
+// "Ventes" (consolidated agent — was closing + produits + upsell_ascension,
+// 3 separate agents/pages) — concatenates the 3 unchanged builders under
+// their own sub-headings rather than writing new business logic. Only
+// upsell_ascension has a real levers_catalog leverKey, so its
+// impact/gapBadge is what surfaces (closing/produits have none to offer).
+async function buildVentesData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
+  const [closing, produits, upsell] = await Promise.all([
+    buildClosingData(ctx),
+    buildProduitsData(ctx),
+    buildUpsellData(ctx),
+  ]);
+
+  return {
+    metricsBlock: `[Closing]\n${closing.metricsBlock}\n\n[Produits]\n${produits.metricsBlock}\n\n[Upsell]\n${upsell.metricsBlock}`,
+    impactAmountEur: upsell.impactAmountEur,
+    impactExplanation: upsell.impactExplanation,
+    gapBadge: upsell.gapBadge,
+  };
+}
+
+// "CEO Vision" (consolidated agent — was setting + ads, 2 separate
+// agents/pages) — same concatenation approach. Only ads has a real
+// levers_catalog leverKey, so its impact/gapBadge is what surfaces.
+async function buildCeoVisionData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
+  const [setting, ads] = await Promise.all([buildSettingData(ctx), buildAdsData(ctx)]);
+
+  return {
+    metricsBlock: `[Setting]\n${setting.metricsBlock}\n\n[Ads]\n${ads.metricsBlock}`,
+    impactAmountEur: ads.impactAmountEur,
+    impactExplanation: ads.impactExplanation,
+    gapBadge: ads.gapBadge,
+  };
+}
+
+// One builder per SURVIVING agentKey (4, was 7) — each reuses the SAME
+// query/compute functions the corresponding page already calls for its own
+// UI (no new business logic). The retired keys (setting/ads/closing/
+// produits/upsell_ascension) are remapped to "ceo_vision"/"ventes" before
+// this is ever called (see app/api/improve-chat/route.ts) — this switch
+// never sees them directly. Returns null only when agentKey matches no
+// known builder (the caller treats that as "agent introuvable", same as an
+// unresolved agent row).
 export async function resolveLeverAgentData(agentKey: string, ctx: LeverAgentDataContext): Promise<LeverAgentData | null> {
   switch (agentKey) {
     case "email_marketing":
       return buildEmailMarketingData(ctx);
-    case "ads":
-      return buildAdsData(ctx);
-    case "upsell_ascension":
-      return buildUpsellData(ctx);
     case "content":
       return buildContentData(ctx);
-    case "setting":
-      return buildSettingData(ctx);
-    case "closing":
-      return buildClosingData(ctx);
-    case "produits":
-      return buildProduitsData(ctx);
+    case "ventes":
+      return buildVentesData(ctx);
+    case "ceo_vision":
+      return buildCeoVisionData(ctx);
     default:
       return null;
   }

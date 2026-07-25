@@ -15,6 +15,7 @@ import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { Falco } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
 import { CalcPopover } from "@/components/calc-popover";
+import { MetricSummaryCard } from "@/components/metric-summary-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { Button } from "@/components/ui/button";
@@ -382,71 +383,23 @@ export default async function DiagnosticPage({
         <h2 className="text-base font-bold">Tout ton business en un coup d&apos;œil</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {summaries.map((summary) => (
-            <div key={summary.key} id={`metric-${summary.key}`} className="sticker-card p-5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold">{summary.label}</p>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.status])}>
-                  {STATUS_ICON[summary.status]}
-                </span>
-              </div>
-              {summary.status === "unmeasured" ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
-                      Pas encore mesuré — comment mesurer ça ?
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent>
-                    <p className="text-muted-foreground">{MEASURE_HINTS[summary.key]}</p>
-                    <Button asChild size="sm" variant="outline" className="mt-3">
-                      <a href="/datas">Aller sur Datas →</a>
-                    </Button>
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                <div className="mt-3">
-                  <RateVsBenchmarkBar
-                    currentRate={summary.currentRatePercent === null ? null : summary.currentRatePercent / 100}
-                    benchmarkRate={summary.benchmarkRatePercent / 100}
-                    compact
-                  />
-                </div>
-              )}
-            </div>
+            <MetricSummaryCard
+              key={summary.key}
+              summary={summary}
+              measureHint={MEASURE_HINTS[summary.key]}
+              measureHintHref="/datas"
+              measureHintLabel="Aller sur Datas →"
+            />
           ))}
 
           {contentSummaries.map((summary) => (
-            <div key={summary.key} id={`metric-${summary.key}`} className="sticker-card p-5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold">{summary.label}</p>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.status])}>
-                  {STATUS_ICON[summary.status]}
-                </span>
-              </div>
-              {summary.status === "unmeasured" ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
-                      Pas encore mesuré — comment mesurer ça ?
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent>
-                    <p className="text-muted-foreground">{MEASURE_HINTS[summary.key]}</p>
-                    <Button asChild size="sm" variant="outline" className="mt-3">
-                      <a href="/acquisition/contenu">Aller sur Contenu →</a>
-                    </Button>
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                <div className="mt-3">
-                  <RateVsBenchmarkBar
-                    currentRate={summary.currentRatePercent === null ? null : summary.currentRatePercent / 100}
-                    benchmarkRate={summary.benchmarkRatePercent / 100}
-                    compact
-                  />
-                </div>
-              )}
-            </div>
+            <MetricSummaryCard
+              key={summary.key}
+              summary={summary}
+              measureHint={MEASURE_HINTS[summary.key]}
+              measureHintHref="/acquisition/contenu"
+              measureHintLabel="Aller sur Contenu →"
+            />
           ))}
 
           {followups.map((followup) => (

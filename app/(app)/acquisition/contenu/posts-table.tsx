@@ -4,7 +4,9 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { computePostRates } from "@/lib/content-posts/rates";
+import type { ContentMetricKey } from "@/lib/diagnostic/content-metrics";
+import { getHealthTier } from "@/lib/diagnostic/health-tier";
+import { computePostRates, computePostScore } from "@/lib/content-posts/rates";
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
@@ -12,27 +14,51 @@ import { cn } from "@/lib/utils";
 import { removeContentPost } from "./actions";
 import { PostFormDialog } from "./post-form-dialog";
 
-type SortKey = "publishedAt" | "views" | "engagementRate" | "clickRate" | "viewToLeadRate";
+type SortKey = "publishedAt" | "views" | "engagementRate" | "clickRate" | "viewToLeadRate" | "score";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
-export function PostsTable({ posts, platforms, topPostId }: { posts: ContentPostRow[]; platforms: string[]; topPostId: string | null }) {
+const TIER_CLASS: Record<"rouge" | "ambre" | "vert", string> = {
+  rouge: "bg-state-critical-bg text-state-critical",
+  ambre: "bg-state-caution-bg text-state-caution",
+  vert: "bg-state-healthy-bg text-state-healthy",
+};
+
+export function PostsTable({
+  posts,
+  platforms,
+  topPostId,
+  contentBenchmarks,
+}: {
+  posts: ContentPostRow[];
+  platforms: string[];
+  topPostId: string | null;
+  contentBenchmarks: Record<ContentMetricKey, number>;
+}) {
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
   const [sortDesc, setSortDesc] = useState(true);
   const [, startTransition] = useTransition();
 
   const sorted = useMemo(() => {
-    const withRates = posts.map((post) => ({ post, rates: computePostRates(post) }));
+    const withRates = posts.map((post) => ({
+      post,
+      rates: computePostRates(post),
+      score: computePostScore(post, contentBenchmarks),
+    }));
 
     withRates.sort((a, b) => {
       const valueOf = (entry: (typeof withRates)[number]) =>
-        sortKey === "publishedAt" || sortKey === "views" ? entry.post[sortKey] : (entry.rates[sortKey] ?? -1);
+        sortKey === "publishedAt" || sortKey === "views"
+          ? entry.post[sortKey]
+          : sortKey === "score"
+            ? (entry.score ?? -1)
+            : (entry.rates[sortKey] ?? -1);
       const diff = (valueOf(a) as number) < (valueOf(b) as number) ? -1 : (valueOf(a) as number) > (valueOf(b) as number) ? 1 : 0;
       return sortDesc ? -diff : diff;
     });
 
     return withRates;
-  }, [posts, sortKey, sortDesc]);
+  }, [posts, sortKey, sortDesc, contentBenchmarks]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -84,11 +110,12 @@ export function PostsTable({ posts, platforms, topPostId }: { posts: ContentPost
             <th className="p-3 text-right"><SortHeader label="Engagement" sortKeyValue="engagementRate" /></th>
             <th className="p-3 text-right"><SortHeader label="Clics" sortKeyValue="clickRate" /></th>
             <th className="p-3 text-right"><SortHeader label="Leads" sortKeyValue="viewToLeadRate" /></th>
+            <th className="p-3 text-right"><SortHeader label="Score" sortKeyValue="score" /></th>
             <th className="p-3" />
           </tr>
         </thead>
         <tbody>
-          {sorted.map(({ post, rates }) => (
+          {sorted.map(({ post, rates, score }) => (
             <tr key={post.id} className="border-b border-border last:border-0">
               <td className="p-3 whitespace-nowrap text-muted-foreground">{post.publishedAt}</td>
               <td className="p-3">
@@ -117,6 +144,15 @@ export function PostsTable({ posts, platforms, topPostId }: { posts: ContentPost
               </td>
               <td className={cn("p-3 text-right tabular-nums", rates.viewToLeadRate === null && "text-muted-foreground")}>
                 {rates.viewToLeadRate === null ? "—" : formatPercent(rates.viewToLeadRate)}
+              </td>
+              <td className="p-3 text-right">
+                {score === null ? (
+                  <span className="text-muted-foreground">—</span>
+                ) : (
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold tabular-nums", TIER_CLASS[getHealthTier(score).tier])}>
+                    {score}
+                  </span>
+                )}
               </td>
               <td className="p-3">
                 <div className="flex justify-end gap-1">

@@ -427,6 +427,15 @@
     animation: rise-in var(--motion-base) var(--ease-out) both;
   }
 
+  /* components/ui/accordion.tsx — height driven by Radix's own
+     --radix-accordion-content-height CSS variable. */
+  .animate-accordion-down {
+    animation: accordion-down var(--motion-base) var(--ease-out);
+  }
+  .animate-accordion-up {
+    animation: accordion-up var(--motion-base) var(--ease-out);
+  }
+
   /* Falco mascot — idle loops + entrance. A static character pose can't
      blink or redirect its gaze, so "alive" is limited to breathing, a
      gentle float, and a settle-in on mount/reveal. All respect
@@ -543,6 +552,23 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
   }
 }
 

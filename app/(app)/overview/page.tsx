@@ -2,6 +2,7 @@ import { after } from "next/server";
 
 import { Falco } from "@/components/falco/falco";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
+import { MetricSummaryCard } from "@/components/metric-summary-card";
 import { OverviewActiveLeverCard } from "@/components/overview-active-lever-card";
 import { OverviewFunnelVisual } from "@/components/overview-funnel-visual";
 import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
@@ -9,11 +10,13 @@ import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { computeClosingRates } from "@/lib/closing/metrics";
+import { getContentPosts } from "@/lib/content-posts/queries";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { buildMetricCards, inRange } from "@/lib/dashboard/metrics";
-import { computeDiagnosticPoints, computeMetricHealthCards } from "@/lib/diagnostic/cascade";
+import { computeDiagnosticPoints, computeMetricHealthCards, computeMetricSummaries } from "@/lib/diagnostic/cascade";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
+import { aggregateContentTotals, computeContentMetricSummaries, getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-metrics";
 import { lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
@@ -22,8 +25,6 @@ import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { resolveMonthCashCollected, resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
 import { computeFunnelRates } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
-
-import { DiscoveryOpportunityCard } from "@/app/(app)/diagnostic/discovery-opportunity-card";
 
 import { OverviewInteractive } from "./overview-interactive";
 import { PeriodSelect } from "./period-select";
@@ -53,11 +54,14 @@ export default async function OverviewPage({
 
   const months = periodToMonths(period);
 
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks] = await Promise.all([
-    getBusinessProfile(accountId),
-    getDiagnosticKpiRawData(accountId),
-    getDiagnosticBenchmarks(user?.sector ?? null),
-  ]);
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks, contentBenchmarks, allContentPosts] =
+    await Promise.all([
+      getBusinessProfile(accountId),
+      getDiagnosticKpiRawData(accountId),
+      getDiagnosticBenchmarks(user?.sector ?? null),
+      getContentDiagnosticBenchmarks(user?.sector ?? null),
+      getContentPosts(accountId),
+    ]);
 
   const hasAnyDataEver = allMonthlyRows.length > 0 || allSettingEntries.length > 0 || allClosingEntries.length > 0;
 
@@ -103,6 +107,13 @@ export default async function OverviewPage({
   const bottleneck = findOverviewBottleneck(settingRates, closingRates);
   const metricScores = computeMetricHealthCards({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
 
+  // Per-pillar gauges (replaces "À mettre en place") — same engine/component
+  // as Diagnostic's Bloc 3 (computeMetricSummaries/computeContentMetricSummaries
+  // + MetricSummaryCard), so the numbers agree exactly with /diagnostic.
+  const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks });
+  const contentTotals = aggregateContentTotals(months, allContentPosts);
+  const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
+
   const bottleneckPoint = hasAnyMonthlyRow
     ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })[0]
     : undefined;
@@ -144,7 +155,7 @@ export default async function OverviewPage({
   // (app/(app)/diagnostic/page.tsx), just sliced to 3 instead of 2 and with
   // "toWatch" re-sorted best-first (native order is worst-first, meant for
   // the surveillance use case there, not "leviers actifs" here).
-  const { toImplement, toWatch } = await computeLeverOpportunities({
+  const { toWatch } = await computeLeverOpportunities({
     accountId,
     businessProfile,
     settingTotals,
@@ -153,7 +164,6 @@ export default async function OverviewPage({
     periodMonths: Math.max(months.length, 1),
   });
   const bestActiveLevers = [...toWatch].sort((a, b) => b.score - a.score).slice(0, 3);
-  const topOpportunities = toImplement.slice(0, 3);
 
   return (
     <div className="flex flex-col gap-5">
@@ -204,34 +214,36 @@ export default async function OverviewPage({
           </div>
 
           {/* Fills the empty space left under the (short) goulot banner next
-              to the (tall) funnel — same section as before, just relocated. */}
+              to the (tall) funnel — same section as before, just relocated.
+              Same gauge/component as Diagnostic's "Tout ton business en un
+              coup d'œil" (Bloc 3), so you can spot which pillar to improve
+              without leaving Overview. */}
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold">À mettre en place</h2>
+              <h2 className="text-base font-bold">Où sont tes goulots</h2>
               <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
-                Tout voir →
+                Voir le diagnostic complet →
               </a>
             </div>
-            <div className="flex flex-col gap-3">
-              {topOpportunities.length > 0 ? (
-                topOpportunities.map((opportunity) => (
-                  <DiscoveryOpportunityCard
-                    key={opportunity.leverKey}
-                    leverKey={opportunity.leverKey}
-                    label={opportunity.label}
-                    category={opportunity.category}
-                    effort={opportunity.effort}
-                    impactAmountEur={opportunity.impactAmountEur}
-                    impactExplanation={opportunity.impactExplanation}
-                    ctaLabel="En discuter avec le Copilote"
-                    sourcePage="vue_ensemble"
-                  />
-                ))
-              ) : (
-                <FalcoEmptyState title="Aucune opportunité identifiée pour l'instant" showFalco={false}>
-                  <p className="text-sm font-bold text-muted-foreground">Réponds au questionnaire Optimisation pour en débloquer.</p>
-                </FalcoEmptyState>
-              )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {summaries.map((summary) => (
+                <MetricSummaryCard
+                  key={summary.key}
+                  summary={summary}
+                  measureHint="Renseigne tes chiffres du funnel dans Datas."
+                  measureHintHref="/datas"
+                  measureHintLabel="Aller sur Datas →"
+                />
+              ))}
+              {contentSummaries.map((summary) => (
+                <MetricSummaryCard
+                  key={summary.key}
+                  summary={summary}
+                  measureHint="Renseigne les vues et clics de tes posts dans Contenu."
+                  measureHintHref="/acquisition/contenu"
+                  measureHintLabel="Aller sur Contenu →"
+                />
+              ))}
             </div>
           </div>
         </div>

@@ -26,6 +26,20 @@ const MAX_MESSAGES = 20;
 
 const METRIC_TOPIC_KEYS = ["responseRate", "proposalRate", "bookingRate", "showUpRate", "closingRate", "followupRecovery"] as const;
 
+// Old agentKey → consolidated agent that absorbed it (7 agents → 4). Every
+// page/card that still builds a ChatContext with a retired key (ads/
+// setting/closing/produits/upsell_ascension — lever pages' own AgentBanner,
+// Découverte cards, the priority engine's recommendation cards) keeps
+// working completely unedited: it just lands in the merged agent's shared
+// conversation now instead of a fragment-of-one thread.
+const AGENT_KEY_CONSOLIDATION: Record<string, string> = {
+  setting: "ceo_vision",
+  ads: "ceo_vision",
+  closing: "ventes",
+  produits: "ventes",
+  upsell_ascension: "ventes",
+};
+
 const requestSchema = z.object({
   context: chatContextSchema,
   followupKey: z.enum(["nonBuyers", "noShow", "failedPayments"]).nullable().optional(),
@@ -140,7 +154,8 @@ export async function POST(request: NextRequest) {
     // No silent fallback to a generic prompt when the agent_key is
     // unresolvable — same rule as the metric path above, and the explicit
     // lesson from the earlier ChatContext fix.
-    agent = await getAgentByKey(context.topicKey);
+    const resolvedAgentKey = AGENT_KEY_CONSOLIDATION[context.topicKey] ?? context.topicKey;
+    agent = await getAgentByKey(resolvedAgentKey);
     if (!agent) {
       return NextResponse.json({ error: "Agent introuvable — recharge la page." }, { status: 400 });
     }

@@ -14,7 +14,6 @@ import { ensureUserRow } from "@/lib/current-user";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { computeScaleScore, type ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
@@ -98,15 +97,15 @@ export default async function AppLayout({
   let scaleScoreDelta30d: number | null = null;
   let scaleScoreSparkline: Awaited<ReturnType<typeof getScaleScoreSparkline>> = [];
   // "Mon CA si j'optimise tout" (Scale Score modal's share card) — current
-  // average monthly revenue + the SAME top-3-bottlenecks-plus-top-3-Découverte
-  // sum as Dashboard's "manque à gagner" (app/(app)/dashboard/page.tsx),
-  // recomputed here from the same 3-month window/inputs. Deliberately NOT
-  // computeFullBenchmarkProjection (an earlier version used it) — that
-  // projects ALL 5 rates at benchmark simultaneously, a genuinely different,
-  // larger number by design (see its own comment in lib/diagnostic/cascade.ts)
-  // that never reconciled with the "manque à gagner" figure shown elsewhere,
-  // which was confusing shown side by side. Same null rule as Dashboard: if
-  // any of the top 3 points can't be priced, that portion is 0, not partial.
+  // average monthly revenue + the top-3 Découverte (lever) improvements
+  // only. Deliberately EXCLUDES the diagnostic cascade's own gain
+  // (computeDiagnosticPoints — the 5 Setting/Closing rates) per explicit
+  // product request: "CA optimisé" should reflect CA + improvements from
+  // levers you could add, not a re-projection of the diagnostic itself
+  // (that number already lives on /diagnostic's own "Le verdict" hero).
+  // Dashboard's separate "manque à gagner" figure (app/(app)/dashboard/page.tsx)
+  // still includes the cascade gain — the two are deliberately different
+  // numbers now, scoped to what each page is asking.
   const SCALE_SCORE_PERIOD_MONTHS = 3;
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
@@ -123,14 +122,8 @@ export default async function AppLayout({
     scaleScore = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
 
     if (cashContractedTotal > 0) {
-      const topPoints = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal }).slice(0, 3);
-      const topPointsGain = topPoints.some((p) => p.monthlyGain === null)
-        ? 0
-        : topPoints.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0);
-
-      // Same top-3 Découverte opportunities folded into Dashboard's "manque à
-      // gagner" (app/(app)/dashboard/page.tsx) — added here too so "mon CA
-      // si j'optimise tout" reflects everything the app is flagging.
+      // Top-3 Découverte (lever) opportunities only — the diagnostic
+      // cascade's own gain is deliberately excluded (see comment above).
       const { toImplement: discoveryOpportunities } = await computeLeverOpportunities({
         accountId,
         businessProfile,
@@ -142,7 +135,7 @@ export default async function AppLayout({
       const topDiscoveryGain = discoveryOpportunities.slice(0, 3).reduce((sum, o) => sum + (o.impactAmountEur ?? 0), 0);
 
       currentMonthlyRevenue = cashContractedTotal / SCALE_SCORE_PERIOD_MONTHS;
-      potentialMonthlyRevenue = currentMonthlyRevenue + topPointsGain + topDiscoveryGain;
+      potentialMonthlyRevenue = currentMonthlyRevenue + topDiscoveryGain;
     }
 
     if (scaleScore.score !== null) {

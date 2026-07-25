@@ -7,6 +7,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
 import { getContentPosts } from "@/lib/content-posts/queries";
+import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-metrics";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { formatPercent } from "@/lib/setting/funnel";
@@ -21,12 +22,13 @@ function currentMonthWindow(): { year: number; month: number } {
 }
 
 export default async function ContenuPage() {
-  const { userId, accountId } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:contenu");
-  const [posts, profile, agent] = await Promise.all([
+  const [posts, profile, agent, contentBenchmarks] = await Promise.all([
     getContentPosts(accountId),
     getBusinessProfile(accountId),
     getAgentByKey("content"),
+    getContentDiagnosticBenchmarks(user?.sector ?? null),
   ]);
   const platforms = profile.acquisition.platforms.map((platform) => platform.name).filter(Boolean);
 
@@ -106,7 +108,7 @@ export default async function ContenuPage() {
         </div>
       </div>
 
-      <PostsTable posts={posts} platforms={platforms} topPostId={topPost?.id ?? null} />
+      <PostsTable posts={posts} platforms={platforms} topPostId={topPost?.id ?? null} contentBenchmarks={contentBenchmarks} />
     </div>
   );
 }

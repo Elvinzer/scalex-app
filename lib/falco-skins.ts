@@ -62,14 +62,16 @@ export const FALCO_SKIN_CHAT_LABEL: Record<FalcoSkinKey, string> = {
 // portrait from the agent the page already knows, distinct from the
 // route-based resolution above (needed because the drawer itself doesn't
 // know the current pathname).
+// Consolidated to 4 agents (was 7): "ventes" (was closing+produits+
+// upsell_ascension) keeps the "vente" skin all 3 already shared;
+// "ceo_vision" (was setting+ads) reuses "acquisition" — no dedicated "CEO"
+// illustrated skin exists among the 6 real renders, so this reuses the
+// closest existing asset rather than inventing one.
 export const AGENT_KEY_TO_SKIN: Record<string, FalcoSkinKey> = {
   email_marketing: "mail",
   content: "contenu",
-  setting: "acquisition",
-  ads: "acquisition",
-  closing: "vente",
-  produits: "vente",
-  upsell_ascension: "vente",
+  ventes: "vente",
+  ceo_vision: "acquisition",
 };
 
 // "Voir la page du levier →" (Copilote hub chat header) and the panel's
@@ -77,23 +79,17 @@ export const AGENT_KEY_TO_SKIN: Record<string, FalcoSkinKey> = {
 export const AGENT_KEY_TO_ROUTE: Record<string, string> = {
   email_marketing: "/acquisition/mail",
   content: "/acquisition/contenu",
-  setting: "/acquisition/setting",
-  ads: "/acquisition/ads",
-  closing: "/ventes/closing",
-  produits: "/ventes/produits",
-  upsell_ascension: "/ventes/upsell",
+  ventes: "/ventes/produits",
+  ceo_vision: "/acquisition/setting",
 };
 
 // "Spécialité" line under each agent's name in the Copilote hub panel —
 // short and factual, distinct from the agent's own persona/system prompt.
 export const AGENT_KEY_TO_SPECIALTY: Record<string, string> = {
   email_marketing: "Email marketing",
-  content: "Contenu organique",
-  setting: "Prospection & DM",
-  ads: "Publicité payante",
-  closing: "Vente & closing",
-  produits: "Offres & pricing",
-  upsell_ascension: "Ascension client",
+  content: "Contenu vidéo",
+  ventes: "Closing, offres & ascension",
+  ceo_vision: "Vision stratégique d'ensemble",
 };
 
 // Same topicLabel each lever's own page already uses in its ChatContext —
@@ -103,23 +99,30 @@ export const AGENT_KEY_TO_SPECIALTY: Record<string, string> = {
 export const AGENT_KEY_TO_TOPIC_LABEL: Record<string, string> = {
   email_marketing: "Emailing",
   content: "Contenu",
-  setting: "Setting",
-  ads: "Ads",
-  closing: "Closing",
-  produits: "Produits",
-  upsell_ascension: "Upsell",
+  ventes: "Ventes",
+  ceo_vision: "Vision",
 };
 
-// Reverse of AGENT_KEY_TO_ROUTE, for the floating bubble's "Ouvrir dans le
-// Copilote →" deep link — only resolves when the current route maps 1:1 to
-// a real agent (e.g. /acquisition/mail); routes whose skin is shared by
-// several agents (both Setting and Ads use "acquisition") or with no agent
-// at all fall back to the hub with no ?agent= param, never a guess.
+// For the floating bubble's "Ouvrir dans le Copilote →" deep link — a
+// separate rules LIST rather than a reverse of AGENT_KEY_TO_ROUTE, because
+// several routes now intentionally point to the same consolidated agent
+// (ceo_vision absorbs Setting+Ads, ventes absorbs Closing+Produits+Upsell).
+// Longest-prefix wins, same convention as SKIN_ROUTE_RULES above.
+const AGENT_ROUTE_RULES: { route: string; agentKey: string }[] = [
+  { route: "/acquisition/mail", agentKey: "email_marketing" },
+  { route: "/acquisition/contenu", agentKey: "content" },
+  { route: "/acquisition/setting", agentKey: "ceo_vision" },
+  { route: "/acquisition/ads", agentKey: "ceo_vision" },
+  { route: "/ventes/closing", agentKey: "ventes" },
+  { route: "/ventes/produits", agentKey: "ventes" },
+  { route: "/ventes/upsell", agentKey: "ventes" },
+];
+
 export function resolveAgentKeyForRoute(pathname: string): string | null {
   let best: { agentKey: string; route: string } | null = null;
-  for (const [agentKey, route] of Object.entries(AGENT_KEY_TO_ROUTE)) {
-    if (pathname.startsWith(route) && (best === null || route.length > best.route.length)) {
-      best = { agentKey, route };
+  for (const rule of AGENT_ROUTE_RULES) {
+    if (pathname.startsWith(rule.route) && (best === null || rule.route.length > best.route.length)) {
+      best = rule;
     }
   }
   return best?.agentKey ?? null;

@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
+
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { computeSectionCompletion } from "@/lib/business/completion";
 import type { BusinessSales, Offer, OfferType, Recurrence, SaleMode } from "@/lib/business/types";
+import { formatEur } from "@/lib/currency";
 
 import { saveBusinessSection } from "./actions";
 import { CompletionBadge, SaveIndicator } from "./save-indicator";
@@ -39,6 +43,7 @@ function emptyOffer(): Offer {
     saleMode: null,
     recurrence: null,
     isMain: false,
+    isUpsell: false,
   };
 }
 
@@ -52,6 +57,9 @@ export function SalesSection({
   const { schedule, status, error } = useDebouncedSave<BusinessSales>((next) =>
     saveBusinessSection("sales", next)
   );
+  // Accordion is display-only — collapsed by default so N offers don't
+  // stack N fully-expanded edit forms; the newly-added offer opens itself.
+  const [openOfferIds, setOpenOfferIds] = useState<string[]>([]);
 
   function update(patch: Partial<BusinessSales>) {
     const next = { ...value, ...patch };
@@ -60,7 +68,9 @@ export function SalesSection({
   }
 
   function addOffer() {
-    update({ offers: [...value.offers, emptyOffer()] });
+    const offer = emptyOffer();
+    update({ offers: [...value.offers, offer] });
+    setOpenOfferIds((prev) => [...prev, offer.id]);
   }
 
   function updateOffer(id: string, patch: Partial<Offer>) {
@@ -98,8 +108,28 @@ export function SalesSection({
         <div className="flex flex-col gap-3">
           <p className="text-sm font-bold">Offres</p>
 
+          <Accordion type="multiple" value={openOfferIds} onValueChange={setOpenOfferIds} className="flex flex-col gap-3">
           {value.offers.map((offer) => (
-            <div key={offer.id} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+            <AccordionItem key={offer.id} value={offer.id} className="rounded-xl border border-border px-4">
+              <AccordionTrigger>
+                <div className="flex flex-1 flex-wrap items-center gap-2">
+                  <span className="font-bold">{offer.name || "Offre sans nom"}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {offer.price === null ? "Prix non renseigné" : formatEur(offer.price)}
+                  </span>
+                  {offer.isMain && (
+                    <span className="rounded-full bg-state-healthy-bg px-2 py-0.5 text-xs font-bold text-state-healthy">
+                      Principale
+                    </span>
+                  )}
+                  {offer.isUpsell && (
+                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent-text">
+                      Upsell
+                    </span>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="flex flex-col gap-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1 text-xs">
                   <span className="font-bold text-muted-foreground">Nom</span>
@@ -182,18 +212,34 @@ export function SalesSection({
                 </label>
               </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <button
-                  type="button"
-                  onClick={() => updateOffer(offer.id, { isMain: !offer.isMain })}
-                  className={
-                    offer.isMain
-                      ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
-                      : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
-                  }
-                >
-                  {offer.isMain ? "Offre principale ✓" : "Définir comme offre principale"}
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateOffer(offer.id, { isMain: !offer.isMain })}
+                    className={
+                      offer.isMain
+                        ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
+                        : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
+                    }
+                  >
+                    {offer.isMain ? "Offre principale ✓" : "Définir comme offre principale"}
+                  </button>
+                  {/* Non-exclusive (unlike isMain) — several offers can be
+                      upsells at once. Drives the per-offer breakdown on
+                      app/(app)/ventes/upsell/page.tsx. */}
+                  <button
+                    type="button"
+                    onClick={() => updateOffer(offer.id, { isUpsell: !offer.isUpsell })}
+                    className={
+                      offer.isUpsell
+                        ? "rounded-full border border-accent-border bg-accent-soft px-3 py-1 text-xs font-bold text-accent-text"
+                        : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
+                    }
+                  >
+                    {offer.isUpsell ? "Upsell ✓" : "Marquer comme upsell"}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeOffer(offer.id)}
@@ -202,8 +248,10 @@ export function SalesSection({
                   Supprimer
                 </button>
               </div>
-            </div>
+              </AccordionContent>
+            </AccordionItem>
           ))}
+          </Accordion>
 
           <button
             type="button"

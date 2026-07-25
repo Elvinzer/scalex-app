@@ -10,18 +10,29 @@ import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatEur } from "@/lib/currency";
 import { todayUtc } from "@/lib/date-range";
+import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { resolveFromBusinessProfile } from "@/lib/levers/catalog";
+import { scoreAgainstBenchmark } from "@/lib/scoring";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
 import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
 import { getLeverStatus } from "@/lib/levers/status";
 import { formatPercent } from "@/lib/setting/funnel";
 import { getSales, getSalesForMonth } from "@/lib/sales/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { cn } from "@/lib/utils";
 
 import { activateUpsellLever, toggleUpsellStarterStep } from "./actions";
 
 const LEVER_KEY = "upsell_ascension";
+// Same 20% reference already shown on the aggregate take-rate tile below —
+// reused per-offer rather than inventing a second number.
+const UPSELL_TAKE_RATE_BENCHMARK = 0.2;
+const TIER_CLASS: Record<"rouge" | "ambre" | "vert", string> = {
+  rouge: "bg-state-critical-bg text-state-critical",
+  ambre: "bg-state-caution-bg text-state-caution",
+  vert: "bg-state-healthy-bg text-state-healthy",
+};
 
 export default async function UpsellPage() {
   const { userId, accountId } = await getCurrentUser();
@@ -101,6 +112,18 @@ export default async function UpsellPage() {
 
   const offerName = (offerId: string | null) => profile.sales.offers.find((o) => o.id === offerId)?.name ?? "—";
 
+  // Per-offer breakdown — replaces the single aggregate take-rate with one
+  // row per offer explicitly marked "isUpsell" in Mon business (linked via
+  // sales.upsellOfferId), same period (monthSales) as the tiles above.
+  const upsellOffers = profile.sales.offers.filter((offer) => offer.isUpsell);
+  const upsellOfferStats = upsellOffers.map((offer) => {
+    const offerSales = monthSales.filter((s) => s.upsellOfferId === offer.id);
+    const takeRate = monthSales.length > 0 ? offerSales.length / monthSales.length : null;
+    const revenue = offerSales.reduce((sum, s) => sum + (s.upsellAmount ?? 0), 0);
+    const score = takeRate !== null && offerSales.length > 0 ? scoreAgainstBenchmark(takeRate, UPSELL_TAKE_RATE_BENCHMARK) : null;
+    return { offer, takeRate, revenue, score };
+  });
+
   const stateText =
     takeRate !== null
       ? `Take-rate de ${formatPercent(takeRate)} ce mois-ci (bench 20%), ${formatEur(caUpsellMonth)} de CA upsell.`
@@ -143,6 +166,50 @@ export default async function UpsellPage() {
             {avgWithoutUpsell === null ? "—" : formatEur(Math.round(avgWithoutUpsell))}
           </p>
         </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-base font-bold">Tes upsells</h2>
+        {upsellOffers.length === 0 ? (
+          <div className="sticker-card-dashed p-6 text-center">
+            <p className="text-sm font-bold">Aucune offre marquée comme upsell pour l&apos;instant</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Marque tes offres upsell dans Mon business pour suivre leur performance ici, une par une.
+            </p>
+            <a href="/business" className="mt-3 inline-block text-sm font-bold text-accent-text hover:underline">
+              Marque tes upsells dans Mon business →
+            </a>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {upsellOfferStats.map(({ offer, takeRate: offerTakeRate, revenue, score }) => (
+              <div key={offer.id} className="sticker-card flex flex-col gap-2 p-5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-bold">{offer.name || "Offre sans nom"}</p>
+                  {score === null ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground whitespace-nowrap">
+                      Pas encore de données
+                    </span>
+                  ) : (
+                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold whitespace-nowrap", TIER_CLASS[getHealthTier(score).tier])}>
+                      Score {score}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Take-rate ce mois</p>
+                    <p className="font-bold tabular-nums">{offerTakeRate === null ? "—" : formatPercent(offerTakeRate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">CA généré</p>
+                    <p className="font-bold tabular-nums">{formatEur(revenue)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {upsellSales.length === 0 ? (

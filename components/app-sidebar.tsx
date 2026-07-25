@@ -18,7 +18,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -282,7 +282,13 @@ export function AppSidebar({
 
       <nav className="flex flex-1 flex-col gap-1 pt-4">
         {visibleTopEntries.map((entry) => (
-          <NavLink key={entry.href} entry={entry} pathname={pathname} indented={false} />
+          <Fragment key={entry.href}>
+            {/* Marks Copilote as a distinct space (action/chat) from the
+                analysis pages above it — same hairline that used to
+                separate the old "Avancé" entry. */}
+            {entry.href === "/copilote" && <div className="my-3 h-px bg-white/20" />}
+            <NavLink entry={entry} pathname={pathname} indented={false} />
+          </Fragment>
         ))}
       </nav>
 

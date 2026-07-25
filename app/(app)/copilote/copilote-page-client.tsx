@@ -9,8 +9,11 @@ import { recordCopiloteAgentSelected, recordCopiloteSwitchFromRedirect } from "@
 import { AGENT_KEY_TO_SKIN, AGENT_KEY_TO_SPECIALTY } from "@/lib/falco-skins";
 
 const STORAGE_KEY = "copilote:lastAgent";
-// Acquisition-then-vente order, matching the pillar tabs elsewhere in the app.
-const DISPLAY_ORDER = ["email_marketing", "content", "setting", "ads", "closing", "produits", "upsell_ascension"];
+// Consolidated to 4 agents (was 7 — see lib/agent/lever-agent-data.ts and
+// app/api/improve-chat/route.ts's AGENT_KEY_CONSOLIDATION): Mail, Contenu
+// unchanged; Ventes absorbs Closing+Produits+Upsell; CEO Vision absorbs
+// Setting+Ads.
+const DISPLAY_ORDER = ["email_marketing", "content", "ventes", "ceo_vision"];
 
 type AgentSummary = { agentKey: string; leverKey: string | null; name: string; falcoSkinIcon: string };
 type AgentDataSummary = { gapBadge: string | null; impactAmountEur: number | null } | null;
