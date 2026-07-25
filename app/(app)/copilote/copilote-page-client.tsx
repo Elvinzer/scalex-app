@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { ChatErrorBoundary } from "@/components/chat-error-boundary";
 import { AgentPanel, type CopilotePanelItem } from "@/components/copilote/agent-panel";
 import { CopiloteChatPanel } from "@/components/copilote/copilote-chat-panel";
 import { Falco } from "@/components/falco/falco";
@@ -122,15 +123,23 @@ export function CopilotePageClient({
 
       <div className="flex flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-border lg:rounded-r-none">
         {selectedItem ? (
-          <CopiloteChatPanel
-            agentKey={selectedItem.agentKey}
-            name={selectedItem.name}
-            skin={selectedItem.skin}
-            gapBadge={selectedAgentData?.gapBadge ?? null}
-            mode={selectedMode}
-            agentNameToKey={agentNameToKey}
-            onSelectAgent={handleRedirect}
-          />
+          // Keyed by agentKey so switching agents always fully remounts the
+          // thread (fresh messages/isStreaming/history-loaded state) instead
+          // of reusing the previous agent's component instance — without
+          // this, a stuck stream on one agent stayed stuck even after
+          // picking a different one, since the mount-effect never re-fires
+          // on the same instance.
+          <ChatErrorBoundary key={selectedItem.agentKey}>
+            <CopiloteChatPanel
+              agentKey={selectedItem.agentKey}
+              name={selectedItem.name}
+              skin={selectedItem.skin}
+              gapBadge={selectedAgentData?.gapBadge ?? null}
+              mode={selectedMode}
+              agentNameToKey={agentNameToKey}
+              onSelectAgent={handleRedirect}
+            />
+          </ChatErrorBoundary>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
             <Falco pose="neutral" size="md" />

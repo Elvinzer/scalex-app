@@ -228,6 +228,11 @@ export async function POST(request: NextRequest) {
         temperature: agent?.temperature,
         messages: [{ role: "system", content: systemPrompt }, ...messages],
       }),
+      // Without this, a Groq connection that never opens (network issue,
+      // DNS, provider outage) leaves this await pending forever — the
+      // client's own stall timeout only covers a stream that already
+      // started, not one that never starts.
+      signal: AbortSignal.timeout(20_000),
     });
   } catch {
     return NextResponse.json(

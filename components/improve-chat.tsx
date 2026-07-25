@@ -4,6 +4,7 @@ import { RotateCcw, X } from "lucide-react";
 import { useRef } from "react";
 
 import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-chat-thread";
+import { ChatErrorBoundary } from "@/components/chat-error-boundary";
 import { Falco } from "@/components/falco/falco";
 import { LeverAgentIcon } from "@/components/lever-agent-icon";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
@@ -88,15 +89,17 @@ export function ImproveChat({
         </div>
       </div>
 
-      <AgentChatThread
-        ref={threadRef}
-        context={context}
-        followupKey={followupKey}
-        period={period}
-        mode={mode}
-        falcoSkin={falcoSkin}
-        seedQuestion={seedQuestion}
-      />
+      <ChatErrorBoundary>
+        <AgentChatThread
+          ref={threadRef}
+          context={context}
+          followupKey={followupKey}
+          period={period}
+          mode={mode}
+          falcoSkin={falcoSkin}
+          seedQuestion={seedQuestion}
+        />
+      </ChatErrorBoundary>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { clearAgentChatHistory, loadAgentChatHistory } from "@/lib/agent/chat-hi
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type ChatMessage = { role: "user" | "assistant"; content: string; isError?: boolean };
 type Period = "3-months" | "current-month" | "12-months";
 type LeverMode = "optimiser" | "demarrer" | "decouverte";
 
@@ -100,6 +100,32 @@ function renderMarkdownLite(
   return <div className="flex flex-col gap-2">{nodes}</div>;
 }
 
+// Two distinct deadlines, per the anti-hang requirement: CONNECT covers
+// "the server never even starts responding" (fetch itself never
+// resolves), STALL covers "the stream opened but then went silent
+// mid-generation" (reader.read() never resolves again) — a single
+// timeout on the whole call couldn't tell those apart, and a stream that
+// legitimately runs longer than one fixed deadline would get killed for
+// no reason. Every previous version of this function had NEITHER, which
+// is why a stalled Groq connection left the UI stuck forever.
+const CONNECT_TIMEOUT_MS = 20_000;
+const STALL_TIMEOUT_MS = 20_000;
+
+async function readWithTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs: number
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("stall")), timeoutMs);
+  });
+  try {
+    return await Promise.race([reader.read(), timeout]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
 async function streamChat(
   body: {
     context: ChatContext;
@@ -110,11 +136,25 @@ async function streamChat(
   },
   onToken: (token: string) => void
 ): Promise<{ error: string | null }> {
-  const response = await fetch("/api/improve-chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const connectTimeoutId = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch("/api/improve-chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return { error: "La connexion à l'IA a expiré. Réessaie." };
+    }
+    return { error: "Impossible de joindre le serveur. Vérifie ta connexion et réessaie." };
+  } finally {
+    clearTimeout(connectTimeoutId);
+  }
 
   if (!response.ok || !response.body) {
     const data = await response.json().catch(() => null);
@@ -125,26 +165,31 @@ async function streamChat(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  try {
+    for (;;) {
+      const { done, value } = await readWithTimeout(reader, STALL_TIMEOUT_MS);
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-    const events = buffer.split("\n\n");
-    buffer = events.pop() ?? "";
+      const events = buffer.split("\n\n");
+      buffer = events.pop() ?? "";
 
-    for (const event of events) {
-      const line = event.replace(/^data:\s*/, "").trim();
-      if (!line || line === "[DONE]") continue;
-      try {
-        const json = JSON.parse(line);
-        const token = json.choices?.[0]?.delta?.content;
-        if (typeof token === "string") onToken(token);
-      } catch {
-        // Ignore malformed/partial SSE chunks — the next read() call
-        // usually completes them.
+      for (const event of events) {
+        const line = event.replace(/^data:\s*/, "").trim();
+        if (!line || line === "[DONE]") continue;
+        try {
+          const json = JSON.parse(line);
+          const token = json.choices?.[0]?.delta?.content;
+          if (typeof token === "string") onToken(token);
+        } catch {
+          // Ignore malformed/partial SSE chunks — the next read() call
+          // usually completes them.
+        }
       }
     }
+  } catch {
+    void reader.cancel().catch(() => {});
+    return { error: "La génération s'est interrompue. Réessaie." };
   }
 
   return { error: null };
@@ -181,6 +226,7 @@ export const AgentChatThread = forwardRef<
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [failedHistory, setFailedHistory] = useState<ChatMessage[] | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasOpenedRef = useRef(false);
   // "metric" stays fully ephemeral (per-diagnostic-point drill-downs
@@ -241,25 +287,48 @@ export const AgentChatThread = forwardRef<
     setIsStreaming(true);
     setMessages([...history, { role: "assistant", content: "" }]);
 
-    const result = await streamChat({ context, followupKey, period, mode, messages: history }, (token) => {
-      setMessages((prev) => {
-        const next = [...prev];
-        const last = next[next.length - 1];
-        if (last?.role === "assistant") {
-          next[next.length - 1] = { ...last, content: last.content + token };
-        }
-        return next;
+    try {
+      const result = await streamChat({ context, followupKey, period, mode, messages: history }, (token) => {
+        setMessages((prev) => {
+          const next = [...prev];
+          const last = next[next.length - 1];
+          if (last?.role === "assistant") {
+            next[next.length - 1] = { ...last, content: last.content + token };
+          }
+          return next;
+        });
       });
-    });
 
-    if (result.error) {
+      if (result.error) {
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { role: "assistant", content: result.error!, isError: true };
+          return next;
+        });
+        setFailedHistory(history);
+      } else {
+        setFailedHistory(null);
+      }
+    } catch {
+      // streamChat itself is expected to always resolve (never throw) —
+      // this only guards against something unexpected slipping through,
+      // so `finally` below is still what actually prevents an infinite
+      // spinner; without it, a thrown rejection here used to leave
+      // isStreaming stuck true forever (the classic missing-finally bug).
       setMessages((prev) => {
         const next = [...prev];
-        next[next.length - 1] = { role: "assistant", content: result.error! };
+        next[next.length - 1] = { role: "assistant", content: "Une erreur inattendue s'est produite. Réessaie.", isError: true };
         return next;
       });
+      setFailedHistory(history);
+    } finally {
+      setIsStreaming(false);
     }
-    setIsStreaming(false);
+  }
+
+  function retry() {
+    if (!failedHistory || isStreaming) return;
+    void send(failedHistory);
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -278,6 +347,7 @@ export const AgentChatThread = forwardRef<
     if (isStreaming) return;
     if (isPersisted) await clearAgentChatHistory(storageKey);
     setMessages([]);
+    setFailedHistory(null);
     void send([]);
   }
 
@@ -307,7 +377,16 @@ export const AgentChatThread = forwardRef<
                 ) : (
                   <Falco pose="neutral" size="xs" className="mt-0.5" />
                 )}
-                <div className="flex-1 text-sm text-foreground">{renderMarkdownLite(message.content, redirect)}</div>
+                <div className="flex flex-1 flex-col items-start gap-2">
+                  <div className={`text-sm ${message.isError ? "text-state-critical" : "text-foreground"}`}>
+                    {renderMarkdownLite(message.content, redirect)}
+                  </div>
+                  {message.isError && index === messages.length - 1 && !isStreaming && (
+                    <Button size="sm" variant="outline" onClick={retry}>
+                      Réessayer
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : isStreaming && index === messages.length - 1 ? (
               <FalcoPondering key={index} isLoading size="xs" />
