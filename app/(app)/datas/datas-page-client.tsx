@@ -31,6 +31,7 @@ export function DatasPageClient({
   currentMonth,
   postLeadsByMonth,
   salesByMonth,
+  pipelineVolumesByMonth,
   allSettingEntries,
   allClosingEntries,
 }: {
@@ -40,6 +41,7 @@ export function DatasPageClient({
   currentMonth: number;
   postLeadsByMonth: Record<number, number>;
   salesByMonth: Record<number, { contracted: number; collected: number; closedCount: number }>;
+  pipelineVolumesByMonth: Record<number, { conversations: number; callsBooked: number; callsTaken: number }>;
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
 }) {
@@ -132,6 +134,7 @@ export function DatasPageClient({
           monthRowsThisYear={open.year === year ? monthRows : []}
           postLeadsThisMonth={open.year === year ? (postLeadsByMonth[open.month] ?? 0) : 0}
           salesThisMonth={open.year === year ? salesByMonth[open.month] : undefined}
+          pipelineVolumesThisMonth={open.year === year ? pipelineVolumesByMonth[open.month] : undefined}
           allSettingEntries={allSettingEntries}
           allClosingEntries={allClosingEntries}
           onClose={() => setOpen(null)}

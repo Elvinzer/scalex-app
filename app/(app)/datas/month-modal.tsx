@@ -83,6 +83,7 @@ export function MonthModal({
   monthRowsThisYear,
   postLeadsThisMonth,
   salesThisMonth,
+  pipelineVolumesThisMonth,
   allSettingEntries,
   allClosingEntries,
   onClose,
@@ -94,6 +95,7 @@ export function MonthModal({
   monthRowsThisYear: MonthlyMetricsRow[];
   postLeadsThisMonth: number;
   salesThisMonth: { contracted: number; collected: number; closedCount: number } | undefined;
+  pipelineVolumesThisMonth: { conversations: number; callsBooked: number; callsTaken: number } | undefined;
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
   onClose: () => void;
@@ -350,6 +352,24 @@ export function MonthModal({
                     onApply={() => update({ newFollowers: postLeadsThisMonth })}
                   />
                 )}
+                {!settingSourced &&
+                  pipelineVolumesThisMonth &&
+                  pipelineVolumesThisMonth.conversations > 0 &&
+                  pipelineVolumesThisMonth.conversations !== draft.conversations && (
+                    <SuggestionBanner
+                      text={`Ton pipeline Acquisition recense ${pipelineVolumesThisMonth.conversations} conversation${pipelineVolumesThisMonth.conversations > 1 ? "s" : ""} démarrée${pipelineVolumesThisMonth.conversations > 1 ? "s" : ""} ce mois.`}
+                      onApply={() => update({ conversations: pipelineVolumesThisMonth.conversations })}
+                    />
+                  )}
+                {!settingSourced &&
+                  pipelineVolumesThisMonth &&
+                  pipelineVolumesThisMonth.callsBooked > 0 &&
+                  pipelineVolumesThisMonth.callsBooked !== draft.callsBooked && (
+                    <SuggestionBanner
+                      text={`Ton pipeline Acquisition recense ${pipelineVolumesThisMonth.callsBooked} RDV fixé${pipelineVolumesThisMonth.callsBooked > 1 ? "s" : ""} ce mois.`}
+                      onApply={() => update({ callsBooked: pipelineVolumesThisMonth.callsBooked })}
+                    />
+                  )}
               </div>
 
               <div className="flex flex-col gap-3">
@@ -393,6 +413,15 @@ export function MonthModal({
                     onApply={() => update({ salesClosed: salesThisMonth.closedCount })}
                   />
                 )}
+                {!closingSourced &&
+                  pipelineVolumesThisMonth &&
+                  pipelineVolumesThisMonth.callsTaken > 0 &&
+                  pipelineVolumesThisMonth.callsTaken !== draft.callsTaken && (
+                    <SuggestionBanner
+                      text={`Ton pipeline Acquisition recense ${pipelineVolumesThisMonth.callsTaken} RDV honoré${pipelineVolumesThisMonth.callsTaken > 1 ? "s" : ""} ce mois.`}
+                      onApply={() => update({ callsTaken: pipelineVolumesThisMonth.callsTaken })}
+                    />
+                  )}
               </div>
 
               {saveError && <p className="text-sm text-state-critical">{saveError}</p>}

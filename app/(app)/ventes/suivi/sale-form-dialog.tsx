@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import type { Offer } from "@/lib/business/types";
 import { generateSchedule } from "@/lib/sales/installments";
 import type { SaleRow } from "@/lib/sales/types";
+import type { SetterRow } from "@/lib/setters/types";
 
 import { saveSale } from "./actions";
 
@@ -16,10 +17,12 @@ function today(): string {
 
 export function SaleFormDialog({
   offers,
+  setters,
   sale,
   trigger,
 }: {
   offers: Offer[];
+  setters: SetterRow[];
   sale?: SaleRow;
   trigger: React.ReactNode;
 }) {
@@ -34,6 +37,7 @@ export function SaleFormDialog({
   const [hasUpsell, setHasUpsell] = useState(sale?.hasUpsell ?? false);
   const [upsellOfferId, setUpsellOfferId] = useState(sale?.upsellOfferId ?? "");
   const [upsellAmount, setUpsellAmount] = useState<string>(sale?.upsellAmount !== null && sale?.upsellAmount !== undefined ? String(sale.upsellAmount) : "");
+  const [setterId, setSetterId] = useState(sale?.setterId ?? "");
 
   const preview = useMemo(() => {
     if (paymentType !== "installments") return null;
@@ -67,6 +71,10 @@ export function SaleFormDialog({
       hasUpsell,
       upsellOfferId: hasUpsell ? upsellOfferId || null : null,
       upsellAmount: hasUpsell ? Number(upsellAmount) || 0 : null,
+      setterId: setterId || null,
+      // Preserved on edit (a sale created from the Pipeline keeps its link
+      // back to the lead); manual sales never had one to begin with.
+      leadId: sale?.leadId ?? null,
     };
 
     startTransition(async () => {
@@ -175,6 +183,22 @@ export function SaleFormDialog({
               />
             </label>
           </div>
+
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-muted-foreground">Setter (optionnel)</span>
+            <select
+              value={setterId}
+              onChange={(event) => setSetterId(event.target.value)}
+              className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            >
+              <option value="">—</option>
+              {setters.map((setter) => (
+                <option key={setter.id} value={setter.id}>
+                  {setter.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <div className="flex flex-col gap-1.5 text-sm">
             <span className="text-muted-foreground">Paiement</span>

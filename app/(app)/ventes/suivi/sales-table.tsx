@@ -3,8 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import type { Offer } from "@/lib/business/types";
 import { summarize } from "@/lib/sales/installments";
 import type { SaleRow } from "@/lib/sales/types";
+import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
 
 import { removeSale } from "./actions";
@@ -24,23 +26,34 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "Échéance échouée",
 };
 
-export function SalesTable({ sales }: { sales: SaleRow[] }) {
+export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; setters: SetterRow[]; offers: Offer[] }) {
   const [selected, setSelected] = useState<SaleRow | null>(null);
+  const [setterFilter, setSetterFilter] = useState("");
   const [, startTransition] = useTransition();
 
+  const filtered = useMemo(
+    () => (setterFilter ? sales.filter((sale) => sale.setterId === setterFilter) : sales),
+    [sales, setterFilter]
+  );
+
   const sorted = useMemo(() => {
-    const withSummary = sales.map((sale) => ({ sale, summary: summarize(sale.totalPrice, sale.installments) }));
+    const withSummary = filtered.map((sale) => ({ sale, summary: summarize(sale.totalPrice, sale.installments) }));
     withSummary.sort((a, b) => {
       const rank = (status: string) => (status === "failed" ? 0 : status === "in_progress" ? 1 : 2);
       return rank(a.summary.overallStatus) - rank(b.summary.overallStatus);
     });
     return withSummary;
-  }, [sales]);
+  }, [filtered]);
 
   function handleDelete(id: string) {
     startTransition(async () => {
       await removeSale(id);
     });
+  }
+
+  function setterName(setterId: string | null): string {
+    if (!setterId) return "—";
+    return setters.find((s) => s.id === setterId)?.name ?? "—";
   }
 
   if (sales.length === 0) {
@@ -54,6 +67,26 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
 
   return (
     <>
+      {setters.length > 0 && (
+        <div className="mb-3 flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Filtrer par setter</span>
+            <select
+              value={setterFilter}
+              onChange={(event) => setSetterFilter(event.target.value)}
+              className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            >
+              <option value="">Tous</option>
+              {setters.map((setter) => (
+                <option key={setter.id} value={setter.id}>
+                  {setter.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
       <div className="sticker-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -61,6 +94,9 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
               <th className="p-3 text-left text-xs font-bold text-muted-foreground">Date</th>
               <th className="p-3 text-left text-xs font-bold text-muted-foreground">Client</th>
               <th className="p-3 text-right text-xs font-bold text-muted-foreground">Prix</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Source</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Setter</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Closer</th>
               <th className="p-3 text-left text-xs font-bold text-muted-foreground">Statut</th>
               <th className="p-3" />
             </tr>
@@ -75,6 +111,9 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
                 <td className="p-3 whitespace-nowrap text-muted-foreground">{sale.saleDate}</td>
                 <td className="p-3 font-bold">{sale.clientName}</td>
                 <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(sale.totalPrice)} €</td>
+                <td className="p-3 text-muted-foreground">{sale.sourceChannel ?? "—"}</td>
+                <td className="p-3 text-muted-foreground">{setterName(sale.setterId)}</td>
+                <td className="p-3 text-muted-foreground">{sale.closer ?? "—"}</td>
                 <td className="p-3">
                   <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.overallStatus])}>
                     {STATUS_LABEL[summary.overallStatus]}
@@ -99,7 +138,7 @@ export function SalesTable({ sales }: { sales: SaleRow[] }) {
         </table>
       </div>
 
-      <SaleDetailDrawer sale={selected} open={selected !== null} onOpenChange={(open) => !open && setSelected(null)} />
+      <SaleDetailDrawer sale={selected} offers={offers} setters={setters} open={selected !== null} onOpenChange={(open) => !open && setSelected(null)} />
     </>
   );
 }

@@ -18,6 +18,8 @@ const SKIN_ROUTE_RULES: { prefix: string; skin: FalcoSkinKey }[] = [
   { prefix: "/acquisition/contenu", skin: "contenu" },
   { prefix: "/acquisition/setting", skin: "acquisition" },
   { prefix: "/acquisition/ads", skin: "acquisition" },
+  { prefix: "/acquisition/pipeline", skin: "acquisition" },
+  { prefix: "/acquisition/setters", skin: "acquisition" },
   { prefix: "/ventes", skin: "vente" },
   { prefix: "/datas", skin: "chiffres" },
   { prefix: "/diagnostic", skin: "diagnostic" },
@@ -80,7 +82,9 @@ export const AGENT_KEY_TO_ROUTE: Record<string, string> = {
   email_marketing: "/acquisition/mail",
   content: "/acquisition/contenu",
   ventes: "/ventes/produits",
-  ceo_vision: "/acquisition/setting",
+  // Pipeline replaces Setting as ceo_vision's canonical page — Setting's
+  // route/page.tsx still exists (unlinked), see AGENT_ROUTE_RULES below.
+  ceo_vision: "/acquisition/pipeline",
 };
 
 // "Spécialité" line under each agent's name in the Copilote hub panel —
@@ -113,6 +117,8 @@ const AGENT_ROUTE_RULES: { route: string; agentKey: string }[] = [
   { route: "/acquisition/contenu", agentKey: "content" },
   { route: "/acquisition/setting", agentKey: "ceo_vision" },
   { route: "/acquisition/ads", agentKey: "ceo_vision" },
+  { route: "/acquisition/pipeline", agentKey: "ceo_vision" },
+  { route: "/acquisition/setters", agentKey: "ceo_vision" },
   { route: "/ventes/closing", agentKey: "ventes" },
   { route: "/ventes/produits", agentKey: "ventes" },
   { route: "/ventes/upsell", agentKey: "ventes" },

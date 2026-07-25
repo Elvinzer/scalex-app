@@ -1,0 +1,84 @@
+"use client";
+
+import { useState, useTransition } from "react";
+
+import { Button } from "@/components/ui/button";
+import { formatEur } from "@/lib/currency";
+import type { SetterCommissions, SetterRow } from "@/lib/setters/types";
+
+import { getSetterCommissionsAction, saveSetter } from "./actions";
+import { SetterSalesDrawer } from "./setter-sales-drawer";
+
+export function SetterCard({
+  setter,
+  summary,
+}: {
+  setter: SetterRow;
+  summary: Pick<SetterCommissions, "validatedSalesCount" | "validatedRevenueEur" | "commissionPaidEur" | "commissionUpcomingEur">;
+}) {
+  const [pctInput, setPctInput] = useState(String(Math.round(setter.defaultCommissionPct * 100)));
+  const [isPending, startTransition] = useTransition();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [commissions, setCommissions] = useState<SetterCommissions | null>(null);
+
+  function handlePctBlur() {
+    const pct = (Number(pctInput) || 0) / 100;
+    if (pct === setter.defaultCommissionPct) return;
+    startTransition(async () => {
+      await saveSetter(setter.id, { name: setter.name, email: setter.email, defaultCommissionPct: pct });
+    });
+  }
+
+  function handleOpenDetail() {
+    setDrawerOpen(true);
+    void getSetterCommissionsAction(setter.id).then(setCommissions);
+  }
+
+  return (
+    <>
+      <div className="sticker-card flex flex-col gap-3 p-5">
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-bold">{setter.name}</p>
+          <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={pctInput}
+              onChange={(event) => setPctInput(event.target.value)}
+              onBlur={handlePctBlur}
+              disabled={isPending}
+              className="w-14 rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-right text-sm tabular-nums outline-none focus-visible:border-accent"
+            />
+            %
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <p className="text-xs text-muted-foreground">Ventes settées</p>
+            <p className="font-bold tabular-nums">{summary.validatedSalesCount}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">CA setté</p>
+            <p className="font-bold tabular-nums">{formatEur(summary.validatedRevenueEur)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Commission payée</p>
+            <p className="font-bold tabular-nums text-state-healthy">{formatEur(summary.commissionPaidEur)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Commission à venir</p>
+            <p className="font-bold tabular-nums text-state-caution">{formatEur(summary.commissionUpcomingEur)}</p>
+          </div>
+        </div>
+
+        <Button type="button" variant="outline" size="sm" className="self-start" onClick={handleOpenDetail}>
+          Voir le détail
+        </Button>
+      </div>
+
+      <SetterSalesDrawer setterName={setter.name} commissions={commissions} open={drawerOpen} onOpenChange={setDrawerOpen} />
+    </>
+  );
+}

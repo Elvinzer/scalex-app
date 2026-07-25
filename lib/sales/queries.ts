@@ -22,6 +22,8 @@ function toRow(row: typeof sales.$inferSelect): SaleRow {
     hasUpsell: row.hasUpsell,
     upsellOfferId: row.upsellOfferId,
     upsellAmount: row.upsellAmount,
+    setterId: row.setterId,
+    leadId: row.leadId,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -70,8 +72,13 @@ export async function getSalesSummaryByMonth(
   return byMonth;
 }
 
-export async function createSale(userId: string, data: SaleInput): Promise<void> {
-  await db.insert(sales).values({ userId, ...data });
+// Return type widened from void to { id } so callers that need the new
+// row's id (the Pipeline's validate-sale action, to link the lead back)
+// can get it without a second query — safe, the one pre-existing caller
+// (/ventes/suivi/actions.ts's saveSale) already discards the return value.
+export async function createSale(userId: string, data: SaleInput): Promise<{ id: string }> {
+  const [row] = await db.insert(sales).values({ userId, ...data }).returning({ id: sales.id });
+  return row;
 }
 
 export async function updateSale(userId: string, id: string, data: SaleInput): Promise<void> {

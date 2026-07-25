@@ -1,0 +1,134 @@
+import Link from "next/link";
+
+import { CalcPopover } from "@/components/calc-popover";
+import { formatEur } from "@/lib/currency";
+import { getHealthTier } from "@/lib/diagnostic/health-tier";
+import type { PipelineStats } from "@/lib/leads/stats";
+import { scoreAgainstBenchmark } from "@/lib/scoring";
+import { formatPercent } from "@/lib/setting/funnel";
+import { cn } from "@/lib/utils";
+
+import { ClosingBySourceTable } from "./closing-by-source-table";
+
+const TIER_TEXT_CLASS: Record<"rouge" | "ambre" | "vert", string> = {
+  rouge: "text-state-critical",
+  ambre: "text-state-caution",
+  vert: "text-state-healthy",
+};
+
+const PERIOD_LABELS: Record<string, string> = { "current-month": "Ce mois", "3-months": "3 mois" };
+
+function BenchmarkedTile({
+  label,
+  current,
+  volume,
+  status,
+  benchmarkPercent,
+  explanation,
+  // Failure rate is "good" when LOWER than the benchmark — inverting the
+  // scoreAgainstBenchmark args (benchmark/current instead of current/benchmark)
+  // reuses the same shared scoring function rather than a second one.
+  invert = false,
+}: {
+  label: string;
+  current: number | null;
+  volume: number;
+  status: "ok" | "caution" | "critical" | "unmeasured";
+  benchmarkPercent: number;
+  explanation: string;
+  invert?: boolean;
+}) {
+  if (status === "unmeasured" || current === null) {
+    return (
+      <div className="sticker-card flex flex-col p-5">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-bold text-muted-foreground">{label}</p>
+          <CalcPopover explanation={explanation} />
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">Pas assez de volume ({volume}/30)</p>
+      </div>
+    );
+  }
+
+  const benchmarkFraction = benchmarkPercent / 100;
+  const score = invert ? scoreAgainstBenchmark(benchmarkFraction, current) : scoreAgainstBenchmark(current, benchmarkFraction);
+  const tier = getHealthTier(score);
+
+  return (
+    <div className="sticker-card flex flex-col p-5">
+      <div className="flex items-center gap-1.5">
+        <p className="text-sm font-bold text-muted-foreground">{label}</p>
+        <CalcPopover explanation={explanation} />
+      </div>
+      <p className={cn("mt-2 font-display text-3xl font-bold", TIER_TEXT_CLASS[tier.tier])}>{formatPercent(current)}</p>
+      <p className="mt-1 text-xs text-muted-foreground">Bench {benchmarkPercent}%</p>
+    </div>
+  );
+}
+
+export function PipelineStatsBanner({ stats, period }: { stats: PipelineStats; period: string }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-bold">Stats du pipeline</h2>
+        <div className="flex gap-2">
+          {Object.entries(PERIOD_LABELS).map(([value, label]) => (
+            <Link
+              key={value}
+              href={`/acquisition/pipeline?period=${value}`}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
+                period === value ? "border-accent-border bg-accent-soft text-accent-text" : "border-border text-muted-foreground hover:border-border-hover"
+              )}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="sticker-card flex flex-col p-5">
+          <p className="text-sm font-bold text-muted-foreground">Conversations</p>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums">{stats.conversationsCount}</p>
+          {stats.conversationsDelta !== null && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {stats.conversationsDelta >= 0 ? "+" : ""}
+              {stats.conversationsDelta} vs période précédente
+            </p>
+          )}
+        </div>
+
+        <BenchmarkedTile
+          label="Taux de conversion"
+          current={stats.conversionRate.current}
+          volume={stats.conversionRate.volume}
+          status={stats.conversionRate.status}
+          benchmarkPercent={stats.conversionRate.benchmarkPercent}
+          explanation={`Closés (${stats.closingBySource.reduce((sum, r) => sum + r.closed, 0)}) / leads travaillés (${stats.conversionRate.volume}) sur la période.`}
+        />
+
+        <div className="sticker-card flex flex-col p-5">
+          <p className="text-sm font-bold text-muted-foreground">Argent potentiel en follow-up</p>
+          <p className="mt-2 font-display text-3xl font-bold">{formatEur(stats.potentialInFollowupEur)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Valeur des leads encore ouverts</p>
+        </div>
+
+        <BenchmarkedTile
+          label="Taux d'échec"
+          current={stats.failureRate.current}
+          volume={stats.failureRate.volume}
+          status={stats.failureRate.status}
+          benchmarkPercent={stats.failureRate.benchmarkPercent}
+          explanation={`Perdus / leads travaillés (${stats.failureRate.volume}) sur la période — plus bas que le benchmark est ce qu'on cherche.`}
+          invert
+        />
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-sm font-bold">Closing par source</h3>
+        <ClosingBySourceTable rows={stats.closingBySource} />
+      </div>
+    </div>
+  );
+}

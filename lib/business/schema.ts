@@ -54,6 +54,11 @@ const offerSchema = z.object({
   saleMode: z.enum(["appel_closing", "page_vente", "dm"]).nullable(),
   recurrence: z.enum(["one_shot", "mensuel", "annuel"]).nullable(),
   isMain: z.boolean(),
+  // Pre-existing gap fixed here: isUpsell was declared on the Offer type
+  // and read/written by sales-section.tsx, but never in this schema — Zod
+  // safeParse silently strips unknown keys, so it likely never persisted.
+  isUpsell: z.boolean().optional(),
+  commissionSetterPct: z.number().min(0).max(1).nullable().optional(),
 });
 
 export const salesSchema = z.object({

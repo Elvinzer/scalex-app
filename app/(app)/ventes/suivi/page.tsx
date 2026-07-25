@@ -7,6 +7,7 @@ import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
+import { getSetters } from "@/lib/setters/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { SaleFormDialog } from "./sale-form-dialog";
@@ -22,7 +23,7 @@ const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 export default async function SuiviDesVentesPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:suivi");
-  const [sales, profile] = await Promise.all([getSales(accountId), getBusinessProfile(accountId)]);
+  const [sales, profile, setters] = await Promise.all([getSales(accountId), getBusinessProfile(accountId), getSetters(accountId)]);
   const offers = profile.sales.offers;
 
   const monthPrefix = currentMonthPrefix();
@@ -54,6 +55,7 @@ export default async function SuiviDesVentesPage() {
         </div>
         <SaleFormDialog
           offers={offers}
+          setters={setters}
           trigger={
             <Button type="button">
               <Plus className="size-4" />
@@ -84,7 +86,7 @@ export default async function SuiviDesVentesPage() {
         </div>
       </div>
 
-      <SalesTable sales={sales} />
+      <SalesTable sales={sales} setters={setters} offers={offers} />
     </div>
   );
 }

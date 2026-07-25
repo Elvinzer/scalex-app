@@ -52,7 +52,12 @@ export type AnalyticsEvent =
   | "copilote_agent_selected"
   | "copilote_switch_from_redirect"
   | "diagnostic_reco_shown"
-  | "diagnostic_reco_clicked";
+  | "diagnostic_reco_clicked"
+  | "lead_created"
+  | "lead_stage_changed"
+  | "sale_validated"
+  | "setter_added"
+  | "commission_pct_changed";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

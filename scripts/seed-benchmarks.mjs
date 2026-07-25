@@ -31,13 +31,19 @@ const GLOBAL = {
   // sector-specific data source exists yet.
   content_click_rate: 0.015,
   content_lead_rate: 0.3,
+  // Pipeline Kanban (leads travaillés -> closés, lib/diagnostic/pipeline-metrics.ts)
+  // — a wider funnel than closingRate (which starts from calls attended,
+  // not raw leads), so deliberately lower. No real cross-user data exists
+  // yet — a placeholder starting point, adjustable in the benchmarks table
+  // without a redeploy.
+  pipeline_closing_rate: 0.15,
 };
 
 const SECTOR_OVERRIDES = {
-  coaching_b2b_high_ticket: { responseRate: 0.45, bookingRate: 0.4, showUpRate: 0.75, closingRate: 0.45 },
-  low_ticket_infoproduct: { responseRate: 0.55, bookingRate: 0.15 },
-  ecommerce_dtc: { responseRate: 0.35 },
-  real_estate_finance: { responseRate: 0.45, bookingRate: 0.3, showUpRate: 0.85, closingRate: 0.5 },
+  coaching_b2b_high_ticket: { responseRate: 0.45, bookingRate: 0.4, showUpRate: 0.75, closingRate: 0.45, pipeline_closing_rate: 0.2 },
+  low_ticket_infoproduct: { responseRate: 0.55, bookingRate: 0.15, pipeline_closing_rate: 0.1 },
+  ecommerce_dtc: { responseRate: 0.35, pipeline_closing_rate: 0.12 },
+  real_estate_finance: { responseRate: 0.45, bookingRate: 0.3, showUpRate: 0.85, closingRate: 0.5, pipeline_closing_rate: 0.22 },
 };
 
 await sql`delete from benchmarks`;

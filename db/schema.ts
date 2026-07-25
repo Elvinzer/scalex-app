@@ -13,6 +13,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 import type {
@@ -420,6 +421,10 @@ export const diagnosticMetricEnum = pgEnum("diagnostic_metric", [
   // 5-stage sales cascade above, see lib/content-posts/rates.ts.
   "content_click_rate",
   "content_lead_rate",
+  // Pipeline Kanban (leads travaillés -> closés) — a different denominator
+  // than closingRate above (which starts from calls attended, not leads
+  // entering the pipeline), see lib/diagnostic/pipeline-metrics.ts.
+  "pipeline_closing_rate",
 ]);
 
 // Lives in DB so values are adjustable without a redeploy, and so they can
@@ -469,6 +474,119 @@ export const contentPosts = pgTable(
 
 export const salePaymentType = pgEnum("sale_payment_type", ["one_shot", "installments"]);
 
+// --- Pipeline Acquisition (Kanban leads) + Setters + commissions ---------
+// setters/leads/sales are mutually referential (leads.setterId -> setters,
+// leads.saleId -> sales, sales.leadId -> leads) — Drizzle's `.references(()
+// => table.column)` callbacks are lazy, so the circular pair (leads <->
+// sales) resolves fine regardless of declaration order; setters is declared
+// first purely for readability since nothing references it in reverse.
+
+export const setters = pgTable(
+  "setters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email"),
+    // 0-1 fraction, same convention as benchmarks.value — used as the
+    // fallback commission % whenever the sold offer has no
+    // commissionSetterPct of its own (business_profile.sales.offers).
+    defaultCommissionPct: real("default_commission_pct").notNull().default(0.1),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("setters_user_idx").on(table.userId)]
+).enableRLS();
+
+export const leadSourceEnum = pgEnum("lead_source", [
+  "instagram", "tiktok", "youtube", "linkedin", "x", "facebook",
+  "email_newsletter", "ads", "bouche_a_oreille", "autre",
+]);
+
+export const leadStageEnum = pgEnum("lead_stage", [
+  "nouveau_lead", "conversation", "rdv_fixe", "rdv_honore", "close", "perdu",
+]);
+
+export const leadLostReasonEnum = pgEnum("lead_lost_reason", [
+  "pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "autre",
+]);
+
+// The "/acquisition/pipeline" Kanban — replaces the old Setting KPI-entry
+// page in the visible UX (settingKpiEntries/lib/setting/funnel.ts are
+// untouched, still feed the diagnostic cascade independently of this).
+// offerId refers to business_profile.sales.offers by id, same
+// text-not-FK convention as sales.offerId, for the same reason (no
+// relational offers table exists). closer is free text, same decision as
+// sales.closer (no closers table — see that column's own comment below).
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    source: leadSourceEnum("source").notNull(),
+    offerId: text("offer_id"),
+    potentialValueEur: integer("potential_value_eur").notNull().default(0), // pre-filled from offer.price, editable
+    setterId: uuid("setter_id").references(() => setters.id, { onDelete: "set null" }),
+    closer: text("closer"),
+    stage: leadStageEnum("stage").notNull().default("nouveau_lead"),
+    // A STATUS on an "rdv_fixe" lead (red badge, recoverable back into
+    // "conversation") — deliberately NOT a terminal stage/column.
+    isNoShow: boolean("is_no_show").notNull().default(false),
+    lostReason: leadLostReasonEnum("lost_reason"),
+    // Set once the lead is won and a sales row exists — the lead POINTS at
+    // the sale, never duplicates its fields ("no double entry" rule).
+    // Explicit AnyPgColumn return type breaks the leads<->sales circular
+    // type-inference (each references the other) — same fix TS requires
+    // for any mutually-referential pair of Drizzle tables.
+    saleId: uuid("sale_id").references((): AnyPgColumn => sales.id, { onDelete: "set null" }),
+    // Single active follow-up reminder — visual pastille only (no
+    // cron/email notification infra exists in this codebase, and none is
+    // built for this chantier, per explicit product decision).
+    reminderDate: date("reminder_date", { mode: "string" }),
+    reminderNote: text("reminder_note"),
+    reminderDone: boolean("reminder_done").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("leads_user_stage_idx").on(table.userId, table.stage),
+    index("leads_user_created_idx").on(table.userId, table.createdAt),
+  ]
+).enableRLS();
+
+// Append-only stage-change log ("historique de progression horodaté") — a
+// real table, not a jsonb array on `leads`: rendered as its own ordered
+// timeline in the lead drawer, queried independently of the rest of the
+// lead — unlike sales.installments (jsonb) which is never queried outside
+// its own sale.
+export const leadStageHistory = pgTable(
+  "lead_stage_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    fromStage: leadStageEnum("from_stage"), // null on the row created at lead creation
+    toStage: leadStageEnum("to_stage").notNull(),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("lead_stage_history_lead_idx").on(table.leadId, table.changedAt)]
+).enableRLS();
+
+// Comment thread per lead — same "own table, independently rendered/
+// queried" reasoning as leadStageHistory above.
+export const leadComments = pgTable(
+  "lead_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // author
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("lead_comments_lead_idx").on(table.leadId, table.createdAt)]
+).enableRLS();
+
 // Manual entry (the "/ventes/suivi" page). offerId refers to an id inside
 // business_profile.sales.offers (jsonb, no relational table) so it's plain
 // text, not a FK. installments is a jsonb array — same "array-in-jsonb"
@@ -498,6 +616,13 @@ export const sales = pgTable(
     hasUpsell: boolean("has_upsell").notNull().default(false),
     upsellOfferId: text("upsell_offer_id"),
     upsellAmount: integer("upsell_amount"), // euros
+    // Pipeline tie-in (Kanban "Closé" -> sale validation modal writes here):
+    // setterId resolves commission attribution (lib/setters/queries.ts),
+    // leadId is the reverse link back to the originating lead (leads.saleId
+    // is the forward link) — both nullable since most sales still come from
+    // the plain manual /ventes/suivi form, not the pipeline.
+    setterId: uuid("setter_id").references(() => setters.id, { onDelete: "set null" }),
+    leadId: uuid("lead_id").references((): AnyPgColumn => leads.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("sales_user_sale_date_idx").on(table.userId, table.saleDate)]

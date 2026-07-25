@@ -23,6 +23,8 @@ export const saleInputSchema = z.object({
   hasUpsell: z.boolean(),
   upsellOfferId: z.string().nullable(),
   upsellAmount: z.number().int().min(0).nullable(),
+  setterId: z.string().uuid().nullable(),
+  leadId: z.string().uuid().nullable(),
 });
 
 export type SaleInput = z.infer<typeof saleInputSchema>;

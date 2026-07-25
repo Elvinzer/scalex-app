@@ -15,6 +15,8 @@ export const PERMISSION_KEYS = [
   "acquisition:setting",
   "acquisition:ads",
   "acquisition:mail",
+  "acquisition:pipeline",
+  "acquisition:setters",
   "ventes:suivi",
   "ventes:videos",
   "ventes:closing",
@@ -37,6 +39,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "acquisition:setting": "Acquisition — Setting",
   "acquisition:ads": "Acquisition — Ads",
   "acquisition:mail": "Acquisition — Mail",
+  "acquisition:pipeline": "Acquisition — Pipeline",
+  "acquisition:setters": "Acquisition — Setters",
   "ventes:suivi": "Ventes — Suivi des ventes",
   "ventes:videos": "Ventes — Vidéos de closing",
   "ventes:closing": "Ventes — Closing",
@@ -48,7 +52,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
 // /settings/equipe (see lib/team/roles.ts) — freely editable afterwards,
 // including adding permissions beyond these defaults.
 export const DEFAULT_ROLES: { key: string; name: string; permissions: PermissionKey[] }[] = [
-  { key: "setting", name: "Setting", permissions: ["acquisition:setting"] },
+  { key: "setting", name: "Setting", permissions: ["acquisition:pipeline", "acquisition:setters"] },
   { key: "closing", name: "Closing", permissions: ["ventes:closing"] },
   { key: "financier", name: "Financier", permissions: ["ventes:suivi", "datas", "dashboard"] },
 ];

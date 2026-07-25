@@ -71,6 +71,10 @@ export type Offer = {
   // sales.upsellOfferId. Optional so rows saved before this field existed
   // read as false, never a migration.
   isUpsell?: boolean;
+  // 0-1 fraction. When set, primes over the setter's own defaultCommissionPct
+  // for any sale of this offer (lib/setters/queries.ts's computeSetterCommissions).
+  // Optional/nullable, same "no migration needed" reasoning as isUpsell above.
+  commissionSetterPct?: number | null;
 };
 
 export type Closing = {

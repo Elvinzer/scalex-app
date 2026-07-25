@@ -23,6 +23,10 @@ export type SaleRow = {
   hasUpsell: boolean;
   upsellOfferId: string | null;
   upsellAmount: number | null; // euros
+  // Pipeline tie-in — both nullable since most sales still come from the
+  // plain manual /ventes/suivi form, not the Kanban.
+  setterId: string | null;
+  leadId: string | null;
   createdAt: string;
 };
 

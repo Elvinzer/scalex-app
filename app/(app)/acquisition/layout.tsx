@@ -3,10 +3,11 @@ import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { getAccountContext } from "@/lib/team/context";
 
-// Setting/Ads (former "Avancé" showcase modules) are deliberately set aside
-// again — not rendered as tabs here, not linked anywhere. Their page.tsx
-// still exists and still gates access via requirePermissionOrRedirect, but
-// this layout no longer surfaces them as discoverable tabs.
+// Setting is replaced by Pipeline in the visible tabs (its page.tsx still
+// exists, still gates access via requirePermissionOrRedirect, just no
+// longer a discoverable tab — same "hide, don't delete" precedent as
+// Journal/Avancé). Ads is relinked here alongside Pipeline/Setters (it was
+// delinked in an earlier chantier, explicitly brought back for this one).
 export default async function AcquisitionLayout({ children }: { children: React.ReactNode }) {
   const { userId } = await getCurrentUser();
   const context = await getAccountContext(userId);
@@ -20,6 +21,9 @@ export default async function AcquisitionLayout({ children }: { children: React.
   const visibleTabs = [
     { href: "/acquisition/contenu", label: "Contenu", visible: hasAccess("acquisition:contenu") },
     { href: "/acquisition/mail", label: "Mail", visible: hasAccess("acquisition:mail") },
+    { href: "/acquisition/pipeline", label: "Pipeline", visible: hasAccess("acquisition:pipeline") },
+    { href: "/acquisition/setters", label: "Setters", visible: hasAccess("acquisition:setters") },
+    { href: "/acquisition/ads", label: "Ads", visible: hasAccess("acquisition:ads") },
   ].filter((tab) => tab.visible);
 
   const tabs: PillarTab[] = visibleTabs.map(({ href, label }) => ({ href, label }));

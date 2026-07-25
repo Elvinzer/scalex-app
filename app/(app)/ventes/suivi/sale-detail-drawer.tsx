@@ -4,8 +4,10 @@ import { useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import type { Offer } from "@/lib/business/types";
 import { summarize } from "@/lib/sales/installments";
 import type { SaleRow } from "@/lib/sales/types";
+import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
 
 import { setInstallmentStatus } from "./actions";
@@ -16,12 +18,26 @@ const STATUS_LABELS: Record<string, string> = {
   failed: "Échouée",
 };
 
-export function SaleDetailDrawer({ sale, open, onOpenChange }: { sale: SaleRow | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function SaleDetailDrawer({
+  sale,
+  offers,
+  setters,
+  open,
+  onOpenChange,
+}: {
+  sale: SaleRow | null;
+  offers: Offer[];
+  setters: SetterRow[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [isPending, startTransition] = useTransition();
 
   if (!sale) return null;
 
   const summary = summarize(sale.totalPrice, sale.installments);
+  const offerName = offers.find((o) => o.id === sale.offerId)?.name ?? null;
+  const setterName = sale.setterId ? (setters.find((s) => s.id === sale.setterId)?.name ?? null) : null;
 
   function toggleStatus(index: number, status: "paid" | "failed") {
     if (!sale) return;
@@ -43,6 +59,13 @@ export function SaleDetailDrawer({ sale, open, onOpenChange }: { sale: SaleRow |
         </div>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            {offerName && <span>{offerName}</span>}
+            {sale.sourceChannel && <span>Source : {sale.sourceChannel}</span>}
+            {setterName && <span>Setter : {setterName}</span>}
+            {sale.closer && <span>Closer : {sale.closer}</span>}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="sticker-card p-4">
               <p className="text-xs font-bold text-muted-foreground">Payé</p>

@@ -44,6 +44,7 @@ function emptyOffer(): Offer {
     recurrence: null,
     isMain: false,
     isUpsell: false,
+    commissionSetterPct: null,
   };
 }
 
@@ -127,6 +128,11 @@ export function SalesSection({
                       Upsell
                     </span>
                   )}
+                  {offer.commissionSetterPct != null && (
+                    <span className="rounded-full bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
+                      Commission setter : {Math.round(offer.commissionSetterPct * 100)} %
+                    </span>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="flex flex-col gap-3">
@@ -153,6 +159,25 @@ export function SalesSection({
                   />
                 </label>
               </div>
+
+              {/* Optional — primes over the setter's own defaultCommissionPct
+                  (lib/setters/queries.ts's computeSetterCommissions) when set,
+                  never stored/computed elsewhere. */}
+              <label className="flex flex-col gap-1 text-xs sm:w-1/2 sm:pr-1.5">
+                <span className="font-bold text-muted-foreground">Commission setter (%, optionnel)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={offer.commissionSetterPct != null ? Math.round(offer.commissionSetterPct * 100) : ""}
+                  onChange={(event) =>
+                    updateOffer(offer.id, {
+                      commissionSetterPct: event.target.value === "" ? null : Number(event.target.value) / 100,
+                    })
+                  }
+                  className={inputClass}
+                />
+              </label>
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="flex flex-col gap-1 text-xs">
