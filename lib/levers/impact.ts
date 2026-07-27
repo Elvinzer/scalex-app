@@ -41,6 +41,7 @@ export async function getLeverImpactEstimate(
     closingTotals,
     cashContractedTotal,
     periodMonths: months.length,
+    months,
   });
 
   const opportunity = toImplement.find((o) => o.leverKey === leverKey);

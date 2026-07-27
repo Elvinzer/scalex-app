@@ -131,6 +131,7 @@ export default async function AppLayout({
         closingTotals,
         cashContractedTotal,
         periodMonths: SCALE_SCORE_PERIOD_MONTHS,
+        months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),
       });
       const topDiscoveryGain = discoveryOpportunities.slice(0, 3).reduce((sum, o) => sum + (o.impactAmountEur ?? 0), 0);
 

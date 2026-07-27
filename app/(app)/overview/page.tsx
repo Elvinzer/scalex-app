@@ -156,6 +156,7 @@ export default async function OverviewPage({
     closingTotals,
     cashContractedTotal,
     periodMonths: Math.max(months.length, 1),
+    months,
   });
   const bestActiveLevers = [...toWatch].sort((a, b) => b.score - a.score).slice(0, 3);
 

@@ -62,6 +62,7 @@ async function resolveOpportunityBlock(
     closingTotals: ctx.closingTotals,
     cashContractedTotal: ctx.cashContractedTotal,
     periodMonths: ctx.periodMonths,
+    months: ctx.months,
   });
   // toWatch (active but below benchmark) carries a real statValue/benchmarkValue
   // to build a gap badge from; toImplement (absent) has nothing measured yet.

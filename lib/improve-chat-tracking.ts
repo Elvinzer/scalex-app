@@ -99,26 +99,12 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
   }
 }
 
-// Called from the Diagnostic hero block's recommendation cards
-// (components/priority-recommendation-card.tsx) when its CTA is clicked —
-// additive to recordImproveChatOpened above (not a replacement), scoped to
-// this one hero-block context so the click-through rate per rank can be
-// measured independently of the generic improve_chat_opened event.
-export async function recordPriorityRecoClicked(leverOrMetricKey: string, rank: number, priorityScore: number): Promise<void> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return;
-  const userId = data.claims.sub as string;
-
-  await track("diagnostic_reco_clicked", userId, { lever: leverOrMetricKey, rank, priority_score: priorityScore });
-}
-
 // Diagnostic's "Ajouter" section — distinct from the generic
-// improve_chat_opened/diagnostic_reco_clicked above, so the click ratio
-// against "Optimiser" (tracked server-side in app/(app)/diagnostic/page.tsx
-// via the existing ?open=/?openLever= query params — no client wiring
-// needed there, the CTA is a plain navigating link) shows where user
-// attention actually goes.
+// improve_chat_opened above, so the click ratio against "Points à
+// améliorer" (tracked server-side in app/(app)/diagnostic/page.tsx via
+// the existing ?open=/?openLever= query params — no client wiring needed
+// there, the CTA is a plain navigating link) shows where user attention
+// actually goes.
 export async function recordDiagnosticAddClicked(leverKey: string): Promise<void> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();

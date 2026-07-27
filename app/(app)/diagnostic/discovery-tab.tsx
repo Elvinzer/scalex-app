@@ -47,6 +47,7 @@ export async function DiscoveryTab({ accountId }: { accountId: string }) {
     closingTotals,
     cashContractedTotal,
     periodMonths: PERIOD_MONTHS,
+    months: lastCompletedMonths(PERIOD_MONTHS),
   });
 
   const editableLevers: EditableLever[] = catalog

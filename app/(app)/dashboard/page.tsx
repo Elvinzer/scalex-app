@@ -102,6 +102,7 @@ export default async function DashboardPage({
         closingTotals,
         cashContractedTotal,
         periodMonths: PERIOD_MONTHS,
+        months,
       })
     : { toWatch: [] };
   const topActiveLevers = [...toWatch].sort((a, b) => b.score - a.score).slice(0, 3);

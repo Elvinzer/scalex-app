@@ -58,8 +58,8 @@ export function DiscoveryOpportunityCard({
   // Where this card is rendered — for improve_chat_opened's source_page.
   sourcePage: string;
   // Only Diagnostic's "Ajouter" section passes this — every other call
-  // site (RecommendedForYou's fallback, discovery-tab) leaves the agent
-  // thread's mode unset, unchanged from before.
+  // site (discovery-tab) leaves the agent thread's mode unset, unchanged
+  // from before.
   mode?: "demarrer" | null;
 }) {
   const [open, setOpen] = useState(false);

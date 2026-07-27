@@ -5,11 +5,32 @@ import { db } from "@/db";
 import { businessLevers } from "@/db/schema";
 import type { ClosingTotals } from "@/lib/closing/metrics";
 import { formatEur } from "@/lib/currency";
+import { inRange } from "@/lib/dashboard/metrics";
 import { buildRates, resolveDealPrice } from "@/lib/diagnostic/cascade";
+import type { MonthWindow } from "@/lib/diagnostic/completed-months";
+import { getSales } from "@/lib/sales/queries";
 import { scoreAgainstBenchmark } from "@/lib/scoring";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import type { BusinessProfileData } from "@/lib/business/types";
 import { getLeversCatalog, resolveFromBusinessProfile, type LeverCatalogEntry } from "./catalog";
+
+// email_marketing's own catalog row only checks openRate (its
+// benchmarkStatKey) — CTR has no dedicated catalog column (levers_catalog
+// is one benchmarkStatKey per row), so it's special-cased here exactly
+// like "ads" below. 2.5% mirrors newsletter's own seeded ctr benchmark
+// (the closest existing reference point for an email click-through rate,
+// there being no benchmarks row of its own for this specific stat) —
+// a calibration, adjustable in the same benchmarks table if needed.
+const EMAIL_CTR_BENCHMARK = 0.025;
+
+// Same 20% reference already shown on /ventes/upsell/page.tsx — reused
+// here rather than a second hardcoded number.
+const UPSELL_TAKE_RATE_BENCHMARK = 0.2;
+// Below this many sales in the period, a take-rate is too noisy to advise
+// on (5 sales flipping one upsell swings the rate by 20 points) — /ventes/
+// upsell itself has no such gate today, so this is a new, deliberately
+// conservative floor for this specific advisory context, not a regression.
+const UPSELL_MIN_SALES = 5;
 
 export type LeverOpportunity = {
   leverKey: string;
@@ -29,6 +50,11 @@ export type LeverWatchItem = {
   score: number; // 0-100, same tier semantics as getHealthTier — NOT a cascade MetricKey score
   impactAmountEur: number | null; // null = "Impact : à évaluer"
   impactExplanation: string;
+  // Disambiguates a SECOND stat check on the same leverKey (e.g. email_marketing's
+  // CTR alongside its openRate) — both entries share the same leverKey/agent
+  // (there's only one email thread to open), but need distinct list identity
+  // and their own advice template. Undefined = the lever's primary/only stat.
+  statKey?: string;
 };
 
 // Which of the lever's own answered `stats` fields represents its real
@@ -296,6 +322,7 @@ export async function computeLeverOpportunities({
   closingTotals,
   cashContractedTotal,
   periodMonths,
+  months,
 }: {
   accountId: string;
   businessProfile: BusinessProfileData;
@@ -303,6 +330,7 @@ export async function computeLeverOpportunities({
   closingTotals: ClosingTotals;
   cashContractedTotal: number;
   periodMonths: number;
+  months: MonthWindow[];
 }): Promise<{ toImplement: LeverOpportunity[]; toWatch: LeverWatchItem[]; strong: LeverWatchItem[] }> {
   const [catalog, answeredRows] = await Promise.all([getLeversCatalog(), getAnsweredLeverRows(accountId)]);
   const answeredByKey = new Map(answeredRows.map((row) => [row.leverKey, row]));
@@ -360,6 +388,67 @@ export async function computeLeverOpportunities({
           impactExplanation: result.explanation,
         };
         if (result.efficiencyRatio < 1) toWatch.push(entry);
+        else strong.push(entry);
+      }
+    }
+
+    // Email CTR — see EMAIL_CTR_BENCHMARK's comment: a second, independent
+    // check on top of the generic openRate one below (levers_catalog only
+    // has room for one benchmarkStatKey per row), same special-case shape
+    // as "ads". statKey differentiates it from the openRate entry in the
+    // unified list even though both share leverKey "email_marketing".
+    if (status === "active" && lever.leverKey === "email_marketing") {
+      const stats = answeredByKey.get(lever.leverKey)?.stats ?? {};
+      const rawCtr = stats.ctr;
+      const ctr = typeof rawCtr === "number" ? rawCtr / 100 : null;
+      if (ctr !== null) {
+        const entry: LeverWatchItem = {
+          leverKey: lever.leverKey,
+          label: lever.label,
+          category: lever.category,
+          statValue: ctr,
+          benchmarkValue: EMAIL_CTR_BENCHMARK,
+          score: scoreAgainstBenchmark(ctr, EMAIL_CTR_BENCHMARK),
+          impactAmountEur: null, // no dedicated formula for CTR alone — the lever's overall gain is already carried by its openRate entry
+          impactExplanation: "Impact déjà chiffré via le taux d'ouverture de ce même levier.",
+          statKey: "ctr",
+        };
+        if (ctr < EMAIL_CTR_BENCHMARK) toWatch.push(entry);
+        else strong.push(entry);
+      }
+    }
+
+    // Upsell take-rate — computed from REAL sales (same formula as
+    // /ventes/upsell/page.tsx and buildUpsellData in
+    // lib/agent/lever-agent-data.ts), not a self-declared Découverte stat:
+    // upsell_ascension's catalog row has no questions/benchmarkStatKey at
+    // all, and a real, continuously-updated number is more reliable than
+    // a one-time guess. Excluded below UPSELL_MIN_SALES to avoid advising
+    // on a rate that a couple of sales could swing wildly.
+    if (status === "active" && lever.leverKey === "upsell_ascension") {
+      const allSales = await getSales(accountId);
+      const periodSales = allSales.filter((sale) => months.some(({ range }) => inRange(sale.saleDate, range)));
+      if (periodSales.length >= UPSELL_MIN_SALES) {
+        const takeRate = periodSales.filter((sale) => sale.hasUpsell).length / periodSales.length;
+        const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
+        const gapFraction = Math.max(0, UPSELL_TAKE_RATE_BENCHMARK - takeRate);
+        const clientsPerMonth = periodSales.length / periodMonths;
+        const priceFraction = lever.formulaParams.priceFraction ?? 0; // same catalog-configured value estimateImpact() reads for this lever's "absent" case
+        const amountEur = dealPrice.price === null ? null : round(clientsPerMonth * gapFraction * dealPrice.price * priceFraction);
+        const entry: LeverWatchItem = {
+          leverKey: lever.leverKey,
+          label: lever.label,
+          category: lever.category,
+          statValue: takeRate,
+          benchmarkValue: UPSELL_TAKE_RATE_BENCHMARK,
+          score: scoreAgainstBenchmark(takeRate, UPSELL_TAKE_RATE_BENCHMARK),
+          impactAmountEur: amountEur,
+          impactExplanation:
+            amountEur === null
+              ? "Configure ton offre principale (prix) dans Mon business pour chiffrer ce gain."
+              : `En comblant l'écart (${Math.round(takeRate * 100)}% → ${Math.round(UPSELL_TAKE_RATE_BENCHMARK * 100)}%) sur ${Math.round(clientsPerMonth * 10) / 10} client(s)/mois.`,
+        };
+        if (takeRate < UPSELL_TAKE_RATE_BENCHMARK) toWatch.push(entry);
         else strong.push(entry);
       }
     }

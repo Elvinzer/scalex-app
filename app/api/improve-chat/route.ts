@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
+import { AGENT_KEY_CONSOLIDATION } from "@/lib/agent/agent-consolidation";
 import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { appendAgentChatMessage } from "@/lib/agent/chat-history";
 import { resolveLeverAgentData } from "@/lib/agent/lever-agent-data";
@@ -25,20 +26,6 @@ import { requirePermission } from "@/lib/team/context";
 const MAX_MESSAGES = 20;
 
 const METRIC_TOPIC_KEYS = ["responseRate", "proposalRate", "bookingRate", "showUpRate", "closingRate", "followupRecovery"] as const;
-
-// Old agentKey → consolidated agent that absorbed it (7 agents → 4). Every
-// page/card that still builds a ChatContext with a retired key (ads/
-// setting/closing/produits/upsell_ascension — lever pages' own AgentBanner,
-// Découverte cards, the priority engine's recommendation cards) keeps
-// working completely unedited: it just lands in the merged agent's shared
-// conversation now instead of a fragment-of-one thread.
-const AGENT_KEY_CONSOLIDATION: Record<string, string> = {
-  setting: "ceo_vision",
-  ads: "ceo_vision",
-  closing: "ventes",
-  produits: "ventes",
-  upsell_ascension: "ventes",
-};
 
 const requestSchema = z.object({
   context: chatContextSchema,

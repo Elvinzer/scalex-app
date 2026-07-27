@@ -8,9 +8,10 @@ import { getDiscoveryProgress } from "./discovery-actions";
 import { DiscoveryTab } from "./discovery-tab";
 import { OptimisationEntryCard } from "./optimisation-entry-card";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
-import { computePriorityScores, scoreCandidates } from "@/lib/diagnostic/priority";
+import { scoreCandidates } from "@/lib/diagnostic/priority";
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
-import { RecommendedForYou } from "./recommended-for-you";
+import { AGENT_KEY_CONSOLIDATION } from "@/lib/agent/agent-consolidation";
+import { getAllAgents } from "@/lib/agent/agents-registry";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { Falco } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
@@ -35,8 +36,10 @@ import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/comple
 import {
   computeDiagnosticPoints,
   computeFullBenchmarkProjection,
+  computeHealthScore,
   computeMetricSummaries,
 } from "@/lib/diagnostic/cascade";
+import { adviceFor } from "@/lib/diagnostic/lever-advice";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
@@ -148,11 +151,22 @@ export default async function DiagnosticPage({
     );
   }
 
-  const [benchmarks, contentBenchmarks, priorityRules] = await Promise.all([
+  const [benchmarks, contentBenchmarks, priorityRules, agents] = await Promise.all([
     getDiagnosticBenchmarks(user?.sector ?? null),
     getContentDiagnosticBenchmarks(user?.sector ?? null),
     getPriorityRules(),
+    getAllAgents(),
   ]);
+  const agentNameByKey = new Map(agents.map((agent) => [agent.agentKey, agent.name]));
+  // Resolves a lever/metric key to the Falco persona name shown in its
+  // advice sentence — same remap improve-chat's route.ts uses to pick
+  // which agent actually answers, so the name always matches where the
+  // CTA lands.
+  function agentNameFor(key: string): string {
+    const resolvedKey = AGENT_KEY_CONSOLIDATION[key] ?? key;
+    return agentNameByKey.get(resolvedKey) ?? "Falco";
+  }
+
   const contentTotals = aggregateContentTotals(months, allContentPosts);
   const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
   const points = computeDiagnosticPoints({
@@ -171,16 +185,20 @@ export default async function DiagnosticPage({
     closingTotals,
     cashContractedTotal,
     periodMonths: months.length,
+    months,
   });
 
   const monthlyRevenueEur = cashContractedTotal / months.length;
 
   // Active-only lever candidates — Optimiser NEVER surfaces an absent
-  // lever (that's Ajouter's job), the actual bug this chantier fixes: the
-  // hero used to score discoveryOpportunities (absent levers) here, mixing
-  // the two pools the brief explicitly forbids mixing.
+  // lever (that's Ajouter's job). `leverKey` gets a `:statKey` suffix ONLY
+  // when a lever has more than one stat checked (email_marketing's ctr
+  // alongside its openRate — see lib/levers/opportunities.ts) so both
+  // entries get distinct scoring/list identity; the CTA still opens the
+  // real lever's agent (read from watchItem.leverKey below, never this
+  // composite string).
   const activeLeverCandidates = toWatch.map((watch) => ({
-    leverKey: watch.leverKey,
+    leverKey: watch.statKey ? `${watch.leverKey}:${watch.statKey}` : watch.leverKey,
     label: watch.label,
     category: watch.category,
     impactAmountEur: watch.impactAmountEur,
@@ -189,26 +207,12 @@ export default async function DiagnosticPage({
     isActive: true,
   }));
 
-  const { recommendations } = computePriorityScores({
-    points,
-    leverCandidates: activeLeverCandidates,
-    businessProfile,
-    monthlyRevenueEur,
-    rules: priorityRules,
-  });
-  if (recommendations.length > 0) {
-    after(() =>
-      track("diagnostic_reco_shown", userId, { count: recommendations.length, top_lever: recommendations[0].candidate.key })
-    );
-  }
-
   // Section 1's full unified list — cascade points + active-but-underperforming
   // levers, ranked by the exact same gain×pertinence×faisabilité formula
-  // (lib/diagnostic/priority.ts), never a raw €-sort. A Map back to the
-  // source LeverWatchItem is needed because PriorityCandidate doesn't carry
-  // statValue/benchmarkValue (only the pre-computed healthScore) — those
-  // raw numbers are what the rate-vs-benchmark bar below needs to render.
-  const watchByKey = new Map(toWatch.map((watch) => [watch.leverKey, watch]));
+  // (lib/diagnostic/priority.ts), never a raw €-sort. Keyed by the same
+  // composite string as activeLeverCandidates above (a plain leverKey Map
+  // would silently drop one of email's two entries).
+  const watchByKey = new Map(toWatch.map((watch) => [watch.statKey ? `${watch.leverKey}:${watch.statKey}` : watch.leverKey, watch]));
   const optimizeList = scoreCandidates({
     points,
     leverCandidates: activeLeverCandidates,
@@ -216,6 +220,17 @@ export default async function DiagnosticPage({
     monthlyRevenueEur,
     rules: priorityRules,
   });
+
+  // Content (vues→lead) has no €/client formula anywhere by deliberate,
+  // documented design (lib/diagnostic/content-metrics.ts) — it can't enter
+  // scoreCandidates (which requires a monthly gain to normalize against),
+  // so these are appended after the scored list instead of inventing a
+  // number. Still real getHealthTier tiers via computeHealthScore, same as
+  // every other card.
+  const contentPoints = contentSummaries.filter(
+    (s): s is typeof s & { status: "caution" | "critical"; currentRatePercent: number } =>
+      (s.status === "caution" || s.status === "critical") && s.currentRatePercent !== null
+  );
 
   // Section 2 — same formula, absent levers only (isActive: false), so the
   // existing pertinence rules (lever_revenue_gate/lever_requires_main_offer
@@ -240,13 +255,13 @@ export default async function DiagnosticPage({
 
   const strongCount = summaries.filter((s) => s.status === "ok").length + strong.length;
 
-  after(() => track("diagnostic_optimize_viewed", userId, { points_count: optimizeList.length }));
+  after(() => track("diagnostic_points_viewed", userId, { count: optimizeList.length + contentPoints.length }));
   after(() => track("diagnostic_add_viewed", userId, { opportunities_count: addList.length }));
   // The CTA in Section 1 is a plain <a href="/diagnostic?open=..."> (or
   // ?openLever=...) — clicking it reloads this exact page, so the click is
   // observable server-side on the very next render, no client wiring needed.
   if (params.open || params.openLever) {
-    after(() => track("diagnostic_optimize_clicked", userId, { lever: params.open ?? params.openLever ?? "" }));
+    after(() => track("diagnostic_point_clicked", userId, { lever: params.open ?? params.openLever ?? "" }));
   }
 
   const projection = computeFullBenchmarkProjection({
@@ -341,15 +356,9 @@ export default async function DiagnosticPage({
           </div>
         </div>
 
-        <RecommendedForYou
-          recommendations={recommendations}
-          fallbackOpportunities={discoveryOpportunities.slice(0, 3)}
-          totalPointsCount={points.length}
-        />
-
         <div id="points-a-ameliorer" className="flex flex-col gap-4">
           <h3 className="text-base font-bold">Points à améliorer</h3>
-          {optimizeList.length === 0 && (
+          {optimizeList.length === 0 && contentPoints.length === 0 && (
             <div className="sticker-card-dashed flex flex-col items-center gap-3 p-6 text-center">
               <Falco
                 pose="happy"
@@ -368,10 +377,17 @@ export default async function DiagnosticPage({
             const watchItem = isLever ? watchByKey.get(candidate.key) : undefined;
             const currentRate = isLever ? (watchItem?.statValue ?? null) : candidate.sourceMetricPoint!.currentRatePercent / 100;
             const benchmarkRate = isLever ? (watchItem?.benchmarkValue ?? null) : candidate.sourceMetricPoint!.benchmarkRatePercent / 100;
-            const explanation = isLever ? (watchItem?.impactExplanation ?? "") : candidate.sourceMetricPoint!.explanation;
+            // Levers show a NEW deterministic advice sentence (adviceFor) as
+            // the body text — the € breakdown (impactExplanation) moves into
+            // the CalcPopover only, so the two don't repeat each other.
+            // Metric points keep their existing explanation as-is (already
+            // factual/actionable, no new template needed for those).
+            const advice = isLever
+              ? adviceFor(watchItem!.leverKey, watchItem!.statKey, Math.round(currentRate! * 100), Math.round(benchmarkRate! * 100), agentNameFor(watchItem!.leverKey))
+              : candidate.sourceMetricPoint!.explanation;
             const tooltip = isLever ? (watchItem?.impactExplanation ?? "") : candidate.sourceMetricPoint!.tooltip;
             const href = isLever
-              ? `/diagnostic?openLever=${candidate.key}&openLeverLabel=${encodeURIComponent(candidate.label)}`
+              ? `/diagnostic?openLever=${watchItem!.leverKey}&openLeverLabel=${encodeURIComponent(candidate.label)}`
               : `/diagnostic?open=${candidate.key}`;
 
             return (
@@ -425,7 +441,7 @@ export default async function DiagnosticPage({
                   </div>
                 </div>
 
-                <p className="text-sm text-muted-foreground">{explanation}</p>
+                <p className="text-sm text-muted-foreground">{advice}</p>
 
                 {index === 0 && (
                   <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
@@ -442,6 +458,53 @@ export default async function DiagnosticPage({
               </div>
             );
           })}
+
+          {/* Contenu (vues→lead) — pas de € (design assumé, voir contentPoints
+              plus haut), donc jamais scoré/trié avec le reste : ajouté après,
+              dans son propre ordre (par écart au benchmark décroissant). */}
+          {[...contentPoints]
+            .sort((a, b) => b.benchmarkRatePercent - b.currentRatePercent - (a.benchmarkRatePercent - a.currentRatePercent))
+            .map((summary, contentIndex) => {
+              const score = computeHealthScore(summary.currentRatePercent / 100, summary.benchmarkRatePercent / 100, summary.status);
+              const tier = getHealthTier(score);
+              const advice = adviceFor(summary.key, undefined, summary.currentRatePercent, summary.benchmarkRatePercent, agentNameFor("content"));
+
+              return (
+                <div key={summary.key} className="sticker-card animate-rise flex flex-col gap-4 p-6">
+                  <div className="flex items-start gap-3">
+                    <span
+                      className="mt-0.5 rounded-full px-2 py-0.5 text-xs font-bold"
+                      style={{ background: `${tier.colorBar}22`, color: tier.colorText }}
+                    >
+                      {tier.tier === "vert" ? "✅" : tier.tier === "ambre" ? "⚠️" : "❌"}
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                        #{optimizeList.length + contentIndex + 1} · {summary.category}
+                      </p>
+                      <p className="mt-0.5 font-bold">{summary.label}</p>
+                    </div>
+                  </div>
+
+                  <RateVsBenchmarkBar currentRate={summary.currentRatePercent / 100} benchmarkRate={summary.benchmarkRatePercent / 100} />
+
+                  <div className="rounded-xl bg-muted p-3">
+                    <p className="text-xs font-bold text-muted-foreground">Gain</p>
+                    <p className="mt-1 font-display text-xl font-bold tabular-nums">—</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Pas de simulation € pour le contenu.</p>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground">{advice}</p>
+
+                  <a
+                    href={`/diagnostic?openLever=content&openLeverLabel=${encodeURIComponent("Contenu")}`}
+                    className="self-start text-sm font-bold text-muted-foreground hover:underline"
+                  >
+                    Voir le détail
+                  </a>
+                </div>
+              );
+            })}
         </div>
 
         {strongCount > 0 && (
