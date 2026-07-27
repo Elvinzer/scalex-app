@@ -17,6 +17,7 @@ import { computePriorityScores } from "@/lib/diagnostic/priority";
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
+import { computeDailyReportStreak } from "@/lib/dashboard/daily-report-streak";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
@@ -181,6 +182,7 @@ export default async function DashboardPage({
   const todayIso = new Date().toISOString().slice(0, 10);
   const dailyReportDoneToday =
     allSettingEntries.some((entry) => entry.date === todayIso) || allClosingEntries.some((entry) => entry.date === todayIso);
+  const { streak, recentReports } = computeDailyReportStreak(allSettingEntries, allClosingEntries);
 
   return (
     <div className="flex flex-col gap-5">
@@ -193,7 +195,7 @@ export default async function DashboardPage({
               : "Ton business tourne bien. Voici où creuser pour accélérer."}
           </p>
         </div>
-        <DailyReportDialog alreadyDoneToday={dailyReportDoneToday} />
+        <DailyReportDialog alreadyDoneToday={dailyReportDoneToday} streak={streak} recentReports={recentReports} />
       </div>
 
       {/* Bloc 1 — slim single-row hero banner. The benchmark widget is
