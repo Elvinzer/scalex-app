@@ -221,8 +221,15 @@ export const AgentChatThread = forwardRef<
     // this SAME persisted lever thread rather than a one-off conversation.
     // Fires exactly once per mount, after history (if any) has loaded.
     seedQuestion?: string;
+    // Fired once, the first time the user actually engages this session —
+    // a real submitted message (handleSubmit) or a seedQuestion-triggered
+    // send, never just viewing pre-existing history on mount or the
+    // automatic opening greeting. Lets a container (e.g. the floating chat
+    // bubble) warn before closing mid-conversation instead of silently
+    // discarding the user's place in it.
+    onEngaged?: () => void;
   }
->(function AgentChatThread({ context, followupKey, period, mode = null, falcoSkin, agentNameToKey, onSelectAgent, seedQuestion }, ref) {
+>(function AgentChatThread({ context, followupKey, period, mode = null, falcoSkin, agentNameToKey, onSelectAgent, seedQuestion, onEngaged }, ref) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -248,6 +255,7 @@ export const AgentChatThread = forwardRef<
       void (async () => {
         const history = await loadAgentChatHistory(storageKey);
         if (seedQuestion) {
+          onEngaged?.();
           setMessages(history);
           void send([...history, { role: "user", content: seedQuestion }]);
         } else if (history.length > 0) {
@@ -337,6 +345,7 @@ export const AgentChatThread = forwardRef<
     if (!trimmed || isStreaming) return;
     const nextHistory: ChatMessage[] = [...messages, { role: "user", content: trimmed }];
     setInput("");
+    onEngaged?.();
     void send(nextHistory);
   }
 

@@ -29,6 +29,7 @@ export function ImproveChat({
   agentIconKey,
   falcoSkin,
   seedQuestion,
+  onEngaged,
 }: {
   context: ChatContext;
   followupKey?: string | null;
@@ -44,6 +45,9 @@ export function ImproveChat({
   // See AgentChatThread's own doc — an opening question to fire on top of
   // this thread (e.g. a specific post/campaign's score), asked once on open.
   seedQuestion?: string;
+  // See AgentChatThread's own doc — lets a drawer-owning container (the
+  // floating chat bubble) confirm before closing mid-conversation.
+  onEngaged?: () => void;
 }) {
   const isPersisted = context.topicType !== "metric";
   const threadRef = useRef<AgentChatThreadHandle>(null);
@@ -98,6 +102,7 @@ export function ImproveChat({
           mode={mode}
           falcoSkin={falcoSkin}
           seedQuestion={seedQuestion}
+          onEngaged={onEngaged}
         />
       </ChatErrorBoundary>
     </div>

@@ -96,6 +96,10 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
   const skin = resolveFalcoSkin(pathname);
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  // Set the moment the user actually engages this open (see AgentChatThread's
+  // onEngaged doc) — reset on every fresh open below. Ref, not state: read
+  // synchronously inside handleOpenChange, no re-render needed for it alone.
+  const engagedRef = useRef(false);
   const showNotification = hasUnseenInsight && !dismissed;
   const chatLabel = skin ? FALCO_SKIN_CHAT_LABEL[skin] : "Falco, ton copilote IA";
   // Deep link to the full hub — precise (route→agent, not skin→agent, so no
@@ -107,8 +111,17 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
   })();
 
   function handleOpenChange(next: boolean) {
+    // Closing (outside click, Escape, or the drawer's own X) while mid-
+    // conversation used to silently drop the user out — confirm first.
+    // window.confirm, same pattern already used for "Nouvelle conversation"
+    // (components/agent-chat-thread.tsx's handleNewConversation).
+    if (!next && engagedRef.current) {
+      const confirmed = window.confirm("Tu es en pleine conversation avec Falco. Si tu fermes, tu quittes la discussion. Continuer ?");
+      if (!confirmed) return;
+    }
     setOpen(next);
     if (next) {
+      engagedRef.current = false;
       setDismissed(true);
       void recordImproveChatOpened(GENERAL_CONTEXT);
     }
@@ -146,7 +159,15 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
               </Link>
             </div>
             <div className="flex-1 overflow-hidden">
-              <ImproveChat context={GENERAL_CONTEXT} period="3-months" gapBadge={null} falcoSkin={skin} />
+              <ImproveChat
+                context={GENERAL_CONTEXT}
+                period="3-months"
+                gapBadge={null}
+                falcoSkin={skin}
+                onEngaged={() => {
+                  engagedRef.current = true;
+                }}
+              />
             </div>
           </div>
         )}
