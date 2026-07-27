@@ -12,8 +12,17 @@ type RoleOption = { id: string; name: string };
 export function InviteMemberDialog({ roles, trigger }: { roles: RoleOption[]; trigger: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualLink, setManualLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
+
+  function reset() {
+    setError(null);
+    setManualLink(null);
+    setCopied(false);
+    setSelectedRoleIds([]);
+  }
 
   function toggleRole(roleId: string) {
     setSelectedRoleIds((current) =>
@@ -34,17 +43,62 @@ export function InviteMemberDialog({ roles, trigger }: { roles: RoleOption[]; tr
         setError(result.error);
         return;
       }
+      // Sans email envoyé (Resend non configuré), on affiche le lien à partager.
+      if (result.inviteUrl) {
+        setManualLink(result.inviteUrl);
+        return;
+      }
       setOpen(false);
-      setSelectedRoleIds([]);
+      reset();
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) reset();
+      }}
+    >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogTitle className="text-lg font-bold">Inviter un membre</DialogTitle>
 
+        {manualLink ? (
+          <div className="mt-4 flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              L&apos;email n&apos;a pas pu être envoyé (Resend non configuré). Partage ce lien
+              d&apos;invitation manuellement :
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 overflow-x-auto rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs">
+                {manualLink}
+              </code>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(manualLink);
+                  setCopied(true);
+                }}
+              >
+                {copied ? "Copié" : "Copier"}
+              </Button>
+            </div>
+            <Button
+              type="button"
+              className="self-start"
+              onClick={() => {
+                setOpen(false);
+                reset();
+              }}
+            >
+              Terminé
+            </Button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="text-muted-foreground">Email</span>
@@ -86,6 +140,7 @@ export function InviteMemberDialog({ roles, trigger }: { roles: RoleOption[]; tr
             {isPending ? "Envoi..." : "Envoyer l'invitation"}
           </Button>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

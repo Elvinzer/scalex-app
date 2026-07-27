@@ -12,7 +12,7 @@ import { formatEur } from "@/lib/currency";
 import { inngest } from "@/lib/inngest/client";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { getResendClient } from "@/lib/resend-client";
-import { requireEnv } from "@/lib/utils";
+import { getAppUrl } from "@/lib/utils";
 import { signUnsubscribeToken } from "@/lib/unsubscribe-token";
 
 // First scheduled (cron-triggered) Inngest function in this codebase —
@@ -29,7 +29,7 @@ export const weeklyBriefEmail = inngest.createFunction(
         .where(and(eq(users.onboardingCompleted, true), eq(users.weeklyEmailEnabled, true), eq(users.isTestAccount, false)));
     });
 
-    const appUrl = requireEnv("APP_URL");
+    const appUrl = getAppUrl();
     // A replayed function run (not a step retry, which Inngest already
     // memoizes) must not re-send an email already sent this week.
     const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);

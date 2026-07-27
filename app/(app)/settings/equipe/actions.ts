@@ -10,7 +10,7 @@ import { subscriptionPlans, subscriptions, teamMemberRoles, teamMembers, teamRol
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { requireUserId } from "@/lib/current-user";
-import { getResendClient } from "@/lib/resend-client";
+import { getResendClient, isResendConfigured } from "@/lib/resend-client";
 import { requireOwner } from "@/lib/team/context";
 import {
   createRoleInputSchema,
@@ -18,7 +18,7 @@ import {
   memberRolesInputSchema,
   rolePermissionsInputSchema,
 } from "@/lib/team/schema";
-import { requireEnv } from "@/lib/utils";
+import { getAppUrl } from "@/lib/utils";
 
 const INVITE_EXPIRY_DAYS = 7;
 
@@ -28,7 +28,9 @@ async function validateRoleIds(accountId: string, roleIds: string[]): Promise<bo
   return roleIds.every((id) => validIds.has(id));
 }
 
-export async function inviteMember(data: unknown): Promise<{ error: string | null }> {
+export async function inviteMember(
+  data: unknown,
+): Promise<{ error: string | null; inviteUrl?: string }> {
   const userId = await requireUserId();
   const access = await requireOwner(userId);
   if (!access) return { error: "Action réservée au propriétaire du compte." };
@@ -94,7 +96,15 @@ export async function inviteMember(data: unknown): Promise<{ error: string | nul
 
   const profile = await getBusinessProfile(accountId);
   const businessName = profile.identity.businessName || "Scale X";
-  const inviteUrl = `${requireEnv("APP_URL")}/invite/${token}`;
+  const inviteUrl = `${getAppUrl()}/invite/${token}`;
+
+  // Sans Resend (dev), on n'envoie pas d'email : on renvoie le lien au
+  // propriétaire pour qu'il le partage manuellement. L'invitation est déjà
+  // persistée, donc le lien est pleinement fonctionnel.
+  if (!isResendConfigured()) {
+    revalidatePath("/settings/equipe");
+    return { error: null, inviteUrl };
+  }
 
   const resend = getResendClient();
   await resend.emails.send({
