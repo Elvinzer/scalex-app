@@ -1,13 +1,13 @@
 "use client";
 
-import { FileText } from "lucide-react";
+import { FileText, X } from "lucide-react";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { saveClosingKpiEntry } from "@/app/(app)/ventes/closing/actions";
 import { saveSettingKpiEntry } from "@/app/(app)/acquisition/setting/actions";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { RecentDailyReport } from "@/lib/dashboard/daily-report-streak";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "2-digit", month: "short" });
@@ -116,6 +116,12 @@ export function DailyReportDialog({
         </Button>
       </DialogTrigger>
       <DialogContent>
+        <DialogClose
+          aria-label="Fermer"
+          className="absolute top-4 right-4 flex size-7 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
+        >
+          <X className="size-4" />
+        </DialogClose>
         <DialogTitle className="text-lg font-bold">Rapport Daily</DialogTitle>
         <p className="mt-1 text-sm text-muted-foreground">
           Les chiffres de ton funnel pour une journée : setting et closing en un coup.
