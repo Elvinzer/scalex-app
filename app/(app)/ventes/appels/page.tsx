@@ -87,7 +87,7 @@ export default async function PriseDappelPage() {
           </div>
         </div>
       ) : isOwner ? (
-        <IclosedConnectionCard connected={false} subscriptionActive={subscriptionActive} />
+        <IclosedConnectionCard connected={false} subscriptionActive={subscriptionActive} primaryCta />
       ) : (
         <div className="sticker-card p-8">
           <p className="font-bold">iClosed n&apos;est pas encore connecté</p>
