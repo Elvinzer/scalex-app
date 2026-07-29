@@ -4,20 +4,20 @@ import { NonRetriableError } from "inngest";
 import { db } from "@/db";
 import { iclosedConnections, salesCalls } from "@/db/schema";
 import { track } from "@/lib/analytics";
-import { decrypt, encrypt } from "@/lib/crypto";
-import { listCalls, registerWebhook } from "@/lib/iclosed/client";
+import { decrypt } from "@/lib/crypto";
+import { IclosedNoApiAccessError, listCalls } from "@/lib/iclosed/client";
 import { iclosedAccountConnected, inngest } from "@/lib/inngest/client";
-import { getAppUrl } from "@/lib/utils";
 
-const BACKFILL_LIMIT = 100;
-
-// Runs once when a user connects iClosed: registers our webhook on their
-// account (so future bookings stream in live) and backfills recent + upcoming
-// calls (so the /ventes/appels tab isn't empty on day one). Idempotent, per
-// CLAUDE.md's Inngest rule — every step is re-run safe: webhook registration is
-// guarded by an existing webhookId, and the backfill upserts with
-// onConflictDoNothing so a replay never clobbers a call the closer already
-// dispositioned by hand.
+// Runs once when a user connects iClosed: backfills their calls from
+// GET /v1/eventCalls so /ventes/appels populates. Real-time webhooks are NOT
+// registered here — iClosed exposes no public webhook-management endpoint, so
+// live delivery (if desired) is set up manually in the iClosed dashboard; this
+// integration is otherwise backfill/poll based.
+//
+// Idempotent per CLAUDE.md: the backfill upserts with onConflictDoNothing so a
+// replay never clobbers a call the closer already dispositioned. Any failure
+// sets initialSyncStatus to "failed" (never left stuck on "pending"), and a
+// plan/permission rejection is treated as permanent (no pointless retries).
 export const syncIclosedAccount = inngest.createFunction(
   { id: "sync-iclosed-account", triggers: [iclosedAccountConnected] },
   async ({ event, step }) => {
@@ -31,24 +31,9 @@ export const syncIclosedAccount = inngest.createFunction(
 
     const apiKey = decrypt(connection.apiKeyEncrypted);
 
-    // Register the webhook only if we haven't already (re-run safe).
-    if (!connection.webhookId) {
-      await step.run("register-webhook", async () => {
-        const deliveryUrl = `${getAppUrl()}/api/webhooks/iclosed/${connection.webhookToken}`;
-        const { id, secret } = await registerWebhook(apiKey, deliveryUrl);
-        await db
-          .update(iclosedConnections)
-          .set({
-            webhookId: id,
-            webhookSecretEncrypted: secret ? encrypt(secret) : null,
-          })
-          .where(eq(iclosedConnections.userId, userId));
-      });
-    }
-
     try {
       const inserted = await step.run("backfill-calls", async () => {
-        const calls = await listCalls(apiKey, BACKFILL_LIMIT);
+        const calls = await listCalls(apiKey);
         if (calls.length === 0) return 0;
 
         const result = await db
@@ -64,7 +49,6 @@ export const syncIclosedAccount = inngest.createFunction(
               eventType: c.eventType,
             }))
           )
-          // Never overwrite a call the user has already dispositioned.
           .onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] })
           .returning({ id: salesCalls.id });
         return result.length;
@@ -79,13 +63,22 @@ export const syncIclosedAccount = inngest.createFunction(
 
       await track("iclosed_sync_completed", userId, { calls_backfilled: inserted });
     } catch (error) {
+      const noAccess = error instanceof IclosedNoApiAccessError;
       await step.run("mark-sync-failed", async () => {
         await db
           .update(iclosedConnections)
-          .set({ initialSyncStatus: "failed", initialSyncCompletedAt: new Date() })
+          .set({
+            // "failed" surfaces the amber/red banner instead of an infinite
+            // "en cours". The reason is distinguished in analytics + the UI copy.
+            initialSyncStatus: noAccess ? "no_api_access" : "failed",
+            initialSyncCompletedAt: new Date(),
+          })
           .where(eq(iclosedConnections.userId, userId));
       });
-      await track("iclosed_sync_failed", userId, { step: "backfill-calls" });
+      await track("iclosed_sync_failed", userId, { step: "backfill-calls", reason: noAccess ? "no_api_access" : "error" });
+
+      // A plan/permission rejection won't fix itself on retry — stop here.
+      if (noAccess) return;
       throw error;
     }
   }

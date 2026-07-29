@@ -19,7 +19,7 @@ type Props = {
   // No active subscription — the connect flow is replaced by an upsell note.
   subscriptionActive?: boolean;
   // On a screen where connecting iClosed is THE single priority action
-  // (the Prise d'appel tab), the trigger is coral. On /integrations, where it
+  // (the Suivi des appels tab), the trigger is coral. On /integrations, where it
   // sits next to Stripe as one of several equivalent actions, it stays outline
   // so there's still a single coral CTA per screen (DA rule).
   primaryCta?: boolean;
@@ -92,7 +92,7 @@ export function IclosedConnectionCard({
           {initialSyncStatus === "pending" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy">
               <span className="font-bold">✅ iClosed est connecté.</span> On récupère tes appels réservés — ils
-              apparaîtront dans l&apos;onglet « Prise d&apos;appel » d&apos;ici quelques minutes. Ensuite, il te suffira
+              apparaîtront dans l&apos;onglet « Suivi d&apos;appel » d&apos;ici quelques minutes. Ensuite, il te suffira
               de marquer l&apos;issue de chaque appel.
             </div>
           )}
@@ -102,6 +102,13 @@ export function IclosedConnectionCard({
               {initialSyncCompletedAt &&
                 ` le ${new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(initialSyncCompletedAt))}`}
               .
+            </div>
+          )}
+          {initialSyncStatus === "no_api_access" && (
+            <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
+              <span className="font-bold">Ta clé fonctionne, mais l&apos;accès API n&apos;est pas actif sur ton plan iClosed.</span>{" "}
+              L&apos;API iClosed nécessite un plan Business ou Enterprise. Vérifie ton plan sur iclosed.io — ou demande au
+              support iClosed d&apos;activer l&apos;accès API — puis reconnecte.
             </div>
           )}
           {initialSyncStatus === "failed" && (
@@ -159,10 +166,10 @@ export function IclosedConnectionCard({
                       </div>
                     </WizardStep>
                     <WizardStep n={2}>
-                      En bas à gauche, clique sur <strong>Settings</strong> (les réglages).
+                      En bas à gauche, clique sur <strong>Paramètres</strong> (les réglages).
                     </WizardStep>
                     <WizardStep n={3}>
-                      Ouvre l&apos;onglet <strong>Developers</strong>, puis <strong>API Keys</strong>.
+                      Ouvre l&apos;onglet <strong>Développeur</strong>, puis <strong>API Keys</strong>.
                     </WizardStep>
                     <WizardStep n={4}>
                       Clique sur <strong>Create new key</strong>, nomme-la « Scale X », puis <strong>copie</strong> la

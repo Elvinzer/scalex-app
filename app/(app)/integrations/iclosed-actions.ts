@@ -9,8 +9,8 @@ import { z } from "zod";
 import { db } from "@/db";
 import { iclosedConnections, users } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
-import { decrypt, encrypt } from "@/lib/crypto";
-import { deleteWebhook, validateIclosedKey } from "@/lib/iclosed/client";
+import { encrypt } from "@/lib/crypto";
+import { validateIclosedKey } from "@/lib/iclosed/client";
 import { ICLOSED_KEY_PREFIX } from "@/lib/iclosed/protocol";
 import { iclosedAccountConnected, inngest } from "@/lib/inngest/client";
 import { createClient } from "@/lib/supabase/server";
@@ -55,7 +55,13 @@ export async function connectIclosed(formData: FormData): Promise<{ error: strin
   const validation = await validateIclosedKey(parsed.data);
   if (validation === "invalid") {
     return {
-      error: "Cette clé iClosed ne fonctionne pas. Vérifie-la dans iClosed (Settings → Developers → API Keys) et réessaie.",
+      error: "Cette clé iClosed ne fonctionne pas. Vérifie-la dans iClosed (Settings → Developer → API Keys) et réessaie.",
+    };
+  }
+  if (validation === "no_api_access") {
+    return {
+      error:
+        "Ta clé est reconnue, mais ton plan iClosed ne donne pas accès à l'API (plan Business ou Enterprise requis). Vérifie ton plan sur iclosed.io — ou demande au support iClosed d'activer l'accès API — puis réessaie.",
     };
   }
   if (validation === "unknown") {
@@ -109,22 +115,6 @@ export async function disconnectIclosed(): Promise<{ error: string | null }> {
   const access = await requireOwner(userId);
   if (!access) {
     return { error: "Seul le propriétaire du compte peut déconnecter iClosed." };
-  }
-
-  const [connection] = await db
-    .select()
-    .from(iclosedConnections)
-    .where(eq(iclosedConnections.userId, access.accountId))
-    .limit(1);
-
-  // Best-effort webhook teardown — a failure here must not block clearing our
-  // local state (same rule as disconnectStripe's oauth.deauthorize).
-  if (connection?.webhookId) {
-    try {
-      await deleteWebhook(decrypt(connection.apiKeyEncrypted), connection.webhookId);
-    } catch (error) {
-      console.error("iClosed webhook delete failed, clearing local connection anyway", error);
-    }
   }
 
   // Freeze, never erase: past sales_calls stay as historical funnel data

@@ -80,36 +80,28 @@ export function readCall(source: Rec): NormalizedCall | null {
   // Deliberately NOT falling back to the envelope's own `id` (that's the EVENT
   // id, not the call id) — mis-keying on it would break idempotency across a
   // call's booked→rescheduled→cancelled lifecycle. No call id = skip.
-  const id = firstString(body.id, body.callId, body.call_id, body.uuid);
+  // Real /v1/eventCalls item: `id` (number). Deliberately NOT the envelope's
+  // own id (that's the EVENT id on webhooks, not the call id).
+  const id = firstString(body.id, body.callId, body.eventCallId, body.uuid);
   if (!id) return null;
 
-  const scheduledRaw = firstString(
-    body.scheduledAt,
-    body.scheduled_at,
-    body.startTime,
-    body.start_time,
-    body.startAt,
-    body.scheduledTime,
-    body.datetime
-  );
+  // `dateTimeUTC` is the normalized start; `dateTime` is the local fallback.
+  const scheduledRaw = firstString(body.dateTimeUTC, body.dateTime, body.startTime, body.scheduledAt);
   const scheduledAt = scheduledRaw ? new Date(scheduledRaw) : null;
   if (!scheduledAt || Number.isNaN(scheduledAt.getTime())) return null;
 
-  const invitee = asRecord(body.invitee) ?? asRecord(body.contact) ?? {};
-  const inviteeName = firstString(
-    body.inviteeName,
-    body.invitee_name,
-    invitee.name,
-    joinName(invitee.firstName, invitee.lastName),
-    joinName(invitee.first_name, invitee.last_name)
-  );
-  const inviteeEmail = firstString(body.inviteeEmail, body.invitee_email, body.email, invitee.email);
+  const contact = asRecord(body.contact) ?? asRecord(body.invitee) ?? {};
+  const inviteeName = firstString(body.inviteeName, joinName(body.firstName, body.lastName), contact.name);
+  const inviteeEmail = firstString(body.inviteeEmail, contact.email, body.email);
 
-  const closerRec = asRecord(body.closer) ?? asRecord(body.owner) ?? asRecord(body.host);
-  const closer = firstString(body.closer, closerRec?.name, closerRec?.email, body.closerName);
+  // The assigned closer is the `user` object on eventCalls.
+  const user = asRecord(body.user) ?? asRecord(body.closer) ?? asRecord(body.owner) ?? {};
+  const closer = firstString(joinName(user.firstName, user.lastName), user.email, user.name, body.closer);
 
-  const eventTypeRec = asRecord(body.eventType) ?? asRecord(body.event_type);
-  const eventType = firstString(body.eventType, body.event_type, eventTypeRec?.name, body.eventTypeName);
+  // Human label = the event template name. (body.eventType here is the timing
+  // enum UPCOMING/PAST, NOT a label — don't use it as one.)
+  const event = asRecord(body.event) ?? {};
+  const eventType = firstString(event.name, body.eventTypeName);
 
   return { iclosedCallId: id, inviteeName, inviteeEmail, scheduledAt, closer, eventType };
 }

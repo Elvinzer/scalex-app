@@ -1,11 +1,11 @@
 import { readCall, type NormalizedCall } from "./events";
-import { ICLOSED_API_BASE, ICLOSED_ENDPOINTS, ICLOSED_KEY_PREFIX, ICLOSED_WEBHOOK_EVENTS } from "./protocol";
+import { ICLOSED_API_BASE, ICLOSED_ENDPOINTS, ICLOSED_KEY_PREFIX } from "./protocol";
 
 // Thin server-only HTTP client for iClosed's public REST API. Auth is a static
 // Bearer API key the CLIENT brings (BYOK) — never our own. The key is decrypted
 // from iclosed_connections at the call site and passed in; it is never logged.
 
-const REQUEST_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 type IclosedResponse = { status: number; body: unknown };
 
@@ -43,78 +43,69 @@ async function request(
   }
 }
 
-// Same three-state contract as validateAnthropicKey: never conflate "the key is
-// wrong" (block the user) with "iClosed is briefly unreachable" (ask to retry).
-export async function validateIclosedKey(apiKey: string): Promise<"valid" | "invalid" | "unknown"> {
+// Four-state result: distinguishes a wrong key (401) from a valid key on a
+// plan without API access (400 "Bad request"), which is a common, actionable
+// case worth its own message ("upgrade your iClosed plan"), from a transient
+// network problem (unknown).
+export type KeyCheck = "valid" | "invalid" | "no_api_access" | "unknown";
+
+export async function validateIclosedKey(apiKey: string): Promise<KeyCheck> {
   if (!apiKey.startsWith(ICLOSED_KEY_PREFIX)) return "invalid";
   try {
-    const { status } = await request(apiKey, ICLOSED_ENDPOINTS.validate);
-    if (status === 401 || status === 403) return "invalid";
+    const { status } = await request(apiKey, ICLOSED_ENDPOINTS.eventCalls, {
+      query: { eventType: "ALL", limit: "1", page: "0" },
+    });
     if (status >= 200 && status < 300) return "valid";
-    // 404 on the probe endpoint means the key authenticated but the path
-    // differs — treat as valid rather than locking the user out over a path
-    // guess (⚠️ tighten once ICLOSED_ENDPOINTS.validate is confirmed).
-    if (status === 404) return "valid";
+    if (status === 401) return "invalid";
+    // Authenticates but the account/plan can't use the API — see protocol.ts.
+    if (status === 400 || status === 403) return "no_api_access";
     return "unknown";
   } catch {
     return "unknown";
   }
 }
 
-type RegisteredWebhook = { id: string | null; secret: string | null };
-
-// Registers our webhook endpoint on iClosed for the booking lifecycle events.
-// Returns the created webhook's id (to delete later) and a signing secret if
-// iClosed hands one back (used as an extra HMAC verification layer).
-export async function registerWebhook(apiKey: string, deliveryUrl: string): Promise<RegisteredWebhook> {
-  const { status, body } = await request(apiKey, ICLOSED_ENDPOINTS.webhooks, {
-    method: "POST",
-    body: {
-      url: deliveryUrl,
-      events: Object.values(ICLOSED_WEBHOOK_EVENTS),
-    },
-  });
-  if (status < 200 || status >= 300) {
-    throw new Error(`iClosed webhook registration failed (status ${status})`);
-  }
-  const rec = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const id = typeof rec.id === "string" ? rec.id : typeof rec.id === "number" ? String(rec.id) : null;
-  const secret = typeof rec.secret === "string" ? rec.secret : typeof rec.signingSecret === "string" ? rec.signingSecret : null;
-  return { id, secret };
-}
-
-// Best-effort — a failure here must never block clearing our local connection
-// (same rule as disconnectStripe's oauth.deauthorize).
-export async function deleteWebhook(apiKey: string, webhookId: string): Promise<void> {
-  await request(apiKey, `${ICLOSED_ENDPOINTS.webhooks}/${webhookId}`, { method: "DELETE" });
-}
-
-// Backfill: pulls recent + upcoming calls so the tab isn't empty before the
-// first live webhook arrives. Reads defensively (the list may be the array
-// itself or wrapped under data/results/items) and normalizes each item.
-export async function listCalls(apiKey: string, limit = 100): Promise<NormalizedCall[]> {
-  const { status, body } = await request(apiKey, ICLOSED_ENDPOINTS.calls, {
-    query: { limit: String(limit) },
-  });
-  if (status < 200 || status >= 300) {
-    throw new Error(`iClosed calls list failed (status ${status})`);
-  }
-  const items = extractList(body);
+// Backfill: pulls calls (paginated) from GET /v1/eventCalls. Response shape:
+// { data: { eventCalls: [...], count } }. Normalizes each item via readCall.
+export async function listCalls(apiKey: string, maxPages = 10, pageSize = 100): Promise<NormalizedCall[]> {
   const calls: NormalizedCall[] = [];
-  for (const item of items) {
-    if (item && typeof item === "object" && !Array.isArray(item)) {
-      const normalized = readCall(item as Record<string, unknown>);
+  for (let page = 0; page < maxPages; page++) {
+    const { status, body } = await request(apiKey, ICLOSED_ENDPOINTS.eventCalls, {
+      query: { eventType: "ALL", limit: String(pageSize), page: String(page) },
+    });
+    if (status === 400 || status === 403) {
+      throw new IclosedNoApiAccessError();
+    }
+    if (status < 200 || status >= 300) {
+      throw new Error(`iClosed eventCalls list failed (status ${status})`);
+    }
+    const { items, count } = extractEventCalls(body);
+    for (const item of items) {
+      const normalized = readCall(item);
       if (normalized) calls.push(normalized);
     }
+    if (items.length === 0 || calls.length >= count) break;
   }
   return calls;
 }
 
-function extractList(body: unknown): unknown[] {
-  if (Array.isArray(body)) return body;
-  const rec = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  for (const key of ["data", "results", "items", "calls"]) {
-    if (Array.isArray(rec[key])) return rec[key] as unknown[];
+// Thrown when the account authenticates but the API rejects every call (plan
+// gate) — lets the caller surface a plan-specific message instead of a generic
+// "sync failed".
+export class IclosedNoApiAccessError extends Error {
+  constructor() {
+    super("iClosed API access is not enabled for this account (Business/Enterprise plan required).");
+    this.name = "IclosedNoApiAccessError";
   }
-  return [];
+}
+
+function extractEventCalls(body: unknown): { items: Record<string, unknown>[]; count: number } {
+  const data = body && typeof body === "object" ? (body as Record<string, unknown>).data : null;
+  const rec = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  const rawItems = Array.isArray(rec.eventCalls) ? rec.eventCalls : [];
+  const items = rawItems.filter(
+    (i): i is Record<string, unknown> => i !== null && typeof i === "object" && !Array.isArray(i)
+  );
+  const count = typeof rec.count === "number" ? rec.count : items.length;
+  return { items, count };
 }

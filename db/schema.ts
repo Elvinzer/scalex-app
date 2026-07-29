@@ -679,7 +679,7 @@ export const salesCallAttendance = pgEnum("sales_call_attendance", [
 ]);
 export const salesCallOutcome = pgEnum("sales_call_outcome", ["pending", "closed", "not_closed"]);
 
-// The "prise d'appel" funnel (the /ventes/appels tab). One row per iClosed
+// The "Suivi des appels" funnel (the /ventes/appels tab). One row per iClosed
 // call. Bookings are created automatically from the iClosed "Call Booked"
 // webhook (lib/inngest/functions/sync-iclosed-account.ts +
 // app/api/webhooks/iclosed); attendance/outcome are set by hand. MONEY is never

@@ -49,7 +49,7 @@ export default async function PriseDappelPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Prise d&apos;appel</h1>
+        <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
         <p className="mt-1 text-muted-foreground">
           Tes appels de closing, réservés automatiquement depuis iClosed. Tu marques l&apos;issue (no-show, closé, non
           closé) et le montant ; un appel closé alimente ton CA dans le suivi des ventes.
@@ -59,6 +59,13 @@ export default async function PriseDappelPage() {
       {connected && connection?.initialSyncStatus === "pending" && (
         <div className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm font-bold text-muted-foreground">
           Récupération de tes appels iClosed en cours…
+        </div>
+      )}
+      {connected && connection?.initialSyncStatus === "no_api_access" && (
+        <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
+          <span className="font-bold">Accès API iClosed non actif.</span> Ta clé fonctionne, mais l&apos;API iClosed
+          nécessite un plan Business ou Enterprise. Vérifie ton plan sur iclosed.io ou contacte le support iClosed, puis
+          reconnecte.
         </div>
       )}
       {connected && connection?.initialSyncStatus === "failed" && (
