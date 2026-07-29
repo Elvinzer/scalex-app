@@ -9,12 +9,13 @@ import { z } from "zod";
 import { db } from "@/db";
 import { iclosedConnections, users } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
-import { encrypt } from "@/lib/crypto";
-import { validateIclosedKey } from "@/lib/iclosed/client";
+import { decrypt, encrypt } from "@/lib/crypto";
+import { backfillIclosedCalls } from "@/lib/iclosed/backfill";
+import { IclosedNoApiAccessError, validateIclosedKey } from "@/lib/iclosed/client";
 import { ICLOSED_KEY_PREFIX } from "@/lib/iclosed/protocol";
 import { iclosedAccountConnected, inngest } from "@/lib/inngest/client";
 import { createClient } from "@/lib/supabase/server";
-import { requireOwner } from "@/lib/team/context";
+import { requireOwner, requirePermission } from "@/lib/team/context";
 
 // Connecting/disconnecting iClosed handles the client's API key (a secret) and
 // registers a webhook on their account — owner-only, never delegable to a role,
@@ -125,4 +126,57 @@ export async function disconnectIclosed(): Promise<{ error: string | null }> {
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
   return { error: null };
+}
+
+// On-demand pull of the account's iClosed calls (idempotent). Needed because
+// iClosed has no webhook-management API — this is how new calls / outcome
+// changes reach the app between (or instead of) the on-connect Inngest sync.
+// Available to the owner AND team members with the ventes:appels permission
+// (the closers who live in this tab), acting on the account's connection.
+export async function refreshIclosedCalls(): Promise<{ error: string | null; imported?: number }> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  if (!data?.claims) {
+    return { error: "Session expirée, reconnecte-toi." };
+  }
+  const userId = data.claims.sub as string;
+
+  const access = await requirePermission(userId, "ventes:appels");
+  if (!access) {
+    return { error: "Tu n'as pas accès à cette section." };
+  }
+  const { accountId } = access;
+
+  const [connection] = await db
+    .select()
+    .from(iclosedConnections)
+    .where(eq(iclosedConnections.userId, accountId))
+    .limit(1);
+  if (!connection) {
+    return { error: "iClosed n'est pas connecté." };
+  }
+
+  const apiKey = decrypt(connection.apiKeyEncrypted);
+  try {
+    const imported = await backfillIclosedCalls(accountId, apiKey);
+    await db
+      .update(iclosedConnections)
+      .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date() })
+      .where(eq(iclosedConnections.userId, accountId));
+    revalidatePath("/ventes/appels");
+    revalidatePath("/ventes/suivi");
+    return { error: null, imported };
+  } catch (error) {
+    const noAccess = error instanceof IclosedNoApiAccessError;
+    await db
+      .update(iclosedConnections)
+      .set({ initialSyncStatus: noAccess ? "no_api_access" : "failed", initialSyncCompletedAt: new Date() })
+      .where(eq(iclosedConnections.userId, accountId));
+    revalidatePath("/ventes/appels");
+    return {
+      error: noAccess
+        ? "Accès API iClosed non actif (plan Business ou Enterprise requis)."
+        : "La synchronisation a échoué. Réessaie dans un instant.",
+    };
+  }
 }

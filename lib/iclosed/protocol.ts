@@ -24,6 +24,9 @@ export const ICLOSED_KEY_PREFIX = "iclosed_";
 export const ICLOSED_ENDPOINTS = {
   // Also used to validate a key (no dedicated /me endpoint exists).
   eventCalls: "/v1/eventCalls",
+  // Deal amounts live here, NOT on eventCalls (whose `deals` is empty in
+  // practice). Linked back to a call by `eventCallId`; `value` is a string.
+  deals: "/v1/deals",
 } as const;
 
 // Webhook event IDs (from developer.iclosed.io "Event Types"). Kept for the

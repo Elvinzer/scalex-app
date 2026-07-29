@@ -8,10 +8,8 @@ import { db } from "@/db";
 import { salesCalls } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
+import { buildSaleInput } from "@/lib/iclosed/sale";
 import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
-import type { SaleInput } from "@/lib/sales/schema";
-import { saleInputSchema } from "@/lib/sales/schema";
-import type { SaleInstallment } from "@/lib/sales/types";
 import { requirePermission } from "@/lib/team/context";
 
 // Marking a call's outcome is the ONE manual step (V1): the closer says whether
@@ -35,24 +33,6 @@ const outcomeSchema = z
     message: "Le montant collecté ne peut pas dépasser le contracté.",
     path: ["collected"],
   });
-
-// Represents "collected out of contracted" through the existing installment
-// model: fully paid -> one-shot; partial -> a paid slice + an upcoming
-// remainder (summarize() then reports paidTotal = collected).
-function buildPayment(
-  contracted: number,
-  collected: number,
-  dateStr: string
-): { paymentType: SaleInput["paymentType"]; installments: SaleInstallment[] | null } {
-  if (collected >= contracted) {
-    return { paymentType: "one_shot", installments: null };
-  }
-  const installments: SaleInstallment[] = [
-    { amount: collected, dueDate: dateStr, status: "paid", paidAt: dateStr },
-    { amount: contracted - collected, dueDate: dateStr, status: "upcoming", paidAt: null },
-  ];
-  return { paymentType: "installments", installments };
-}
 
 export async function setCallOutcome(input: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
@@ -83,24 +63,15 @@ export async function setCallOutcome(input: unknown): Promise<{ error: string | 
 
   if (result === "closed") {
     const dateStr = saleDate ?? new Date().toISOString().slice(0, 10);
-    const { paymentType, installments } = buildPayment(contracted ?? 0, collected ?? 0, dateStr);
-
-    const saleInput = saleInputSchema.parse({
-      clientName: call.inviteeName?.trim() || "Client iClosed",
-      clientEmail: call.inviteeEmail ?? null,
-      sourceChannel: "iclosed",
-      offerId: null,
-      totalPrice: contracted ?? 0,
-      paymentType,
-      installments,
-      saleDate: dateStr,
-      closer: call.closer ?? null,
-      hasUpsell: false,
-      upsellOfferId: null,
-      upsellAmount: null,
+    const saleInput = buildSaleInput({
+      inviteeName: call.inviteeName,
+      inviteeEmail: call.inviteeEmail,
+      closer: call.closer,
       setterId: call.setterId ?? null,
-      leadId: null,
-    } satisfies SaleInput);
+      contracted: contracted ?? 0,
+      collected: collected ?? 0,
+      saleDate: dateStr,
+    });
 
     if (call.saleId) {
       // Re-editing a close: update the existing linked sale in place.

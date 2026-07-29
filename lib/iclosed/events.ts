@@ -2,13 +2,12 @@ import { z } from "zod";
 
 import { ICLOSED_EVENT_MATCHERS } from "./protocol";
 
-// Parsing of iClosed webhook deliveries into our own domain. The envelope
-// (event id + type) is the part we rely on for idempotency and routing, so it
-// is strictly validated. The call payload's exact field names are NOT
-// contractually known from public docs (⚠️ verify against the authenticated
-// developer portal), so it is read defensively rather than schema-locked —
-// a slightly different real field name is a one-line fix in `readCall` below,
-// never a dropped delivery or a crash.
+// Parsing of iClosed calls into our own domain. `readCall` targets the real
+// GET /v1/eventCalls item shape (verified 2026-07-29) and also tolerates the
+// webhook envelope (data/call/payload wrapper) so the same reader serves both
+// the backfill and — if real-time webhooks are set up in the iClosed dashboard
+// — the webhook receiver. The envelope (event id + type) is strictly validated
+// for idempotency/routing; the call body is read defensively.
 
 export type IclosedEventKind = "booked" | "cancelled" | "rescheduled" | "unknown";
 
@@ -19,6 +18,14 @@ export type NormalizedCall = {
   scheduledAt: Date;
   closer: string | null;
   eventType: string | null;
+  // Auto-mapped from iClosed's own disposition (task.outcome / cancelledBy) and
+  // deal value, so a backfill fills the funnel + CA instead of importing blank
+  // "à traiter" rows. Null attendance = iClosed has no disposition yet → the
+  // call stays "à venir/à traiter" and the closer sets it by hand.
+  attendance: "booked" | "showed" | "no_show" | "cancelled" | null;
+  outcome: "pending" | "closed" | "not_closed" | null;
+  contracted: number | null; // from the WON deal value
+  collected: number | null;
 };
 
 // Only the envelope is strict. `.passthrough()` keeps unknown fields; the call
@@ -103,7 +110,59 @@ export function readCall(source: Rec): NormalizedCall | null {
   const event = asRecord(body.event) ?? {};
   const eventType = firstString(event.name, body.eventTypeName);
 
-  return { iclosedCallId: id, inviteeName, inviteeEmail, scheduledAt, closer, eventType };
+  const disposition = mapDisposition(body);
+
+  return {
+    iclosedCallId: id,
+    inviteeName,
+    inviteeEmail,
+    scheduledAt,
+    closer,
+    eventType,
+    ...disposition,
+  };
+}
+
+// iClosed already records each call's result — map it to our funnel so a
+// backfill is auto-filled. Outcome lives on the first `task`; a `cancelledBy`
+// marks a cancellation; `deals[].value` is the closed amount.
+const CLOSED_OUTCOMES = new Set(["WON"]);
+const LOST_OUTCOMES = new Set(["NO_SALE", "REJECTED", "UNQUALIFIED"]);
+
+function mapDisposition(body: Rec): Pick<NormalizedCall, "attendance" | "outcome" | "contracted" | "collected"> {
+  const none = { attendance: null, outcome: null, contracted: null, collected: null } as const;
+
+  if (firstString(body.cancelledBy)) {
+    return { attendance: "cancelled", outcome: null, contracted: null, collected: null };
+  }
+
+  const task = Array.isArray(body.task) ? (asRecord(body.task[0]) ?? {}) : asRecord(body.task) ?? {};
+  const outcome = firstString(task.outcome)?.toUpperCase() ?? null;
+  const noSaleReason = firstString(task.noSaleReason)?.toUpperCase() ?? null;
+
+  if (noSaleReason === "NO_SHOW") {
+    return { attendance: "no_show", outcome: "pending", contracted: null, collected: null };
+  }
+  if (!outcome) return none; // not dispositioned in iClosed yet
+
+  if (CLOSED_OUTCOMES.has(outcome)) {
+    const deals = Array.isArray(body.deals) ? body.deals : [];
+    const value = deals.reduce((sum, d) => {
+      const v = asRecord(d)?.value;
+      return sum + (typeof v === "number" ? v : 0);
+    }, 0);
+    const contracted = value > 0 ? Math.round(value) : null;
+    // We know the contracted amount from the WON deal; iClosed doesn't expose a
+    // reliable collected figure here, so we optimistically treat a WON deal as
+    // collected (the closer can adjust per call for payment plans).
+    return { attendance: "showed", outcome: "closed", contracted, collected: contracted };
+  }
+  if (LOST_OUTCOMES.has(outcome)) {
+    return { attendance: "showed", outcome: "not_closed", contracted: null, collected: null };
+  }
+  // QUALIFIED / APPROVED / PENDING / PENDING_OUTCOME — they showed, but it's not
+  // a terminal sale outcome: leave it for the closer rather than count a loss.
+  return { attendance: "showed", outcome: "pending", contracted: null, collected: null };
 }
 
 function joinName(first: unknown, last: unknown): string | null {

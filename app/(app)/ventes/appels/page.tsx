@@ -9,6 +9,7 @@ import { getSalesCalls } from "@/lib/iclosed/calls";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CallsTable } from "./calls-table";
+import { RefreshCallsButton } from "./refresh-calls-button";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
@@ -48,12 +49,15 @@ export default async function PriseDappelPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
-        <p className="mt-1 text-muted-foreground">
-          Tes appels de closing, réservés automatiquement depuis iClosed. Tu marques l&apos;issue (no-show, closé, non
-          closé) et le montant ; un appel closé alimente ton CA dans le suivi des ventes.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
+          <p className="mt-1 text-muted-foreground">
+            Tes appels de closing, réservés automatiquement depuis iClosed. Tu marques l&apos;issue (no-show, closé, non
+            closé) et le montant ; un appel closé alimente ton CA dans le suivi des ventes.
+          </p>
+        </div>
+        {connected && <RefreshCallsButton />}
       </div>
 
       {connected && connection?.initialSyncStatus === "pending" && (

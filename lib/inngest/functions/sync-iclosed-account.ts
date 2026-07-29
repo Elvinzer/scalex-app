@@ -2,10 +2,11 @@ import { eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 
 import { db } from "@/db";
-import { iclosedConnections, salesCalls } from "@/db/schema";
+import { iclosedConnections } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { decrypt } from "@/lib/crypto";
-import { IclosedNoApiAccessError, listCalls } from "@/lib/iclosed/client";
+import { backfillIclosedCalls } from "@/lib/iclosed/backfill";
+import { IclosedNoApiAccessError } from "@/lib/iclosed/client";
 import { iclosedAccountConnected, inngest } from "@/lib/inngest/client";
 
 // Runs once when a user connects iClosed: backfills their calls from
@@ -32,27 +33,7 @@ export const syncIclosedAccount = inngest.createFunction(
     const apiKey = decrypt(connection.apiKeyEncrypted);
 
     try {
-      const inserted = await step.run("backfill-calls", async () => {
-        const calls = await listCalls(apiKey);
-        if (calls.length === 0) return 0;
-
-        const result = await db
-          .insert(salesCalls)
-          .values(
-            calls.map((c) => ({
-              userId,
-              iclosedCallId: c.iclosedCallId,
-              inviteeName: c.inviteeName,
-              inviteeEmail: c.inviteeEmail,
-              scheduledAt: c.scheduledAt,
-              closer: c.closer,
-              eventType: c.eventType,
-            }))
-          )
-          .onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] })
-          .returning({ id: salesCalls.id });
-        return result.length;
-      });
+      const inserted = await step.run("backfill-calls", () => backfillIclosedCalls(userId, apiKey));
 
       await step.run("mark-sync-completed", async () => {
         await db

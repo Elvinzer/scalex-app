@@ -79,14 +79,54 @@ export async function listCalls(apiKey: string, maxPages = 10, pageSize = 100): 
     if (status < 200 || status >= 300) {
       throw new Error(`iClosed eventCalls list failed (status ${status})`);
     }
-    const { items, count } = extractEventCalls(body);
+    const { items, count } = extractList(body, "eventCalls");
     for (const item of items) {
       const normalized = readCall(item);
       if (normalized) calls.push(normalized);
     }
-    if (items.length === 0 || calls.length >= count) break;
+    if (items.length === 0 || (page + 1) * pageSize >= count) break;
   }
   return calls;
+}
+
+// Deal amounts are a separate resource from calls. Returns a map of
+// eventCallId → total deal value (euros), so the backfill can fill the
+// contracted amount of a closed call. `value` comes back as a string.
+export async function listDeals(apiKey: string, maxPages = 20, pageSize = 100): Promise<Map<string, number>> {
+  const byCall = new Map<string, number>();
+  let seen = 0;
+  for (let page = 0; page < maxPages; page++) {
+    const { status, body } = await request(apiKey, ICLOSED_ENDPOINTS.deals, {
+      query: { limit: String(pageSize), page: String(page) },
+    });
+    if (status === 400 || status === 403) throw new IclosedNoApiAccessError();
+    if (status < 200 || status >= 300) throw new Error(`iClosed deals list failed (status ${status})`);
+
+    const { items, count } = extractList(body, "deals");
+    for (const d of items) {
+      const callId = toIdString(d.eventCallId);
+      const value = toNumber(d.value);
+      if (callId && value > 0) byCall.set(callId, (byCall.get(callId) ?? 0) + value);
+    }
+    seen += items.length;
+    if (items.length === 0 || seen >= count) break;
+  }
+  return byCall;
+}
+
+function toIdString(v: unknown): string | null {
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string" && v.trim() !== "") return v.trim();
+  return null;
+}
+
+function toNumber(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = Number.parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
 }
 
 // Thrown when the account authenticates but the API rejects every call (plan
@@ -99,10 +139,11 @@ export class IclosedNoApiAccessError extends Error {
   }
 }
 
-function extractEventCalls(body: unknown): { items: Record<string, unknown>[]; count: number } {
+// Both eventCalls and deals responses are shaped { data: { <key>: [...], count } }.
+function extractList(body: unknown, key: string): { items: Record<string, unknown>[]; count: number } {
   const data = body && typeof body === "object" ? (body as Record<string, unknown>).data : null;
   const rec = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
-  const rawItems = Array.isArray(rec.eventCalls) ? rec.eventCalls : [];
+  const rawItems = Array.isArray(rec[key]) ? (rec[key] as unknown[]) : Array.isArray(rec.data) ? (rec.data as unknown[]) : [];
   const items = rawItems.filter(
     (i): i is Record<string, unknown> => i !== null && typeof i === "object" && !Array.isArray(i)
   );
