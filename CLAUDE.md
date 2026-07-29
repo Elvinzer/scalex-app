@@ -66,8 +66,14 @@ Avant de dire qu'une tâche est terminée :
   et être idempotents (checker un `event.id` déjà traité avant d'agir)
 - Ne jamais pré-agréger côté LLM : calculer sommes/taux/deltas en code, envoyer seulement
   les chiffres calculés au modèle. Le produit est AI-augmented, pas AI-native.
-- Une seule intégration à la fois (Stripe d'abord). Ne pas ajouter Kajabi/Brevo/Calendly
-  sans que ce soit explicitement demandé.
+- Une seule intégration à la fois. Deux sont greenlitées : Stripe (paiements, source
+  principale du diagnostic) et iClosed (tracking des prises d'appel de closing, clé API BYOK
+  côté client, onglet `/ventes/appels` — un appel closé alimente le CA via la table `sales`).
+  Ne pas ajouter Kajabi/Brevo/Calendly sans que ce soit explicitement demandé.
+- Webhook iClosed : auth par jeton opaque par connexion dans l'URL (`/api/webhooks/iclosed/[token]`)
+  + vérification de signature HMAC si iClosed fournit un secret ; idempotent via
+  `processed_iclosed_events`. Le mécanisme exact de signature iClosed reste à confirmer sur le
+  portail développeur (voir `lib/iclosed/protocol.ts`, seul point à ajuster).
 - Chaque job Inngest (brief hebdo, sync Stripe, relances) doit être idempotent (re-run safe),
   pas seulement les webhooks Stripe.
 - Logger le nombre de tokens (input/output) de chaque appel à l'agent, que ce soit sur la clé

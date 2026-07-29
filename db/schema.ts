@@ -75,6 +75,11 @@ export const users = pgTable("users", {
   // minting duplicates. Distinct from stripeConnectId above (that one
   // identifies the CLIENT's connected account, read-only).
   stripeCustomerId: text("stripe_customer_id"),
+  // Denormalized "is this account connected to iClosed" flag, kept in sync on
+  // connect/disconnect (mirrors stripeConnectId's role for Stripe). The API key
+  // itself lives in iclosed_connections — this is just the 1-column check used
+  // by /integrations and /ventes/appels to avoid a join.
+  iclosedConnected: boolean("iclosed_connected").notNull().default(false),
   sector: prospectionSector("sector"),
   // Set once the 3-screen /onboarding wizard finishes (or is skipped) —
   // existing users are backfilled to true via migration default so they
@@ -148,6 +153,41 @@ export const stripeConnections = pgTable("stripe_connections", {
   // lib/inngest/functions/sync-stripe-account.ts) — "pending" until that job
   // finishes. No granular per-month progress in this phase (that needs the
   // resync-button/polling infra, deferred).
+  initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
+  initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
+}).enableRLS();
+
+// iClosed connection — the call-booking tool. Unlike Stripe Connect (OAuth),
+// iClosed authenticates with a static API key the client generates in their
+// dashboard (Settings -> Developers), so this mirrors the Anthropic BYOK model
+// (paste + encrypt), not the Stripe OAuth flow. Owner-only, never delegable.
+export const iclosedConnections = pgTable("iclosed_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Unique: one active iClosed connection per user. Reconnecting overwrites
+  // this row rather than creating history (same rule as stripe_connections).
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // The client's iClosed API key (Bearer "iclosed_..."), encrypted with
+  // lib/crypto.ts — NEVER stored or returned in clear (masked "iclosed_...xxxx"
+  // preview only), same BYOK rule as users.anthropicApiKeyEncrypted.
+  apiKeyEncrypted: text("api_key_encrypted").notNull(),
+  // Id of the webhook we registered on iClosed's side (POST /v1/webhooks) so we
+  // can delete it on disconnect. Null until sync-iclosed-account registers it.
+  webhookId: text("webhook_id"),
+  // Opaque high-entropy token embedded in our webhook URL
+  // (/api/webhooks/iclosed/[token]) — resolves a delivery back to this
+  // connection AND authenticates it (iClosed's own signature mechanism, if any,
+  // is verified on top when webhookSecretEncrypted is set). Unique lookup key.
+  webhookToken: text("webhook_token").notNull().unique(),
+  // iClosed's webhook signing secret, if the platform provides one (HMAC) —
+  // encrypted, used as an extra verification layer on top of webhookToken.
+  // Null until confirmed against iClosed's developer docs.
+  webhookSecretEncrypted: text("webhook_secret_encrypted"),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  // One-time backfill of recent + upcoming calls on connect (see
+  // lib/inngest/functions/sync-iclosed-account.ts) — "pending" until done.
   initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
   initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
 }).enableRLS();
@@ -628,6 +668,61 @@ export const sales = pgTable(
   (table) => [index("sales_user_sale_date_idx").on(table.userId, table.saleDate)]
 ).enableRLS();
 
+// Attendance is iClosed-driven (webhook lifecycle: a call is booked, then the
+// invitee shows or not, or the call is cancelled). Outcome is what the CLOSER
+// marks by hand (V1 is manual, per product decision) — pending until then.
+export const salesCallAttendance = pgEnum("sales_call_attendance", [
+  "booked",
+  "showed",
+  "no_show",
+  "cancelled",
+]);
+export const salesCallOutcome = pgEnum("sales_call_outcome", ["pending", "closed", "not_closed"]);
+
+// The "prise d'appel" funnel (the /ventes/appels tab). One row per iClosed
+// call. Bookings are created automatically from the iClosed "Call Booked"
+// webhook (lib/inngest/functions/sync-iclosed-account.ts +
+// app/api/webhooks/iclosed); attendance/outcome are set by hand. MONEY is never
+// stored here: when a call is marked "closed", a linked sales row is created and
+// saleId points at it (same "no double entry" rule as leads.saleId) so the
+// amount flows into the existing /ventes/suivi CA.
+export const salesCalls = pgTable(
+  "sales_calls",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // iClosed's own call id — unique per user so a replayed webhook / backfill
+    // upserts the same row instead of duplicating (webhook idempotency).
+    iclosedCallId: text("iclosed_call_id").notNull(),
+    inviteeName: text("invitee_name"),
+    inviteeEmail: text("invitee_email"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    // Free text, same convention as sales.closer / leads.closer (no closers
+    // table exists in this codebase).
+    closer: text("closer"),
+    // Nullable link to the setter who booked the call, when resolvable — same
+    // attribution role as sales.setterId.
+    setterId: uuid("setter_id").references(() => setters.id, { onDelete: "set null" }),
+    // iClosed "event type" (the booking page / call type) — free text label.
+    eventType: text("event_type"),
+    attendance: salesCallAttendance("attendance").notNull().default("booked"),
+    outcome: salesCallOutcome("outcome").notNull().default("pending"),
+    // Set once the call is marked "closed" — POINTS at the sale, never
+    // duplicates its amount (contracté = sales.totalPrice).
+    saleId: uuid("sale_id").references((): AnyPgColumn => sales.id, { onDelete: "set null" }),
+    // When the closer last set attendance/outcome by hand (null while pending).
+    outcomeSetAt: timestamp("outcome_set_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("sales_calls_user_iclosed_call_idx").on(table.userId, table.iclosedCallId),
+    index("sales_calls_user_scheduled_idx").on(table.userId, table.scheduledAt),
+  ]
+).enableRLS();
+
 export const closingVideoOutcome = pgEnum("closing_video_outcome", ["closed", "not_closed", "pending"]);
 
 // Manual entry (the "/ventes/videos" page) — one row per closing call.
@@ -911,6 +1006,15 @@ export const subscriptions = pgTable("subscriptions", {
 // event.id: inserting it is the atomic "have I seen this before" check (a
 // unique PK conflict means it was already processed).
 export const processedStripeEvents = pgTable("processed_stripe_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+// Idempotency ledger for the iClosed webhook (app/api/webhooks/iclosed/
+// [token]/route.ts) — same pattern as processed_stripe_events above: id is
+// iClosed's own event id, inserting it is the atomic "already processed?" check.
+export const processedIclosedEvents = pgTable("processed_iclosed_events", {
   id: text("id").primaryKey(),
   type: text("type").notNull(),
   processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),

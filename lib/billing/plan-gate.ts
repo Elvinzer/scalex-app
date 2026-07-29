@@ -34,3 +34,20 @@ export async function hasActiveTeamSubscription(accountId: string): Promise<bool
   const features = row.features as { teamMembersEnabled?: boolean };
   return features.teamMembersEnabled === true;
 }
+
+// "Does this account have ANY active/trialing subscription" — no feature-flag
+// requirement, unlike hasActiveTeamSubscription above. Used to gate features
+// that any paid tier unlocks (the iClosed call tracking: "même le 1er palier
+// le permet"). Same admin bypass and ACTIVE_STATUSES source of truth.
+export async function hasActiveSubscription(accountId: string): Promise<boolean> {
+  const [adminRow] = await db.select({ email: users.email }).from(users).where(eq(users.id, accountId)).limit(1);
+  if (adminRow && isAdminEmail(adminRow.email)) return true;
+
+  const [row] = await db
+    .select({ status: subscriptions.status })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, accountId))
+    .limit(1);
+
+  return Boolean(row && ACTIVE_STATUSES.has(row.status));
+}

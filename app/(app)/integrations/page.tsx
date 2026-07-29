@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
 
+import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { stripeConnections } from "@/db/schema";
+import { iclosedConnections, stripeConnections } from "@/db/schema";
+import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
@@ -19,6 +21,12 @@ export default async function IntegrationsPage() {
   const [connection] = stripeConnected
     ? await db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1)
     : [];
+
+  const iclosedConnected = Boolean(user?.iclosedConnected);
+  const [iclosedConnection] = iclosedConnected
+    ? await db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
+    : [];
+  const subscriptionActive = await hasActiveSubscription(accountId);
 
   return (
     <div className="flex flex-col gap-8">
@@ -77,6 +85,13 @@ export default async function IntegrationsPage() {
           </div>
         )}
       </div>
+
+      <IclosedConnectionCard
+        connected={iclosedConnected}
+        initialSyncStatus={iclosedConnection?.initialSyncStatus}
+        initialSyncCompletedAt={iclosedConnection?.initialSyncCompletedAt}
+        subscriptionActive={subscriptionActive}
+      />
 
       <div className="flex flex-col gap-3">
         <p className="text-sm font-bold text-muted-foreground">À venir</p>

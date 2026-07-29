@@ -19,6 +19,7 @@ export default async function VentesLayout({ children }: { children: React.React
 
   const visibleTabs = [
     { href: "/ventes/suivi", label: "Suivi des ventes", visible: hasAccess("ventes:suivi") },
+    { href: "/ventes/appels", label: "Prise d'appel", visible: hasAccess("ventes:appels") },
     { href: "/ventes/produits", label: "Produits", visible: hasAccess("business") },
     { href: "/ventes/upsell", label: "Upsell", visible: hasAccess("ventes:upsell") },
   ].filter((tab) => tab.visible);
