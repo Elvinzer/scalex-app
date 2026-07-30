@@ -14,6 +14,7 @@ export type CallOutcome = "pending" | "closed" | "not_closed";
 // same source of truth the /ventes/suivi page uses.
 export type SalesCallRow = {
   id: string;
+  source: string; // "iclosed" | "calendly"
   inviteeName: string | null;
   inviteeEmail: string | null;
   scheduledAt: string; // ISO
@@ -37,6 +38,7 @@ export async function getSalesCalls(accountId: string): Promise<SalesCallRow[]> 
 
   return rows.map(({ call, sale }) => ({
     id: call.id,
+    source: call.source,
     inviteeName: call.inviteeName,
     inviteeEmail: call.inviteeEmail,
     scheduledAt: call.scheduledAt.toISOString(),

@@ -3,10 +3,14 @@
 import { RefreshCw } from "lucide-react";
 import { useState, useTransition } from "react";
 
+import { refreshCalendlyCalls } from "@/app/(app)/integrations/calendly-actions";
 import { refreshIclosedCalls } from "@/app/(app)/integrations/iclosed-actions";
 import { Button } from "@/components/ui/button";
 
-export function RefreshCallsButton() {
+// Pulls the account's calls on demand from whichever tools are connected (no
+// webhook on iClosed, and dev Inngest isn't always running) — the reliable way
+// to bring data in / refresh outcomes.
+export function RefreshCallsButton({ iclosed = false, calendly = false }: { iclosed?: boolean; calendly?: boolean }) {
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -14,14 +18,26 @@ export function RefreshCallsButton() {
   function handleRefresh() {
     setMessage(null);
     startTransition(async () => {
-      const result = await refreshIclosedCalls();
-      if (result.error) {
+      let imported = 0;
+      const errors: string[] = [];
+      if (iclosed) {
+        const r = await refreshIclosedCalls();
+        if (r.error) errors.push(r.error);
+        else imported += r.imported ?? 0;
+      }
+      if (calendly) {
+        const r = await refreshCalendlyCalls();
+        if (r.error) errors.push(r.error);
+        else imported += r.imported ?? 0;
+      }
+      if (errors.length > 0) {
         setIsError(true);
-        setMessage(result.error);
+        setMessage(errors[0]);
       } else {
         setIsError(false);
-        const n = result.imported ?? 0;
-        setMessage(n > 0 ? `${n} nouvel${n > 1 ? "s" : ""} appel${n > 1 ? "s" : ""} importé${n > 1 ? "s" : ""}.` : "Déjà à jour.");
+        setMessage(
+          imported > 0 ? `${imported} nouvel${imported > 1 ? "s" : ""} appel${imported > 1 ? "s" : ""} importé${imported > 1 ? "s" : ""}.` : "Déjà à jour."
+        );
       }
     });
   }

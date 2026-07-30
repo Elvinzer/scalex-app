@@ -80,6 +80,9 @@ export const users = pgTable("users", {
   // itself lives in iclosed_connections — this is just the 1-column check used
   // by /integrations and /ventes/appels to avoid a join.
   iclosedConnected: boolean("iclosed_connected").notNull().default(false),
+  // Same denormalized "is connected" flag for Calendly — the other supported
+  // call-booking tool (a user can connect either or both).
+  calendlyConnected: boolean("calendly_connected").notNull().default(false),
   sector: prospectionSector("sector"),
   // Set once the 3-screen /onboarding wizard finishes (or is skipped) —
   // existing users are backfilled to true via migration default so they
@@ -188,6 +191,38 @@ export const iclosedConnections = pgTable("iclosed_connections", {
   connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
   // One-time backfill of recent + upcoming calls on connect (see
   // lib/inngest/functions/sync-iclosed-account.ts) — "pending" until done.
+  initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
+  initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
+}).enableRLS();
+
+// Calendly connection — the other supported call-booking tool. Like iClosed it
+// authenticates with a Bearer token (a Personal Access Token the user pastes),
+// so this mirrors the BYOK "paste + encrypt" model. Unlike iClosed, Calendly
+// DOES expose a webhook-management API (POST /webhook_subscriptions), so
+// real-time delivery is registered on connect. Owner-only, never delegable.
+export const calendlyConnections = pgTable("calendly_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // The client's Calendly Personal Access Token (Bearer), encrypted — NEVER
+  // stored/returned in clear, same rule as iClosed/Anthropic BYOK keys.
+  accessTokenEncrypted: text("access_token_encrypted").notNull(),
+  // Calendly resource URIs resolved from GET /users/me at connect time — needed
+  // to scope scheduled-events queries and webhook subscriptions.
+  organizationUri: text("organization_uri"),
+  userUri: text("user_uri"),
+  // Webhook subscription URI (to DELETE on disconnect) + its signing key
+  // (encrypted) used to verify incoming deliveries. Null until the sync job
+  // registers the subscription.
+  webhookId: text("webhook_id"),
+  webhookSigningKeyEncrypted: text("webhook_signing_key_encrypted"),
+  // Opaque high-entropy token embedded in our webhook URL
+  // (/api/webhooks/calendly/[token]) — resolves a delivery back to this
+  // connection; the HMAC signature is verified on top.
+  webhookToken: text("webhook_token").notNull().unique(),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
   initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
   initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
 }).enableRLS();
@@ -705,8 +740,15 @@ export const salesCalls = pgTable(
     // Nullable link to the setter who booked the call, when resolvable — same
     // attribution role as sales.setterId.
     setterId: uuid("setter_id").references(() => setters.id, { onDelete: "set null" }),
-    // iClosed "event type" (the booking page / call type) — free text label.
+    // Booking page / call type — free text label (iClosed event name, or
+    // Calendly scheduled_event name).
     eventType: text("event_type"),
+    // Which call-booking tool this row came from — the /ventes/appels funnel is
+    // multi-source. Defaults to "iclosed" (the first integration); "calendly"
+    // for Calendly-sourced calls. iclosedCallId holds the source's external id
+    // (an iClosed numeric id, or a Calendly scheduled_event URI) — kept under
+    // that name to avoid a risky rename of the existing unique index.
+    source: text("source").notNull().default("iclosed"),
     attendance: salesCallAttendance("attendance").notNull().default("booked"),
     outcome: salesCallOutcome("outcome").notNull().default("pending"),
     // Set once the call is marked "closed" — POINTS at the sale, never
@@ -1015,6 +1057,15 @@ export const processedStripeEvents = pgTable("processed_stripe_events", {
 // [token]/route.ts) — same pattern as processed_stripe_events above: id is
 // iClosed's own event id, inserting it is the atomic "already processed?" check.
 export const processedIclosedEvents = pgTable("processed_iclosed_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+// Idempotency ledger for the Calendly webhook. Calendly deliveries carry no
+// stable top-level event id, so the id here is a synthetic "<event>:<inviteeUri>"
+// (an invitee fires invitee.created once and invitee.canceled once).
+export const processedCalendlyEvents = pgTable("processed_calendly_events", {
   id: text("id").primaryKey(),
   type: text("type").notNull(),
   processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),

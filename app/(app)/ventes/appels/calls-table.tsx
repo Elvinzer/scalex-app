@@ -66,6 +66,9 @@ export function CallsTable({ calls }: { calls: SalesCallRow[] }) {
                 <td className="p-3">
                   <p className="font-bold">{call.inviteeName ?? "—"}</p>
                   {call.inviteeEmail && <p className="text-xs text-muted-foreground">{call.inviteeEmail}</p>}
+                  <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+                    {call.source === "calendly" ? "Calendly" : "iClosed"}
+                  </p>
                 </td>
                 <td className="p-3 text-muted-foreground">{call.closer ?? "—"}</td>
                 <td className="p-3">

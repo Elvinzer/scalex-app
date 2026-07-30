@@ -1,14 +1,15 @@
 import { eq } from "drizzle-orm";
 
+import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { iclosedConnections, stripeConnections } from "@/db/schema";
+import { calendlyConnections, iclosedConnections, stripeConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
-const UPCOMING_INTEGRATIONS = ["Kajabi", "Brevo", "Calendly"];
+const UPCOMING_INTEGRATIONS = ["Kajabi", "Brevo"];
 
 // Owner-only: connecting/disconnecting Stripe grants OAuth access to the
 // account's real payments data — never delegable to a role.
@@ -26,6 +27,12 @@ export default async function IntegrationsPage() {
   const [iclosedConnection] = iclosedConnected
     ? await db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
     : [];
+
+  const calendlyConnected = Boolean(user?.calendlyConnected);
+  const [calendlyConnection] = calendlyConnected
+    ? await db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
+    : [];
+
   const subscriptionActive = await hasActiveSubscription(accountId);
 
   return (
@@ -86,12 +93,27 @@ export default async function IntegrationsPage() {
         )}
       </div>
 
-      <IclosedConnectionCard
-        connected={iclosedConnected}
-        initialSyncStatus={iclosedConnection?.initialSyncStatus}
-        initialSyncCompletedAt={iclosedConnection?.initialSyncCompletedAt}
-        subscriptionActive={subscriptionActive}
-      />
+      <div className="flex flex-col gap-3">
+        <div>
+          <p className="text-sm font-bold text-muted-foreground">Logiciel de prise d&apos;appel</p>
+          <p className="text-sm text-muted-foreground">
+            Connecte ton outil de réservation d&apos;appels pour suivre tes prises d&apos;appel automatiquement. iClosed
+            ou Calendly — au choix (ou les deux).
+          </p>
+        </div>
+        <IclosedConnectionCard
+          connected={iclosedConnected}
+          initialSyncStatus={iclosedConnection?.initialSyncStatus}
+          initialSyncCompletedAt={iclosedConnection?.initialSyncCompletedAt}
+          subscriptionActive={subscriptionActive}
+        />
+        <CalendlyConnectionCard
+          connected={calendlyConnected}
+          initialSyncStatus={calendlyConnection?.initialSyncStatus}
+          initialSyncCompletedAt={calendlyConnection?.initialSyncCompletedAt}
+          subscriptionActive={subscriptionActive}
+        />
+      </div>
 
       <div className="flex flex-col gap-3">
         <p className="text-sm font-bold text-muted-foreground">À venir</p>

@@ -16,4 +16,12 @@ export const iclosedAccountConnected = eventType("iclosed/account.connected", {
   schema: staticSchema<IclosedAccountConnected>(),
 });
 
+type CalendlyAccountConnected = {
+  userId: string;
+};
+
+export const calendlyAccountConnected = eventType("calendly/account.connected", {
+  schema: staticSchema<CalendlyAccountConnected>(),
+});
+
 export const inngest = new Inngest({ id: "scale-x" });

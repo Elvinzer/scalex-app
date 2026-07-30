@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
 
+import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
 import { db } from "@/db";
-import { iclosedConnections } from "@/db/schema";
+import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser } from "@/lib/current-user";
 import { getSalesCalls } from "@/lib/iclosed/calls";
@@ -23,6 +24,33 @@ function pct(numerator: number, denominator: number): string {
   return `${Math.round((numerator / denominator) * 100)} %`;
 }
 
+// Per-tool sync banner (pending / plan-gated / failed). Rendered for each
+// connected source so a problem on either tool is surfaced distinctly.
+function SyncStatus({ tool, status, planText }: { tool: string; status?: string | null; planText: string }) {
+  if (status === "pending") {
+    return (
+      <div className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm font-bold text-muted-foreground">
+        Récupération de tes appels {tool} en cours…
+      </div>
+    );
+  }
+  if (status === "no_api_access") {
+    return (
+      <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
+        <span className="font-bold">Accès API {tool} non actif.</span> {planText}
+      </div>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
+        La synchronisation {tool} a échoué. Reconnecte {tool} depuis les intégrations pour réessayer.
+      </div>
+    );
+  }
+  return null;
+}
+
 export default async function PriseDappelPage() {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:appels");
@@ -30,9 +58,15 @@ export default async function PriseDappelPage() {
   const context = await getAccountContext(userId);
   const isOwner = context?.isOwner ?? false;
 
-  const connected = Boolean(user?.iclosedConnected);
-  const [connection] = connected
+  const iclosedConnected = Boolean(user?.iclosedConnected);
+  const calendlyConnected = Boolean(user?.calendlyConnected);
+  const anyConnected = iclosedConnected || calendlyConnected;
+
+  const [iclosedConnection] = iclosedConnected
     ? await db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
+    : [];
+  const [calendlyConnection] = calendlyConnected
+    ? await db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
     : [];
   const [subscriptionActive, calls] = await Promise.all([hasActiveSubscription(accountId), getSalesCalls(accountId)]);
 
@@ -53,32 +87,30 @@ export default async function PriseDappelPage() {
         <div>
           <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
           <p className="mt-1 text-muted-foreground">
-            Tes appels de closing, réservés automatiquement depuis iClosed. Tu marques l&apos;issue (no-show, closé, non
-            closé) et le montant ; un appel closé alimente ton CA dans le suivi des ventes.
+            Tes appels de closing, réservés automatiquement depuis ton outil de prise d&apos;appel (iClosed ou Calendly).
+            Tu marques l&apos;issue (no-show, closé, non closé) et le montant ; un appel closé alimente ton CA dans le
+            suivi des ventes.
           </p>
         </div>
-        {connected && <RefreshCallsButton />}
+        {anyConnected && <RefreshCallsButton iclosed={iclosedConnected} calendly={calendlyConnected} />}
       </div>
 
-      {connected && connection?.initialSyncStatus === "pending" && (
-        <div className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm font-bold text-muted-foreground">
-          Récupération de tes appels iClosed en cours…
-        </div>
+      {iclosedConnected && (
+        <SyncStatus
+          tool="iClosed"
+          status={iclosedConnection?.initialSyncStatus}
+          planText="L'API iClosed nécessite un plan Business ou Enterprise. Vérifie ton plan sur iclosed.io, puis reconnecte."
+        />
       )}
-      {connected && connection?.initialSyncStatus === "no_api_access" && (
-        <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
-          <span className="font-bold">Accès API iClosed non actif.</span> Ta clé fonctionne, mais l&apos;API iClosed
-          nécessite un plan Business ou Enterprise. Vérifie ton plan sur iclosed.io ou contacte le support iClosed, puis
-          reconnecte.
-        </div>
-      )}
-      {connected && connection?.initialSyncStatus === "failed" && (
-        <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
-          La synchronisation iClosed a échoué. Reconnecte iClosed depuis les intégrations pour réessayer.
-        </div>
+      {calendlyConnected && (
+        <SyncStatus
+          tool="Calendly"
+          status={calendlyConnection?.initialSyncStatus}
+          planText="L'API Calendly nécessite un plan payant. Vérifie ton plan sur calendly.com, puis reconnecte."
+        />
       )}
 
-      {connected ? (
+      {anyConnected ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sticker-card flex flex-col p-5">
             <p className="text-sm font-bold text-muted-foreground">Appels réservés ce mois</p>
@@ -98,18 +130,22 @@ export default async function PriseDappelPage() {
           </div>
         </div>
       ) : isOwner ? (
-        <IclosedConnectionCard connected={false} subscriptionActive={subscriptionActive} primaryCta />
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-bold text-muted-foreground">Choisis ton outil de prise d&apos;appel</p>
+          <IclosedConnectionCard connected={false} subscriptionActive={subscriptionActive} />
+          <CalendlyConnectionCard connected={false} subscriptionActive={subscriptionActive} />
+        </div>
       ) : (
         <div className="sticker-card p-8">
-          <p className="font-bold">iClosed n&apos;est pas encore connecté</p>
+          <p className="font-bold">Aucun outil de prise d&apos;appel n&apos;est connecté</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Le propriétaire du compte doit lier iClosed dans les intégrations pour activer le suivi automatique des
-            appels.
+            Le propriétaire du compte doit lier iClosed ou Calendly dans les intégrations pour activer le suivi
+            automatique des appels.
           </p>
         </div>
       )}
 
-      {(connected || calls.length > 0) && <CallsTable calls={calls} />}
+      {(anyConnected || calls.length > 0) && <CallsTable calls={calls} />}
     </div>
   );
 }
