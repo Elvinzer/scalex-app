@@ -12,77 +12,47 @@ import { buildSaleInput } from "@/lib/iclosed/sale";
 import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
 import { requirePermission } from "@/lib/team/context";
 
-// Marking a call's outcome is the ONE manual step (V1): the closer says whether
-// they showed / closed / didn't. When "closed", we create (or refresh) a linked
-// sales row so the amount flows into the existing /ventes/suivi CA — money lives
-// only there, never duplicated on the call ("no double entry" rule).
+// Inline disposition — no modal. `setCallResult` is the one-click outcome
+// (no-show / non closé / closé); `setCallAmounts` handles the two inline number
+// cells shown only when a call is "closé". Money still lives only on the linked
+// sale ("no double entry"): a positive contracted amount creates/updates it, a
+// cleared amount removes it.
 
-const outcomeSchema = z
-  .object({
-    callId: z.string().uuid(),
-    result: z.enum(["no_show", "not_closed", "closed"]),
-    contracted: z.number().int().min(0).optional(),
-    collected: z.number().int().min(0).optional(),
-    saleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  })
-  .refine((d) => d.result !== "closed" || typeof d.contracted === "number", {
-    message: "Le montant contracté est requis pour un appel closé.",
-    path: ["contracted"],
-  })
-  .refine((d) => d.result !== "closed" || (d.collected ?? 0) <= (d.contracted ?? 0), {
-    message: "Le montant collecté ne peut pas dépasser le contracté.",
-    path: ["collected"],
-  });
+const resultSchema = z.object({
+  callId: z.string().uuid(),
+  result: z.enum(["no_show", "not_closed", "closed"]),
+});
 
-export async function setCallOutcome(input: unknown): Promise<{ error: string | null }> {
+async function loadCall(accountId: string, callId: string) {
+  const [call] = await db
+    .select()
+    .from(salesCalls)
+    .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)))
+    .limit(1);
+  return call ?? null;
+}
+
+export async function setCallResult(callId: string, result: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
   if (typeof userId !== "string") return userId;
   const access = await requirePermission(userId, "ventes:appels");
   if (!access) return { error: "Tu n'as pas accès à cette section." };
   const { accountId } = access;
 
-  const parsed = outcomeSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
-  }
-  const { callId, result, contracted, collected, saleDate } = parsed.data;
+  const parsed = resultSchema.safeParse({ callId, result });
+  if (!parsed.success) return { error: "Données invalides" };
 
-  const [call] = await db
-    .select()
-    .from(salesCalls)
-    .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)))
-    .limit(1);
+  const call = await loadCall(accountId, callId);
   if (!call) return { error: "Appel introuvable." };
 
-  const attendance = result === "no_show" ? "no_show" : "showed";
-  const outcome = result === "closed" ? "closed" : result === "not_closed" ? "not_closed" : "pending";
+  const attendance = parsed.data.result === "no_show" ? "no_show" : "showed";
+  const outcome =
+    parsed.data.result === "closed" ? "closed" : parsed.data.result === "not_closed" ? "not_closed" : "pending";
 
-  // Handle the linked sale. Only a "closed" call has one; switching away from
-  // closed removes the previously-created sale so the CA never keeps a ghost.
-  let saleId: string | null = call.saleId;
-
-  if (result === "closed") {
-    const dateStr = saleDate ?? new Date().toISOString().slice(0, 10);
-    const saleInput = buildSaleInput({
-      inviteeName: call.inviteeName,
-      inviteeEmail: call.inviteeEmail,
-      closer: call.closer,
-      setterId: call.setterId ?? null,
-      contracted: contracted ?? 0,
-      collected: collected ?? 0,
-      saleDate: dateStr,
-    });
-
-    if (call.saleId) {
-      // Re-editing a close: update the existing linked sale in place.
-      await updateSale(accountId, call.saleId, saleInput);
-      saleId = call.saleId;
-    } else {
-      const created = await createSale(accountId, saleInput);
-      saleId = created.id;
-    }
-  } else if (call.saleId) {
-    // Was closed, now isn't — drop the linked sale and unlink.
+  // Leaving "closed" drops the linked sale so the CA never keeps a ghost. Amounts
+  // for a fresh close are entered right after via the inline cells.
+  let saleId = call.saleId;
+  if (parsed.data.result !== "closed" && call.saleId) {
     await deleteSale(accountId, call.saleId);
     saleId = null;
   }
@@ -92,7 +62,67 @@ export async function setCallOutcome(input: unknown): Promise<{ error: string | 
     .set({ attendance, outcome, saleId, outcomeSetAt: new Date(), updatedAt: new Date() })
     .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)));
 
-  await track("iclosed_call_outcome_set", userId, { result });
+  await track("iclosed_call_outcome_set", userId, { result: parsed.data.result });
+
+  revalidatePath("/ventes/appels");
+  revalidatePath("/ventes/suivi");
+  revalidatePath("/diagnostic");
+  return { error: null };
+}
+
+const amountsSchema = z.object({
+  callId: z.string().uuid(),
+  contracted: z.number().int().min(0),
+  collected: z.number().int().min(0),
+});
+
+export async function setCallAmounts(
+  callId: string,
+  contracted: unknown,
+  collected: unknown
+): Promise<{ error: string | null }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+  const access = await requirePermission(userId, "ventes:appels");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
+
+  const parsed = amountsSchema.safeParse({ callId, contracted, collected });
+  if (!parsed.success) return { error: "Montant invalide" };
+
+  const call = await loadCall(accountId, callId);
+  if (!call) return { error: "Appel introuvable." };
+  if (call.outcome !== "closed") return { error: null }; // amounts only apply to a closed call
+
+  if (parsed.data.contracted <= 0) {
+    // Amount cleared → remove the linked sale (call stays "closé", 0 € CA).
+    if (call.saleId) {
+      await deleteSale(accountId, call.saleId);
+      await db
+        .update(salesCalls)
+        .set({ saleId: null, updatedAt: new Date() })
+        .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)));
+    }
+  } else {
+    const saleInput = buildSaleInput({
+      inviteeName: call.inviteeName,
+      inviteeEmail: call.inviteeEmail,
+      closer: call.closer,
+      setterId: call.setterId ?? null,
+      contracted: parsed.data.contracted,
+      collected: parsed.data.collected,
+      saleDate: call.scheduledAt.toISOString().slice(0, 10),
+    });
+    if (call.saleId) {
+      await updateSale(accountId, call.saleId, saleInput);
+    } else {
+      const created = await createSale(accountId, saleInput);
+      await db
+        .update(salesCalls)
+        .set({ saleId: created.id, updatedAt: new Date() })
+        .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)));
+    }
+  }
 
   revalidatePath("/ventes/appels");
   revalidatePath("/ventes/suivi");

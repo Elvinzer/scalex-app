@@ -1,10 +1,12 @@
 import { Plus } from "lucide-react";
 
 import { AgentBanner } from "@/components/agent-banner";
+import { PeriodFilter } from "@/components/period-filter";
 import { Button } from "@/components/ui/button";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
+import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
 import { getSetters } from "@/lib/setters/queries";
@@ -13,32 +15,27 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { SaleFormDialog } from "./sale-form-dialog";
 import { SalesTable } from "./sales-table";
 
-function currentMonthPrefix(): string {
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
-export default async function SuiviDesVentesPage() {
+export default async function SuiviDesVentesPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:suivi");
   const [sales, profile, setters] = await Promise.all([getSales(accountId), getBusinessProfile(accountId), getSetters(accountId)]);
   const offers = profile.sales.offers;
 
-  const monthPrefix = currentMonthPrefix();
-  const salesThisMonth = sales.filter((sale) => sale.saleDate.startsWith(monthPrefix));
+  const period = resolvePeriod((await searchParams).period);
+  const periodSales = sales.filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)));
 
-  const cashContracted = salesThisMonth.reduce((sum, sale) => sum + sale.totalPrice, 0);
-  const summaries = salesThisMonth.map((sale) => summarize(sale.totalPrice, sale.installments));
+  const cashContracted = periodSales.reduce((sum, sale) => sum + sale.totalPrice, 0);
+  const summaries = periodSales.map((sale) => summarize(sale.totalPrice, sale.installments));
   const cashCollected = summaries.reduce((sum, summary) => sum + summary.paidTotal, 0);
   const pending = summaries.reduce((sum, summary) => sum + summary.pendingTotal, 0);
   const failed = summaries.reduce((sum, summary) => sum + summary.failedTotal, 0);
 
   const stateText =
-    salesThisMonth.length > 0
-      ? `${salesThisMonth.length} vente${salesThisMonth.length > 1 ? "s" : ""} ce mois, ${NUMBER_FORMAT.format(cashCollected)} € encaissé.`
-      : "Aucune vente enregistrée ce mois-ci.";
+    periodSales.length > 0
+      ? `${periodSales.length} vente${periodSales.length > 1 ? "s" : ""} sur la période, ${NUMBER_FORMAT.format(cashCollected)} € encaissé.`
+      : "Aucune vente sur cette période.";
   // No MetricKey for Suivi des ventes in the Copilote pipeline — general topic.
   const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "ventes_suivi" };
 
@@ -53,25 +50,28 @@ export default async function SuiviDesVentesPage() {
             Chaque vente, avec son échéancier et ses impayés, au-delà des seuls totaux du funnel.
           </p>
         </div>
-        <SaleFormDialog
-          offers={offers}
-          setters={setters}
-          trigger={
-            <Button type="button">
-              <Plus className="size-4" />
-              Ajouter une vente
-            </Button>
-          }
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <PeriodFilter current={period.key} />
+          <SaleFormDialog
+            offers={offers}
+            setters={setters}
+            trigger={
+              <Button type="button">
+                <Plus className="size-4" />
+                Ajouter une vente
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">CA contracté ce mois</p>
+          <p className="text-sm font-bold text-muted-foreground">CA contracté</p>
           <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashContracted)} €</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">CA encaissé ce mois</p>
+          <p className="text-sm font-bold text-muted-foreground">CA encaissé</p>
           <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashCollected)} €</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
@@ -86,7 +86,7 @@ export default async function SuiviDesVentesPage() {
         </div>
       </div>
 
-      <SalesTable sales={sales} setters={setters} offers={offers} />
+      <SalesTable sales={periodSales} setters={setters} offers={offers} />
     </div>
   );
 }

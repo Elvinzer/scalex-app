@@ -1,7 +1,7 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { sales, salesCalls } from "@/db/schema";
+import { sales, salesCallComments, salesCalls } from "@/db/schema";
 
 import { summarize } from "@/lib/sales/installments";
 
@@ -26,15 +26,25 @@ export type SalesCallRow = {
   contracted: number | null;
   collected: number | null;
   outcomeSetAt: string | null;
+  commentCount: number;
 };
 
 export async function getSalesCalls(accountId: string): Promise<SalesCallRow[]> {
-  const rows = await db
-    .select({ call: salesCalls, sale: sales })
-    .from(salesCalls)
-    .leftJoin(sales, eq(salesCalls.saleId, sales.id))
-    .where(eq(salesCalls.userId, accountId))
-    .orderBy(desc(salesCalls.scheduledAt));
+  const [rows, counts] = await Promise.all([
+    db
+      .select({ call: salesCalls, sale: sales })
+      .from(salesCalls)
+      .leftJoin(sales, eq(salesCalls.saleId, sales.id))
+      .where(eq(salesCalls.userId, accountId))
+      .orderBy(desc(salesCalls.scheduledAt)),
+    db
+      .select({ callId: salesCallComments.callId, n: sql<number>`count(*)::int` })
+      .from(salesCallComments)
+      .innerJoin(salesCalls, eq(salesCallComments.callId, salesCalls.id))
+      .where(eq(salesCalls.userId, accountId))
+      .groupBy(salesCallComments.callId),
+  ]);
+  const countMap = new Map(counts.map((c) => [c.callId, c.n]));
 
   return rows.map(({ call, sale }) => ({
     id: call.id,
@@ -50,5 +60,6 @@ export async function getSalesCalls(accountId: string): Promise<SalesCallRow[]> 
     contracted: sale ? sale.totalPrice : null,
     collected: sale ? summarize(sale.totalPrice, sale.installments).paidTotal : null,
     outcomeSetAt: call.outcomeSetAt ? call.outcomeSetAt.toISOString() : null,
+    commentCount: countMap.get(call.id) ?? 0,
   }));
 }

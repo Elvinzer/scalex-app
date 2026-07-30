@@ -765,6 +765,27 @@ export const salesCalls = pgTable(
   ]
 ).enableRLS();
 
+// Comment thread per call — append-only history (objections, follow-ups,
+// context), same "own table, independently queried" reasoning as leadComments.
+export const salesCallComments = pgTable(
+  "sales_call_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => salesCalls.id, { onDelete: "cascade" }),
+    // Author = the individual who wrote it (the logged-in userId, NOT accountId)
+    // — same "who did this" convention as leadComments.userId, so a team member's
+    // comments stay attributed to them and are the only ones they can delete.
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("sales_call_comments_call_idx").on(table.callId, table.createdAt)]
+).enableRLS();
+
 export const closingVideoOutcome = pgEnum("closing_video_outcome", ["closed", "not_closed", "pending"]);
 
 // Manual entry (the "/ventes/videos" page) — one row per closing call.

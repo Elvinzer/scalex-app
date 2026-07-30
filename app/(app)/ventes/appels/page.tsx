@@ -2,22 +2,19 @@ import { eq } from "drizzle-orm";
 
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
+import { PeriodFilter } from "@/components/period-filter";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser } from "@/lib/current-user";
 import { getSalesCalls } from "@/lib/iclosed/calls";
+import { isInPeriod, resolvePeriod } from "@/lib/period";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CallsTable } from "./calls-table";
 import { RefreshCallsButton } from "./refresh-calls-button";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
-function currentMonthPrefix(): string {
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-}
 
 function pct(numerator: number, denominator: number): string {
   if (denominator === 0) return "—";
@@ -51,9 +48,11 @@ function SyncStatus({ tool, status, planText }: { tool: string; status?: string 
   return null;
 }
 
-export default async function PriseDappelPage() {
+export default async function PriseDappelPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:appels");
+
+  const period = resolvePeriod((await searchParams).period);
 
   const context = await getAccountContext(userId);
   const isOwner = context?.isOwner ?? false;
@@ -70,14 +69,13 @@ export default async function PriseDappelPage() {
     : [];
   const [subscriptionActive, calls] = await Promise.all([hasActiveSubscription(accountId), getSalesCalls(accountId)]);
 
-  // Funnel for the current month, computed in code (never pre-aggregated).
-  const monthPrefix = currentMonthPrefix();
-  const monthCalls = calls.filter((c) => c.scheduledAt.startsWith(monthPrefix));
-  const reserved = monthCalls.filter((c) => c.attendance !== "cancelled").length;
-  const shown = monthCalls.filter((c) => c.attendance === "showed").length;
-  const noShow = monthCalls.filter((c) => c.attendance === "no_show").length;
-  const closed = monthCalls.filter((c) => c.outcome === "closed").length;
-  const cashCollected = monthCalls
+  // Funnel for the selected period, computed in code (never pre-aggregated).
+  const periodCalls = calls.filter((c) => isInPeriod(period, new Date(c.scheduledAt)));
+  const reserved = periodCalls.filter((c) => c.attendance !== "cancelled").length;
+  const shown = periodCalls.filter((c) => c.attendance === "showed").length;
+  const noShow = periodCalls.filter((c) => c.attendance === "no_show").length;
+  const closed = periodCalls.filter((c) => c.outcome === "closed").length;
+  const cashCollected = periodCalls
     .filter((c) => c.outcome === "closed")
     .reduce((sum, c) => sum + (c.collected ?? 0), 0);
 
@@ -92,7 +90,12 @@ export default async function PriseDappelPage() {
             suivi des ventes.
           </p>
         </div>
-        {anyConnected && <RefreshCallsButton iclosed={iclosedConnected} calendly={calendlyConnected} />}
+        {anyConnected && (
+          <div className="flex flex-wrap items-center gap-3">
+            <PeriodFilter current={period.key} />
+            <RefreshCallsButton iclosed={iclosedConnected} calendly={calendlyConnected} />
+          </div>
+        )}
       </div>
 
       {iclosedConnected && (
@@ -113,7 +116,7 @@ export default async function PriseDappelPage() {
       {anyConnected ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Appels réservés ce mois</p>
+            <p className="text-sm font-bold text-muted-foreground">Appels réservés</p>
             <p className="mt-2 font-display text-3xl font-bold">{reserved}</p>
           </div>
           <div className="sticker-card flex flex-col p-5">
@@ -125,7 +128,7 @@ export default async function PriseDappelPage() {
             <p className="mt-2 font-display text-3xl font-bold">{pct(closed, shown)}</p>
           </div>
           <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Cash encaissé ce mois</p>
+            <p className="text-sm font-bold text-muted-foreground">Cash encaissé</p>
             <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashCollected)} €</p>
           </div>
         </div>
@@ -145,7 +148,7 @@ export default async function PriseDappelPage() {
         </div>
       )}
 
-      {(anyConnected || calls.length > 0) && <CallsTable calls={calls} />}
+      {(anyConnected || calls.length > 0) && <CallsTable calls={periodCalls} />}
     </div>
   );
 }
