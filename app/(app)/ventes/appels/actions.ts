@@ -20,7 +20,7 @@ import { requirePermission } from "@/lib/team/context";
 
 const resultSchema = z.object({
   callId: z.string().uuid(),
-  result: z.enum(["no_show", "not_closed", "closed"]),
+  result: z.enum(["no_show", "not_closed", "closed", "awaiting_decision"]),
 });
 
 async function loadCall(accountId: string, callId: string) {
@@ -47,7 +47,13 @@ export async function setCallResult(callId: string, result: unknown): Promise<{ 
 
   const attendance = parsed.data.result === "no_show" ? "no_show" : "showed";
   const outcome =
-    parsed.data.result === "closed" ? "closed" : parsed.data.result === "not_closed" ? "not_closed" : "pending";
+    parsed.data.result === "closed"
+      ? "closed"
+      : parsed.data.result === "not_closed"
+        ? "not_closed"
+        : parsed.data.result === "awaiting_decision"
+          ? "awaiting_decision"
+          : "pending";
 
   // Leaving "closed" drops the linked sale so the CA never keeps a ghost. Amounts
   // for a fresh close are entered right after via the inline cells.
@@ -57,9 +63,13 @@ export async function setCallResult(callId: string, result: unknown): Promise<{ 
     saleId = null;
   }
 
+  // The expected-answer date only lives while the call is "awaiting_decision";
+  // leaving that state clears it (the inline picker sets it right after).
+  const decisionDueAt = parsed.data.result === "awaiting_decision" ? call.decisionDueAt : null;
+
   await db
     .update(salesCalls)
-    .set({ attendance, outcome, saleId, outcomeSetAt: new Date(), updatedAt: new Date() })
+    .set({ attendance, outcome, saleId, decisionDueAt, outcomeSetAt: new Date(), updatedAt: new Date() })
     .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)));
 
   await track("iclosed_call_outcome_set", userId, { result: parsed.data.result });
@@ -67,6 +77,38 @@ export async function setCallResult(callId: string, result: unknown): Promise<{ 
   revalidatePath("/ventes/appels");
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic");
+  return { error: null };
+}
+
+// Expected-answer date for a call parked in "awaiting_decision" — set from the
+// inline date field. Stored at midday UTC so the calendar day is stable whatever
+// the viewer's timezone. No CA impact, so only /ventes/appels is revalidated.
+const decisionDueSchema = z.object({
+  callId: z.string().uuid(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide"),
+});
+
+export async function setCallDecisionDue(callId: string, dueDate: unknown): Promise<{ error: string | null }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+  const access = await requirePermission(userId, "ventes:appels");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
+
+  const parsed = decisionDueSchema.safeParse({ callId, dueDate });
+  if (!parsed.success) return { error: "Date invalide" };
+
+  const call = await loadCall(accountId, callId);
+  if (!call) return { error: "Appel introuvable." };
+  // Only meaningful while awaiting a decision — mirrors the setCallAmounts guard.
+  if (call.outcome !== "awaiting_decision") return { error: null };
+
+  await db
+    .update(salesCalls)
+    .set({ decisionDueAt: new Date(`${parsed.data.dueDate}T12:00:00Z`), updatedAt: new Date() })
+    .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)));
+
+  revalidatePath("/ventes/appels");
   return { error: null };
 }
 

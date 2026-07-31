@@ -80,7 +80,7 @@ export default async function MailPage() {
     return (
       <div className="flex flex-col gap-8">
         <AgentBanner
-          stateText="Tu n'as pas encore d'emailing en place — Falco peut t'aider à démarrer."
+          stateText="Tu n'as pas encore d'emailing en place - Falco peut t'aider à démarrer."
           ctaLabel="Améliorer →"
           chatContext={chatContext}
           falcoPose="thinking"

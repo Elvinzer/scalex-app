@@ -6,7 +6,7 @@ import { sales, salesCallComments, salesCalls } from "@/db/schema";
 import { summarize } from "@/lib/sales/installments";
 
 export type CallAttendance = "booked" | "showed" | "no_show" | "cancelled";
-export type CallOutcome = "pending" | "closed" | "not_closed";
+export type CallOutcome = "pending" | "closed" | "not_closed" | "awaiting_decision";
 
 // Serializable shape for the client table. Money is read from the LINKED sale
 // (never duplicated on the call), then flattened here for display: contracted =
@@ -26,6 +26,8 @@ export type SalesCallRow = {
   contracted: number | null;
   collected: number | null;
   outcomeSetAt: string | null;
+  // Expected answer date (ISO) while outcome is "awaiting_decision", else null.
+  decisionDueAt: string | null;
   commentCount: number;
 };
 
@@ -60,6 +62,7 @@ export async function getSalesCalls(accountId: string): Promise<SalesCallRow[]> 
     contracted: sale ? sale.totalPrice : null,
     collected: sale ? summarize(sale.totalPrice, sale.installments).paidTotal : null,
     outcomeSetAt: call.outcomeSetAt ? call.outcomeSetAt.toISOString() : null,
+    decisionDueAt: call.decisionDueAt ? call.decisionDueAt.toISOString() : null,
     commentCount: countMap.get(call.id) ?? 0,
   }));
 }

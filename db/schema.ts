@@ -712,7 +712,14 @@ export const salesCallAttendance = pgEnum("sales_call_attendance", [
   "no_show",
   "cancelled",
 ]);
-export const salesCallOutcome = pgEnum("sales_call_outcome", ["pending", "closed", "not_closed"]);
+export const salesCallOutcome = pgEnum("sales_call_outcome", [
+  "pending",
+  "closed",
+  "not_closed",
+  // Attended, no decision yet — waiting on the prospect. Transitional: resolves
+  // to closed/not_closed. When set, decisionDueAt holds the expected answer date.
+  "awaiting_decision",
+]);
 
 // The "Suivi des appels" funnel (the /ventes/appels tab). One row per iClosed
 // call. Bookings are created automatically from the iClosed "Call Booked"
@@ -756,6 +763,10 @@ export const salesCalls = pgTable(
     saleId: uuid("sale_id").references((): AnyPgColumn => sales.id, { onDelete: "set null" }),
     // When the closer last set attendance/outcome by hand (null while pending).
     outcomeSetAt: timestamp("outcome_set_at", { withTimezone: true }),
+    // Expected answer date while outcome is "awaiting_decision" — drives the
+    // "Décisions en attente" list + its urgency colour. Cleared when the call
+    // leaves the awaiting state (null otherwise).
+    decisionDueAt: timestamp("decision_due_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

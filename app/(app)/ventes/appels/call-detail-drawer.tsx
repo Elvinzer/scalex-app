@@ -29,6 +29,7 @@ function statusLabel(call: SalesCallRow): string {
   if (call.attendance === "no_show") return "No-show";
   if (call.outcome === "closed") return "Closé";
   if (call.outcome === "not_closed") return "Non closé";
+  if (call.outcome === "awaiting_decision") return "Attente décision";
   return new Date(call.scheduledAt).getTime() > Date.now() ? "À venir" : "À traiter";
 }
 

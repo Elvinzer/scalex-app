@@ -75,9 +75,14 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
   const shown = periodCalls.filter((c) => c.attendance === "showed").length;
   const noShow = periodCalls.filter((c) => c.attendance === "no_show").length;
   const closed = periodCalls.filter((c) => c.outcome === "closed").length;
+  const notClosed = periodCalls.filter((c) => c.outcome === "not_closed").length;
   const cashCollected = periodCalls
     .filter((c) => c.outcome === "closed")
     .reduce((sum, c) => sum + (c.collected ?? 0), 0);
+
+  // Awaiting-decision calls are the live relance to-do — surfaced across ALL
+  // periods (a due date is forward-looking), not just the selected one.
+  const pendingDecisions = calls.filter((c) => c.outcome === "awaiting_decision");
 
   return (
     <div className="flex flex-col gap-8">
@@ -86,8 +91,8 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
           <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
           <p className="mt-1 text-muted-foreground">
             Tes appels de closing, réservés automatiquement depuis ton outil de prise d&apos;appel (iClosed ou Calendly).
-            Tu marques l&apos;issue (no-show, closé, non closé) et le montant ; un appel closé alimente ton CA dans le
-            suivi des ventes.
+            Tu marques l&apos;issue (no-show, non closé, attente décision, closé) et le montant ; un appel closé alimente
+            ton CA dans le suivi des ventes.
           </p>
         </div>
         {anyConnected && (
@@ -125,7 +130,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
           </div>
           <div className="sticker-card flex flex-col p-5">
             <p className="text-sm font-bold text-muted-foreground">Taux de closing</p>
-            <p className="mt-2 font-display text-3xl font-bold">{pct(closed, shown)}</p>
+            <p className="mt-2 font-display text-3xl font-bold">{pct(closed, closed + notClosed)}</p>
           </div>
           <div className="sticker-card flex flex-col p-5">
             <p className="text-sm font-bold text-muted-foreground">Cash encaissé</p>
@@ -148,7 +153,9 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
         </div>
       )}
 
-      {(anyConnected || calls.length > 0) && <CallsTable calls={periodCalls} />}
+      {(anyConnected || calls.length > 0) && (
+        <CallsTable calls={periodCalls} pendingDecisions={pendingDecisions} />
+      )}
     </div>
   );
 }

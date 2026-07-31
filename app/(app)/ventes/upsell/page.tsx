@@ -67,7 +67,7 @@ export default async function UpsellPage() {
     return (
       <div className="flex flex-col gap-8">
         <AgentBanner
-          stateText="Tu n'as pas encore d'upsell en place — Falco peut t'aider à démarrer."
+          stateText="Tu n'as pas encore d'upsell en place - Falco peut t'aider à démarrer."
           ctaLabel="Améliorer →"
           chatContext={chatContext}
           falcoPose="thinking"
