@@ -1,5 +1,3 @@
-import { requireEnv } from "@/lib/utils";
-
 // Single point of contact with PostHog's HogQL Query API — the /admin
 // dashboard's 4 blocks are pure event-analytics questions, and PostHog
 // already stores every event, so querying it directly here avoids
@@ -7,9 +5,14 @@ import { requireEnv } from "@/lib/utils";
 // PERSONAL API key (Project Settings > API Keys), distinct from the
 // project key used by lib/analytics.ts/lib/analytics-client.ts, and
 // assumes PostHog Cloud (HogQL Query API availability).
+//
+// Optional: without POSTHOG_PROJECT_ID/POSTHOG_PERSONAL_API_KEY set, this
+// returns [] rather than throwing — the admin dashboard blocks just render
+// "—" (see app/admin/page.tsx's safe() wrapper for the display side).
 async function runHogQL(query: string): Promise<unknown[][]> {
-  const projectId = requireEnv("POSTHOG_PROJECT_ID");
-  const personalApiKey = requireEnv("POSTHOG_PERSONAL_API_KEY");
+  const projectId = process.env.POSTHOG_PROJECT_ID;
+  const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY;
+  if (!projectId || !personalApiKey) return [];
   const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 
   const response = await fetch(`${host}/api/projects/${projectId}/query`, {
