@@ -107,7 +107,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
   // page with no matching agent just links to the hub with no ?agent= param.
   const copiloteHref = (() => {
     const agentKey = resolveAgentKeyForRoute(pathname);
-    return agentKey ? `/copilote?agent=${agentKey}` : "/copilote";
+    return agentKey ? `/copilote?topic=${agentKey}` : "/copilote";
   })();
 
   function handleOpenChange(next: boolean) {

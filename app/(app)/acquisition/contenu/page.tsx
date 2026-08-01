@@ -2,7 +2,6 @@ import { Plus } from "lucide-react";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { Button } from "@/components/ui/button";
-import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
@@ -24,10 +23,9 @@ function currentMonthWindow(): { year: number; month: number } {
 export default async function ContenuPage() {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:contenu");
-  const [posts, profile, agent, contentBenchmarks] = await Promise.all([
+  const [posts, profile, contentBenchmarks] = await Promise.all([
     getContentPosts(accountId),
     getBusinessProfile(accountId),
-    getAgentByKey("content"),
     getContentDiagnosticBenchmarks(user?.sector ?? null),
   ]);
   const platforms = profile.acquisition.platforms.map((platform) => platform.name).filter(Boolean);
@@ -61,8 +59,6 @@ export default async function ContenuPage() {
         ctaLabel="Améliorer →"
         chatContext={chatContext}
         mode="optimiser"
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
 
@@ -113,8 +109,6 @@ export default async function ContenuPage() {
         platforms={platforms}
         topPostId={topPost?.id ?? null}
         contentBenchmarks={contentBenchmarks}
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
     </div>

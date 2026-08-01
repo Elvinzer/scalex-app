@@ -36,13 +36,9 @@ function bestCtrIdThisMonth(campaigns: EmailCampaignRow[]): string | null {
 
 export function CampaignsTable({
   campaigns,
-  agentName,
-  agentIconKey,
   falcoSkin,
 }: {
   campaigns: EmailCampaignRow[];
-  agentName?: string;
-  agentIconKey?: string;
   falcoSkin?: FalcoSkinKey | null;
 }) {
   const [, startTransition] = useTransition();
@@ -155,8 +151,6 @@ export function CampaignsTable({
                       { topicType: "lever", topicKey: "email_marketing", topicLabel: "Emailing", sourcePage: "acquisition_mail_score" } satisfies ChatContext
                     }
                     seedQuestion={`Pourquoi ma campagne "${campaign.name}" a un score de ${score}/100 ? Comment je peux l'améliorer ?`}
-                    agentName={agentName}
-                    agentIconKey={agentIconKey}
                     falcoSkin={falcoSkin}
                   />
                 )}

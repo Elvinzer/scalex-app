@@ -927,12 +927,43 @@ export const agentsRegistry = pgTable("agents_registry", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 
-// Persisted per (user, agentKey) conversation — unlike the rest of the
-// Copilote (metric/general topics stay ephemeral, reset on drawer close),
-// lever-agent chats survive across opens. Capped at MAX_MESSAGES (20, same
+// One Falco, many chapters — replaces the old "one eternal thread per
+// agentKey" model. topicType/topicKey/topicLabel are fixed at creation
+// (same ChatContext shape as before, just stored on the conversation row
+// instead of implied by which agentKey a message was written under).
+// title is the "chapter" name shown in the history panel — a deterministic
+// template (see lib/agent/chat-history.ts), never AI-generated, filled in
+// once the first real exchange completes (not the auto-opening greeting).
+// resolved is a manual/future flag (not set anywhere yet in this chantier)
+// for a "still needs attention" indicator in the history list.
+export const conversationTopicType = pgEnum("conversation_topic_type", ["general", "lever"]);
+
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    topicType: conversationTopicType("topic_type").notNull(),
+    topicKey: text("topic_key"), // null for "general"
+    topicLabel: text("topic_label"), // null for "general" — stored so display never depends on a lookup table that could drift later
+    resolved: boolean("resolved").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("conversations_user_updated_idx").on(table.userId, table.updatedAt)]
+).enableRLS();
+
+// Persisted per conversation — unlike the rest of the Copilote (metric
+// topics stay ephemeral, never get a conversation row at all), lever/
+// general chats survive across opens. Capped at MAX_MESSAGES (20, same
 // constant as app/api/improve-chat/route.ts) by simply never inserting past
 // it — the route's existing "conversation full" check already stops new
-// sends at that point, so nothing here needs to prune.
+// sends at that point, so nothing here needs to prune. `agentKey` stays
+// (always "falco" going forward) as a harmless legacy/debugging column,
+// not the identity key anymore — `conversationId` is.
 export const agentChatMessages = pgTable(
   "agent_chat_messages",
   {
@@ -940,12 +971,18 @@ export const agentChatMessages = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
     agentKey: text("agent_key").notNull(),
     role: text("role").notNull(), // "user" | "assistant"
     content: text("content").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("agent_chat_messages_user_agent_idx").on(table.userId, table.agentKey, table.createdAt)]
+  (table) => [
+    index("agent_chat_messages_user_agent_idx").on(table.userId, table.agentKey, table.createdAt),
+    index("agent_chat_messages_conversation_idx").on(table.conversationId, table.createdAt),
+  ]
 ).enableRLS();
 
 // --- Team members, roles & permissions --------------------------------------

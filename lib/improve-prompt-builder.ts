@@ -13,24 +13,14 @@ export type ImproveMetricKey = MetricKey | "followupRecovery" | "general";
 
 export type LeverMode = "optimiser" | "demarrer" | "decouverte";
 
-const ROLE_BY_METRIC: Record<ImproveMetricKey, string> = {
-  responseRate:
-    "Tu es un expert en prospection DM et copywriting de premiers messages (setting Instagram/WhatsApp pour infopreneurs francophones).",
-  proposalRate:
-    "Tu es un expert en conversations de setting : qualification, création de désir, transition naturelle vers la proposition d'appel.",
-  bookingRate:
-    "Tu es un expert en conversion de propositions d'appel en réservations : urgence, friction de calendrier, messages de confirmation.",
-  showUpRate:
-    "Tu es un expert en réduction du no-show : séquences de rappel, engagement pré-call, qualité de la qualification.",
-  closingRate:
-    "Tu es un closer senior spécialisé en vente d'offres high-ticket par téléphone pour coachs et formateurs francophones.",
-  followupRecovery:
-    "Tu es un expert en séquences de relance : non-acheteurs, paniers abandonnés, paiements échoués.",
-  general:
-    "Tu es un consultant senior en croissance de business en ligne. Si une question touche une métrique ou un " +
-    "levier suivi par l'app, signale-le brièvement et propose d'ouvrir la conversation dédiée à ce sujet pour " +
-    "creuser en profondeur — sans jamais forcer, l'utilisateur choisit.",
-};
+// Copilote unification chantier: there is no per-topic role anymore — every
+// conversation (metric/lever/general) uses the SAME single Falco identity,
+// stored in agents_registry (agentKey "falco") and editable without a
+// redeploy per the brief. This fallback only fires if that row is somehow
+// missing (safety net, not the intended path — same defensive stance the
+// old ROLE_BY_METRIC fallback had).
+const FALLBACK_ROLE =
+  "Tu es Falco, le copilote de croissance de ScaleX pour coachs et formateurs francophones.";
 
 // Exported so lib/call-analysis-prompt-builder.ts and lib/ad-copy-prompt-builder.ts
 // can reuse the same business-context description instead of re-deriving it.
@@ -152,13 +142,11 @@ export function buildImprovePrompt({
   const isGeneral = context.topicType === "general";
   const isLever = context.topicType === "lever";
 
-  // The caller (app/api/improve-chat/route.ts) already rejects the request
-  // before reaching this point whenever topicType demands a lever/metric it
-  // couldn't resolve — these ?? fallbacks are a safety net, not the
-  // intended path, so they stay generic rather than throwing mid-prompt.
-  const role = isLever
-    ? (agent?.systemPromptTemplate ?? ROLE_BY_METRIC.general)
-    : (ROLE_BY_METRIC[context.topicKey as ImproveMetricKey] ?? ROLE_BY_METRIC.general);
+  // Always the single unified Falco identity now, regardless of topicType —
+  // the caller always fetches the one agents_registry row (agentKey
+  // "falco") before calling this. The ?? fallback is a safety net for the
+  // (should-never-happen) case that row is missing, not the intended path.
+  const role = agent?.systemPromptTemplate ?? FALLBACK_ROLE;
 
   // Never a generic fallback when a specific topic was requested — the
   // caller (app/api/improve-chat/route.ts) already rejects the request
@@ -202,28 +190,20 @@ export function buildImprovePrompt({
           "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques.",
     "",
     "# RÈGLES DE RÉPONSE",
-    "- Tutoiement, français, direct, orienté action.",
+    "- Tutoiement, français, direct, concret : scripts prêts à copier-coller, étapes précises, jamais un conseil générique du type \"améliore ton copywriting\".",
     "- Tu peux utiliser des listes à puces et du gras, jamais de titres markdown (#).",
     "- N'invente jamais un chiffre qui ne figure pas dans les données ci-dessus.",
-    ...(isGeneral
-      ? ["- Réponses courtes (3-6 phrases sauf si l'utilisateur demande un script ou une liste détaillée)."]
-      : isLever && agent
-        ? [
-            `- Concret uniquement : donne le texte, le script ou le message prêt à copier-coller, adapté à SON avatar et SES prix — jamais un conseil générique du type "améliore ton copywriting".`,
-            "- Maximum 300 mots par réponse. Termine TOUJOURS par une seule question qui fait avancer.",
-            `- Ta conversation porte UNIQUEMENT sur ${topicLabel}. Si l'utilisateur pose une question hors sujet, réponds en 2 phrases maximum puis ramène la conversation vers ${topicLabel}. S'il insiste, indique-lui la page compétente sans traiter le fond : "Ça, c'est le rayon de ${agent.name} — tu le trouves sur la page ${topicLabel}."`,
-            `- Ne promets jamais un résultat chiffré ("tu vas gagner X€") : reste sur des estimations prudentes ("de l'ordre de", "≈").`,
-            "- Ne recommande jamais un outil concurrent de Scale X.",
-          ]
-        : [
-            "- Réponses courtes (3-6 phrases sauf si l'utilisateur demande un script ou une liste détaillée).",
-            `- Ta conversation porte sur ${topicLabel}. Chaque réponse doit faire avancer CE sujet : diagnostic, plan, scripts, suivi des résultats.`,
-            `- Si l'utilisateur digresse sur un sujet sans rapport : réponds brièvement (2 phrases max) puis ramène la conversation vers le sujet ("Revenons à ton ${topicLabel} — on en était à…").`,
-            "- Si l'utilisateur veut explicitement changer de sujet (une autre métrique ou un autre levier) : propose-lui d'ouvrir la conversation dédiée à ce sujet plutôt que de mélanger les deux ici.",
-          ]),
+    "- Maximum 300 mots par réponse. Termine TOUJOURS par une seule question qui fait avancer.",
+    "- Ne promets jamais un résultat chiffré (\"tu vas gagner X€\") : reste sur des estimations prudentes (\"de l'ordre de\", \"≈\").",
+    "- Ne recommande jamais un outil concurrent de Scale X.",
+    ...(topicLabel
+      ? [
+          `- Le sujet en cours est ${topicLabel} : raisonne en expert de CE domaine. Si l'utilisateur change de sujet, tu le suis sans changer de personnage — tu restes Falco, jamais besoin de "rediriger vers un autre agent".`,
+        ]
+      : []),
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : " +
-      (isGeneral
-        ? "commence par un résumé en une phrase de l'état général du business et demande ce qu'il veut creuser."
-        : "commence par un message qui résume en une phrase le problème et propose une première piste concrète."),
+      (topicLabel
+        ? "commence par un message qui résume en une phrase le problème et propose une première piste concrète."
+        : "commence par un résumé en une phrase de l'état général du business et demande sur quoi on bosse aujourd'hui."),
   ].join("\n");
 }

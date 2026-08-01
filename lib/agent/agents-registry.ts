@@ -36,19 +36,3 @@ export async function getAgentByKey(agentKey: string): Promise<AgentRegistryRow 
     temperature: row.temperature,
   };
 }
-
-// The full catalog (Copilote hub's agent panel) — no accountId, this is
-// shared config like leversCatalog, not per-user data.
-export async function getAllAgents(): Promise<AgentRegistryRow[]> {
-  const rows = await db.select().from(agentsRegistry).where(eq(agentsRegistry.isActive, true));
-
-  return rows.map((row) => ({
-    agentKey: row.agentKey,
-    leverKey: row.leverKey,
-    name: row.name,
-    falcoSkinIcon: row.falcoSkinIcon,
-    falcoSkinAssetKey: row.falcoSkinAssetKey,
-    systemPromptTemplate: row.systemPromptTemplate,
-    temperature: row.temperature,
-  }));
-}

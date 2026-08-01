@@ -25,8 +25,6 @@ export function AgentBanner({
   period = "3-months",
   gapBadge = null,
   mode = null,
-  agentName,
-  agentIconKey,
   falcoSkin,
 }: {
   stateText: string;
@@ -39,10 +37,6 @@ export function AgentBanner({
   // threads through to the request body so buildImprovePrompt picks the
   // right MISSION wording (Optimiser/Démarrer/Découverte).
   mode?: "optimiser" | "demarrer" | "decouverte" | null;
-  // Resolved agent display (server-computed, from agents_registry) — shown
-  // in the drawer header instead of the generic "Améliorer : {topicLabel}".
-  agentName?: string;
-  agentIconKey?: string;
   // Per-page illustrated skin (lib/falco-skins.ts), resolved by the page
   // from its own known route. Falls back to the generic bust when absent.
   falcoSkin?: FalcoSkinKey | null;
@@ -78,8 +72,6 @@ export function AgentBanner({
               period={period}
               gapBadge={gapBadge}
               mode={mode}
-              agentName={agentName}
-              agentIconKey={agentIconKey}
               falcoSkin={falcoSkin}
             />
           )}

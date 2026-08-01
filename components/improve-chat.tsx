@@ -6,7 +6,6 @@ import { useRef } from "react";
 import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-chat-thread";
 import { ChatErrorBoundary } from "@/components/chat-error-boundary";
 import { Falco } from "@/components/falco/falco";
-import { LeverAgentIcon } from "@/components/lever-agent-icon";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
@@ -25,8 +24,6 @@ export function ImproveChat({
   period,
   gapBadge,
   mode = null,
-  agentName,
-  agentIconKey,
   falcoSkin,
   seedQuestion,
   onEngaged,
@@ -36,8 +33,6 @@ export function ImproveChat({
   period: Period;
   gapBadge: string | null;
   mode?: LeverMode | null;
-  agentName?: string;
-  agentIconKey?: string;
   // Purely visual — resolved by the caller (AgentBanner from its own page's
   // route, or the floating bubble from usePathname()) via lib/falco-skins.ts.
   // Never affects ChatContext/the agent resolved server-side.
@@ -62,12 +57,8 @@ export function ImproveChat({
             <Falco pose="neutral" size="sm" />
           )}
           <div>
-            <div className="flex items-center gap-2">
-              {agentIconKey && <LeverAgentIcon iconKey={agentIconKey} />}
-              <DrawerTitle className="text-base font-bold">
-                {agentName ?? (context.topicType === "general" ? "Copilote" : `Améliorer : ${context.topicLabel}`)}
-              </DrawerTitle>
-            </div>
+            <DrawerTitle className="text-base font-bold">Falco</DrawerTitle>
+            {context.topicLabel && <p className="text-xs text-muted-foreground">{context.topicLabel}</p>}
             {gapBadge && (
               <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
                 {gapBadge}

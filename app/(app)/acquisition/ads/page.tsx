@@ -5,7 +5,6 @@ import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
 import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
-import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
 import { track } from "@/lib/analytics";
@@ -37,11 +36,10 @@ const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
 export default async function AdsPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
-  const [campaigns, profile, lever, agent] = await Promise.all([
+  const [campaigns, profile, lever] = await Promise.all([
     getAdCampaigns(accountId),
     getBusinessProfile(accountId),
     getLeverStatus(accountId, LEVER_KEY),
-    getAgentByKey(LEVER_KEY),
   ]);
 
   const mode: "optimiser" | "demarrer" =
@@ -66,8 +64,6 @@ export default async function AdsPage() {
             ctaLabel="Améliorer →"
             chatContext={chatContext}
             mode={mode}
-            agentName={agent?.name}
-            agentIconKey={agent?.falcoSkinIcon}
             falcoSkin={falcoSkin}
           />
           <div>
@@ -100,8 +96,6 @@ export default async function AdsPage() {
           chatContext={chatContext}
           falcoPose="thinking"
           mode={mode}
-          agentName={agent?.name}
-          agentIconKey={agent?.falcoSkinIcon}
           falcoSkin={falcoSkin}
         />
         <div>
@@ -148,8 +142,6 @@ export default async function AdsPage() {
         ctaLabel="Améliorer →"
         chatContext={chatContext}
         mode={mode}
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
 

@@ -10,8 +10,6 @@ import { OptimisationEntryCard } from "./optimisation-entry-card";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { scoreCandidates } from "@/lib/diagnostic/priority";
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
-import { AGENT_KEY_CONSOLIDATION } from "@/lib/agent/agent-consolidation";
-import { getAllAgents } from "@/lib/agent/agents-registry";
 import { BusinessNudgeBanner } from "@/components/business-nudge-banner";
 import { Falco } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
@@ -151,21 +149,11 @@ export default async function DiagnosticPage({
     );
   }
 
-  const [benchmarks, contentBenchmarks, priorityRules, agents] = await Promise.all([
+  const [benchmarks, contentBenchmarks, priorityRules] = await Promise.all([
     getDiagnosticBenchmarks(user?.sector ?? null),
     getContentDiagnosticBenchmarks(user?.sector ?? null),
     getPriorityRules(),
-    getAllAgents(),
   ]);
-  const agentNameByKey = new Map(agents.map((agent) => [agent.agentKey, agent.name]));
-  // Resolves a lever/metric key to the Falco persona name shown in its
-  // advice sentence — same remap improve-chat's route.ts uses to pick
-  // which agent actually answers, so the name always matches where the
-  // CTA lands.
-  function agentNameFor(key: string): string {
-    const resolvedKey = AGENT_KEY_CONSOLIDATION[key] ?? key;
-    return agentNameByKey.get(resolvedKey) ?? "Falco";
-  }
 
   const contentTotals = aggregateContentTotals(months, allContentPosts);
   const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
@@ -383,7 +371,7 @@ export default async function DiagnosticPage({
             // Metric points keep their existing explanation as-is (already
             // factual/actionable, no new template needed for those).
             const advice = isLever
-              ? adviceFor(watchItem!.leverKey, watchItem!.statKey, Math.round(currentRate! * 100), Math.round(benchmarkRate! * 100), agentNameFor(watchItem!.leverKey))
+              ? adviceFor(watchItem!.leverKey, watchItem!.statKey, Math.round(currentRate! * 100), Math.round(benchmarkRate! * 100), "Falco")
               : candidate.sourceMetricPoint!.explanation;
             const tooltip = isLever ? (watchItem?.impactExplanation ?? "") : candidate.sourceMetricPoint!.tooltip;
             const href = isLever
@@ -467,7 +455,7 @@ export default async function DiagnosticPage({
             .map((summary, contentIndex) => {
               const score = computeHealthScore(summary.currentRatePercent / 100, summary.benchmarkRatePercent / 100, summary.status);
               const tier = getHealthTier(score);
-              const advice = adviceFor(summary.key, undefined, summary.currentRatePercent, summary.benchmarkRatePercent, agentNameFor("content"));
+              const advice = adviceFor(summary.key, undefined, summary.currentRatePercent, summary.benchmarkRatePercent, "Falco");
 
               return (
                 <div key={summary.key} className="sticker-card animate-rise flex flex-col gap-4 p-6">

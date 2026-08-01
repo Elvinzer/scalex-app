@@ -7,35 +7,29 @@ import { useRef } from "react";
 import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-chat-thread";
 import { Falco } from "@/components/falco/falco";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { ConversationRow } from "@/lib/agent/chat-history";
 import type { ChatContext } from "@/lib/chat-context";
-import { AGENT_KEY_TO_ROUTE, AGENT_KEY_TO_TOPIC_LABEL, type FalcoSkinKey } from "@/lib/falco-skins";
-
-type LeverMode = "optimiser" | "demarrer" | "decouverte";
+import { AGENT_KEY_TO_ROUTE, type FalcoSkinKey } from "@/lib/falco-skins";
 
 export function CopiloteChatPanel({
-  agentKey,
-  name,
+  conversationId,
+  topicType,
+  topicKey,
+  topicLabel,
   skin,
-  gapBadge,
-  mode,
-  agentNameToKey,
-  onSelectAgent,
+  onConversationChange,
 }: {
-  agentKey: string;
-  name: string;
+  conversationId: string;
+  topicType: "general" | "lever";
+  topicKey: string | null;
+  topicLabel: string | null;
   skin: FalcoSkinKey | null;
-  gapBadge: string | null;
-  mode: LeverMode | null;
-  agentNameToKey: Record<string, string>;
-  onSelectAgent: (agentKey: string) => void;
+  onConversationChange: (conversation: ConversationRow) => void;
 }) {
   const threadRef = useRef<AgentChatThreadHandle>(null);
-  const isGeneral = agentKey === "general";
-  const route = AGENT_KEY_TO_ROUTE[agentKey];
+  const route = topicKey ? AGENT_KEY_TO_ROUTE[topicKey] : undefined;
 
-  const context: ChatContext = isGeneral
-    ? { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "copilote" }
-    : { topicType: "lever", topicKey: agentKey, topicLabel: AGENT_KEY_TO_TOPIC_LABEL[agentKey] ?? name, sourcePage: "copilote" };
+  const context: ChatContext = { topicType, topicKey, topicLabel, sourcePage: "copilote" };
 
   function handleReset() {
     if (!window.confirm("Recommencer cette conversation à zéro ?")) return;
@@ -52,12 +46,8 @@ export function CopiloteChatPanel({
             <Falco pose="neutral" size="sm" />
           )}
           <div>
-            <p className="text-base font-bold">{name}</p>
-            {gapBadge && (
-              <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
-                {gapBadge}
-              </span>
-            )}
+            <p className="text-base font-bold">Falco</p>
+            {topicLabel && <p className="text-xs text-muted-foreground">{topicLabel}</p>}
           </div>
         </div>
 
@@ -92,10 +82,9 @@ export function CopiloteChatPanel({
         ref={threadRef}
         context={context}
         period="3-months"
-        mode={mode}
         falcoSkin={skin}
-        agentNameToKey={agentNameToKey}
-        onSelectAgent={onSelectAgent}
+        conversationId={conversationId}
+        onConversationChange={onConversationChange}
       />
     </div>
   );

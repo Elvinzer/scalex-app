@@ -9,14 +9,20 @@ async function currentUserId(): Promise<string | null> {
   return data?.claims ? (data.claims.sub as string) : null;
 }
 
-export async function recordCopiloteAgentSelected(agentKey: string, hasHistory: boolean): Promise<void> {
+export async function recordCopiloteConversationOpened(fromHistory: boolean): Promise<void> {
   const userId = await currentUserId();
   if (!userId) return;
-  await track("copilote_agent_selected", userId, { agent_key: agentKey, has_history: hasHistory });
+  await track("copilote_conversation_opened", userId, { from_history: fromHistory });
 }
 
-export async function recordCopiloteSwitchFromRedirect(from: string, to: string): Promise<void> {
+export async function recordCopiloteNewConversation(): Promise<void> {
   const userId = await currentUserId();
   if (!userId) return;
-  await track("copilote_switch_from_redirect", userId, { from, to });
+  await track("copilote_new_conversation", userId);
+}
+
+export async function recordCopiloteTopic(topicKey: string | null): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) return;
+  await track("copilote_topic", userId, { topic_key: topicKey });
 }

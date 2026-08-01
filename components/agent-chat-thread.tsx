@@ -6,7 +6,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { Falco } from "@/components/falco/falco";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { Button } from "@/components/ui/button";
-import { clearAgentChatHistory, loadAgentChatHistory } from "@/lib/agent/chat-history-actions";
+import { loadConversationMessages, resolveConversationForTopic, startNewConversation } from "@/lib/agent/chat-history-actions";
+import type { ConversationRow } from "@/lib/agent/chat-history";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 
@@ -18,14 +19,7 @@ export const MAX_MESSAGES = 20;
 
 // Only bold and unordered lists are required (design system doc) — hand
 // rolled rather than pulling in a markdown library for two constructs.
-// Optionally turns an inter-agent redirect ("...le rayon de Falco Setter...")
-// into a clickable chip — only when the caller (the Copilote page) supplies
-// a name→agentKey lookup; the drawer never does, so its text stays exactly
-// as before.
-function renderMarkdownLite(
-  text: string,
-  redirect?: { agentNameToKey: Record<string, string>; onSelectAgent: (agentKey: string) => void }
-) {
+function renderMarkdownLite(text: string) {
   const lines = text.split("\n");
   const nodes: React.ReactNode[] = [];
   let listBuffer: string[] = [];
@@ -35,7 +29,7 @@ function renderMarkdownLite(
     nodes.push(
       <ul key={key} className="list-disc space-y-1 pl-5">
         {listBuffer.map((item, i) => (
-          <li key={i}>{renderLine(item)}</li>
+          <li key={i}>{renderInline(item)}</li>
         ))}
       </ul>
     );
@@ -55,35 +49,6 @@ function renderMarkdownLite(
     );
   }
 
-  function renderLine(line: string) {
-    if (!redirect) return renderInline(line);
-    const names = Object.keys(redirect.agentNameToKey);
-    if (names.length === 0) return renderInline(line);
-    const escaped = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    const match = line.match(new RegExp(`rayon de (${escaped.join("|")})`));
-    if (!match || match.index === undefined) return renderInline(line);
-
-    const name = match[1];
-    const agentKey = redirect.agentNameToKey[name];
-    const before = line.slice(0, match.index);
-    const after = line.slice(match.index + match[0].length);
-
-    return (
-      <>
-        {renderInline(before)}
-        rayon de{" "}
-        <button
-          type="button"
-          onClick={() => redirect.onSelectAgent(agentKey)}
-          className="inline rounded-full border border-border px-2 py-0.5 text-xs font-bold hover:bg-muted"
-        >
-          {name}
-        </button>
-        {renderInline(after)}
-      </>
-    );
-  }
-
   lines.forEach((line, index) => {
     const trimmed = line.trim();
     if (trimmed.startsWith("- ")) {
@@ -91,7 +56,7 @@ function renderMarkdownLite(
     } else {
       flushList(`list-${index}`);
       if (trimmed.length > 0) {
-        nodes.push(<p key={index}>{renderLine(line)}</p>);
+        nodes.push(<p key={index}>{renderInline(line)}</p>);
       }
     }
   });
@@ -132,6 +97,7 @@ async function streamChat(
     followupKey?: string | null;
     period: Period;
     mode?: LeverMode | null;
+    conversationId?: string;
     messages: ChatMessage[];
   },
   onToken: (token: string) => void
@@ -211,10 +177,20 @@ export const AgentChatThread = forwardRef<
     period: Period;
     mode?: LeverMode | null;
     falcoSkin?: FalcoSkinKey | null;
-    // Only supplied by the Copilote page — enables clickable inter-agent
-    // redirect chips in assistant messages (see renderMarkdownLite above).
-    agentNameToKey?: Record<string, string>;
-    onSelectAgent?: (agentKey: string) => void;
+    // Only supplied by the Copilote hub, which displays the conversation
+    // history and knows exactly which chapter is open. Every other caller
+    // (AgentBanner on lever pages, the floating bubble, Découverte cards,
+    // item-score-button) omits this — the thread resolves/creates the
+    // right conversation for `context` itself on mount, same "one
+    // continuous thread per topic" feel as before this chantier.
+    conversationId?: string;
+    // Fired whenever the active conversation changes (first resolved on
+    // mount, or a brand new one after "Nouvelle conversation") — the FULL
+    // row, not just the id, so the Copilote hub can prepend it to its
+    // history list synchronously (no round-trip, no risk of the chat panel
+    // briefly unmounting because the new id isn't in its list yet). Unused
+    // (and harmless) for every other caller.
+    onConversationChange?: (conversation: ConversationRow) => void;
     // A specific opening question to ask on top of whatever's already in the
     // thread (e.g. "pourquoi mon post X a un score de 62/100 ?") — used by
     // per-item score badges (posts-table.tsx/campaigns-table.tsx) that open
@@ -229,7 +205,10 @@ export const AgentChatThread = forwardRef<
     // discarding the user's place in it.
     onEngaged?: () => void;
   }
->(function AgentChatThread({ context, followupKey, period, mode = null, falcoSkin, agentNameToKey, onSelectAgent, seedQuestion, onEngaged }, ref) {
+>(function AgentChatThread(
+  { context, followupKey, period, mode = null, falcoSkin, conversationId: explicitConversationId, onConversationChange, seedQuestion, onEngaged },
+  ref
+) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -238,10 +217,15 @@ export const AgentChatThread = forwardRef<
   const hasOpenedRef = useRef(false);
   // "metric" stays fully ephemeral (per-diagnostic-point drill-downs
   // elsewhere in the app) — "lever" and "general" both persist across opens
-  // (the Copilote hub's whole premise is a durable thread per agent,
-  // including the generalist one).
+  // (the Copilote hub's whole premise is a durable thread, including the
+  // generalist one).
   const isPersisted = context.topicType !== "metric";
-  const storageKey = context.topicKey ?? "general";
+  const topicType = context.topicType as "general" | "lever";
+  // Not React state: reassigned synchronously right after resolution so
+  // `send`/`handleNewConversation` always read the current id without
+  // waiting on a re-render. The Copilote hub, which DOES need a render on
+  // change, is notified separately via onConversationChange.
+  const conversationIdRef = useRef<string | null>(explicitConversationId ?? null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -251,23 +235,35 @@ export const AgentChatThread = forwardRef<
     if (hasOpenedRef.current) return;
     hasOpenedRef.current = true;
 
-    if (isPersisted) {
-      void (async () => {
-        const history = await loadAgentChatHistory(storageKey);
-        if (seedQuestion) {
-          onEngaged?.();
-          setMessages(history);
-          void send([...history, { role: "user", content: seedQuestion }]);
-        } else if (history.length > 0) {
-          setMessages(history);
-        } else {
-          void send([]);
-        }
-      })();
+    if (!isPersisted) {
+      void send(seedQuestion ? [{ role: "user", content: seedQuestion }] : []);
       return;
     }
 
-    void send(seedQuestion ? [{ role: "user", content: seedQuestion }] : []);
+    void (async () => {
+      let id = conversationIdRef.current;
+      if (!id) {
+        const resolved = await resolveConversationForTopic(topicType, context.topicKey ?? null, context.topicLabel ?? null);
+        if ("error" in resolved) {
+          setMessages([{ role: "assistant", content: resolved.error, isError: true }]);
+          return;
+        }
+        id = resolved.id;
+        conversationIdRef.current = id;
+        onConversationChange?.(resolved);
+      }
+
+      const history = await loadConversationMessages(id);
+      if (seedQuestion) {
+        onEngaged?.();
+        setMessages(history);
+        void send([...history, { role: "user", content: seedQuestion }]);
+      } else if (history.length > 0) {
+        setMessages(history);
+      } else {
+        void send([]);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -278,8 +274,10 @@ export const AgentChatThread = forwardRef<
     if (!isPersisted) return;
     function handleVisible() {
       if (document.visibilityState !== "visible" || isStreaming) return;
+      const id = conversationIdRef.current;
+      if (!id) return;
       void (async () => {
-        const history = await loadAgentChatHistory(storageKey);
+        const history = await loadConversationMessages(id);
         setMessages((prev) => (history.length > prev.length ? history : prev));
       })();
     }
@@ -289,23 +287,26 @@ export const AgentChatThread = forwardRef<
       document.removeEventListener("visibilitychange", handleVisible);
       window.removeEventListener("focus", handleVisible);
     };
-  }, [storageKey, isPersisted, isStreaming]);
+  }, [isPersisted, isStreaming]);
 
   async function send(history: ChatMessage[]) {
     setIsStreaming(true);
     setMessages([...history, { role: "assistant", content: "" }]);
 
     try {
-      const result = await streamChat({ context, followupKey, period, mode, messages: history }, (token) => {
-        setMessages((prev) => {
-          const next = [...prev];
-          const last = next[next.length - 1];
-          if (last?.role === "assistant") {
-            next[next.length - 1] = { ...last, content: last.content + token };
-          }
-          return next;
-        });
-      });
+      const result = await streamChat(
+        { context, followupKey, period, mode, conversationId: conversationIdRef.current ?? undefined, messages: history },
+        (token) => {
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.role === "assistant") {
+              next[next.length - 1] = { ...last, content: last.content + token };
+            }
+            return next;
+          });
+        }
+      );
 
       if (result.error) {
         setMessages((prev) => {
@@ -349,12 +350,21 @@ export const AgentChatThread = forwardRef<
     void send(nextHistory);
   }
 
-  // Without this, once the 20 stored messages are reached a persisted
-  // conversation would stay maxed out forever (persistence made the cap
-  // permanent instead of per-open) — lets the user start over.
+  // Starts a genuinely NEW conversation and switches to it — never clears
+  // the current one in place, so nothing already in history is lost (also
+  // fixes the old "20-message cap becomes permanent" bug, since a fresh
+  // conversation naturally has its own cap).
   async function handleNewConversation() {
     if (isStreaming) return;
-    if (isPersisted) await clearAgentChatHistory(storageKey);
+    if (isPersisted) {
+      const created = await startNewConversation(topicType, context.topicKey ?? null, context.topicLabel ?? null);
+      if ("error" in created) {
+        setMessages([{ role: "assistant", content: created.error, isError: true }]);
+        return;
+      }
+      conversationIdRef.current = created.id;
+      onConversationChange?.(created);
+    }
     setMessages([]);
     setFailedHistory(null);
     void send([]);
@@ -366,7 +376,6 @@ export const AgentChatThread = forwardRef<
   useImperativeHandle(ref, () => ({ reset: () => void handleNewConversation() }));
 
   const limitReached = messages.length >= MAX_MESSAGES;
-  const redirect = agentNameToKey && onSelectAgent ? { agentNameToKey, onSelectAgent } : undefined;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -388,7 +397,7 @@ export const AgentChatThread = forwardRef<
                 )}
                 <div className="flex flex-1 flex-col items-start gap-2">
                   <div className={`text-sm ${message.isError ? "text-state-critical" : "text-foreground"}`}>
-                    {renderMarkdownLite(message.content, redirect)}
+                    {renderMarkdownLite(message.content)}
                   </div>
                   {message.isError && index === messages.length - 1 && !isStreaming && (
                     <Button size="sm" variant="outline" onClick={retry}>

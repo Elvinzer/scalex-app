@@ -4,7 +4,6 @@ import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
-import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBenchmark } from "@/lib/benchmarks";
 import type { ChatContext } from "@/lib/chat-context";
 import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
@@ -39,7 +38,7 @@ export default async function ClosingPage({
   const benchmark = getBenchmark(sector);
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
-  const [allEntries, allSettingEntries, existingInsights, agent] = await Promise.all([
+  const [allEntries, allSettingEntries, existingInsights] = await Promise.all([
     db
       .select()
       .from(closingKpiEntries)
@@ -47,7 +46,6 @@ export default async function ClosingPage({
       .orderBy(desc(closingKpiEntries.date)),
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)),
     getExistingStageInsights(accountId),
-    getAgentByKey("closing"),
   ]);
 
   const hasAnyEntries = allEntries.length > 0;
@@ -112,8 +110,6 @@ export default async function ClosingPage({
         ctaLabel="Améliorer →"
         chatContext={chatContext}
         mode="optimiser"
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
 

@@ -1,6 +1,5 @@
 import { AgentBanner } from "@/components/agent-banner";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
-import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
@@ -15,11 +14,7 @@ export default async function SettersPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:setters");
 
-  const [setters, businessProfile, agent] = await Promise.all([
-    getSetters(accountId),
-    getBusinessProfile(accountId),
-    getAgentByKey("ceo_vision"),
-  ]);
+  const [setters, businessProfile] = await Promise.all([getSetters(accountId), getBusinessProfile(accountId)]);
 
   const summaries = await Promise.all(
     setters.map((setter) => computeSetterCommissions(accountId, setter.id, businessProfile.sales.offers))
@@ -35,8 +30,6 @@ export default async function SettersPage() {
         ctaLabel="Améliorer →"
         chatContext={chatContext}
         mode="optimiser"
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
 

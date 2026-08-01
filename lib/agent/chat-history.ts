@@ -1,55 +1,166 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { agentChatMessages } from "@/db/schema";
+import { agentChatMessages, conversations } from "@/db/schema";
 
 export const MAX_AGENT_MESSAGES = 20;
 
 export type StoredChatMessage = { role: "user" | "assistant"; content: string };
-export type LastMessagePreview = { content: string; createdAt: string };
 
-// Ordered oldest-first, capped at MAX_AGENT_MESSAGES — the route's own
-// "conversation full" check already stops new sends once this cap is hit,
-// so nothing here ever needs to prune older rows.
-export async function getAgentChatMessages(accountId: string, agentKey: string): Promise<StoredChatMessage[]> {
+export type ConversationRow = {
+  id: string;
+  title: string;
+  topicType: "general" | "lever";
+  topicKey: string | null;
+  topicLabel: string | null;
+  resolved: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ConversationWithPreview = ConversationRow & { preview: string | null };
+
+function toRow(row: typeof conversations.$inferSelect): ConversationRow {
+  return {
+    id: row.id,
+    title: row.title,
+    topicType: row.topicType,
+    topicKey: row.topicKey,
+    topicLabel: row.topicLabel,
+    resolved: row.resolved,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function truncate(text: string, max: number): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return clean.length > max ? `${clean.slice(0, max)}…` : clean;
+}
+
+// Deterministic, no AI call — same reliability-over-cleverness rule already
+// applied to lib/diagnostic/lever-advice.ts's conseils. Cited by the plan as
+// "chapter title": topic + a snippet of what the user actually asked, not a
+// generic label alone once there's something real to summarize.
+export function titleFor(topicLabel: string | null, firstUserMessage: string | null): string {
+  if (topicLabel && firstUserMessage) return `${topicLabel} — ${truncate(firstUserMessage, 40)}`;
+  if (topicLabel) return topicLabel;
+  if (firstUserMessage) return truncate(firstUserMessage, 60);
+  return "Nouvelle conversation";
+}
+
+// History panel list — one row per conversation, newest-first, with a
+// 1-line preview of the last message. Small volume per user (no pruning
+// exists yet), so a second query + JS reduce is simpler than a lateral
+// join, same reasoning as the old getLastMessagesByAgent.
+export async function getConversations(accountId: string): Promise<ConversationWithPreview[]> {
+  const convRows = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.userId, accountId))
+    .orderBy(desc(conversations.updatedAt));
+
+  if (convRows.length === 0) return [];
+
+  const lastMessageByConversation = new Map<string, string>();
+  const messageRows = await db
+    .select({ conversationId: agentChatMessages.conversationId, content: agentChatMessages.content })
+    .from(agentChatMessages)
+    .where(eq(agentChatMessages.userId, accountId))
+    .orderBy(desc(agentChatMessages.createdAt));
+  for (const row of messageRows) {
+    if (lastMessageByConversation.has(row.conversationId)) continue;
+    lastMessageByConversation.set(row.conversationId, row.content);
+  }
+
+  return convRows.map((row) => ({ ...toRow(row), preview: lastMessageByConversation.get(row.id) ?? null }));
+}
+
+export async function getConversation(accountId: string, id: string): Promise<ConversationRow | null> {
+  const [row] = await db
+    .select()
+    .from(conversations)
+    .where(and(eq(conversations.id, id), eq(conversations.userId, accountId)))
+    .limit(1);
+  return row ? toRow(row) : null;
+}
+
+export async function getConversationMessages(accountId: string, conversationId: string): Promise<StoredChatMessage[]> {
   const rows = await db
     .select({ role: agentChatMessages.role, content: agentChatMessages.content })
     .from(agentChatMessages)
-    .where(and(eq(agentChatMessages.userId, accountId), eq(agentChatMessages.agentKey, agentKey)))
-    .orderBy(asc(agentChatMessages.createdAt))
+    .where(and(eq(agentChatMessages.userId, accountId), eq(agentChatMessages.conversationId, conversationId)))
+    .orderBy(agentChatMessages.createdAt)
     .limit(MAX_AGENT_MESSAGES);
 
   return rows.map((row) => ({ role: row.role as "user" | "assistant", content: row.content }));
 }
 
-export async function appendAgentChatMessage(
+// Always creates a brand new row (client-generated id or a fresh one) —
+// used by the Copilote hub's "+ Nouvelle conversation" and by
+// findOrCreateConversationForTopic below when no match exists yet.
+export async function createConversation(
   accountId: string,
-  agentKey: string,
+  data: { id?: string; topicType: "general" | "lever"; topicKey: string | null; topicLabel: string | null }
+): Promise<ConversationRow> {
+  const [row] = await db
+    .insert(conversations)
+    .values({
+      ...(data.id ? { id: data.id } : {}),
+      userId: accountId,
+      title: titleFor(data.topicLabel, null),
+      topicType: data.topicType,
+      topicKey: data.topicKey,
+      topicLabel: data.topicLabel,
+    })
+    .returning();
+  return toRow(row);
+}
+
+// The ~15 existing entry points (AgentBanner, floating bubble, Découverte
+// cards…) never pass a conversationId — they only know a ChatContext. This
+// resumes whichever conversation was most recently active on that exact
+// topic (or the most recently active GENERAL conversation, for the
+// floating bubble/Copilote's own "Copilote" item — topicKey is null for
+// both, so they naturally share one), or starts a fresh one on first use.
+// Preserves today's "one continuous thread per topic" feel for every
+// caller that doesn't explicitly manage conversations itself.
+export async function findOrCreateConversationForTopic(
+  accountId: string,
+  topic: { topicType: "general" | "lever"; topicKey: string | null; topicLabel: string | null }
+): Promise<ConversationRow> {
+  const [existing] = await db
+    .select()
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.userId, accountId),
+        eq(conversations.topicType, topic.topicType),
+        topic.topicKey === null ? isNull(conversations.topicKey) : eq(conversations.topicKey, topic.topicKey)
+      )
+    )
+    .orderBy(desc(conversations.updatedAt))
+    .limit(1);
+
+  if (existing) return toRow(existing);
+  return createConversation(accountId, topic);
+}
+
+export async function appendConversationMessage(
+  accountId: string,
+  conversationId: string,
   role: "user" | "assistant",
   content: string
 ): Promise<void> {
-  await db.insert(agentChatMessages).values({ userId: accountId, agentKey, role, content });
+  await db.transaction(async (tx) => {
+    await tx.insert(agentChatMessages).values({ userId: accountId, conversationId, agentKey: "falco", role, content });
+    await tx.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, conversationId));
+  });
 }
 
-export async function clearAgentChatMessages(accountId: string, agentKey: string): Promise<void> {
-  await db.delete(agentChatMessages).where(and(eq(agentChatMessages.userId, accountId), eq(agentChatMessages.agentKey, agentKey)));
-}
-
-// One row per agent_key (its most recent message) — powers the Copilote
-// hub panel's 1-line preview. Fetches every message for the account
-// ordered newest-first and reduces to the first occurrence per agentKey in
-// JS: at most 8 agents × 20 messages = 160 rows, not worth a DISTINCT ON.
-export async function getLastMessagesByAgent(accountId: string): Promise<Record<string, LastMessagePreview>> {
-  const rows = await db
-    .select({ agentKey: agentChatMessages.agentKey, content: agentChatMessages.content, createdAt: agentChatMessages.createdAt })
-    .from(agentChatMessages)
-    .where(eq(agentChatMessages.userId, accountId))
-    .orderBy(desc(agentChatMessages.createdAt));
-
-  const result: Record<string, LastMessagePreview> = {};
-  for (const row of rows) {
-    if (result[row.agentKey]) continue;
-    result[row.agentKey] = { content: row.content, createdAt: row.createdAt.toISOString() };
-  }
-  return result;
+export async function updateConversationTitle(accountId: string, conversationId: string, title: string): Promise<void> {
+  await db
+    .update(conversations)
+    .set({ title })
+    .where(and(eq(conversations.id, conversationId), eq(conversations.userId, accountId)));
 }

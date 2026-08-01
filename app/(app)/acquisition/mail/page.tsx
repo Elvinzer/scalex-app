@@ -5,7 +5,6 @@ import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
 import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
-import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { track } from "@/lib/analytics";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
@@ -30,10 +29,9 @@ export default async function MailPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:mail");
 
-  const [campaigns, lever, agent] = await Promise.all([
+  const [campaigns, lever] = await Promise.all([
     getEmailCampaigns(accountId),
     getLeverStatus(accountId, LEVER_KEY),
-    getAgentByKey(LEVER_KEY),
   ]);
 
   const mode: "optimiser" | "demarrer" | "decouverte" =
@@ -56,8 +54,6 @@ export default async function MailPage() {
           ctaLabel="Améliorer →"
           chatContext={chatContext}
           mode={mode}
-          agentName={agent?.name}
-          agentIconKey={agent?.falcoSkinIcon}
           falcoSkin={falcoSkin}
         />
         <div>
@@ -85,8 +81,6 @@ export default async function MailPage() {
           chatContext={chatContext}
           falcoPose="thinking"
           mode={mode}
-          agentName={agent?.name}
-          agentIconKey={agent?.falcoSkinIcon}
           falcoSkin={falcoSkin}
         />
         <div>
@@ -135,8 +129,6 @@ export default async function MailPage() {
         ctaLabel="Améliorer →"
         chatContext={chatContext}
         mode={mode}
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
 
@@ -176,7 +168,7 @@ export default async function MailPage() {
         </div>
       </div>
 
-      <CampaignsTable campaigns={campaigns} agentName={agent?.name} agentIconKey={agent?.falcoSkinIcon} falcoSkin={falcoSkin} />
+      <CampaignsTable campaigns={campaigns} falcoSkin={falcoSkin} />
     </div>
   );
 }

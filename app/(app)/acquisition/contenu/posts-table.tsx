@@ -25,16 +25,12 @@ export function PostsTable({
   platforms,
   topPostId,
   contentBenchmarks,
-  agentName,
-  agentIconKey,
   falcoSkin,
 }: {
   posts: ContentPostRow[];
   platforms: string[];
   topPostId: string | null;
   contentBenchmarks: Record<ContentMetricKey, number>;
-  agentName?: string;
-  agentIconKey?: string;
   falcoSkin?: FalcoSkinKey | null;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
@@ -157,8 +153,6 @@ export function PostsTable({
                       { topicType: "lever", topicKey: "content", topicLabel: "Contenu", sourcePage: "acquisition_contenu_score" } satisfies ChatContext
                     }
                     seedQuestion={`Pourquoi mon post "${post.title}" a un score de ${score}/100 ? Comment je peux l'améliorer ?`}
-                    agentName={agentName}
-                    agentIconKey={agentIconKey}
                     falcoSkin={falcoSkin}
                   />
                 )}

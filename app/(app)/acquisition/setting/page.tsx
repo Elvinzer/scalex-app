@@ -4,7 +4,6 @@ import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { db } from "@/db";
 import { settingKpiEntries } from "@/db/schema";
-import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBenchmark } from "@/lib/benchmarks";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
@@ -43,14 +42,13 @@ export default async function SettingPage({
   const benchmark = getBenchmark(sector);
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
-  const [allEntries, existingInsights, agent] = await Promise.all([
+  const [allEntries, existingInsights] = await Promise.all([
     db
       .select()
       .from(settingKpiEntries)
       .where(eq(settingKpiEntries.userId, accountId))
       .orderBy(desc(settingKpiEntries.date)),
     getExistingStageInsights(accountId),
-    getAgentByKey("setting"),
   ]);
 
   const hasAnyEntries = allEntries.length > 0;
@@ -106,8 +104,6 @@ export default async function SettingPage({
         ctaLabel="Améliorer →"
         chatContext={chatContext}
         mode="optimiser"
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
 

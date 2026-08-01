@@ -3,162 +3,141 @@
 import { useEffect, useState } from "react";
 
 import { ChatErrorBoundary } from "@/components/chat-error-boundary";
-import { AgentPanel, type CopilotePanelItem } from "@/components/copilote/agent-panel";
+import { ConversationHistoryPanel } from "@/components/copilote/conversation-history-panel";
 import { CopiloteChatPanel } from "@/components/copilote/copilote-chat-panel";
 import { Falco } from "@/components/falco/falco";
-import { recordCopiloteAgentSelected, recordCopiloteSwitchFromRedirect } from "@/lib/agent/copilote-tracking";
-import { AGENT_KEY_TO_SKIN, AGENT_KEY_TO_SPECIALTY } from "@/lib/falco-skins";
+import { AGENT_KEY_CONSOLIDATION } from "@/lib/agent/agent-consolidation";
+import type { ConversationRow, ConversationWithPreview } from "@/lib/agent/chat-history";
+import { resolveConversationForTopic, startNewConversation } from "@/lib/agent/chat-history-actions";
+import { recordCopiloteConversationOpened, recordCopiloteNewConversation, recordCopiloteTopic } from "@/lib/agent/copilote-tracking";
+import { AGENT_KEY_TO_SKIN, AGENT_KEY_TO_TOPIC_LABEL, type FalcoSkinKey } from "@/lib/falco-skins";
 
-const STORAGE_KEY = "copilote:lastAgent";
-// Consolidated to 4 agents (was 7 — see lib/agent/lever-agent-data.ts and
-// app/api/improve-chat/route.ts's AGENT_KEY_CONSOLIDATION): Mail, Contenu
-// unchanged; Ventes absorbs Closing+Produits+Upsell; CEO Vision absorbs
-// Setting+Ads. CEO Vision itself removed from this hub's visible list on
-// request — the agent/its data/its drawer access elsewhere (AgentBanner on
-// /acquisition/pipeline, /acquisition/setters, etc.) are untouched, only
-// hidden from this panel.
-const DISPLAY_ORDER = ["email_marketing", "content", "ventes"];
+function skinFor(topicKey: string | null): FalcoSkinKey | null {
+  if (!topicKey) return null;
+  const consolidatedKey = AGENT_KEY_CONSOLIDATION[topicKey] ?? topicKey;
+  return AGENT_KEY_TO_SKIN[consolidatedKey] ?? null;
+}
 
-type AgentSummary = { agentKey: string; leverKey: string | null; name: string; falcoSkinIcon: string };
-type AgentDataSummary = { gapBadge: string | null; impactAmountEur: number | null } | null;
-type LastMessage = { content: string; createdAt: string };
-
-function truncate(text: string): string {
-  const singleLine = text.replace(/\s+/g, " ").trim();
-  return singleLine.length > 60 ? `${singleLine.slice(0, 60)}…` : singleLine;
+// Prepends (or replaces, if already present) a conversation and keeps the
+// list sorted by recency — used whenever a conversation is created/resumed
+// client-side, so the history panel never needs a full server round-trip to
+// reflect what the chat panel is already showing.
+function upsertConversation(
+  list: ConversationWithPreview[],
+  conversation: ConversationRow,
+  preview: string | null = null
+): ConversationWithPreview[] {
+  const withoutExisting = list.filter((item) => item.id !== conversation.id);
+  return [{ ...conversation, preview }, ...withoutExisting].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 }
 
 export function CopilotePageClient({
-  agents,
-  agentData,
-  leverStatusByKey,
-  lastMessages,
-  initialAgentKey,
+  conversations: initialConversations,
+  initialTopicKey,
 }: {
-  agents: AgentSummary[];
-  agentData: Record<string, AgentDataSummary>;
-  leverStatusByKey: Record<string, string>;
-  lastMessages: Record<string, LastMessage>;
-  initialAgentKey: string | null;
+  conversations: ConversationWithPreview[];
+  initialTopicKey: string | null;
 }) {
-  const [selectedAgentKey, setSelectedAgentKey] = useState<string | null>(initialAgentKey);
+  const [conversations, setConversations] = useState(initialConversations);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(initialConversations[0]?.id ?? null);
+  const [resolvingDeepLink, setResolvingDeepLink] = useState(Boolean(initialTopicKey));
 
-  // Deep link wins over the persisted selection (and re-persists itself, so
-  // a plain future `/copilote` visit remembers it too); otherwise fall back
-  // to whatever was last consulted on this device.
+  // Deep link from the floating bubble ("Ouvrir dans le Copilote →",
+  // ?topic=X) finds-or-creates the matching conversation — same
+  // "créent/rouvrent" semantics as every lever page's own inline chat.
   useEffect(() => {
-    if (initialAgentKey) {
-      window.localStorage.setItem(STORAGE_KEY, initialAgentKey);
-      return;
-    }
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) setSelectedAgentKey(stored);
+    if (!initialTopicKey) return;
+    void (async () => {
+      void recordCopiloteTopic(initialTopicKey);
+      const resolved = await resolveConversationForTopic("lever", initialTopicKey, AGENT_KEY_TO_TOPIC_LABEL[initialTopicKey] ?? null);
+      if (!("error" in resolved)) {
+        setConversations((prev) => upsertConversation(prev, resolved));
+        setSelectedConversationId(resolved.id);
+      }
+      setResolvingDeepLink(false);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const byKey = new Map(agents.map((agent) => [agent.agentKey, agent]));
-  const orderedAgents = DISPLAY_ORDER.map((key) => byKey.get(key)).filter((agent): agent is AgentSummary => agent !== undefined);
-  const agentNameToKey = Object.fromEntries(agents.map((agent) => [agent.name, agent.agentKey]));
-
-  function selectAgent(agentKey: string) {
-    setSelectedAgentKey(agentKey);
-    window.localStorage.setItem(STORAGE_KEY, agentKey);
-    void recordCopiloteAgentSelected(agentKey, Boolean(lastMessages[agentKey]));
+  function selectConversation(id: string) {
+    setSelectedConversationId(id);
+    void recordCopiloteConversationOpened(true);
   }
 
-  function handleRedirect(toAgentKey: string) {
-    if (selectedAgentKey) void recordCopiloteSwitchFromRedirect(selectedAgentKey, toAgentKey);
-    selectAgent(toAgentKey);
+  async function handleNewConversation() {
+    const created = await startNewConversation("general", null, null);
+    if ("error" in created) return;
+    setConversations((prev) => upsertConversation(prev, created));
+    setSelectedConversationId(created.id);
+    void recordCopiloteNewConversation();
   }
 
-  function statusFor(agent: AgentSummary): string {
-    return agent.leverKey ? (leverStatusByKey[agent.leverKey] ?? "not_answered") : "active";
+  // The active thread bumps its own conversation on every message and can
+  // switch to a brand new one (in-thread "Nouvelle conversation") — synced
+  // here with the full row so the history panel never goes stale and the
+  // chat panel never briefly loses its selected conversation mid-switch.
+  function handleConversationChange(conversation: ConversationRow) {
+    setSelectedConversationId(conversation.id);
+    setConversations((prev) => upsertConversation(prev, conversation));
   }
 
-  const items: CopilotePanelItem[] = [
-    {
-      agentKey: "general",
-      name: "Copilote",
-      specialty: null,
-      skin: null,
-      isActive: true,
-      isAbsent: false,
-      hasGap: false,
-      preview: lastMessages.general ? truncate(lastMessages.general.content) : null,
-    },
-    ...orderedAgents.map((agent): CopilotePanelItem => {
-      const status = statusFor(agent);
-      const isAbsent = status === "absent";
-      const hasMessages = Boolean(lastMessages[agent.agentKey]);
-      return {
-        agentKey: agent.agentKey,
-        name: agent.name,
-        specialty: AGENT_KEY_TO_SPECIALTY[agent.agentKey] ?? null,
-        skin: AGENT_KEY_TO_SKIN[agent.agentKey] ?? null,
-        isActive: !agent.leverKey || status === "active",
-        isAbsent,
-        hasGap: !hasMessages && isAbsent,
-        preview: hasMessages ? truncate(lastMessages[agent.agentKey].content) : null,
-      };
-    }),
-  ];
-
-  const selectedItem = items.find((item) => item.agentKey === selectedAgentKey) ?? null;
-  const selectedAgentData = selectedAgentKey ? (agentData[selectedAgentKey] ?? null) : null;
-
-  const selectedAgent = selectedAgentKey ? byKey.get(selectedAgentKey) : undefined;
-  const selectedMode: "optimiser" | "demarrer" | "decouverte" | null =
-    !selectedAgent || selectedAgentKey === "general"
-      ? null
-      : !selectedAgent.leverKey
-        ? "optimiser"
-        : statusFor(selectedAgent) === "active"
-          ? "optimiser"
-          : statusFor(selectedAgent) === "not_answered"
-            ? "decouverte"
-            : "demarrer";
+  const selected = conversations.find((conversation) => conversation.id === selectedConversationId) ?? null;
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
       <div>
         <h1 className="text-3xl font-bold">Copilote</h1>
-        <p className="mt-1 text-muted-foreground">Ton équipe d&apos;experts IA — chacun connaît déjà tes chiffres.</p>
+        <p className="mt-1 text-muted-foreground">Falco, ton copilote de croissance — il connaît déjà tes chiffres.</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-0">
         <div className="lg:hidden">
-          <AgentPanel items={items} selectedAgentKey={selectedAgentKey} onSelect={selectAgent} compact />
+          <ConversationHistoryPanel
+            conversations={conversations}
+            selectedConversationId={selectedConversationId}
+            onSelect={selectConversation}
+            onNewConversation={() => void handleNewConversation()}
+            compact
+          />
         </div>
 
         <div className="flex flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-border lg:rounded-r-none">
-          {selectedItem ? (
-            // Keyed by agentKey so switching agents always fully remounts the
-            // thread (fresh messages/isStreaming/history-loaded state) instead
-            // of reusing the previous agent's component instance — without
-            // this, a stuck stream on one agent stayed stuck even after
-            // picking a different one, since the mount-effect never re-fires
-            // on the same instance.
-            <ChatErrorBoundary key={selectedItem.agentKey}>
+          {selected ? (
+            // Keyed by conversation id so switching conversations always
+            // fully remounts the thread (fresh messages/isStreaming/
+            // history-loaded state) instead of reusing the previous one's
+            // component instance.
+            <ChatErrorBoundary key={selected.id}>
               <CopiloteChatPanel
-                agentKey={selectedItem.agentKey}
-                name={selectedItem.name}
-                skin={selectedItem.skin}
-                gapBadge={selectedAgentData?.gapBadge ?? null}
-                mode={selectedMode}
-                agentNameToKey={agentNameToKey}
-                onSelectAgent={handleRedirect}
+                conversationId={selected.id}
+                topicType={selected.topicType}
+                topicKey={selected.topicKey}
+                topicLabel={selected.topicLabel}
+                skin={skinFor(selected.topicKey)}
+                onConversationChange={handleConversationChange}
               />
             </ChatErrorBoundary>
+          ) : resolvingDeepLink ? (
+            <div className="flex flex-1 items-center justify-center">
+              <Falco pose="neutral" size="md" />
+            </div>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
               <Falco pose="neutral" size="md" />
-              <p className="max-w-sm text-sm text-muted-foreground">Choisis ton expert à droite. Chacun connaît déjà tes chiffres.</p>
+              <p className="max-w-sm text-sm text-muted-foreground">Choisis une conversation à droite, ou démarre-en une nouvelle.</p>
             </div>
           )}
         </div>
 
         <div className="hidden w-[280px] shrink-0 lg:block">
-          <AgentPanel items={items} selectedAgentKey={selectedAgentKey} onSelect={selectAgent} />
+          <ConversationHistoryPanel
+            conversations={conversations}
+            selectedConversationId={selectedConversationId}
+            onSelect={selectConversation}
+            onNewConversation={() => void handleNewConversation()}
+          />
         </div>
       </div>
     </div>

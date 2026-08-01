@@ -1,5 +1,4 @@
 import { AgentBanner } from "@/components/agent-banner";
-import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
@@ -35,12 +34,11 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
   previousFrom.setUTCDate(previousFrom.getUTCDate() - (rangeLengthDays - 1));
   const previousRange: DateRange = { from: toIsoDate(previousFrom), to: toIsoDate(previousTo) };
 
-  const [leads, setters, businessProfile, commentCounts, agent] = await Promise.all([
+  const [leads, setters, businessProfile, commentCounts] = await Promise.all([
     getLeads(accountId),
     getSetters(accountId),
     getBusinessProfile(accountId),
     getCommentCounts(accountId),
-    getAgentByKey("ceo_vision"),
   ]);
 
   const stats = await computeLeadPipelineStats(accountId, range, previousRange, user?.sector ?? null);
@@ -56,8 +54,6 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
         ctaLabel="Améliorer →"
         chatContext={chatContext}
         mode="optimiser"
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
 

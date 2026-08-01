@@ -25,15 +25,11 @@ export function ItemScoreButton({
   score,
   chatContext,
   seedQuestion,
-  agentName,
-  agentIconKey,
   falcoSkin,
 }: {
   score: number;
   chatContext: ChatContext;
   seedQuestion: string;
-  agentName?: string;
-  agentIconKey?: string;
   falcoSkin?: import("@/lib/falco-skins").FalcoSkinKey | null;
 }) {
   const [open, setOpen] = useState(false);
@@ -64,8 +60,6 @@ export function ItemScoreButton({
               context={chatContext}
               period="3-months"
               gapBadge={null}
-              agentName={agentName}
-              agentIconKey={agentIconKey}
               falcoSkin={falcoSkin}
               seedQuestion={seedQuestion}
             />

@@ -1,5 +1,4 @@
 import { AgentBanner } from "@/components/agent-banner";
-import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
@@ -15,10 +14,9 @@ export default async function ProduitsPage() {
   await requirePermissionOrRedirect(userId, "business");
 
   const today = todayUtc();
-  const [profile, monthSales, agent] = await Promise.all([
+  const [profile, monthSales] = await Promise.all([
     getBusinessProfile(accountId),
     getSalesForMonth(accountId, today.getUTCFullYear(), today.getUTCMonth() + 1),
-    getAgentByKey("produits"),
   ]);
 
   const offerStats: OfferStats[] = profile.sales.offers.map((offer) => {
@@ -46,8 +44,6 @@ export default async function ProduitsPage() {
         ctaLabel="Améliorer →"
         chatContext={chatContext}
         mode="optimiser"
-        agentName={agent?.name}
-        agentIconKey={agent?.falcoSkinIcon}
         falcoSkin={falcoSkin}
       />
       <div>

@@ -4,14 +4,14 @@ import { z } from "zod";
 
 import { AGENT_KEY_CONSOLIDATION } from "@/lib/agent/agent-consolidation";
 import { getAgentByKey } from "@/lib/agent/agents-registry";
-import { appendAgentChatMessage } from "@/lib/agent/chat-history";
+import { appendConversationMessage, getConversation, titleFor, updateConversationTitle } from "@/lib/agent/chat-history";
 import { resolveLeverAgentData } from "@/lib/agent/lever-agent-data";
 import { createSseAccumulatorStream } from "@/lib/agent/sse-accumulator";
 import { track } from "@/lib/analytics";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
 import { getAiProvider } from "@/lib/ai-provider";
-import { chatContextSchema } from "@/lib/chat-context";
+import { chatContextSchema, type ChatContext } from "@/lib/chat-context";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
@@ -32,6 +32,12 @@ const requestSchema = z.object({
   followupKey: z.enum(["nonBuyers", "noShow", "failedPayments"]).nullable().optional(),
   period: z.enum(["3-months", "current-month", "12-months"]),
   mode: z.enum(["optimiser", "demarrer", "decouverte"]).nullable().optional(),
+  // Required whenever topicType !== "metric" — the client always resolves
+  // this BEFORE calling here (AgentChatThread's mount effect, via
+  // findOrCreateConversationForTopic/startNewConversation), never invented
+  // here. "metric" topics have no conversation at all (fully ephemeral,
+  // unchanged from before).
+  conversationId: z.string().uuid().optional(),
   messages: z
     .array(
       z.object({
@@ -59,7 +65,27 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
   }
-  const { context, followupKey, period, mode, messages } = parsed.data;
+  const { context: clientContext, followupKey, period, mode, messages, conversationId } = parsed.data;
+
+  // Every persisted topic (anything but "metric") must already have a real
+  // conversation row by the time it reaches here — never created on the fly
+  // from unvalidated client input. The conversation's OWN stored topic
+  // fields are authoritative from here on (never the client-sent ones),
+  // same "don't trust the client" rule as the rest of this route already
+  // follows for numbers/gains.
+  let conversation: Awaited<ReturnType<typeof getConversation>> = null;
+  if (clientContext.topicType !== "metric") {
+    if (!conversationId) {
+      return NextResponse.json({ error: "Conversation manquante — recharge la page." }, { status: 400 });
+    }
+    conversation = await getConversation(accountId, conversationId);
+    if (!conversation) {
+      return NextResponse.json({ error: "Conversation introuvable — recharge la page." }, { status: 400 });
+    }
+  }
+  const context: ChatContext = conversation
+    ? { topicType: conversation.topicType, topicKey: conversation.topicKey, topicLabel: conversation.topicLabel, sourcePage: clientContext.sourcePage }
+    : clientContext;
 
   // "messages" already includes the just-submitted user message (see
   // components/improve-chat.tsx's handleSubmit) — so this request IS the
@@ -80,13 +106,15 @@ export async function POST(request: NextRequest) {
 
   // Server always recomputes the numbers from the authenticated user's own
   // data — never trusts a client-sent rate/€ figure, same rule as
-  // lib/agent/insight.ts.
-  const [[userRow], businessProfile, allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
+  // lib/agent/insight.ts. `agent` is the single unified Falco row (identity/
+  // prompt/temperature) — always fetched, regardless of topicType.
+  const [[userRow], businessProfile, allSettingEntries, allClosingEntries, allMonthlyRows, agent] = await Promise.all([
     db.select().from(users).where(eq(users.id, accountId)).limit(1),
     getBusinessProfile(accountId),
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
     db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
     getAllMonthlyMetrics(accountId),
+    getAgentByKey("falco"),
   ]);
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
@@ -113,7 +141,6 @@ export async function POST(request: NextRequest) {
   // link, resolved/removed lever) instead of masking it as a normal reply.
   let point = null as ReturnType<typeof computeDiagnosticPoints>[number] | null;
   let followup = null as ReturnType<typeof computeFollowupCompliance>[number] | null;
-  let agent: Awaited<ReturnType<typeof getAgentByKey>> = null;
   let leverAgentData: Awaited<ReturnType<typeof resolveLeverAgentData>> = null;
   let leverMode: LeverMode | null = null;
 
@@ -138,17 +165,11 @@ export async function POST(request: NextRequest) {
     if (!context.topicKey) {
       return NextResponse.json({ error: "Sujet invalide — recharge la page." }, { status: 400 });
     }
-    // No silent fallback to a generic prompt when the agent_key is
-    // unresolvable — same rule as the metric path above, and the explicit
-    // lesson from the earlier ChatContext fix.
-    const resolvedAgentKey = AGENT_KEY_CONSOLIDATION[context.topicKey] ?? context.topicKey;
-    agent = await getAgentByKey(resolvedAgentKey);
-    if (!agent) {
-      return NextResponse.json({ error: "Agent introuvable — recharge la page." }, { status: 400 });
-    }
-    // Recomputed server-side, never trusting a client-sent gain figure —
-    // same rule as the metric path above.
-    leverAgentData = await resolveLeverAgentData(agent.agentKey, {
+    // Identity is always Falco now — this only picks which business DATA
+    // block to inject (lib/agent/lever-agent-data.ts), same consolidation
+    // table that used to ALSO pick which agent persona answered.
+    const dataBucketKey = AGENT_KEY_CONSOLIDATION[context.topicKey] ?? context.topicKey;
+    leverAgentData = await resolveLeverAgentData(dataBucketKey, {
       accountId,
       businessProfile,
       settingTotals,
@@ -164,12 +185,6 @@ export async function POST(request: NextRequest) {
     }
     leverMode = mode ?? "optimiser";
   }
-
-  // Persistence covers "lever" (keyed by agent_key) and "general" (the
-  // Copilote hub's generalist thread, keyed by the reserved "general"
-  // string — agent_chat_messages.agent_key has no FK, so this needs no
-  // schema change) — "metric" stays fully ephemeral, unchanged.
-  const persistKey = agent ? agent.agentKey : context.topicType === "general" ? "general" : null;
 
   const systemPrompt = buildImprovePrompt({
     context,
@@ -197,8 +212,14 @@ export async function POST(request: NextRequest) {
   // "messages" already includes the just-submitted user message — nothing
   // to persist on the very first call, which opens with an empty array.
   const lastMessage = messages[messages.length - 1];
-  if (persistKey && lastMessage?.role === "user") {
-    await appendAgentChatMessage(accountId, persistKey, "user", lastMessage.content);
+  if (conversation && lastMessage?.role === "user") {
+    await appendConversationMessage(accountId, conversation.id, "user", lastMessage.content);
+    // Title stored once, right when the FIRST real exchange happens (not
+    // the automatic opening greeting, which sends an empty history) — see
+    // lib/agent/chat-history.ts's titleFor doc comment.
+    if (messages.length === 1) {
+      await updateConversationTitle(accountId, conversation.id, titleFor(conversation.topicLabel, lastMessage.content));
+    }
   }
 
   let upstream: Response;
@@ -243,11 +264,11 @@ export async function POST(request: NextRequest) {
   // client unchanged while accumulating the assembled reply to persist once
   // the stream ends. The metric path passes the body straight through,
   // untouched.
-  const body = persistKey
+  const body = conversation
     ? upstream.body.pipeThrough(
         createSseAccumulatorStream(async (fullText) => {
           if (fullText.trim().length > 0) {
-            await appendAgentChatMessage(accountId, persistKey, "assistant", fullText);
+            await appendConversationMessage(accountId, conversation.id, "assistant", fullText);
           }
         })
       )
