@@ -1,6 +1,7 @@
 import { PillarTabs, type PillarTab } from "@/components/pillar-tabs";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
+import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import { getAccountContext } from "@/lib/team/context";
 
 // Setting is replaced by Pipeline in the visible tabs (its page.tsx still
@@ -18,13 +19,7 @@ export default async function AcquisitionLayout({ children }: { children: React.
     return isOwner || permissions.has(key);
   }
 
-  const visibleTabs = [
-    { href: "/acquisition/contenu", label: "Contenu", visible: hasAccess("acquisition:contenu") },
-    { href: "/acquisition/mail", label: "Mail", visible: hasAccess("acquisition:mail") },
-    { href: "/acquisition/pipeline", label: "Pipeline", visible: hasAccess("acquisition:pipeline") },
-    { href: "/acquisition/setters", label: "Setters", visible: hasAccess("acquisition:setters") },
-    { href: "/acquisition/ads", label: "Ads", visible: hasAccess("acquisition:ads") },
-  ].filter((tab) => tab.visible);
+  const visibleTabs = PILLAR_SUBPAGES["/acquisition"].filter((tab) => hasAccess(tab.permission));
 
   const tabs: PillarTab[] = visibleTabs.map(({ href, label }) => ({ href, label }));
 

@@ -1,6 +1,7 @@
 import { PillarTabs, type PillarTab } from "@/components/pillar-tabs";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
+import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import { getAccountContext } from "@/lib/team/context";
 
 // Closing (former "Avancé" showcase module) is deliberately set aside
@@ -17,12 +18,7 @@ export default async function VentesLayout({ children }: { children: React.React
     return isOwner || permissions.has(key);
   }
 
-  const visibleTabs = [
-    { href: "/ventes/suivi", label: "Suivi des ventes", visible: hasAccess("ventes:suivi") },
-    { href: "/ventes/appels", label: "Suivi des appels", visible: hasAccess("ventes:appels") },
-    { href: "/ventes/produits", label: "Produits", visible: hasAccess("business") },
-    { href: "/ventes/upsell", label: "Upsell", visible: hasAccess("ventes:upsell") },
-  ].filter((tab) => tab.visible);
+  const visibleTabs = PILLAR_SUBPAGES["/ventes"].filter((tab) => hasAccess(tab.permission));
 
   const tabs: PillarTab[] = visibleTabs.map(({ href, label }) => ({ href, label }));
 

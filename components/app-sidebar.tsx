@@ -18,11 +18,13 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Fragment, useState } from "react";
+import { Fragment, forwardRef, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 import { createClient } from "@/lib/supabase/client";
 import type { PermissionKey } from "@/lib/team/permissions";
@@ -115,22 +117,24 @@ function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonl
   return false;
 }
 
-function NavLink({
-  entry,
-  pathname,
-  indented,
-  badge,
-}: {
-  entry: LinkEntry;
-  pathname: string;
-  indented: boolean;
-  badge?: string;
-}) {
+// forwardRef so Radix's HoverCardTrigger asChild can attach its ref (used
+// to anchor the sub-pages flyout below) — plain function components can't
+// receive a ref, which would silently break the flyout's positioning.
+const NavLink = forwardRef<
+  HTMLAnchorElement,
+  React.ComponentPropsWithoutRef<"a"> & {
+    entry: LinkEntry;
+    pathname: string;
+    indented: boolean;
+    badge?: string;
+  }
+>(function NavLink({ entry, pathname, indented, badge, ...anchorProps }, ref) {
   const Icon = entry.icon;
   const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
 
   return (
     <Link
+      ref={ref}
       href={entry.href}
       className={cn(
         "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
@@ -139,6 +143,7 @@ function NavLink({
           ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]"
           : "text-white hover:translate-x-0.5 hover:bg-mist/10"
       )}
+      {...anchorProps}
     >
       <Icon className="size-4" />
       {entry.label}
@@ -148,6 +153,55 @@ function NavLink({
         </span>
       )}
     </Link>
+  );
+});
+
+// Hover flyout for a pillar entry (Acquisition, Vente) — lists its
+// sub-pages so they're reachable in one click instead of landing on the
+// pillar's default tab first. Only the sub-pages the current user actually
+// has access to are shown, same permission check as the pillar's own tab
+// bar (app/(app)/acquisition/layout.tsx, app/(app)/ventes/layout.tsx) via
+// the shared PILLAR_SUBPAGES source.
+function PillarNavLink({
+  entry,
+  pathname,
+  isOwner,
+  permissions,
+}: {
+  entry: LinkEntry;
+  pathname: string;
+  isOwner: boolean;
+  permissions: readonly PermissionKey[];
+}) {
+  const subpages = (PILLAR_SUBPAGES[entry.href] ?? []).filter((sub) => isOwner || permissions.includes(sub.permission));
+
+  if (subpages.length === 0) {
+    return <NavLink entry={entry} pathname={pathname} indented={false} />;
+  }
+
+  return (
+    <HoverCard openDelay={150} closeDelay={150}>
+      <HoverCardTrigger asChild>
+        <NavLink entry={entry} pathname={pathname} indented={false} />
+      </HoverCardTrigger>
+      <HoverCardContent side="right" align="start" sideOffset={12} className="w-52 p-1.5">
+        {subpages.map((sub) => {
+          const active = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
+          return (
+            <Link
+              key={sub.href}
+              href={sub.href}
+              className={cn(
+                "flex items-center rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-bold transition-colors",
+                active ? "bg-accent-soft text-accent-text" : "text-foreground hover:bg-muted"
+              )}
+            >
+              {sub.label}
+            </Link>
+          );
+        })}
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
@@ -287,7 +341,7 @@ export function AppSidebar({
                 analysis pages above it — same hairline that used to
                 separate the old "Avancé" entry. */}
             {entry.href === "/copilote" && <div className="my-3 h-px bg-white/20" />}
-            <NavLink entry={entry} pathname={pathname} indented={false} />
+            <PillarNavLink entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
           </Fragment>
         ))}
       </nav>
