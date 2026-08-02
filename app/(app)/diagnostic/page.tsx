@@ -554,9 +554,8 @@ export default async function DiagnosticPage({
                   impactExplanation={opportunity.impactExplanation}
                   contextSentence={opportunity.contextSentence}
                   warning={opportunity.warning}
-                  ctaLabel="Démarrer avec Falco →"
+                  ctaLabel="Découvrir →"
                   sourcePage="diagnostic_overview"
-                  mode="demarrer"
                 />
               );
             })}

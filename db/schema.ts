@@ -884,7 +884,10 @@ export const emailCampaigns = pgTable(
 export const leverStarterPlans = pgTable("lever_starter_plans", {
   id: uuid("id").primaryKey().defaultRandom(),
   leverKey: text("lever_key").notNull().unique(),
-  steps: jsonb("steps").notNull().$type<{ order: number; title: string }[]>(),
+  // detail/estTime are optional — older/unenriched plans just render a bare
+  // title, same "degrade gracefully" rule as everything else content-curated
+  // in this feature (see /demarrer/[leverKey]).
+  steps: jsonb("steps").notNull().$type<{ order: number; title: string; detail?: string; estTime?: string }[]>(),
 }).enableRLS();
 
 // Per-ACCOUNT progress on a starter plan — separate from the content above
@@ -901,6 +904,24 @@ export const leverStarterProgress = pgTable(
   },
   (table) => [primaryKey({ columns: [table.userId, table.leverKey] })]
 ).enableRLS();
+
+// Curated YouTube videos for the /demarrer/[leverKey] guide page — manually
+// picked (never auto-searched, per the "Démarrer un levier" brief's explicit
+// "pas de recherche YouTube automatique" rule), seeded via
+// scripts/seed-lever-resources.mjs. Title/channel/thumbnail are NOT stored
+// here — fetched live from YouTube's public oEmbed endpoint at render time
+// (no API key needed), so they never go stale if a video is renamed;
+// durationLabel is the one field oEmbed can't provide, so it's curated by
+// hand alongside the URL.
+export const leverResources = pgTable("lever_resources", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leverKey: text("lever_key").notNull(),
+  youtubeUrl: text("youtube_url").notNull(),
+  durationLabel: text("duration_label"),
+  lang: text("lang").notNull().default("fr"),
+  sortOrder: integer("sort_order").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+}).enableRLS();
 
 // --- Agents spécialisés par levier (Copilote Groq) --------------------------
 // Config data, not code — one row per lever/page-specific agent persona,
@@ -1228,6 +1249,11 @@ export const leversCatalog = pgTable("levers_catalog", {
   effort: text("effort").notNull(), // "faible" | "moyen" | "eleve"
   sortOrder: integer("sort_order").notNull(),
   isActive: boolean("is_active").notNull().default(true), // soft-disable without deleting
+  // Both null until curated for a given lever (see /demarrer/[leverKey] —
+  // its "C'est quoi, concrètement" section is hidden entirely when
+  // explanation is null, never a generated-on-the-fly placeholder).
+  explanation: text("explanation"), // markdown, curated copy
+  estTimeLabel: text("est_time_label"), // free text, e.g. "30-45 min" or "1-2 semaines"
 }).enableRLS();
 
 export const leverStatus = pgEnum("lever_status", ["active", "absent", "not_answered"]);

@@ -87,7 +87,7 @@ export async function DiscoveryTab({ accountId }: { accountId: string }) {
                 impactExplanation={opportunity.impactExplanation}
                 contextSentence={opportunity.contextSentence}
                 warning={opportunity.warning}
-                ctaLabel="Mettre en place"
+                ctaLabel="Découvrir →"
                 sourcePage="optimisation_a_implementer"
               />
             ))}

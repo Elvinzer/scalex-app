@@ -14,6 +14,13 @@
 // resolveFromBusinessProfile. order_bump and downsell are seeded as two
 // separate rows (the brief's own "8/19" example implies 19 total levers,
 // which only adds up if these are split rather than one combined lever).
+//
+// explanation/estTimeLabel are only curated for the "Démarrer un levier"
+// chantier's pilot set of 6 levers (lead_magnet, email_marketing, ads, vsl,
+// webinar, upsell_ascension) — every other lever intentionally keeps
+// explanation: null, which /demarrer/[leverKey] renders as "section
+// masquée", not a placeholder. Extend this list to add more levers to the
+// guide without any code change.
 import postgres from "postgres";
 import fs from "node:fs";
 
@@ -52,6 +59,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 1,
+    explanation:
+      "Un lead magnet, c'est une ressource gratuite (PDF, mini-formation, checklist, audit...) que tu échanges contre l'email d'un prospect. C'est la porte d'entrée de ton funnel : quelqu'un qui télécharge ton lead magnet devient un contact que tu peux relancer, nourrir et convertir — au lieu de perdre un visiteur qui repart sans laisser de trace.\n\nPour un coach, ça rapporte parce que ça transforme du trafic froid (réseaux sociaux, SEO, pub) en liste email que tu contrôles. Un bon lead magnet répond à UNE douleur précise de ton avatar, se consomme en moins de 15 minutes, et pointe naturellement vers ton offre.\n\nConcrètement, ça ressemble à : une checklist \"5 erreurs qui bloquent tes clients\", ou un audit express de leur situation actuelle — quelque chose qui donne un premier résultat rapide et donne envie d'aller plus loin avec toi.",
+    estTimeLabel: "2-4h",
   },
   {
     leverKey: "email_marketing",
@@ -71,6 +81,9 @@ const LEVERS = [
     formulaParams: { rate: 0.025 },
     effort: "moyen",
     sortOrder: 2,
+    explanation:
+      "L'emailing, c'est la relation continue avec ta liste : une séquence de bienvenue quand quelqu'un s'inscrit, puis des envois réguliers qui informent, engagent et vendent. C'est le canal le moins cher et le plus rentable une fois en place, parce que tu ne repayes jamais pour reparler à quelqu'un qui t'a déjà donné son email.\n\nPour un coach, ça rapporte parce que la majorité des gens n'achètent pas au premier contact — l'email est ce qui les garde chauds jusqu'à ce qu'ils soient prêts. Une séquence de bienvenue bien faite peut à elle seule générer des ventes en pilote automatique.\n\nConcrètement : 3 à 5 emails automatiques envoyés dans les jours suivant l'inscription (qui es-tu, quelle transformation tu proposes, un cas client, une offre), puis des envois hebdomadaires ou bihebdomadaires avec du contenu utile et des rappels de ton offre.",
+    estTimeLabel: "3-5h pour la séquence de bienvenue",
   },
   {
     leverKey: "newsletter",
@@ -187,6 +200,9 @@ const LEVERS = [
     },
     effort: "moyen",
     sortOrder: 8,
+    explanation:
+      "La publicité payante, c'est acheter de la visibilité garantie sur Meta, Google, TikTok ou LinkedIn, au lieu de dépendre uniquement de l'algorithme organique. C'est un levier de VOLUME : une fois que ton funnel convertit bien, chaque euro dépensé devient un investissement prévisible plutôt qu'une dépense.\n\nPour un coach, ça rapporte parce que ça découple ta croissance du temps que tu passes à créer du contenu — tu peux scaler ton acquisition sans scaler tes heures. Mais c'est aussi le levier le plus risqué si ton closing n'est pas encore solide : payer pour des leads que tu ne sais pas convertir, c'est brûler du cash.\n\nConcrètement : un budget test modeste (quelques dizaines d'euros par jour) sur UN canal, une offre claire en bout de funnel, et un suivi serré du coût par lead pour savoir vite si ça marche ou s'il faut couper.",
+    estTimeLabel: "1-2 semaines pour la première campagne",
   },
 
   // --- VENTE ---
@@ -207,6 +223,9 @@ const LEVERS = [
     formulaParams: { upliftMin: 0.2, upliftMax: 0.4 },
     effort: "moyen",
     sortOrder: 1,
+    explanation:
+      "Une VSL (Video Sales Letter), c'est une vidéo de vente structurée — généralement 10 à 30 minutes — qui présente ton offre, traite les objections principales et amène à l'action, à la place (ou en complément) d'un appel de vente humain.\n\nPour un coach, ça rapporte parce qu'elle travaille 24h/24 sans que tu sois derrière : elle peut pré-qualifier tes prospects avant même l'appel, ce qui augmente le taux de prise de rendez-vous ET la qualité des gens qui arrivent en appel (déjà convaincus, moins d'objections à traiter en live).\n\nConcrètement : une histoire (le problème que tu as toi-même vécu ou observé), la méthode/mécanisme unique que tu proposes, une preuve sociale, et un appel à l'action clair vers la prise de rendez-vous ou l'achat direct.",
+    estTimeLabel: "1-2 semaines (script + tournage)",
   },
   {
     leverKey: "webinar",
@@ -230,6 +249,9 @@ const LEVERS = [
     formulaParams: { rate: 0.09 },
     effort: "moyen",
     sortOrder: 2,
+    explanation:
+      "Un webinaire, c'est une session live (ou semi-live) où tu enseignes quelque chose de concret à ton audience pendant 45-90 minutes, puis tu présentes ton offre à la fin. C'est un format qui combine contenu de valeur et vente en une seule session.\n\nPour un coach, ça rapporte parce que le format live crée un engagement et une urgence qu'un email ou un post ne peuvent pas reproduire — les gens qui restent jusqu'au bout sont déjà investis, et le taux de conversion en vente y est généralement plus élevé qu'ailleurs dans le funnel.\n\nConcrètement : une promesse de résultat précise pour l'inscription, un enseignement qui donne un vrai résultat (pas juste une accroche), puis une offre présentée avec un deadline ou un bonus limité dans le temps pour créer une décision.",
+    estTimeLabel: "1 semaine (préparation + présentation)",
   },
   {
     leverKey: "sequence_relance_non_acheteurs",
@@ -306,6 +328,9 @@ const LEVERS = [
     formulaParams: { takeRate: 0.2, priceFraction: 0.3 },
     effort: "moyen",
     sortOrder: 1,
+    explanation:
+      "L'upsell, c'est proposer une offre complémentaire — plus complète, plus accompagnée, ou plus avancée — à quelqu'un qui vient déjà d'acheter (ou qui est déjà client). C'est le levier au meilleur rapport effort/gain : tu ne dépenses rien en acquisition, tu vends à quelqu'un qui te fait déjà confiance.\n\nPour un coach, ça rapporte parce qu'augmenter le panier moyen de tes clients existants coûte beaucoup moins cher que d'aller chercher un nouveau client — et le moment juste après un achat (ou une victoire client) est celui où la confiance est la plus haute.\n\nConcrètement : une offre d'ascension claire (un programme VIP, un accompagnement plus poussé, un module complémentaire) proposée au bon moment — juste après la vente principale, ou après un premier résultat obtenu.",
+    estTimeLabel: "3-5h pour définir l'offre et le script",
   },
   {
     leverKey: "onboarding_structure",
@@ -363,11 +388,12 @@ await sql`delete from levers_catalog`;
 for (const lever of LEVERS) {
   await sql`
     insert into levers_catalog
-      (lever_key, label, category, questions, reads_from_profile, benchmark_value, benchmark_stat_key, formula_type, formula_params, effort, sort_order)
+      (lever_key, label, category, questions, reads_from_profile, benchmark_value, benchmark_stat_key, formula_type, formula_params, effort, sort_order, explanation, est_time_label)
     values (
       ${lever.leverKey}, ${lever.label}, ${lever.category}, ${sql.json(lever.questions)},
       ${lever.readsFromProfile ?? false}, ${lever.benchmarkValue}, ${lever.benchmarkStatKey},
-      ${lever.formulaType}, ${sql.json(lever.formulaParams)}, ${lever.effort}, ${lever.sortOrder}
+      ${lever.formulaType}, ${sql.json(lever.formulaParams)}, ${lever.effort}, ${lever.sortOrder},
+      ${lever.explanation ?? null}, ${lever.estTimeLabel ?? null}
     )
   `;
 }

@@ -3,7 +3,6 @@ import { after } from "next/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
-import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics";
 import type { ChatContext } from "@/lib/chat-context";
@@ -13,12 +12,10 @@ import { computeEmailCampaignMetrics } from "@/lib/email-campaigns/metrics";
 import { getEmailCampaigns } from "@/lib/email-campaigns/queries";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
-import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
 import { getLeverStatus } from "@/lib/levers/status";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
-import { activateMailLever, toggleMailStarterStep } from "./actions";
 import { CampaignFormDialog } from "./campaign-form-dialog";
 import { CampaignsTable } from "./campaigns-table";
 import { DiscoveryQuestion } from "./discovery-question";
@@ -66,12 +63,7 @@ export default async function MailPage() {
   }
 
   if (mode === "demarrer") {
-    const [plan, progress, impact] = await Promise.all([
-      getStarterPlan(LEVER_KEY),
-      getStarterProgress(accountId, LEVER_KEY),
-      getLeverImpactEstimate(accountId, LEVER_KEY),
-    ]);
-    const allDone = plan !== null && plan.length > 0 && plan.every((step) => progress.includes(step.order));
+    const impact = await getLeverImpactEstimate(accountId, LEVER_KEY);
 
     return (
       <div className="flex flex-col gap-8">
@@ -87,22 +79,18 @@ export default async function MailPage() {
           <h1 className="text-3xl font-bold">Mail</h1>
           <p className="mt-1 text-muted-foreground">Le suivi de tes envois email, une fois lancé.</p>
         </div>
-        {impact && <LeverImpactEstimate amountEur={impact.amountEur} explanation={impact.explanation} />}
-        {plan && (
-          <LeverStarterPlanCard
-            steps={plan}
-            completedSteps={progress}
-            canActivate={allDone}
-            onToggleStep={async (order) => {
-              "use server";
-              await toggleMailStarterStep(order);
-            }}
-            onActivate={async () => {
-              "use server";
-              await activateMailLever();
-            }}
+        {impact && (
+          <LeverImpactEstimate
+            amountEur={impact.amountEur}
+            rangeEur={impact.impactRangeEur}
+            explanation={impact.explanation}
+            warning={impact.warning}
+            contextSentence={impact.contextSentence}
           />
         )}
+        <Button variant="outline" asChild className="self-start">
+          <a href={`/demarrer/${LEVER_KEY}`}>Voir le guide complet →</a>
+        </Button>
       </div>
     );
   }

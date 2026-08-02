@@ -2,7 +2,7 @@ import { after } from "next/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
-import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
+import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
@@ -14,14 +14,12 @@ import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { resolveFromBusinessProfile } from "@/lib/levers/catalog";
 import { scoreAgainstBenchmark } from "@/lib/scoring";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
-import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
 import { getLeverStatus } from "@/lib/levers/status";
 import { formatPercent } from "@/lib/setting/funnel";
 import { getSales, getSalesForMonth } from "@/lib/sales/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
 
-import { activateUpsellLever, toggleUpsellStarterStep } from "./actions";
 import { AddUpsellDialog } from "./add-upsell-dialog";
 
 const LEVER_KEY = "upsell_ascension";
@@ -55,12 +53,7 @@ export default async function UpsellPage() {
   const falcoSkin = resolveFalcoSkin("/ventes/upsell");
 
   if (mode === "demarrer") {
-    const [plan, progress, impact] = await Promise.all([
-      getStarterPlan(LEVER_KEY),
-      getStarterProgress(accountId, LEVER_KEY),
-      getLeverImpactEstimate(accountId, LEVER_KEY),
-    ]);
-    const allDone = plan !== null && plan.length > 0 && plan.every((step) => progress.includes(step.order));
+    const impact = await getLeverImpactEstimate(accountId, LEVER_KEY);
 
     return (
       <div className="flex flex-col gap-8">
@@ -88,21 +81,9 @@ export default async function UpsellPage() {
             contextSentence={impact.contextSentence}
           />
         )}
-        {plan && (
-          <LeverStarterPlanCard
-            steps={plan}
-            completedSteps={progress}
-            canActivate={allDone}
-            onToggleStep={async (order) => {
-              "use server";
-              await toggleUpsellStarterStep(order);
-            }}
-            onActivate={async () => {
-              "use server";
-              await activateUpsellLever();
-            }}
-          />
-        )}
+        <Button variant="outline" asChild className="self-start">
+          <a href={`/demarrer/${LEVER_KEY}`}>Voir le guide complet →</a>
+        </Button>
       </div>
     );
   }

@@ -15,6 +15,7 @@ import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getEmailCampaigns } from "@/lib/email-campaigns/queries";
 import { computeEmailCampaignMetrics } from "@/lib/email-campaigns/metrics";
+import { getLeversCatalog } from "@/lib/levers/catalog";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { formatPercent } from "@/lib/setting/funnel";
 import type { FunnelTotals } from "@/lib/setting/funnel";
@@ -271,14 +272,41 @@ async function buildCeoVisionData(ctx: LeverAgentDataContext): Promise<LeverAgen
   };
 }
 
+// Fallback for every catalog lever without a dedicated builder above (~14 of
+// the ~20, e.g. "vsl") — previously a hard `null` here meant the Copilote
+// chat 400'd "Ce levier est introuvable" for most of the catalog. This
+// reuses resolveOpportunityBlock exactly as the dedicated builders do (it's
+// already generic over any leverKey via computeLeverOpportunities, which
+// spans the WHOLE catalog, not just the 4 consolidated agents) — only real
+// data, never invented. Returns null only when leverKey isn't a real
+// catalog entry at all, preserving the existing "unknown lever → 400" guard.
+async function buildGenericLeverData(leverKey: string, ctx: LeverAgentDataContext): Promise<LeverAgentData | null> {
+  const catalog = await getLeversCatalog();
+  const entry = catalog.find((lever) => lever.leverKey === leverKey);
+  if (!entry) return null;
+
+  const opportunity = await resolveOpportunityBlock(leverKey, ctx);
+  const gainLine = opportunity
+    ? `${opportunity.impactExplanation} Manque à gagner : ${opportunity.impactAmountEur !== null ? `${formatEur(opportunity.impactAmountEur)}/mois` : "non chiffrable"}.`
+    : "Pas encore de données mesurées pour ce levier.";
+
+  return {
+    metricsBlock: `Levier : ${entry.label}.\n${gainLine}`,
+    impactAmountEur: opportunity?.impactAmountEur ?? null,
+    impactExplanation: opportunity?.impactExplanation ?? gainLine,
+    gapBadge: opportunity?.gapBadge ?? null,
+  };
+}
+
 // One builder per SURVIVING agentKey (4, was 7) — each reuses the SAME
 // query/compute functions the corresponding page already calls for its own
 // UI (no new business logic). The retired keys (setting/ads/closing/
 // produits/upsell_ascension) are remapped to "ceo_vision"/"ventes" before
 // this is ever called (see app/api/improve-chat/route.ts) — this switch
-// never sees them directly. Returns null only when agentKey matches no
-// known builder (the caller treats that as "agent introuvable", same as an
-// unresolved agent row).
+// never sees them directly. Every other real catalog lever falls through to
+// buildGenericLeverData; only a genuinely unknown leverKey returns null
+// (the caller treats that as "agent introuvable", same as an unresolved
+// agent row).
 export async function resolveLeverAgentData(agentKey: string, ctx: LeverAgentDataContext): Promise<LeverAgentData | null> {
   switch (agentKey) {
     case "email_marketing":
@@ -290,6 +318,6 @@ export async function resolveLeverAgentData(agentKey: string, ctx: LeverAgentDat
     case "ceo_vision":
       return buildCeoVisionData(ctx);
     default:
-      return null;
+      return buildGenericLeverData(agentKey, ctx);
   }
 }

@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { leverStarterPlans, leverStarterProgress } from "@/db/schema";
 
-export type StarterPlanStep = { order: number; title: string };
+export type StarterPlanStep = { order: number; title: string; detail?: string; estTime?: string };
 
 export async function getStarterPlan(leverKey: string): Promise<StarterPlanStep[] | null> {
   const [row] = await db.select().from(leverStarterPlans).where(eq(leverStarterPlans.leverKey, leverKey)).limit(1);

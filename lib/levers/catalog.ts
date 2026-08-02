@@ -33,6 +33,11 @@ export type LeverCatalogEntry = {
   formulaParams: Record<string, number>;
   effort: "faible" | "moyen" | "eleve";
   sortOrder: number;
+  // Both null until curated for a given lever (see app/(app)/demarrer/
+  // [leverKey]/page.tsx — sections built from these are hidden entirely
+  // when null, never a generated-on-the-fly placeholder).
+  explanation: string | null;
+  estTimeLabel: string | null;
 };
 
 export const TOTAL_LEVER_COUNT_FALLBACK = 19; // used only if the catalog table is ever empty
@@ -67,6 +72,8 @@ export const getLeversCatalog = cache(async (): Promise<LeverCatalogEntry[]> => 
       formulaParams: row.formulaParams,
       effort: row.effort as "faible" | "moyen" | "eleve",
       sortOrder: row.sortOrder,
+      explanation: row.explanation,
+      estTimeLabel: row.estTimeLabel,
     }));
 });
 

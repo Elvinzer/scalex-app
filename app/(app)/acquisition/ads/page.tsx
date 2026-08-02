@@ -3,7 +3,6 @@ import { after } from "next/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
-import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
@@ -17,12 +16,10 @@ import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
-import { getStarterPlan, getStarterProgress } from "@/lib/levers/starter-plan";
 import { getLeverStatus } from "@/lib/levers/status";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
-import { activateAdsLever, toggleAdsStarterStep } from "./actions";
 import { AdCopyTrigger } from "./ad-copy-trigger";
 import { CampaignFormDialog } from "./campaign-form-dialog";
 import { CampaignsTable } from "./campaigns-table";
@@ -81,12 +78,7 @@ export default async function AdsPage() {
       );
     }
 
-    const [plan, progress, impact] = await Promise.all([
-      getStarterPlan(LEVER_KEY),
-      getStarterProgress(accountId, LEVER_KEY),
-      getLeverImpactEstimate(accountId, LEVER_KEY),
-    ]);
-    const allDone = plan !== null && plan.length > 0 && plan.every((step) => progress.includes(step.order));
+    const impact = await getLeverImpactEstimate(accountId, LEVER_KEY);
 
     return (
       <div className="flex flex-col gap-8">
@@ -111,21 +103,9 @@ export default async function AdsPage() {
             contextSentence={impact.contextSentence}
           />
         )}
-        {plan && (
-          <LeverStarterPlanCard
-            steps={plan}
-            completedSteps={progress}
-            canActivate={allDone}
-            onToggleStep={async (order) => {
-              "use server";
-              await toggleAdsStarterStep(order);
-            }}
-            onActivate={async () => {
-              "use server";
-              await activateAdsLever();
-            }}
-          />
-        )}
+        <Button variant="outline" asChild className="self-start">
+          <a href={`/demarrer/${LEVER_KEY}`}>Voir le guide complet →</a>
+        </Button>
       </div>
     );
   }

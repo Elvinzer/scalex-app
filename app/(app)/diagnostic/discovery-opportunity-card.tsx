@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { CalcPopover } from "@/components/calc-popover";
@@ -46,7 +47,6 @@ export function DiscoveryOpportunityCard({
   ctaLabel,
   currentValue,
   sourcePage,
-  mode,
 }: {
   leverKey: string;
   label: string;
@@ -69,10 +69,6 @@ export function DiscoveryOpportunityCard({
   currentValue?: number | null;
   // Where this card is rendered — for improve_chat_opened's source_page.
   sourcePage: string;
-  // Only Diagnostic's "Ajouter" section passes this — every other call
-  // site (discovery-tab) leaves the agent thread's mode unset, unchanged
-  // from before.
-  mode?: "demarrer" | null;
 }) {
   const [open, setOpen] = useState(false);
   const info = LEVER_BENCHMARK_INFO[leverKey];
@@ -83,15 +79,12 @@ export function DiscoveryOpportunityCard({
       ? `${Math.round(currentValue * 100)}% → objectif ${Math.round(info.okMax * 100)}%`
       : null;
 
+  // Only reachable from the "actifs à surveiller" case now (currentValue
+  // defined) — absent-lever cards below navigate to /demarrer/{leverKey}
+  // instead of opening this drawer.
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (next) {
-      void recordImproveChatOpened(chatContext);
-      // Every current call site of this card represents an absent lever
-      // shown on /diagnostic (page.tsx, recommended-for-you.tsx's fallback,
-      // discovery-tab.tsx) — always semantically a "diagnostic add" click.
-      void recordDiagnosticAddClicked(leverKey);
-    }
+    if (next) void recordImproveChatOpened(chatContext);
   }
 
   return (
@@ -144,14 +137,25 @@ export function DiscoveryOpportunityCard({
         {/* Outline, not a filled accent — these cards are a grid of equivalent
             options, none is THE priority CTA, so filled accents (corail =
             priority, violet = IA) stay reserved for single, unique CTAs. */}
-        <Button size="sm" variant="outline" onClick={() => handleOpenChange(true)} className="self-start">
-          {ctaLabel}
-        </Button>
+        {currentValue === undefined ? (
+          // Absent lever → the guide page, not an inline drawer.
+          <Button size="sm" variant="outline" asChild className="self-start">
+            <Link href={`/demarrer/${leverKey}`} onClick={() => void recordDiagnosticAddClicked(leverKey)}>
+              {ctaLabel}
+            </Link>
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => handleOpenChange(true)} className="self-start">
+            {ctaLabel}
+          </Button>
+        )}
       </div>
 
-      <Drawer open={open} onOpenChange={handleOpenChange}>
-        <DrawerContent>{open && <ImproveChat context={chatContext} period="3-months" gapBadge={gapBadge} mode={mode} />}</DrawerContent>
-      </Drawer>
+      {currentValue !== undefined && (
+        <Drawer open={open} onOpenChange={handleOpenChange}>
+          <DrawerContent>{open && <ImproveChat context={chatContext} period="3-months" gapBadge={gapBadge} />}</DrawerContent>
+        </Drawer>
+      )}
     </>
   );
 }
