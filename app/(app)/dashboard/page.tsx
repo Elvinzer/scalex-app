@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
-import { DailyReportDialog } from "./daily-report-dialog";
+import { WeeklyReportDialog } from "./weekly-report-dialog";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { MetricCard } from "@/components/metric-card";
@@ -17,7 +17,7 @@ import { computePriorityScores } from "@/lib/diagnostic/priority";
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
-import { computeDailyReportStreak } from "@/lib/dashboard/daily-report-streak";
+import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
@@ -54,12 +54,14 @@ export default async function DashboardPage({
   // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
   // per request, so this is deduped against app/(app)/layout.tsx's own call
   // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks, priorityRules] = await Promise.all([
-    getBusinessProfile(accountId),
-    getDiagnosticKpiRawData(accountId),
-    getDiagnosticBenchmarks(user?.sector ?? null),
-    getPriorityRules(),
-  ]);
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks, priorityRules, weeklyReports] =
+    await Promise.all([
+      getBusinessProfile(accountId),
+      getDiagnosticKpiRawData(accountId),
+      getDiagnosticBenchmarks(user?.sector ?? null),
+      getPriorityRules(),
+      getRecentWeeklyReports(accountId),
+    ]);
 
   const firstName = user?.email.split("@")[0] || "là";
 
@@ -179,11 +181,6 @@ export default async function DashboardPage({
     allClosingEntries.some((entry) => inRange(entry.date, weekRange)) ||
     currentMonthlyRow !== undefined;
 
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const dailyReportDoneToday =
-    allSettingEntries.some((entry) => entry.date === todayIso) || allClosingEntries.some((entry) => entry.date === todayIso);
-  const { streak, recentReports } = computeDailyReportStreak(allSettingEntries, allClosingEntries);
-
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
@@ -195,7 +192,15 @@ export default async function DashboardPage({
               : "Ton business tourne bien. Voici où creuser pour accélérer."}
           </p>
         </div>
-        <DailyReportDialog alreadyDoneToday={dailyReportDoneToday} streak={streak} recentReports={recentReports} />
+        <WeeklyReportDialog
+          reports={weeklyReports}
+          checkInDoneThisWeek={checkInDoneThisWeek}
+          checkinYear={currentYear}
+          checkinMonth={currentMonth}
+          checkinInitialData={checkinInitialData}
+          checkinSettingSourced={dailySourceOverlay.settingSourced}
+          checkinClosingSourced={dailySourceOverlay.closingSourced}
+        />
       </div>
 
       {/* Bloc 1 — slim single-row hero banner. The benchmark widget is

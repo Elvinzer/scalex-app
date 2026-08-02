@@ -23,6 +23,7 @@ import type {
   BusinessSales,
 } from "@/lib/business/types";
 import type { SaleInstallment } from "@/lib/sales/types";
+import type { WeeklyReportBottleneck, WeeklyReportStatCard } from "@/lib/dashboard/weekly-report-types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -1159,6 +1160,33 @@ export const scaleScoreHistory = pgTable(
     score: integer("score").notNull(), // 0-100
   },
   (table) => [uniqueIndex("scale_score_history_user_date_idx").on(table.userId, table.date)]
+).enableRLS();
+
+// One snapshot per (user, weekStart) — weekStart is the Monday of the week
+// being SUMMARIZED (the week that just ended), not the Monday the job runs.
+// Written exclusively by lib/inngest/functions/weekly-brief-email.ts's Monday
+// cron (the same run that sends the email) — no on-demand generation path,
+// so there is only ever one place this data comes from. statsSnapshot/
+// bottleneck are jsonb, typed via lib/dashboard/weekly-report.ts's
+// WeeklyReportStatCard/WeeklyReportBottleneck — same "config/snapshot data,
+// not a rigid column-per-field schema" convention as levers_catalog.
+// formulaParams/priorityRules.params.
+export const weeklyReports = pgTable(
+  "weekly_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    weekStart: date("week_start", { mode: "string" }).notNull(),
+    statsSnapshot: jsonb("stats_snapshot").notNull().$type<WeeklyReportStatCard[]>(),
+    // null = no chiffrable bottleneck that week (e.g. everything at benchmark).
+    bottleneck: jsonb("bottleneck").$type<WeeklyReportBottleneck | null>(),
+    score: integer("score"), // Scale Score at generation time, null if not computable
+    scoreDelta: integer("score_delta"), // vs 7 days before, null if no history yet
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("weekly_reports_user_week_idx").on(table.userId, table.weekStart)]
 ).enableRLS();
 
 // --- Découverte (module de leviers non exploités) -----------------------

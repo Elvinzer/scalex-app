@@ -11,7 +11,7 @@ import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
   if (isRateLimited(`weekly-email-click:${getClientIp(request)}`, 30)) {
-    return NextResponse.redirect(new URL("/dashboard?checkin=1", origin));
+    return NextResponse.redirect(new URL("/dashboard?report=1", origin));
   }
 
   const userId = request.nextUrl.searchParams.get("u");
@@ -25,5 +25,5 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.redirect(new URL("/dashboard?checkin=1", origin));
+  return NextResponse.redirect(new URL("/dashboard?report=1", origin));
 }

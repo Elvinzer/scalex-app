@@ -53,6 +53,7 @@ export type AnalyticsEvent =
   | "lever_starter_step_done"
   | "agent_chat_opened"
   | "agent_chat_engaged"
+  | "weekly_report_viewed"
   | "copilote_page_viewed"
   | "copilote_conversation_opened"
   | "copilote_new_conversation"

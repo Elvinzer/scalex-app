@@ -84,19 +84,32 @@ function monthBuckets(count: number): MonthBucket[] {
   return buckets;
 }
 
-function countDelta(current: number, previous: number): { label: string; direction: "up" | "down" | null } {
+// unitLabel defaults to the Dashboard's own month-over-month cards (every
+// existing call site below is unaffected) — lib/dashboard/weekly-report.ts
+// reuses this exact same diff/sign logic for its week-over-week cards,
+// passing "semaine précédente" instead of inventing a second delta
+// computation.
+export function countDelta(
+  current: number,
+  previous: number,
+  unitLabel: string = "mois précédent"
+): { label: string; direction: "up" | "down" | null } {
   const diff = current - previous;
-  if (diff === 0) return { label: "= vs mois précédent", direction: null };
+  if (diff === 0) return { label: `= vs ${unitLabel}`, direction: null };
   const sign = diff > 0 ? "+" : "";
-  return { label: `${sign}${NUMBER_FORMAT.format(diff)} vs mois précédent`, direction: diff > 0 ? "up" : "down" };
+  return { label: `${sign}${NUMBER_FORMAT.format(diff)} vs ${unitLabel}`, direction: diff > 0 ? "up" : "down" };
 }
 
-function rateDelta(current: number | null, previous: number | null): { label: string; direction: "up" | "down" | null } | null {
+export function rateDelta(
+  current: number | null,
+  previous: number | null,
+  unitLabel: string = "mois précédent"
+): { label: string; direction: "up" | "down" | null } | null {
   if (current === null || previous === null) return null;
   const diffPts = Math.round((current - previous) * 100);
-  if (diffPts === 0) return { label: "= vs mois précédent", direction: null };
+  if (diffPts === 0) return { label: `= vs ${unitLabel}`, direction: null };
   const sign = diffPts > 0 ? "+" : "";
-  return { label: `${sign}${diffPts} pts vs mois précédent`, direction: diffPts > 0 ? "up" : "down" };
+  return { label: `${sign}${diffPts} pts vs ${unitLabel}`, direction: diffPts > 0 ? "up" : "down" };
 }
 
 export function buildMetricCards({
