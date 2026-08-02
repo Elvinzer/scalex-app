@@ -1,6 +1,15 @@
 "use client";
 
-import { DndContext, DragOverlay, useDroppable, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { useEffect, useState } from "react";
 
 import type { Offer } from "@/lib/business/types";
@@ -79,6 +88,13 @@ export function KanbanBoard({
   const [lostDialogLeadId, setLostDialogLeadId] = useState<string | null>(null);
   const [saleDialogLead, setSaleDialogLead] = useState<LeadRow | null>(null);
 
+  // Without a distance constraint, dnd-kit's default sensor treats any
+  // pointer movement — even a click's inevitable sub-pixel jitter — as a
+  // drag start, which swallows the browser's click event. 8px lets a real
+  // drag still start immediately while a stationary click reaches
+  // LeadCard's onClick and opens the drawer.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
   // Server actions revalidatePath("/acquisition/pipeline") on every mutation,
   // which re-runs page.tsx and passes a fresh `initialLeads` prop down —
   // useState's initial value is only used on first mount, so this effect is
@@ -127,7 +143,7 @@ export function KanbanBoard({
 
   return (
     <>
-      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {LEAD_STAGES.map((stage) => (
             <Column
