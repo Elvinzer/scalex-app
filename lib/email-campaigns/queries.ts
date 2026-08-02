@@ -16,6 +16,8 @@ function toRow(row: typeof emailCampaigns.$inferSelect): EmailCampaignRow {
     opens: row.opens,
     clicks: row.clicks,
     revenueAttributed: row.revenueAttributed,
+    bookings: row.bookings,
+    dealsClosed: row.dealsClosed,
     createdAt: row.createdAt.toISOString(),
   };
 }

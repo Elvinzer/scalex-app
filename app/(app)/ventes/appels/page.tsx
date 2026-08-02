@@ -9,9 +9,11 @@ import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser } from "@/lib/current-user";
 import { getSalesCalls } from "@/lib/iclosed/calls";
 import { isInPeriod, resolvePeriod } from "@/lib/period";
+import { getSetters } from "@/lib/setters/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CallsTable } from "./calls-table";
+import { ManualCallDialog } from "./manual-call-dialog";
 import { RefreshCallsButton } from "./refresh-calls-button";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
@@ -67,7 +69,11 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
   const [calendlyConnection] = calendlyConnected
     ? await db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
     : [];
-  const [subscriptionActive, calls] = await Promise.all([hasActiveSubscription(accountId), getSalesCalls(accountId)]);
+  const [subscriptionActive, calls, setters] = await Promise.all([
+    hasActiveSubscription(accountId),
+    getSalesCalls(accountId),
+    getSetters(accountId),
+  ]);
 
   // Funnel for the selected period, computed in code (never pre-aggregated).
   const periodCalls = calls.filter((c) => isInPeriod(period, new Date(c.scheduledAt)));
@@ -90,17 +96,16 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
         <div>
           <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
           <p className="mt-1 text-muted-foreground">
-            Tes appels de closing, réservés automatiquement depuis ton outil de prise d&apos;appel (iClosed ou Calendly).
-            Tu marques l&apos;issue (no-show, non closé, attente décision, closé) et le montant ; un appel closé alimente
-            ton CA dans le suivi des ventes.
+            Tes appels de closing, réservés automatiquement depuis ton outil de prise d&apos;appel (iClosed ou Calendly)
+            — ou ajoutés à la main si tu n&apos;en as pas. Tu marques l&apos;issue (no-show, non closé, attente décision,
+            closé) et le montant ; un appel closé alimente ton CA dans le suivi des ventes.
           </p>
         </div>
-        {anyConnected && (
-          <div className="flex flex-wrap items-center gap-3">
-            <PeriodFilter current={period.key} />
-            <RefreshCallsButton iclosed={iclosedConnected} calendly={calendlyConnected} />
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {(anyConnected || calls.length > 0) && <PeriodFilter current={period.key} />}
+          {anyConnected && <RefreshCallsButton iclosed={iclosedConnected} calendly={calendlyConnected} />}
+          <ManualCallDialog setters={setters} />
+        </div>
       </div>
 
       {iclosedConnected && (
@@ -118,7 +123,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
         />
       )}
 
-      {anyConnected ? (
+      {(anyConnected || calls.length > 0) && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sticker-card flex flex-col p-5">
             <p className="text-sm font-bold text-muted-foreground">Appels réservés</p>
@@ -137,21 +142,33 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
             <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashCollected)} €</p>
           </div>
         </div>
-      ) : isOwner ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm font-bold text-muted-foreground">Choisis ton outil de prise d&apos;appel</p>
-          <IclosedConnectionCard connected={false} subscriptionActive={subscriptionActive} />
-          <CalendlyConnectionCard connected={false} subscriptionActive={subscriptionActive} />
-        </div>
-      ) : (
-        <div className="sticker-card p-8">
-          <p className="font-bold">Aucun outil de prise d&apos;appel n&apos;est connecté</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Le propriétaire du compte doit lier iClosed ou Calendly dans les intégrations pour activer le suivi
-            automatique des appels.
-          </p>
-        </div>
       )}
+
+      {/* Connect prompt — independent of the stats above: still offered even
+          once manual calls exist (automating sync is still worth it), but
+          never blocks seeing/using the page while disconnected. */}
+      {!anyConnected &&
+        (isOwner ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-bold text-muted-foreground">
+              {calls.length > 0
+                ? "Envie d'automatiser la réservation de tes appels ?"
+                : "Choisis ton outil de prise d'appel, ou ajoute tes appels manuellement ci-dessus"}
+            </p>
+            <IclosedConnectionCard connected={false} subscriptionActive={subscriptionActive} />
+            <CalendlyConnectionCard connected={false} subscriptionActive={subscriptionActive} />
+          </div>
+        ) : (
+          calls.length === 0 && (
+            <div className="sticker-card p-8">
+              <p className="font-bold">Aucun outil de prise d&apos;appel n&apos;est connecté</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Le propriétaire du compte peut lier iClosed ou Calendly dans les intégrations pour activer le suivi
+                automatique des appels — ou ajoute tes appels manuellement ci-dessus en attendant.
+              </p>
+            </div>
+          )
+        ))}
 
       {(anyConnected || calls.length > 0) && (
         <CallsTable calls={periodCalls} pendingDecisions={pendingDecisions} />

@@ -119,7 +119,7 @@ export function CallDetailDrawer({
             <span className="flex items-center gap-2">
               <span className="font-bold text-foreground">{statusLabel(call)}</span>
               <span className="text-[10px] font-bold tracking-wide uppercase">
-                {call.source === "calendly" ? "Calendly" : "iClosed"}
+                {call.source === "calendly" ? "Calendly" : call.source === "manual" ? "Manuel" : "iClosed"}
               </span>
             </span>
             {call.outcome === "closed" && (

@@ -103,6 +103,8 @@ export default async function MailPage() {
   const ctrValues = monthCampaigns.map((c) => computeEmailCampaignMetrics(c).ctr).filter((v): v is number => v !== null);
   const avgCtr = ctrValues.length > 0 ? ctrValues.reduce((sum, v) => sum + v, 0) / ctrValues.length : null;
   const totalRevenue = monthCampaigns.reduce((sum, c) => sum + (c.revenueAttributed ?? 0), 0);
+  const totalBookings = monthCampaigns.reduce((sum, c) => sum + (c.bookings ?? 0), 0);
+  const totalDealsClosed = monthCampaigns.reduce((sum, c) => sum + (c.dealsClosed ?? 0), 0);
   const listSize = typeof lever.stats.listSize === "number" ? lever.stats.listSize : null;
 
   const stateText =
@@ -135,7 +137,7 @@ export default async function MailPage() {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {listSize !== null && (
           <div className="sticker-card flex flex-col p-5">
             <p className="text-sm font-bold text-muted-foreground">Taille de liste</p>
@@ -153,6 +155,14 @@ export default async function MailPage() {
         <div className="sticker-card flex flex-col p-5">
           <p className="text-sm font-bold text-muted-foreground">Taux de clic</p>
           <p className="mt-2 font-display text-3xl font-bold">{avgCtr === null ? "—" : formatPercent(avgCtr)}</p>
+        </div>
+        <div className="sticker-card flex flex-col p-5">
+          <p className="text-sm font-bold text-muted-foreground">RDV bookés ce mois</p>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums">{totalBookings}</p>
+        </div>
+        <div className="sticker-card flex flex-col p-5">
+          <p className="text-sm font-bold text-muted-foreground">RDV closés ce mois</p>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums">{totalDealsClosed}</p>
         </div>
       </div>
 

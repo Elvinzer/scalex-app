@@ -82,9 +82,14 @@ export function KanbanBoard({
   // Server actions revalidatePath("/acquisition/pipeline") on every mutation,
   // which re-runs page.tsx and passes a fresh `initialLeads` prop down —
   // useState's initial value is only used on first mount, so this effect is
-  // what actually picks up the refreshed data afterwards.
+  // what actually picks up the refreshed data afterwards. Also re-syncs
+  // `drawerLead` (stale otherwise: editing a field revalidates `leads` but
+  // the drawer keeps rendering the ORIGINAL object it was opened with) —
+  // and if the open lead was just deleted, the lookup returns undefined,
+  // which closes the drawer automatically instead of showing a ghost lead.
   useEffect(() => {
     setLeads(initialLeads);
+    setDrawerLead((prev) => (prev ? (initialLeads.find((lead) => lead.id === prev.id) ?? null) : prev));
   }, [initialLeads]);
 
   function handleDragStart(event: DragStartEvent) {

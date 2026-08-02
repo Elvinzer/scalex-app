@@ -156,3 +156,10 @@ export async function setReminder(userId: string, leadId: string, date: string |
 export async function toggleReminderDone(userId: string, leadId: string, done: boolean): Promise<void> {
   await db.update(leads).set({ reminderDone: done, updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.userId, userId)));
 }
+
+// leadStageHistory/leadComments cascade-delete (onDelete: "cascade");
+// sales.leadId nulls out (onDelete: "set null") rather than deleting the
+// sale itself — deleting a lead never deletes a real recorded sale.
+export async function deleteLead(userId: string, id: string): Promise<void> {
+  await db.delete(leads).where(and(eq(leads.id, id), eq(leads.userId, userId)));
+}

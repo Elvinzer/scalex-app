@@ -12,6 +12,8 @@ const COUNT_FIELDS = [
   { name: "opens", label: "Ouvertures" },
   { name: "clicks", label: "Clics" },
   { name: "revenueAttributed", label: "CA attribué (€)" },
+  { name: "bookings", label: "RDV bookés" },
+  { name: "dealsClosed", label: "RDV closés" },
 ] as const;
 
 function today(): string {
@@ -41,6 +43,8 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
       opens: numberOrNull("opens"),
       clicks: numberOrNull("clicks"),
       revenueAttributed: numberOrNull("revenueAttributed"),
+      bookings: numberOrNull("bookings"),
+      dealsClosed: numberOrNull("dealsClosed"),
     };
 
     startTransition(async () => {

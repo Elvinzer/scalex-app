@@ -870,6 +870,8 @@ export const emailCampaigns = pgTable(
     opens: integer("opens"),
     clicks: integer("clicks"),
     revenueAttributed: integer("revenue_attributed"), // euros
+    bookings: integer("bookings"), // RDV bookés attribués à cet envoi
+    dealsClosed: integer("deals_closed"), // RDV closés (ventes) attribués à cet envoi
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("email_campaigns_user_sent_at_idx").on(table.userId, table.sentAt)]

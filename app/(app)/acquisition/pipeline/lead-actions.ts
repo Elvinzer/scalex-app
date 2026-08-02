@@ -10,6 +10,7 @@ import {
   addComment,
   changeLeadStage,
   createLead,
+  deleteLead,
   getLead,
   recoverFromNoShow,
   setNoShow,
@@ -57,6 +58,17 @@ export async function updateLeadAction(id: string, data: unknown): Promise<{ err
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
 
   await updateLead(access.accountId, id, parsed.data);
+  revalidatePath("/acquisition/pipeline");
+  return { error: null };
+}
+
+export async function deleteLeadAction(id: string): Promise<{ error: string | null }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+  const access = await requirePermission(userId, "acquisition:pipeline");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+
+  await deleteLead(access.accountId, id);
   revalidatePath("/acquisition/pipeline");
   return { error: null };
 }

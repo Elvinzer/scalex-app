@@ -13,6 +13,8 @@ export const emailCampaignInputSchema = z.object({
   opens: nonNegativeIntOrNull,
   clicks: nonNegativeIntOrNull,
   revenueAttributed: nonNegativeIntOrNull,
+  bookings: nonNegativeIntOrNull,
+  dealsClosed: nonNegativeIntOrNull,
 });
 
 export type EmailCampaignInput = z.infer<typeof emailCampaignInputSchema>;

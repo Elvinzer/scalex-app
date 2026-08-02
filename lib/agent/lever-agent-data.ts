@@ -90,7 +90,7 @@ async function buildEmailMarketingData(ctx: LeverAgentDataContext): Promise<Leve
       ? recent
           .map((c) => {
             const metrics = computeEmailCampaignMetrics(c);
-            return `- ${c.name} (${c.sentAt}) : ${c.sends} envois, ${metrics.openRate === null ? "?" : formatPercent(metrics.openRate)} d'ouverture, ${metrics.ctr === null ? "?" : formatPercent(metrics.ctr)} de clic${c.revenueAttributed !== null ? `, ${formatEur(c.revenueAttributed)} de CA attribué` : ""}.`;
+            return `- ${c.name} (${c.sentAt}) : ${c.sends} envois, ${metrics.openRate === null ? "?" : formatPercent(metrics.openRate)} d'ouverture, ${metrics.ctr === null ? "?" : formatPercent(metrics.ctr)} de clic${c.revenueAttributed !== null ? `, ${formatEur(c.revenueAttributed)} de CA attribué` : ""}${c.bookings !== null ? `, ${c.bookings} RDV bookés` : ""}${c.dealsClosed !== null ? `, ${c.dealsClosed} RDV closés` : ""}.`;
           })
           .join("\n")
       : "Aucun envoi enregistré pour l'instant.";

@@ -9,13 +9,14 @@ import { formatEur } from "@/lib/currency";
 import {
   LEAD_LOST_REASON_LABELS,
   LEAD_SOURCE_LABELS,
+  LEAD_SOURCES,
   LEAD_STAGE_LABELS,
   type LeadRow,
   type LeadWithRelations,
 } from "@/lib/leads/types";
 import type { SetterRow } from "@/lib/setters/types";
 
-import { addCommentAction, getLeadDetailAction, setReminderAction, toggleReminderDoneAction, updateLeadAction } from "./lead-actions";
+import { addCommentAction, deleteLeadAction, getLeadDetailAction, setReminderAction, toggleReminderDoneAction, updateLeadAction } from "./lead-actions";
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -38,7 +39,9 @@ export function LeadDrawer({
   const [commentBody, setCommentBody] = useState("");
   const [reminderDate, setReminderDate] = useState("");
   const [reminderNote, setReminderNote] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
 
   useEffect(() => {
     if (!open || !lead) {
@@ -47,6 +50,7 @@ export function LeadDrawer({
     }
     setReminderDate(lead.reminderDate ?? "");
     setReminderNote(lead.reminderNote ?? "");
+    setFieldError(null);
     void getLeadDetailAction(lead.id).then(setDetail);
   }, [open, lead]);
 
@@ -54,9 +58,30 @@ export function LeadDrawer({
 
   const offer = offers.find((o) => o.id === lead.offerId);
 
-  function handleAssignmentChange(patch: { setterId?: string | null; closer?: string | null }) {
+  function handleFieldUpdate(patch: {
+    firstName?: string;
+    lastName?: string;
+    source?: LeadRow["source"];
+    offerId?: string | null;
+    potentialValueEur?: number;
+    setterId?: string | null;
+    closer?: string | null;
+  }) {
     startTransition(async () => {
-      await updateLeadAction(lead!.id, patch);
+      const result = await updateLeadAction(lead!.id, patch);
+      setFieldError(result.error);
+    });
+  }
+
+  function handleDelete() {
+    if (!window.confirm(`Supprimer définitivement ${lead!.firstName} ${lead!.lastName} ? Cette action est irréversible.`)) return;
+    startDeleteTransition(async () => {
+      const result = await deleteLeadAction(lead!.id);
+      if (result.error) {
+        setFieldError(result.error);
+        return;
+      }
+      onOpenChange(false);
     });
   }
 
@@ -85,7 +110,11 @@ export function LeadDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
-        <div className="flex h-full flex-col">
+        {/* Keyed by lead id — forces a remount of every uncontrolled
+            defaultValue field below when the user clicks a different card
+            without closing the drawer first (open stays true, only `lead`
+            changes), so a stale value from the previous lead never lingers. */}
+        <div key={lead.id} className="flex h-full flex-col">
           <div className="flex items-start justify-between gap-3 border-b border-border p-4">
             <div>
               <DrawerTitle className="text-base font-bold">
@@ -107,12 +136,87 @@ export function LeadDrawer({
 
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-3">
+                <p className="text-sm font-bold">Informations</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-1.5 text-sm">
+                    <span className="text-muted-foreground">Prénom</span>
+                    <input
+                      type="text"
+                      defaultValue={lead.firstName}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim();
+                        if (value) handleFieldUpdate({ firstName: value });
+                      }}
+                      className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-sm">
+                    <span className="text-muted-foreground">Nom</span>
+                    <input
+                      type="text"
+                      defaultValue={lead.lastName}
+                      onBlur={(event) => {
+                        const value = event.target.value.trim();
+                        if (value) handleFieldUpdate({ lastName: value });
+                      }}
+                      className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+                    />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-1.5 text-sm">
+                    <span className="text-muted-foreground">Source</span>
+                    <select
+                      defaultValue={lead.source}
+                      onChange={(event) => handleFieldUpdate({ source: event.target.value as LeadRow["source"] })}
+                      className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+                    >
+                      {LEAD_SOURCES.map((source) => (
+                        <option key={source} value={source}>
+                          {LEAD_SOURCE_LABELS[source]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-sm">
+                    <span className="text-muted-foreground">Offre visée</span>
+                    <select
+                      defaultValue={lead.offerId ?? ""}
+                      onChange={(event) => handleFieldUpdate({ offerId: event.target.value || null })}
+                      className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+                    >
+                      <option value="">—</option>
+                      {offers.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className="flex flex-col gap-1.5 text-sm">
+                  <span className="text-muted-foreground">Valeur potentielle (€)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    defaultValue={lead.potentialValueEur}
+                    onBlur={(event) => {
+                      const value = Number(event.target.value);
+                      if (Number.isFinite(value) && value >= 0) handleFieldUpdate({ potentialValueEur: value });
+                    }}
+                    className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none tabular-nums focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+                  />
+                </label>
+                {fieldError && <p className="text-sm text-state-critical">{fieldError}</p>}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1.5 text-sm">
                   <span className="text-muted-foreground">Setter</span>
                   <select
                     defaultValue={lead.setterId ?? ""}
-                    onChange={(event) => handleAssignmentChange({ setterId: event.target.value || null })}
+                    onChange={(event) => handleFieldUpdate({ setterId: event.target.value || null })}
                     className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
                   >
                     <option value="">—</option>
@@ -128,7 +232,7 @@ export function LeadDrawer({
                   <input
                     type="text"
                     defaultValue={lead.closer ?? ""}
-                    onBlur={(event) => handleAssignmentChange({ closer: event.target.value || null })}
+                    onBlur={(event) => handleFieldUpdate({ closer: event.target.value || null })}
                     className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
                   />
                 </label>
@@ -214,6 +318,12 @@ export function LeadDrawer({
                 ) : (
                   <p className="text-sm text-muted-foreground">Chargement...</p>
                 )}
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <Button type="button" variant="destructive" size="sm" disabled={isDeleting} onClick={handleDelete}>
+                  {isDeleting ? "Suppression..." : "Supprimer ce lead"}
+                </Button>
               </div>
             </div>
           </div>

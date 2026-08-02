@@ -32,6 +32,49 @@ async function loadCall(accountId: string, callId: string) {
   return call ?? null;
 }
 
+// For users without iClosed/Calendly connected (or logging an off-platform
+// call even when one is) — a plain insert with source: "manual". Only
+// creates the booking itself; outcome/amounts go through the exact same
+// setCallResult/setCallAmounts flow above as any synced call, so nothing
+// downstream needs to know a call didn't come from a webhook.
+// iclosedCallId is NOT NULL and the target of a (userId, iclosedCallId)
+// unique index — synthesized here since a manual call has no real external
+// id to reuse.
+const manualCallSchema = z.object({
+  inviteeName: z.string().min(1, "Le nom est requis"),
+  inviteeEmail: z.string().email().nullable(),
+  scheduledAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide"),
+  closer: z.string().nullable(),
+  setterId: z.string().uuid().nullable(),
+  attendance: z.enum(["booked", "showed", "no_show", "cancelled"]),
+});
+
+export async function createManualCallAction(data: unknown): Promise<{ error: string | null }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+  const access = await requirePermission(userId, "ventes:appels");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
+
+  const parsed = manualCallSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
+
+  await db.insert(salesCalls).values({
+    userId: accountId,
+    iclosedCallId: crypto.randomUUID(),
+    source: "manual",
+    inviteeName: parsed.data.inviteeName,
+    inviteeEmail: parsed.data.inviteeEmail,
+    scheduledAt: new Date(`${parsed.data.scheduledAt}T12:00:00Z`),
+    closer: parsed.data.closer,
+    setterId: parsed.data.setterId,
+    attendance: parsed.data.attendance,
+  });
+
+  revalidatePath("/ventes/appels");
+  return { error: null };
+}
+
 export async function setCallResult(callId: string, result: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
   if (typeof userId !== "string") return userId;

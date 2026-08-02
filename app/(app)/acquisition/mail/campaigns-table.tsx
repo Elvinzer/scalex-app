@@ -15,7 +15,7 @@ import { formatPercent } from "@/lib/setting/funnel";
 import { removeEmailCampaign } from "./actions";
 import { CampaignFormDialog } from "./campaign-form-dialog";
 
-type SortKey = "sentAt" | "sends" | "openRate" | "ctr" | "revenueAttributed" | "score";
+type SortKey = "sentAt" | "sends" | "openRate" | "ctr" | "revenueAttributed" | "bookings" | "dealsClosed" | "score";
 
 // "Top" badge = best CTR among this month's sends — a light nudge, not a
 // score; ties or a single campaign this month just don't get a badge race.
@@ -55,7 +55,7 @@ export function CampaignsTable({
 
     withMetrics.sort((a, b) => {
       const valueOf = (entry: (typeof withMetrics)[number]) =>
-        sortKey === "sentAt" || sortKey === "sends" || sortKey === "revenueAttributed"
+        sortKey === "sentAt" || sortKey === "sends" || sortKey === "revenueAttributed" || sortKey === "bookings" || sortKey === "dealsClosed"
           ? (entry.campaign[sortKey] ?? -1)
           : sortKey === "score"
             ? (entry.score ?? -1)
@@ -115,6 +115,8 @@ export function CampaignsTable({
             <th className="p-3 text-right"><SortHeader label="Ouverture" sortKeyValue="openRate" /></th>
             <th className="p-3 text-right"><SortHeader label="Clic" sortKeyValue="ctr" /></th>
             <th className="p-3 text-right"><SortHeader label="CA attribué" sortKeyValue="revenueAttributed" /></th>
+            <th className="p-3 text-right"><SortHeader label="RDV bookés" sortKeyValue="bookings" /></th>
+            <th className="p-3 text-right"><SortHeader label="RDV closés" sortKeyValue="dealsClosed" /></th>
             <th className="p-3 text-right"><SortHeader label="Score" sortKeyValue="score" /></th>
             <th className="p-3" />
           </tr>
@@ -141,6 +143,8 @@ export function CampaignsTable({
               <td className="p-3 text-right tabular-nums">
                 {campaign.revenueAttributed === null ? "—" : formatEur(campaign.revenueAttributed)}
               </td>
+              <td className="p-3 text-right tabular-nums">{campaign.bookings === null ? "—" : campaign.bookings}</td>
+              <td className="p-3 text-right tabular-nums">{campaign.dealsClosed === null ? "—" : campaign.dealsClosed}</td>
               <td className="p-3 text-right">
                 {score === null ? (
                   <span className="text-muted-foreground">—</span>
