@@ -24,7 +24,12 @@ export type LeverCatalogEntry = {
   readsFromProfile: boolean;
   benchmarkValue: number | null;
   benchmarkStatKey: string | null;
-  formulaType: "leads_x_rate_x_closing_x_price" | "clients_x_takerate_x_price_fraction" | "none";
+  formulaType:
+    | "leads_x_rate_x_closing_x_price"
+    | "clients_x_takerate_x_price_fraction"
+    | "ads_test_budget_x_closing_x_price"
+    | "traffic_uplift_x_price"
+    | "none";
   formulaParams: Record<string, number>;
   effort: "faible" | "moyen" | "eleve";
   sortOrder: number;

@@ -1171,6 +1171,12 @@ export const scaleScoreHistory = pgTable(
 export const leverFormulaType = pgEnum("lever_formula_type", [
   "leads_x_rate_x_closing_x_price",
   "clients_x_takerate_x_price_fraction",
+  // Absent-case formulas for the two highest-leverage acquisition/vente
+  // levers — see lib/levers/opportunities.ts's estimateAdsAbsent/
+  // estimateVslAbsent. Both produce a range (impactRangeEur), not just a
+  // point estimate, given the higher uncertainty of an untested channel.
+  "ads_test_budget_x_closing_x_price",
+  "traffic_uplift_x_price",
   "none",
 ]);
 

@@ -17,7 +17,13 @@ import { computeLeverOpportunities } from "./opportunities";
 export async function getLeverImpactEstimate(
   accountId: string,
   leverKey: string
-): Promise<{ amountEur: number | null; explanation: string } | null> {
+): Promise<{
+  amountEur: number | null;
+  impactRangeEur: { min: number; max: number } | null;
+  explanation: string;
+  contextSentence: string | null;
+  warning: string | null;
+} | null> {
   const months = lastCompletedMonths(3);
 
   const [allSettingEntries, allClosingEntries, allMonthlyRows, businessProfile] = await Promise.all([
@@ -45,5 +51,13 @@ export async function getLeverImpactEstimate(
   });
 
   const opportunity = toImplement.find((o) => o.leverKey === leverKey);
-  return opportunity ? { amountEur: opportunity.impactAmountEur, explanation: opportunity.impactExplanation } : null;
+  return opportunity
+    ? {
+        amountEur: opportunity.impactAmountEur,
+        impactRangeEur: opportunity.impactRangeEur ?? null,
+        explanation: opportunity.impactExplanation,
+        contextSentence: opportunity.contextSentence ?? null,
+        warning: opportunity.warning ?? null,
+      }
+    : null;
 }

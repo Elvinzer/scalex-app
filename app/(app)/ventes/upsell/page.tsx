@@ -79,7 +79,15 @@ export default async function UpsellPage() {
           </div>
           <AddUpsellDialog currentSales={profile.sales} />
         </div>
-        {impact && <LeverImpactEstimate amountEur={impact.amountEur} explanation={impact.explanation} />}
+        {impact && (
+          <LeverImpactEstimate
+            amountEur={impact.amountEur}
+            rangeEur={impact.impactRangeEur}
+            explanation={impact.explanation}
+            warning={impact.warning}
+            contextSentence={impact.contextSentence}
+          />
+        )}
         {plan && (
           <LeverStarterPlanCard
             steps={plan}

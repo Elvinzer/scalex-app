@@ -83,7 +83,10 @@ export async function DiscoveryTab({ accountId }: { accountId: string }) {
                 category={opportunity.category}
                 effort={opportunity.effort}
                 impactAmountEur={opportunity.impactAmountEur}
+                impactRangeEur={opportunity.impactRangeEur}
                 impactExplanation={opportunity.impactExplanation}
+                contextSentence={opportunity.contextSentence}
+                warning={opportunity.warning}
                 ctaLabel="Mettre en place"
                 sourcePage="optimisation_a_implementer"
               />

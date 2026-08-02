@@ -550,7 +550,10 @@ export default async function DiagnosticPage({
                   category={opportunity.category}
                   effort={opportunity.effort}
                   impactAmountEur={opportunity.impactAmountEur}
+                  impactRangeEur={opportunity.impactRangeEur}
                   impactExplanation={opportunity.impactExplanation}
+                  contextSentence={opportunity.contextSentence}
+                  warning={opportunity.warning}
                   ctaLabel="Démarrer avec Falco →"
                   sourcePage="diagnostic_overview"
                   mode="demarrer"

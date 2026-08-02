@@ -38,7 +38,19 @@ export type LeverOpportunity = {
   category: LeverCatalogEntry["category"];
   effort: LeverCatalogEntry["effort"];
   impactAmountEur: number | null; // null = "Impact : à évaluer"
+  // Display-only range for higher-uncertainty absent-case formulas (ads,
+  // VSL) — impactAmountEur is always the range's midpoint and stays the
+  // sole number scoreCandidates() sorts/scores on; the UI shows the range
+  // instead of the point estimate whenever this is present.
+  impactRangeEur?: { min: number; max: number } | null;
   impactExplanation: string;
+  // "Pourquoi ce levier rapporte" — only set for ads/vsl/upsell_ascension
+  // (see LEVER_CONTEXT_SENTENCE), null for every other lever.
+  contextSentence?: string | null;
+  // Feasibility caution shown directly on the card (e.g. ads below the
+  // revenue threshold) — distinct from priority_rules' ranking-only "why",
+  // which never reaches this card today.
+  warning?: string | null;
 };
 
 export type LeverWatchItem = {
@@ -82,8 +94,22 @@ const AD_CHANNEL_BENCHMARKS: Record<string, { cpa: number; isEcommerce: boolean 
   "LinkedIn — B2B": { cpa: 45.49, isEcommerce: false },
 };
 
+// "Pourquoi ce levier rapporte" — narrative copy, not a formula (same
+// precedent as LEVER_BENCHMARK_INFO's whatIsThis: fixed TS text, not a DB
+// row). Scoped to the 3 levers this refined-impact chantier targets — the
+// other ~16 catalog levers simply get no contextSentence (null).
+const LEVER_CONTEXT_SENTENCE: Partial<Record<string, string>> = {
+  ads: "La pub est un levier de volume : une fois ton closing solide, chaque euro dépensé devient prévisible.",
+  vsl: "Une VSL travaille 24/7 sans coût marginal, en amont de l'appel.",
+  upsell_ascension: "L'upsell est ton meilleur rapport effort/gain : tes clients existants, zéro acquisition en plus.",
+};
+
 function round(value: number): number {
   return Math.round(value);
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 // "Ads" doesn't fit the generic leads_x_rate_x_closing_x_price shape (its
@@ -204,6 +230,121 @@ function fallbackEstimate(
   };
 }
 
+type ImpactEstimate = {
+  amountEur: number | null;
+  rangeEur?: { min: number; max: number } | null;
+  explanation: string;
+  warning?: string | null;
+};
+
+// Ads, absent case: no channel/spend/results answered yet (that only exists
+// once the lever is active, see estimateAdsEfficiency), so there's nothing
+// real to compare a cost-per-result against. Instead: how many leads a
+// PRUDENT, fixed test budget would plausibly buy at a conservative default
+// cost-per-lead, converted through the account's REAL closing rate — never
+// the invented one. Below the same revenue threshold priority_rules' own
+// "lever_revenue_gate" uses for ranking (kept in sync deliberately, not
+// derived from it — the two tables aren't linked), the amount itself is
+// dampened AND a warning is surfaced on the card directly, since the sort-
+// only demotion never reaches this component.
+function estimateAdsAbsent(
+  lever: LeverCatalogEntry,
+  {
+    settingTotals,
+    closingTotals,
+    businessProfile,
+    cashContractedTotal,
+    periodMonths,
+  }: {
+    settingTotals: FunnelTotals;
+    closingTotals: ClosingTotals;
+    businessProfile: BusinessProfileData;
+    cashContractedTotal: number;
+    periodMonths: number;
+  }
+): ImpactEstimate {
+  const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
+  const closingRate = buildRates(settingTotals, closingTotals).closingRate;
+  if (dealPrice.price === null || closingRate === null) {
+    return {
+      amountEur: null,
+      explanation: "Configure ton offre principale (prix) et renseigne tes appels/ventes pour chiffrer ce levier.",
+    };
+  }
+
+  const testBudgetPerDay = lever.formulaParams.testBudgetPerDayEur ?? 10;
+  const defaultCpa = lever.formulaParams.defaultCpaEur ?? 30;
+  const testBudgetMonthly = testBudgetPerDay * 30;
+  const estimatedLeads = testBudgetMonthly / defaultCpa;
+  const rawImpact = estimatedLeads * closingRate * dealPrice.price;
+
+  const revenueThreshold = lever.formulaParams.revenueThresholdEur ?? 3000;
+  const avgMonthlyRevenue = cashContractedTotal / periodMonths;
+  const belowThreshold = avgMonthlyRevenue < revenueThreshold;
+  const dampening = belowThreshold ? (lever.formulaParams.dampeningBelowThreshold ?? 0.3) : 1;
+  const amount = round(rawImpact * dampening);
+
+  const variance = lever.formulaParams.rangeVariance ?? 0.3;
+  const rangeEur = { min: round(amount * (1 - variance)), max: round(amount * (1 + variance)) };
+
+  const explanation =
+    `Avec ~${formatEur(testBudgetPerDay)}/j de budget test (${formatEur(round(testBudgetMonthly))}/mois) et un coût par lead estimé à ${formatEur(defaultCpa)} (hypothèse prudente, aucun canal choisi pour l'instant), ≈${round1(estimatedLeads)} leads/mois × ${Math.round(closingRate * 100)}% de closing réel × ${formatEur(round(dealPrice.price))} (prix de ton offre principale).` +
+    (belowThreshold
+      ? ` Pondéré à la baisse : ton CA actuel (${formatEur(round(avgMonthlyRevenue))}/mois) est sous le seuil de ${formatEur(revenueThreshold)}/mois où la pub devient prioritaire.`
+      : "");
+
+  const warning = belowThreshold
+    ? `Sécurise d'abord ton closing avant de payer du trafic — ton CA (${formatEur(round(avgMonthlyRevenue))}/mois) ne justifie pas encore d'investir dans la pub.`
+    : null;
+
+  return { amountEur: amount, rangeEur, explanation, warning };
+}
+
+// VSL, absent case: a VSL sits upstream of the call, so its effect is
+// modeled as an uplift on the CURRENT booking volume (settingTotals.
+// callsBooked) rather than a brand-new source of traffic — uplift is a
+// deliberately wide, prudent range (20-40% relative) rather than a single
+// number, since there's no VSL-specific performance data anywhere in this
+// app to calibrate a tighter estimate from (see plan's research: no VSL
+// starter page, no tracked view/completion rate).
+function estimateVslAbsent(
+  lever: LeverCatalogEntry,
+  {
+    settingTotals,
+    closingTotals,
+    businessProfile,
+    cashContractedTotal,
+  }: {
+    settingTotals: FunnelTotals;
+    closingTotals: ClosingTotals;
+    businessProfile: BusinessProfileData;
+    cashContractedTotal: number;
+  }
+): ImpactEstimate {
+  const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
+  const closingRate = buildRates(settingTotals, closingTotals).closingRate;
+  const callsBooked = settingTotals.callsBooked;
+
+  if (dealPrice.price === null || closingRate === null || callsBooked === 0) {
+    return {
+      amountEur: null,
+      explanation: "Renseigne tes appels réservés et tes ventes pour chiffrer ce levier.",
+    };
+  }
+
+  const upliftMin = lever.formulaParams.upliftMin ?? 0.2;
+  const upliftMax = lever.formulaParams.upliftMax ?? 0.4;
+  const amountMin = round(callsBooked * upliftMin * closingRate * dealPrice.price);
+  const amountMax = round(callsBooked * upliftMax * closingRate * dealPrice.price);
+  const amount = round((amountMin + amountMax) / 2);
+
+  return {
+    amountEur: amount,
+    rangeEur: { min: amountMin, max: amountMax },
+    explanation: `${callsBooked} appels réservés × +${Math.round(upliftMin * 100)} à ${Math.round(upliftMax * 100)}% de prise de RDV en plus (estimation prudente) × ${Math.round(closingRate * 100)}% de closing réel × ${formatEur(round(dealPrice.price))}. Une VSL travaille 24/7 sans coût marginal une fois tournée.`,
+  };
+}
+
 function estimateImpact(
   lever: LeverCatalogEntry,
   {
@@ -219,9 +360,17 @@ function estimateImpact(
     cashContractedTotal: number;
     periodMonths: number;
   }
-): { amountEur: number | null; explanation: string } {
+): ImpactEstimate {
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
   const fallback = () => fallbackEstimate(lever, dealPrice);
+
+  if (lever.formulaType === "ads_test_budget_x_closing_x_price") {
+    return estimateAdsAbsent(lever, { settingTotals, closingTotals, businessProfile, cashContractedTotal, periodMonths });
+  }
+
+  if (lever.formulaType === "traffic_uplift_x_price") {
+    return estimateVslAbsent(lever, { settingTotals, closingTotals, businessProfile, cashContractedTotal });
+  }
 
   if (lever.formulaType === "leads_x_rate_x_closing_x_price") {
     const rate = lever.formulaParams.rate ?? 0;
@@ -242,14 +391,21 @@ function estimateImpact(
     const takeRate = lever.formulaParams.takeRate ?? 0;
     const priceFraction = lever.formulaParams.priceFraction ?? 0;
     const clientsPerMonth = closingTotals.salesClosed / periodMonths;
-    if (dealPrice.price === null || clientsPerMonth === 0) {
+    // Prefers a REAL upsell-flagged offer's own price (businessProfile.sales.
+    // offers[].isUpsell) over the generic priceFraction-of-main-offer proxy —
+    // the user has already conceived a concrete ascension offer, so its own
+    // price is a better number than a fraction of an unrelated main offer.
+    // priceFraction stays the fallback for "no ascension offer defined yet".
+    const upsellOffer = businessProfile.sales.offers.find((offer) => offer.isUpsell && offer.price !== null);
+    const upsellPrice = upsellOffer?.price ?? (dealPrice.price !== null ? dealPrice.price * priceFraction : null);
+    if (upsellPrice === null || clientsPerMonth === 0) {
       return fallback();
     }
-    const amount = round(clientsPerMonth * takeRate * dealPrice.price * priceFraction);
-    return {
-      amountEur: amount,
-      explanation: `${Math.round(clientsPerMonth * 10) / 10} clients/mois × ${Math.round(takeRate * 100)}% de take-rate × ${Math.round(priceFraction * 100)}% du prix de ton offre principale (${Math.round(dealPrice.price)}€).`,
-    };
+    const amount = round(clientsPerMonth * takeRate * upsellPrice);
+    const explanation = upsellOffer
+      ? `${round1(clientsPerMonth)} clients/mois × ${Math.round(takeRate * 100)}% de take-rate benchmark × ${formatEur(round(upsellPrice))} (prix de "${upsellOffer.name || "ton offre d'ascension"}").`
+      : `${round1(clientsPerMonth)} clients/mois × ${Math.round(takeRate * 100)}% de take-rate benchmark × ${Math.round(priceFraction * 100)}% du prix de ton offre principale (${formatEur(round(dealPrice.price ?? 0))}) — configure une offre d'ascension dédiée pour une estimation plus précise.`;
+    return { amountEur: amount, explanation };
   }
 
   return fallback();
@@ -351,7 +507,7 @@ export async function computeLeverOpportunities({
     // Never generate an opportunity for a lever nobody has answered yet —
     // only explicit "absent" declarations do (explicit rule from the brief).
     if (status === "absent") {
-      const { amountEur, explanation } = estimateImpact(lever, {
+      const { amountEur, rangeEur, explanation, warning } = estimateImpact(lever, {
         settingTotals,
         closingTotals,
         businessProfile,
@@ -364,7 +520,10 @@ export async function computeLeverOpportunities({
         category: lever.category,
         effort: lever.effort,
         impactAmountEur: amountEur,
+        impactRangeEur: rangeEur ?? null,
         impactExplanation: explanation,
+        contextSentence: LEVER_CONTEXT_SENTENCE[lever.leverKey] ?? null,
+        warning: warning ?? null,
       });
     }
 

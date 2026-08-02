@@ -39,7 +39,10 @@ export function DiscoveryOpportunityCard({
   category,
   effort,
   impactAmountEur,
+  impactRangeEur,
   impactExplanation,
+  contextSentence,
+  warning,
   ctaLabel,
   currentValue,
   sourcePage,
@@ -50,7 +53,16 @@ export function DiscoveryOpportunityCard({
   category: string;
   effort: "faible" | "moyen" | "eleve";
   impactAmountEur: number | null;
+  // When present (ads/VSL's higher-uncertainty formulas), shown INSTEAD of
+  // the point estimate — never both, to avoid a confusing double number.
+  impactRangeEur?: { min: number; max: number } | null;
   impactExplanation: string;
+  // "Pourquoi ce levier rapporte" — only set for ads/vsl/upsell_ascension,
+  // null for every other lever.
+  contextSentence?: string | null;
+  // Feasibility caution (e.g. ads below the revenue threshold) — distinct
+  // from the effort badge/time horizon below.
+  warning?: string | null;
   ctaLabel: string;
   // Only known for "actifs à surveiller" (the lever is active, this is its
   // current KPI value) — absent for "à implémenter" (no current value yet).
@@ -98,10 +110,17 @@ export function DiscoveryOpportunityCard({
 
         <div className="flex items-center gap-1.5">
           <p className="font-display text-lg font-bold tabular-nums">
-            {impactAmountEur === null ? "Impact : à évaluer" : `≈ ${formatEur(impactAmountEur)}/mois`}
+            {impactRangeEur
+              ? `≈ ${formatEur(impactRangeEur.min)}–${formatEur(impactRangeEur.max)}/mois`
+              : impactAmountEur === null
+                ? "Impact : à évaluer"
+                : `≈ ${formatEur(impactAmountEur)}/mois`}
           </p>
           <CalcPopover explanation={impactExplanation} />
         </div>
+
+        {warning && <p className="text-xs font-bold text-state-caution">{warning}</p>}
+        {contextSentence && <p className="text-xs text-muted-foreground">{contextSentence}</p>}
 
         {/* Time-to-first-results horizon — only on "à implémenter" cards (a
             lever not yet in place, i.e. no currentValue), to set an honest

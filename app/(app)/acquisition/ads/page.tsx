@@ -102,7 +102,15 @@ export default async function AdsPage() {
           <h1 className="text-3xl font-bold">Ads</h1>
           <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
         </div>
-        {impact && <LeverImpactEstimate amountEur={impact.amountEur} explanation={impact.explanation} />}
+        {impact && (
+          <LeverImpactEstimate
+            amountEur={impact.amountEur}
+            rangeEur={impact.impactRangeEur}
+            explanation={impact.explanation}
+            warning={impact.warning}
+            contextSentence={impact.contextSentence}
+          />
+        )}
         {plan && (
           <LeverStarterPlanCard
             steps={plan}

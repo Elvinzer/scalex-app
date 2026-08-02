@@ -167,11 +167,24 @@ const LEVERS = [
     ],
     // Pas de comparaison générique "leads_x_rate..." — le coût par résultat
     // benchmark dépend du canal choisi, calculé à part (voir
-    // AD_CHANNEL_BENCHMARKS dans lib/levers/opportunities.ts).
+    // AD_CHANNEL_BENCHMARKS dans lib/levers/opportunities.ts). Le cas ABSENT
+    // (pas encore de canal choisi) utilise sa propre formule budget-de-test,
+    // voir estimateAdsAbsent — testBudgetPerDayEur/defaultCpaEur sont des
+    // hypothèses prudentes, pas le vrai coût par lead d'un canal réel (inconnu
+    // tant qu'aucune campagne n'existe). revenueThresholdEur/
+    // dampeningBelowThreshold reprennent le même seuil que la règle
+    // priority_rules "lever_revenue_gate" (3000€) — l'impact lui-même est
+    // amorti en dessous, pas seulement son tri.
     benchmarkValue: null,
     benchmarkStatKey: null,
-    formulaType: "none",
-    formulaParams: {},
+    formulaType: "ads_test_budget_x_closing_x_price",
+    formulaParams: {
+      testBudgetPerDayEur: 10,
+      defaultCpaEur: 30,
+      revenueThresholdEur: 3000,
+      dampeningBelowThreshold: 0.3,
+      rangeVariance: 0.3,
+    },
     effort: "moyen",
     sortOrder: 8,
   },
@@ -185,8 +198,13 @@ const LEVERS = [
     readsFromProfile: true,
     benchmarkValue: null,
     benchmarkStatKey: null,
-    formulaType: "none",
-    formulaParams: {},
+    // Absent-case formula: uplift on top of the CURRENT booking volume
+    // (settingTotals.callsBooked) — see estimateVslAbsent in
+    // lib/levers/opportunities.ts. upliftMin/upliftMax IS the displayed
+    // range (a VSL's real effect is inherently uncertain before it exists),
+    // no separate variance param needed like ads.
+    formulaType: "traffic_uplift_x_price",
+    formulaParams: { upliftMin: 0.2, upliftMax: 0.4 },
     effort: "moyen",
     sortOrder: 1,
   },
