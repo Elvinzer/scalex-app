@@ -193,12 +193,12 @@ export function AiChatPanel({
           {messages.map((message, index) =>
             message.role === "user" ? (
               <div key={index} className="flex justify-end">
-                <div className="max-w-[85%] rounded-[var(--radius-card)] bg-surface-sunken px-3 py-2 text-sm">
+                <div className="max-w-[85%] rounded-[var(--radius-card)] bg-surface-sunken px-3 py-2 text-sm break-words">
                   {message.content}
                 </div>
               </div>
             ) : (
-              <div key={index} className="text-sm text-foreground">
+              <div key={index} className="text-sm text-foreground break-words">
                 {message.content ? renderMarkdownLite(message.content) : isStreaming && index === messages.length - 1 ? (
                   <span className="text-muted-foreground">…</span>
                 ) : null}

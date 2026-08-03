@@ -45,7 +45,7 @@ export default async function IntegrationsPage() {
       </div>
 
       <div className="sticker-card p-8">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-bold">Stripe</p>
             <p className="mt-1 text-sm text-muted-foreground">

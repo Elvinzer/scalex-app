@@ -186,7 +186,7 @@ export function ImportFlow({
           <p className="text-sm">
             Tu as déjà importé ce fichier pour <span className="font-bold">{step.previousMonth}</span>. Importer quand même ?
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-center gap-2">
             <Button onClick={() => handleCommit(step.payloads.map((p) => ({ ...p, confirmDuplicate: true })))}>Importer quand même</Button>
             <Button variant="secondary" onClick={() => handleAbandon("duplicate_confirm")}>
               Annuler

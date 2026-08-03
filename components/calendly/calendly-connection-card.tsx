@@ -61,7 +61,7 @@ export function CalendlyConnectionCard({
 
   return (
     <div className="sticker-card p-8">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-bold">Calendly</p>
           <p className="mt-1 text-sm text-muted-foreground">

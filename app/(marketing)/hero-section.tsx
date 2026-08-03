@@ -72,7 +72,7 @@ export function HeroSection() {
             size="xl"
             animate="enter"
             priority
-            className="absolute -bottom-10 -left-28 w-[150px] drop-shadow-[0_16px_28px_rgba(0,0,0,0.18)] sm:-left-36 sm:w-[180px]"
+            className="absolute -bottom-10 -left-6 w-[110px] drop-shadow-[0_16px_28px_rgba(0,0,0,0.18)] sm:-left-20 sm:w-[150px] lg:-left-36 lg:w-[180px]"
           />
         </div>
       </div>

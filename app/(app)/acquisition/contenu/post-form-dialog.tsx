@@ -85,7 +85,7 @@ export function PostFormDialog({
         </DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">Plateforme</span>
               {platforms.length > 0 ? (
@@ -141,7 +141,7 @@ export function PostFormDialog({
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">Date de publication</span>
               <input
@@ -165,7 +165,7 @@ export function PostFormDialog({
             </label>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {COUNT_FIELDS.map((field) => (
               <label key={field.name} className="flex flex-col gap-1.5 text-sm">
                 <span className="text-muted-foreground">{field.label}</span>

@@ -8,17 +8,19 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  Menu,
   MessageCircle,
   Plug,
   Settings,
   ShieldCheck,
   Store,
   Stethoscope,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Fragment, forwardRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -315,6 +317,27 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Navigating (including via the hover-flyout sub-pages, which live in a
+  // Radix Portal outside the <nav> DOM subtree and so wouldn't be caught by
+  // an onClick there) should always dismiss the mobile drawer — otherwise
+  // it's still covering the screen after the route has already changed.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Prevent the page behind the drawer from scrolling while it's open —
+  // otherwise a touch-drag on the overlay scrolls the underlying content on
+  // iOS/Android instead of just dismissing.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -326,51 +349,97 @@ export function AppSidebar({
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
-    <aside
-      className="fixed inset-y-0 left-0 z-20 flex w-64 flex-col px-3 py-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
-      style={{ background: "var(--gradient-dark)" }}
-    >
-      <Link href="/dashboard" className="flex items-center px-3 pt-3 pb-7 transition-opacity hover:opacity-80">
-        <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
-      </Link>
+    <>
+      {/* Mobile-only top bar — the fixed sidebar below is off-canvas by
+          default under lg, so navigation needs a persistent trigger to
+          open it plus somewhere for the wordmark to live. */}
+      <header
+        className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 px-4 text-mist shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:hidden"
+        style={{ background: "var(--gradient-dark)" }}
+      >
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Ouvrir le menu"
+          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist transition-colors hover:bg-white/10"
+        >
+          <Menu className="size-5" />
+        </button>
+        <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
+          <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} className="h-7 w-auto" />
+        </Link>
+      </header>
 
-      <nav className="flex flex-1 flex-col gap-1 pt-4">
-        {visibleTopEntries.map((entry) => (
-          <Fragment key={entry.href}>
-            {/* Marks Copilote as a distinct space (action/chat) from the
-                analysis pages above it — same hairline that used to
-                separate the old "Avancé" entry. */}
-            {entry.href === "/copilote" && <div className="my-3 h-px bg-white/20" />}
-            <PillarNavLink entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
-          </Fragment>
-        ))}
-      </nav>
-
-      {scaleScore && (
-        <div className="px-3 pt-3">
-          <ScaleScoreBadge
-            scaleScore={scaleScore}
-            delta7d={scaleScoreDelta7d}
-            delta30d={scaleScoreDelta30d}
-            sparkline={scaleScoreSparkline}
-            currentMonthlyRevenue={currentMonthlyRevenue}
-            potentialMonthlyRevenue={potentialMonthlyRevenue}
-          />
-        </div>
+      {/* Backdrop — mobile/tablet only, dismisses the drawer on tap. Sits
+          above the floating chat bubble (z-30) so it doesn't peek through
+          while the drawer is open. */}
+      {mobileOpen && (
+        <div
+          className="glass-overlay fixed inset-0 z-[35] lg:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
       )}
 
-      <div className="px-3 pt-4">
-        <ProfileMenu
-          businessName={businessName}
-          displayName={displayName}
-          avatarUrl={avatarUrl}
-          email={email}
-          isOwner={isOwner}
-          permissions={permissions}
-          isAdmin={isAdmin}
-          onSignOut={handleSignOut}
-        />
-      </div>
-    </aside>
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-hidden px-3 py-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ background: "var(--gradient-dark)" }}
+      >
+        <div className="flex items-center justify-between px-3 pt-3 pb-7">
+          <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
+            <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Fermer le menu"
+            className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/70 transition-colors hover:bg-white/10 lg:hidden"
+          >
+            <X className="size-4.5" />
+          </button>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto overscroll-contain pt-4">
+          {visibleTopEntries.map((entry) => (
+            <Fragment key={entry.href}>
+              {/* Marks Copilote as a distinct space (action/chat) from the
+                  analysis pages above it — same hairline that used to
+                  separate the old "Avancé" entry. */}
+              {entry.href === "/copilote" && <div className="my-3 h-px bg-white/20" />}
+              <PillarNavLink entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
+            </Fragment>
+          ))}
+        </nav>
+
+        {scaleScore && (
+          <div className="px-3 pt-3">
+            <ScaleScoreBadge
+              scaleScore={scaleScore}
+              delta7d={scaleScoreDelta7d}
+              delta30d={scaleScoreDelta30d}
+              sparkline={scaleScoreSparkline}
+              currentMonthlyRevenue={currentMonthlyRevenue}
+              potentialMonthlyRevenue={potentialMonthlyRevenue}
+            />
+          </div>
+        )}
+
+        <div className="px-3 pt-4">
+          <ProfileMenu
+            businessName={businessName}
+            displayName={displayName}
+            avatarUrl={avatarUrl}
+            email={email}
+            isOwner={isOwner}
+            permissions={permissions}
+            isAdmin={isAdmin}
+            onSignOut={handleSignOut}
+          />
+        </div>
+      </aside>
+    </>
   );
 }

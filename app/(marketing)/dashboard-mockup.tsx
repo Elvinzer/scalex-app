@@ -47,7 +47,7 @@ export function DashboardMockup() {
         </span>
       </div>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-[14px] border border-border p-3.5">
           <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">Pertes détectées</p>
           <p className="font-display text-lg font-bold">128 540 €</p>

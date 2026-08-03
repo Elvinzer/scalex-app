@@ -316,7 +316,7 @@ export function ImportPreview({
           type="text"
           value={String(value)}
           onChange={(event) => handleValueChange(group, field, event.target.value)}
-          className="w-40 rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-right text-sm font-bold outline-none focus-visible:border-accent"
+          className="w-28 min-w-0 rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-right text-sm font-bold outline-none focus-visible:border-accent sm:w-40"
         />
       );
     }
@@ -392,17 +392,20 @@ export function ImportPreview({
               const existingValue = existing ? (existing as Record<string, unknown>)[field.targetField] : null;
               const hasConflict = existing !== null && existingValue !== null && existingValue !== undefined;
               return (
-                <div key={field.targetField} className="flex items-center justify-between gap-3 border-t border-border py-2 first:border-t-0">
+                <div
+                  key={field.targetField}
+                  className="flex flex-col items-start justify-between gap-2 border-t border-border py-2 first:border-t-0 sm:flex-row sm:items-center sm:gap-3"
+                >
                   <div>
                     <p className="text-sm font-bold">{FIELD_LABELS[field.targetField] ?? field.targetField}</p>
                     <p className="text-xs text-muted-foreground">{field.sourceLabel}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", CONFIDENCE_CLASS[field.confidence])}>
                       {field.confidence}
                     </span>
                     {hasConflict ? (
-                      <div className="flex items-center gap-2 text-sm">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
                         <span className="text-muted-foreground line-through">{String(existingValue)}</span>
                         <span>→</span>
                         {renderValueField(group, field)}

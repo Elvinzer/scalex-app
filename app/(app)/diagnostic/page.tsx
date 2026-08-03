@@ -408,7 +408,7 @@ export default async function DiagnosticPage({
                   <RateVsBenchmarkBar currentRate={currentRate} benchmarkRate={benchmarkRate} />
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
                   {candidate.extraClientsPerMonth !== null ? (
                     <div className="rounded-xl bg-muted p-3">
                       <p className="text-xs font-bold text-muted-foreground">Clients en plus</p>

@@ -138,7 +138,7 @@ export function LeadDrawer({
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-3">
                 <p className="text-sm font-bold">Informations</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="flex flex-col gap-1.5 text-sm">
                     <span className="text-muted-foreground">Prénom</span>
                     <input
@@ -164,7 +164,7 @@ export function LeadDrawer({
                     />
                   </label>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="flex flex-col gap-1.5 text-sm">
                     <span className="text-muted-foreground">Source</span>
                     <select
@@ -211,7 +211,7 @@ export function LeadDrawer({
                 {fieldError && <p className="text-sm text-state-critical">{fieldError}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 text-sm">
                   <span className="text-muted-foreground">Setter</span>
                   <select
@@ -240,7 +240,7 @@ export function LeadDrawer({
 
               <div className="flex flex-col gap-2 rounded-xl border border-border p-3">
                 <p className="text-sm font-bold">Rappel de follow-up</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input
                     type="date"
                     value={reminderDate}

@@ -45,10 +45,23 @@ export function InviteSignInForm({ email, token }: { email: string; token: strin
 
   return (
     <div className="flex flex-col gap-4">
-      <Button type="button" variant="outline" size="lg" onClick={handleGoogleSignIn} disabled={status === "sending"}>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        onClick={handleGoogleSignIn}
+        disabled={status === "sending"}
+        className="h-auto min-h-9 py-2 text-center break-words whitespace-normal"
+      >
         Continuer avec Google ({email})
       </Button>
-      <Button type="button" size="lg" onClick={handleMagicLink} disabled={status === "sending"}>
+      <Button
+        type="button"
+        size="lg"
+        onClick={handleMagicLink}
+        disabled={status === "sending"}
+        className="h-auto min-h-9 py-2 text-center break-words whitespace-normal"
+      >
         {status === "sending" ? "Envoi..." : `Recevoir un lien de connexion à ${email}`}
       </Button>
       {status === "error" && (

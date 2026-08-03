@@ -94,7 +94,7 @@ export function SaleFormDialog({
         <DialogTitle className="text-lg font-bold">{sale ? "Modifier la vente" : "Ajouter une vente"}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">Client</span>
               <input
@@ -138,7 +138,7 @@ export function SaleFormDialog({
             )}
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">Prix total (€)</span>
               <input
@@ -163,7 +163,7 @@ export function SaleFormDialog({
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">Canal source (optionnel)</span>
               <input
@@ -259,7 +259,7 @@ export function SaleFormDialog({
             </label>
 
             {hasUpsell && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 text-sm">
                   <span className="text-muted-foreground">Offre d&apos;upsell</span>
                   {offers.length > 0 ? (

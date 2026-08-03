@@ -79,7 +79,7 @@ export function JournalCalendar({
   }
 
   return (
-    <div className="sticker-card p-6">
+    <div className="sticker-card p-4 sm:p-6">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="text-base font-bold">
           {MONTH_LABELS[month - 1]} {year}
@@ -132,7 +132,11 @@ export function JournalCalendar({
             >
               <span className="text-xs font-bold tabular-nums">{cell.day}</span>
               {tier && <span aria-hidden className="size-1.5 rounded-full" style={{ background: tier.colorBar }} />}
-              {keyNumber && <span className="text-[10px] leading-none text-muted-foreground tabular-nums">{keyNumber}</span>}
+              {keyNumber && (
+                <span className="hidden w-full truncate text-center text-[10px] leading-none text-muted-foreground tabular-nums sm:block">
+                  {keyNumber}
+                </span>
+              )}
               {/* Positive/achievement marker, not coral — this signals a
                   completed improvement, closer to a "good" status than an
                   action. */}

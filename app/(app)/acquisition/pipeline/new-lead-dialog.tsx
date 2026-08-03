@@ -61,7 +61,7 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
         <DialogTitle className="text-lg font-bold">Ajouter un lead</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">Prénom</span>
               <input
@@ -128,7 +128,7 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">Setter (optionnel)</span>
               <select

@@ -384,7 +384,7 @@ export const AgentChatThread = forwardRef<
           {messages.map((message, index) =>
             message.role === "user" ? (
               <div key={index} className="flex justify-end">
-                <div className="max-w-[85%] rounded-[var(--radius-card)] bg-surface-sunken px-3 py-2 text-sm">
+                <div className="max-w-[85%] rounded-[var(--radius-card)] bg-surface-sunken px-3 py-2 text-sm break-words">
                   {message.content}
                 </div>
               </div>
@@ -395,8 +395,8 @@ export const AgentChatThread = forwardRef<
                 ) : (
                   <Falco pose="neutral" size="xs" className="mt-0.5" />
                 )}
-                <div className="flex flex-1 flex-col items-start gap-2">
-                  <div className={`text-sm ${message.isError ? "text-state-critical" : "text-foreground"}`}>
+                <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+                  <div className={`text-sm break-words ${message.isError ? "text-state-critical" : "text-foreground"}`}>
                     {renderMarkdownLite(message.content)}
                   </div>
                   {message.isError && index === messages.length - 1 && !isStreaming && (

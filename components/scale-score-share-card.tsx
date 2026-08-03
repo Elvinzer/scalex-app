@@ -56,7 +56,7 @@ export const ScaleScoreShareCard = forwardRef<
 
       <div className="relative mt-10 flex flex-col items-center gap-2 text-center">
         <p className="text-[15px] text-[var(--text-on-dark-muted)]">Mon CA si j&apos;optimise tout</p>
-        <p className="font-display text-5xl font-bold text-[var(--text-on-dark)]">{formatEur(potentialMonthlyRevenue)}</p>
+        <p className="font-display text-4xl font-bold text-[var(--text-on-dark)] sm:text-5xl">{formatEur(potentialMonthlyRevenue)}</p>
         <p className="text-sm text-[var(--text-on-dark-muted)]">par mois</p>
 
         <div className="mt-4 flex items-center gap-3">

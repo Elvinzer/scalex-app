@@ -46,8 +46,8 @@ export default async function AppLayout({
     // A team member whose account's Scale X subscription lapsed — blocked
     // immediately, not just future invites (see lib/billing/plan-gate.ts).
     return (
-      <div className="flex min-h-screen items-center justify-center bg-panel px-8">
-        <div className="sticker-card max-w-md p-8 text-center">
+      <div className="flex min-h-screen items-center justify-center bg-panel px-4 sm:px-8">
+        <div className="sticker-card max-w-md p-6 text-center sm:p-8">
           <p className="text-lg font-bold">Accès suspendu</p>
           <p className="mt-2 text-sm text-muted-foreground">
             L&apos;abonnement Scale X du compte auquel tu es rattaché n&apos;est plus actif.
@@ -172,7 +172,7 @@ export default async function AppLayout({
           currentMonthlyRevenue={currentMonthlyRevenue}
           potentialMonthlyRevenue={potentialMonthlyRevenue}
         />
-        <main className="ml-64 min-w-0 flex-1 px-8 py-10 sm:px-12 lg:px-16">
+        <main className="min-w-0 flex-1 px-4 pt-20 pb-10 sm:px-8 lg:ml-64 lg:px-16 lg:pt-10">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
         <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />

@@ -44,7 +44,7 @@ export default async function JournalPage({
       <div className="grid gap-5 lg:grid-cols-[62%_1fr]">
         <JournalCalendar year={year} month={month} days={days} todayIso={todayIso} />
 
-        <div className="flex min-w-[340px] flex-col gap-5">
+        <div className="flex flex-col gap-5 lg:min-w-[340px]">
           <TodoPanel
             todos={todos.map((t) => ({
               id: t.id,

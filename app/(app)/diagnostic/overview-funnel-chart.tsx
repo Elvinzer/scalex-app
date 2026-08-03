@@ -73,15 +73,15 @@ function FunnelBar({ label, value, maxValue }: { label: string; value: number; m
   const widthPercent = Math.max((value / maxValue) * 100, value > 0 ? 4 : 1.5);
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-48 shrink-0 text-sm text-muted-foreground">{label}</div>
+    <div className="flex items-center gap-2 sm:gap-3">
+      <div className="w-20 shrink-0 truncate text-xs text-muted-foreground sm:w-48 sm:text-sm">{label}</div>
       <div className="relative h-8 flex-1 rounded-lg border border-ink/10 bg-muted">
         <div
           className="h-full rounded-lg bg-signal transition-[width] duration-[var(--motion-slow)] ease-[var(--ease-out)]"
           style={{ width: `${widthPercent}%` }}
         />
       </div>
-      <div className="w-14 shrink-0 text-right font-display text-sm font-bold tabular-nums">{value}</div>
+      <div className="w-10 shrink-0 text-right font-display text-sm font-bold tabular-nums sm:w-14">{value}</div>
     </div>
   );
 }

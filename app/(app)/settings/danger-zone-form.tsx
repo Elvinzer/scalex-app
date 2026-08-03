@@ -51,7 +51,7 @@ export function DangerZoneForm({ email }: { email: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-bold">Réinitialiser mes données</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -82,7 +82,7 @@ export function DangerZoneForm({ email }: { email: string }) {
         </Dialog>
       </div>
 
-      <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+      <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-bold">Supprimer mon compte</p>
           <p className="mt-1 text-xs text-muted-foreground">

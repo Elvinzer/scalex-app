@@ -45,9 +45,9 @@ export function CopiloteChatPanel({
           ) : (
             <Falco pose="neutral" size="sm" />
           )}
-          <div>
-            <p className="text-base font-bold">Falco</p>
-            {topicLabel && <p className="text-xs text-muted-foreground">{topicLabel}</p>}
+          <div className="min-w-0">
+            <p className="truncate text-base font-bold">Falco</p>
+            {topicLabel && <p className="truncate text-xs text-muted-foreground">{topicLabel}</p>}
           </div>
         </div>
 
@@ -56,7 +56,7 @@ export function CopiloteChatPanel({
             <button
               type="button"
               aria-label="Options de la conversation"
-              className="flex size-8 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
+              className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
             >
               <MoreHorizontal className="size-4" />
             </button>

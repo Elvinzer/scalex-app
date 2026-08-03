@@ -56,9 +56,9 @@ export function ImproveChat({
           ) : (
             <Falco pose="neutral" size="sm" />
           )}
-          <div>
+          <div className="min-w-0">
             <DrawerTitle className="text-base font-bold">Falco</DrawerTitle>
-            {context.topicLabel && <p className="text-xs text-muted-foreground">{context.topicLabel}</p>}
+            {context.topicLabel && <p className="truncate text-xs text-muted-foreground">{context.topicLabel}</p>}
             {gapBadge && (
               <span className="mt-1 inline-flex rounded-[var(--radius-control)] bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
                 {gapBadge}
