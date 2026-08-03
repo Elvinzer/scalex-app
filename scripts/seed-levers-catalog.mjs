@@ -15,12 +15,14 @@
 // separate rows (the brief's own "8/19" example implies 19 total levers,
 // which only adds up if these are split rather than one combined lever).
 //
-// explanation/estTimeLabel are only curated for the "Démarrer un levier"
-// chantier's pilot set of 6 levers (lead_magnet, email_marketing, ads, vsl,
-// webinar, upsell_ascension) — every other lever intentionally keeps
-// explanation: null, which /demarrer/[leverKey] renders as "section
-// masquée", not a placeholder. Extend this list to add more levers to the
-// guide without any code change.
+// explanation/estTimeLabel are now curated for all 20 levers in this
+// catalog (originally only the "Démarrer un levier" chantier's pilot set of
+// 6 — lead_magnet, email_marketing, ads, vsl, webinar, upsell_ascension —
+// had them; the remaining 14 were filled in afterwards, same 3-paragraph
+// style: what it is / why it pays for a coach / what it looks like
+// concretely). A lever with explanation: null renders as "section masquée"
+// on /demarrer/[leverKey], not a placeholder — keep that fallback in mind
+// if a future lever is added without curated copy yet.
 import postgres from "postgres";
 import fs from "node:fs";
 
@@ -103,6 +105,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 3,
+    explanation:
+      "La newsletter, c'est un envoi récurrent (hebdomadaire ou bihebdomadaire) qui n'a pas la structure automatisée d'une séquence de bienvenue, mais qui maintient le lien avec ta liste dans la durée : ce que tu apprends, ce que tu observes chez tes clients, un point de vue sur ton domaine. Elle vit en dehors de l'entonnoir automatique — c'est la conversation de fond que tu entretiens avec les gens qui te suivent.\n\nPour un coach, ça rapporte parce que ça garde ta liste chaude entre deux offres : sans elle, les gens t'oublient au bout de quelques semaines et ton taux d'ouverture s'effondre au moment où tu as vraiment besoin d'eux (un lancement, une promo). Une newsletter régulière, c'est ce qui fait qu'un email de vente, plus tard, arrive à quelqu'un qui te lit encore.\n\nConcrètement : un envoi hebdomadaire court (une idée, une observation, un lien vers du contenu), avec occasionnellement un rappel discret de ton offre — pas besoin que chaque email vende, l'objectif est de rester présent.",
+    estTimeLabel: "1-2h par semaine, en continu",
   },
   {
     leverKey: "seo_blog",
@@ -115,6 +120,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "eleve",
     sortOrder: 4,
+    explanation:
+      "Le blog / SEO, c'est du contenu écrit publié sur ton propre site, structuré pour répondre aux questions que tapent tes prospects dans Google — et pour être trouvé par eux des mois, voire des années après sa publication.\n\nPour un coach, ça rapporte parce que c'est le seul canal d'acquisition qui continue de t'apporter du trafic sans effort une fois l'article publié — contrairement aux réseaux sociaux où un post disparaît en 48h, un article bien positionné capte du trafic en continu. C'est aussi un excellent moyen de démontrer ton expertise à quelqu'un qui ne te connaît pas encore.\n\nConcrètement : un article qui répond précisément à UNE question que se pose ton avatar (\"comment faire X quand on est Y\"), optimisé pour ce mot-clé, avec un lien clair vers ton lead magnet ou ton offre à la fin.",
+    estTimeLabel: "3-6 mois avant les premiers résultats organiques",
   },
   {
     leverKey: "podcast",
@@ -130,6 +138,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "eleve",
     sortOrder: 5,
+    explanation:
+      "Le podcast, c'est un format audio régulier — solo ou en interview — qui te permet de développer tes idées en profondeur et de construire une relation de proximité avec ton audience, sur un temps d'écoute bien plus long qu'un post ou une vidéo courte.\n\nPour un coach, ça rapporte parce que le format long crée une confiance difficile à obtenir ailleurs : quelqu'un qui t'écoute 30-40 minutes en marchant ou en voiture développe une familiarité proche de celle qu'il aurait avec un ami. C'est aussi un format qui se prête bien aux interviews de clients ou d'experts, ce qui élargit ton audience via leur réseau.\n\nConcrètement : un épisode régulier (hebdomadaire ou bihebdomadaire), un format clair (solo, interview, ou les deux en alternance), publié sur les plateformes d'écoute et relayé en clips courts sur les réseaux.",
+    estTimeLabel: "3-5h par épisode (préparation + enregistrement + montage)",
   },
   {
     leverKey: "retargeting",
@@ -142,6 +153,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "moyen",
     sortOrder: 6,
+    explanation:
+      "Le retargeting, c'est afficher de la publicité ciblée aux gens qui ont déjà visité ton site, ta page de vente, ou regardé une de tes vidéos — sans avoir converti. C'est de la publicité adressée à une audience \"tiède\", pas à des inconnus.\n\nPour un coach, ça rapporte parce que la majorité des visiteurs ne convertissent jamais au premier passage, et le retargeting est souvent le canal publicitaire avec le meilleur retour : tu ne payes que pour re-toucher des gens qui ont déjà montré un intérêt réel, à un coût par résultat généralement bien plus bas qu'une campagne d'acquisition à froid.\n\nConcrètement : un pixel installé sur ta page de vente ou ton site, une audience créée à partir des visiteurs des 30 derniers jours, et une pub qui rappelle ton offre ou traite une objection courante — sur un petit budget, souvent quelques euros par jour.",
+    estTimeLabel: "1-2h pour la mise en place",
   },
   {
     leverKey: "referral",
@@ -154,6 +168,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 7,
+    explanation:
+      "Le parrainage, c'est un système qui encourage tes clients actuels à te recommander — avec ou sans récompense en échange (accès à un bonus, remise sur un renouvellement, etc.). C'est transformer la satisfaction client en canal d'acquisition actif plutôt que de compter sur le bouche-à-oreille spontané.\n\nPour un coach, ça rapporte parce qu'un lead qui arrive recommandé par quelqu'un qu'il connaît a déjà une confiance de départ qu'aucune publicité ne peut acheter — le taux de conversion sur ce type de lead est généralement bien plus élevé, et le coût d'acquisition proche de zéro.\n\nConcrètement : une demande simple et directe (\"connais-tu quelqu'un que ça pourrait aider ?\") posée au bon moment — juste après un résultat obtenu ou un témoignage — éventuellement accompagnée d'un petit geste pour le client qui recommande.",
+    estTimeLabel: "30 min pour mettre le process en place",
   },
   {
     leverKey: "ads",
@@ -265,6 +282,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 3,
+    explanation:
+      "La relance des non-acheteurs, c'est une séquence d'emails automatique envoyée à ceux qui ont montré un intérêt (opt-in, appel réservé, visite de la page de vente) mais qui n'ont pas acheté. Plutôt que de les laisser disparaître silencieusement, tu leur reparles avec un angle différent : une objection traitée, une preuve sociale, une urgence.\n\nPour un coach, ça rapporte parce qu'une bonne partie des ventes n'arrivent pas au premier contact — beaucoup de prospects ont besoin d'un rappel ou d'un argument supplémentaire pour se décider. Sans cette relance, tu perds silencieusement des ventes que tu as déjà presque obtenues.\n\nConcrètement : 3 à 5 emails automatiques envoyés dans les jours suivant un appel non conclu ou une visite de page de vente sans achat, chacun traitant une objection différente (le prix, le temps, le doute sur les résultats), avec un rappel de deadline si ton offre en a une.",
+    estTimeLabel: "2-3h pour la séquence",
   },
   {
     leverKey: "order_bump",
@@ -277,6 +297,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 4,
+    explanation:
+      "L'order bump, c'est une offre complémentaire proposée au moment précis du paiement — une case à cocher sur la page de commande, avant même que le client ait finalisé son achat principal. C'est le point de vente le plus impulsif de tout ton funnel : la carte est déjà sortie, la décision d'achat déjà prise.\n\nPour un coach, ça rapporte parce que c'est le moyen le plus simple d'augmenter ton panier moyen sans effort de vente supplémentaire — pas de script, pas d'appel, juste une case à cocher. Le taux d'acceptation est souvent élevé parce que le montant proposé est faible par rapport à l'achat principal en cours.\n\nConcrètement : un complément à petit prix, directement lié à l'offre principale (un guide, un template, un module bonus), affiché sur la page de paiement avec un bénéfice clair en une phrase.",
+    estTimeLabel: "1h pour le mettre en place",
   },
   {
     leverKey: "downsell",
@@ -289,6 +312,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 5,
+    explanation:
+      "Le downsell, c'est une alternative moins chère (ou plus légère) que tu proposes à quelqu'un qui vient de refuser ton offre principale — au lieu de le laisser repartir les mains vides. C'est un filet de sécurité qui capte une partie des \"non\" qui ne sont pas des refus définitifs, juste des refus au prix ou au format actuel.\n\nPour un coach, ça rapporte parce que beaucoup de \"non\" sont en réalité des \"pas à ce prix\" ou \"pas avec cet engagement\" — un downsell bien pensé récupère une partie de ce chiffre d'affaires qui, sinon, part définitivement à zéro.\n\nConcrètement : une version allégée de ton offre (moins d'accompagnement, moins de modules, un engagement plus court) proposée juste après un refus, à un prix nettement inférieur — en appel de vente ou en automatique sur la page de paiement.",
+    estTimeLabel: "1-2h pour définir l'offre",
   },
   {
     leverKey: "garantie",
@@ -301,6 +327,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 6,
+    explanation:
+      "La garantie, c'est un engagement formulé clairement sur ta page de vente ou pendant l'appel — remboursement, résultat garanti, période d'essai — qui réduit le risque perçu par le prospect au moment de la décision d'achat.\n\nPour un coach, ça rapporte parce que l'objection numéro un à l'achat, souvent non-dite, c'est \"et si ça ne marche pas pour moi ?\". Une garantie claire retire une partie de ce risque de son côté et le transfère symboliquement vers toi — ce qui, pour beaucoup de prospects hésitants, suffit à faire basculer la décision.\n\nConcrètement : une phrase précise et sans ambiguïté (\"garanti 30 jours, satisfait ou remboursé\", ou une garantie de résultat conditionnée à des actions précises de ta part), affichée clairement sur la page de vente et répétée en appel.",
+    estTimeLabel: "30 min pour la formuler",
   },
   {
     leverKey: "preuve_sociale_page",
@@ -313,6 +342,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 7,
+    explanation:
+      "La preuve sociale sur la page de vente, c'est l'ensemble des témoignages, résultats chiffrés, avis ou logos qui montrent à un prospect que d'autres personnes comme lui ont déjà obtenu ce que tu promets — avant qu'il ait à te faire confiance sur parole.\n\nPour un coach, ça rapporte parce que personne n'aime être le premier à tester quelque chose : voir que d'autres ont déjà obtenu des résultats réduit fortement l'hésitation à l'achat, surtout pour une offre avec un prix ou un engagement conséquent.\n\nConcrètement : 3 à 5 témoignages précis (avec un résultat concret, pas juste \"super coach !\"), idéalement en vidéo ou avec une photo, positionnés juste avant les moments clés de décision sur la page (après la présentation de l'offre, avant le bouton d'achat).",
+    estTimeLabel: "1-2h pour les rassembler et les intégrer",
   },
 
   // --- DÉLIVRABILITÉ ---
@@ -344,6 +376,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "moyen",
     sortOrder: 2,
+    explanation:
+      "La structure d'onboarding, c'est le parcours que tu fais vivre à un client dans ses premiers jours après l'achat — accès aux ressources, premier appel ou message de bienvenue, attentes clarifiées. C'est ce qui détermine si un client démarre en confiance ou dans le flou.\n\nPour un coach, ça rapporte parce qu'un onboarding clair réduit drastiquement le risque de décrochage précoce et les demandes de remboursement dans les premiers jours — un client qui sait exactement quoi faire dès le départ s'engage plus vite, obtient des résultats plus vite, et devient plus facilement un témoignage ou un client qui reste.\n\nConcrètement : un message de bienvenue automatique dès l'achat, un accès centralisé aux ressources (pas éparpillé dans 5 outils différents), et une première action claire à faire dans les 48h pour créer un momentum immédiat.",
+    estTimeLabel: "2-4h pour structurer le parcours",
   },
   {
     leverKey: "collecte_temoignages_systematique",
@@ -356,6 +391,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "faible",
     sortOrder: 3,
+    explanation:
+      "La collecte systématique de témoignages, c'est un process répété — pas ponctuel — qui te permet de récupérer un retour client à chaque étape clé (fin de programme, résultat obtenu, renouvellement), plutôt que de compter sur les quelques clients qui pensent spontanément à t'en laisser un.\n\nPour un coach, ça rapporte parce que la preuve sociale est un des leviers de conversion les plus puissants, mais elle s'épuise vite si elle repose sur 2-3 témoignages recyclés partout. Un process systématique te garantit un flux continu de nouveaux témoignages à jour, alignés sur ton offre actuelle.\n\nConcrètement : une demande envoyée automatiquement à un moment précis (fin d'accompagnement, quelques semaines après un résultat obtenu), avec 2-3 questions guidées plutôt qu'un \"dis-moi ce que t'en as pensé\" trop ouvert, qui donne rarement une réponse exploitable.",
+    estTimeLabel: "1h pour mettre le process en place",
   },
   {
     leverKey: "communaute_clients",
@@ -368,6 +406,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "moyen",
     sortOrder: 4,
+    explanation:
+      "La communauté clients, c'est un espace dédié (groupe privé, forum, serveur Discord/Slack) où tes clients peuvent échanger entre eux, poser des questions et s'entraider — en plus du contact direct avec toi.\n\nPour un coach, ça rapporte parce qu'une communauté active augmente la rétention et réduit ta charge de support individuel : les clients qui s'entraident restent engagés plus longtemps, et une partie des questions qui t'arriveraient normalement en message privé trouve sa réponse entre pairs. C'est aussi un espace où les résultats des uns motivent les autres.\n\nConcrètement : un groupe privé simple (Facebook, Skool, Discord), quelques règles de base, et une présence régulière de ta part au départ pour lancer les échanges — jusqu'à ce que la communauté s'auto-entretienne.",
+    estTimeLabel: "1-2h de mise en place, puis présence régulière",
   },
   {
     leverKey: "reactivation_anciens_clients",
@@ -380,6 +421,9 @@ const LEVERS = [
     formulaParams: {},
     effort: "moyen",
     sortOrder: 5,
+    explanation:
+      "La réactivation d'anciens clients, c'est recontacter ceux qui ont déjà acheté — mais qui ne sont plus actifs ou n'ont pas racheté depuis un moment — pour leur proposer une nouvelle offre, un renouvellement, ou simplement reprendre le contact.\n\nPour un coach, ça rapporte parce que ce sont des gens qui te connaissent déjà, t'ont déjà payé, et n'ont besoin d'aucune reconquête de confiance de zéro — le coût d'acquisition est proche de zéro comparé à un nouveau prospect, et le taux de conversion y est généralement bien supérieur.\n\nConcrètement : un message direct et personnel (pas un email de masse générique) qui prend des nouvelles et propose une offre adaptée à où ils en sont maintenant — un accompagnement suite, une nouvelle offre sortie depuis, ou simplement une prise de nouvelles sincère.",
+    estTimeLabel: "1-2h pour la première campagne de réactivation",
   },
 ];
 
