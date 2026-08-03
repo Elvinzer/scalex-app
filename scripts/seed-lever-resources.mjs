@@ -4,14 +4,15 @@
 // .mjs, run via `node scripts/seed-lever-resources.mjs` against .env.local,
 // idempotent via full delete+reinsert (not an upsert).
 //
-// Deliberately seeded EMPTY at launch — the "Démarrer un levier" brief is
-// explicit: no automatic YouTube search, only manually curated, verified
-// links (never invented or unverified). Add real videos here (a real
-// youtubeUrl per row is all that's required — title/channel/thumbnail are
-// fetched live from YouTube's oEmbed at render time, see
-// lib/levers/resources.ts) whenever some have been picked; until then the
-// "Apprends en vidéo" section stays hidden everywhere, per
-// getLeverVideos's "hide the section, don't show an empty one" rule.
+// Was deliberately seeded EMPTY at launch — the "Démarrer un levier" brief
+// is explicit: no automatic YouTube search, only manually curated, verified
+// links (never invented or unverified). Now populated: one video per lever,
+// each found via web search and individually verified against YouTube's
+// public oEmbed endpoint (the same one lib/levers/resources.ts uses at
+// render time) before being added here — none of these URLs are guessed.
+// durationLabel is left null throughout (no reliable way to verify exact
+// duration without a real player fetch) — see lever-video-grid.tsx, an
+// absent durationLabel just omits the corner badge, doesn't break anything.
 //
 // Shape once populated:
 //   { leverKey: "email_marketing", youtubeUrl: "https://youtube.com/watch?v=...", durationLabel: "12 min", lang: "fr", sortOrder: 1 }
@@ -31,7 +32,33 @@ const env = Object.fromEntries(
 
 const sql = postgres(env.DATABASE_URL, { prepare: false });
 
-const RESOURCES = [];
+const RESOURCES = [
+  // --- ACQUISITION ---
+  { leverKey: "lead_magnet", youtubeUrl: "https://www.youtube.com/watch?v=sJkMoKkxET0", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "email_marketing", youtubeUrl: "https://www.youtube.com/watch?v=oeMD1gllOm4", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "newsletter", youtubeUrl: "https://www.youtube.com/watch?v=zaJLCQ_pMU0", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "seo_blog", youtubeUrl: "https://www.youtube.com/watch?v=TkNiCvYKagQ", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "podcast", youtubeUrl: "https://www.youtube.com/watch?v=O9bqtJ4GQZs", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "retargeting", youtubeUrl: "https://www.youtube.com/watch?v=1KqdSzKPknA", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "referral", youtubeUrl: "https://www.youtube.com/watch?v=wnQAy3spFCM", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "ads", youtubeUrl: "https://www.youtube.com/watch?v=D1YhfZIde3I", durationLabel: null, lang: "fr", sortOrder: 1 },
+
+  // --- VENTE ---
+  { leverKey: "vsl", youtubeUrl: "https://www.youtube.com/watch?v=9kt_M3qTmJ8", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "webinar", youtubeUrl: "https://www.youtube.com/watch?v=FXkkyk76qeY", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "sequence_relance_non_acheteurs", youtubeUrl: "https://www.youtube.com/watch?v=BqZIYdpEq5I", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "order_bump", youtubeUrl: "https://www.youtube.com/watch?v=gjPVeZyjejk", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "downsell", youtubeUrl: "https://www.youtube.com/watch?v=sN-dtweypcM", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "garantie", youtubeUrl: "https://www.youtube.com/watch?v=Aid-FRCLCtE", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "preuve_sociale_page", youtubeUrl: "https://www.youtube.com/watch?v=rF-MB_Fn3rg", durationLabel: null, lang: "fr", sortOrder: 1 },
+
+  // --- DÉLIVRABILITÉ ---
+  { leverKey: "upsell_ascension", youtubeUrl: "https://www.youtube.com/watch?v=kER1NUGQJQo", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "onboarding_structure", youtubeUrl: "https://www.youtube.com/watch?v=W7EKEBs5XeQ", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "collecte_temoignages_systematique", youtubeUrl: "https://www.youtube.com/watch?v=svs42vHKAus", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "communaute_clients", youtubeUrl: "https://www.youtube.com/watch?v=6eFqUKJUzDg", durationLabel: null, lang: "fr", sortOrder: 1 },
+  { leverKey: "reactivation_anciens_clients", youtubeUrl: "https://www.youtube.com/watch?v=IVVPRjUpKj4", durationLabel: null, lang: "fr", sortOrder: 1 },
+];
 
 await sql`delete from lever_resources`;
 
