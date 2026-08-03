@@ -10,6 +10,19 @@ import { updateProfile } from "./actions";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
+// Formats next/image's server-side optimizer (sharp/libvips) can reliably
+// decode and re-encode. HEIC/HEIF (the default format for iPhone Camera
+// Roll photos on Safari, which reports `file.type: "image/heic"` — Chrome/
+// Firefox report an empty type and were already rejected by the old
+// generic "image/*" check) slipped through here, uploaded fine to Supabase
+// Storage, then failed to render everywhere (broken image in the sidebar
+// and on this page) since sharp can't decode most real-world HEIC files.
+const ALLOWED_AVATAR_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
 export function ProfileForm({
   userId,
   initialDisplayName,
@@ -31,8 +44,9 @@ export function ProfileForm({
     if (!file) return;
     setError(null);
 
-    if (!file.type.startsWith("image/")) {
-      setError("Le fichier doit être une image.");
+    const extension = ALLOWED_AVATAR_TYPES[file.type];
+    if (!extension) {
+      setError("Format non supporté (HEIC notamment) — utilise un JPG, PNG ou WebP.");
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
@@ -43,7 +57,6 @@ export function ProfileForm({
     setIsUploading(true);
     try {
       const supabase = createClient();
-      const extension = file.name.split(".").pop() || "png";
       const path = `${userId}/avatar.${extension}`;
       const { error: uploadError } = await supabase.storage
         .from("avatars")
@@ -102,7 +115,13 @@ export function ProfileForm({
           </Button>
           <p className="mt-1 text-xs text-muted-foreground">JPG ou PNG, 2 Mo maximum.</p>
         </div>
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleAvatarChange}
+          className="hidden"
+        />
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
