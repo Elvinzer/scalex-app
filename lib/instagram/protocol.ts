@@ -56,7 +56,19 @@ export const INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS = 30;
 
 // Backfill safety cap on the very first sync (most-recent-first pagination)
 // — a v1 limit, not a hard architectural ceiling.
-export const INSTAGRAM_MAX_BACKFILL_MEDIA = 500;
+export const INSTAGRAM_MAX_BACKFILL_MEDIA = 1000;
+
+// Delay between processing each media item in backfillInstagramPosts — a
+// first-time backfill can make one insights call per post in a tight loop,
+// which risks tripping Meta's per-account rate limit before reaching the
+// end of a large history.
+export const INSTAGRAM_BACKFILL_ITEM_THROTTLE_MS = 150;
+
+// A single retry delay for a failed /me/media page fetch (network exception
+// or non-2xx status) before giving up on that page — see client.ts's
+// listMedia, which now returns whatever it already accumulated instead of
+// discarding it on a later-page failure.
+export const INSTAGRAM_PAGE_RETRY_DELAY_MS = 750;
 
 export type InstagramAccountType = "BUSINESS" | "MEDIA_CREATOR" | "PERSONAL";
 
@@ -85,6 +97,28 @@ export const INSTAGRAM_INSIGHTS_METRICS: Record<InstagramMediaType, readonly str
   ],
   STORY: ["reach", "impressions", "taps_forward", "taps_back", "exits", "replies"],
 } as const;
+
+// Fields for GET /me/stories (client.ts's listStories) — no like_count/
+// comments_count/caption, Meta doesn't expose those on this edge.
+//
+// ⚠️ UNCONFIRMED: this edge is documented by Meta under the older "Facebook
+// Login for Business" flow (graph.facebook.com, requires a linked Page).
+// Whether it also exists under "Instagram API with Instagram Login"
+// (graph.instagram.com, no Page — the flow this integration actually uses,
+// see the file header above) has not been verified against a live account.
+// listStories() must never throw on a missing/rejected edge — treat it the
+// same as "this account currently has zero active stories" and degrade to
+// an empty array, same philosophy as fetchMediaInsights's per-metric
+// degradation. Even if the edge does exist, Meta only ever returns
+// currently-ACTIVE stories (< 24h) — there is no historical story archive
+// via this API, so story rows will always be a snapshot of "what's live
+// right now at sync time", not a complete history.
+export const INSTAGRAM_STORY_MEDIA_FIELDS = "id,media_type,media_url,thumbnail_url,permalink,timestamp";
+
+// Fields for GET /{media-id}/children (client.ts's fetchCarouselChildren) —
+// CAROUSEL_ALBUM's root media object never exposes media_url/thumbnail_url
+// itself, only its children do.
+export const INSTAGRAM_CAROUSEL_CHILDREN_FIELDS = "media_type,media_url,thumbnail_url";
 
 // Organic click tracking is NOT available via this API for feed posts/reels
 // — Meta exposes no per-post "link clicks" metric for organic content (only

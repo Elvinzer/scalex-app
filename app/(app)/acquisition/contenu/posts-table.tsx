@@ -11,6 +11,7 @@ import type { FalcoSkinKey } from "@/lib/falco-skins";
 import type { ContentMetricKey } from "@/lib/diagnostic/content-metrics";
 import { computePostRates, computePostScore } from "@/lib/content-posts/rates";
 import type { ContentPostRow } from "@/lib/content-posts/types";
+import { computePostPerformanceComparisons, type PostPerformanceTier } from "@/lib/instagram/insights-comparison";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
@@ -19,14 +20,26 @@ type SortKey = "publishedAt" | "views" | "engagementRate" | "clickRate" | "viewT
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
-// Small thumbnail for the title cell — mediaUrl is the raw file (the video
-// itself for VIDEO/REELS, not renderable as an <img>), so VIDEO prefers
-// thumbnailUrl instead. Both are short-lived signed Instagram CDN URLs (see
-// db/schema.ts's instagramPostInsights) — a broken/expired link falls back
-// to a plain icon rather than a broken-image glyph.
+// Same token pattern as components/import/import-preview.tsx's
+// CONFIDENCE_CLASS — semantic state tokens only, never a hex/raw Tailwind
+// color (CLAUDE.md's DA rule).
+const TIER_CLASS: Record<PostPerformanceTier, string> = {
+  above: "bg-state-healthy-bg text-state-healthy",
+  inline: "bg-muted text-muted-foreground",
+  below: "bg-state-critical-bg text-state-critical",
+};
+
+// Small thumbnail for the title cell. thumbnailUrl is preferred whenever
+// present — it's the resolved "cover" for anything that isn't a plain
+// static image (VIDEO/REELS' cover frame, a CAROUSEL_ALBUM's first child,
+// see lib/instagram/client.ts's fetchCarouselChildren) — falling back to
+// mediaUrl (the raw file, only ever renderable as an <img> for IMAGE) only
+// when there's no cover. Both are short-lived signed Instagram CDN URLs
+// (see db/schema.ts's instagramPostInsights) — a broken/expired link falls
+// back to a plain icon rather than a broken-image glyph.
 function PostThumbnail({ insight }: { insight: InstagramPostInsightRow | undefined }) {
   const [broken, setBroken] = useState(false);
-  const src = insight ? (insight.mediaType === "VIDEO" ? insight.thumbnailUrl : insight.mediaUrl) : null;
+  const src = insight ? (insight.thumbnailUrl ?? insight.mediaUrl) : null;
 
   if (!src || broken) {
     return (
@@ -85,6 +98,11 @@ export function PostsTable({
 
     return withRates;
   }, [posts, sortKey, sortDesc, contentBenchmarks]);
+
+  const comparisons = useMemo(
+    () => computePostPerformanceComparisons(Array.from(instagramInsights?.values() ?? [])),
+    [instagramInsights]
+  );
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -168,7 +186,28 @@ export function PostsTable({
                 </td>
                 <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(post.views)}</td>
                 <td className={cn("p-3 text-right tabular-nums", insight?.totalInteractions == null && "text-muted-foreground")}>
-                  {insight?.totalInteractions == null ? "—" : NUMBER_FORMAT.format(insight.totalInteractions)}
+                  {insight?.totalInteractions == null ? (
+                    "—"
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5">
+                      {NUMBER_FORMAT.format(insight.totalInteractions)}
+                      {(() => {
+                        const comparison = comparisons.get(insight.mediaId);
+                        if (!comparison) return null;
+                        const pct = Math.round((comparison.ratio - 1) * 100);
+                        return (
+                          <span
+                            className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums", TIER_CLASS[comparison.tier])}
+                            title={`${
+                              comparison.tier === "above" ? "Au-dessus" : comparison.tier === "below" ? "En dessous" : "Dans la moyenne"
+                            } de tes ${comparison.cohortSize} posts comparables`}
+                          >
+                            {comparison.tier === "inline" ? "≈" : `${pct > 0 ? "+" : ""}${pct}%`}
+                          </span>
+                        );
+                      })()}
+                    </span>
+                  )}
                 </td>
                 <td className={cn("p-3 text-right tabular-nums", rates.engagementRate === null && "text-muted-foreground")}>
                   {rates.engagementRate === null ? "—" : formatPercent(rates.engagementRate)}

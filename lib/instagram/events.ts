@@ -52,13 +52,18 @@ function toContentPostType(mediaType: InstagramMediaType): "post" | "reel" | "st
 }
 
 // title is NOT NULL on content_posts — falls back to a dated placeholder
-// when the post has no caption.
-function toTitle(caption: string | null, publishedAt: Date): string {
+// when the post has no caption. Stories never have a caption in practice
+// (not exposed on the /me/stories edge), so they always hit this fallback —
+// worth its own wording rather than the generic "Post" label.
+function toTitle(caption: string | null, publishedAt: Date, mediaType: InstagramMediaType): string {
+  const fallbackNoun = mediaType === "STORY" ? "Story" : "Post";
   if (caption) {
     const firstLine = caption.split("\n")[0]!.trim();
-    return firstLine.length > 120 ? `${firstLine.slice(0, 117)}…` : firstLine || `Post Instagram du ${publishedAt.toISOString().slice(0, 10)}`;
+    return firstLine.length > 120
+      ? `${firstLine.slice(0, 117)}…`
+      : firstLine || `${fallbackNoun} Instagram du ${publishedAt.toISOString().slice(0, 10)}`;
   }
-  return `Post Instagram du ${publishedAt.toISOString().slice(0, 10)}`;
+  return `${fallbackNoun} Instagram du ${publishedAt.toISOString().slice(0, 10)}`;
 }
 
 // "views" (content_posts, a single required number) is derived per media
@@ -73,7 +78,11 @@ function toViews(mediaType: InstagramMediaType, insights: MediaInsights): number
   return metric(insights, "reach") ?? 0;
 }
 
-export function normalizeMedia(media: RawInstagramMedia, insights: MediaInsights): NormalizedInstagramPost {
+// carouselCoverUrl: resolved separately via GET /{media-id}/children for
+// CAROUSEL_ALBUM items (see lib/instagram/client.ts's fetchCarouselChildren
+// and backfill.ts's caller) — a carousel's own media object never exposes
+// media_url/thumbnail_url, so this overrides thumbnailUrl when provided.
+export function normalizeMedia(media: RawInstagramMedia, insights: MediaInsights, carouselCoverUrl?: string | null): NormalizedInstagramPost {
   const publishedAt = new Date(media.timestamp);
 
   return {
@@ -82,10 +91,10 @@ export function normalizeMedia(media: RawInstagramMedia, insights: MediaInsights
     caption: media.caption,
     permalink: media.permalink,
     mediaUrl: media.mediaUrl,
-    thumbnailUrl: media.thumbnailUrl,
+    thumbnailUrl: carouselCoverUrl ?? media.thumbnailUrl,
     publishedAt,
     contentPostType: toContentPostType(media.mediaType),
-    title: toTitle(media.caption, publishedAt),
+    title: toTitle(media.caption, publishedAt, media.mediaType),
     views: toViews(media.mediaType, insights),
     insights: {
       reach: metric(insights, "reach"),

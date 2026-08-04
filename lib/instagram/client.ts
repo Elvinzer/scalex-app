@@ -1,9 +1,12 @@
 import {
+  INSTAGRAM_CAROUSEL_CHILDREN_FIELDS,
   INSTAGRAM_GRAPH_API_BASE,
   INSTAGRAM_INSIGHTS_METRICS,
   INSTAGRAM_LONG_LIVED_TOKEN_URL,
   INSTAGRAM_MAX_BACKFILL_MEDIA,
+  INSTAGRAM_PAGE_RETRY_DELAY_MS,
   INSTAGRAM_REFRESH_TOKEN_URL,
+  INSTAGRAM_STORY_MEDIA_FIELDS,
   INSTAGRAM_TOKEN_URL,
   type InstagramAccountType,
   type InstagramMediaType,
@@ -15,6 +18,10 @@ import {
 // other BYOK/OAuth integration in this codebase.
 
 const REQUEST_TIMEOUT_MS = 15_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 type GraphResponse = { status: number; body: unknown };
 
@@ -166,8 +173,60 @@ export type RawInstagramMedia = {
   thumbnailUrl: string | null;
 };
 
+// One page of a paginated Graph API edge — fetched with one retry on
+// failure (network exception OR non-2xx status, both treated the same way)
+// before the caller decides whether to give up on the whole list or just
+// stop pagination early. Returns null only after the retry also failed.
+async function fetchPageWithRetry(url: URL): Promise<{ data: unknown[]; next: URL | null } | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { status, body } = await request(url);
+      if (status >= 200 && status < 300) {
+        const rec = asRecord(body) ?? {};
+        const data = Array.isArray(rec.data) ? rec.data : [];
+        const next = str(asRecord(rec.paging)?.next);
+        return { data, next: next ? new URL(next) : null };
+      }
+    } catch {
+      // Network-level failure (timeout/DNS/reset) — fall through to retry,
+      // same as a non-2xx status above.
+    }
+    if (attempt === 0) await sleep(INSTAGRAM_PAGE_RETRY_DELAY_MS);
+  }
+  return null;
+}
+
+function parseMediaItem(raw: unknown): RawInstagramMedia | null {
+  const item = asRecord(raw);
+  if (!item) return null;
+  const id = str(item.id);
+  const timestamp = str(item.timestamp);
+  if (!id || !timestamp) return null;
+  // media_product_type distinguishes STORY/REELS from a plain feed
+  // media_type — prefer it when present (Meta's more precise field),
+  // fall back to media_type otherwise.
+  const productType = str(item.media_product_type)?.toUpperCase();
+  const mediaType = (productType === "STORY" ? "STORY" : str(item.media_type)?.toUpperCase()) as InstagramMediaType | undefined;
+  if (!mediaType) return null;
+  return {
+    id,
+    caption: str(item.caption),
+    mediaType,
+    permalink: str(item.permalink),
+    timestamp,
+    likeCount: num(item.like_count),
+    commentsCount: num(item.comments_count),
+    mediaUrl: str(item.media_url),
+    thumbnailUrl: str(item.thumbnail_url),
+  };
+}
+
 // GET /me/media, paginated via the response's own paging.next cursor URL —
-// capped at INSTAGRAM_MAX_BACKFILL_MEDIA (a v1 limit, see protocol.ts).
+// capped at INSTAGRAM_MAX_BACKFILL_MEDIA (a v1 limit, see protocol.ts). A
+// failure on the FIRST page is a real total failure (throws, same as
+// before); a failure on a LATER page returns whatever was already
+// accumulated instead of discarding it — losing pages 1-9 because page 10
+// hiccuped was a real cause of posts silently disappearing from a sync.
 export async function listMedia(accessToken: string): Promise<RawInstagramMedia[]> {
   const items: RawInstagramMedia[] = [];
   let url: URL | null = new URL(`${INSTAGRAM_GRAPH_API_BASE}/me/media`);
@@ -179,41 +238,80 @@ export async function listMedia(accessToken: string): Promise<RawInstagramMedia[
   url.searchParams.set("limit", "50");
 
   while (url && items.length < INSTAGRAM_MAX_BACKFILL_MEDIA) {
-    const { status, body } = await request(url);
-    if (status < 200 || status >= 300) {
-      throw new Error(`Instagram media list failed (status ${status})`);
+    const page = await fetchPageWithRetry(url);
+    if (!page) {
+      if (items.length === 0) {
+        throw new Error("Instagram media list failed on the first page");
+      }
+      console.error("[instagram] listMedia: a later page failed after retry, returning partial results");
+      break;
     }
-    const rec = asRecord(body) ?? {};
-    const data = Array.isArray(rec.data) ? rec.data : [];
-    for (const raw of data) {
-      const item = asRecord(raw);
-      if (!item) continue;
-      const id = str(item.id);
-      const timestamp = str(item.timestamp);
-      if (!id || !timestamp) continue;
-      // media_product_type distinguishes STORY/REELS from a plain feed
-      // media_type — prefer it when present (Meta's more precise field),
-      // fall back to media_type otherwise.
-      const productType = str(item.media_product_type)?.toUpperCase();
-      const mediaType = (productType === "STORY" ? "STORY" : str(item.media_type)?.toUpperCase()) as InstagramMediaType | undefined;
-      if (!mediaType) continue;
-      items.push({
-        id,
-        caption: str(item.caption),
-        mediaType,
-        permalink: str(item.permalink),
-        timestamp,
-        likeCount: num(item.like_count),
-        commentsCount: num(item.comments_count),
-        mediaUrl: str(item.media_url),
-        thumbnailUrl: str(item.thumbnail_url),
-      });
+    for (const raw of page.data) {
+      const parsed = parseMediaItem(raw);
+      if (parsed) items.push(parsed);
     }
-    const next = str(asRecord(rec.paging)?.next);
-    url = next ? new URL(next) : null;
-    if (data.length === 0) break;
+    url = page.next;
+    if (page.data.length === 0) break;
   }
   return items.slice(0, INSTAGRAM_MAX_BACKFILL_MEDIA);
+}
+
+// GET /me/stories — see protocol.ts's INSTAGRAM_STORY_MEDIA_FIELDS for the
+// caveat that this edge's existence under this OAuth flow is unconfirmed,
+// and that Meta only ever returns currently-active (non-expired) stories.
+// Contract: NEVER throws — any failure (missing edge, insufficient scope,
+// unexpected shape) degrades to an empty array, same as "this account has
+// no active stories right now".
+export async function listStories(accessToken: string): Promise<RawInstagramMedia[]> {
+  try {
+    const items: RawInstagramMedia[] = [];
+    let url: URL | null = new URL(`${INSTAGRAM_GRAPH_API_BASE}/me/stories`);
+    url.searchParams.set("fields", INSTAGRAM_STORY_MEDIA_FIELDS);
+    url.searchParams.set("access_token", accessToken);
+    // Defensive cap only — active stories are inherently few (< 24h
+    // retention), nowhere near INSTAGRAM_MAX_BACKFILL_MEDIA's scale.
+    const STORY_CAP = 100;
+
+    while (url && items.length < STORY_CAP) {
+      const page = await fetchPageWithRetry(url);
+      if (!page) break;
+      for (const raw of page.data) {
+        const parsed = parseMediaItem(raw);
+        if (parsed) items.push({ ...parsed, mediaType: "STORY" });
+      }
+      url = page.next;
+      if (page.data.length === 0) break;
+    }
+    return items.slice(0, STORY_CAP);
+  } catch (error) {
+    console.error("[instagram] listStories failed, treating as zero active stories", error);
+    return [];
+  }
+}
+
+// GET /{media-id}/children — a CAROUSEL_ALBUM's root object never exposes
+// media_url/thumbnail_url itself (see protocol.ts's
+// INSTAGRAM_CAROUSEL_CHILDREN_FIELDS), only its children do. Resolves the
+// FIRST child as the album's cover. Never throws — a carousel simply gets
+// no thumbnail on any failure, same as before this function existed.
+export async function fetchCarouselChildren(accessToken: string, mediaId: string): Promise<{ coverUrl: string | null }> {
+  try {
+    const url = new URL(`${INSTAGRAM_GRAPH_API_BASE}/${mediaId}/children`);
+    url.searchParams.set("fields", INSTAGRAM_CAROUSEL_CHILDREN_FIELDS);
+    url.searchParams.set("access_token", accessToken);
+    const { status, body } = await request(url);
+    if (status < 200 || status >= 300) return { coverUrl: null };
+    const rec = asRecord(body) ?? {};
+    const data = Array.isArray(rec.data) ? rec.data : [];
+    const first = asRecord(data[0]);
+    if (!first) return { coverUrl: null };
+    const childType = str(first.media_type)?.toUpperCase();
+    const coverUrl = childType === "VIDEO" ? str(first.thumbnail_url) : str(first.media_url);
+    return { coverUrl };
+  } catch (error) {
+    console.error(`[instagram] fetchCarouselChildren failed for media ${mediaId}`, error);
+    return { coverUrl: null };
+  }
 }
 
 export type MediaInsights = Record<string, number>;

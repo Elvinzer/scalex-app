@@ -288,6 +288,10 @@ export const instagramPostInsights = pgTable(
     // (Meta only exposes a carousel's child media via the separate
     // /{media-id}/children edge, not requested here). thumbnail_url is the
     // cover-frame image, VIDEO/REELS only — prefer it over media_url there.
+    // Also doubles as the resolved CAROUSEL_ALBUM cover (first child's
+    // image/thumbnail, fetched separately via /{media-id}/children — see
+    // lib/instagram/client.ts's fetchCarouselChildren), null if that call
+    // fails or the album has no children.
     mediaUrl: text("media_url"),
     thumbnailUrl: text("thumbnail_url"),
     mediaPublishedAt: timestamp("media_published_at", { withTimezone: true }).notNull(),
