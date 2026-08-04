@@ -16,7 +16,6 @@ export const FALCO_SKIN_KEYS: FalcoSkinKey[] = ["mail", "vente", "contenu", "acq
 const SKIN_ROUTE_RULES: { prefix: string; skin: FalcoSkinKey }[] = [
   { prefix: "/acquisition/mail", skin: "mail" },
   { prefix: "/acquisition/contenu", skin: "contenu" },
-  { prefix: "/acquisition/setting", skin: "acquisition" },
   { prefix: "/acquisition/ads", skin: "acquisition" },
   { prefix: "/acquisition/pipeline", skin: "acquisition" },
   { prefix: "/acquisition/setters", skin: "acquisition" },
@@ -82,8 +81,9 @@ export const AGENT_KEY_TO_ROUTE: Record<string, string> = {
   email_marketing: "/acquisition/mail",
   content: "/acquisition/contenu",
   ventes: "/ventes/produits",
-  // Pipeline replaces Setting as ceo_vision's canonical page — Setting's
-  // route/page.tsx still exists (unlinked), see AGENT_ROUTE_RULES below.
+  // Pipeline is ceo_vision's canonical page — Setting's old standalone
+  // route is gone, its day-by-day funnel content now lives nested at
+  // /acquisition/pipeline/funnel (app/(app)/acquisition/pipeline/funnel/).
   ceo_vision: "/acquisition/pipeline",
 };
 
@@ -115,11 +115,13 @@ export const AGENT_KEY_TO_TOPIC_LABEL: Record<string, string> = {
 const AGENT_ROUTE_RULES: { route: string; agentKey: string }[] = [
   { route: "/acquisition/mail", agentKey: "email_marketing" },
   { route: "/acquisition/contenu", agentKey: "content" },
-  { route: "/acquisition/setting", agentKey: "ceo_vision" },
   { route: "/acquisition/ads", agentKey: "ceo_vision" },
   { route: "/acquisition/pipeline", agentKey: "ceo_vision" },
   { route: "/acquisition/setters", agentKey: "ceo_vision" },
-  { route: "/ventes/closing", agentKey: "ventes" },
+  // Covers /ventes/appels itself plus its nested /funnel (ex-Closing) and
+  // /videos pages via prefix match — Closing's old standalone rule pointed
+  // only at itself, leaving Appels with no agent resolution at all.
+  { route: "/ventes/appels", agentKey: "ventes" },
   { route: "/ventes/produits", agentKey: "ventes" },
   { route: "/ventes/upsell", agentKey: "ventes" },
 ];

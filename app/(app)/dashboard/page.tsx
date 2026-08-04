@@ -205,15 +205,6 @@ export default async function DashboardPage({
     : [];
   const primaryPick = topRecommendation ?? fullRanked[0] ?? null;
 
-  // Ranks 2-3 fill in from the plain €-sorted list, skipping whichever
-  // metric point rank 1 already covers (a lever-type rank 1 has no
-  // equivalent in allPoints, so nothing needs excluding in that case).
-  const fillerPoints = allPoints.filter((p) => p.key !== topRecommendation?.candidate.sourceMetricPoint?.key).slice(0, 2);
-  // Same idea as fillerPoints, but from the unfiltered ranking (so it can
-  // include further levers too) — only used when there's no confident
-  // topRecommendation, i.e. primaryPick itself already came from fullRanked.
-  const fillerRecommendations = !topRecommendation ? fullRanked.slice(1, 3) : [];
-
   // "Manque à gagner" = improvements possible on elements already in place
   // (the cascade bottlenecks + active-but-underperforming levers) — NOT
   // Découverte's absent-lever "possibilities", which never counted toward
@@ -327,29 +318,21 @@ export default async function DashboardPage({
 
       <div>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold">À corriger en priorité</h2>
+          <h2 className="text-base font-bold">Ta prochaine action</h2>
           <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
             Voir le diagnostic complet →
           </a>
         </div>
 
-        <div className="mt-3 flex flex-col gap-3">
+        {/* Rank 1 only — ranks 2-3 used to repeat here exactly what
+            /diagnostic's "Points à améliorer" already shows in full, one of
+            5 near-identical lever rankings scattered across the app. Anyone
+            who wants more than the single top pick clicks through. */}
+        <div className="mt-3">
           {primaryPick && <div className="animate-rise">{renderPriorityRecommendation(primaryPick, 1)}</div>}
 
-          {topRecommendation
-            ? fillerPoints.map((point, index) => (
-                <div key={point.key} className="animate-rise" style={{ animationDelay: `${(index + 1) * 60}ms` }}>
-                  <PriorityItem rank={(index + 2) as 2 | 3} point={point} />
-                </div>
-              ))
-            : fillerRecommendations.map((rec, index) => (
-                <div key={rec.candidate.key} className="animate-rise" style={{ animationDelay: `${(index + 1) * 60}ms` }}>
-                  {renderPriorityRecommendation(rec, (index + 2) as 2 | 3)}
-                </div>
-              ))}
-
-          {points.length < 3 && unlockHints.length > 0 && (
-            <FalcoEmptyState title="Débloquer plus de diagnostics" showFalco={false}>
+          {!primaryPick && unlockHints.length > 0 && (
+            <FalcoEmptyState title="Débloquer ton diagnostic" showFalco={false}>
               <ul className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
                 {unlockHints.map((hint) => (
                   <li key={hint}>• {hint}</li>

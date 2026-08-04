@@ -12,6 +12,11 @@ export const PERMISSION_KEYS = [
   "datas",
   "diagnostic",
   "acquisition:contenu",
+  // Legacy — Setting was folded into Pipeline (its content now lives at
+  // /acquisition/pipeline/funnel, gated by "acquisition:pipeline"). Kept
+  // grantable, same reasoning as "funnel" above, purely for any role that
+  // already has it; see lib/funnel-insights/insight-actions.ts for the one
+  // remaining place it's still checked.
   "acquisition:setting",
   "acquisition:ads",
   "acquisition:mail",
@@ -19,6 +24,9 @@ export const PERMISSION_KEYS = [
   "acquisition:setters",
   "ventes:suivi",
   "ventes:videos",
+  // Legacy — Closing was folded into Appels (its content now lives at
+  // /ventes/appels/funnel, gated by "ventes:appels"). Same treatment as
+  // "acquisition:setting" above.
   "ventes:closing",
   "ventes:appels",
   "ventes:upsell",

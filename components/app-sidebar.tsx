@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  BarChart3,
+  CalendarDays,
   ChevronsUpDown,
   Database,
   Handshake,
@@ -49,8 +49,12 @@ type LinkEntry = {
 
 // CŒUR — the value-loop pages, always visible (permission-gated as before).
 // Funnel/Insights are gone entirely (were duplicate readings of what the
-// Diagnostic already shows — removed, not just hidden). Team/roles moved to
-// Mon business (app/(app)/business), Équipe card there.
+// Diagnostic already shows — removed, not just hidden). "Vue d'ensemble"
+// (/overview) is gone the same way: 3 of its 4 blocks were confirmed
+// duplicates of Dashboard/Diagnostic; the one unique piece (the CA/leads/RDV/
+// ventes trend chart) moved to Mes chiffres (app/(app)/datas/revenue-trend.tsx)
+// rather than being lost. Team/roles moved to Mon business
+// (app/(app)/business), Équipe card there.
 //
 // Acquisition/Vente are pillar entries: plain links to their landing page
 // (which redirects to the first accessible sub-page), same as every other
@@ -65,30 +69,40 @@ type LinkEntry = {
 // tabs by their pillar layout, not linked anywhere. Copilote (below)
 // replaces the old "Avancé" nav entry.
 //
-// "Journal de bord" (/journal) is built (app/(app)/journal/) but
-// deliberately not linked here yet — hidden from the nav for later, not
-// deleted, per explicit request. Re-add a { href: "/journal", ... } entry
-// here (icon: CalendarDays) when it's ready to ship.
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
-  // Reuses the "dashboard" permission (same sensitivity level as Dashboard's
-  // own numbers) rather than introducing a new PermissionKey just for this
-  // exploration-only view.
-  { type: "link", href: "/overview", label: "Vue d'ensemble", icon: BarChart3, permission: "dashboard" },
   { type: "link", href: "/datas", label: "Mes chiffres", icon: Database, permission: "datas" },
   {
     type: "link",
     href: "/acquisition",
     label: "Acquisition",
     icon: Megaphone,
-    anyOfPermissions: ["acquisition:contenu", "acquisition:setting", "acquisition:ads"],
+    // All 5 real sub-page permissions (matches lib/nav/pillar-subpages.ts) —
+    // this list previously omitted mail/pipeline/setters, so a team member
+    // granted only e.g. "acquisition:pipeline" (the seeded "Setting" role's
+    // default, see lib/team/permissions.ts's DEFAULT_ROLES) never saw the
+    // "Acquisition" entry at all despite having a real page to reach.
+    anyOfPermissions: ["acquisition:contenu", "acquisition:mail", "acquisition:pipeline", "acquisition:setters", "acquisition:ads"],
   },
   {
     type: "link",
     href: "/ventes",
     label: "Vente",
     icon: Handshake,
-    anyOfPermissions: ["ventes:suivi", "ventes:closing"],
+    // Same anyOfPermissions gap as Acquisition above, fixed the same way —
+    // this previously listed only suivi/closing, so a member with just
+    // "ventes:appels" (Appels' own permission), "business" (Produits), or
+    // "ventes:upsell" never saw the "Vente" entry at all. ventes:closing/
+    // ventes:videos are legacy/nested-page keys (see lib/team/permissions.ts)
+    // kept here too since they can still be granted on their own.
+    anyOfPermissions: [
+      "ventes:suivi",
+      "ventes:appels",
+      "business",
+      "ventes:upsell",
+      "ventes:closing",
+      "ventes:videos",
+    ],
   },
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
   // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
@@ -100,8 +114,15 @@ const topEntries: LinkEntry[] = [
 // (ProfileMenu). Mon business moved back here (was briefly promoted to the
 // core nav). Réglages/Intégrations have no `permission`: owner-only, same
 // gate as their pages' own requireOwnerOrRedirect.
+//
+// Journal de bord (/journal) lives here rather than in topEntries: it's a
+// real, permission-gated feature (same "dashboard" permission as the page
+// itself checks), but a secondary/occasional destination, not part of the
+// weekly value loop — putting it in the profile menu makes it reachable
+// without adding an 8th entry to the primary rail.
 const profileMenuEntries: LinkEntry[] = [
   { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
+  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
 ];

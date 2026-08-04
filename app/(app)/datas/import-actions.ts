@@ -225,7 +225,6 @@ export async function commitImport(payload: unknown): Promise<CommitImportResult
   revalidatePath("/datas");
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
-  revalidatePath("/overview");
 
   return { status: "committed", fieldsWritten, monthsCount: data.months.length, blockedFields: [...blockedFieldsByName.values()] };
 }

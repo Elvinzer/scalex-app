@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AgentBanner } from "@/components/agent-banner";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
@@ -62,7 +64,12 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
           <h1 className="text-3xl font-bold">Pipeline</h1>
           <p className="mt-1 text-muted-foreground">Suivi de tes leads, de la prise de contact à la vente.</p>
         </div>
-        <NewLeadDialog offers={offers} setters={setters} />
+        <div className="flex items-center gap-4">
+          <Link href="/acquisition/pipeline/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
+            Funnel journalier →
+          </Link>
+          <NewLeadDialog offers={offers} setters={setters} />
+        </div>
       </div>
 
       <PipelineStatsBanner stats={stats} period={period} />

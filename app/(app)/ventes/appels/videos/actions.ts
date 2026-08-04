@@ -25,7 +25,7 @@ export async function saveClosingVideo(id: string | null, data: unknown): Promis
     await createClosingVideo(accountId, parsed.data);
   }
 
-  revalidatePath("/ventes/videos");
+  revalidatePath("/ventes/appels/videos");
   return { error: null };
 }
 
@@ -36,6 +36,6 @@ export async function removeClosingVideo(id: string): Promise<{ error: string | 
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
   await deleteClosingVideo(access.accountId, id);
-  revalidatePath("/ventes/videos");
+  revalidatePath("/ventes/appels/videos");
   return { error: null };
 }

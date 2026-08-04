@@ -34,7 +34,7 @@ export type ClientAnalyticsEvent =
   | "score_badge_clicked"
   | "score_modal_share_opened"
   | "opportunity_chat_opened"
-  | "overview_metric_switched"
+  | "datas_trend_metric_switched"
   | "import_started"
   | "import_questions_asked"
   | "import_committed"

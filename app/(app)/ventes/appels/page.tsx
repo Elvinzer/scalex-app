@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
 
+import Link from "next/link";
+
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
 import { PeriodFilter } from "@/components/period-filter";
@@ -58,6 +60,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
 
   const context = await getAccountContext(userId);
   const isOwner = context?.isOwner ?? false;
+  const canSeeVideos = isOwner || (context !== null && context.permissions !== "all" && context.permissions.has("ventes:videos"));
 
   const iclosedConnected = Boolean(user?.iclosedConnected);
   const calendlyConnected = Boolean(user?.calendlyConnected);
@@ -102,6 +105,14 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <Link href="/ventes/appels/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
+            Funnel de closing →
+          </Link>
+          {canSeeVideos && (
+            <Link href="/ventes/appels/videos" className="text-sm font-bold text-muted-foreground hover:underline">
+              Vidéos de closing →
+            </Link>
+          )}
           {(anyConnected || calls.length > 0) && <PeriodFilter current={period.key} />}
           {anyConnected && <RefreshCallsButton iclosed={iclosedConnected} calendly={calendlyConnected} />}
           <ManualCallDialog setters={setters} />

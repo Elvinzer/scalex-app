@@ -185,7 +185,6 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   revalidatePath("/datas");
-  revalidatePath("/overview");
   return { error: null };
 }
 

@@ -4,11 +4,11 @@ import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import { getAccountContext } from "@/lib/team/context";
 
-// Setting is replaced by Pipeline in the visible tabs (its page.tsx still
-// exists, still gates access via requirePermissionOrRedirect, just no
-// longer a discoverable tab — same "hide, don't delete" precedent as
-// Journal/Avancé). Ads is relinked here alongside Pipeline/Setters (it was
-// delinked in an earlier chantier, explicitly brought back for this one).
+// Setting is gone as its own tab/route — its day-by-day funnel content was
+// folded into Pipeline as a nested page (/acquisition/pipeline/funnel,
+// linked from Pipeline itself, not from this tab bar). Ads is relinked here
+// alongside Pipeline/Setters (it was delinked in an earlier chantier,
+// explicitly brought back for this one).
 export default async function AcquisitionLayout({ children }: { children: React.ReactNode }) {
   const { userId } = await getCurrentUser();
   const context = await getAccountContext(userId);

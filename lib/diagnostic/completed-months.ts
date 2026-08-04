@@ -21,6 +21,19 @@ export function lastCompletedMonths(count: number): MonthWindow[] {
   return windows;
 }
 
+// Maps a trend-widget period option ("3" | "6" | "12" | "year") to the
+// matching slice of lastCompletedMonths(12) — shared by any page that lets
+// the user pick a rolling window for a monthly trend chart.
+export function periodToMonths(period: string): MonthWindow[] {
+  const all = lastCompletedMonths(12);
+  if (period === "year") {
+    const currentYear = todayUtc().getUTCFullYear();
+    return all.filter((m) => m.year === currentYear);
+  }
+  const count = period === "3" ? 3 : period === "12" ? 12 : 6;
+  return all.slice(-count);
+}
+
 // "current-month" period option — the in-progress month, up to today.
 export function currentMonthWindow(): MonthWindow {
   const today = todayUtc();

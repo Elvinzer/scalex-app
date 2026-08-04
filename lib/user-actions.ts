@@ -29,7 +29,8 @@ export async function updateSector(sector: string | null): Promise<{ error: stri
   await db.update(users).set({ sector: parsed.data }).where(eq(users.id, userId));
 
   revalidatePath("/diagnostic");
-  revalidatePath("/acquisition/setting");
-  revalidatePath("/ventes/closing");
+  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/acquisition/pipeline/funnel");
+  revalidatePath("/ventes/appels/funnel");
   return { error: null };
 }

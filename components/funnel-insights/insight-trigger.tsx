@@ -8,10 +8,9 @@ import type { FunnelStageKey } from "@/lib/agent/knowledge";
 import { KeyRequiredModal } from "./key-required-modal";
 import { StageInsightPanel, type ExistingStageInsight } from "./stage-insight-panel";
 
-// The tile-grid equivalent of MarketBenchmarkAccordion's ClickableStat: opens
-// the same per-stage AI insight panel, just triggered from a Setting/Closing
-// stat tile instead of the Vue d'ensemble accordion. When the user has no
-// working BYOK key, opens KeyRequiredModal instead of the question flow.
+// Opens the per-stage AI insight panel from a Setting/Closing stat tile.
+// When the user has no working BYOK key, opens KeyRequiredModal instead of
+// the question flow.
 export function InsightTrigger({
   stage,
   label,

@@ -67,13 +67,18 @@ export async function generateFunnelStageInsight(
   }
 
   // Generating an insight is reachable from the Funnel tab on /diagnostic,
-  // and also as a shortcut from /acquisition/setting or /ventes/closing —
-  // allowed if the caller has the stage-specific permission (matching
-  // whichever page they triggered it from), the broader "funnel" permission
-  // (kept for any pre-existing custom role, though the Funnel tab is gated
-  // by "diagnostic" now, not "funnel" — see components/app-sidebar.tsx), or
-  // "diagnostic" itself.
-  const requiredKey: PermissionKey = isSettingStage(stage) ? "acquisition:setting" : "ventes:closing";
+  // and also as a shortcut from /acquisition/pipeline/funnel or
+  // /ventes/appels/funnel — allowed if the caller has the stage-specific
+  // permission (matching whichever page they triggered it from), the
+  // broader "funnel" permission (kept for any pre-existing custom role,
+  // though the Funnel tab is gated by "diagnostic" now, not "funnel" — see
+  // components/app-sidebar.tsx), or "diagnostic" itself. "acquisition:setting"
+  // / "ventes:closing" are also accepted — legacy keys, no longer either
+  // page's own gate (that's "acquisition:pipeline" / "ventes:appels" now
+  // that Setting/Closing are folded into Pipeline/Appels), kept so a role
+  // granted one before its merge still works.
+  const requiredKey: PermissionKey = isSettingStage(stage) ? "acquisition:pipeline" : "ventes:appels";
+  const legacyKey: PermissionKey = isSettingStage(stage) ? "acquisition:setting" : "ventes:closing";
   const context = await getAccountContext(userId);
   if (!context) {
     return { insightText: null, error: "Tu n'as pas accès à cette section." };
@@ -81,6 +86,7 @@ export async function generateFunnelStageInsight(
   const allowed =
     context.isOwner ||
     context.permissions.has(requiredKey) ||
+    context.permissions.has(legacyKey) ||
     context.permissions.has("funnel") ||
     context.permissions.has("diagnostic");
   if (!allowed) {
@@ -158,8 +164,8 @@ export async function generateFunnelStageInsight(
   });
 
   revalidatePath("/diagnostic");
-  revalidatePath("/acquisition/setting");
-  revalidatePath("/ventes/closing");
+  revalidatePath("/acquisition/pipeline/funnel");
+  revalidatePath("/ventes/appels/funnel");
   return { insightText: result.text, error: null };
 }
 

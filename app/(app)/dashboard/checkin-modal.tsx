@@ -13,14 +13,14 @@ import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import { submitWeeklyCheckin, type CheckinFeedback } from "./actions";
 
 const SETTING_SOURCE: KpiFieldSource = {
-  text: "Cette valeur vient de ta saisie journalière dans Setting. Modifie-la directement là-bas.",
-  href: "/acquisition/setting",
-  linkLabel: "Aller à Setting",
+  text: "Cette valeur vient de ta saisie journalière dans Pipeline. Modifie-la directement là-bas.",
+  href: "/acquisition/pipeline/funnel",
+  linkLabel: "Aller à Pipeline",
 };
 const CLOSING_SOURCE: KpiFieldSource = {
-  text: "Cette valeur vient de ta saisie journalière dans Closing. Modifie-la directement là-bas.",
-  href: "/ventes/closing",
-  linkLabel: "Aller à Closing",
+  text: "Cette valeur vient de ta saisie journalière dans Suivi d'appel. Modifie-la directement là-bas.",
+  href: "/ventes/appels/funnel",
+  linkLabel: "Aller au suivi d'appel",
 };
 
 export function CheckinModal({

@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { getClosingVideos } from "@/lib/closing-videos/queries";
@@ -8,7 +9,14 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { VideoFormDialog } from "./video-form-dialog";
 import { VideosTable } from "./videos-table";
 
-export default async function VideosPage() {
+// Was its own page (/ventes/videos), nested here under Appels — same
+// "closing call" subject as Appels' own table, just a different facet
+// (recorded video/transcript + AI analysis vs. outcome/attendance
+// tracking). Kept on its own dedicated "ventes:videos" permission rather
+// than folded under "ventes:appels" like the funnel page below it: video
+// transcripts are a meaningfully more sensitive grant than call stats, not
+// a legacy duplicate — see lib/team/permissions.ts.
+export default async function VentesVideosPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:videos");
   const videos = await getClosingVideos(accountId);
@@ -23,14 +31,19 @@ export default async function VideosPage() {
             Chaque appel de closing, avec transcription ou notes, et une analyse IA à la demande.
           </p>
         </div>
-        <VideoFormDialog
-          trigger={
-            <Button type="button">
-              <Plus className="size-4" />
-              Ajouter un appel
-            </Button>
-          }
-        />
+        <div className="flex items-center gap-4">
+          <Link href="/ventes/appels" className="text-sm font-bold text-muted-foreground hover:underline">
+            ← Retour au suivi d&apos;appel
+          </Link>
+          <VideoFormDialog
+            trigger={
+              <Button type="button">
+                <Plus className="size-4" />
+                Ajouter un appel
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

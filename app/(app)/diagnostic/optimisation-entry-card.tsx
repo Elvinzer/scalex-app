@@ -21,12 +21,12 @@ export function OptimisationEntryCard({
         <div className="flex items-center gap-3">
           <span className="text-lg">✅</span>
           <div>
-            <p className="font-bold">Questionnaire d&apos;optimisation terminé</p>
+            <p className="font-bold">Questionnaire de découverte terminé</p>
             <p className="text-sm text-muted-foreground">Tu as passé en revue tes {total} leviers.</p>
           </div>
         </div>
         <Link href="/diagnostic?tab=discovery" className="text-sm font-bold text-accent-text hover:underline">
-          Voir mes optimisations →
+          Voir mes découvertes →
         </Link>
       </div>
     );
@@ -40,7 +40,7 @@ export function OptimisationEntryCard({
         <div className="flex items-start gap-3">
           <span className="text-xl">🔓</span>
           <div>
-            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Optimisation</p>
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Découverte</p>
             <p className="mt-0.5 font-bold">Débloque tes leviers d&apos;optimisation</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Réponds à {remaining} question{remaining > 1 ? "s" : ""} sur tes leviers pour révéler ce que tu peux

@@ -1,53 +1,57 @@
 import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { db } from "@/db";
-import { settingKpiEntries } from "@/db/schema";
+import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
 import type { ChatContext } from "@/lib/chat-context";
+import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { labelFor } from "@/lib/diagnostic/cascade";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
-import { isExactCalendarMonth, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
-import { computeFunnelRates, findBottleneck, type FunnelStage } from "@/lib/setting/funnel";
+import {
+  isExactCalendarMonth,
+  resolveMonthClosingTotals,
+  resolveMonthSettingTotals,
+} from "@/lib/monthly-metrics/resolve";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
-import { BottleneckCard } from "./bottleneck-card";
+import { ClosingBottleneckCard } from "./closing-bottleneck-card";
+import { ClosingTiles } from "./closing-tiles";
 import { CsvImport } from "./csv-import";
 import { EntriesTable } from "./entries-table";
 import { EntryForm } from "./entry-form";
-import { FunnelChart } from "./funnel-chart";
 
-// outreachRate is a FunnelStage but not one of the 5 diagnostic-engine
-// MetricKeys (lib/diagnostic/metric-keys.ts) — labelFor() only accepts real
-// MetricKeys, so it needs its own label for the stateText sentence below.
-function stageLabel(stage: FunnelStage): string {
-  return stage === "outreachRate" ? "Taux de sollicitation" : labelFor(stage);
-}
-import { StatTiles } from "./stat-tiles";
-
-export default async function SettingPage({
+// The day-by-day view of the closing funnel — was its own page
+// (/ventes/closing), folded in here as a nested route rather than a
+// `?view=` param, same precedent as Acquisition/Pipeline's own /funnel
+// (see app/(app)/acquisition/pipeline/funnel/page.tsx for why: a real
+// nested route, not a query param, so DateRangePicker's own navigation
+// — which rebuilds the query string from scratch — never drops it).
+export default async function VentesFunnelPage({
   searchParams,
 }: {
   searchParams: Promise<{ range?: string | string[]; from?: string | string[]; to?: string | string[] }>;
 }) {
   const { userId, accountId, user } = await getCurrentUser();
-  await requirePermissionOrRedirect(userId, "acquisition:setting");
+  await requirePermissionOrRedirect(userId, "ventes:appels");
   const params = await searchParams;
   const sector = user?.sector ?? null;
   const benchmark = getBenchmark(sector);
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
-  const [allEntries, existingInsights] = await Promise.all([
+  const [allEntries, allSettingEntries, existingInsights] = await Promise.all([
     db
       .select()
-      .from(settingKpiEntries)
-      .where(eq(settingKpiEntries.userId, accountId))
-      .orderBy(desc(settingKpiEntries.date)),
+      .from(closingKpiEntries)
+      .where(eq(closingKpiEntries.userId, accountId))
+      .orderBy(desc(closingKpiEntries.date)),
+    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)),
     getExistingStageInsights(accountId),
   ]);
 
@@ -60,17 +64,12 @@ export default async function SettingPage({
   const hasEntriesInRange = entries.length > 0;
 
   // When the selected range is exactly one calendar month, a monthly_metrics
-  // row for it (if any setting field is filled) wins wholesale over that
-  // month's daily entries — resolveMonthSettingTotals falls back to the
-  // daily aggregate unchanged when no such row exists (last-30-days/custom/
-  // all-time ranges, or a month with nothing entered in /datas).
+  // row for it (if any closing/setting field is filled) wins wholesale over
+  // that month's daily entries — resolveMonthClosingTotals/
+  // resolveMonthSettingTotals fall back to the daily aggregate unchanged
+  // when no such row exists (last-30-days/custom/all-time ranges, or a month
+  // with nothing entered in /datas).
   const exactMonth = range ? isExactCalendarMonth(range) : null;
-  // Previous-period comparison for the stat tiles — no meaningful "previous"
-  // window when viewing all-time history, so it's skipped in that case.
-  // Computed before either fetch fires so both go out in parallel below —
-  // previousExactMonth only depends on `range` (already resolved), not on
-  // monthlyRow, so awaiting them one after another was an avoidable
-  // round-trip.
   const previousRange = range ? previousEquivalentRange(range) : null;
   const previousExactMonth = previousRange ? isExactCalendarMonth(previousRange) : null;
 
@@ -79,23 +78,31 @@ export default async function SettingPage({
     previousExactMonth ? getMonthlyMetrics(accountId, previousExactMonth.year, previousExactMonth.month) : Promise.resolve(null),
   ]);
 
-  const totals = resolveMonthSettingTotals(monthlyRow, entries);
-  const rates = computeFunnelRates(totals);
-  const bottleneck = findBottleneck(rates);
+  const settingEntriesInRange = range
+    ? allSettingEntries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
+    : allSettingEntries;
+  const callsBooked = resolveMonthSettingTotals(monthlyRow, settingEntriesInRange).callsBooked;
+  const totals = resolveMonthClosingTotals(monthlyRow, entries);
+  const rates = computeClosingRates(totals, callsBooked);
+  const bottleneck = findClosingBottleneck(rates);
 
   const previousEntries = previousRange
-    ? allEntries.filter(
-        (entry) => entry.date >= previousRange.from && entry.date <= previousRange.to
-      )
+    ? allEntries.filter((entry) => entry.date >= previousRange.from && entry.date <= previousRange.to)
     : [];
-  const previousTotals = previousRange ? resolveMonthSettingTotals(previousMonthlyRow, previousEntries) : null;
+  const previousSettingEntries = previousRange
+    ? allSettingEntries.filter((entry) => entry.date >= previousRange.from && entry.date <= previousRange.to)
+    : [];
+  const previousTotals = previousRange ? resolveMonthClosingTotals(previousMonthlyRow, previousEntries) : null;
+  const previousRates = previousTotals
+    ? computeClosingRates(previousTotals, resolveMonthSettingTotals(previousMonthlyRow, previousSettingEntries).callsBooked)
+    : null;
 
   const stateText =
     hasEntriesInRange && bottleneck
-      ? `Ton taux le plus faible du funnel : ${stageLabel(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
-      : "Tu n'as pas encore de données de prospection sur cette période.";
-  const chatContext: ChatContext = { topicType: "lever", topicKey: "setting", topicLabel: "Setting", sourcePage: "acquisition_setting" };
-  const falcoSkin = resolveFalcoSkin("/acquisition/setting");
+      ? `Ton taux le plus faible du closing : ${labelFor(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
+      : "Tu n'as pas encore de données de closing sur cette période.";
+  const chatContext: ChatContext = { topicType: "lever", topicKey: "closing", topicLabel: "Closing", sourcePage: "ventes_appels_funnel" };
+  const falcoSkin = resolveFalcoSkin("/ventes/appels");
 
   return (
     <div className="flex flex-col gap-8">
@@ -107,17 +114,22 @@ export default async function SettingPage({
         falcoSkin={falcoSkin}
       />
 
-      <div>
-        <h1 className="text-3xl font-bold">Setting</h1>
-        <p className="mt-1 text-muted-foreground">
-          Ton funnel de prospection, jour par jour : nouveaux abonnés, premiers messages,
-          conversations, appels proposés et réservés.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Funnel de closing</h1>
+          <p className="mt-1 text-muted-foreground">
+            Ce qui se passe une fois l&apos;appel réservé : présence à l&apos;appel, et
+            conversion en vente.
+          </p>
+        </div>
+        <Link href="/ventes/appels" className="text-sm font-bold text-muted-foreground hover:underline">
+          ← Retour au suivi d&apos;appel
+        </Link>
       </div>
 
       {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucun KPI enregistré pour l&apos;instant</p>
+          <p className="text-sm font-bold">Aucune donnée de closing enregistrée pour l&apos;instant</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoute ta première journée ci-dessous, ou importe un historique en CSV.
           </p>
@@ -138,41 +150,31 @@ export default async function SettingPage({
       )}
 
       {hasEntriesInRange && (
-        <>
-          <div className="sticker-card p-8">
-            <p className="text-sm font-bold">Funnel</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Cumul sur {entries.length} jour{entries.length > 1 ? "s" : ""}
-              {range ? ` — ${formatRangeDates(range)}` : " enregistrés"}.
-            </p>
-            <div className="mt-6">
-              <FunnelChart
-                totals={totals}
-                rates={rates}
-                bottleneckStage={bottleneck?.stage ?? null}
-              />
-            </div>
-          </div>
-
-          <StatTiles
+        <div>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Cumul sur {entries.length} jour{entries.length > 1 ? "s" : ""}
+            {range ? ` — ${formatRangeDates(range)}` : " enregistrés"}.
+          </p>
+          <ClosingTiles
             entriesAscending={[...entries].reverse()}
             totals={totals}
+            rates={rates}
+            callsBooked={callsBooked}
             previousTotals={previousTotals}
+            previousRates={previousRates}
             benchmark={benchmark}
             existingInsights={existingInsights}
             hasWorkingKey={hasWorkingKey}
           />
-
-          <BottleneckCard bottleneck={bottleneck} sector={sector} />
-        </>
+        </div>
       )}
+
+      {hasEntriesInRange && <ClosingBottleneckCard bottleneck={bottleneck} sector={sector} />}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="sticker-card p-8">
           <p className="text-sm font-bold">Ajouter un jour</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ressaisir une date déjà enregistrée la met à jour.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Ressaisir une date déjà enregistrée la met à jour.</p>
           <div className="mt-6">
             <EntryForm />
           </div>

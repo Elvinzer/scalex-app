@@ -4,10 +4,9 @@ import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import { getAccountContext } from "@/lib/team/context";
 
-// Closing (former "Avancé" showcase module) is deliberately set aside
-// again — not rendered as a tab here, not linked anywhere. Its page.tsx
-// still exists and still gates access via requirePermissionOrRedirect, but
-// this layout no longer surfaces it as a discoverable tab.
+// Closing and Vidéos are gone as their own tabs/routes — their content was
+// folded into Appels as nested pages (/ventes/appels/funnel,
+// /ventes/appels/videos, linked from Appels itself, not from this tab bar).
 export default async function VentesLayout({ children }: { children: React.ReactNode }) {
   const { userId } = await getCurrentUser();
   const context = await getAccountContext(userId);

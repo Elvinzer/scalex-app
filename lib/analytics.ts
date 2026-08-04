@@ -36,7 +36,6 @@ export type AnalyticsEvent =
   | "team_invite_accepted"
   | "discovery_started"
   | "discovery_completed"
-  | "overview_viewed"
   | "journal_viewed"
   | "todo_completed"
   | "project_milestone_completed"
