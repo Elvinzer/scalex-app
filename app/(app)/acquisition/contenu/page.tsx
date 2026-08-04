@@ -1,13 +1,10 @@
 import { eq } from "drizzle-orm";
-import { Plus } from "lucide-react";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
-import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { instagramConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
-import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
 import { getContentPosts } from "@/lib/content-posts/queries";
@@ -18,7 +15,6 @@ import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
-import { PostFormDialog } from "./post-form-dialog";
 import { PostsTable } from "./posts-table";
 
 function currentMonthWindow(): { year: number; month: number } {
@@ -38,9 +34,8 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
   const { instagram_error: instagramError } = await searchParams;
 
   const instagramConnected = Boolean(user?.instagramConnected);
-  const [posts, profile, contentBenchmarks, [instagramConnection], instagramInsights, subscriptionActive] = await Promise.all([
+  const [posts, contentBenchmarks, [instagramConnection], instagramInsights, subscriptionActive] = await Promise.all([
     getContentPosts(accountId),
-    getBusinessProfile(accountId),
     getContentDiagnosticBenchmarks(user?.sector ?? null),
     instagramConnected
       ? db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
@@ -48,7 +43,6 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
     getInstagramPostInsightsMap(accountId),
     hasActiveSubscription(accountId),
   ]);
-  const platforms = profile.acquisition.platforms.map((platform) => platform.name).filter(Boolean);
 
   const { year, month } = currentMonthWindow();
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
@@ -68,7 +62,7 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
   const stateText =
     avgClickRate !== null
       ? `Ton taux de clic moyen est de ${formatPercent(avgClickRate)} ce mois-ci.`
-      : "Aucun post suivi ce mois-ci. Ajoute ton premier post pour voir tes chiffres.";
+      : "Aucun post suivi ce mois-ci. Connecte ton compte Instagram pour voir tes chiffres.";
   const chatContext: ChatContext = { topicType: "lever", topicKey: "content", topicLabel: "Contenu", sourcePage: "acquisition_contenu" };
   const falcoSkin = resolveFalcoSkin("/acquisition/contenu");
 
@@ -82,25 +76,11 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
         falcoSkin={falcoSkin}
       />
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Contenu</h1>
-          <p className="mt-1 text-muted-foreground">
-            Performance de tes posts : vues, engagement, clics et leads générés.
-          </p>
-        </div>
-        <PostFormDialog
-          platforms={platforms}
-          trigger={
-            // Instagram's connect CTA becomes the screen's one priority
-            // (coral) action while disconnected — this stays outline then,
-            // per the DA rule against two competing accent CTAs.
-            <Button type="button" variant={instagramConnected ? "default" : "outline"}>
-              <Plus className="size-4" />
-              Ajouter un post
-            </Button>
-          }
-        />
+      <div>
+        <h1 className="text-3xl font-bold">Contenu</h1>
+        <p className="mt-1 text-muted-foreground">
+          Performance de tes posts Instagram : vues, engagement, clics et leads générés.
+        </p>
       </div>
 
       {instagramError && (
@@ -135,7 +115,6 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
 
       <PostsTable
         posts={posts}
-        platforms={platforms}
         topPostId={topPost?.id ?? null}
         contentBenchmarks={contentBenchmarks}
         falcoSkin={falcoSkin}

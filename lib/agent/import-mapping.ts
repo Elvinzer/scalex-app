@@ -24,9 +24,6 @@ const FIELD_DEFINITIONS = `Champs "monthly_metrics" (funnel mensuel — destinat
 - callsTaken : appels honorés/pris
 - salesClosed : ventes conclues (un compte, pas un montant)
 
-Champs "content_posts" (seulement si la feuille est manifestement une liste de posts/contenus) :
-platform, type (post|reel|story|video|live), title, publishedAt, url, views, likes, comments, shares, clicks, leads
-
 Champs "sales" (seulement si la feuille est manifestement une liste de ventes/clients) :
 clientName, clientEmail, sourceChannel, totalPrice (euros), paymentType (one_shot|installments), saleDate, closer
 
@@ -37,7 +34,7 @@ const SYSTEM_PROMPT = `Tu es l'agent d'import de données de Scale X, un SaaS po
 On te donne UNE feuille/fichier (tableau ou texte extrait) à la fois et tu dois la mapper vers les champs existants de l'app via l'outil map_columns.
 
 Règles absolues, non négociables :
-- Une seule table cible (targetTable) par feuille : "monthly_metrics", "content_posts", "sales", "ad_campaigns", ou "ignore" si rien ne correspond manifestement (données de tiers/veille concurrentielle, notes libres, feuille de calcul annexe...).
+- Une seule table cible (targetTable) par feuille : "monthly_metrics", "sales", "ad_campaigns", ou "ignore" si rien ne correspond manifestement (données de tiers/veille concurrentielle, notes libres, feuille de calcul annexe...).
 - "ignore" exige TOUJOURS un ignoreReason concret et court (ex: "Données de veille sur des comptes concurrents, pas tes métriques.") — jamais vide, jamais générique. N'inclus PAS le champ ignoreReason du tout si targetTable n'est pas "ignore".
 - Ne JAMAIS mapper une colonne de taux/pourcentage/ratio — ces valeurs sont toujours recalculées par l'app, jamais importées. Mets cette colonne dans unmapped_columns avec l'explication.
 - Ne JAMAIS inventer une valeur qui n'est pas explicitement dans le fichier.

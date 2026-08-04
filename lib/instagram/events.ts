@@ -10,6 +10,8 @@ export type NormalizedInstagramPost = {
   mediaType: InstagramMediaType;
   caption: string | null;
   permalink: string | null;
+  mediaUrl: string | null;
+  thumbnailUrl: string | null;
   publishedAt: Date;
   // Projection fields for content_posts — see backfill.ts.
   contentPostType: "post" | "reel" | "story" | "video";
@@ -23,6 +25,7 @@ export type NormalizedInstagramPost = {
     commentsCount: number | null;
     savedCount: number | null;
     sharesCount: number | null;
+    totalInteractions: number | null;
     videoViews: number | null;
     avgWatchTimeMs: number | null;
     totalWatchTimeMs: number | null;
@@ -78,6 +81,8 @@ export function normalizeMedia(media: RawInstagramMedia, insights: MediaInsights
     mediaType: media.mediaType,
     caption: media.caption,
     permalink: media.permalink,
+    mediaUrl: media.mediaUrl,
+    thumbnailUrl: media.thumbnailUrl,
     publishedAt,
     contentPostType: toContentPostType(media.mediaType),
     title: toTitle(media.caption, publishedAt),
@@ -89,6 +94,7 @@ export function normalizeMedia(media: RawInstagramMedia, insights: MediaInsights
       commentsCount: media.commentsCount,
       savedCount: metric(insights, "saved"),
       sharesCount: metric(insights, "shares"),
+      totalInteractions: metric(insights, "total_interactions"),
       videoViews: metric(insights, "plays"),
       avgWatchTimeMs: metric(insights, "ig_reels_avg_watch_time"),
       totalWatchTimeMs: metric(insights, "ig_reels_video_view_total_time"),

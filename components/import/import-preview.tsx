@@ -19,15 +19,6 @@ const FIELD_LABELS: Record<string, string> = {
   callsBooked: "Appels réservés",
   callsTaken: "Appels pris",
   salesClosed: "Ventes conclues",
-  platform: "Plateforme",
-  type: "Type",
-  title: "Titre",
-  publishedAt: "Date de publication",
-  url: "Lien",
-  views: "Vues",
-  likes: "Likes",
-  comments: "Commentaires",
-  shares: "Partages",
   leads: "Leads",
   clientName: "Client",
   clientEmail: "Email client",
@@ -43,15 +34,10 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 // Fields whose values are text, never summed/averaged — everything else is
-// treated as numeric (parseLocaleNumber). Row-level targets (content_posts/
-// sales/ad_campaigns' campaignName) rely on this to know which raw cell
-// value to pass through as-is vs. parse as a number.
+// treated as numeric (parseLocaleNumber). Row-level targets (sales/
+// ad_campaigns' campaignName) rely on this to know which raw cell value to
+// pass through as-is vs. parse as a number.
 const STRING_FIELDS = new Set([
-  "platform",
-  "type",
-  "title",
-  "publishedAt",
-  "url",
   "clientName",
   "clientEmail",
   "sourceChannel",
@@ -143,9 +129,9 @@ function buildMonthlyMetricsGroups(sheet: AnalyzeSheetResult, sheetIndex: number
   ];
 }
 
-// content_posts/sales: one row = one entity (a post, a sale) — never
-// aggregated together. Builds one group per row that has at least one
-// mapped value, each field read at that row's own index.
+// sales: one row = one entity (a sale) — never aggregated together. Builds
+// one group per row that has at least one mapped value, each field read at
+// that row's own index.
 function buildRowLevelGroups(sheet: AnalyzeSheetResult, sheetIndex: number): ResolvedGroup[] {
   const { mapping } = sheet;
   const mappedEntries = mapping.mappings.filter((entry) => entry.targetField);
@@ -164,11 +150,11 @@ function buildRowLevelGroups(sheet: AnalyzeSheetResult, sheetIndex: number): Res
       .filter((f): f is NonNullable<typeof f> => f !== null);
     if (fields.length === 0) continue;
 
-    const dateField = fields.find((f) => f.targetField === "publishedAt" || f.targetField === "saleDate");
+    const dateField = fields.find((f) => f.targetField === "saleDate");
     const parsedDate = dateField ? new Date(`${dateField.value}T00:00:00Z`) : null;
     const year = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.getUTCFullYear() : new Date().getUTCFullYear();
     const month = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.getUTCMonth() + 1 : new Date().getUTCMonth() + 1;
-    const titleField = fields.find((f) => f.targetField === "title" || f.targetField === "clientName");
+    const titleField = fields.find((f) => f.targetField === "clientName");
 
     groups.push({
       key: `sheet${sheetIndex}-row${rowIndex}`,
@@ -346,8 +332,8 @@ export function ImportPreview({
   function handleCommit() {
     // One commit call per distinct (sheet's targetTable) — a single file
     // can have sheets going to different tables (monthly_metrics + ads +
-    // content_posts in the same workbook), and commitImportPayloadSchema
-    // is one-table-per-call.
+    // sales in the same workbook), and commitImportPayloadSchema is
+    // one-table-per-call.
     const payloads: CommitImportPayload[] = [];
     for (const sheet of sheets) {
       if (sheet.mapping.targetTable === "ignore") continue;

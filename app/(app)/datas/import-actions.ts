@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { adCampaigns, closingKpiEntries, dataImports, monthlyMetrics, sales, settingKpiEntries } from "@/db/schema";
-import { createContentPost } from "@/lib/content-posts/queries";
 import { monthDateRange } from "@/lib/date-range";
 import { commitImportPayloadSchema, type CommitImportPayload } from "@/lib/import/schema";
 import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS } from "@/lib/monthly-metrics/resolve";
@@ -146,26 +145,6 @@ export async function commitImport(payload: unknown): Promise<CommitImportResult
       const result = await commitMonthlyMetricsMonth(accountId, month);
       fieldsWritten += result.fieldsWritten;
       for (const blocked of result.blocked) blockedFieldsByName.set(blocked.field, blocked);
-    }
-  } else if (data.targetTable === "content_posts") {
-    // Append-only list — an imported "liste de posts" always creates new
-    // rows, never updates existing ones (no natural dedup key on this table).
-    for (const month of data.months) {
-      const v = month.values;
-      await createContentPost(accountId, {
-        platform: String(v.platform ?? ""),
-        type: (v.type as "post" | "reel" | "story" | "video" | "live" | undefined) ?? "post",
-        title: String(v.title ?? ""),
-        publishedAt: String(v.publishedAt ?? `${month.year}-${String(month.month).padStart(2, "0")}-01`),
-        url: v.url ? String(v.url) : null,
-        views: typeof v.views === "number" ? v.views : Number(v.views ?? 0),
-        likes: v.likes !== undefined ? Number(v.likes) : null,
-        comments: v.comments !== undefined ? Number(v.comments) : null,
-        shares: v.shares !== undefined ? Number(v.shares) : null,
-        clicks: v.clicks !== undefined ? Number(v.clicks) : null,
-        leads: v.leads !== undefined ? Number(v.leads) : null,
-      });
-      fieldsWritten += Object.keys(v).length;
     }
   } else if (data.targetTable === "sales") {
     // Append-only list — same reasoning as content_posts above.

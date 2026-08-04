@@ -3,7 +3,6 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { contentPosts } from "@/db/schema";
 
-import type { ContentPostInput } from "./schema";
 import type { ContentPostRow } from "./types";
 
 function toRow(row: typeof contentPosts.$inferSelect): ContentPostRow {
@@ -68,24 +67,4 @@ export async function getPostLeadsSumByMonth(userId: string, year: number): Prom
     .groupBy(sql`extract(month from ${contentPosts.publishedAt})`);
 
   return Object.fromEntries(rows.map((row) => [row.month, row.leads]));
-}
-
-export async function createContentPost(userId: string, data: ContentPostInput): Promise<void> {
-  await db.insert(contentPosts).values({ userId, ...data });
-}
-
-// source="manual" guard: a synced Instagram row is never hand-edited/deleted
-// even if a client somehow submits its id — a resync upserts it instead
-// (see lib/instagram/backfill.ts). DB-layer enforcement, not just hidden UI.
-export async function updateContentPost(userId: string, id: string, data: ContentPostInput): Promise<void> {
-  await db
-    .update(contentPosts)
-    .set(data)
-    .where(and(eq(contentPosts.id, id), eq(contentPosts.userId, userId), eq(contentPosts.source, "manual")));
-}
-
-export async function deleteContentPost(userId: string, id: string): Promise<void> {
-  await db
-    .delete(contentPosts)
-    .where(and(eq(contentPosts.id, id), eq(contentPosts.userId, userId), eq(contentPosts.source, "manual")));
 }

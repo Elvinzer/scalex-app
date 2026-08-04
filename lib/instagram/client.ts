@@ -160,6 +160,10 @@ export type RawInstagramMedia = {
   // fields, not insight metrics.
   likeCount: number | null;
   commentsCount: number | null;
+  // Short-lived signed CDN URLs — see db/schema.ts's instagramPostInsights
+  // for the full caveat (video vs image, always null for CAROUSEL_ALBUM).
+  mediaUrl: string | null;
+  thumbnailUrl: string | null;
 };
 
 // GET /me/media, paginated via the response's own paging.next cursor URL —
@@ -167,7 +171,10 @@ export type RawInstagramMedia = {
 export async function listMedia(accessToken: string): Promise<RawInstagramMedia[]> {
   const items: RawInstagramMedia[] = [];
   let url: URL | null = new URL(`${INSTAGRAM_GRAPH_API_BASE}/me/media`);
-  url.searchParams.set("fields", "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count");
+  url.searchParams.set(
+    "fields",
+    "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url"
+  );
   url.searchParams.set("access_token", accessToken);
   url.searchParams.set("limit", "50");
 
@@ -198,6 +205,8 @@ export async function listMedia(accessToken: string): Promise<RawInstagramMedia[
         timestamp,
         likeCount: num(item.like_count),
         commentsCount: num(item.comments_count),
+        mediaUrl: str(item.media_url),
+        thumbnailUrl: str(item.thumbnail_url),
       });
     }
     const next = str(asRecord(rec.paging)?.next);

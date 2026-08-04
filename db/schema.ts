@@ -278,6 +278,18 @@ export const instagramPostInsights = pgTable(
     mediaType: text("media_type").notNull(), // IMAGE | CAROUSEL_ALBUM | VIDEO | REELS | STORY (Graph API's own vocabulary)
     caption: text("caption"),
     permalink: text("permalink"),
+    // Instagram's media CDN URLs — SHORT-LIVED signed links (Meta doesn't
+    // document an exact TTL; observed on the order of hours/~1-2 days),
+    // refreshed on every backfill/resync upsert (lib/instagram/backfill.ts).
+    // Rendering code must treat these as best-effort/stale-tolerant (fallback
+    // on load error), never assume they stay valid indefinitely. media_url is
+    // the raw file — the actual video for VIDEO/REELS (NOT renderable as an
+    // <img>), the static image for IMAGE. Always null for CAROUSEL_ALBUM
+    // (Meta only exposes a carousel's child media via the separate
+    // /{media-id}/children edge, not requested here). thumbnail_url is the
+    // cover-frame image, VIDEO/REELS only — prefer it over media_url there.
+    mediaUrl: text("media_url"),
+    thumbnailUrl: text("thumbnail_url"),
     mediaPublishedAt: timestamp("media_published_at", { withTimezone: true }).notNull(),
     // "reach" is primary/reliable; "impressions" is opportunistic-only — Meta
     // deprecated/restricted it for many organic media types around 2023.
@@ -288,6 +300,9 @@ export const instagramPostInsights = pgTable(
     commentsCount: integer("comments_count"),
     savedCount: integer("saved_count"),
     sharesCount: integer("shares_count"),
+    // Meta's own composite metric (like+comment+share+save) — requested for
+    // IMAGE/CAROUSEL_ALBUM/VIDEO (never STORY, Meta doesn't expose it there).
+    totalInteractions: integer("total_interactions"),
     videoViews: integer("video_views"), // "plays" — VIDEO/REELS only
     avgWatchTimeMs: integer("avg_watch_time_ms"), // REELS only
     totalWatchTimeMs: integer("total_watch_time_ms"), // REELS only

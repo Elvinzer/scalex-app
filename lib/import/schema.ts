@@ -10,9 +10,8 @@ import { MONTHLY_METRICS_FIELDS } from "@/lib/monthly-metrics/types";
 // definition). "ignore" is a real, first-class outcome — a sheet that
 // doesn't fit anything is always shown as ignored with a reason, never
 // silently dropped.
-export const IMPORT_TARGET_TABLES = ["monthly_metrics", "content_posts", "sales", "ad_campaigns", "ignore"] as const;
+export const IMPORT_TARGET_TABLES = ["monthly_metrics", "sales", "ad_campaigns", "ignore"] as const;
 
-const CONTENT_POST_FIELDS = ["platform", "type", "title", "publishedAt", "url", "views", "likes", "comments", "shares", "clicks", "leads"] as const;
 const SALES_FIELDS = ["clientName", "clientEmail", "sourceChannel", "totalPrice", "paymentType", "saleDate", "closer"] as const;
 // Deliberately minimal (not every ad_campaigns column) — the brief's own
 // validation case only asks for spend/impressions/clicks/leads aggregated
@@ -21,7 +20,6 @@ const AD_CAMPAIGN_FIELDS = ["campaignName", "spend", "impressions", "clicks", "l
 
 export const ALL_TARGET_FIELDS = [
   ...MONTHLY_METRICS_FIELDS,
-  ...CONTENT_POST_FIELDS,
   ...SALES_FIELDS,
   ...AD_CAMPAIGN_FIELDS,
 ] as unknown as [string, ...string[]];

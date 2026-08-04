@@ -76,11 +76,11 @@ export function normalizeDateCellToIso(raw: string): string | null {
 }
 
 // Date-typed target fields that can appear inside mapping.mappings itself
-// (content_posts' publishedAt, sales' saleDate) rather than through the
-// separate dateColumnName mechanism — normalized here too so
-// buildRowLevelGroups' `new Date(...)` and buildAdCampaignGroups' string
-// min/max both keep working when the source cell was a bare serial number.
-const DATE_TARGET_FIELDS = new Set(["publishedAt", "saleDate"]);
+// (sales' saleDate) rather than through the separate dateColumnName
+// mechanism — normalized here too so buildRowLevelGroups' `new Date(...)`
+// and buildAdCampaignGroups' string min/max both keep working when the
+// source cell was a bare serial number.
+const DATE_TARGET_FIELDS = new Set(["saleDate"]);
 
 export function enrichMapping(parsed: ParsedFile, mapping: ImportMappingResult): EnrichedMapping {
   if (parsed.kind !== "table") {
