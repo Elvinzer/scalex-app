@@ -10,9 +10,12 @@ export function computePostRates(post: ContentPostRow): ContentPostRates {
   return {
     engagementRate: rate(engagement, post.views),
     // Never coerce "never measured" (null — permanently the case for
-    // organic Instagram posts) into a measured 0 rate.
+    // organic Instagram posts) into a measured 0 rate. Same guard on
+    // leads: content_posts.leads is never populated automatically (no
+    // manual entry path left, and Instagram exposes no lead-attribution
+    // data), so this was always silently showing a false "0%" before.
     clickRate: post.clicks === null ? null : rate(post.clicks, post.views),
-    viewToLeadRate: rate(post.leads ?? 0, post.views),
+    viewToLeadRate: post.leads === null ? null : rate(post.leads, post.views),
   };
 }
 

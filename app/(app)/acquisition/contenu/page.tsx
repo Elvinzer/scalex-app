@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { AgentBanner } from "@/components/agent-banner";
+import { InfoPopover } from "@/components/info-popover";
 import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
 import { db } from "@/db";
 import { instagramConnections } from "@/db/schema";
@@ -104,11 +105,17 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
           <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat("fr-FR").format(totalViewsThisMonth)}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Taux de clic moyen</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-bold text-muted-foreground">Taux de clic moyen</p>
+            <InfoPopover text="Instagram ne fournit aucune donnée de clics sortants pour un post organique — ce chiffre reste vide par nature, ce n'est pas un bug." />
+          </div>
           <p className="mt-2 font-display text-3xl font-bold">{avgClickRate === null ? "—" : formatPercent(avgClickRate)}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Leads attribués</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-bold text-muted-foreground">Leads attribués</p>
+            <InfoPopover text="Un lead attribué à un post nécessite un rattachement manuel, qui n'existe plus depuis que le contenu vient uniquement d'Instagram — ce chiffre reste à 0 pour l'instant." />
+          </div>
           <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat("fr-FR").format(totalLeadsThisMonth)}</p>
         </div>
       </div>

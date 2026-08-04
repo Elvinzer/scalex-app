@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Camera, ChevronsUpDown } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { InfoPopover } from "@/components/info-popover";
 import { ItemScoreButton } from "@/components/item-score-button";
 import { InstagramPostDetailDialog } from "@/components/instagram/instagram-post-detail-dialog";
 import type { ChatContext } from "@/lib/chat-context";
@@ -21,6 +22,20 @@ type DateFilterKey = "7d" | "30d" | "3m" | "all";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+
+const EXPLANATIONS = {
+  topPosts:
+    "Classement de tes posts, reels et carrousels par interactions totales (likes + commentaires + partages + enregistrements), depuis la connexion de ton compte Instagram. Les Stories ne sont pas incluses : leur seule mesure comparable, la portée, n'est pas sur la même échelle.",
+  interactions:
+    "Somme des likes, commentaires, partages et enregistrements sur ce post, remontée directement par Instagram. Le badge à côté compare ce post à la médiane de tes autres posts du même type (feed ou story) : au-dessus, dans la moyenne, ou en dessous.",
+  engagement: "(Likes + commentaires + partages) / vues, en %.",
+  clics:
+    "Instagram ne fournit aucune donnée de clics sortants pour un post organique — cette colonne reste vide par nature pour tous tes posts, ce n'est pas un bug.",
+  leads:
+    "Un lead attribué à ce post nécessite un rattachement manuel, qui n'existe plus depuis que le contenu vient uniquement d'Instagram — cette colonne reste vide pour l'instant.",
+  score:
+    "Moyenne de ton taux de clic et de ton taux de clic→lead comparés aux benchmarks de ton secteur. Comme les deux dépendent de données de clics qu'Instagram ne fournit pas pour un post organique, cette colonne reste vide pour tous tes posts.",
+} as const;
 
 const DATE_FILTERS: { key: DateFilterKey; label: string; days: number | null }[] = [
   { key: "7d", label: "7 jours", days: 7 },
@@ -104,7 +119,10 @@ function TopPostsPanel({ entries }: { entries: { post: ContentPostRow; insight: 
 
   return (
     <div className="sticker-card p-6">
-      <h2 className="text-base font-bold">Tes 3 meilleurs posts</h2>
+      <div className="flex items-center gap-1.5">
+        <h2 className="text-base font-bold">Tes 3 meilleurs posts</h2>
+        <InfoPopover text={EXPLANATIONS.topPosts} />
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">Classés par interactions, tous posts confondus depuis ta connexion.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {entries.map(({ post, insight }, index) => (
@@ -269,11 +287,36 @@ export function PostsTable({
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">Titre</th>
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">Plateforme</th>
                 <th className="p-3 text-right"><SortHeader label="Vues" sortKeyValue="views" /></th>
-                <th className="p-3 text-right text-xs font-bold text-muted-foreground">Interactions</th>
-                <th className="p-3 text-right"><SortHeader label="Engagement" sortKeyValue="engagementRate" /></th>
-                <th className="p-3 text-right"><SortHeader label="Clics" sortKeyValue="clickRate" /></th>
-                <th className="p-3 text-right"><SortHeader label="Leads" sortKeyValue="viewToLeadRate" /></th>
-                <th className="p-3 text-right"><SortHeader label="Score" sortKeyValue="score" /></th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">Interactions</span>
+                    <InfoPopover text={EXPLANATIONS.interactions} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <SortHeader label="Engagement" sortKeyValue="engagementRate" />
+                    <InfoPopover text={EXPLANATIONS.engagement} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <SortHeader label="Clics" sortKeyValue="clickRate" />
+                    <InfoPopover text={EXPLANATIONS.clics} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <SortHeader label="Leads" sortKeyValue="viewToLeadRate" />
+                    <InfoPopover text={EXPLANATIONS.leads} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <SortHeader label="Score" sortKeyValue="score" />
+                    <InfoPopover text={EXPLANATIONS.score} />
+                  </div>
+                </th>
                 <th className="p-3" />
               </tr>
             </thead>
