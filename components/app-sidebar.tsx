@@ -20,13 +20,11 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Fragment, forwardRef, useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
-import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 import { createClient } from "@/lib/supabase/client";
 import type { PermissionKey } from "@/lib/team/permissions";
@@ -54,14 +52,18 @@ type LinkEntry = {
 // Diagnostic already shows — removed, not just hidden). Team/roles moved to
 // Mon business (app/(app)/business), Équipe card there.
 //
-// Acquisition/Vente are pillar entries — each fans out into a tab sub-menu
-// (app/(app)/acquisition/layout.tsx, app/(app)/ventes/layout.tsx) rather than
-// being flat items here: Contenu and Suivi des ventes used to be standalone
-// entries, now live as tabs under their pillar (same URLs, unchanged).
-// Setting/Ads/Closing (the former "Avancé" showcase modules) are
-// deliberately set aside again — not rendered as tabs by their pillar
-// layout, not linked anywhere. Copilote (below) replaces the old "Avancé"
-// nav entry.
+// Acquisition/Vente are pillar entries: plain links to their landing page
+// (which redirects to the first accessible sub-page), same as every other
+// entry here. Their sub-pages (Contenu, Pipeline, Setters...) are reachable
+// via the PillarTabs bar rendered at the top of the pillar's own layout
+// (app/(app)/acquisition/layout.tsx, app/(app)/ventes/layout.tsx) — a
+// sidebar hover flyout used to duplicate that same list one click earlier,
+// but hover has no touch-device equivalent and it's fully redundant with
+// the tabs, so it was removed rather than reimplemented as a
+// tap-to-expand accordion. Setting/Ads/Closing (the former "Avancé"
+// showcase modules) are deliberately set aside again — not rendered as
+// tabs by their pillar layout, not linked anywhere. Copilote (below)
+// replaces the old "Avancé" nav entry.
 //
 // "Journal de bord" (/journal) is built (app/(app)/journal/) but
 // deliberately not linked here yet — hidden from the nav for later, not
@@ -119,24 +121,22 @@ function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonl
   return false;
 }
 
-// forwardRef so Radix's HoverCardTrigger asChild can attach its ref (used
-// to anchor the sub-pages flyout below) — plain function components can't
-// receive a ref, which would silently break the flyout's positioning.
-const NavLink = forwardRef<
-  HTMLAnchorElement,
-  React.ComponentPropsWithoutRef<"a"> & {
-    entry: LinkEntry;
-    pathname: string;
-    indented: boolean;
-    badge?: string;
-  }
->(function NavLink({ entry, pathname, indented, badge, ...anchorProps }, ref) {
+function NavLink({
+  entry,
+  pathname,
+  indented,
+  badge,
+}: {
+  entry: LinkEntry;
+  pathname: string;
+  indented: boolean;
+  badge?: string;
+}) {
   const Icon = entry.icon;
   const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
 
   return (
     <Link
-      ref={ref}
       href={entry.href}
       className={cn(
         "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
@@ -145,7 +145,6 @@ const NavLink = forwardRef<
           ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]"
           : "text-white hover:translate-x-0.5 hover:bg-mist/10"
       )}
-      {...anchorProps}
     >
       <Icon className="size-4" />
       {entry.label}
@@ -155,55 +154,6 @@ const NavLink = forwardRef<
         </span>
       )}
     </Link>
-  );
-});
-
-// Hover flyout for a pillar entry (Acquisition, Vente) — lists its
-// sub-pages so they're reachable in one click instead of landing on the
-// pillar's default tab first. Only the sub-pages the current user actually
-// has access to are shown, same permission check as the pillar's own tab
-// bar (app/(app)/acquisition/layout.tsx, app/(app)/ventes/layout.tsx) via
-// the shared PILLAR_SUBPAGES source.
-function PillarNavLink({
-  entry,
-  pathname,
-  isOwner,
-  permissions,
-}: {
-  entry: LinkEntry;
-  pathname: string;
-  isOwner: boolean;
-  permissions: readonly PermissionKey[];
-}) {
-  const subpages = (PILLAR_SUBPAGES[entry.href] ?? []).filter((sub) => isOwner || permissions.includes(sub.permission));
-
-  if (subpages.length === 0) {
-    return <NavLink entry={entry} pathname={pathname} indented={false} />;
-  }
-
-  return (
-    <HoverCard openDelay={150} closeDelay={150}>
-      <HoverCardTrigger asChild>
-        <NavLink entry={entry} pathname={pathname} indented={false} />
-      </HoverCardTrigger>
-      <HoverCardContent side="right" align="start" sideOffset={12} className="w-52 p-1.5">
-        {subpages.map((sub) => {
-          const active = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
-          return (
-            <Link
-              key={sub.href}
-              href={sub.href}
-              className={cn(
-                "flex items-center rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-bold transition-colors",
-                active ? "bg-accent-soft text-accent-text" : "text-foreground hover:bg-muted"
-              )}
-            >
-              {sub.label}
-            </Link>
-          );
-        })}
-      </HoverCardContent>
-    </HoverCard>
   );
 }
 
@@ -319,10 +269,8 @@ export function AppSidebar({
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Navigating (including via the hover-flyout sub-pages, which live in a
-  // Radix Portal outside the <nav> DOM subtree and so wouldn't be caught by
-  // an onClick there) should always dismiss the mobile drawer — otherwise
-  // it's still covering the screen after the route has already changed.
+  // Navigating should always dismiss the mobile drawer — otherwise it's
+  // still covering the screen after the route has already changed.
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
@@ -409,7 +357,7 @@ export function AppSidebar({
                   analysis pages above it — same hairline that used to
                   separate the old "Avancé" entry. */}
               {entry.href === "/copilote" && <div className="my-3 h-px bg-white/20" />}
-              <PillarNavLink entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
+              <NavLink entry={entry} pathname={pathname} indented={false} />
             </Fragment>
           ))}
         </nav>

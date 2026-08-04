@@ -2,12 +2,13 @@ import type { PermissionKey } from "@/lib/team/permissions";
 
 export type PillarSubpage = { href: string; label: string; permission: PermissionKey };
 
-// Single source of truth for each pillar's sub-pages — consumed by both the
+// Single source of truth for each pillar's sub-pages — consumed by the
 // pillar's own tab bar (app/(app)/acquisition/layout.tsx,
-// app/(app)/ventes/layout.tsx) and the sidebar's hover flyout
-// (components/app-sidebar.tsx), so the two listings can't drift apart.
-// Setting/Closing/Vidéos are deliberately absent here, same "hide, don't
-// delete" precedent already applied to their tabs.
+// app/(app)/ventes/layout.tsx; see components/pillar-tabs.tsx). The sidebar
+// (components/app-sidebar.tsx) no longer mirrors this list in a hover
+// flyout — it just links to the pillar's landing page, which redirects into
+// this same tab bar. Setting/Closing/Vidéos are deliberately absent here,
+// same "hide, don't delete" precedent already applied to their tabs.
 export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
   "/acquisition": [
     { href: "/acquisition/contenu", label: "Contenu", permission: "acquisition:contenu" },
