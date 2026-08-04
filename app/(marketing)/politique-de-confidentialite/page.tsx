@@ -8,12 +8,12 @@ const LAST_UPDATED = "4 août 2026";
 const CONTACT_EMAIL = "contact@scalex.app";
 
 export const metadata: Metadata = {
-  title: "Politique de confidentialité — Scale X",
+  title: "Politique de confidentialité | Scale X",
   description:
     "Comment Scale X collecte, utilise et protège vos données personnelles : ce que nous collectons, pourquoi, avec qui nous le partageons et vos droits RGPD.",
   alternates: { canonical: "/politique-de-confidentialite" },
   openGraph: {
-    title: "Politique de confidentialité — Scale X",
+    title: "Politique de confidentialité | Scale X",
     description:
       "Comment Scale X collecte, utilise et protège vos données personnelles : ce que nous collectons, pourquoi, avec qui nous le partageons et vos droits RGPD.",
     type: "website",
@@ -47,27 +47,27 @@ const SECTIONS: Section[] = [
         <p>Selon votre usage du produit, nous collectons :</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
-            <strong className="text-foreground">Données de compte</strong> — nom, adresse email, mot de passe (haché,
+            <strong className="text-foreground">Données de compte :</strong> nom, adresse email, mot de passe (haché,
             géré par Supabase Auth), rôle au sein de votre équipe.
           </li>
           <li>
-            <strong className="text-foreground">Données de facturation</strong> — gérées directement par Stripe ; nous
+            <strong className="text-foreground">Données de facturation :</strong> gérées directement par Stripe ; nous
             ne stockons jamais votre numéro de carte bancaire.
           </li>
           <li>
-            <strong className="text-foreground">Clé API Anthropic (BYOK)</strong> — si vous fournissez la vôtre, elle
+            <strong className="text-foreground">Clé API Anthropic (BYOK) :</strong> si vous fournissez la vôtre, elle
             est chiffrée en base de données, jamais affichée en clair après sa saisie, jamais journalisée.
           </li>
           <li>
-            <strong className="text-foreground">Données business connectées</strong> — via les intégrations que vous
-            activez (Stripe Connect, iClosed, Calendly, Instagram) : voir la section dédiée ci-dessous.
+            <strong className="text-foreground">Données business connectées :</strong> via les intégrations que vous
+            activez (Stripe Connect, iClosed, Calendly, Instagram). Voir la section dédiée ci-dessous.
           </li>
           <li>
-            <strong className="text-foreground">Données d&apos;usage</strong> — pages consultées, actions réalisées
+            <strong className="text-foreground">Données d&apos;usage :</strong> pages consultées, actions réalisées
             dans le produit, journaux techniques, collectées via notre outil de mesure d&apos;audience (PostHog).
           </li>
           <li>
-            <strong className="text-foreground">Correspondance</strong> — les emails que vous nous envoyez lorsque
+            <strong className="text-foreground">Correspondance :</strong> les emails que vous nous envoyez lorsque
             vous nous contactez.
           </li>
         </ul>
@@ -81,15 +81,15 @@ const SECTIONS: Section[] = [
       <>
         <p>Nous utilisons vos données pour les finalités suivantes, chacune adossée à une base légale RGPD :</p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li>Fournir et faire fonctionner le service souscrit — exécution du contrat.</li>
+          <li>Fournir et faire fonctionner le service souscrit (exécution du contrat).</li>
           <li>
-            Diagnostiquer votre activité et générer des recommandations via l&apos;agent IA — exécution du contrat.
+            Diagnostiquer votre activité et générer des recommandations via l&apos;agent IA (exécution du contrat).
           </li>
-          <li>Vous envoyer le brief hebdomadaire et les notifications produit — exécution du contrat.</li>
-          <li>Facturer votre abonnement — exécution du contrat et obligations légales comptables.</li>
-          <li>Améliorer le produit et mesurer son usage — intérêt légitime.</li>
-          <li>Assurer la sécurité du service et prévenir la fraude — intérêt légitime et obligation légale.</li>
-          <li>Répondre à vos demandes de support — exécution du contrat.</li>
+          <li>Vous envoyer le brief hebdomadaire et les notifications produit (exécution du contrat).</li>
+          <li>Facturer votre abonnement (exécution du contrat et obligations légales comptables).</li>
+          <li>Améliorer le produit et mesurer son usage (intérêt légitime).</li>
+          <li>Assurer la sécurité du service et prévenir la fraude (intérêt légitime et obligation légale).</li>
+          <li>Répondre à vos demandes de support (exécution du contrat).</li>
         </ul>
         <p>
           Nous ne prenons aucune décision automatisée produisant des effets juridiques à votre égard : les
@@ -110,18 +110,18 @@ const SECTIONS: Section[] = [
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
-            <strong className="text-foreground">Stripe Connect</strong> — transactions, produits, montants, statut de
+            <strong className="text-foreground">Stripe Connect :</strong> transactions, produits, montants, statut de
             vos clients payants.
           </li>
           <li>
-            <strong className="text-foreground">iClosed</strong> — appels de closing programmés et leur résultat
+            <strong className="text-foreground">iClosed :</strong> appels de closing programmés et leur résultat
             (montant, statut).
           </li>
           <li>
-            <strong className="text-foreground">Calendly</strong> — rendez-vous pris et leur statut.
+            <strong className="text-foreground">Calendly :</strong> rendez-vous pris et leur statut.
           </li>
           <li>
-            <strong className="text-foreground">Instagram</strong> — via l&apos;API Instagram (scopes en lecture
+            <strong className="text-foreground">Instagram :</strong> via l&apos;API Instagram (scopes en lecture
             seule <code className="rounded bg-surface-sunken px-1 py-0.5 text-[13px]">instagram_business_basic</code>{" "}
             et{" "}
             <code className="rounded bg-surface-sunken px-1 py-0.5 text-[13px]">
@@ -151,15 +151,15 @@ const SECTIONS: Section[] = [
           nécessaires au fonctionnement du service :
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li>Vercel Inc. — hébergement de l&apos;application.</li>
-          <li>Supabase Inc. — base de données et authentification.</li>
-          <li>Stripe — paiement de votre abonnement et lecture de votre compte Stripe connecté.</li>
-          <li>Anthropic PBC — exécution des requêtes de l&apos;agent IA, en priorité via votre propre clé API.</li>
-          <li>Resend — envoi des emails transactionnels et du brief hebdomadaire.</li>
-          <li>Inngest Inc. — orchestration des tâches automatisées (synchronisation, relances).</li>
-          <li>PostHog Inc. — mesure d&apos;audience et amélioration produit.</li>
-          <li>Meta Platforms, Inc. — API Instagram, si vous connectez un compte Instagram professionnel.</li>
-          <li>iClosed / Calendly LLC — si vous connectez le compte correspondant.</li>
+          <li>Vercel Inc. : hébergement de l&apos;application.</li>
+          <li>Supabase Inc. : base de données et authentification.</li>
+          <li>Stripe : paiement de votre abonnement et lecture de votre compte Stripe connecté.</li>
+          <li>Anthropic PBC : exécution des requêtes de l&apos;agent IA, en priorité via votre propre clé API.</li>
+          <li>Resend : envoi des emails transactionnels et du brief hebdomadaire.</li>
+          <li>Inngest Inc. : orchestration des tâches automatisées (synchronisation, relances).</li>
+          <li>PostHog Inc. : mesure d&apos;audience et amélioration produit.</li>
+          <li>Meta Platforms, Inc. : API Instagram, si vous connectez un compte Instagram professionnel.</li>
+          <li>iClosed / Calendly LLC : si vous connectez le compte correspondant.</li>
         </ul>
       </>
     ),
@@ -170,11 +170,11 @@ const SECTIONS: Section[] = [
     body: (
       <ul className="list-disc space-y-1.5 pl-5">
         <li>
-          <strong className="text-foreground">Cookies essentiels</strong> — session d&apos;authentification
+          <strong className="text-foreground">Cookies essentiels :</strong> session d&apos;authentification
           (Supabase Auth), nécessaires au fonctionnement du produit et exemptés de consentement.
         </li>
         <li>
-          <strong className="text-foreground">Cookies de mesure d&apos;audience</strong> — PostHog, pour comprendre
+          <strong className="text-foreground">Cookies de mesure d&apos;audience :</strong> PostHog, pour comprendre
           l&apos;usage du produit et l&apos;améliorer. Vous pouvez vous y opposer via les réglages de votre
           navigateur.
         </li>
@@ -237,9 +237,9 @@ const SECTIONS: Section[] = [
           Pour exercer ces droits, écrivez-nous à{" "}
           <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-accent hover:underline">
             {CONTACT_EMAIL}
-          </a>{" "}
-          — nous répondons sous un mois. Vous disposez également du droit d&apos;introduire une réclamation auprès
-          de la CNIL (3 Place de Fontenoy, 75007 Paris —{" "}
+          </a>
+          . Nous répondons sous un mois. Vous disposez également du droit d&apos;introduire une réclamation auprès
+          de la CNIL (3 Place de Fontenoy, 75007 Paris,{" "}
           <a
             href="https://www.cnil.fr"
             target="_blank"
@@ -264,8 +264,8 @@ const SECTIONS: Section[] = [
         importées (statistiques de contenu, informations de connexion) en nous écrivant à{" "}
         <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-accent hover:underline">
           {CONTACT_EMAIL}
-        </a>{" "}
-        — la demande est traitée sous 30 jours maximum.
+        </a>
+        . Nous traitons la demande sous 30 jours maximum.
       </p>
     ),
   },
