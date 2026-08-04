@@ -343,7 +343,7 @@ const LEVERS = [
     effort: "faible",
     sortOrder: 7,
     explanation:
-      "La preuve sociale sur la page de vente, c'est l'ensemble des témoignages, résultats chiffrés, avis ou logos qui montrent à un prospect que d'autres personnes comme lui ont déjà obtenu ce que tu promets — avant qu'il ait à te faire confiance sur parole.\n\nPour un coach, ça rapporte parce que personne n'aime être le premier à tester quelque chose : voir que d'autres ont déjà obtenu des résultats réduit fortement l'hésitation à l'achat, surtout pour une offre avec un prix ou un engagement conséquent.\n\nConcrètement : 3 à 5 témoignages précis (avec un résultat concret, pas juste \"super coach !\"), idéalement en vidéo ou avec une photo, positionnés juste avant les moments clés de décision sur la page (après la présentation de l'offre, avant le bouton d'achat).",
+      "La preuve sociale sur la page de vente, c'est l'ensemble des témoignages, résultats chiffrés, avis ou logos qui montrent à un prospect que d'autres personnes comme lui ont déjà obtenu ce que tu promets, avant qu'il ait à te faire confiance sur parole.\n\nPersonne n'aime être le premier à tester quelque chose. Voir que d'autres ont déjà obtenu des résultats réduit fortement l'hésitation à l'achat, surtout pour une offre avec un prix ou un engagement conséquent.\n\nConcrètement : 3 à 5 témoignages précis (avec un résultat concret, pas juste \"super coach !\"), idéalement en vidéo ou avec une photo, positionnés juste avant les moments clés de décision sur la page (après la présentation de l'offre, avant le bouton d'achat).",
     estTimeLabel: "1-2h pour les rassembler et les intégrer",
   },
 
