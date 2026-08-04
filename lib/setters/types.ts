@@ -19,10 +19,17 @@ export type SetterSaleDetail = {
   paymentStatus: "payee" | "a_venir";
 };
 
+export type SetterMonthlyCommission = {
+  month: string; // "YYYY-MM"
+  paidEur: number;
+  upcomingEur: number;
+};
+
 export type SetterCommissions = {
   validatedSalesCount: number;
   validatedRevenueEur: number;
   commissionPaidEur: number;
   commissionUpcomingEur: number;
   sales: SetterSaleDetail[];
+  monthly: SetterMonthlyCommission[]; // most recent month first
 };

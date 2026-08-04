@@ -3,12 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { track } from "@/lib/analytics";
-import { getBusinessProfile } from "@/lib/business/queries";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
-import { computeSetterCommissions, createSetter, updateSetter } from "@/lib/setters/queries";
+import { createSetter, updateSetter } from "@/lib/setters/queries";
 import { setterInputSchema } from "@/lib/setters/schema";
-import type { SetterCommissions } from "@/lib/setters/types";
 
 export async function saveSetter(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
@@ -43,16 +41,4 @@ export async function toggleSetterActive(id: string, active: boolean): Promise<{
   await updateSetter(access.accountId, id, { active });
   revalidatePath("/acquisition/setters");
   return { error: null };
-}
-
-// Lazily fetches a setter's full sale detail for the drawer (not needed
-// just to render the summary cards, which the page computes up front).
-export async function getSetterCommissionsAction(setterId: string): Promise<SetterCommissions | null> {
-  const userId = await requireUserId();
-  if (typeof userId !== "string") return null;
-  const access = await requirePermission(userId, "acquisition:setters");
-  if (!access) return null;
-
-  const businessProfile = await getBusinessProfile(access.accountId);
-  return computeSetterCommissions(access.accountId, setterId, businessProfile.sales.offers);
 }
