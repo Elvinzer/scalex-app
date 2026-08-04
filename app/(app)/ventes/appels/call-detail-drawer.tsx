@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { SalesCallRow } from "@/lib/iclosed/calls";
 
+import { AmountInput, CallResultSelect, TONE_TEXT, useCallOutcome } from "./call-outcome";
 import { addCallComment, deleteCallComment, getCallComments, type CallComment } from "./comment-actions";
 
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit",
   month: "2-digit",
@@ -23,15 +23,6 @@ const STAMP_FORMAT = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
   minute: "2-digit",
 });
-
-function statusLabel(call: SalesCallRow): string {
-  if (call.attendance === "cancelled") return "Annulé";
-  if (call.attendance === "no_show") return "No-show";
-  if (call.outcome === "closed") return "Closé";
-  if (call.outcome === "not_closed") return "Non closé";
-  if (call.outcome === "awaiting_decision") return "Attente décision";
-  return new Date(call.scheduledAt).getTime() > Date.now() ? "À venir" : "À traiter";
-}
 
 export function CallDetailDrawer({
   call,
@@ -47,6 +38,7 @@ export function CallDetailDrawer({
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const outcome = useCallOutcome(call);
 
   const callId = call?.id ?? null;
 
@@ -99,6 +91,9 @@ export function CallDetailDrawer({
 
   if (!call) return null;
 
+  const cancelled = call.attendance === "cancelled";
+  const isFuture = new Date(call.scheduledAt).getTime() > Date.now();
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
@@ -116,18 +111,66 @@ export function CallDetailDrawer({
             {call.inviteeEmail && <span>{call.inviteeEmail}</span>}
             <span>{DATE_FORMAT.format(new Date(call.scheduledAt))}</span>
             {call.closer && <span>Closer : {call.closer}</span>}
-            <span className="flex items-center gap-2">
-              <span className="font-bold text-foreground">{statusLabel(call)}</span>
-              <span className="text-[10px] font-bold tracking-wide uppercase">
-                {call.source === "calendly" ? "Calendly" : call.source === "manual" ? "Manuel" : "iClosed"}
-              </span>
+            <span className="text-[10px] font-bold tracking-wide uppercase">
+              {call.source === "calendly" ? "Calendly" : call.source === "manual" ? "Manuel" : "iClosed"}
             </span>
-            {call.outcome === "closed" && (
-              <span>
-                Contracté : {call.contracted != null ? `${NUMBER_FORMAT.format(call.contracted)} €` : "—"} · Collecté :{" "}
-                {call.collected != null ? `${NUMBER_FORMAT.format(call.collected)} €` : "—"}
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-border p-4">
+            <p className="text-sm font-bold">Issue de l&apos;appel</p>
+            {cancelled ? (
+              <span className="w-fit rounded-full bg-state-unknown-bg px-2 py-0.5 text-xs font-bold text-state-unknown">
+                Annulé
               </span>
+            ) : (
+              <>
+                <CallResultSelect result={outcome.result} onChange={outcome.chooseResult} />
+                {outcome.result === "awaiting_decision" && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      aria-label="Réponse attendue le"
+                      value={outcome.dueDate}
+                      onChange={(e) => outcome.commitDueDate(e.target.value)}
+                      className="rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-xs outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+                    />
+                    {outcome.dueUrgency ? (
+                      <span className={`text-[10px] font-bold ${TONE_TEXT[outcome.dueUrgency.tone]}`}>
+                        {outcome.dueUrgency.label}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">réponse attendue ?</span>
+                    )}
+                  </div>
+                )}
+                {outcome.result === "closed" && (
+                  <div className="flex items-center gap-5">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Contracté</span>
+                      <AmountInput
+                        value={outcome.contracted}
+                        onChange={outcome.setContracted}
+                        onCommit={outcome.commitAmounts}
+                        onKey={outcome.onAmountKey}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground">Collecté</span>
+                      <AmountInput
+                        value={outcome.collected}
+                        onChange={outcome.setCollected}
+                        onCommit={outcome.commitAmounts}
+                        onKey={outcome.onAmountKey}
+                      />
+                    </div>
+                  </div>
+                )}
+                {outcome.result === null && isFuture && (
+                  <p className="text-xs text-muted-foreground">À venir — pas encore d&apos;issue à choisir.</p>
+                )}
+              </>
             )}
+            {outcome.error && <p className="text-xs text-state-critical">{outcome.error}</p>}
           </div>
 
           <div>
