@@ -1,12 +1,16 @@
+import { eq } from "drizzle-orm";
 import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
+import { OverdueActionsSection } from "./overdue-actions-section";
 import { WeeklyReportDialog } from "./weekly-report-dialog";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { MetricCard } from "@/components/metric-card";
 import { PriorityItem } from "@/components/priority-item";
 import { Button } from "@/components/ui/button";
+import { db } from "@/db";
+import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
@@ -17,9 +21,12 @@ import { computePriorityScores, scoreCandidates, type PriorityRecommendation } f
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
+import { buildOverdueActions } from "@/lib/dashboard/overdue-actions";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
+import { getSalesCalls } from "@/lib/iclosed/calls";
+import { getLeads } from "@/lib/leads/queries";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
@@ -85,6 +92,25 @@ export default async function DashboardPage({
     ]);
 
   const firstName = user?.email.split("@")[0] || "là";
+
+  // Overdue-actions data — independent of the diagnostic engine above, so
+  // fetched as its own batch rather than folded into it.
+  const [salesCalls, leads] = await Promise.all([getSalesCalls(accountId), getLeads(accountId)]);
+  const [iclosedConnection] = user?.iclosedConnected
+    ? await db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
+    : [];
+  const [calendlyConnection] = user?.calendlyConnected
+    ? await db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
+    : [];
+  const overdueActions = buildOverdueActions({
+    awaitingDecisionCalls: salesCalls.filter((call) => call.outcome === "awaiting_decision"),
+    leads,
+    keyInvalid: Boolean(user?.anthropicApiKeyInvalid),
+    failedSyncs: [
+      ...(user?.iclosedConnected && iclosedConnection?.initialSyncStatus === "failed" ? ["iClosed"] : []),
+      ...(user?.calendlyConnected && calendlyConnection?.initialSyncStatus === "failed" ? ["Calendly"] : []),
+    ],
+  });
 
   const metricCards = buildMetricCards({
     businessProfile,
@@ -284,6 +310,8 @@ export default async function DashboardPage({
           </Suspense>
         </div>
       )}
+
+      <OverdueActionsSection actions={overdueActions} />
 
       <div>
         <h2 className="text-base font-bold">Tes chiffres clés</h2>
