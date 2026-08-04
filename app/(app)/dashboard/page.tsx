@@ -13,7 +13,7 @@ import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints, resolveDealPrice, type DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
-import { computePriorityScores } from "@/lib/diagnostic/priority";
+import { computePriorityScores, scoreCandidates, type PriorityRecommendation } from "@/lib/diagnostic/priority";
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
@@ -39,6 +39,27 @@ const DASHBOARD_METRIC_CARD_KEYS = [
   "closing-rate",
   "average-sale",
 ];
+
+// Shared by rank 1 (primaryPick) and ranks 2-3 (fillerRecommendations) —
+// same lever-vs-metric branch already used inline before this fix existed.
+function renderPriorityRecommendation(rec: PriorityRecommendation, rank: 1 | 2 | 3) {
+  return rec.candidate.type === "lever" ? (
+    <PriorityItem
+      rank={rank}
+      leverWinner={{
+        leverKey: rec.candidate.key,
+        label: rec.candidate.label,
+        category: rec.candidate.category,
+        monthlyGainEur: rec.candidate.monthlyGainEur,
+        isActive: rec.candidate.isActive,
+      }}
+    />
+  ) : (
+    // sourceMetricPoint is always set for type "metric" (see
+    // collectCandidates in lib/diagnostic/priority.ts).
+    <PriorityItem rank={rank} point={rec.candidate.sourceMetricPoint as DiagnosticPoint} />
+  );
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -115,23 +136,24 @@ export default async function DashboardPage({
   // priority-driven; ranks 2-3 stay on the plain €-sort below them
   // (nothing in the brief asks for the whole top-3 to be re-ranked).
   const monthlyRevenueEur = cashContractedTotal / PERIOD_MONTHS;
+  // effort defaults to "faible": tuning a lever that's already running is
+  // inherently less work than building it from scratch (the question
+  // levers_catalog.effort actually answers) — no per-lever "how hard to
+  // improve" data exists, so this is a deliberate, documented calibration
+  // rather than a real per-lever figure.
+  const leverCandidatesForScoring = toWatch.map((watch) => ({
+    leverKey: watch.leverKey,
+    label: watch.label,
+    category: watch.category,
+    impactAmountEur: watch.impactAmountEur,
+    effort: "faible" as const,
+    healthScore: watch.score,
+    isActive: true,
+  }));
   const { recommendations } = hasAnyMonthlyRow
     ? computePriorityScores({
         points: allPoints,
-        // effort defaults to "faible": tuning a lever that's already running
-        // is inherently less work than building it from scratch (the
-        // question levers_catalog.effort actually answers) — no per-lever
-        // "how hard to improve" data exists, so this is a deliberate,
-        // documented calibration rather than a real per-lever figure.
-        leverCandidates: toWatch.map((watch) => ({
-          leverKey: watch.leverKey,
-          label: watch.label,
-          category: watch.category,
-          impactAmountEur: watch.impactAmountEur,
-          effort: "faible" as const,
-          healthScore: watch.score,
-          isActive: true,
-        })),
+        leverCandidates: leverCandidatesForScoring,
         businessProfile,
         monthlyRevenueEur,
         rules: priorityRules,
@@ -139,12 +161,32 @@ export default async function DashboardPage({
     : { recommendations: [] };
   const topRecommendation = recommendations[0] ?? null;
 
+  // Fallback when nothing clears computePriorityScores' confidence
+  // threshold: reuse the SAME unfiltered ranking /diagnostic's "Points à
+  // améliorer" shows (scoreCandidates — no threshold, no slice). Without
+  // this, a real gap that's lever-only (not one of the 5 cascade metrics,
+  // e.g. an underperforming ad campaign) could score under the threshold
+  // and this section would render "rien à corriger" while /diagnostic was
+  // still showing that exact same lever as something to fix.
+  const fullRanked = hasAnyMonthlyRow
+    ? scoreCandidates({
+        points: allPoints,
+        leverCandidates: leverCandidatesForScoring,
+        businessProfile,
+        monthlyRevenueEur,
+        rules: priorityRules,
+      })
+    : [];
+  const primaryPick = topRecommendation ?? fullRanked[0] ?? null;
+
   // Ranks 2-3 fill in from the plain €-sorted list, skipping whichever
   // metric point rank 1 already covers (a lever-type rank 1 has no
   // equivalent in allPoints, so nothing needs excluding in that case).
-  const fillerPoints = allPoints
-    .filter((p) => p.key !== topRecommendation?.candidate.sourceMetricPoint?.key)
-    .slice(0, topRecommendation ? 2 : 3);
+  const fillerPoints = allPoints.filter((p) => p.key !== topRecommendation?.candidate.sourceMetricPoint?.key).slice(0, 2);
+  // Same idea as fillerPoints, but from the unfiltered ranking (so it can
+  // include further levers too) — only used when there's no confident
+  // topRecommendation, i.e. primaryPick itself already came from fullRanked.
+  const fillerRecommendations = !topRecommendation ? fullRanked.slice(1, 3) : [];
 
   // "Manque à gagner" = improvements possible on elements already in place
   // (the cascade bottlenecks + active-but-underperforming levers) — NOT
@@ -264,38 +306,19 @@ export default async function DashboardPage({
         </div>
 
         <div className="mt-3 flex flex-col gap-3">
-          {topRecommendation ? (
-            <div className="animate-rise">
-              {topRecommendation.candidate.type === "lever" ? (
-                <PriorityItem
-                  rank={1}
-                  leverWinner={{
-                    leverKey: topRecommendation.candidate.key,
-                    label: topRecommendation.candidate.label,
-                    category: topRecommendation.candidate.category,
-                    monthlyGainEur: topRecommendation.candidate.monthlyGainEur,
-                    isActive: topRecommendation.candidate.isActive,
-                  }}
-                />
-              ) : (
-                // sourceMetricPoint is always set for type "metric" (see
-                // collectCandidates in lib/diagnostic/priority.ts).
-                <PriorityItem rank={1} point={topRecommendation.candidate.sourceMetricPoint as DiagnosticPoint} />
-              )}
-            </div>
-          ) : (
-            points[0] && (
-              <div className="animate-rise">
-                <PriorityItem rank={1} point={points[0]} />
-              </div>
-            )
-          )}
+          {primaryPick && <div className="animate-rise">{renderPriorityRecommendation(primaryPick, 1)}</div>}
 
-          {(topRecommendation ? fillerPoints : points.slice(1)).map((point, index) => (
-            <div key={point.key} className="animate-rise" style={{ animationDelay: `${(index + 1) * 60}ms` }}>
-              <PriorityItem rank={(index + 2) as 2 | 3} point={point} />
-            </div>
-          ))}
+          {topRecommendation
+            ? fillerPoints.map((point, index) => (
+                <div key={point.key} className="animate-rise" style={{ animationDelay: `${(index + 1) * 60}ms` }}>
+                  <PriorityItem rank={(index + 2) as 2 | 3} point={point} />
+                </div>
+              ))
+            : fillerRecommendations.map((rec, index) => (
+                <div key={rec.candidate.key} className="animate-rise" style={{ animationDelay: `${(index + 1) * 60}ms` }}>
+                  {renderPriorityRecommendation(rec, (index + 2) as 2 | 3)}
+                </div>
+              ))}
 
           {points.length < 3 && unlockHints.length > 0 && (
             <FalcoEmptyState title="Débloquer plus de diagnostics" showFalco={false}>
@@ -308,10 +331,12 @@ export default async function DashboardPage({
           )}
 
           {/* Genuinely nothing to show — not a "need more data" case
-              (unlockHints empty) and no point/lever is below benchmark.
-              Previously rendered nothing at all here, reading as broken;
-              same "all good" pattern as /diagnostic's own empty state. */}
-          {!topRecommendation && !points[0] && unlockHints.length === 0 && (
+              (unlockHints empty) and no point/lever from the FULL unfiltered
+              ranking (fullRanked, same engine as /diagnostic) is below
+              benchmark. primaryPick covers both the confident pick and the
+              below-threshold fallback, so this can't go stale the way
+              checking topRecommendation alone did. */}
+          {!primaryPick && unlockHints.length === 0 && (
             <FalcoEmptyState title="Rien à corriger en priorité pour l'instant" showFalco={false}>
               <p className="mt-2 text-sm text-muted-foreground">
                 Tous tes taux mesurés sont au niveau du benchmark. Continue comme ça.
