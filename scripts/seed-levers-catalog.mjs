@@ -361,7 +361,7 @@ const LEVERS = [
     effort: "moyen",
     sortOrder: 1,
     explanation:
-      "L'upsell, c'est proposer une offre complémentaire — plus complète, plus accompagnée, ou plus avancée — à quelqu'un qui vient déjà d'acheter (ou qui est déjà client). C'est le levier au meilleur rapport effort/gain : tu ne dépenses rien en acquisition, tu vends à quelqu'un qui te fait déjà confiance.\n\nPour un coach, ça rapporte parce qu'augmenter le panier moyen de tes clients existants coûte beaucoup moins cher que d'aller chercher un nouveau client — et le moment juste après un achat (ou une victoire client) est celui où la confiance est la plus haute.\n\nConcrètement : une offre d'ascension claire (un programme VIP, un accompagnement plus poussé, un module complémentaire) proposée au bon moment — juste après la vente principale, ou après un premier résultat obtenu.",
+      "L'upsell, c'est proposer une offre complémentaire (plus complète, plus accompagnée, ou plus avancée) à quelqu'un qui vient déjà d'acheter, ou qui est déjà client. C'est le levier au meilleur rapport effort/gain : tu ne dépenses rien en acquisition, tu vends à quelqu'un qui te fait déjà confiance.\n\nAugmenter le panier moyen de tes clients existants coûte beaucoup moins cher que d'aller chercher un nouveau client, et le moment juste après un achat (ou une victoire client) est celui où la confiance est la plus haute.\n\nConcrètement : une offre d'ascension claire (un programme VIP, un accompagnement plus poussé, un module complémentaire) proposée au bon moment, juste après la vente principale, ou après un premier résultat obtenu.",
     estTimeLabel: "3-5h pour définir l'offre et le script",
   },
   {
@@ -377,7 +377,7 @@ const LEVERS = [
     effort: "moyen",
     sortOrder: 2,
     explanation:
-      "La structure d'onboarding, c'est le parcours que tu fais vivre à un client dans ses premiers jours après l'achat — accès aux ressources, premier appel ou message de bienvenue, attentes clarifiées. C'est ce qui détermine si un client démarre en confiance ou dans le flou.\n\nPour un coach, ça rapporte parce qu'un onboarding clair réduit drastiquement le risque de décrochage précoce et les demandes de remboursement dans les premiers jours — un client qui sait exactement quoi faire dès le départ s'engage plus vite, obtient des résultats plus vite, et devient plus facilement un témoignage ou un client qui reste.\n\nConcrètement : un message de bienvenue automatique dès l'achat, un accès centralisé aux ressources (pas éparpillé dans 5 outils différents), et une première action claire à faire dans les 48h pour créer un momentum immédiat.",
+      "La structure d'onboarding, c'est le parcours que tu fais vivre à un client dans ses premiers jours après l'achat : accès aux ressources, premier appel ou message de bienvenue, attentes clarifiées. C'est ce qui détermine si un client démarre en confiance ou dans le flou.\n\nUn onboarding clair réduit drastiquement le risque de décrochage précoce et les demandes de remboursement dans les premiers jours. Un client qui sait exactement quoi faire dès le départ s'engage plus vite, obtient des résultats plus vite, et devient plus facilement un témoignage ou un client qui reste.\n\nConcrètement : un message de bienvenue automatique dès l'achat, un accès centralisé aux ressources (pas éparpillé dans 5 outils différents), et une première action claire à faire dans les 48h pour créer un momentum immédiat.",
     estTimeLabel: "2-4h pour structurer le parcours",
   },
   {
@@ -392,7 +392,7 @@ const LEVERS = [
     effort: "faible",
     sortOrder: 3,
     explanation:
-      "La collecte systématique de témoignages, c'est un process répété — pas ponctuel — qui te permet de récupérer un retour client à chaque étape clé (fin de programme, résultat obtenu, renouvellement), plutôt que de compter sur les quelques clients qui pensent spontanément à t'en laisser un.\n\nPour un coach, ça rapporte parce que la preuve sociale est un des leviers de conversion les plus puissants, mais elle s'épuise vite si elle repose sur 2-3 témoignages recyclés partout. Un process systématique te garantit un flux continu de nouveaux témoignages à jour, alignés sur ton offre actuelle.\n\nConcrètement : une demande envoyée automatiquement à un moment précis (fin d'accompagnement, quelques semaines après un résultat obtenu), avec 2-3 questions guidées plutôt qu'un \"dis-moi ce que t'en as pensé\" trop ouvert, qui donne rarement une réponse exploitable.",
+      "La collecte systématique de témoignages, c'est un process répété, pas ponctuel, qui te permet de récupérer un retour client à chaque étape clé (fin de programme, résultat obtenu, renouvellement), plutôt que de compter sur les quelques clients qui pensent spontanément à t'en laisser un.\n\nLa preuve sociale est un des leviers de conversion les plus puissants, mais elle s'épuise vite si elle repose sur 2-3 témoignages recyclés partout. Un process systématique te garantit un flux continu de nouveaux témoignages à jour, alignés sur ton offre actuelle.\n\nConcrètement : une demande envoyée automatiquement à un moment précis (fin d'accompagnement, quelques semaines après un résultat obtenu), avec 2-3 questions guidées plutôt qu'un \"dis-moi ce que t'en as pensé\" trop ouvert, qui donne rarement une réponse exploitable.",
     estTimeLabel: "1h pour mettre le process en place",
   },
   {
@@ -407,7 +407,7 @@ const LEVERS = [
     effort: "moyen",
     sortOrder: 4,
     explanation:
-      "La communauté clients, c'est un espace dédié (groupe privé, forum, serveur Discord/Slack) où tes clients peuvent échanger entre eux, poser des questions et s'entraider — en plus du contact direct avec toi.\n\nPour un coach, ça rapporte parce qu'une communauté active augmente la rétention et réduit ta charge de support individuel : les clients qui s'entraident restent engagés plus longtemps, et une partie des questions qui t'arriveraient normalement en message privé trouve sa réponse entre pairs. C'est aussi un espace où les résultats des uns motivent les autres.\n\nConcrètement : un groupe privé simple (Facebook, Skool, Discord), quelques règles de base, et une présence régulière de ta part au départ pour lancer les échanges — jusqu'à ce que la communauté s'auto-entretienne.",
+      "La communauté clients, c'est un espace dédié (groupe privé, forum, serveur Discord/Slack) où tes clients peuvent échanger entre eux, poser des questions et s'entraider, en plus du contact direct avec toi.\n\nUne communauté active augmente la rétention et réduit ta charge de support individuel : les clients qui s'entraident restent engagés plus longtemps, et une partie des questions qui t'arriveraient normalement en message privé trouve sa réponse entre pairs. C'est aussi un espace où les résultats des uns motivent les autres.\n\nConcrètement : un groupe privé simple (Facebook, Skool, Discord), quelques règles de base, et une présence régulière de ta part au départ pour lancer les échanges, jusqu'à ce que la communauté s'auto-entretienne.",
     estTimeLabel: "1-2h de mise en place, puis présence régulière",
   },
   {
@@ -422,7 +422,7 @@ const LEVERS = [
     effort: "moyen",
     sortOrder: 5,
     explanation:
-      "La réactivation d'anciens clients, c'est recontacter ceux qui ont déjà acheté — mais qui ne sont plus actifs ou n'ont pas racheté depuis un moment — pour leur proposer une nouvelle offre, un renouvellement, ou simplement reprendre le contact.\n\nPour un coach, ça rapporte parce que ce sont des gens qui te connaissent déjà, t'ont déjà payé, et n'ont besoin d'aucune reconquête de confiance de zéro — le coût d'acquisition est proche de zéro comparé à un nouveau prospect, et le taux de conversion y est généralement bien supérieur.\n\nConcrètement : un message direct et personnel (pas un email de masse générique) qui prend des nouvelles et propose une offre adaptée à où ils en sont maintenant — un accompagnement suite, une nouvelle offre sortie depuis, ou simplement une prise de nouvelles sincère.",
+      "La réactivation d'anciens clients, c'est recontacter ceux qui ont déjà acheté, mais qui ne sont plus actifs ou n'ont pas racheté depuis un moment, pour leur proposer une nouvelle offre, un renouvellement, ou simplement reprendre le contact.\n\nCe sont des gens qui te connaissent déjà, t'ont déjà payé, et n'ont besoin d'aucune reconquête de confiance depuis zéro. Le coût d'acquisition est proche de zéro comparé à un nouveau prospect, et le taux de conversion y est généralement bien supérieur.\n\nConcrètement : un message direct et personnel (pas un email de masse générique) qui prend des nouvelles et propose une offre adaptée à où ils en sont maintenant : un accompagnement suite, une nouvelle offre sortie depuis, ou simplement une prise de nouvelles sincère.",
     estTimeLabel: "1-2h pour la première campagne de réactivation",
   },
 ];

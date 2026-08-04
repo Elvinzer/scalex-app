@@ -80,7 +80,7 @@ export default async function SettingsPage() {
           <div className="mt-4 rounded-xl border border-state-critical/40 bg-state-critical/10 p-3">
             <p className="inline-flex items-center gap-2 font-mono text-sm font-bold text-state-critical">
               <span className="size-2 rounded-full bg-state-critical" />
-              {maskedKey} — ne fonctionne plus
+              {maskedKey} : ne fonctionne plus
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               Cette clé a été révoquée ou a expiré côté Anthropic. Génères-en une nouvelle

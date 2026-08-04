@@ -120,7 +120,7 @@ export function PipelineStatsBanner({ stats, period }: { stats: PipelineStats; p
           volume={stats.failureRate.volume}
           status={stats.failureRate.status}
           benchmarkPercent={stats.failureRate.benchmarkPercent}
-          explanation={`Perdus / leads travaillés (${stats.failureRate.volume}) sur la période — plus bas que le benchmark est ce qu'on cherche.`}
+          explanation={`Perdus / leads travaillés (${stats.failureRate.volume}) sur la période. Plus bas que le benchmark est ce qu'on cherche.`}
           invert
         />
       </div>

@@ -93,12 +93,12 @@ export default async function DemarrerLeverPage({ params }: { params: Promise<{ 
           </div>
           <p className="mt-1.5 text-sm text-mist/70">
             {impact?.impactRangeEur
-              ? `≈ ${formatEur(impact.impactRangeEur.min)}–${formatEur(impact.impactRangeEur.max)}/mois dormants — voici comment les activer.`
+              ? `≈ ${formatEur(impact.impactRangeEur.min)}–${formatEur(impact.impactRangeEur.max)}/mois dormants. Active-les avec le plan ci-dessous.`
               : impact?.amountEur !== null && impact?.amountEur !== undefined
-                ? `≈ ${formatEur(impact.amountEur)}/mois dormants — voici comment les activer.`
+                ? `≈ ${formatEur(impact.amountEur)}/mois dormants. Active-les avec le plan ci-dessous.`
                 : status === "active"
-                  ? "Ce levier est déjà en place — voici comment aller plus loin."
-                  : "Voici comment mettre en place ce levier."}
+                  ? "Ce levier est déjà en place. Passe à l'étape suivante ci-dessous."
+                  : "Mets ce levier en place avec le plan ci-dessous."}
           </p>
           {impact?.warning && <p className="mt-2 text-sm font-bold text-state-caution">{impact.warning}</p>}
         </div>

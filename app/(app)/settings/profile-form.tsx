@@ -46,7 +46,7 @@ export function ProfileForm({
 
     const extension = ALLOWED_AVATAR_TYPES[file.type];
     if (!extension) {
-      setError("Format non supporté (HEIC notamment) — utilise un JPG, PNG ou WebP.");
+      setError("Format non supporté (HEIC notamment). Utilise un JPG, PNG ou WebP.");
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {

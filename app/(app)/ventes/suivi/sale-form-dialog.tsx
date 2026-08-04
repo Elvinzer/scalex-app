@@ -133,7 +133,7 @@ export function SaleFormDialog({
               </select>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Aucune offre renseignée dans Mon business — deal saisi librement.
+                Aucune offre renseignée dans Mon business, deal saisi librement.
               </p>
             )}
           </label>

@@ -294,7 +294,7 @@ function estimateAdsAbsent(
       : "");
 
   const warning = belowThreshold
-    ? `Sécurise d'abord ton closing avant de payer du trafic — ton CA (${formatEur(round(avgMonthlyRevenue))}/mois) ne justifie pas encore d'investir dans la pub.`
+    ? `Sécurise d'abord ton closing avant de payer du trafic. Ton CA (${formatEur(round(avgMonthlyRevenue))}/mois) ne justifie pas encore d'investir dans la pub.`
     : null;
 
   return { amountEur: amount, rangeEur, explanation, warning };
@@ -404,7 +404,7 @@ function estimateImpact(
     const amount = round(clientsPerMonth * takeRate * upsellPrice);
     const explanation = upsellOffer
       ? `${round1(clientsPerMonth)} clients/mois × ${Math.round(takeRate * 100)}% de take-rate benchmark × ${formatEur(round(upsellPrice))} (prix de "${upsellOffer.name || "ton offre d'ascension"}").`
-      : `${round1(clientsPerMonth)} clients/mois × ${Math.round(takeRate * 100)}% de take-rate benchmark × ${Math.round(priceFraction * 100)}% du prix de ton offre principale (${formatEur(round(dealPrice.price ?? 0))}) — configure une offre d'ascension dédiée pour une estimation plus précise.`;
+      : `${round1(clientsPerMonth)} clients/mois × ${Math.round(takeRate * 100)}% de take-rate benchmark × ${Math.round(priceFraction * 100)}% du prix de ton offre principale (${formatEur(round(dealPrice.price ?? 0))}). Configure une offre d'ascension dédiée pour une estimation plus précise.`;
     return { amountEur: amount, explanation };
   }
 
@@ -642,7 +642,7 @@ export async function computeLeverOpportunities({
           benchmarkValue: lever.benchmarkValue,
           score: scoreAgainstBenchmark(statValue, lever.benchmarkValue),
           impactAmountEur: null,
-          impactExplanation: "Ce levier est déjà au niveau du benchmark — pas de manque à gagner à chiffrer ici.",
+          impactExplanation: "Ce levier est déjà au niveau du benchmark, pas de manque à gagner à chiffrer ici.",
         });
       }
     }

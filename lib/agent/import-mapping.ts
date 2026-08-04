@@ -231,10 +231,10 @@ export async function mapImportedFile(unit: MappableUnit, businessContext: strin
     // most likely real-world cause (an invalid/expired BYOK key) deserves
     // its own wording, not a stack trace.
     if (error instanceof Anthropic.AuthenticationError) {
-      throw new Error("Ta clé Anthropic (BYOK) semble invalide ou expirée — vérifie-la dans Réglages.");
+      throw new Error("Ta clé Anthropic (BYOK) semble invalide ou expirée. Vérifie-la dans Réglages.");
     }
     if (error instanceof Anthropic.RateLimitError) {
-      throw new Error("Limite de requêtes atteinte sur ta clé Anthropic — réessaie dans un instant.");
+      throw new Error("Limite de requêtes atteinte sur ta clé Anthropic. Réessaie dans un instant.");
     }
     if (error instanceof Anthropic.APIError) {
       throw new Error(`L'IA a renvoyé une erreur (${error.status ?? "?"}) : ${error.message}`);

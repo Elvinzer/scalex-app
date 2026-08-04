@@ -89,7 +89,7 @@ export function CopilotePageClient({
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
       <div>
         <h1 className="text-3xl font-bold">Copilote</h1>
-        <p className="mt-1 text-muted-foreground">Falco, ton copilote de croissance — il connaît déjà tes chiffres.</p>
+        <p className="mt-1 text-muted-foreground">Falco, ton copilote de croissance. Il connaît déjà tes chiffres.</p>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-0">

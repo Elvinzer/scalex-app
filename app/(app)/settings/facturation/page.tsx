@@ -38,7 +38,7 @@ export default async function FacturationPage() {
         <div className="sticker-card p-8">
           <p className="text-sm font-bold text-muted-foreground">Accès administrateur</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Compte fondateur — accès illimité à toutes les fonctionnalités (dont les membres
+            Compte fondateur : accès illimité à toutes les fonctionnalités (dont les membres
             d&apos;équipe), sans abonnement requis.
           </p>
         </div>
@@ -56,9 +56,9 @@ export default async function FacturationPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {formatUsdCents(subscription.plan.priceMonthlyCents)} / mois
             {subscription.currentPeriodEnd &&
-              ` — ${subscription.cancelAtPeriodEnd ? "se termine" : "renouvellement"} le ${new Date(
+              ` (${subscription.cancelAtPeriodEnd ? "se termine" : "renouvellement"} le ${new Date(
                 subscription.currentPeriodEnd
-              ).toLocaleDateString("fr-FR")}`}
+              ).toLocaleDateString("fr-FR")})`}
           </p>
           <Button asChild variant="outline" className="mt-4">
             <a href="/api/billing/portal">Gérer mon abonnement →</a>

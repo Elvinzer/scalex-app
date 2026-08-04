@@ -67,7 +67,7 @@ export default async function IntegrationsPage() {
 
         {stripeConnected && connection && !connection.livemode && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
-            Ce compte Stripe est en mode test — aucune synchronisation ne sera effectuée pour éviter de mélanger des
+            Ce compte Stripe est en mode test : aucune synchronisation ne sera effectuée pour éviter de mélanger des
             données test et réelles. Reconnecte un compte en mode live.
           </div>
         )}
@@ -98,7 +98,7 @@ export default async function IntegrationsPage() {
           <p className="text-sm font-bold text-muted-foreground">Logiciel de prise d&apos;appel</p>
           <p className="text-sm text-muted-foreground">
             Connecte ton outil de réservation d&apos;appels pour suivre tes prises d&apos;appel automatiquement. iClosed
-            ou Calendly — au choix (ou les deux).
+            ou Calendly, au choix (ou les deux).
           </p>
         </div>
         <IclosedConnectionCard

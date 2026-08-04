@@ -67,7 +67,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
       <DialogContent>
         <DialogTitle className="text-lg font-bold">Ajouter un appel manuellement</DialogTitle>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pas d&apos;iClosed ou Calendly ? Enregistre l&apos;appel toi-même — tu pourras marquer son issue juste après,
+          Pas d&apos;iClosed ou Calendly ? Enregistre l&apos;appel toi-même, tu pourras marquer son issue juste après,
           comme pour un appel synchronisé.
         </p>
 

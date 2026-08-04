@@ -91,7 +91,7 @@ export function IclosedConnectionCard({
         <>
           {initialSyncStatus === "pending" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy">
-              <span className="font-bold">✅ iClosed est connecté.</span> On récupère tes appels réservés — ils
+              <span className="font-bold">✅ iClosed est connecté.</span> On récupère tes appels réservés. Ils
               apparaîtront dans l&apos;onglet « Suivi d&apos;appel » d&apos;ici quelques minutes. Ensuite, il te suffira
               de marquer l&apos;issue de chaque appel.
             </div>
@@ -107,8 +107,8 @@ export function IclosedConnectionCard({
           {initialSyncStatus === "no_api_access" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
               <span className="font-bold">Ta clé fonctionne, mais l&apos;accès API n&apos;est pas actif sur ton plan iClosed.</span>{" "}
-              L&apos;API iClosed nécessite un plan Business ou Enterprise. Vérifie ton plan sur iclosed.io — ou demande au
-              support iClosed d&apos;activer l&apos;accès API — puis reconnecte.
+              L&apos;API iClosed nécessite un plan Business ou Enterprise. Vérifie ton plan sur iclosed.io, ou demande au
+              support iClosed d&apos;activer l&apos;accès API, puis reconnecte.
             </div>
           )}
           {initialSyncStatus === "failed" && (
@@ -207,7 +207,7 @@ export function IclosedConnectionCard({
                   </label>
                   <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
                     🔒 Ta clé est chiffrée et ne sera jamais réaffichée. Elle sert uniquement à lire tes appels et à
-                    recevoir les réservations — Scale X ne peut rien modifier dans ton iClosed.
+                    recevoir les réservations. Scale X ne peut rien modifier dans ton iClosed.
                   </p>
 
                   {error && <p className="text-sm text-state-critical">{error}</p>}

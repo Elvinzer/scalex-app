@@ -105,7 +105,7 @@ function DiscoveryInvite({ count, onStart }: { count: number; onStart: () => voi
     <div className="mt-2 flex flex-col gap-3 border-t border-border pt-4">
       <Bubble index={0}>
         Tu veux que je creuse encore ? J&apos;ai {count} question{count > 1 ? "s" : ""} rapide
-        {count > 1 ? "s" : ""} sur tes leviers. Facultatif — tu pourras le faire plus tard depuis ton diagnostic.
+        {count > 1 ? "s" : ""} sur tes leviers. Facultatif, tu pourras le faire plus tard depuis ton diagnostic.
       </Bubble>
       <Button type="button" variant="outline" onClick={onStart} className="w-full">
         Répondre au questionnaire (2 min)
@@ -328,7 +328,7 @@ export function OnboardingFlow({
       {step === 2 && step2Mode === "choice" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
-            Tes chiffres — tu as un export ou une capture ? Glisse-le ici, je m&apos;occupe du tri, même si ça couvre
+            Tes chiffres : tu as un export ou une capture ? Glisse-le ici, je m&apos;occupe du tri, même si ça couvre
             plusieurs mois. Sinon on les remplit ensemble pour {previousMonthLabel}.
           </Bubble>
           <ImportFlow source="onboarding" onCommitted={() => void handleImportCommitted()} />

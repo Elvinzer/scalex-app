@@ -17,26 +17,26 @@ export function adviceFor(key: string, statKey: string | undefined, currentPerce
   switch (lookupKey) {
     case "email_marketing":
     case "email_marketing:openRate":
-      return `Ton taux d'ouverture est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Retravaille tes objets et l'heure d'envoi — ${agentName} peut te réécrire ta prochaine séquence.`;
+      return `Ton taux d'ouverture est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Retravaille tes objets et l'heure d'envoi. ${agentName} peut te réécrire ta prochaine séquence.`;
     case "email_marketing:ctr":
-      return `Ton taux de clic est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le corps de l'email ou le call-to-action ne convertit pas assez — ${agentName} peut retravailler la structure de tes emails.`;
+      return `Ton taux de clic est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le corps de l'email ou le call-to-action ne convertit pas assez. ${agentName} peut retravailler la structure de tes emails.`;
     case "newsletter":
     case "newsletter:ctr":
-      return `Ton taux de clic sur ta newsletter est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le contenu ou le call-to-action ne retient pas assez l'attention — ${agentName} peut retravailler ta prochaine édition.`;
+      return `Ton taux de clic sur ta newsletter est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le contenu ou le call-to-action ne retient pas assez l'attention. ${agentName} peut retravailler ta prochaine édition.`;
     case "lead_magnet":
     case "lead_magnet:optinRate":
-      return `Ton taux d'opt-in est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Ta page ou ta promesse ne convainc pas assez — ${agentName} peut revoir ton offre de lead magnet.`;
+      return `Ton taux d'opt-in est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Ta page ou ta promesse ne convainc pas assez. ${agentName} peut revoir ton offre de lead magnet.`;
     case "webinar":
     case "webinar:showUpRate":
-      return `Ton taux de présence aux webinaires est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Renforce tes rappels (J-1, H-1) et la valeur perçue de l'inscription — ${agentName} peut retravailler ta séquence de relance.`;
+      return `Ton taux de présence aux webinaires est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Renforce tes rappels (J-1, H-1) et la valeur perçue de l'inscription. ${agentName} peut retravailler ta séquence de relance.`;
     case "upsell_ascension":
-      return `Ton take-rate d'upsell est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le pitch ou le timing de l'offre complémentaire ne convertit pas assez — ${agentName} peut retravailler ta proposition.`;
+      return `Ton take-rate d'upsell est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le pitch ou le timing de l'offre complémentaire ne convertit pas assez. ${agentName} peut retravailler ta proposition.`;
     case "ads":
-      return `Ton coût par résultat est au-dessus du marché sur ce canal — ${agentName} peut retravailler ton ciblage ou tes créas pour le faire baisser.`;
+      return `Ton coût par résultat est au-dessus du marché sur ce canal. ${agentName} peut retravailler ton ciblage ou tes créas pour le faire baisser.`;
     case "content_click_rate":
-      return `Ton taux de clic sur ton contenu est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le hook ou l'accroche ne retient pas assez l'attention — ${agentName} peut retravailler tes accroches.`;
+      return `Ton taux de clic sur ton contenu est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le hook ou l'accroche ne retient pas assez l'attention. ${agentName} peut retravailler tes accroches.`;
     case "content_lead_rate":
-      return `Ton taux de conversion clic → lead est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Ta landing page ou ton lead magnet ne convertit pas assez — ${agentName} peut retravailler ce tunnel.`;
+      return `Ton taux de conversion clic → lead est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Ta landing page ou ton lead magnet ne convertit pas assez. ${agentName} peut retravailler ce tunnel.`;
     default:
       return `Ton taux est à ${currentPercent}% (benchmark ${benchmarkPercent}%). ${agentName} peut t'aider à identifier quoi corriger.`;
   }

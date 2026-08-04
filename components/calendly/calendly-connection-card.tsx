@@ -81,7 +81,7 @@ export function CalendlyConnectionCard({
         <>
           {initialSyncStatus === "pending" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy">
-              <span className="font-bold">✅ Calendly est connecté.</span> On récupère tes rendez-vous — ils
+              <span className="font-bold">✅ Calendly est connecté.</span> On récupère tes rendez-vous. Ils
               apparaîtront dans l&apos;onglet « Suivi d&apos;appel » d&apos;ici quelques minutes.
             </div>
           )}

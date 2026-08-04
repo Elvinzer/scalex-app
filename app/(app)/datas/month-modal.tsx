@@ -257,7 +257,7 @@ export function MonthModal({
                 </p>
                 {cashCollectedStale && (
                   <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-xs font-bold text-state-caution">
-                    Stripe déconnecté — chiffres figés au{" "}
+                    Stripe déconnecté, chiffres figés au{" "}
                     {initialData?.cashCollectedSyncedAt ? SYNC_DATE_FORMAT.format(initialData.cashCollectedSyncedAt) : "?"}. Tu
                     peux à nouveau saisir ce champ à la main.
                   </div>

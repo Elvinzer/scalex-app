@@ -415,7 +415,7 @@ export const AgentChatThread = forwardRef<
 
       {limitReached && (
         <div className="mx-4 mb-3 flex items-center justify-between gap-3 rounded-[var(--radius-card)] bg-accent-2-soft px-4 py-3 text-sm">
-          <p className="font-bold text-accent-2-text">On a bien avancé — mets en place et reviens avec tes chiffres.</p>
+          <p className="font-bold text-accent-2-text">On a bien avancé. Mets en place et reviens avec tes chiffres.</p>
           <Button size="sm" variant="outline" onClick={() => void handleNewConversation()}>
             Recommencer à zéro
           </Button>

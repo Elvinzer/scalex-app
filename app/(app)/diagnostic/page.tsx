@@ -611,7 +611,7 @@ export default async function DiagnosticPage({
                 <Popover>
                   <PopoverTrigger asChild>
                     <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
-                      Pas encore renseigné — comment mesurer ça ?
+                      Pas encore renseigné : comment mesurer ça ?
                     </button>
                   </PopoverTrigger>
                   <PopoverContent>

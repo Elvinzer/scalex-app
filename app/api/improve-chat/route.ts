@@ -76,11 +76,11 @@ export async function POST(request: NextRequest) {
   let conversation: Awaited<ReturnType<typeof getConversation>> = null;
   if (clientContext.topicType !== "metric") {
     if (!conversationId) {
-      return NextResponse.json({ error: "Conversation manquante — recharge la page." }, { status: 400 });
+      return NextResponse.json({ error: "Conversation manquante. Recharge la page." }, { status: 400 });
     }
     conversation = await getConversation(accountId, conversationId);
     if (!conversation) {
-      return NextResponse.json({ error: "Conversation introuvable — recharge la page." }, { status: 400 });
+      return NextResponse.json({ error: "Conversation introuvable. Recharge la page." }, { status: 400 });
     }
   }
   const context: ChatContext = conversation
@@ -146,24 +146,24 @@ export async function POST(request: NextRequest) {
 
   if (context.topicType === "metric") {
     if (!context.topicKey || !(METRIC_TOPIC_KEYS as readonly string[]).includes(context.topicKey)) {
-      return NextResponse.json({ error: "Sujet invalide — recharge la page." }, { status: 400 });
+      return NextResponse.json({ error: "Sujet invalide. Recharge la page." }, { status: 400 });
     }
     if (context.topicKey === "followupRecovery") {
       followup = followupKey ? (computeFollowupCompliance(businessProfile).find((f) => f.key === followupKey) ?? null) : null;
       if (!followup) {
-        return NextResponse.json({ error: "Relance introuvable — recharge la page." }, { status: 400 });
+        return NextResponse.json({ error: "Relance introuvable. Recharge la page." }, { status: 400 });
       }
     } else {
       point = points.find((p) => p.key === context.topicKey) ?? null;
       if (!point) {
-        return NextResponse.json({ error: "Ce point n'est plus mesurable avec tes données actuelles — recharge la page." }, { status: 400 });
+        return NextResponse.json({ error: "Ce point n'est plus mesurable avec tes données actuelles. Recharge la page." }, { status: 400 });
       }
     }
   }
 
   if (context.topicType === "lever") {
     if (!context.topicKey) {
-      return NextResponse.json({ error: "Sujet invalide — recharge la page." }, { status: 400 });
+      return NextResponse.json({ error: "Sujet invalide. Recharge la page." }, { status: 400 });
     }
     // Identity is always Falco now — this only picks which business DATA
     // block to inject (lib/agent/lever-agent-data.ts), same consolidation
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
       sector: userRow?.sector ?? null,
     });
     if (!leverAgentData) {
-      return NextResponse.json({ error: "Ce levier est introuvable — recharge la page." }, { status: 400 });
+      return NextResponse.json({ error: "Ce levier est introuvable. Recharge la page." }, { status: 400 });
     }
     leverMode = mode ?? "optimiser";
   }

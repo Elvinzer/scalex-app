@@ -48,7 +48,7 @@ export default async function ContenuPage() {
   const stateText =
     avgClickRate !== null
       ? `Ton taux de clic moyen est de ${formatPercent(avgClickRate)} ce mois-ci.`
-      : "Aucun post suivi ce mois-ci — ajoute ton premier post pour voir tes chiffres.";
+      : "Aucun post suivi ce mois-ci. Ajoute ton premier post pour voir tes chiffres.";
   const chatContext: ChatContext = { topicType: "lever", topicKey: "content", topicLabel: "Contenu", sourcePage: "acquisition_contenu" };
   const falcoSkin = resolveFalcoSkin("/acquisition/contenu");
 

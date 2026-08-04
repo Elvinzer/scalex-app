@@ -47,7 +47,7 @@ export default async function MailPage() {
     return (
       <div className="flex flex-col gap-8">
         <AgentBanner
-          stateText="Pas encore vu si tu fais de l'emailing — une question rapide."
+          stateText="Pas encore vu si tu fais de l'emailing. Une question rapide."
           ctaLabel="Améliorer →"
           chatContext={chatContext}
           mode={mode}

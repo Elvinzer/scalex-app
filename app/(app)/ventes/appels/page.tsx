@@ -96,8 +96,8 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
         <div>
           <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
           <p className="mt-1 text-muted-foreground">
-            Tes appels de closing, réservés automatiquement depuis ton outil de prise d&apos;appel (iClosed ou Calendly)
-            — ou ajoutés à la main si tu n&apos;en as pas. Tu marques l&apos;issue (no-show, non closé, attente décision,
+            Tes appels de closing, réservés automatiquement depuis ton outil de prise d&apos;appel (iClosed ou Calendly),
+            ou ajoutés à la main si tu n&apos;en as pas. Tu marques l&apos;issue (no-show, non closé, attente décision,
             closé) et le montant ; un appel closé alimente ton CA dans le suivi des ventes.
           </p>
         </div>
@@ -164,7 +164,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
               <p className="font-bold">Aucun outil de prise d&apos;appel n&apos;est connecté</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Le propriétaire du compte peut lier iClosed ou Calendly dans les intégrations pour activer le suivi
-                automatique des appels — ou ajoute tes appels manuellement ci-dessus en attendant.
+                automatique des appels, ou ajoute tes appels manuellement ci-dessus en attendant.
               </p>
             </div>
           )
