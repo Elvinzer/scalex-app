@@ -7,7 +7,7 @@ import { decrypt, encrypt } from "@/lib/crypto";
 import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagram/backfill";
 import { InstagramNotProfessionalAccountError, refreshLongLivedToken } from "@/lib/instagram/client";
 import { INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS, INSTAGRAM_TOKEN_REFRESH_MARGIN_DAYS } from "@/lib/instagram/protocol";
-import { inngest } from "@/lib/inngest/client";
+import { instagramBackfillContinue, inngest } from "@/lib/inngest/client";
 
 // Recurring job (every 6h) — unlike iClosed/Calendly's call data (finalized
 // at booking time), Instagram's organic insight numbers (reach, likes,
@@ -56,7 +56,7 @@ export const refreshInstagramInsights = inngest.createFunction(
           }
 
           try {
-            const imported = await backfillInstagramPosts(
+            const result = await backfillInstagramPosts(
               connection.userId,
               accessToken,
               insightsRefreshSinceDate(INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS)
@@ -65,7 +65,7 @@ export const refreshInstagramInsights = inngest.createFunction(
               .update(instagramConnections)
               .set({ initialSyncStatus: "completed", lastInsightsSyncAt: new Date() })
               .where(eq(instagramConnections.userId, connection.userId));
-            return { userId: connection.userId, skipped: false, imported };
+            return { userId: connection.userId, skipped: false, imported: result.processed, needsContinuation: !result.completed };
           } catch (error) {
             const notProfessional = error instanceof InstagramNotProfessionalAccountError;
             await db
@@ -77,6 +77,18 @@ export const refreshInstagramInsights = inngest.createFunction(
         })
       )
     );
+
+    // Sent at the top level (never inside the per-connection step.run above)
+    // — Inngest steps must be called directly in the function body, not
+    // nested inside another step's callback. A connection whose backfill
+    // hit its time budget (see protocol.ts's
+    // INSTAGRAM_BACKFILL_TIME_BUDGET_MS) gets picked up the rest of the way
+    // by continueInstagramBackfill instead of waiting for the next 6h cron.
+    for (const result of results) {
+      if ("needsContinuation" in result && result.needsContinuation) {
+        await step.sendEvent(`continue-backfill-${result.userId}`, instagramBackfillContinue.create({ userId: result.userId }));
+      }
+    }
 
     const refreshed = results.filter((r) => !r.skipped).length;
     return { total: connections.length, refreshed };

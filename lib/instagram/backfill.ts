@@ -5,7 +5,9 @@ import { contentPosts, instagramPostInsights } from "@/db/schema";
 
 import { fetchCarouselChildren, fetchMediaInsights, listMedia, listStories } from "./client";
 import { normalizeMedia } from "./events";
-import { INSTAGRAM_BACKFILL_ITEM_THROTTLE_MS } from "./protocol";
+import { INSTAGRAM_BACKFILL_ITEM_THROTTLE_MS, INSTAGRAM_BACKFILL_TIME_BUDGET_MS } from "./protocol";
+
+export type BackfillResult = { processed: number; skipped: number; completed: boolean };
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -38,7 +40,7 @@ async function knownMediaIds(userId: string): Promise<Set<string>> {
 // disconnect+reconnect — every recurring cron run and every manual
 // "Rafraîchir" click would keep silently ignoring it forever, since both
 // only ever pass a recent `sinceDate`, never omit it.
-export async function backfillInstagramPosts(userId: string, accessToken: string, sinceDate?: Date): Promise<number> {
+export async function backfillInstagramPosts(userId: string, accessToken: string, sinceDate?: Date): Promise<BackfillResult> {
   // /me/media never returns Stories (a separate, ephemeral edge — see
   // client.ts's listStories) — combined here so both flow through the same
   // insights-fetch + upsert pipeline below. Distinct ID spaces, no dedup
@@ -48,11 +50,24 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
   const scoped = sinceDate
     ? combined.filter((item) => new Date(item.timestamp) >= sinceDate || !existingMediaIds.has(item.id))
     : combined;
-  if (scoped.length === 0) return 0;
+  if (scoped.length === 0) return { processed: 0, skipped: 0, completed: true };
 
+  const startedAt = Date.now();
   let processed = 0;
   let skipped = 0;
+  let completed = true;
   for (const [index, item] of scoped.entries()) {
+    // A large never-synced backlog (see the module comment above) can take
+    // longer than a single serverless invocation's time budget — confirmed
+    // in production (Vercel killed the function outright past its
+    // maxDuration). Stopping early and reporting `completed: false` lets
+    // the caller schedule a follow-up run instead of losing whatever
+    // wasn't reached yet, or worse, the function dying mid-item-write.
+    if (Date.now() - startedAt > INSTAGRAM_BACKFILL_TIME_BUDGET_MS) {
+      completed = false;
+      console.error(`[instagram] backfill for user ${userId}: time budget reached, ${scoped.length - index} item(s) deferred to a follow-up run`);
+      break;
+    }
     try {
       const { metrics, raw } = await fetchMediaInsights(accessToken, item.id, item.mediaType);
       // A CAROUSEL_ALBUM's own object never exposes media_url/thumbnail_url
@@ -78,7 +93,7 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
     console.error(`[instagram] backfill for user ${userId}: ${processed} processed, ${skipped} skipped after errors`);
   }
 
-  return processed;
+  return { processed, skipped, completed };
 }
 
 async function processNormalizedPost(

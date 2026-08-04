@@ -1,6 +1,7 @@
 import { serve } from "inngest/next";
 
 import { inngest } from "@/lib/inngest/client";
+import { continueInstagramBackfill } from "@/lib/inngest/functions/continue-instagram-backfill";
 import { refreshInstagramInsights } from "@/lib/inngest/functions/refresh-instagram-insights";
 import { snapshotScaleScore } from "@/lib/inngest/functions/snapshot-scale-score";
 import { syncCalendlyAccount } from "@/lib/inngest/functions/sync-calendly-account";
@@ -30,6 +31,7 @@ export const { GET, POST, PUT } = serve({
     syncCalendlyAccount,
     syncInstagramAccount,
     refreshInstagramInsights,
+    continueInstagramBackfill,
     weeklyBriefEmail,
     snapshotScaleScore,
   ],

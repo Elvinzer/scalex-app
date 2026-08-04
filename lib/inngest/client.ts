@@ -32,4 +32,19 @@ export const instagramAccountConnected = eventType("instagram/account.connected"
   schema: staticSchema<InstagramAccountConnected>(),
 });
 
+type InstagramBackfillContinue = {
+  userId: string;
+};
+
+// Self-chained follow-up when backfillInstagramPosts stops early because it
+// hit its time budget (see lib/instagram/protocol.ts's
+// INSTAGRAM_BACKFILL_TIME_BUDGET_MS) — a large never-synced backlog can
+// need several of these before fully catching up. Deliberately a distinct
+// event from instagramAccountConnected: that one also flips
+// initialSyncStatus through its own pending/completed/failed lifecycle,
+// which a mid-backlog continuation has no business touching.
+export const instagramBackfillContinue = eventType("instagram/backfill.continue", {
+  schema: staticSchema<InstagramBackfillContinue>(),
+});
+
 export const inngest = new Inngest({ id: "scale-x" });

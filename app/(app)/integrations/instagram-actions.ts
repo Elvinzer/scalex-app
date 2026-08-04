@@ -9,6 +9,7 @@ import { decrypt } from "@/lib/crypto";
 import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagram/backfill";
 import { InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS } from "@/lib/instagram/protocol";
+import { instagramBackfillContinue, inngest } from "@/lib/inngest/client";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner, requirePermission } from "@/lib/team/context";
 
@@ -51,7 +52,7 @@ export async function disconnectInstagram(): Promise<{ error: string | null }> {
 // connect-time sync missed (a transient error, a pagination hiccup) gets
 // recovered here too, not just via a full disconnect+reconnect. Available
 // to the owner and team members with the acquisition:contenu permission.
-export async function refreshInstagramPosts(): Promise<{ error: string | null; imported?: number }> {
+export async function refreshInstagramPosts(): Promise<{ error: string | null; imported?: number; completed?: boolean }> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) {
@@ -72,13 +73,23 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
 
   const accessToken = decrypt(connection.accessTokenEncrypted);
   try {
-    const imported = await backfillInstagramPosts(accountId, accessToken, insightsRefreshSinceDate(INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS));
+    const result = await backfillInstagramPosts(accountId, accessToken, insightsRefreshSinceDate(INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS));
     await db
       .update(instagramConnections)
       .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date(), lastInsightsSyncAt: new Date() })
       .where(eq(instagramConnections.userId, accountId));
+
+    // A never-synced backlog can be larger than what a single click's time
+    // budget covers (see protocol.ts's INSTAGRAM_BACKFILL_TIME_BUDGET_MS) —
+    // rather than block the button until it's all done (or worse, time out
+    // the request), hand the rest to the same background chain the
+    // recurring cron uses so it finishes on its own.
+    if (!result.completed) {
+      await inngest.send(instagramBackfillContinue.create({ userId: accountId }));
+    }
+
     revalidatePath("/acquisition/contenu");
-    return { error: null, imported };
+    return { error: null, imported: result.processed, completed: result.completed };
   } catch (error) {
     const notProfessional = error instanceof InstagramNotProfessionalAccountError;
     await db

@@ -64,6 +64,20 @@ export const INSTAGRAM_MAX_BACKFILL_MEDIA = 1000;
 // end of a large history.
 export const INSTAGRAM_BACKFILL_ITEM_THROTTLE_MS = 150;
 
+// Wall-clock budget backfillInstagramPosts gives itself before stopping
+// early and reporting `completed: false` — confirmed necessary in
+// production: an account with a large previously-unsynced history (see the
+// "never skip a media item we've never seen, regardless of age" fix in
+// backfill.ts) can take longer than a single serverless invocation allows,
+// and Vercel kills the function outright past its maxDuration (see
+// app/api/inngest/route.ts) rather than letting it return a partial result.
+// Comfortably under that 300s ceiling to leave room for the surrounding
+// step's own DB writes; callers that get `completed: false` back are
+// responsible for scheduling a follow-up run (see
+// lib/inngest/functions/continue-instagram-backfill.ts) rather than
+// silently dropping the rest of the backlog.
+export const INSTAGRAM_BACKFILL_TIME_BUDGET_MS = 240_000;
+
 // A single retry delay for a failed /me/media page fetch (network exception
 // or non-2xx status) before giving up on that page — see client.ts's
 // listMedia, which now returns whatever it already accumulated instead of

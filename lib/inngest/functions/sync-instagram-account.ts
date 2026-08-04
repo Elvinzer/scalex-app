@@ -7,7 +7,7 @@ import { track } from "@/lib/analytics";
 import { decrypt } from "@/lib/crypto";
 import { backfillInstagramPosts } from "@/lib/instagram/backfill";
 import { InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
-import { instagramAccountConnected, inngest } from "@/lib/inngest/client";
+import { instagramAccountConnected, instagramBackfillContinue, inngest } from "@/lib/inngest/client";
 
 // Runs once when a user connects Instagram: backfills their recent media +
 // insights so /acquisition/contenu populates. Idempotent (the backfill
@@ -31,7 +31,7 @@ export const syncInstagramAccount = inngest.createFunction(
     const accessToken = decrypt(connection.accessTokenEncrypted);
 
     try {
-      const imported = await step.run("backfill-posts", () => backfillInstagramPosts(userId, accessToken));
+      const result = await step.run("backfill-posts", () => backfillInstagramPosts(userId, accessToken));
 
       await step.run("mark-sync-completed", async () => {
         await db
@@ -40,7 +40,17 @@ export const syncInstagramAccount = inngest.createFunction(
           .where(eq(instagramConnections.userId, userId));
       });
 
-      await track("instagram_sync_completed", userId, { posts_backfilled: imported });
+      // A large account's history can exceed this invocation's time budget
+      // (see protocol.ts's INSTAGRAM_BACKFILL_TIME_BUDGET_MS) — the
+      // connection is still marked "completed" above (it IS usable, just
+      // not exhaustive yet) and continueInstagramBackfill picks up the rest
+      // in the background, re-chaining itself until the whole backlog is
+      // caught up.
+      if (!result.completed) {
+        await step.sendEvent("continue-backfill", instagramBackfillContinue.create({ userId }));
+      }
+
+      await track("instagram_sync_completed", userId, { posts_backfilled: result.processed });
     } catch (error) {
       const notProfessional = error instanceof InstagramNotProfessionalAccountError;
       await step.run("mark-sync-failed", async () => {

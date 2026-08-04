@@ -37,10 +37,12 @@ export function InstagramConnectionCard({
   const [open, setOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleDisconnect() {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const result = await disconnectInstagram();
       if (result.error) setError(result.error);
@@ -49,9 +51,20 @@ export function InstagramConnectionCard({
 
   function handleRefresh() {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const result = await refreshInstagramPosts();
-      if (result.error) setError(result.error);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      // A large never-synced backlog can take longer than one click's time
+      // budget (see lib/instagram/protocol.ts's
+      // INSTAGRAM_BACKFILL_TIME_BUDGET_MS) — the rest keeps going in the
+      // background instead of leaving the user staring at a spinner.
+      if (result.completed === false) {
+        setNotice("Synchronisation en cours en arrière-plan — reviens dans quelques minutes pour voir le reste de tes posts.");
+      }
     });
   }
 
@@ -205,6 +218,7 @@ export function InstagramConnectionCard({
       )}
 
       {connected && error && <p className="mt-2 text-sm text-state-critical">{error}</p>}
+      {connected && !error && notice && <p className="mt-2 text-sm text-muted-foreground">{notice}</p>}
     </div>
   );
 }
