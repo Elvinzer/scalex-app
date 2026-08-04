@@ -89,6 +89,22 @@ raisonnablement l'être sans écran sous les yeux — les 2 points restants ne
 sont pas reportés, ils sont clos comme non applicables une fois vérifiés
 contre le code réel plutôt que contre l'hypothèse de départ.
 
+Migré le seul vrai graphique de l'app (tendance CA/leads/RDV/ventes sur Mes
+chiffres) de `recharts` vers `@tanstack/react-charts`, et ajouté `motion`
+pour animer l'ensemble des éléments "graphe" du produit (sparklines, ring de
+score, count-up, barres du funnel). Point d'attention assumé : TanStack
+Charts est en pré-alpha (v0.6.4, 4 releases en 24h avant cette migration, le
+mainteneur écrit lui-même "not ready for production") — accepté quand même
+sur demande explicite, mais isolé derrière `lib/chart-theme.ts` et le seul
+composant `overview-revenue-chart.tsx` pour que l'API interne de la lib
+puisse casser sans se propager ailleurs ; versions pinnées en exact (pas de
+`^`) pour ne pas prendre une breaking change au prochain `npm install`. Bug
+réel trouvé en testant dans un navigateur (pas juste au typecheck) : passer
+un `scalePoint<string>().padding(...)` déjà configuré au lieu de la
+référence brute `scalePoint` désactive l'auto-inférence du domaine de la
+lib — tout l'axe X rendait `NaN`. Ce genre de piège d'API non documenté est
+exactement le risque qu'on paie en échange de la nouveauté de la lib.
+
 ## 2026-07-15
 
 Scaffold initial : Next.js 15 + Tailwind + shadcn/ui (thème neutre), structure

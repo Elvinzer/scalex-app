@@ -361,6 +361,19 @@
     box-shadow: var(--shadow-lg);
   }
 
+  /* TanStack Charts' tooltip extension paints its default look via inline
+     styles on the element it creates (not a stylesheet), so only
+     `!important` here can override it without forking the extension. */
+  .ts-chart-tooltip.scale-chart-tooltip {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--radius-control) !important;
+    box-shadow: var(--shadow-float) !important;
+    color: var(--text-primary) !important;
+    font: 600 13px/1.4 var(--font-sans, inherit) !important;
+    padding: 8px 12px !important;
+  }
+
   /* Frosted overlay behind modals/drawers — replaces the old flat
      bg-ink/50 tint with a blurred, higher-contrast backdrop. */
   .glass-overlay {

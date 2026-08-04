@@ -5,6 +5,7 @@ import { toPng } from "html-to-image";
 
 import { Falco } from "@/components/falco/falco";
 import { ScaleScoreShareCard } from "@/components/scale-score-share-card";
+import { Sparkline } from "@/components/sparkline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { trackClient } from "@/lib/analytics-client";
@@ -18,25 +19,6 @@ const TIER_LABEL: Record<"rouge" | "ambre" | "vert", string> = {
   ambre: "Santé correcte",
   vert: "Santé excellente",
 };
-
-const SPARKLINE_WIDTH = 240;
-const SPARKLINE_HEIGHT = 48;
-
-function Sparkline({ points }: { points: ScaleScoreSparklinePoint[] }) {
-  if (points.length < 2) return null;
-
-  const coords = points.map((p, i) => {
-    const x = (i / (points.length - 1)) * SPARKLINE_WIDTH;
-    const y = SPARKLINE_HEIGHT - (p.score / 100) * SPARKLINE_HEIGHT;
-    return `${x},${y}`;
-  });
-
-  return (
-    <svg width={SPARKLINE_WIDTH} height={SPARKLINE_HEIGHT} viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT}`} className="mt-1">
-      <polyline points={coords.join(" ")} fill="none" stroke="var(--text-secondary)" strokeWidth={1.5} />
-    </svg>
-  );
-}
 
 export function ScaleScoreModal({
   open,
@@ -129,7 +111,15 @@ export function ScaleScoreModal({
               {sparkline.length >= 2 && (
                 <div>
                   <p className="text-xs font-bold text-muted-foreground">Évolution (8 dernières semaines)</p>
-                  <Sparkline points={sparkline} />
+                  <div className="mt-1">
+                    <Sparkline
+                      values={sparkline.map((point) => point.score)}
+                      labels={sparkline.map((point) => point.weekStart)}
+                      domain={[0, 100]}
+                      width={240}
+                      height={48}
+                    />
+                  </div>
                 </div>
               )}
 

@@ -1,3 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { animate } from "motion";
+
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion-tokens";
+
 const SIZE = 56;
 const STROKE = 5;
 const RADIUS = (SIZE - STROKE) / 2;
@@ -19,9 +27,33 @@ function arc(fromPercent: number, toPercent: number): { dasharray: string; dasho
 // (neutral track). When potentialScore == score (everything's already at
 // standard), the middle segment is simply invisible — no special-casing
 // needed since its arc length is 0.
+//
+// The achieved arc sweeps in from 0 → score on mount; the reachable arc's
+// start chases it (its `from` is the same animated value), which correctly
+// makes the "still reachable" segment recede as "achieved" grows — reusing
+// the exact same static arc math, just fed an animated number instead of
+// the final one.
 export function ScaleScoreRing({ score, potentialScore }: { score: number; potentialScore: number }) {
-  const achieved = arc(0, score);
-  const reachable = arc(score, potentialScore);
+  const reducedMotion = useReducedMotion();
+  const [animatedScore, setAnimatedScore] = useState(reducedMotion ? score : 0);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setAnimatedScore(score);
+      return;
+    }
+
+    const controls = animate(0, score, {
+      duration: MOTION_DURATION.slow,
+      ease: MOTION_EASE.out,
+      onUpdate: setAnimatedScore,
+    });
+
+    return () => controls.stop();
+  }, [score, reducedMotion]);
+
+  const achieved = arc(0, animatedScore);
+  const reachable = arc(animatedScore, potentialScore);
 
   return (
     <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="shrink-0 -rotate-90">

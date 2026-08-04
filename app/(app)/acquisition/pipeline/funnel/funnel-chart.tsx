@@ -1,5 +1,10 @@
-import { ArrowDown } from "lucide-react";
+"use client";
 
+import { ArrowDown } from "lucide-react";
+import { motion } from "motion/react";
+
+import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
+import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion-tokens";
 import { cn } from "@/lib/utils";
 import { formatPercent, type FunnelRates, type FunnelStage, type FunnelTotals } from "@/lib/setting/funnel";
 
@@ -20,9 +25,11 @@ const CONNECTOR_RATES: FunnelStage[] = [
   "bookingRate",
 ];
 
-// Server-rendered — one hue (--signal) because these five bars are stages
-// of a single flow, not independent categories to compare; length is the
-// only encoding that matters here, per the dataviz magnitude rule.
+// One hue (--signal) because these five bars are stages of a single flow,
+// not independent categories to compare; length is the only encoding that
+// matters here, per the dataviz magnitude rule. Bars grow in on mount with
+// a light stagger — one cohesive chart animating as a unit, not five
+// independent decorative elements.
 export function FunnelChart({
   totals,
   rates,
@@ -32,6 +39,7 @@ export function FunnelChart({
   rates: FunnelRates;
   bottleneckStage: FunnelStage | null;
 }) {
+  const reducedMotion = useReducedMotion();
   const maxValue = Math.max(totals.newSubscribers, totals.firstMessagesSent, 1);
 
   return (
@@ -69,9 +77,15 @@ export function FunnelChart({
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-20 shrink-0 truncate text-xs text-muted-foreground sm:w-48 sm:text-sm">{stage.label}</div>
               <div className="relative h-8 flex-1 rounded-lg border border-ink/10 bg-muted">
-                <div
-                  className="h-full rounded-lg bg-signal transition-[width] duration-[var(--motion-slow)] ease-[var(--ease-out)]"
-                  style={{ width: `${widthPercent}%` }}
+                <motion.div
+                  className="h-full rounded-lg bg-signal"
+                  initial={reducedMotion ? false : { width: 0 }}
+                  animate={{ width: `${widthPercent}%` }}
+                  transition={{
+                    duration: MOTION_DURATION.slow,
+                    ease: MOTION_EASE.out,
+                    delay: reducedMotion ? 0 : index * 0.05,
+                  }}
                 />
               </div>
               <div className="w-10 shrink-0 text-right font-display text-sm font-bold tabular-nums sm:w-14">
