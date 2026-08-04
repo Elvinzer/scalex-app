@@ -5,19 +5,15 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { InfoPopover } from "@/components/info-popover";
-import { ItemScoreButton } from "@/components/item-score-button";
 import { InstagramPostDetailDialog } from "@/components/instagram/instagram-post-detail-dialog";
-import type { ChatContext } from "@/lib/chat-context";
-import type { FalcoSkinKey } from "@/lib/falco-skins";
-import type { ContentMetricKey } from "@/lib/diagnostic/content-metrics";
-import { computePostRates, computePostScore } from "@/lib/content-posts/rates";
+import { computePostRates } from "@/lib/content-posts/rates";
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import { computePostPerformanceComparisons, type PostPerformanceTier } from "@/lib/instagram/insights-comparison";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
-type SortKey = "publishedAt" | "views" | "engagementRate" | "clickRate" | "viewToLeadRate" | "score";
+type SortKey = "publishedAt" | "views" | "engagementRate";
 type DateFilterKey = "7d" | "30d" | "3m" | "all";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
@@ -29,12 +25,6 @@ const EXPLANATIONS = {
   interactions:
     "Somme des likes, commentaires, partages et enregistrements sur ce post, remontée directement par Instagram. Le badge à côté compare ce post à la médiane de tes autres posts du même type (feed ou story) : au-dessus, dans la moyenne, ou en dessous.",
   engagement: "(Likes + commentaires + partages) / vues, en %.",
-  clics:
-    "Instagram ne fournit aucune donnée de clics sortants pour un post organique — cette colonne reste vide par nature pour tous tes posts, ce n'est pas un bug.",
-  leads:
-    "Un lead attribué à ce post nécessite un rattachement manuel, qui n'existe plus depuis que le contenu vient uniquement d'Instagram — cette colonne reste vide pour l'instant.",
-  score:
-    "Moyenne de ton taux de clic et de ton taux de clic→lead comparés aux benchmarks de ton secteur. Comme les deux dépendent de données de clics qu'Instagram ne fournit pas pour un post organique, cette colonne reste vide pour tous tes posts.",
 } as const;
 
 const DATE_FILTERS: { key: DateFilterKey; label: string; days: number | null }[] = [
@@ -165,14 +155,10 @@ function TopPostsPanel({ entries }: { entries: { post: ContentPostRow; insight: 
 export function PostsTable({
   posts,
   topPostId,
-  contentBenchmarks,
-  falcoSkin,
   instagramInsights,
 }: {
   posts: ContentPostRow[];
   topPostId: string | null;
-  contentBenchmarks: Record<ContentMetricKey, number>;
-  falcoSkin?: FalcoSkinKey | null;
   instagramInsights?: Map<string, InstagramPostInsightRow>;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
@@ -193,25 +179,17 @@ export function PostsTable({
   }, [posts, dateFilter]);
 
   const sorted = useMemo(() => {
-    const withRates = filteredPosts.map((post) => ({
-      post,
-      rates: computePostRates(post),
-      score: computePostScore(post, contentBenchmarks),
-    }));
+    const withRates = filteredPosts.map((post) => ({ post, rates: computePostRates(post) }));
 
     withRates.sort((a, b) => {
       const valueOf = (entry: (typeof withRates)[number]) =>
-        sortKey === "publishedAt" || sortKey === "views"
-          ? entry.post[sortKey]
-          : sortKey === "score"
-            ? (entry.score ?? -1)
-            : (entry.rates[sortKey] ?? -1);
+        sortKey === "publishedAt" || sortKey === "views" ? entry.post[sortKey] : (entry.rates[sortKey] ?? -1);
       const diff = (valueOf(a) as number) < (valueOf(b) as number) ? -1 : (valueOf(a) as number) > (valueOf(b) as number) ? 1 : 0;
       return sortDesc ? -diff : diff;
     });
 
     return withRates;
-  }, [filteredPosts, sortKey, sortDesc, contentBenchmarks]);
+  }, [filteredPosts, sortKey, sortDesc]);
 
   const comparisons = useMemo(
     () => computePostPerformanceComparisons(Array.from(instagramInsights?.values() ?? [])),
@@ -299,29 +277,11 @@ export function PostsTable({
                     <InfoPopover text={EXPLANATIONS.engagement} />
                   </div>
                 </th>
-                <th className="p-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <SortHeader label="Clics" sortKeyValue="clickRate" />
-                    <InfoPopover text={EXPLANATIONS.clics} />
-                  </div>
-                </th>
-                <th className="p-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <SortHeader label="Leads" sortKeyValue="viewToLeadRate" />
-                    <InfoPopover text={EXPLANATIONS.leads} />
-                  </div>
-                </th>
-                <th className="p-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <SortHeader label="Score" sortKeyValue="score" />
-                    <InfoPopover text={EXPLANATIONS.score} />
-                  </div>
-                </th>
                 <th className="p-3" />
               </tr>
             </thead>
             <tbody>
-              {sorted.map(({ post, rates, score }) => {
+              {sorted.map(({ post, rates }) => {
                 const insight = post.externalId ? instagramInsights?.get(post.externalId) : undefined;
                 return (
                   <tr key={post.id} className="border-b border-border last:border-0">
@@ -378,26 +338,6 @@ export function PostsTable({
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", rates.engagementRate === null && "text-muted-foreground")}>
                       {rates.engagementRate === null ? "—" : formatPercent(rates.engagementRate)}
-                    </td>
-                    <td className={cn("p-3 text-right tabular-nums", rates.clickRate === null && "text-muted-foreground")}>
-                      {rates.clickRate === null ? "—" : formatPercent(rates.clickRate)}
-                    </td>
-                    <td className={cn("p-3 text-right tabular-nums", rates.viewToLeadRate === null && "text-muted-foreground")}>
-                      {rates.viewToLeadRate === null ? "—" : formatPercent(rates.viewToLeadRate)}
-                    </td>
-                    <td className="p-3 text-right">
-                      {score === null ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <ItemScoreButton
-                          score={score}
-                          chatContext={
-                            { topicType: "lever", topicKey: "content", topicLabel: "Contenu", sourcePage: "acquisition_contenu_score" } satisfies ChatContext
-                          }
-                          seedQuestion={`Pourquoi mon post "${post.title}" a un score de ${score}/100 ? Comment je peux l'améliorer ?`}
-                          falcoSkin={falcoSkin}
-                        />
-                      )}
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">

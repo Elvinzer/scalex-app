@@ -10,7 +10,6 @@ import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
-import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-metrics";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
@@ -35,9 +34,8 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
   const { instagram_error: instagramError } = await searchParams;
 
   const instagramConnected = Boolean(user?.instagramConnected);
-  const [posts, contentBenchmarks, [instagramConnection], instagramInsights, subscriptionActive] = await Promise.all([
+  const [posts, [instagramConnection], instagramInsights, subscriptionActive] = await Promise.all([
     getContentPosts(accountId),
-    getContentDiagnosticBenchmarks(user?.sector ?? null),
     instagramConnected
       ? db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -120,13 +118,7 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
-      <PostsTable
-        posts={posts}
-        topPostId={topPost?.id ?? null}
-        contentBenchmarks={contentBenchmarks}
-        falcoSkin={falcoSkin}
-        instagramInsights={instagramInsights}
-      />
+      <PostsTable posts={posts} topPostId={topPost?.id ?? null} instagramInsights={instagramInsights} />
     </div>
   );
 }
