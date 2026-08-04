@@ -6,7 +6,7 @@ const FOOTER_LINKS: { label: string; href: string }[] = [
   { label: "Tarifs", href: "#tarifs" },
   { label: "Contact", href: "mailto:contact@scalex.app" },
   { label: "Mentions légales", href: "#" },
-  { label: "Politique de confidentialité", href: "#" },
+  { label: "Politique de confidentialité", href: "/politique-de-confidentialite" },
 ];
 
 export function SiteFooter() {
