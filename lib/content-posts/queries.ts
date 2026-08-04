@@ -20,6 +20,8 @@ function toRow(row: typeof contentPosts.$inferSelect): ContentPostRow {
     shares: row.shares,
     clicks: row.clicks,
     leads: row.leads,
+    source: row.source,
+    externalId: row.externalId,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -72,10 +74,18 @@ export async function createContentPost(userId: string, data: ContentPostInput):
   await db.insert(contentPosts).values({ userId, ...data });
 }
 
+// source="manual" guard: a synced Instagram row is never hand-edited/deleted
+// even if a client somehow submits its id — a resync upserts it instead
+// (see lib/instagram/backfill.ts). DB-layer enforcement, not just hidden UI.
 export async function updateContentPost(userId: string, id: string, data: ContentPostInput): Promise<void> {
-  await db.update(contentPosts).set(data).where(and(eq(contentPosts.id, id), eq(contentPosts.userId, userId)));
+  await db
+    .update(contentPosts)
+    .set(data)
+    .where(and(eq(contentPosts.id, id), eq(contentPosts.userId, userId), eq(contentPosts.source, "manual")));
 }
 
 export async function deleteContentPost(userId: string, id: string): Promise<void> {
-  await db.delete(contentPosts).where(and(eq(contentPosts.id, id), eq(contentPosts.userId, userId)));
+  await db
+    .delete(contentPosts)
+    .where(and(eq(contentPosts.id, id), eq(contentPosts.userId, userId), eq(contentPosts.source, "manual")));
 }

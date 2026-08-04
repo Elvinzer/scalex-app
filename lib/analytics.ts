@@ -47,6 +47,8 @@ export type AnalyticsEvent =
   | "iclosed_call_outcome_set"
   | "calendly_sync_completed"
   | "calendly_sync_failed"
+  | "instagram_sync_completed"
+  | "instagram_sync_failed"
   | "lever_page_viewed"
   | "lever_started"
   | "lever_starter_step_done"

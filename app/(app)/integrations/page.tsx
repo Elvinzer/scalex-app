@@ -2,9 +2,10 @@ import { eq } from "drizzle-orm";
 
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
+import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { calendlyConnections, iclosedConnections, stripeConnections } from "@/db/schema";
+import { calendlyConnections, iclosedConnections, instagramConnections, stripeConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
@@ -31,6 +32,11 @@ export default async function IntegrationsPage() {
   const calendlyConnected = Boolean(user?.calendlyConnected);
   const [calendlyConnection] = calendlyConnected
     ? await db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
+    : [];
+
+  const instagramConnected = Boolean(user?.instagramConnected);
+  const [instagramConnection] = instagramConnected
+    ? await db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
     : [];
 
   const subscriptionActive = await hasActiveSubscription(accountId);
@@ -111,6 +117,22 @@ export default async function IntegrationsPage() {
           connected={calendlyConnected}
           initialSyncStatus={calendlyConnection?.initialSyncStatus}
           initialSyncCompletedAt={calendlyConnection?.initialSyncCompletedAt}
+          subscriptionActive={subscriptionActive}
+        />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div>
+          <p className="text-sm font-bold text-muted-foreground">Contenu</p>
+          <p className="text-sm text-muted-foreground">
+            Connecte ton compte Instagram pour voir automatiquement quels posts performent.
+          </p>
+        </div>
+        <InstagramConnectionCard
+          connected={instagramConnected}
+          username={instagramConnection?.username}
+          initialSyncStatus={instagramConnection?.initialSyncStatus}
+          initialSyncCompletedAt={instagramConnection?.initialSyncCompletedAt}
           subscriptionActive={subscriptionActive}
         />
       </div>

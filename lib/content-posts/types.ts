@@ -13,6 +13,8 @@ export type ContentPostRow = {
   shares: number | null;
   clicks: number | null;
   leads: number | null;
+  source: string; // "manual" | "instagram"
+  externalId: string | null;
   createdAt: string;
 };
 

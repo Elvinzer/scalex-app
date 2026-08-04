@@ -84,6 +84,9 @@ export const users = pgTable("users", {
   // Same denormalized "is connected" flag for Calendly — the other supported
   // call-booking tool (a user can connect either or both).
   calendlyConnected: boolean("calendly_connected").notNull().default(false),
+  // Same denormalized "is connected" flag for Instagram (content analytics,
+  // not a call-booking tool — see instagram_connections/instagram_post_insights).
+  instagramConnected: boolean("instagram_connected").notNull().default(false),
   sector: prospectionSector("sector"),
   // Set once the 3-screen /onboarding wizard finishes (or is skipped) —
   // existing users are backfilled to true via migration default so they
@@ -227,6 +230,84 @@ export const calendlyConnections = pgTable("calendly_connections", {
   initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
   initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
 }).enableRLS();
+
+// Instagram connection — OAuth ("Instagram API with Instagram Login", see
+// lib/instagram/protocol.ts for the exact flow; flagged there as the
+// highest-uncertainty integration in this codebase since Meta's API surface
+// for this has moved multiple times). Owner-only, never delegable, same
+// boundary as Stripe/iClosed/Calendly. Unlike those, the token itself
+// expires (~60 days) and must be refreshed — see tokenExpiresAt +
+// lib/inngest/functions/refresh-instagram-insights.ts's recurring cron,
+// which also re-syncs insight numbers (they keep climbing for days after a
+// post goes up, unlike iClosed/Calendly's call data which is finalized at
+// booking time).
+export const instagramConnections = pgTable("instagram_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  igUserId: text("ig_user_id").notNull(), // Instagram-scoped user id from the Graph API
+  username: text("username"), // display only ("Connecté en tant que @handle")
+  accessTokenEncrypted: text("access_token_encrypted").notNull(), // long-lived token, encrypted
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }).notNull(),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  // "pending" | "completed" | "no_api_access" | "token_expired" | "failed" —
+  // reused as the general connection-health flag by the recurring refresh
+  // cron too, not just the one-time connect backfill.
+  initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
+  initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
+  lastInsightsSyncAt: timestamp("last_insights_sync_at", { withTimezone: true }),
+}).enableRLS();
+
+// Full-fidelity raw cache — one row per Instagram media item, every metric
+// the Graph API returns. content_posts only ever gets a 6-column PROJECTION
+// of this for the existing table/scoring code (see contentPosts.source
+// below); this table is the real source of truth, surfaced via a per-row
+// detail dialog. Re-fetched periodically (recurring cron, not just at
+// connect) since organic insight numbers keep climbing for days/weeks after
+// publish.
+export const instagramPostInsights = pgTable(
+  "instagram_post_insights",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mediaId: text("media_id").notNull(),
+    mediaType: text("media_type").notNull(), // IMAGE | CAROUSEL_ALBUM | VIDEO | REELS | STORY (Graph API's own vocabulary)
+    caption: text("caption"),
+    permalink: text("permalink"),
+    mediaPublishedAt: timestamp("media_published_at", { withTimezone: true }).notNull(),
+    // "reach" is primary/reliable; "impressions" is opportunistic-only — Meta
+    // deprecated/restricted it for many organic media types around 2023.
+    // NEVER hard-fail a fetch just because impressions is rejected.
+    reach: integer("reach"),
+    impressions: integer("impressions"),
+    likeCount: integer("like_count"),
+    commentsCount: integer("comments_count"),
+    savedCount: integer("saved_count"),
+    sharesCount: integer("shares_count"),
+    videoViews: integer("video_views"), // "plays" — VIDEO/REELS only
+    avgWatchTimeMs: integer("avg_watch_time_ms"), // REELS only
+    totalWatchTimeMs: integer("total_watch_time_ms"), // REELS only
+    profileVisits: integer("profile_visits"),
+    follows: integer("follows"),
+    storyTapsForward: integer("story_taps_forward"),
+    storyTapsBack: integer("story_taps_back"),
+    storyExits: integer("story_exits"),
+    storyReplies: integer("story_replies"),
+    // Full API response passthrough — future-proofs any metric not yet
+    // promoted to its own column, and is the audit trail if Meta's metric
+    // names shift again.
+    rawInsights: jsonb("raw_insights").notNull().$type<Record<string, unknown>>(),
+    lastFetchedAt: timestamp("last_fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("instagram_post_insights_user_media_idx").on(table.userId, table.mediaId),
+    index("instagram_post_insights_user_published_idx").on(table.userId, table.mediaPublishedAt),
+  ]
+).enableRLS();
 
 export const diagnostics = pgTable(
   "diagnostics",
@@ -522,9 +603,10 @@ export const contentPostType = pgEnum("content_post_type", [
   "live",
 ]);
 
-// Manual entry (the "/acquisition/contenu" page) — one row per published
-// post. Rates (engagement/click/view-to-lead) are never stored, always
-// computed on read from these counts — see lib/content-posts/rates.ts.
+// Manual entry (the "/acquisition/contenu" page) by default, now also
+// auto-populated from Instagram — one row per post. Rates (engagement/click/
+// view-to-lead) are never stored, always computed on read from these counts
+// — see lib/content-posts/rates.ts.
 export const contentPosts = pgTable(
   "content_posts",
   {
@@ -541,11 +623,26 @@ export const contentPosts = pgTable(
     likes: integer("likes"),
     comments: integer("comments"),
     shares: integer("shares"),
+    // Never coerced to a measured 0 when unmeasurable — see
+    // lib/content-posts/rates.ts's null-safe clickRate. Organic Instagram
+    // posts NEVER get a value here (Meta's API exposes no per-post organic
+    // click count), so this stays null for every synced Instagram row.
     clicks: integer("clicks"),
     leads: integer("leads"),
+    // "manual" | "instagram" — mirrors salesCalls.source's multi-source
+    // pattern. externalId is the Instagram media id when source="instagram"
+    // (points at instagram_post_insights.mediaId), null for manual rows.
+    // Rows with source != "manual" are never hand-edited/deleted (enforced
+    // in lib/content-posts/queries.ts, not just hidden in the UI) — a resync
+    // upserts them instead.
+    source: text("source").notNull().default("manual"),
+    externalId: text("external_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("content_posts_user_published_idx").on(table.userId, table.publishedAt)]
+  (table) => [
+    index("content_posts_user_published_idx").on(table.userId, table.publishedAt),
+    uniqueIndex("content_posts_user_source_external_idx").on(table.userId, table.source, table.externalId),
+  ]
 ).enableRLS();
 
 export const salePaymentType = pgEnum("sale_payment_type", ["one_shot", "installments"]);

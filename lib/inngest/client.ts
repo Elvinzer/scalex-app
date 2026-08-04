@@ -24,4 +24,12 @@ export const calendlyAccountConnected = eventType("calendly/account.connected", 
   schema: staticSchema<CalendlyAccountConnected>(),
 });
 
+type InstagramAccountConnected = {
+  userId: string;
+};
+
+export const instagramAccountConnected = eventType("instagram/account.connected", {
+  schema: staticSchema<InstagramAccountConnected>(),
+});
+
 export const inngest = new Inngest({ id: "scale-x" });

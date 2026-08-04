@@ -1,14 +1,20 @@
+import { eq } from "drizzle-orm";
 import { Plus } from "lucide-react";
 
 import { AgentBanner } from "@/components/agent-banner";
+import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
 import { Button } from "@/components/ui/button";
+import { db } from "@/db";
+import { instagramConnections } from "@/db/schema";
+import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
 import { getContentPosts } from "@/lib/content-posts/queries";
-import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-metrics";
 import { getCurrentUser } from "@/lib/current-user";
+import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-metrics";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
+import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -20,13 +26,27 @@ function currentMonthWindow(): { year: number; month: number } {
   return { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
 }
 
-export default async function ContenuPage() {
+const INSTAGRAM_ERROR_MESSAGES: Record<string, string> = {
+  not_professional:
+    "Ce compte Instagram est un compte personnel. Passe-le en Business ou Créateur (voir le guide dans la fenêtre de connexion) puis réessaie.",
+  unknown: "La connexion Instagram a échoué. Réessaie dans un instant.",
+};
+
+export default async function ContenuPage({ searchParams }: { searchParams: Promise<{ instagram_error?: string }> }) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:contenu");
-  const [posts, profile, contentBenchmarks] = await Promise.all([
+  const { instagram_error: instagramError } = await searchParams;
+
+  const instagramConnected = Boolean(user?.instagramConnected);
+  const [posts, profile, contentBenchmarks, [instagramConnection], instagramInsights, subscriptionActive] = await Promise.all([
     getContentPosts(accountId),
     getBusinessProfile(accountId),
     getContentDiagnosticBenchmarks(user?.sector ?? null),
+    instagramConnected
+      ? db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    getInstagramPostInsightsMap(accountId),
+    hasActiveSubscription(accountId),
   ]);
   const platforms = profile.acquisition.platforms.map((platform) => platform.name).filter(Boolean);
 
@@ -72,7 +92,10 @@ export default async function ContenuPage() {
         <PostFormDialog
           platforms={platforms}
           trigger={
-            <Button type="button">
+            // Instagram's connect CTA becomes the screen's one priority
+            // (coral) action while disconnected — this stays outline then,
+            // per the DA rule against two competing accent CTAs.
+            <Button type="button" variant={instagramConnected ? "default" : "outline"}>
               <Plus className="size-4" />
               Ajouter un post
             </Button>
@@ -80,14 +103,20 @@ export default async function ContenuPage() {
         />
       </div>
 
-      {platforms.length === 0 && (
-        <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune plateforme renseignée</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ajoute tes plateformes de contenu dans Mon business pour les retrouver ici.
-          </p>
+      {instagramError && (
+        <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
+          {INSTAGRAM_ERROR_MESSAGES[instagramError] ?? INSTAGRAM_ERROR_MESSAGES.unknown}
         </div>
       )}
+
+      <InstagramConnectionCard
+        connected={instagramConnected}
+        username={instagramConnection?.username}
+        initialSyncStatus={instagramConnection?.initialSyncStatus}
+        initialSyncCompletedAt={instagramConnection?.initialSyncCompletedAt}
+        subscriptionActive={subscriptionActive}
+        primaryCta={!instagramConnected}
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="sticker-card flex flex-col p-5">
@@ -110,6 +139,7 @@ export default async function ContenuPage() {
         topPostId={topPost?.id ?? null}
         contentBenchmarks={contentBenchmarks}
         falcoSkin={falcoSkin}
+        instagramInsights={instagramInsights}
       />
     </div>
   );

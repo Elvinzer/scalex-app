@@ -9,7 +9,9 @@ export function computePostRates(post: ContentPostRow): ContentPostRates {
 
   return {
     engagementRate: rate(engagement, post.views),
-    clickRate: rate(post.clicks ?? 0, post.views),
+    // Never coerce "never measured" (null — permanently the case for
+    // organic Instagram posts) into a measured 0 rate.
+    clickRate: post.clicks === null ? null : rate(post.clicks, post.views),
     viewToLeadRate: rate(post.leads ?? 0, post.views),
   };
 }
@@ -25,7 +27,7 @@ export function computePostRates(post: ContentPostRow): ContentPostRates {
 // neither ratio is measurable (no views/clicks yet) rather than a fabricated
 // score.
 export function computePostScore(post: ContentPostRow, contentBenchmarks: Record<ContentMetricKey, number>): number | null {
-  const clickRate = rate(post.clicks ?? 0, post.views);
+  const clickRate = post.clicks === null ? null : rate(post.clicks, post.views);
   const clickToLeadRate = rate(post.leads ?? 0, post.clicks ?? 0);
 
   const scores = [

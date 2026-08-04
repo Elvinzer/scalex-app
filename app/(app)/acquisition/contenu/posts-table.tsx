@@ -1,15 +1,17 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera, ChevronsUpDown, Pencil, Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ItemScoreButton } from "@/components/item-score-button";
+import { InstagramPostDetailDialog } from "@/components/instagram/instagram-post-detail-dialog";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 import type { ContentMetricKey } from "@/lib/diagnostic/content-metrics";
 import { computePostRates, computePostScore } from "@/lib/content-posts/rates";
 import type { ContentPostRow } from "@/lib/content-posts/types";
+import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
@@ -26,12 +28,14 @@ export function PostsTable({
   topPostId,
   contentBenchmarks,
   falcoSkin,
+  instagramInsights,
 }: {
   posts: ContentPostRow[];
   platforms: string[];
   topPostId: string | null;
   contentBenchmarks: Record<ContentMetricKey, number>;
   falcoSkin?: FalcoSkinKey | null;
+  instagramInsights?: Map<string, InstagramPostInsightRow>;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
   const [sortDesc, setSortDesc] = useState(true);
@@ -132,7 +136,12 @@ export function PostsTable({
                   )}
                 </div>
               </td>
-              <td className="p-3 text-muted-foreground">{post.platform}</td>
+              <td className="p-3 text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  {post.source === "instagram" && <Camera className="size-3.5 shrink-0" aria-label="Synchronisé depuis Instagram" />}
+                  {post.platform}
+                </span>
+              </td>
               <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(post.views)}</td>
               <td className={cn("p-3 text-right tabular-nums", rates.engagementRate === null && "text-muted-foreground")}>
                 {rates.engagementRate === null ? "—" : formatPercent(rates.engagementRate)}
@@ -159,24 +168,42 @@ export function PostsTable({
               </td>
               <td className="p-3">
                 <div className="flex justify-end gap-1">
-                  <PostFormDialog
-                    platforms={platforms}
-                    post={post}
-                    trigger={
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier">
-                        <Pencil className="size-3.5" />
+                  {post.source === "instagram" ? (
+                    (() => {
+                      const insight = post.externalId ? instagramInsights?.get(post.externalId) : undefined;
+                      return insight ? (
+                        <InstagramPostDetailDialog
+                          insight={insight}
+                          trigger={
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label="Voir le détail">
+                              <Camera className="size-3.5" />
+                            </Button>
+                          }
+                        />
+                      ) : null;
+                    })()
+                  ) : (
+                    <>
+                      <PostFormDialog
+                        platforms={platforms}
+                        post={post}
+                        trigger={
+                          <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier">
+                            <Pencil className="size-3.5" />
+                          </Button>
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Supprimer"
+                        onClick={() => handleDelete(post.id)}
+                      >
+                        <Trash2 className="size-3.5" />
                       </Button>
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Supprimer"
-                    onClick={() => handleDelete(post.id)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                    </>
+                  )}
                 </div>
               </td>
             </tr>
