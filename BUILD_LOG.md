@@ -42,8 +42,52 @@ préexistant : `anyOfPermissions` de l'entrée sidebar "Acquisition" ne
 listait que 3 des 5 permissions réelles du pilier (mail/pipeline/setters
 manquaient) — un membre d'équipe avec le rôle "Setting" par défaut (qui
 donne justement `acquisition:pipeline`) ne voyait jamais l'entrée
-Acquisition dans sa sidebar. Prochaine itération : même traitement pour
-Vente/Closing + Vente/Vidéos → Appels.
+Acquisition dans sa sidebar.
+
+Même traitement côté Vente : Closing (saisie agrégée quotidienne) devient
+`/ventes/appels/funnel`, Vidéos de closing devient `/ventes/appels/videos`,
+toutes deux liées depuis Appels plutôt que routes cachées séparées. Nuance
+gardée volontairement : la permission `ventes:videos` n'a PAS été fusionnée
+dans `ventes:appels` comme `ventes:closing` — contrairement à Setting/
+Closing (doublons de saisie), les transcriptions d'appels vidéo sont un
+niveau de sensibilité réellement différent des stats d'appels, donc restent
+un droit à part. Même correctif de bug nav appliqué à "Vente"
+(`anyOfPermissions` ne listait que suivi/closing, ratait appels/business/
+upsell/videos). `acquisition:setting` et `ventes:closing` restent des clés
+de permission valides mais legacy — non retirées du modèle (des rôles
+existants peuvent déjà les avoir), seulement retirées comme portes d'entrée
+réelles des pages.
+
+Bilan Proposition C : ~1150 lignes de code mort et pages fantômes
+supprimées, 3 pages de diagnostic redondantes ramenées à 1 signal clair par
+page, 4 paires de pages quasi-dupliquées consolidées en 2 (avec sous-pages
+nichées plutôt que routes cachées), et 2 bugs de nav préexistants corrigés
+en chemin.
+
+Les 2 chantiers mis de côté au tour précédent ("fusionner les 2 tabs de
+Diagnostic" et "unifier les 3 chiffres de potentiel") se sont avérés, en
+relisant le code de plus près, ne pas être de vrais doublons à corriger :
+- Les 3 chiffres (Dashboard/Diagnostic/badge Scale Score) sont documentés
+  EXPLICITEMENT comme délibérément différents dans le code lui-même
+  (commentaire dans app/(app)/layout.tsx : "the two are deliberately
+  different numbers now, scoped to what each page is asking", suite à une
+  demande produit explicite). Les fusionner serait annuler une décision
+  produit déjà prise, pas corriger un bug.
+- Les 2 tabs de Diagnostic ne sont pas 2 vues du même contenu : Section 1
+  ("Optimiser") + Section 2 ("Ajouter") sont déjà les 2 listes canoniques
+  qui se distinguent utilement (actif-sous-performant vs. absent), et le
+  tab Découverte est un QUESTIONNAIRE qui alimente Section 2 en réponses,
+  pas une 3e présentation de la même liste. La vraie redondance des "5
+  présentations de leviers" (Dashboard, Overview, Diagnostic Section 1,
+  Diagnostic Section 2, Diagnostic Découverte) est déjà résolue : Overview
+  supprimée, Dashboard réduit à 1 carte pointeur — il reste exactement les
+  2 listes canoniques + 1 mécanisme de saisie sur Diagnostic, ce qui est
+  correct, pas un reliquat à fusionner davantage.
+
+Proposition C est donc fonctionnelle et complète telle qu'elle peut
+raisonnablement l'être sans écran sous les yeux — les 2 points restants ne
+sont pas reportés, ils sont clos comme non applicables une fois vérifiés
+contre le code réel plutôt que contre l'hypothèse de départ.
 
 ## 2026-07-15
 
