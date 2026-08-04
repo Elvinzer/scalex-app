@@ -43,10 +43,13 @@ export async function disconnectInstagram(): Promise<{ error: string | null }> {
 }
 
 // On-demand pull (idempotent), same role as refreshIclosedCalls/
-// refreshCalendlyCalls. Bounded to the same recent-media window as the
-// recurring cron (see protocol.ts's INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS)
-// rather than a full re-backfill, so a manual click stays fast and within
-// Meta's rate limits even for accounts with a long post history. Available
+// refreshCalendlyCalls. Re-fetches insights for the same recent-media
+// window as the recurring cron (see protocol.ts's
+// INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS) so a manual click stays fast for
+// the common case — but backfillInstagramPosts also always picks up any
+// media never seen before regardless of age, so a post the very first
+// connect-time sync missed (a transient error, a pagination hiccup) gets
+// recovered here too, not just via a full disconnect+reconnect. Available
 // to the owner and team members with the acquisition:contenu permission.
 export async function refreshInstagramPosts(): Promise<{ error: string | null; imported?: number }> {
   const supabase = await createClient();

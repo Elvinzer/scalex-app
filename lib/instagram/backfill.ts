@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+
 import { db } from "@/db";
 import { contentPosts, instagramPostInsights } from "@/db/schema";
 
@@ -9,6 +11,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function knownMediaIds(userId: string): Promise<Set<string>> {
+  const rows = await db.select({ mediaId: instagramPostInsights.mediaId }).from(instagramPostInsights).where(eq(instagramPostInsights.userId, userId));
+  return new Set(rows.map((row) => row.mediaId));
+}
+
 // Core Instagram -> Scale X sync, shared by the Inngest connect-job and the
 // recurring insights-refresh cron. Unlike iClosed/Calendly's backfill
 // (onConflictDoNothing — call data is finalized once written), this always
@@ -17,18 +24,30 @@ function sleep(ms: number): Promise<void> {
 // idempotent (safe to run repeatedly / replay on failure) — just via update
 // instead of no-op on conflict.
 //
-// `sinceDate` restricts which media get their insights refetched (the
-// recurring cron only wants recent posts — see protocol.ts's
+// `sinceDate` restricts which ALREADY-SEEN media get their insights
+// refetched (the recurring cron/manual refresh only want to re-poll recent
+// posts for climbing numbers — see protocol.ts's
 // INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS); omit it for the full connect-time
-// backfill.
+// backfill. Critically, `sinceDate` NEVER excludes a media item this user
+// has never been synced before, regardless of its age — listMedia() always
+// returns everything Meta's API exposes (up to the cap), so a media item
+// outside the recent window but missing from instagram_post_insights is
+// still fetched. Without this, an item that failed to sync once (the
+// pagination/per-item bugs fixed alongside this comment, or a transient
+// Meta error) could NEVER be recovered by anything except a full
+// disconnect+reconnect — every recurring cron run and every manual
+// "Rafraîchir" click would keep silently ignoring it forever, since both
+// only ever pass a recent `sinceDate`, never omit it.
 export async function backfillInstagramPosts(userId: string, accessToken: string, sinceDate?: Date): Promise<number> {
   // /me/media never returns Stories (a separate, ephemeral edge — see
   // client.ts's listStories) — combined here so both flow through the same
   // insights-fetch + upsert pipeline below. Distinct ID spaces, no dedup
   // needed.
-  const [media, stories] = await Promise.all([listMedia(accessToken), listStories(accessToken)]);
+  const [media, stories, existingMediaIds] = await Promise.all([listMedia(accessToken), listStories(accessToken), knownMediaIds(userId)]);
   const combined = [...media, ...stories];
-  const scoped = sinceDate ? combined.filter((item) => new Date(item.timestamp) >= sinceDate) : combined;
+  const scoped = sinceDate
+    ? combined.filter((item) => new Date(item.timestamp) >= sinceDate || !existingMediaIds.has(item.id))
+    : combined;
   if (scoped.length === 0) return 0;
 
   let processed = 0;
