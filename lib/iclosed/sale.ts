@@ -24,8 +24,24 @@ export function buildSaleInput(params: {
   if (collected < contracted) {
     paymentType = "installments";
     installments = [
-      { amount: collected, dueDate: params.saleDate, status: "paid", paidAt: params.saleDate },
-      { amount: contracted - collected, dueDate: params.saleDate, status: "upcoming", paidAt: null },
+      {
+        amount: collected,
+        dueDate: params.saleDate,
+        status: "paid",
+        paidAt: params.saleDate,
+        stripeChargeId: null,
+        failureReason: null,
+        acknowledgedAt: null,
+      },
+      {
+        amount: contracted - collected,
+        dueDate: params.saleDate,
+        status: "upcoming",
+        paidAt: null,
+        stripeChargeId: null,
+        failureReason: null,
+        acknowledgedAt: null,
+      },
     ];
   }
 
@@ -36,6 +52,10 @@ export function buildSaleInput(params: {
     offerId: null,
     totalPrice: contracted,
     paymentType,
+    // iClosed reports contracted/collected totals, not how the money moved
+    // — never auto-tagged "stripe" (that would make lib/stripe/failed-payments.ts
+    // eligible to match an unrelated charge onto it by email/amount alone).
+    paymentMethod: "virement",
     installments,
     saleDate: params.saleDate,
     closer: params.closer ?? null,

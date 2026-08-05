@@ -22,6 +22,9 @@ export function generateSchedule(
       dueDate: due.toISOString().slice(0, 10),
       status: "upcoming" as const,
       paidAt: null,
+      stripeChargeId: null,
+      failureReason: null,
+      acknowledgedAt: null,
     };
   });
 }

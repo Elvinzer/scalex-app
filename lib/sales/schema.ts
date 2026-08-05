@@ -5,6 +5,9 @@ const installmentSchema = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: z.enum(["upcoming", "paid", "failed"]),
   paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  stripeChargeId: z.string().nullable(),
+  failureReason: z.string().nullable(),
+  acknowledgedAt: z.string().nullable(),
 });
 
 // Shared by the sale form dialog and the create/update server actions —
@@ -17,6 +20,7 @@ export const saleInputSchema = z.object({
   offerId: z.string().nullable(),
   totalPrice: z.number().int().min(0),
   paymentType: z.enum(["one_shot", "installments"]),
+  paymentMethod: z.enum(["stripe", "virement"]),
   installments: z.array(installmentSchema).nullable(),
   saleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   closer: z.string().nullable(),

@@ -5,9 +5,20 @@ export type SaleInstallment = {
   dueDate: string; // "YYYY-MM-DD"
   status: InstallmentStatus;
   paidAt: string | null; // "YYYY-MM-DD", set when status becomes "paid"
+  // Set only by lib/stripe/failed-payments.ts when it matches a failed
+  // Stripe charge to this installment — null for manually-marked failures
+  // and for anything paid by "virement".
+  stripeChargeId: string | null;
+  failureReason: string | null; // French label, set alongside stripeChargeId
+  // Set when the owner clicks "Marquer comme traité" on a failed
+  // installment — an acknowledgement that they've followed up with the
+  // client, NOT a status change. The installment stays "failed" until a
+  // real payment (or a manual override) says otherwise.
+  acknowledgedAt: string | null; // ISO datetime
 };
 
 export type PaymentType = "one_shot" | "installments";
+export type PaymentMethod = "stripe" | "virement";
 
 export type SaleRow = {
   id: string;
@@ -17,6 +28,7 @@ export type SaleRow = {
   offerId: string | null;
   totalPrice: number;
   paymentType: PaymentType;
+  paymentMethod: PaymentMethod;
   installments: SaleInstallment[] | null;
   saleDate: string;
   closer: string | null;

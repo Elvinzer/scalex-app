@@ -42,6 +42,7 @@ export function SaleValidationDialog({
   const [closer, setCloser] = useState(lead.closer ?? "");
   const [saleDate, setSaleDate] = useState(today());
   const [paymentType, setPaymentType] = useState<"one_shot" | "installments">("one_shot");
+  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "virement">("virement");
   const [installmentCount, setInstallmentCount] = useState(3);
 
   const preview = useMemo(() => {
@@ -66,6 +67,7 @@ export function SaleValidationDialog({
       offerId: selectedOfferId || null,
       totalPrice: Number(totalPrice) || 0,
       paymentType,
+      paymentMethod,
       installments: paymentType === "installments" ? preview : null,
       saleDate,
       closer: closer || null,
@@ -172,6 +174,18 @@ export function SaleValidationDialog({
               </Button>
               <Button type="button" variant={paymentType === "installments" ? "default" : "outline"} size="sm" onClick={() => setPaymentType("installments")}>
                 Échelonné
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 text-sm">
+            <span className="text-muted-foreground">Moyen de paiement</span>
+            <div className="flex gap-1.5">
+              <Button type="button" variant={paymentMethod === "virement" ? "default" : "outline"} size="sm" onClick={() => setPaymentMethod("virement")}>
+                Virement
+              </Button>
+              <Button type="button" variant={paymentMethod === "stripe" ? "default" : "outline"} size="sm" onClick={() => setPaymentMethod("stripe")}>
+                Stripe
               </Button>
             </div>
           </div>

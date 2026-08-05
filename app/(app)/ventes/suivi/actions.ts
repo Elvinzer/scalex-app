@@ -84,3 +84,37 @@ export async function setInstallmentStatus(
   revalidatePath("/diagnostic");
   return { error: null };
 }
+
+// "Marquer comme traité" on a failed installment — an acknowledgement that
+// the owner has followed up with the client directly (Scale X never writes
+// to the client's connected Stripe account, see lib/stripe/read-only-client.ts).
+// Does NOT change the installment's status: it stays "failed" until a real
+// payment (webhook/resync) or a manual override says otherwise.
+export async function acknowledgeFailedInstallment(saleId: string, installmentIndex: number): Promise<{ error: string | null }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+  const access = await requirePermission(userId, "ventes:suivi");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+  const { accountId } = access;
+
+  const [row] = await db
+    .select()
+    .from(sales)
+    .where(and(eq(sales.id, saleId), eq(sales.userId, accountId)))
+    .limit(1);
+
+  if (!row || !row.installments || !row.installments[installmentIndex]) {
+    return { error: "Échéance introuvable" };
+  }
+
+  const installments = [...row.installments];
+  installments[installmentIndex] = {
+    ...installments[installmentIndex],
+    acknowledgedAt: new Date().toISOString(),
+  };
+
+  await db.update(sales).set({ installments }).where(and(eq(sales.id, saleId), eq(sales.userId, accountId)));
+
+  revalidatePath("/ventes/suivi");
+  return { error: null };
+}

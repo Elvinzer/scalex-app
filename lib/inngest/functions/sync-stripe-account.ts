@@ -6,6 +6,7 @@ import { diagnostics, stripeConnections } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { decrypt } from "@/lib/crypto";
 import { inngest, stripeAccountConnected } from "@/lib/inngest/client";
+import { syncFailedStripeCharges } from "@/lib/stripe/failed-payments";
 import { createReadOnlyStripeClient } from "@/lib/stripe/read-only-client";
 import { syncStripeMonthlyMetrics } from "@/lib/stripe/sync-write";
 
@@ -71,6 +72,14 @@ export const syncStripeAccount = inngest.createFunction(
       const { monthsSynced } = await step.run("sync-monthly-metrics", async () => {
         const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
         return syncStripeMonthlyMetrics(userId, stripe, STRIPE_SYNC_MONTHS_BACK);
+      });
+
+      // Links failed charges to existing /ventes/suivi sales (moyen =
+      // "stripe") by client email + amount — feeds the "Paiements Stripe
+      // échoués" banner. Best-effort match, never creates a sale on its own.
+      await step.run("sync-failed-charges", async () => {
+        const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
+        return syncFailedStripeCharges(userId, stripe, STRIPE_SYNC_MONTHS_BACK);
       });
 
       await step.run("mark-sync-completed", async () => {

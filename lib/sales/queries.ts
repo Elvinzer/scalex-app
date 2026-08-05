@@ -17,6 +17,7 @@ function toRow(row: typeof sales.$inferSelect): SaleRow {
     offerId: row.offerId,
     totalPrice: row.totalPrice,
     paymentType: row.paymentType,
+    paymentMethod: row.paymentMethod,
     installments: row.installments,
     saleDate: row.saleDate,
     closer: row.closer,

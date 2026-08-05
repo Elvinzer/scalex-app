@@ -7,10 +7,11 @@ import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui
 import type { Offer } from "@/lib/business/types";
 import { summarize } from "@/lib/sales/installments";
 import type { SaleRow } from "@/lib/sales/types";
+import { stripeDashboardChargeUrl } from "@/lib/stripe/dashboard-url";
 import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
 
-import { setInstallmentStatus } from "./actions";
+import { acknowledgeFailedInstallment, setInstallmentStatus } from "./actions";
 import { SaleFormDialog } from "./sale-form-dialog";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -23,12 +24,14 @@ export function SaleDetailDrawer({
   sale,
   offers,
   setters,
+  stripeConnection,
   open,
   onOpenChange,
 }: {
   sale: SaleRow | null;
   offers: Offer[];
   setters: SetterRow[];
+  stripeConnection?: { accountId: string; livemode: boolean } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -44,6 +47,13 @@ export function SaleDetailDrawer({
     if (!sale) return;
     startTransition(async () => {
       await setInstallmentStatus(sale.id, index, status);
+    });
+  }
+
+  function acknowledge(index: number) {
+    if (!sale) return;
+    startTransition(async () => {
+      await acknowledgeFailedInstallment(sale.id, index);
     });
   }
 
@@ -96,35 +106,67 @@ export function SaleDetailDrawer({
               <p className="mb-2 text-sm font-bold">Échéances</p>
               <ul className="flex flex-col gap-2">
                 {sale.installments.map((installment, index) => (
-                  <li key={index} className="flex items-center justify-between rounded-[var(--radius-control)] border border-border p-3 text-sm">
-                    <div>
-                      <p className="font-bold">{installment.amount} €</p>
-                      <p className="text-xs text-muted-foreground">
-                        {installment.dueDate} — {STATUS_LABELS[installment.status]}
-                      </p>
-                    </div>
-                    {installment.status !== "paid" && (
-                      <div className="flex gap-1.5">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isPending}
-                          onClick={() => toggleStatus(index, "paid")}
-                        >
-                          Marquer payée
-                        </Button>
-                        {installment.status !== "failed" && (
+                  <li key={index} className="flex flex-col gap-2 rounded-[var(--radius-control)] border border-border p-3 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-bold">{installment.amount} €</p>
+                        <p className="text-xs text-muted-foreground">
+                          {installment.dueDate} — {STATUS_LABELS[installment.status]}
+                        </p>
+                      </div>
+                      {installment.status !== "paid" && (
+                        <div className="flex flex-wrap justify-end gap-1.5">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             disabled={isPending}
-                            onClick={() => toggleStatus(index, "failed")}
+                            onClick={() => toggleStatus(index, "paid")}
                           >
-                            Marquer échouée
+                            Marquer payée
                           </Button>
-                        )}
+                          {installment.status !== "failed" && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={isPending}
+                              onClick={() => toggleStatus(index, "failed")}
+                            >
+                              Marquer échouée
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {installment.status === "failed" && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-control)] bg-state-critical/10 px-3 py-2">
+                        <p className="text-xs font-bold text-state-critical">
+                          {installment.failureReason ?? "Paiement refusé"}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          {installment.stripeChargeId && stripeConnection && (
+                            <Button asChild variant="link" size="sm">
+                              <a
+                                href={stripeDashboardChargeUrl(stripeConnection.accountId, installment.stripeChargeId, stripeConnection.livemode)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Voir sur Stripe →
+                              </a>
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant={installment.acknowledgedAt ? "ghost" : "destructive"}
+                            size="sm"
+                            disabled={isPending || Boolean(installment.acknowledgedAt)}
+                            onClick={() => acknowledge(index)}
+                          >
+                            {installment.acknowledgedAt ? "Traité ✓" : "Marquer comme traité"}
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </li>

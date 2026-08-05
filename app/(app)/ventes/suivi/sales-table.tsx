@@ -20,24 +20,48 @@ const STATUS_BADGE: Record<string, string> = {
   failed: "bg-state-critical/10 text-state-critical",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  paid_full: "Payé intégralement",
-  in_progress: "En cours",
-  failed: "Échéance échouée",
+// "in_progress" is deliberately split into two copies (not two colors — the
+// DA has no neutral "info" token beyond critical/caution/healthy) depending
+// on how the client is expected to pay the rest.
+function statusLabel(overallStatus: string, paymentMethod: string): string {
+  if (overallStatus === "paid_full") return "Payé intégralement";
+  if (overallStatus === "failed") return "Échec de paiement";
+  return paymentMethod === "stripe" ? "Paiement à venir" : "En attente de virement";
+}
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  stripe: "Stripe",
+  virement: "Virement",
 };
 
-export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; setters: SetterRow[]; offers: Offer[] }) {
+export function SalesTable({
+  sales,
+  setters,
+  offers,
+  stripeConnection,
+}: {
+  sales: SaleRow[];
+  setters: SetterRow[];
+  offers: Offer[];
+  stripeConnection?: { accountId: string; livemode: boolean } | null;
+}) {
   // Tracks only the id, not the sale object itself — so after an edit
   // revalidates `sales` from the server, the drawer re-derives the fresh
   // row below instead of showing the stale snapshot captured at click time.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = selectedId ? (sales.find((sale) => sale.id === selectedId) ?? null) : null;
   const [setterFilter, setSetterFilter] = useState("");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
   const [, startTransition] = useTransition();
 
   const filtered = useMemo(
-    () => (setterFilter ? sales.filter((sale) => sale.setterId === setterFilter) : sales),
-    [sales, setterFilter]
+    () =>
+      sales.filter(
+        (sale) =>
+          (!setterFilter || sale.setterId === setterFilter) &&
+          (!paymentMethodFilter || sale.paymentMethod === paymentMethodFilter)
+      ),
+    [sales, setterFilter, paymentMethodFilter]
   );
 
   const sorted = useMemo(() => {
@@ -71,8 +95,8 @@ export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; sette
 
   return (
     <>
-      {setters.length > 0 && (
-        <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-4">
+        {setters.length > 0 && (
           <label className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Filtrer par setter</span>
             <select
@@ -88,8 +112,20 @@ export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; sette
               ))}
             </select>
           </label>
-        </div>
-      )}
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Moyen de paiement</span>
+          <select
+            value={paymentMethodFilter}
+            onChange={(event) => setPaymentMethodFilter(event.target.value)}
+            className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+          >
+            <option value="">Tous</option>
+            <option value="stripe">Stripe</option>
+            <option value="virement">Virement</option>
+          </select>
+        </label>
+      </div>
 
       <div className="sticker-card overflow-x-auto">
         <table className="w-full text-sm">
@@ -98,6 +134,7 @@ export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; sette
               <th className="p-3 text-left text-xs font-bold text-muted-foreground">Date</th>
               <th className="p-3 text-left text-xs font-bold text-muted-foreground">Client</th>
               <th className="p-3 text-right text-xs font-bold text-muted-foreground">Prix</th>
+              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Paiement</th>
               <th className="p-3 text-left text-xs font-bold text-muted-foreground">Source</th>
               <th className="p-3 text-left text-xs font-bold text-muted-foreground">Setter</th>
               <th className="p-3 text-left text-xs font-bold text-muted-foreground">Closer</th>
@@ -115,12 +152,17 @@ export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; sette
                 <td className="p-3 whitespace-nowrap text-muted-foreground">{sale.saleDate}</td>
                 <td className="p-3 font-bold">{sale.clientName}</td>
                 <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(sale.totalPrice)} €</td>
+                <td className="p-3">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                    {PAYMENT_METHOD_LABEL[sale.paymentMethod]}
+                  </span>
+                </td>
                 <td className="p-3 text-muted-foreground">{sale.sourceChannel ?? "—"}</td>
                 <td className="p-3 text-muted-foreground">{setterName(sale.setterId)}</td>
                 <td className="p-3 text-muted-foreground">{sale.closer ?? "—"}</td>
                 <td className="p-3">
                   <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.overallStatus])}>
-                    {STATUS_LABEL[summary.overallStatus]}
+                    {statusLabel(summary.overallStatus, sale.paymentMethod)}
                   </span>
                 </td>
                 <td className="p-3 text-right">
@@ -142,7 +184,14 @@ export function SalesTable({ sales, setters, offers }: { sales: SaleRow[]; sette
         </table>
       </div>
 
-      <SaleDetailDrawer sale={selected} offers={offers} setters={setters} open={selected !== null} onOpenChange={(open) => !open && setSelectedId(null)} />
+      <SaleDetailDrawer
+        sale={selected}
+        offers={offers}
+        setters={setters}
+        stripeConnection={stripeConnection}
+        open={selected !== null}
+        onOpenChange={(open) => !open && setSelectedId(null)}
+      />
     </>
   );
 }

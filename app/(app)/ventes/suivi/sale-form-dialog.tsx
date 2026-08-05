@@ -32,6 +32,7 @@ export function SaleFormDialog({
   const [selectedOfferId, setSelectedOfferId] = useState(sale?.offerId ?? offers.find((o) => o.isMain)?.id ?? "");
   const [totalPrice, setTotalPrice] = useState<string>(String(sale?.totalPrice ?? offers.find((o) => o.id === (sale?.offerId ?? offers.find((o2) => o2.isMain)?.id))?.price ?? ""));
   const [paymentType, setPaymentType] = useState<"one_shot" | "installments">(sale?.paymentType ?? "one_shot");
+  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "virement">(sale?.paymentMethod ?? "virement");
   const [installmentCount, setInstallmentCount] = useState(sale?.installments?.length ?? 3);
   const [saleDate, setSaleDate] = useState(sale?.saleDate ?? today());
   const [hasUpsell, setHasUpsell] = useState(sale?.hasUpsell ?? false);
@@ -65,6 +66,7 @@ export function SaleFormDialog({
       offerId: selectedOfferId || null,
       totalPrice: Number(totalPrice) || 0,
       paymentType,
+      paymentMethod,
       installments: paymentType === "installments" ? (sale?.installments && sale.paymentType === "installments" ? sale.installments : preview) : null,
       saleDate,
       closer: String(formData.get("closer") ?? "") || null,
@@ -218,6 +220,28 @@ export function SaleFormDialog({
                 onClick={() => setPaymentType("installments")}
               >
                 Échelonné
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 text-sm">
+            <span className="text-muted-foreground">Moyen de paiement</span>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                variant={paymentMethod === "virement" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPaymentMethod("virement")}
+              >
+                Virement
+              </Button>
+              <Button
+                type="button"
+                variant={paymentMethod === "stripe" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPaymentMethod("stripe")}
+              >
+                Stripe
               </Button>
             </div>
           </div>

@@ -11,7 +11,7 @@ export const Tabs = RadixTabs.Root;
 export function TabsList({ className, ...props }: React.ComponentProps<typeof RadixTabs.List>) {
   return (
     <RadixTabs.List
-      className={cn("flex items-center gap-1 overflow-x-auto border-b-2 border-border", className)}
+      className={cn("flex items-center gap-1 overflow-x-auto overflow-y-hidden border-b-2 border-border", className)}
       {...props}
     />
   );

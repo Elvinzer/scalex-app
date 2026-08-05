@@ -754,6 +754,12 @@ export const contentPosts = pgTable(
 ).enableRLS();
 
 export const salePaymentType = pgEnum("sale_payment_type", ["one_shot", "installments"]);
+// How the client actually pays — distinct from paymentType (one-shot vs
+// échelonné), which is about the schedule shape, not the rail. Drives the
+// "Paiement" badge and moyen-de-paiement filter on /ventes/suivi, and gates
+// which sales lib/stripe/failed-payments.ts is allowed to match failed
+// Stripe charges against (never touches a "virement" sale).
+export const salePaymentMethod = pgEnum("sale_payment_method", ["stripe", "virement"]);
 
 // --- Pipeline Acquisition (Kanban leads) + Setters + commissions ---------
 // setters/leads/sales are mutually referential (leads.setterId -> setters,
@@ -888,6 +894,10 @@ export const sales = pgTable(
     offerId: text("offer_id"),
     totalPrice: integer("total_price").notNull(), // euros
     paymentType: salePaymentType("payment_type").notNull(),
+    // Existing rows predate this field and default to "virement" — a safe
+    // assumption since every sale before Stripe charge-matching existed was
+    // tracked by hand, which in practice meant wire transfers.
+    paymentMethod: salePaymentMethod("payment_method").notNull().default("virement"),
     installments: jsonb("installments").$type<SaleInstallment[]>(),
     saleDate: date("sale_date", { mode: "string" }).notNull(),
     closer: text("closer"),

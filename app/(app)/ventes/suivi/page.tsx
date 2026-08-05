@@ -1,27 +1,66 @@
+import { eq } from "drizzle-orm";
 import { Plus } from "lucide-react";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { PeriodFilter } from "@/components/period-filter";
 import { Button } from "@/components/ui/button";
+import { db } from "@/db";
+import { stripeConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
+import { stripeDashboardChargeUrl } from "@/lib/stripe/dashboard-url";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
 import { getSetters } from "@/lib/setters/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
+import type { FailedPaymentItem } from "./failed-payments-banner";
+import { FailedPaymentsBanner } from "./failed-payments-banner";
 import { SaleFormDialog } from "./sale-form-dialog";
 import { SalesTable } from "./sales-table";
+import { StripeStatusLine } from "./stripe-status-line";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
 export default async function SuiviDesVentesPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
-  const { userId, accountId } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:suivi");
-  const [sales, profile, setters] = await Promise.all([getSales(accountId), getBusinessProfile(accountId), getSetters(accountId)]);
+  const stripeConnected = Boolean(user?.stripeConnectId);
+  const [sales, profile, setters, [connection]] = await Promise.all([
+    getSales(accountId),
+    getBusinessProfile(accountId),
+    getSetters(accountId),
+    stripeConnected
+      ? db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+  ]);
   const offers = profile.sales.offers;
+
+  // Account-wide, not period-scoped — a failed payment needing action
+  // shouldn't fall out of view just because the period tabs above narrow to
+  // a month that doesn't contain it.
+  const failedPaymentItems: FailedPaymentItem[] = sales.flatMap((sale) => {
+    if (!sale.installments) return [];
+    return sale.installments.flatMap((installment, index) => {
+      if (installment.status !== "failed" || installment.acknowledgedAt) return [];
+      return [
+        {
+          saleId: sale.id,
+          installmentIndex: index,
+          clientName: sale.clientName,
+          amount: installment.amount,
+          dueDate: installment.dueDate,
+          failureReason: installment.failureReason ?? "Paiement refusé",
+          stripeDashboardUrl:
+            installment.stripeChargeId && connection
+              ? stripeDashboardChargeUrl(connection.stripeAccountId, installment.stripeChargeId, connection.livemode)
+              : null,
+        },
+      ];
+    });
+  });
 
   const period = resolvePeriod((await searchParams).period);
   const periodSales = sales.filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)));
@@ -41,6 +80,8 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
 
   return (
     <div className="flex flex-col gap-8">
+      {stripeConnected && <FailedPaymentsBanner items={failedPaymentItems} />}
+
       <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -49,6 +90,9 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
           <p className="mt-1 text-muted-foreground">
             Chaque vente, avec son échéancier et ses impayés, au-delà des seuls totaux du funnel.
           </p>
+          <div className="mt-3">
+            <StripeStatusLine connected={stripeConnected} />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <PeriodFilter current={period.key} />
@@ -86,7 +130,12 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
         </div>
       </div>
 
-      <SalesTable sales={periodSales} setters={setters} offers={offers} />
+      <SalesTable
+        sales={periodSales}
+        setters={setters}
+        offers={offers}
+        stripeConnection={connection ? { accountId: connection.stripeAccountId, livemode: connection.livemode } : null}
+      />
     </div>
   );
 }
