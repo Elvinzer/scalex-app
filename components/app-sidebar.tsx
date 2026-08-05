@@ -249,7 +249,7 @@ function ProfileMenu({
             <ChevronsUpDown className="size-3.5 shrink-0 text-mist/40" />
           </button>
         </PopoverTrigger>
-        <PopoverContent side="top" align="start" sideOffset={10} className="w-56 p-1.5">
+        <PopoverContent side="bottom" align="end" sideOffset={10} className="w-56 p-1.5">
           {entries.map((entry) => {
             const Icon = entry.icon;
             return (
@@ -345,24 +345,38 @@ export function AppSidebar({
 
   return (
     <>
-      {/* Mobile-only top bar — the fixed sidebar below is off-canvas by
-          default under lg, so navigation needs a persistent trigger to
-          open it plus somewhere for the wordmark to live. */}
+      {/* Top bar — every breakpoint now (used to be mobile-only, back when
+          the wordmark + profile both lived inside the sidebar itself). The
+          hamburger stays lg:hidden since the sidebar below is permanently
+          visible at that size, no trigger needed. Logo sits at h-14's
+          vertical center via items-center; profile is pinned far right via
+          ml-auto — both live ONLY here now, removed from the sidebar. */}
       <header
-        className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 px-4 text-mist shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:hidden"
+        className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 px-4 text-mist shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:px-6"
         style={{ background: "var(--gradient-dark)" }}
       >
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Ouvrir le menu"
-          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist transition-colors hover:bg-white/10"
+          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist transition-colors hover:bg-white/10 lg:hidden"
         >
           <Menu className="size-5" />
         </button>
         <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
-          <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} className="h-7 w-auto" />
+          <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-7 w-auto lg:h-8" />
         </Link>
+        <div className="ml-auto min-w-0">
+          <ProfileMenu
+            businessName={businessName}
+            displayName={displayName}
+            avatarUrl={avatarUrl}
+            email={email}
+            isOwner={isOwner}
+            permissions={permissions}
+            onSignOut={handleSignOut}
+          />
+        </div>
       </header>
 
       {/* Backdrop — mobile/tablet only, dismisses the drawer on tap. Sits
@@ -376,28 +390,29 @@ export function AppSidebar({
         />
       )}
 
+      {/* Starts below the header (top-14) at every breakpoint now — the
+          header above is permanent, not just a mobile overlay trigger
+          anymore, so the sidebar no longer needs its own top clearance for
+          a logo row (removed, lives in the header now). */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-hidden px-3 py-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
+          "fixed top-14 bottom-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-hidden px-3 py-5 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ background: "var(--gradient-dark)" }}
       >
-        <div className="flex items-center justify-between px-3 pt-3 pb-7">
-          <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
-            <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
-          </Link>
+        <div className="flex justify-end pb-3 lg:hidden">
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
             aria-label="Fermer le menu"
-            className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/70 transition-colors hover:bg-white/10 lg:hidden"
+            className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/70 transition-colors hover:bg-white/10"
           >
             <X className="size-4.5" />
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto overscroll-contain pt-4">
+        <nav className="flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto overscroll-contain">
           {visibleTopEntries.map((entry) => (
             <Fragment key={entry.href}>
               {/* Marks Copilote as a distinct space (action/chat) from the
@@ -434,18 +449,6 @@ export function AppSidebar({
             </nav>
           </div>
         )}
-
-        <div className="px-3 pt-4">
-          <ProfileMenu
-            businessName={businessName}
-            displayName={displayName}
-            avatarUrl={avatarUrl}
-            email={email}
-            isOwner={isOwner}
-            permissions={permissions}
-            onSignOut={handleSignOut}
-          />
-        </div>
 
         {isAdmin && (
           <div className="px-3 pt-2">

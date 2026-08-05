@@ -199,7 +199,7 @@ export default async function AppLayout({
           currentMonthlyRevenue={currentMonthlyRevenue}
           potentialMonthlyRevenue={potentialMonthlyRevenue}
         />
-        <main className="min-w-0 flex-1 px-4 pt-20 pb-10 sm:px-8 lg:ml-64 lg:px-16 lg:pt-10">
+        <main className="min-w-0 flex-1 px-4 pt-20 pb-10 sm:px-8 lg:ml-64 lg:px-16">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
         <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
