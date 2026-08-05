@@ -3,6 +3,7 @@
 import {
   CalendarClock,
   CalendarDays,
+  ChevronDown,
   ChevronsUpDown,
   Database,
   Gift,
@@ -27,6 +28,7 @@ import { Fragment, useEffect, useState } from "react";
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 import { createClient } from "@/lib/supabase/client";
 import type { PermissionKey } from "@/lib/team/permissions";
@@ -163,11 +165,13 @@ function NavLink({
   pathname,
   indented,
   badge,
+  className,
 }: {
   entry: LinkEntry;
   pathname: string;
   indented: boolean;
   badge?: string;
+  className?: string;
 }) {
   const Icon = entry.icon;
   const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
@@ -180,7 +184,8 @@ function NavLink({
         indented ? "pl-7 text-[13px] tracking-[-0.005em]" : "pl-3 text-[13.5px] tracking-[-0.01em]",
         active
           ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]"
-          : "text-white hover:translate-x-0.5 hover:bg-mist/10"
+          : "text-white hover:translate-x-0.5 hover:bg-mist/10",
+        className
       )}
     >
       <Icon className="size-4" />
@@ -191,6 +196,79 @@ function NavLink({
         </span>
       )}
     </Link>
+  );
+}
+
+// A pillar row (Acquisition, Vente) that expands/collapses its sub-pages
+// inline. The label itself still navigates to the pillar landing page — only
+// the chevron toggles — so the existing one-click path to a pillar is
+// unchanged and the disclosure is an addition, not a trade-off.
+//
+// Sub-pages come from PILLAR_SUBPAGES, the same source the pillar's own tab
+// bar reads (lib/nav/pillar-subpages.ts), so the two listings can't drift.
+// This replaces the hover flyout that used to live here: hover has no
+// touch-device equivalent, a tap-to-expand disclosure works everywhere.
+function PillarNavGroup({
+  entry,
+  pathname,
+  isOwner,
+  permissions,
+}: {
+  entry: LinkEntry;
+  pathname: string;
+  isOwner: boolean;
+  permissions: readonly PermissionKey[];
+}) {
+  const subpages = (PILLAR_SUBPAGES[entry.href] ?? []).filter((sub) => isOwner || permissions.includes(sub.permission));
+  const insidePillar = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
+  const [open, setOpen] = useState(insidePillar);
+
+  // Navigating INTO the pillar from elsewhere opens it. Keyed on
+  // insidePillar (not pathname) so moving between two of its own sub-pages
+  // doesn't re-fire, and a manual collapse while inside the pillar sticks.
+  useEffect(() => {
+    if (insidePillar) setOpen(true);
+  }, [insidePillar]);
+
+  if (subpages.length === 0) return <NavLink entry={entry} pathname={pathname} indented={false} />;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1">
+        <NavLink entry={entry} pathname={pathname} indented={false} className="min-w-0 flex-1" />
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          aria-expanded={open}
+          aria-label={`${open ? "Replier" : "Déplier"} les pages ${entry.label}`}
+          className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/50 transition-colors hover:bg-mist/10 hover:text-mist"
+        >
+          <ChevronDown className={cn("size-4 transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} />
+        </button>
+      </div>
+
+      {open && (
+        <div className="flex flex-col gap-0.5">
+          {subpages.map((sub) => {
+            const active = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
+            return (
+              <Link
+                key={sub.href}
+                href={sub.href}
+                className={cn(
+                  // pl-10 lines the label up under the parent's own label
+                  // (pl-3 + size-4 icon + gap-3 = 40px).
+                  "flex items-center rounded-[var(--radius-control)] py-2 pr-3 pl-10 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+                  active ? "bg-white/10 text-white" : "text-mist/60 hover:bg-mist/10 hover:text-mist/90"
+                )}
+              >
+                {sub.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -449,7 +527,9 @@ export function AppSidebar({
                   analysis pages above it — same hairline that used to
                   separate the old "Avancé" entry. */}
               {entry.href === "/copilote" && <div className="my-3 h-px bg-white/20" />}
-              <NavLink entry={entry} pathname={pathname} indented={false} />
+              {/* PillarNavGroup falls back to a plain NavLink for any entry
+                  with no sub-pages, so every entry goes through it. */}
+              <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
             </Fragment>
           ))}
         </nav>
