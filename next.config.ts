@@ -21,7 +21,14 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: https://*.supabase.co`,
+  // Broad https: (not scoped to Supabase) on purpose: post thumbnails are
+  // short-lived signed URLs straight from Instagram's CDN
+  // (app/(app)/acquisition/contenu/posts-table.tsx) and lever demo video
+  // covers come from YouTube's oEmbed thumbnail_url (lib/levers/resources.ts)
+  // — both rotate across edge subdomains with no fixed host to allowlist.
+  // img-src is a low-risk directive to leave broad (no script execution),
+  // unlike script-src/connect-src above which stay locked to 'self'.
+  "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   `connect-src 'self' https://*.posthog.com${supabaseOrigin ? ` ${supabaseOrigin}` : ""}`,
   "frame-ancestors 'none'",
