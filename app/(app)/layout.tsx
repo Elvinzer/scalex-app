@@ -13,10 +13,14 @@ import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { ensureUserRow } from "@/lib/current-user";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
-import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeScaleScore, type ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { computeScaleScore, describeScaleScoreGap, type ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
+import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
+import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
+import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountContext } from "@/lib/team/context";
@@ -109,17 +113,38 @@ export default async function AppLayout({
   const SCALE_SCORE_PERIOD_MONTHS = 3;
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
+  // Only populated when scaleScore.score === null — names the actual
+  // blocker instead of a generic "give me your numbers" (see
+  // lib/diagnostic/scale-score-copy.ts).
+  let scaleScoreGapText: string | null = null;
+  let scaleScoreMonthNote: string | null = null;
 
   if (canSeeScaleScore && scaleScoreInputs) {
     const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
     const benchmarks = await getDiagnosticBenchmarks(userRow?.sector ?? null);
-    const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
+    const { settingTotals, closingTotals, cashContractedTotal, emptyMonths } = aggregatePeriodTotals({
       months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),
       allMonthlyRows,
       allSettingEntries,
       allClosingEntries,
     });
     scaleScore = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+
+    if (scaleScore.score === null) {
+      const gap = describeScaleScoreGap(emptyMonths, scaleScore.pillars);
+      scaleScoreGapText = gap ? scaleScoreGapMessage(gap) : null;
+
+      // The current month never enters the scoring window (see
+      // lastCompletedMonths) — if the user has already started filling it
+      // in, say so instead of leaving the placeholder unexplained.
+      const currentMonth = currentMonthWindow();
+      const currentMonthRow = allMonthlyRows.find((row) => row.year === currentMonth.year && row.month === currentMonth.month) ?? null;
+      const overlay = resolveDailySourceOverlay(currentMonth.range, allSettingEntries, allClosingEntries);
+      const currentMonthData = { ...(currentMonthRow ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
+      if (monthStatus(computeCompletion(currentMonthData)) !== "empty") {
+        scaleScoreMonthNote = currentMonthNote(currentMonth);
+      }
+    }
 
     if (cashContractedTotal > 0) {
       // Top-3 Découverte (lever) opportunities only — the diagnostic
@@ -166,6 +191,8 @@ export default async function AppLayout({
           permissions={permissions}
           isAdmin={isAdmin}
           scaleScore={canSeeScaleScore ? scaleScore : null}
+          scaleScoreGapText={scaleScoreGapText}
+          scaleScoreMonthNote={scaleScoreMonthNote}
           scaleScoreDelta7d={scaleScoreDelta7d}
           scaleScoreDelta30d={scaleScoreDelta30d}
           scaleScoreSparkline={scaleScoreSparkline}

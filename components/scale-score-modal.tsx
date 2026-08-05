@@ -24,6 +24,8 @@ export function ScaleScoreModal({
   open,
   onOpenChange,
   scaleScore,
+  scaleScoreGapText,
+  scaleScoreMonthNote,
   delta30d,
   sparkline,
   currentMonthlyRevenue,
@@ -32,6 +34,8 @@ export function ScaleScoreModal({
   open: boolean;
   onOpenChange: (next: boolean) => void;
   scaleScore: ScaleScoreResult;
+  scaleScoreGapText: string | null;
+  scaleScoreMonthNote: string | null;
   delta30d: number | null;
   sparkline: ScaleScoreSparklinePoint[];
   currentMonthlyRevenue: number | null;
@@ -66,10 +70,19 @@ export function ScaleScoreModal({
         <div className="flex flex-col gap-6 bg-card">
           {score === null ? (
             <div className="flex flex-col items-center gap-4 py-4 text-center">
-              <Falco pose="sleeping" size="md" animate="enter" withBubble bubbleText="Il me faut tes chiffres pour te noter." />
+              <Falco
+                pose="sleeping"
+                size="md"
+                animate="enter"
+                withBubble
+                bubbleText={scaleScoreGapText ?? "Il me faut tes chiffres pour te noter."}
+              />
               <Button asChild className="mt-2">
                 <a href="/datas">Remplir mes chiffres</a>
               </Button>
+              {scaleScoreMonthNote && (
+                <p className="max-w-[280px] text-xs text-muted-foreground">{scaleScoreMonthNote}</p>
+              )}
             </div>
           ) : (
             <>

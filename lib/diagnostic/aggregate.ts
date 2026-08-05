@@ -1,8 +1,10 @@
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import type { ClosingTotals } from "@/lib/closing/metrics";
 import { inRange } from "@/lib/dashboard/metrics";
+import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
-import { resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
+import { resolveDailySourceOverlay, resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
+import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 
 import type { MonthWindow } from "./completed-months";
@@ -51,13 +53,16 @@ export function aggregatePeriodTotals({
   closingTotals: ClosingTotals;
   cashContractedTotal: number;
   hasAnyMonthlyRow: boolean;
+  emptyMonths: MonthWindow[];
 } {
   const perMonthSetting: FunnelTotals[] = [];
   const perMonthClosing: ClosingTotals[] = [];
   let cashContractedTotal = 0;
   let hasAnyMonthlyRow = false;
+  const emptyMonths: MonthWindow[] = [];
 
-  for (const { year, month, range } of months) {
+  for (const monthWindow of months) {
+    const { year, month, range } = monthWindow;
     const monthlyRow = allMonthlyRows.find((row) => row.year === year && row.month === month) ?? null;
     if (monthlyRow) {
       hasAnyMonthlyRow = true;
@@ -69,6 +74,15 @@ export function aggregatePeriodTotals({
 
     perMonthSetting.push(resolveMonthSettingTotals(monthlyRow, dailySetting));
     perMonthClosing.push(resolveMonthClosingTotals(monthlyRow, dailyClosing));
+
+    // Same "empty" definition /datas shows (month-card.tsx's monthStatus) —
+    // a monthly_metrics row that exists but was cleared back to all-null
+    // still counts as empty, not just "no row at all".
+    const overlay = resolveDailySourceOverlay(range, allSettingEntries, allClosingEntries);
+    const mergedData = { ...(monthlyRow ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
+    if (monthStatus(computeCompletion(mergedData)) === "empty") {
+      emptyMonths.push(monthWindow);
+    }
   }
 
   return {
@@ -76,5 +90,6 @@ export function aggregatePeriodTotals({
     closingTotals: sumClosingTotals(perMonthClosing),
     cashContractedTotal,
     hasAnyMonthlyRow,
+    emptyMonths,
   };
 }

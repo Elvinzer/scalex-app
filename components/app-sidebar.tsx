@@ -287,6 +287,8 @@ export function AppSidebar({
   permissions,
   isAdmin,
   scaleScore,
+  scaleScoreGapText,
+  scaleScoreMonthNote,
   scaleScoreDelta7d,
   scaleScoreDelta30d,
   scaleScoreSparkline,
@@ -301,6 +303,8 @@ export function AppSidebar({
   permissions: readonly PermissionKey[];
   isAdmin: boolean;
   scaleScore: ScaleScoreResult | null;
+  scaleScoreGapText: string | null;
+  scaleScoreMonthNote: string | null;
   scaleScoreDelta7d: number | null;
   scaleScoreDelta30d: number | null;
   scaleScoreSparkline: ScaleScoreSparklinePoint[];
@@ -409,6 +413,8 @@ export function AppSidebar({
           <div className="px-3 pt-3">
             <ScaleScoreBadge
               scaleScore={scaleScore}
+              scaleScoreGapText={scaleScoreGapText}
+              scaleScoreMonthNote={scaleScoreMonthNote}
               delta7d={scaleScoreDelta7d}
               delta30d={scaleScoreDelta30d}
               sparkline={scaleScoreSparkline}

@@ -16,6 +16,8 @@ import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries
 // recomputes live from lib/diagnostic/scale-score.ts.
 export function ScaleScoreBadge({
   scaleScore,
+  scaleScoreGapText,
+  scaleScoreMonthNote,
   delta7d,
   delta30d,
   sparkline,
@@ -23,6 +25,8 @@ export function ScaleScoreBadge({
   potentialMonthlyRevenue,
 }: {
   scaleScore: ScaleScoreResult;
+  scaleScoreGapText: string | null;
+  scaleScoreMonthNote: string | null;
   delta7d: number | null;
   delta30d: number | null;
   sparkline: ScaleScoreSparklinePoint[];
@@ -85,6 +89,8 @@ export function ScaleScoreBadge({
         open={open}
         onOpenChange={handleOpenChange}
         scaleScore={scaleScore}
+        scaleScoreGapText={scaleScoreGapText}
+        scaleScoreMonthNote={scaleScoreMonthNote}
         delta30d={delta30d}
         sparkline={sparkline}
         currentMonthlyRevenue={currentMonthlyRevenue}

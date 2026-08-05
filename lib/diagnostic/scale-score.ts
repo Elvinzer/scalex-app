@@ -10,6 +10,7 @@ import type { FunnelTotals } from "@/lib/setting/funnel";
 import type { BusinessProfileData } from "@/lib/business/types";
 import { computeSectionCompletion } from "@/lib/business/completion";
 import { CAUTION_SCORE_MAX, computeMetricHealthCards, type MetricHealthCard } from "./cascade";
+import type { MonthWindow } from "./completed-months";
 import type { MetricKey } from "./metric-keys";
 
 const COVERAGE_THRESHOLD = 0.4; // matches the brief's "couverture < 40 %" -> "À compléter"
@@ -31,6 +32,27 @@ export type ScaleScoreResult = {
   potentialScore: number | null; // score if every covered pillar's open gaps were closed — same null rule as score
   pillars: ScaleScorePillar[];
 };
+
+// Explains WHY score is null, for the UI to name the actual blocker instead
+// of a generic "give me your numbers". Missing months take priority over
+// pillar coverage — an uncovered pillar is often just a symptom of an empty
+// month inside the window, and filling months is the more actionable ask.
+export type ScaleScoreGap =
+  | { type: "missing_months"; months: MonthWindow[] }
+  | { type: "low_coverage"; pillarLabels: string[] };
+
+// Only meaningful when score === null. `covered === true` always implies a
+// non-null pillar score (see computeScaleScore below), so score === null
+// with no empty months guarantees at least 2 of the 3 pillars are uncovered
+// — MIN_COVERED_PILLARS is 2, so 2 covered pillars alone would already
+// produce a score.
+export function describeScaleScoreGap(emptyMonths: MonthWindow[], pillars: ScaleScorePillar[]): ScaleScoreGap | null {
+  if (emptyMonths.length > 0) {
+    return { type: "missing_months", months: emptyMonths };
+  }
+  const pillarLabels = pillars.filter((p) => !p.covered).map((p) => p.label);
+  return pillarLabels.length > 0 ? { type: "low_coverage", pillarLabels } : null;
+}
 
 function average(values: number[]): number | null {
   if (values.length === 0) return null;
