@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarClock,
   CalendarDays,
   ChevronsUpDown,
   Database,
@@ -123,6 +124,17 @@ const secondaryEntries: LinkEntry[] = [
   { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
 ];
 
+// BARRE DU HAUT — pages promoted into the horizontal top bar, rendered at
+// the far left of its *visible* area (the sidebar draws over the header's
+// first 256px on lg, hence the header's lg:pl-[17rem]). Deliberately a
+// separate list from topEntries: this strip is a shortcut to a page buried
+// as a pillar sub-tab (/ventes/rdv lives under Vente's PillarTabs), not a
+// second copy of the sidebar rail. Hidden below lg, where the bar already
+// carries the hamburger + wordmark + profile and has no room left.
+const topBarEntries: LinkEntry[] = [
+  { type: "link", href: "/ventes/rdv", label: "Rendez-vous", icon: CalendarClock, permission: "ventes:rdv" },
+];
+
 // COMPTE — account-level config behind the avatar/profile dropdown
 // (ProfileMenu). No `permission` field: owner-only, same gate as each
 // page's own requireOwnerOrRedirect. This dropdown is now purely "my
@@ -224,12 +236,11 @@ function ProfileMenu({
   const entries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
-    <div className="flex items-center gap-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 text-left transition-colors hover:bg-mist/10"
+            className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-1.5 text-left transition-colors hover:bg-mist/10"
           >
             {avatarUrl ? (
               <div className="relative size-7 shrink-0 overflow-hidden rounded-full">
@@ -264,17 +275,25 @@ function ProfileMenu({
               </Link>
             );
           })}
+
+          {/* Sign-out moved in here from a bare icon button that used to sit
+              beside the trigger — a destructive action reads better as a
+              labelled item inside the account menu than as an unlabelled
+              icon one mis-tap away from the avatar. */}
+          {entries.length > 0 && <div className="my-1.5 h-px bg-border" />}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onSignOut();
+            }}
+            className="flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-left text-[13px] font-bold text-state-critical transition-colors hover:bg-state-critical/10"
+          >
+            <LogOut className="size-4" />
+            Se déconnecter
+          </button>
         </PopoverContent>
       </Popover>
-      <button
-        type="button"
-        onClick={onSignOut}
-        aria-label="Se déconnecter"
-        className="flex size-7 shrink-0 items-center justify-center rounded-lg text-mist/60 transition-colors hover:bg-state-critical/20 hover:text-state-critical"
-      >
-        <LogOut className="size-4" />
-      </button>
-    </div>
   );
 }
 
@@ -342,18 +361,21 @@ export function AppSidebar({
 
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const visibleSecondaryEntries = secondaryEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
+  const visibleTopBarEntries = topBarEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
     <>
       {/* Top bar — every breakpoint now (used to be mobile-only). Spans the
           full width but the sidebar (z-40) draws over its left 256px on lg,
-          so it visually starts at the sidebar's right edge. The wordmark
-          here is lg:hidden for exactly that reason — on desktop the logo
-          lives in the sidebar's own h-14 row below, which is aligned to
-          this bar's midline; on mobile the sidebar is off-canvas, so the
-          bar carries the wordmark itself. Profile is pinned far right. */}
+          so it visually starts at the sidebar's right edge — hence
+          lg:pl-[17rem] (16rem sidebar + 1rem gutter), which puts the nav
+          links at the far left of the bar's *visible* area instead of
+          underneath the sidebar. The wordmark here is lg:hidden for the
+          same reason: on desktop the logo lives in the sidebar's own
+          h-18 row below, aligned to this bar's midline; on mobile the
+          sidebar is off-canvas, so the bar carries the wordmark itself. */}
       <header
-        className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 px-4 text-mist shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:px-6"
+        className="fixed inset-x-0 top-0 z-30 flex h-18 items-center gap-3 border-b border-[color:var(--surface-dark)] px-4 text-mist shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:pr-6 lg:pl-[17rem]"
         style={{ background: "var(--gradient-dark)" }}
       >
         <button
@@ -367,6 +389,25 @@ export function AppSidebar({
         <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80 lg:hidden">
           <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-7 w-auto" />
         </Link>
+
+        {visibleTopBarEntries.map((entry) => {
+          const Icon = entry.icon;
+          const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
+          return (
+            <Link
+              key={entry.href}
+              href={entry.href}
+              className={cn(
+                "hidden items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] transition-colors lg:flex",
+                active ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]" : "text-mist/80 hover:bg-mist/10 hover:text-white"
+              )}
+            >
+              <Icon className="size-4" />
+              {entry.label}
+            </Link>
+          );
+        })}
+
         <div className="ml-auto min-w-0">
           <ProfileMenu
             businessName={businessName}
@@ -402,10 +443,11 @@ export function AppSidebar({
         )}
         style={{ background: "var(--gradient-dark)" }}
       >
-        {/* h-14 mirrors the top bar's own height, so the wordmark's vertical
-            center lands exactly on that bar's midline (28px) — the "logo
-            centré à la hauteur du milieu du menu horizontal" ask. */}
-        <div className="flex h-14 shrink-0 items-center justify-between px-3">
+        {/* h-18 mirrors the top bar's own height, so the wordmark's vertical
+            center lands exactly on that bar's midline (36px) — the "logo
+            centré à la hauteur du milieu du menu horizontal" ask. Keep the
+            two in sync if either height changes. */}
+        <div className="flex h-18 shrink-0 items-center justify-between px-3">
           <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
             <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
           </Link>
