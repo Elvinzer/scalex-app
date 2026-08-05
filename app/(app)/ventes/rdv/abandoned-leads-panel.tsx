@@ -1,18 +1,17 @@
 "use client";
 
-import { ArchiveX, CheckCheck, Clock3, Mail, Phone, RotateCcw } from "lucide-react";
+import { ArchiveX, CheckCheck, Clock3, Phone, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { updateNativeBookingLeadStatusAction } from "./actions";
 
 type LeadView = {
   id: string;
   status: "open" | "contacted";
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
   eventName: string;
   eventTimeZone: string;
   lastStep: "contact_submitted" | "slots_revealed" | "slot_selected" | "booking_failed" | "converted";
@@ -43,10 +42,23 @@ function sourceLabel(lead: LeadView) {
   return [lead.utmSource, lead.utmCampaign, lead.utmContent].filter(Boolean).join(" · ") || "Source directe";
 }
 
-export function AbandonedLeadsPanel({ leads }: { leads: LeadView[] }) {
+export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]; targetLeadId: string | null }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [focusedLeadId, setFocusedLeadId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!targetLeadId) return;
+    const target = leads.find((lead) => lead.id === targetLeadId);
+    if (!target) return;
+    setFocusedLeadId(target.id);
+    requestAnimationFrame(() => {
+      const element = document.getElementById(`native-booking-lead-${target.id}`);
+      element?.scrollIntoView({ block: "nearest" });
+      element?.focus();
+    });
+  }, [leads, targetLeadId]);
 
   function updateLead(leadId: string, status: "open" | "contacted" | "dismissed") {
     setError(null);
@@ -81,10 +93,16 @@ export function AbandonedLeadsPanel({ leads }: { leads: LeadView[] }) {
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           {leads.map((lead) => (
-            <article key={lead.id} className="sticker-card flex flex-col gap-4 p-5">
+            <article
+              key={lead.id}
+              id={`native-booking-lead-${lead.id}`}
+              tabIndex={-1}
+              data-revenue-target={lead.id === focusedLeadId ? "true" : undefined}
+              className={`sticker-card flex flex-col gap-4 p-5 outline-none focus-visible:ring-3 focus-visible:ring-accent/25 ${lead.id === focusedLeadId ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-bold">{lead.firstName} {lead.lastName}</p>
+                  <p className="truncate text-lg font-bold">{[lead.firstName, lead.lastName].filter(Boolean).join(" ") || "Prospect sans nom"}</p>
                   <p className="mt-1 truncate text-xs text-muted-foreground">{lead.eventName}</p>
                 </div>
                 <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${lead.status === "contacted" ? "border-state-healthy/30 bg-state-healthy-bg text-state-healthy" : "border-state-caution/30 bg-state-caution/10 text-state-caution"}`}>
@@ -92,15 +110,15 @@ export function AbandonedLeadsPanel({ leads }: { leads: LeadView[] }) {
                 </span>
               </div>
 
-              <div className="grid gap-2 text-sm sm:grid-cols-2">
-                <a href={`mailto:${lead.email}`} className="flex min-h-11 min-w-0 items-center gap-2 rounded-[var(--radius-control)] bg-muted/60 px-3 font-bold hover:bg-muted">
-                  <Mail className="size-4 shrink-0 text-accent" />
-                  <span className="truncate">{lead.email}</span>
-                </a>
-                <a href={`tel:${lead.phone}`} className="flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-muted/60 px-3 font-bold hover:bg-muted">
-                  <Phone className="size-4 shrink-0 text-accent" />
-                  <span className="truncate">{lead.phone}</span>
-                </a>
+              <div className="grid gap-2 text-sm">
+                {lead.phone ? (
+                  <a href={`tel:${lead.phone}`} className="flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-muted/60 px-3 font-bold hover:bg-muted">
+                    <Phone className="size-4 shrink-0 text-accent" />
+                    <span className="truncate">{lead.phone}</span>
+                  </a>
+                ) : (
+                  <span className="flex min-h-11 items-center rounded-[var(--radius-control)] bg-muted/60 px-3 text-muted-foreground">Téléphone non renseigné</span>
+                )}
               </div>
 
               <dl className="grid gap-3 border-t border-border pt-4 text-sm sm:grid-cols-2">

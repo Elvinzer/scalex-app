@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { SalesCallRow } from "@/lib/iclosed/calls";
 
@@ -25,9 +25,11 @@ function sourceLabel(source: string): string {
 export function CallsTable({
   calls,
   pendingDecisions,
+  initialCallId,
 }: {
   calls: SalesCallRow[];
   pendingDecisions: SalesCallRow[];
+  initialCallId: string | null;
 }) {
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   // A pending decision can sit outside the current period, so look it up across
@@ -38,10 +40,16 @@ export function CallsTable({
       null)
     : null;
 
+  useEffect(() => {
+    if (!initialCallId) return;
+    const exists = calls.some((call) => call.id === initialCallId) || pendingDecisions.some((call) => call.id === initialCallId);
+    if (exists) setSelectedCallId(initialCallId);
+  }, [calls, initialCallId, pendingDecisions]);
+
   return (
     <>
       <div className="flex flex-col gap-4">
-        <PendingDecisions decisions={pendingDecisions} onOpen={setSelectedCallId} />
+        <PendingDecisions decisions={pendingDecisions} onOpen={setSelectedCallId} initialCallId={initialCallId} />
         {calls.length === 0 ? (
           <div className="sticker-card-dashed p-6 text-center">
             <p className="text-sm font-bold">Aucun appel sur cette période</p>
@@ -88,9 +96,11 @@ export function CallsTable({
 function PendingDecisions({
   decisions,
   onOpen,
+  initialCallId,
 }: {
   decisions: SalesCallRow[];
   onOpen: (id: string) => void;
+  initialCallId: string | null;
 }) {
   if (decisions.length === 0) return null;
   const sorted = [...decisions].sort((a, b) => {
@@ -113,7 +123,8 @@ function PendingDecisions({
           return (
             <li
               key={call.id}
-              className="flex items-center gap-3 rounded-[var(--radius-control)] px-2 py-1.5 hover:bg-muted"
+              className={`flex min-h-11 items-center gap-3 rounded-[var(--radius-control)] px-2 py-1.5 hover:bg-muted ${call.id === initialCallId ? "ring-2 ring-accent/30" : ""}`}
+              data-revenue-target={call.id === initialCallId ? "true" : undefined}
             >
               <span className={`size-2 shrink-0 rounded-full ${urgency ? TONE_DOT[urgency.tone] : "bg-state-unknown"}`} />
               <span
@@ -130,7 +141,7 @@ function PendingDecisions({
               <button
                 type="button"
                 onClick={() => onOpen(call.id)}
-                className="shrink-0 rounded-[var(--radius-control)] px-2 py-1 text-xs font-bold text-muted-foreground hover:bg-background"
+                className="flex min-h-11 shrink-0 items-center rounded-[var(--radius-control)] px-2 py-1 text-xs font-bold text-muted-foreground hover:bg-background focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
               >
                 voir
               </button>

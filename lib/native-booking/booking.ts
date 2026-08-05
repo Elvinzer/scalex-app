@@ -20,8 +20,7 @@ import {
   listBusyForConnection,
   type CalendarConnection,
 } from "./calendar";
-import { sendNativeBookingConfirmation } from "./notifications";
-import { normalizeEmail, normalizePhone, sanitizeUtm, type PublicBookingRequest } from "./validation";
+import { normalizePhone, sanitizeUtm, type PublicBookingRequest } from "./validation";
 
 export type NativeBookingResult = {
   bookingId: string;
@@ -73,7 +72,6 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
   if (!eventRow) return { error: "not_found" };
 
   const now = new Date();
-  const emailNormalized = normalizeEmail(request.email);
   const phoneNormalized = normalizePhone(request.phone);
   const requestedStart = new Date(request.startAt);
   const requestedEnd = new Date(requestedStart.getTime() + eventRow.durationMinutes * 60_000);
@@ -159,7 +157,7 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
       .where(
         and(
           eq(nativeBookings.userId, eventRow.userId),
-          eq(nativeBookings.emailNormalized, emailNormalized),
+          eq(nativeBookings.phoneNormalized, phoneNormalized),
           gte(nativeBookings.startAt, now),
           ne(nativeBookings.status, "cancelled"),
           ne(nativeBookings.status, "expired")
@@ -231,7 +229,7 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
             and(
               eq(nativeBookingLeads.id, request.leadId),
               eq(nativeBookingLeads.eventId, eventRow.id),
-              eq(nativeBookingLeads.emailNormalized, emailNormalized)
+              eq(nativeBookingLeads.phoneNormalized, phoneNormalized)
             )
           )
           .limit(1)
@@ -248,8 +246,8 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
         syncStatus: calendarStates.get(selected.assignment.closerUserId)?.connection ? "pending" : "not_required",
         firstName: request.firstName.trim(),
         lastName: request.lastName.trim(),
-        email: request.email.trim(),
-        emailNormalized,
+        email: null,
+        emailNormalized: null,
         phone: request.phone.trim(),
         phoneNormalized,
         guestTimeZone: request.guestTimeZone,
@@ -278,7 +276,6 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
         iclosedCallId: `native:${booking.id}`,
         nativeBookingId: booking.id,
         inviteeName: `${request.firstName.trim()} ${request.lastName.trim()}`,
-        inviteeEmail: request.email.trim(),
         inviteePhone: request.phone.trim(),
         scheduledAt: requestedStart,
         closer: selected.user.displayName || selected.user.email,
@@ -338,7 +335,7 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
         startAt: transactionResult.startAt,
         endAt: transactionResult.endAt,
         guestName: `${request.firstName.trim()} ${request.lastName.trim()}`,
-        guestEmail: request.email.trim(),
+        guestEmail: null,
         meetingUrl: transactionResult.meetingUrl,
       });
       await db
@@ -360,22 +357,6 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
         .where(eq(nativeBookings.id, transactionResult.bookingId));
       calendarSyncWarning = true;
     }
-  }
-
-  try {
-    await sendNativeBookingConfirmation({
-      to: request.email.trim(),
-      firstName: request.firstName.trim(),
-      eventName: eventRow.name,
-      meetingLabel: transactionResult.meetingLabel,
-      startAt: transactionResult.startAt,
-      endAt: transactionResult.endAt,
-      timeZone: transactionResult.eventTimeZone,
-      closerName: transactionResult.closerName,
-      meetingUrl: transactionResult.meetingUrl,
-    });
-  } catch (error) {
-    console.error("[native-booking] confirmation email failed", error);
   }
 
   return {

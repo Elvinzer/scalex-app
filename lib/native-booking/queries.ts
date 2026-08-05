@@ -168,14 +168,14 @@ export async function getPublicNativeBookingSlots(
   };
 }
 
-export async function hasFutureNativeBooking(accountId: string, emailNormalized: string, now = new Date()) {
+export async function hasFutureNativeBooking(accountId: string, phoneNormalized: string, now = new Date()) {
   const [booking] = await db
     .select({ id: nativeBookings.id, startAt: nativeBookings.startAt, eventId: nativeBookings.eventId })
     .from(nativeBookings)
     .where(
       and(
         eq(nativeBookings.userId, accountId),
-        eq(nativeBookings.emailNormalized, emailNormalized),
+        eq(nativeBookings.phoneNormalized, phoneNormalized),
         gte(nativeBookings.startAt, now),
         ne(nativeBookings.status, "cancelled"),
         ne(nativeBookings.status, "expired")

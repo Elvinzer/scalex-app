@@ -4,7 +4,7 @@ import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { createNativeBooking } from "@/lib/native-booking/booking";
 import { getPublicNativeBookingEvent, getPublicNativeBookingSlots, hasFutureNativeBooking } from "@/lib/native-booking/queries";
 import { touchPublicBookingLead, upsertPublicBookingLead } from "@/lib/native-booking/leads";
-import { normalizeEmail, publicBookingRequestSchema, publicContactSchema, publicLeadTouchSchema, sanitizeUtm } from "@/lib/native-booking/validation";
+import { normalizePhone, publicBookingRequestSchema, publicContactSchema, publicLeadCaptureSchema, publicLeadTouchSchema, sanitizeUtm } from "@/lib/native-booking/validation";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -29,6 +29,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!body || typeof body !== "object") return jsonError("Requête invalide.");
   const mode = (body as { mode?: unknown }).mode;
 
+  if (mode === "capture") {
+    const parsed = publicLeadCaptureSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Impossible d’enregistrer cette information.", fieldErrors: parsed.error.flatten().fieldErrors },
+        { status: 422 }
+      );
+    }
+
+    const event = await getPublicNativeBookingEvent(slug);
+    if (!event) return jsonError("Cette page de réservation n’est plus disponible.", 404, "not_found");
+
+    const leadId = await upsertPublicBookingLead({
+      event,
+      contact: parsed.data,
+      metadata: {
+        sessionKey: parsed.data.leadSessionKey,
+        landingPage: parsed.data.landingPage,
+        referrer: parsed.data.referrer,
+        linkId: parsed.data.linkId,
+        utm: parsed.data.utm,
+      },
+      step: "contact_submitted",
+    });
+    if (!leadId) return jsonError("Impossible d’enregistrer cette information. Réessaie dans un instant.", 500, "lead_capture_failed");
+
+    return NextResponse.json({ leadId });
+  }
+
   if (mode === "unlock") {
     const parsed = publicContactSchema.safeParse(body);
     if (!parsed.success) {
@@ -41,7 +70,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const slots = await getPublicNativeBookingSlots(slug, { days: 14 });
     if (!slots) return jsonError("Cette page de réservation n’est plus disponible.", 404, "not_found");
 
-    const existing = await hasFutureNativeBooking(slots.event.userId, normalizeEmail(parsed.data.email));
+    const existing = await hasFutureNativeBooking(slots.event.userId, normalizePhone(parsed.data.phone));
     if (existing) {
       return jsonError(
         "Tu as déjà un rendez-vous à venir. Pour éviter un doublon, celui-ci doit être honoré ou annulé avant d’en réserver un autre.",

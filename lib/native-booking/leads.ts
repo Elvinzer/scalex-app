@@ -5,7 +5,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingLeads, nativeBookingLinks } from "@/db/schema";
 
-import { normalizeEmail, normalizePhone, sanitizeUtm, type PublicContactInput } from "./validation";
+import { normalizePhone, sanitizeUtm, type PublicContactInput, type PublicLeadCaptureInput } from "./validation";
 
 export type NativeBookingLeadStep =
   | "contact_submitted"
@@ -26,7 +26,7 @@ type PublicLeadEvent = Pick<typeof nativeBookingEvents.$inferSelect, "id" | "use
 
 function leadValues(
   event: PublicLeadEvent,
-  contact: PublicContactInput,
+  contact: PublicLeadCaptureInput,
   metadata: PublicLeadMetadata,
   link: typeof nativeBookingLinks.$inferSelect | undefined,
   sessionKey: string,
@@ -41,12 +41,14 @@ function leadValues(
     sessionKey,
     status: "open" as const,
     lastStep: step,
-    firstName: contact.firstName.trim(),
-    lastName: contact.lastName.trim(),
-    email: contact.email.trim(),
-    emailNormalized: normalizeEmail(contact.email),
-    phone: contact.phone.trim(),
-    phoneNormalized: normalizePhone(contact.phone),
+    firstName: contact.firstName.trim() || null,
+    lastName: contact.lastName.trim() || null,
+    // Email is intentionally not collected in the first version of the
+    // public booking form. Keep the columns nullable for future expansion.
+    email: null,
+    emailNormalized: null,
+    phone: contact.phone.trim() || null,
+    phoneNormalized: contact.phone.trim() ? normalizePhone(contact.phone) : null,
     guestTimeZone: contact.guestTimeZone,
     eventTimeZone: event.timeZone,
     selectedStartAt,
@@ -78,7 +80,7 @@ async function findActiveLink(eventId: string, linkId: string | null | undefined
 
 export async function upsertPublicBookingLead(params: {
   event: PublicLeadEvent;
-  contact: PublicContactInput;
+  contact: PublicLeadCaptureInput;
   metadata: PublicLeadMetadata;
   step: NativeBookingLeadStep;
   selectedStartAt?: Date | null;
@@ -103,6 +105,8 @@ export async function upsertPublicBookingLead(params: {
         id: nativeBookingLeads.id,
         status: nativeBookingLeads.status,
         contactConsentAt: nativeBookingLeads.contactConsentAt,
+        email: nativeBookingLeads.email,
+        emailNormalized: nativeBookingLeads.emailNormalized,
         landingPage: nativeBookingLeads.landingPage,
         referrer: nativeBookingLeads.referrer,
         linkId: nativeBookingLeads.linkId,
@@ -126,6 +130,8 @@ export async function upsertPublicBookingLead(params: {
           ...values,
           status: nextStatus,
           contactConsentAt: existing.contactConsentAt,
+          email: existing.email ?? values.email,
+          emailNormalized: existing.emailNormalized ?? values.emailNormalized,
           landingPage: existing.landingPage ?? values.landingPage,
           referrer: existing.referrer ?? values.referrer,
           linkId: existing.linkId ?? values.linkId,
@@ -161,7 +167,7 @@ export async function touchPublicBookingLead(params: {
     .where(
       and(
         eq(nativeBookingLeads.id, params.leadId),
-        eq(nativeBookingLeads.emailNormalized, normalizeEmail(params.contact.email)),
+        eq(nativeBookingLeads.phoneNormalized, normalizePhone(params.contact.phone)),
         eq(nativeBookingEvents.slug, params.slug),
         eq(nativeBookingEvents.status, "active")
       )
@@ -175,7 +181,6 @@ export async function touchPublicBookingLead(params: {
     .set({
       firstName: params.contact.firstName.trim(),
       lastName: params.contact.lastName.trim(),
-      email: params.contact.email.trim(),
       phone: params.contact.phone.trim(),
       phoneNormalized: normalizePhone(params.contact.phone),
       guestTimeZone: params.contact.guestTimeZone,

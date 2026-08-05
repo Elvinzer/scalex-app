@@ -29,6 +29,7 @@ function Column({
   offers,
   setters,
   commentCounts,
+  targetedLeadId,
   onCardClick,
 }: {
   stage: LeadStage;
@@ -36,6 +37,7 @@ function Column({
   offers: Offer[];
   setters: SetterRow[];
   commentCounts: Record<string, number>;
+  targetedLeadId: string | null;
   onCardClick: (lead: LeadRow) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
@@ -63,6 +65,7 @@ function Column({
             offerName={offers.find((o) => o.id === lead.offerId)?.name ?? null}
             setter={setters.find((s) => s.id === lead.setterId) ?? null}
             commentCount={commentCounts[lead.id] ?? 0}
+            isTargeted={lead.id === targetedLeadId}
             onClick={() => onCardClick(lead)}
           />
         ))}
@@ -76,11 +79,13 @@ export function KanbanBoard({
   offers,
   setters,
   commentCounts,
+  initialLeadId,
 }: {
   initialLeads: LeadRow[];
   offers: Offer[];
   setters: SetterRow[];
   commentCounts: Record<string, number>;
+  initialLeadId: string | null;
 }) {
   const [leads, setLeads] = useState(initialLeads);
   const [activeLead, setActiveLead] = useState<LeadRow | null>(null);
@@ -107,6 +112,16 @@ export function KanbanBoard({
     setLeads(initialLeads);
     setDrawerLead((prev) => (prev ? (initialLeads.find((lead) => lead.id === prev.id) ?? null) : prev));
   }, [initialLeads]);
+
+  useEffect(() => {
+    if (!initialLeadId) return;
+    const target = initialLeads.find((lead) => lead.id === initialLeadId);
+    if (!target) return;
+    setDrawerLead(target);
+    requestAnimationFrame(() => {
+      document.getElementById(`pipeline-lead-${target.id}`)?.scrollIntoView({ block: "nearest", inline: "center" });
+    });
+  }, [initialLeads, initialLeadId]);
 
   function handleDragStart(event: DragStartEvent) {
     const lead = leads.find((l) => l.id === event.active.id);
@@ -153,6 +168,7 @@ export function KanbanBoard({
               offers={offers}
               setters={setters}
               commentCounts={commentCounts}
+              targetedLeadId={initialLeadId}
               onCardClick={setDrawerLead}
             />
           ))}
@@ -165,6 +181,7 @@ export function KanbanBoard({
               offerName={offers.find((o) => o.id === activeLead.offerId)?.name ?? null}
               setter={setters.find((s) => s.id === activeLead.setterId) ?? null}
               commentCount={commentCounts[activeLead.id] ?? 0}
+              isTargeted={false}
               onClick={() => {}}
             />
           )}

@@ -404,7 +404,7 @@ export function EventEditor({
 
         <section className="sticker-card border-accent/30 bg-accent-soft p-5">
           <p className="text-lg font-bold">Capture avant les créneaux</p>
-          <p className="mt-2 text-sm text-muted-foreground">Prénom, nom, email et téléphone sont demandés avant de dévoiler la disponibilité.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Prénom, nom et téléphone sont demandés avant de dévoiler la disponibilité. Chaque information saisie est enregistrée automatiquement pour permettre une relance si le prospect abandonne.</p>
           <div className="mt-4 rounded-[var(--radius-control)] bg-background/70 p-3 text-sm">
             <p className="font-bold">Lien public</p>
             <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{publicUrl}</p>

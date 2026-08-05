@@ -37,12 +37,14 @@ export function LeadCard({
   offerName,
   setter,
   commentCount,
+  isTargeted = false,
   onClick,
 }: {
   lead: LeadRow;
   offerName: string | null;
   setter: SetterRow | null;
   commentCount: number;
+  isTargeted?: boolean;
   onClick: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id });
@@ -52,12 +54,23 @@ export function LeadCard({
   return (
     <div
       ref={setNodeRef}
+      id={`pipeline-lead-${lead.id}`}
       style={style}
       {...listeners}
       {...attributes}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={`Ouvrir le lead ${lead.firstName} ${lead.lastName}`}
       className={cn(
-        "sticker-card flex cursor-grab flex-col gap-2 p-3 text-sm active:cursor-grabbing",
+        "sticker-card flex cursor-grab flex-col gap-2 p-3 text-sm outline-none active:cursor-grabbing focus-visible:ring-3 focus-visible:ring-accent/25",
+        isTargeted && "ring-2 ring-accent ring-offset-2 ring-offset-background",
         isDragging && "opacity-50"
       )}
     >

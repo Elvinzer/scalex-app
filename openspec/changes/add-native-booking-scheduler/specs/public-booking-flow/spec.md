@@ -6,7 +6,7 @@ Cette capacité fournit une page publique de réservation qui qualifie le prospe
 
 ### Requirement: Contact opt-in gates availability
 
-Pour un événement configuré avec la qualification préalable, le système SHALL demander le prénom, le nom, l’email et le téléphone avant de rendre les créneaux visibles et sélectionnables. La zone de disponibilités SHALL rester clairement verrouillée et non interactive tant que le formulaire n’est pas valide.
+Pour un événement configuré avec la qualification préalable, le système SHALL demander le prénom, le nom et le téléphone avant de rendre les créneaux visibles et sélectionnables. La zone de disponibilités SHALL rester clairement verrouillée et non interactive tant que le formulaire n’est pas valide.
 
 #### Scenario: Visitor sees locked availability before submitting details
 
@@ -15,7 +15,7 @@ Pour un événement configuré avec la qualification préalable, le système SHA
 
 ### Requirement: Contact fields are validated
 
-Le système SHALL valider les quatre champs requis côté client et côté serveur. Le téléphone SHALL accepter un indicatif international et l’email SHALL être normalisé avant toute recherche de rendez-vous existant. Les erreurs SHALL être affichées près du champ concerné et le formulaire SHALL conserver les valeurs valides.
+Le système SHALL valider les trois champs requis côté client et côté serveur. Le téléphone SHALL accepter un indicatif international et SHALL être normalisé avant toute recherche de rendez-vous existant. Les erreurs SHALL être affichées près du champ concerné et le formulaire SHALL conserver les valeurs valides.
 
 #### Scenario: Invalid phone prevents reveal
 
@@ -33,7 +33,7 @@ Après une soumission valide, le système SHALL révéler les créneaux disponib
 
 ### Requirement: Abandoned attempts become relaunchable leads
 
-Après validation des quatre coordonnées et avant ou au moment de la révélation des créneaux, le système SHALL créer ou actualiser une tentative de réservation account-scoped. Cette tentative SHALL conserver le nom, l’email, le téléphone, le fuseau du prospect, l’instant de consentement au recontact, la dernière étape atteinte, le dernier créneau sélectionné lorsqu’il existe, ainsi que la page d’entrée et l’attribution disponible. Elle SHALL rester distincte d’un rendez-vous confirmé.
+Dès qu’au moins un des champs prénom, nom ou téléphone est saisi puis quitté, le système SHALL créer ou actualiser immédiatement une tentative de réservation account-scoped, sans attendre la soumission du formulaire. Cette tentative SHALL conserver les informations disponibles, même partielles, le fuseau du prospect, l’instant de consentement au recontact, la dernière étape atteinte, le dernier créneau sélectionné lorsqu’il existe, ainsi que la page d’entrée et l’attribution disponible. Elle SHALL rester distincte d’un rendez-vous confirmé.
 
 #### Scenario: Valid opt-in creates a follow-up lead
 
@@ -47,12 +47,12 @@ Après validation des quatre coordonnées et avant ou au moment de la révélati
 
 ### Requirement: Authorized users can work abandoned leads
 
-L’espace « Ventes → Rendez-vous » SHALL afficher aux membres disposant de la permission rendez-vous les tentatives non converties avec au minimum le nom, l’email, le téléphone, l’événement, la dernière étape, la dernière activité, le créneau visé et la source marketing disponible. Il SHALL proposer des actions pour marquer un lead comme contacté ou le masquer sans supprimer l’historique. Un visiteur public ou un membre non autorisé SHALL ne pouvoir lire ni modifier ces données.
+L’espace « Ventes → Rendez-vous » SHALL afficher aux membres disposant de la permission rendez-vous les tentatives non converties avec au minimum les informations saisies (nom et/ou téléphone), l’événement, la dernière étape, la dernière activité, le créneau visé et la source marketing disponible. Il SHALL proposer des actions pour marquer un lead comme contacté ou le masquer sans supprimer l’historique. Un visiteur public ou un membre non autorisé SHALL ne pouvoir lire ni modifier ces données.
 
 #### Scenario: Sales user sees a relaunch list
 
 - **WHEN** un closer autorisé ouvre l’espace rendez-vous après un abandon
-- **THEN** il voit une section « À relancer » et peut ouvrir l’email ou le téléphone du prospect avec le contexte de sa tentative
+- **THEN** il voit une section « À relancer » et peut appeler le prospect lorsque son téléphone est disponible, avec le contexte de sa tentative
 
 #### Scenario: Completed booking closes the lead
 
@@ -70,7 +70,7 @@ Le système SHALL afficher par défaut les créneaux dans le fuseau horaire dét
 
 ### Requirement: Existing future appointment is blocked
 
-Avant de confirmer un nouveau rendez-vous, le système SHALL rechercher dans le compte les rendez-vous futurs du prospect correspondant à son email normalisé et dont l’état n’est pas annulé. S’il en existe un, la nouvelle réservation SHALL être bloquée et la page SHALL afficher un avertissement indiquant qu’un rendez-vous est déjà planifié.
+Avant de confirmer un nouveau rendez-vous, le système SHALL rechercher dans le compte les rendez-vous futurs du prospect correspondant à son téléphone normalisé et dont l’état n’est pas annulé. S’il en existe un, la nouvelle réservation SHALL être bloquée et la page SHALL afficher un avertissement indiquant qu’un rendez-vous est déjà planifié.
 
 #### Scenario: Prospect already has a future appointment
 
@@ -88,7 +88,7 @@ Le système SHALL revalider le créneau, les exceptions, les limites, l’absenc
 
 ### Requirement: Native booking feeds sales tracking
 
-Lorsqu’une réservation est confirmée et synchronisée, le système SHALL créer ou mettre à jour un appel de vente avec la source `native`, le nom, l’email, le téléphone, l’horaire, le closer attribué et l’identifiant de réservation. Une répétition de la même confirmation SHALL être idempotente.
+Lorsqu’une réservation est confirmée et synchronisée, le système SHALL créer ou mettre à jour un appel de vente avec la source `native`, le nom, le téléphone, l’horaire, le closer attribué et l’identifiant de réservation. Une répétition de la même confirmation SHALL être idempotente.
 
 #### Scenario: Confirmed native booking appears in sales calls
 

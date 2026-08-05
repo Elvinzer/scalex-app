@@ -46,7 +46,7 @@
 - [x] 6.3 Construire l’éditeur des détails de l’événement, durée, lieu, fuseau, délai minimal et horizon.
 - [ ] 6.4 Construire l’éditeur des disponibilités récurrentes et des exceptions par date avec aperçu des créneaux générés.
 - [x] 6.5 Construire l’éditeur closers/round robin et afficher les connexions calendrier manquantes comme avertissements actionnables.
-- [x] 6.6 Construire la section Informations invité avec opt-in obligatoire, champs prénom/nom/email/téléphone et réglages de questions complémentaires.
+- [x] 6.6 Construire la section Informations invité avec opt-in obligatoire, champs prénom/nom/téléphone et réglages de questions complémentaires.
 - [ ] 6.7 Construire la section Notifications, confirmation et personnalisation minimale de la page publique.
 - [ ] 6.8 Construire le gestionnaire de liens nommés et UTM avec copie, désactivation et affichage de l’historique non destructif.
 
@@ -54,7 +54,7 @@
 
 - [x] 7.1 Ajouter la page publique hors layout authentifié et les handlers publics de lecture de l’événement, recherche de créneaux et confirmation.
 - [x] 7.2 Construire le layout desktop à deux colonnes avec formulaire à gauche et disponibilités floutées/verrouillées à droite avant opt-in.
-- [x] 7.3 Implémenter le formulaire prénom, nom, email et téléphone avec labels visibles, normalisation, validation inline, état de chargement et erreurs récupérables.
+- [x] 7.3 Implémenter le formulaire prénom, nom et téléphone avec labels visibles, normalisation, validation inline, état de chargement et erreurs récupérables.
 - [x] 7.4 Révéler les créneaux sans rechargement destructif après validation, conserver les données saisies et déplacer le focus vers le calendrier.
 - [x] 7.5 Implémenter l’affichage par défaut dans le fuseau du prospect et la bascule vers le fuseau de l’événement sans modifier l’instant réservé.
 - [x] 7.6 Implémenter la détection account-scoped d’un rendez-vous futur non annulé et le warning de blocage avant toute nouvelle réservation.
@@ -74,7 +74,7 @@
 ## 9. Vérification avec agent-browser et livraison
 
 - [ ] 9.1 Préparer un compte de test, des événements fixtures, des closers fixtures, des liens UTM et un fournisseur calendrier contrôlé pour les scénarios reproductibles.
-- [x] 9.2 Tester avec `agent-browser` le lien public inactif, l’opt-in, le flou non interactif, la validation des quatre champs et la révélation des créneaux.
+- [x] 9.2 Tester avec `agent-browser` le lien public inactif, l’opt-in, le flou non interactif, la validation des trois champs et la révélation des créneaux.
 - [x] 9.3 Tester avec `agent-browser` la réservation réussie, la confirmation, la conservation des UTM et l’apparition dans le suivi des appels.
 - [ ] 9.4 Tester avec `agent-browser` le blocage d’un rendez-vous futur, le créneau déjà pris, la mise en pause et l’absence de divulgation d’informations.
 - [ ] 9.5 Tester avec `agent-browser` le fuseau du prospect, le fuseau de l’événement, les exceptions, le round robin et le fallback de closer.
@@ -85,8 +85,9 @@
 
 ## 10. Relance des réservations abandonnées
 
-- [x] 10.1 Ajouter le modèle account-scoped des tentatives abandonnées avec coordonnées normalisées, consentement horodaté, étape, dernière activité, créneau visé, attribution et statut de relance.
-- [x] 10.2 Enregistrer ou actualiser la tentative après l’opt-in valide, conserver le dernier créneau sélectionné et retourner uniquement un identifiant opaque au navigateur public.
+- [x] 10.1 Ajouter le modèle account-scoped des tentatives abandonnées avec coordonnées partielles normalisées, consentement horodaté, étape, dernière activité, créneau visé, attribution et statut de relance.
+- [x] 10.2 Enregistrer ou actualiser la tentative dès qu’un champ est quitté, puis la compléter à l’opt-in valide, conserver le dernier créneau sélectionné et retourner uniquement un identifiant opaque au navigateur public.
 - [x] 10.3 Lier la tentative à `native_bookings`, marquer automatiquement `converted` après confirmation et conserver la tentative relançable en cas d’échec.
 - [x] 10.4 Ajouter dans `/ventes/rdv` la synthèse « À relancer », les coordonnées actionnables, le contexte UTM et les actions account-scoped « contacté » / « ignoré ».
 - [x] 10.5 Tester avec `agent-browser` l’abandon après opt-in, la conservation du créneau et de l’UTM, la conversion après réservation et l’absence d’exposition publique des leads.
+- [x] 10.6 Enregistrer automatiquement une tentative partielle au premier champ saisi, sans demander d’email, puis conserver les trois champs au moment de la réservation.

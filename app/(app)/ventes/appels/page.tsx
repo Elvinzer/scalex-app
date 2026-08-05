@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import Link from "next/link";
+import { z } from "zod";
 
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
@@ -52,11 +53,14 @@ function SyncStatus({ tool, status, planText }: { tool: string; status?: string 
   return null;
 }
 
-export default async function PriseDappelPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+export default async function PriseDappelPage({ searchParams }: { searchParams: Promise<{ period?: string; call?: string; from?: string }> }) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:appels");
 
-  const period = resolvePeriod((await searchParams).period);
+  const params = await searchParams;
+  const period = resolvePeriod(params.period);
+  const fromDashboard = params.from === "dashboard";
+  const targetCallId = z.string().uuid().safeParse(params.call).success ? params.call ?? null : null;
 
   const context = await getAccountContext(userId);
   const isOwner = context?.isOwner ?? false;
@@ -105,6 +109,11 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {fromDashboard && (
+            <Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-bold text-muted-foreground outline-none hover:underline focus-visible:ring-3 focus-visible:ring-accent/20">
+              ← Retour au Dashboard
+            </Link>
+          )}
           <Link href="/ventes/appels/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
             Funnel de closing →
           </Link>
@@ -182,7 +191,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
         ))}
 
       {(anyConnected || calls.length > 0) && (
-        <CallsTable calls={periodCalls} pendingDecisions={pendingDecisions} />
+        <CallsTable calls={periodCalls} pendingDecisions={pendingDecisions} initialCallId={targetCallId} />
       )}
     </div>
   );

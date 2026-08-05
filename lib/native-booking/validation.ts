@@ -53,7 +53,6 @@ export const exceptionSchema = z.object({
 export const publicContactSchema = z.object({
   firstName: z.string().trim().min(1, "Le prénom est requis").max(80),
   lastName: z.string().trim().min(1, "Le nom est requis").max(80),
-  email: z.string().trim().email("Adresse email invalide").max(240),
   phone: z.string().trim().min(7, "Numéro de téléphone invalide").max(40),
   guestTimeZone: z.string().refine(isValidTimeZone, "Fuseau horaire invalide"),
   leadSessionKey: z.string().uuid().nullable().default(null),
@@ -62,6 +61,23 @@ export const publicContactSchema = z.object({
   linkId: z.string().uuid().nullable().default(null),
   utm: z.record(z.string().max(500)).default({}),
 });
+
+export const publicLeadCaptureSchema = z
+  .object({
+    firstName: z.string().trim().max(80).default(""),
+    lastName: z.string().trim().max(80).default(""),
+    phone: z.string().trim().max(40).default(""),
+    guestTimeZone: z.string().refine(isValidTimeZone, "Fuseau horaire invalide"),
+    leadSessionKey: z.string().uuid().nullable().default(null),
+    landingPage: z.string().url().nullable().default(null),
+    referrer: z.string().url().nullable().default(null),
+    linkId: z.string().uuid().nullable().default(null),
+    utm: z.record(z.string().max(500)).default({}),
+  })
+  .refine((value) => Boolean(value.firstName || value.lastName || value.phone), {
+    message: "Renseigne au moins une information.",
+    path: ["firstName"],
+  });
 
 export const publicBookingRequestSchema = publicContactSchema.extend({
   startAt: z.string().datetime({ offset: true }),
@@ -78,12 +94,9 @@ export const publicLeadTouchSchema = publicContactSchema.extend({
 export type NativeBookingEventInput = z.infer<typeof nativeBookingEventInputSchema>;
 export type AvailabilityWindowInput = z.infer<typeof availabilityWindowSchema>;
 export type PublicContactInput = z.infer<typeof publicContactSchema>;
+export type PublicLeadCaptureInput = z.infer<typeof publicLeadCaptureSchema>;
 export type PublicBookingRequest = z.infer<typeof publicBookingRequestSchema>;
 export type PublicLeadTouchInput = z.infer<typeof publicLeadTouchSchema>;
-
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
 
 export function normalizePhone(phone: string): string {
   return phone.trim().replace(/[\s().-]/g, "");

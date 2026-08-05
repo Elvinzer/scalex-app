@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
-import { OverdueActionsSection } from "./overdue-actions-section";
+import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-action-center";
+import { TechnicalAlertsSection } from "./technical-alerts-section";
 import { WeeklyReportDialog } from "./weekly-report-dialog";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
@@ -18,16 +19,14 @@ import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
-import { buildOverdueActions } from "@/lib/dashboard/overdue-actions";
+import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
-import { getSalesCalls } from "@/lib/iclosed/calls";
-import { getLeads } from "@/lib/leads/queries";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
-import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 const PERIOD_MONTHS = 3;
 // buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
@@ -52,6 +51,16 @@ export default async function DashboardPage({
   const params = await searchParams;
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
+  const accountContext = await getAccountContext(userId);
+  const hasDestinationPermission = (permission: "acquisition:pipeline" | "ventes:appels" | "ventes:rdv") => {
+    if (!accountContext) return false;
+    return accountContext.isOwner || accountContext.permissions.has(permission);
+  };
+  const revenueActionPermissions = {
+    pipeline: hasDestinationPermission("acquisition:pipeline"),
+    calls: hasDestinationPermission("ventes:appels"),
+    booking: hasDestinationPermission("ventes:rdv"),
+  };
 
   // All three only depend on accountId/user.sector, known above — run
   // together instead of as sequential round-trips. getBusinessProfile/
@@ -68,11 +77,10 @@ export default async function DashboardPage({
 
   const firstName = user?.email.split("@")[0] || "là";
 
-  // Overdue-actions data — independent of the diagnostic engine above, so
-  // fetched as its own batch rather than folded into it.
-  const [salesCalls, leads, [iclosedConnection], [calendlyConnection]] = await Promise.all([
-    getSalesCalls(accountId),
-    getLeads(accountId),
+  // Technical-alert data — independent of the diagnostic engine above, so
+  // fetched as its own batch rather than folded into it. Revenue actions are
+  // loaded by their Suspense boundary below and remain a separate projection.
+  const [[iclosedConnection], [calendlyConnection]] = await Promise.all([
     user?.iclosedConnected
       ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -80,9 +88,7 @@ export default async function DashboardPage({
       ? db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
   ]);
-  const overdueActions = buildOverdueActions({
-    awaitingDecisionCalls: salesCalls.filter((call) => call.outcome === "awaiting_decision"),
-    leads,
+  const technicalAlerts = buildTechnicalAlerts({
     keyInvalid: Boolean(user?.anthropicApiKeyInvalid),
     failedSyncs: [
       ...(user?.iclosedConnected && iclosedConnection?.initialSyncStatus === "failed" ? ["iClosed"] : []),
@@ -227,7 +233,11 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <OverdueActionsSection actions={overdueActions} />
+      <Suspense fallback={<RevenueActionCenterSkeleton />}>
+        <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
+      </Suspense>
+
+      <TechnicalAlertsSection alerts={technicalAlerts} />
 
       <div>
         <h2 className="text-base font-bold">Tes chiffres clés</h2>

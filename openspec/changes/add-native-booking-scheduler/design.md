@@ -33,7 +33,7 @@ Les réservations seront stockées dans un domaine propre, puis projetées vers 
 - `native_booking_exceptions` : fermetures et plages particulières par date.
 - `native_booking_event_closers` : closers associés, ordre de rotation et état d’éligibilité.
 - `native_bookings` : coordonnées du prospect, horaires UTC, fuseaux, closer attribué, état, tokens d’action, état de synchronisation externe et snapshot UTM.
-- `native_booking_leads` : tentative de réservation qualifiée mais non confirmée, coordonnées contactables, étape atteinte, créneau consulté, consentement de recontact, dernier passage et snapshot d’attribution.
+- `native_booking_leads` : tentative de réservation partielle ou qualifiée mais non confirmée, coordonnées contactables (prénom, nom et téléphone, éventuellement incomplètes), étape atteinte, créneau consulté, consentement de recontact, dernier passage et snapshot d’attribution.
 - `native_calendar_connections` et `native_calendar_sources` : fournisseur, closer, calendriers sélectionnés et état de synchronisation.
 - `native_booking_links` : liens nommés avec paramètres UTM prédéfinis et état actif.
 
@@ -55,7 +55,7 @@ Alternative écartée : stocker toutes les occurrences futures. Cette approche s
 
 La confirmation publique suivra ce flux :
 
-1. Valider le formulaire, normaliser l’email et le téléphone, puis rechercher un rendez-vous futur non annulé au niveau du compte.
+1. Valider le formulaire, normaliser le téléphone, puis rechercher un rendez-vous futur non annulé au niveau du compte.
 2. Créer une réservation `pending` avec une clé d’idempotence et une courte expiration de hold.
 3. Dans une transaction, revalider l’événement actif, les exceptions, le créneau, les closers éligibles et l’absence de chevauchement. Avancer le curseur round robin uniquement après une attribution valide.
 4. Créer ou retrouver l’événement externe via l’adaptateur calendrier du closer.
@@ -98,7 +98,7 @@ Le système privilégiera les paramètres explicitement présents dans l’URL d
 
 ### 8. Transformer l’opt-in en lead de relance sans exposer de PII au public
 
-Après validation des coordonnées et avant la révélation des créneaux, le handler public créera ou actualisera une ligne de lead liée à l’événement. Le lead conservera les informations saisies avec l’instant de consentement au recontact, le fuseau du prospect, la dernière étape (`slots_revealed`, `slot_selected` ou équivalent), le dernier créneau sélectionné, la page d’entrée, le referrer et le snapshot UTM. Un identifiant de session opaque permettra d’actualiser la même tentative sans placer d’email ou de téléphone dans l’URL.
+Dès qu’au moins un des champs prénom, nom ou téléphone perd le focus, le handler public créera ou actualisera une ligne de lead liée à l’événement, sans attendre le clic sur « Voir les créneaux ». Le lead conservera les informations saisies, même si elles sont encore partielles, avec l’instant de consentement au recontact, le fuseau du prospect, la dernière étape (`contact_submitted`, `slots_revealed`, `slot_selected` ou équivalent), le dernier créneau sélectionné, la page d’entrée, le referrer et le snapshot UTM. Un identifiant de session opaque permettra d’actualiser la même tentative sans placer de PII dans l’URL.
 
 Le lead sera account-scoped côté serveur et ne sera jamais renvoyé dans la projection publique au-delà d’un identifiant opaque nécessaire à la suite du parcours. Les membres autorisés le verront dans « Ventes → Rendez-vous » sous forme de liste « À relancer », avec des actions réversibles pour marquer le contact comme traité ou masquer la relance. Une tentative confirmée passera automatiquement à `converted` ; une erreur de réservation la laissera relançable avec son dernier créneau connu.
 
@@ -114,7 +114,7 @@ Alternative écartée : ajouter des colonnes d’abandon directement à `native_
 - **[Limiteur mémoire non distribué]** → réutiliser le rate limiter actuel pour le premier lancement, instrumenter les refus et prévoir un store partagé si le trafic public le justifie.
 - **[Trop de champs avant les créneaux]** → limiter le premier écran aux coordonnées indispensables, validation inline et questions supplémentaires reportées après la sélection si elles sont activées.
 - **[Token OAuth expiré]** → statut de connexion visible, tentative de refresh serveur, reconnexion guidée et exclusion temporaire du closer si la disponibilité ne peut plus être garantie.
-- **[PII de prospects abandonnés]** → collecte uniquement après validation des coordonnées, stockage account-scoped, consentement de recontact horodaté, aucune PII dans les URLs publiques et accès admin soumis à la permission rendez-vous.
+- **[PII de prospects abandonnés]** → stockage account-scoped dès la saisie d’un champ, consentement de recontact horodaté, aucune PII dans les URLs publiques et accès admin soumis à la permission rendez-vous.
 - **[Accumulation de relances obsolètes]** → statuts `open/contacted/converted/dismissed`, vue centrée sur les leads ouverts, action de masquage non destructive et futur mécanisme de rétention à instrumenter.
 
 ## Migration Plan

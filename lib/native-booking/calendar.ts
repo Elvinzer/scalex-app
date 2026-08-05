@@ -264,7 +264,7 @@ export async function createExternalCalendarEvent({
   startAt: Date;
   endAt: Date;
   guestName: string;
-  guestEmail: string;
+  guestEmail: string | null;
   meetingUrl: string | null;
 }): Promise<ExternalCalendarEvent> {
   const { accessToken } = await getAccessToken(connection);
@@ -278,7 +278,7 @@ export async function createExternalCalendarEvent({
         description: [description, meetingUrl ? `Lien : ${meetingUrl}` : ""].filter(Boolean).join("\n\n"),
         start: { dateTime: startAt.toISOString() },
         end: { dateTime: endAt.toISOString() },
-        attendees: [{ email: guestEmail, displayName: guestName }],
+        ...(guestEmail ? { attendees: [{ email: guestEmail, displayName: guestName }] } : {}),
         sendUpdates: "all",
       }),
     });
@@ -296,7 +296,7 @@ export async function createExternalCalendarEvent({
       body: { contentType: "text", content: [description, meetingUrl ? `Lien : ${meetingUrl}` : ""].filter(Boolean).join("\n\n") },
       start: { dateTime: startAt.toISOString(), timeZone: "UTC" },
       end: { dateTime: endAt.toISOString(), timeZone: "UTC" },
-      attendees: [{ emailAddress: { address: guestEmail, name: guestName }, type: "required" }],
+      ...(guestEmail ? { attendees: [{ emailAddress: { address: guestEmail, name: guestName }, type: "required" }] } : {}),
       isReminderOn: true,
       reminderMinutesBeforeStart: 30,
     }),

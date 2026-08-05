@@ -15,9 +15,9 @@ type PublicEvent = {
 };
 
 type Slot = { startAt: string; endAt: string };
-type Contact = { firstName: string; lastName: string; email: string; phone: string };
+type Contact = { firstName: string; lastName: string; phone: string };
 
-const EMPTY_CONTACT: Contact = { firstName: "", lastName: "", email: "", phone: "" };
+const EMPTY_CONTACT: Contact = { firstName: "", lastName: "", phone: "" };
 
 function formatSlot(dateString: string, timeZone: string): string {
   return new Intl.DateTimeFormat("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" }).format(new Date(dateString));
@@ -50,10 +50,16 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   const [confirmation, setConfirmation] = useState<null | { startAt: string; endAt: string; closerName: string; meetingUrl: string | null; calendarSyncWarning?: boolean }>(null);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [captureStatus, setCaptureStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isPending, setIsPending] = useState(false);
   const [bookingKey, setBookingKey] = useState("");
-  const [leadSessionKey, setLeadSessionKey] = useState<string | null>(null);
   const [leadId, setLeadId] = useState<string | null>(null);
+  const leadSessionKeyRef = useRef<string | null>(null);
+  const leadIdRef = useRef<string | null>(null);
+  const latestContactRef = useRef<Contact>(EMPTY_CONTACT);
+  const captureTimerRef = useRef<number | null>(null);
+  const queuedContactRef = useRef<Contact | null>(null);
+  const captureLoopRef = useRef<Promise<void> | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -69,7 +75,11 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     const storageKey = `native-booking-lead:${event.slug}`;
     const existingSessionKey = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
     window.sessionStorage.setItem(storageKey, existingSessionKey);
-    setLeadSessionKey(existingSessionKey);
+    leadSessionKeyRef.current = existingSessionKey;
+
+    return () => {
+      if (captureTimerRef.current) window.clearTimeout(captureTimerRef.current);
+    };
   }, [event.slug]);
 
   const groupedSlots = useMemo(() => {
@@ -84,9 +94,96 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   }, [displayTimeZone, slots]);
 
   function updateContact(field: keyof Contact, value: string) {
-    setContact((current) => ({ ...current, [field]: value }));
+    const nextContact = { ...contact, [field]: value };
+    setContact(nextContact);
+    latestContactRef.current = nextContact;
     setFieldErrors((current) => ({ ...current, [field]: [] }));
     setError(null);
+    scheduleLeadCapture(nextContact);
+  }
+
+  function hasContactValue(value: Contact) {
+    return Object.values(value).some((field) => field.trim().length > 0);
+  }
+
+  function ensureLeadSessionKey() {
+    if (!leadSessionKeyRef.current) {
+      const storageKey = `native-booking-lead:${event.slug}`;
+      leadSessionKeyRef.current = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
+      window.sessionStorage.setItem(storageKey, leadSessionKeyRef.current);
+    }
+    return leadSessionKeyRef.current;
+  }
+
+  function leadMetadata() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      leadSessionKey: ensureLeadSessionKey(),
+      landingPage: window.location.href,
+      referrer: document.referrer || null,
+      linkId: params.get("link") ?? params.get("link_id"),
+      utm: { ...utm, ...getUtmFromUrl() },
+    };
+  }
+
+  async function sendLeadCapture(snapshot: Contact) {
+    if (!hasContactValue(snapshot)) return;
+    setCaptureStatus("saving");
+    try {
+      const response = await fetch(`/api/public/booking/${event.slug}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode: "capture", ...snapshot, guestTimeZone, ...leadMetadata() }),
+      });
+      const payload = await response.json();
+      if (response.ok && payload.leadId) {
+        leadIdRef.current = payload.leadId;
+        setLeadId(payload.leadId);
+        setCaptureStatus("saved");
+      } else {
+        setCaptureStatus("idle");
+      }
+    } catch {
+      // Auto-capture is deliberately non-blocking; the unlock request retries
+      // the complete contact before revealing the availability.
+      setCaptureStatus("idle");
+    }
+  }
+
+  function queueLeadCapture(snapshot: Contact): Promise<void> {
+    if (!hasContactValue(snapshot)) return Promise.resolve();
+    queuedContactRef.current = snapshot;
+    if (captureLoopRef.current) return captureLoopRef.current;
+
+    const loop = (async () => {
+      while (queuedContactRef.current) {
+        const nextContact = queuedContactRef.current;
+        queuedContactRef.current = null;
+        await sendLeadCapture(nextContact);
+      }
+    })();
+    captureLoopRef.current = loop;
+    void loop.finally(() => {
+      if (captureLoopRef.current === loop) captureLoopRef.current = null;
+    });
+    return loop;
+  }
+
+  function scheduleLeadCapture(snapshot: Contact) {
+    if (captureTimerRef.current) window.clearTimeout(captureTimerRef.current);
+    if (!hasContactValue(snapshot)) return;
+    captureTimerRef.current = window.setTimeout(() => {
+      captureTimerRef.current = null;
+      void queueLeadCapture(latestContactRef.current);
+    }, 450);
+  }
+
+  function captureContactNow() {
+    if (captureTimerRef.current) {
+      window.clearTimeout(captureTimerRef.current);
+      captureTimerRef.current = null;
+    }
+    void queueLeadCapture(latestContactRef.current);
   }
 
   async function unlockAvailability(formEvent: FormEvent<HTMLFormElement>) {
@@ -95,10 +192,16 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     setFieldErrors({});
     setIsPending(true);
     try {
+      if (captureTimerRef.current) {
+        window.clearTimeout(captureTimerRef.current);
+        captureTimerRef.current = null;
+      }
+      await queueLeadCapture(contact);
+      const metadata = leadMetadata();
       const response = await fetch(`/api/public/booking/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "unlock", ...contact, guestTimeZone, leadSessionKey, landingPage, referrer, linkId, utm }),
+        body: JSON.stringify({ mode: "unlock", ...contact, guestTimeZone, ...metadata }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -107,6 +210,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
         return;
       }
       setSlots(payload.slots ?? []);
+      leadIdRef.current = payload.leadId ?? null;
       setLeadId(payload.leadId ?? null);
       setUnlocked(true);
       setDisplayTimeZone(guestTimeZone);
@@ -119,7 +223,8 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   }
 
   async function touchLead(lastStep: "slot_selected" | "booking_failed", slot: Slot | null) {
-    if (!leadId) return;
+    const currentLeadId = leadIdRef.current ?? leadId;
+    if (!currentLeadId) return;
     try {
       await fetch(`/api/public/booking/${event.slug}`, {
         method: "POST",
@@ -128,7 +233,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
           mode: "touch",
           ...contact,
           guestTimeZone,
-          leadId,
+          leadId: currentLeadId,
           lastStep,
           startAt: slot?.startAt ?? null,
         }),
@@ -154,7 +259,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
           guestTimeZone,
           startAt: selectedSlot.startAt,
           idempotencyKey,
-          leadId,
+          leadId: leadIdRef.current ?? leadId,
           utm,
           landingPage,
           referrer,
@@ -187,7 +292,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
             <div>
               <p className="text-sm font-bold text-state-healthy">Rendez-vous confirmé</p>
               <h1 className="mt-2 text-3xl font-bold">C&apos;est réservé, {contact.firstName}.</h1>
-              <p className="mt-2 text-muted-foreground">Tu recevras les informations utiles à l&apos;adresse {contact.email}.</p>
+              <p className="mt-2 text-muted-foreground">Ton closer te recontactera au {contact.phone} pour la suite.</p>
             </div>
             <div className="mt-3 w-full max-w-lg rounded-[var(--radius-card)] border border-border bg-muted/50 p-5 text-left">
               <p className="font-bold">{formatSlotDay(confirmation.startAt, displayTimeZone)}</p>
@@ -223,18 +328,16 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
 
             <form onSubmit={unlockAvailability} className="mt-7 flex flex-col gap-4" noValidate>
               <Field label="Prénom" error={fieldErrors.firstName?.[0]}>
-                <input autoComplete="given-name" value={contact.firstName} onChange={(input) => updateContact("firstName", input.target.value)} className="public-booking-input" />
+                <input required autoComplete="given-name" value={contact.firstName} onChange={(input) => updateContact("firstName", input.target.value)} onBlur={captureContactNow} className="public-booking-input" />
               </Field>
               <Field label="Nom" error={fieldErrors.lastName?.[0]}>
-                <input autoComplete="family-name" value={contact.lastName} onChange={(input) => updateContact("lastName", input.target.value)} className="public-booking-input" />
-              </Field>
-              <Field label="Email" error={fieldErrors.email?.[0]} hint="Utilisé pour confirmer ton rendez-vous.">
-                <input type="email" inputMode="email" autoComplete="email" value={contact.email} onChange={(input) => updateContact("email", input.target.value)} className="public-booking-input" />
+                <input required autoComplete="family-name" value={contact.lastName} onChange={(input) => updateContact("lastName", input.target.value)} onBlur={captureContactNow} className="public-booking-input" />
               </Field>
               <Field label="Téléphone" error={fieldErrors.phone?.[0]} hint="Avec ton indicatif pays, par exemple +33.">
-                <input type="tel" inputMode="tel" autoComplete="tel" value={contact.phone} onChange={(input) => updateContact("phone", input.target.value)} className="public-booking-input" />
+                <input required type="tel" inputMode="tel" autoComplete="tel" value={contact.phone} onChange={(input) => updateContact("phone", input.target.value)} onBlur={captureContactNow} className="public-booking-input" />
               </Field>
               {error && <p className="rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm font-bold text-state-critical" role="alert">{error}</p>}
+              {captureStatus === "saved" && !unlocked && <p className="text-xs font-bold text-state-healthy" role="status">Ton information est enregistrée automatiquement.</p>}
               {!unlocked ? (
                 <button type="submit" disabled={isPending} className="public-booking-primary">
                   {isPending ? "Vérification…" : "Voir les créneaux"}

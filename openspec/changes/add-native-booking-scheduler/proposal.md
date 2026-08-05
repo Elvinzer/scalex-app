@@ -11,10 +11,10 @@ Le parcours public doit aussi qualifier le prospect avant de révéler les crén
 - Limiter le plan le moins cher à un événement ; rendre la création d’événements illimitée à partir du niveau d’abonnement supérieur, avec des entitlements administrables depuis `/admin/plans`.
 - Permettre d’associer plusieurs closers à un événement et d’attribuer les réservations en round robin.
 - Connecter les calendriers Google et Outlook de chaque closer pour exclure les périodes occupées et créer l’événement externe après réservation.
-- Ajouter une page publique qui collecte prénom, nom, téléphone et email avant de dévoiler les disponibilités, avec affichage dans le fuseau du prospect ou celui de l’événement.
+- Ajouter une page publique qui collecte d’abord le prénom, le nom et le téléphone avant de dévoiler les disponibilités, avec affichage dans le fuseau du prospect ou celui de l’événement.
 - Bloquer côté serveur une nouvelle réservation lorsqu’un prospect possède déjà un rendez-vous futur non annulé, avec un avertissement compréhensible côté public.
 - Publier des liens partageables et conserver les paramètres UTM, y compris la vidéo ou le canal d’origine, sur la réservation et l’appel de vente.
-- Enregistrer une tentative de réservation dès que les coordonnées valides sont soumises, conserver sa dernière étape et le créneau consulté, puis l’exposer comme prospect à relancer tant qu’aucun rendez-vous n’est confirmé.
+- Enregistrer directement une tentative de réservation dès qu’au moins une information est saisie, conserver sa dernière étape et le créneau consulté, puis l’exposer comme prospect à relancer tant qu’aucun rendez-vous n’est confirmé.
 - Afficher ces prospects dans l’espace « Ventes → Rendez-vous » avec leurs coordonnées, leur événement, leur activité récente et leur attribution, ainsi que des actions « contacté » et « ignoré » account-scoped.
 - Introduire les rendez-vous natifs comme nouvelle source de `sales_calls` sans casser les flux iClosed, Calendly ou manuels existants.
 - Prévoir les confirmations, les états de réservation et les notifications nécessaires au suivi opérationnel.

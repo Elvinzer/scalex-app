@@ -1,5 +1,6 @@
 import { CalendarPlus, ExternalLink, Link2 } from "lucide-react";
 import Link from "next/link";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { getNativeBookingEntitlements, getNativeBookingUsage } from "@/lib/billing/plan-gate";
@@ -19,9 +20,16 @@ const STATUS_LABELS = {
   archived: "Archivé",
 } as const;
 
-export default async function NativeBookingEventsPage() {
+export default async function NativeBookingEventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lead?: string; from?: string }>;
+}) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:rdv");
+  const params = await searchParams;
+  const fromDashboard = params.from === "dashboard";
+  const targetLeadId = z.string().uuid().safeParse(params.lead).success ? params.lead ?? null : null;
 
   const [events, entitlements, usage, leads] = await Promise.all([
     listNativeBookingEvents(accountId),
@@ -35,7 +43,6 @@ export default async function NativeBookingEventsPage() {
     status: lead.status as "open" | "contacted",
     firstName: lead.firstName,
     lastName: lead.lastName,
-    email: lead.email,
     phone: lead.phone,
     eventName: event.name,
     eventTimeZone: event.timeZone,
@@ -58,13 +65,20 @@ export default async function NativeBookingEventsPage() {
             entre tes closers.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-sm font-bold">
-          <CalendarPlus className="size-4 text-accent" />
-          {entitlements.maxEvents === null ? `${usage} événement${usage > 1 ? "s" : ""}` : `${usage}/${entitlements.maxEvents} événement${entitlements.maxEvents > 1 ? "s" : ""}`}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {fromDashboard && (
+            <Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-bold text-muted-foreground outline-none hover:underline focus-visible:ring-3 focus-visible:ring-accent/20">
+              ← Retour au Dashboard
+            </Link>
+          )}
+          <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-sm font-bold">
+            <CalendarPlus className="size-4 text-accent" />
+            {entitlements.maxEvents === null ? `${usage} événement${usage > 1 ? "s" : ""}` : `${usage}/${entitlements.maxEvents} événement${entitlements.maxEvents > 1 ? "s" : ""}`}
+          </div>
         </div>
       </div>
 
-      <AbandonedLeadsPanel leads={leadViews} />
+      <AbandonedLeadsPanel leads={leadViews} targetLeadId={targetLeadId} />
 
       {!entitlements.enabled ? (
         <div className="sticker-card flex flex-col gap-4 p-6 sm:p-8">

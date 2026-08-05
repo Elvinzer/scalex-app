@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { z } from "zod";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { getBusinessProfile } from "@/lib/business/queries";
@@ -22,11 +23,13 @@ function monthsAgoRange(monthsBack: number): DateRange {
   return { from: toIsoDate(start), to: toIsoDate(today) };
 }
 
-export default async function PipelinePage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+export default async function PipelinePage({ searchParams }: { searchParams: Promise<{ period?: string; lead?: string; from?: string }> }) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:pipeline");
   const params = await searchParams;
   const period = params.period === "3-months" ? "3-months" : "current-month";
+  const fromDashboard = params.from === "dashboard";
+  const targetLeadId = z.string().uuid().safeParse(params.lead).success ? params.lead ?? null : null;
 
   const range = period === "3-months" ? monthsAgoRange(2) : monthsAgoRange(0);
   const rangeLengthDays = Math.round((new Date(`${range.to}T00:00:00Z`).getTime() - new Date(`${range.from}T00:00:00Z`).getTime()) / 86_400_000) + 1;
@@ -65,6 +68,11 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
           <p className="mt-1 text-muted-foreground">Suivi de tes leads, de la prise de contact à la vente.</p>
         </div>
         <div className="flex items-center gap-4">
+          {fromDashboard && (
+            <Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-bold text-muted-foreground outline-none hover:underline focus-visible:ring-3 focus-visible:ring-accent/20">
+              ← Retour au Dashboard
+            </Link>
+          )}
           <Link href="/acquisition/pipeline/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
             Funnel journalier →
           </Link>
@@ -74,7 +82,13 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
 
       <PipelineStatsBanner stats={stats} period={period} />
 
-      <KanbanBoard initialLeads={leads} offers={offers} setters={setters} commentCounts={commentCounts} />
+      <KanbanBoard
+        initialLeads={leads}
+        offers={offers}
+        setters={setters}
+        commentCounts={commentCounts}
+        initialLeadId={targetLeadId}
+      />
     </div>
   );
 }
