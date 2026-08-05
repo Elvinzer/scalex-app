@@ -10,13 +10,13 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 const WHAT_WE_FETCH = [
   "Vues, temps de visionnage et durée de vue moyenne",
   "Taux de rétention (audience retention) par vidéo",
-  "Impressions et taux de clic (CTR) sur la miniature",
   "Abonnés gagnés et perdus, par vidéo",
   "Likes, commentaires, partages",
 ];
 
 const WHAT_WE_NEVER_FETCH = [
-  "Clics sortants vers un lien externe — YouTube n'expose pas cette donnée pour le contenu organique (le CTR mesuré est un clic sur la miniature, pas un clic sortant)",
+  "Clics sortants vers un lien externe — YouTube n'expose pas cette donnée pour le contenu organique",
+  "Impressions et taux de clic (CTR) sur la miniature — YouTube n'expose pas cette donnée via son API en temps réel, seulement dans Studio",
 ];
 
 type Props = {

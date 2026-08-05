@@ -7,13 +7,14 @@ import { InfoPopover } from "@/components/info-popover";
 import { Button } from "@/components/ui/button";
 import { YoutubeVideoDetailDialog } from "@/components/youtube/youtube-video-detail-dialog";
 import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
+import { VIDEO_FORMATS, type VideoFormat, matchesFormat } from "@/lib/youtube/format";
 import { comparisonMetric, computeVideoPerformanceComparisons, type VideoPerformanceTier } from "@/lib/youtube/insights-comparison";
 import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
 import { cn } from "@/lib/utils";
 
 import { Pager } from "./pager";
 
-type SortKey = "publishedAt" | "views" | "ctr";
+type SortKey = "publishedAt" | "views" | "retention";
 
 const PAGE_SIZE = 10;
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
@@ -21,9 +22,8 @@ const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "s
 
 const EXPLANATIONS = {
   topVideos: "Classement de tes vidéos par vues, depuis la connexion de ta chaîne YouTube.",
-  ctr:
-    "Taux de clic sur la miniature (impressions -> clics), un des deux signaux que l'algorithme YouTube pondère le plus avec le watch time. La couleur compare cette vidéo à la médiane de tes autres vidéos : vert au-dessus, gris dans la moyenne, rouge en dessous — YouTube recommande lui-même de comparer une vidéo à tes uploads récents plutôt qu'à un seuil absolu.",
-  retention: "Pourcentage moyen de la vidéo regardé par les spectateurs — ce que YouTube utilise pour juger si une vidéo mérite d'être recommandée.",
+  retention:
+    "Pourcentage moyen de la vidéo regardé par les spectateurs — ce que YouTube utilise pour juger si une vidéo mérite d'être recommandée, avec le watch time. La couleur compare cette vidéo à la médiane de tes autres vidéos du même format (Shorts vs. vidéos longues, si un filtre de format est actif — leur rétention n'est pas sur la même échelle) : vert au-dessus, gris dans la moyenne, rouge en dessous — YouTube recommande lui-même de comparer une vidéo à tes uploads récents plutôt qu'à un seuil absolu.",
   watchTime: "Temps de visionnage total cumulé sur cette vidéo, en minutes.",
   abonnes: "Abonnés gagnés moins abonnés perdus, générés directement par cette vidéo, remonté par YouTube.",
 } as const;
@@ -67,7 +67,13 @@ function computeTopVideos(videos: YoutubeVideoInsightRow[]): YoutubeVideoInsight
     .slice(0, TOP_VIDEOS_COUNT);
 }
 
-function TopVideosPanel({ videos }: { videos: YoutubeVideoInsightRow[] }) {
+const FORMAT_SUBTITLE: Record<VideoFormat, string> = {
+  all: "toutes vidéos confondues",
+  short: "Shorts uniquement",
+  long: "vidéos longues uniquement",
+};
+
+function TopVideosPanel({ videos, format }: { videos: YoutubeVideoInsightRow[]; format: VideoFormat }) {
   if (videos.length === 0) return null;
 
   return (
@@ -76,7 +82,7 @@ function TopVideosPanel({ videos }: { videos: YoutubeVideoInsightRow[] }) {
         <h2 className="text-base font-bold">Tes 3 meilleures vidéos</h2>
         <InfoPopover text={EXPLANATIONS.topVideos} />
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">Classées par vues, toutes vidéos confondues depuis ta connexion.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Classées par vues, {FORMAT_SUBTITLE[format]}, depuis ta connexion.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {videos.map((video, index) => (
           <a
@@ -115,18 +121,40 @@ function TopVideosPanel({ videos }: { videos: YoutubeVideoInsightRow[] }) {
   );
 }
 
-export function YoutubeVideosTable({ videos, period }: { videos: YoutubeVideoInsightRow[]; period: DateFilterKey }) {
+export function YoutubeVideosTable({
+  videos,
+  period,
+  format,
+}: {
+  videos: YoutubeVideoInsightRow[];
+  period: DateFilterKey;
+  format: VideoFormat;
+}) {
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
   const [sortDesc, setSortDesc] = useState(true);
   const [page, setPage] = useState(1);
 
-  const topVideos = useMemo(() => computeTopVideos(videos), [videos]);
+  // Format narrows the base cohort everything else derives from — Shorts
+  // and long-form have wildly different view/retention baselines, so mixing
+  // them (the default "Tous") is fine, but comparing a Short against a
+  // cohort padded with long-form videos (or vice versa) would misclassify
+  // its "above/below your baseline" tier below.
+  const formatFiltered = useMemo(() => videos.filter((video) => matchesFormat(video, format)), [videos, format]);
 
-  const filteredVideos = useMemo(() => videos.filter((video) => isWithinPeriod(video.publishedAt, period)), [videos, period]);
+  const topVideos = useMemo(() => computeTopVideos(formatFiltered), [formatFiltered]);
 
-  useEffect(() => setPage(1), [period]);
+  const filteredVideos = useMemo(
+    () => formatFiltered.filter((video) => isWithinPeriod(video.publishedAt, period)),
+    [formatFiltered, period]
+  );
 
-  const comparisons = useMemo(() => computeVideoPerformanceComparisons(videos), [videos]);
+  useEffect(() => setPage(1), [period, format]);
+
+  // Deliberately built from formatFiltered (not filteredVideos) — the
+  // cohort baseline stays period-independent (see insights-comparison.ts's
+  // own comment on why: small channels would get near-empty cohorts
+  // otherwise), only split by format now.
+  const comparisons = useMemo(() => computeVideoPerformanceComparisons(formatFiltered), [formatFiltered]);
 
   const sorted = useMemo(() => {
     const arr = [...filteredVideos];
@@ -178,9 +206,17 @@ export function YoutubeVideosTable({ videos, period }: { videos: YoutubeVideoIns
     );
   }
 
+  // Distinguishes "nothing in this format at all" from "nothing in this
+  // format for this period" — the fix is different (pick another format vs.
+  // widen the period), so the suggested next step below should be too.
+  const emptyStateCopy =
+    format !== "all" && formatFiltered.length === 0
+      ? { title: `Aucune vidéo au format "${VIDEO_FORMATS.find((f) => f.key === format)?.label}"`, hint: "Choisis un autre format, ou « Tous »." }
+      : { title: "Aucune vidéo sur cette période", hint: "Choisis « Tout » pour voir l'historique complet." };
+
   return (
     <div className="flex flex-col gap-6">
-      <TopVideosPanel videos={topVideos} />
+      <TopVideosPanel videos={topVideos} format={format} />
 
       <div className="flex items-baseline justify-between">
         <h2 className="text-base font-bold">Toutes les vidéos</h2>
@@ -189,8 +225,8 @@ export function YoutubeVideosTable({ videos, period }: { videos: YoutubeVideoIns
 
       {sorted.length === 0 ? (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune vidéo sur cette période</p>
-          <p className="mt-1 text-sm text-muted-foreground">Choisis &laquo;&nbsp;Tout&nbsp;&raquo; pour voir l&apos;historique complet.</p>
+          <p className="text-sm font-bold">{emptyStateCopy.title}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{emptyStateCopy.hint}</p>
         </div>
       ) : (
         <div className="sticker-card overflow-x-auto">
@@ -202,13 +238,7 @@ export function YoutubeVideosTable({ videos, period }: { videos: YoutubeVideoIns
                 <th className="p-3 text-right"><SortHeader label="Vues" sortKeyValue="views" /></th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <SortHeader label="CTR" sortKeyValue="ctr" />
-                    <InfoPopover text={EXPLANATIONS.ctr} />
-                  </div>
-                </th>
-                <th className="p-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">Rétention</span>
+                    <SortHeader label="Rétention" sortKeyValue="retention" />
                     <InfoPopover text={EXPLANATIONS.retention} />
                   </div>
                 </th>
@@ -229,7 +259,7 @@ export function YoutubeVideosTable({ videos, period }: { videos: YoutubeVideoIns
             </thead>
             <tbody>
               {paged.map((video) => {
-                const ctr = comparisonMetric(video);
+                const retention = comparisonMetric(video);
                 const tier = comparisons.get(video.videoId)?.tier;
                 const netSubscribers =
                   video.subscribersGained !== null && video.subscribersLost !== null ? video.subscribersGained - video.subscribersLost : null;
@@ -252,7 +282,7 @@ export function YoutubeVideosTable({ videos, period }: { videos: YoutubeVideoIns
                     </td>
                     <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(video.views ?? 0)}</td>
                     <td className="p-3 text-right">
-                      {ctr === null ? (
+                      {retention === null ? (
                         <span className="tabular-nums text-muted-foreground">—</span>
                       ) : (
                         <span
@@ -263,12 +293,9 @@ export function YoutubeVideosTable({ videos, period }: { videos: YoutubeVideoIns
                               : undefined
                           }
                         >
-                          {`${NUMBER_FORMAT.format(Math.round(ctr * 10) / 10)}%`}
+                          {`${NUMBER_FORMAT.format(Math.round(retention * 10) / 10)}%`}
                         </span>
                       )}
-                    </td>
-                    <td className={cn("p-3 text-right tabular-nums", video.averageViewPercentage === null && "text-muted-foreground")}>
-                      {video.averageViewPercentage === null ? "—" : `${NUMBER_FORMAT.format(Math.round(video.averageViewPercentage * 10) / 10)}%`}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", video.estimatedMinutesWatched === null && "text-muted-foreground")}>
                       {video.estimatedMinutesWatched === null ? "—" : `${NUMBER_FORMAT.format(video.estimatedMinutesWatched)} min`}

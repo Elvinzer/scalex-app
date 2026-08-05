@@ -13,7 +13,9 @@ export type NormalizedYoutubeVideo = {
   durationSeconds: number | null;
   // Projection field for content_posts — see backfill.ts.
   views: number;
-  // Full metric set for youtube_video_insights.
+  // Full metric set for youtube_video_insights. No impressions/CTR fields —
+  // see protocol.ts's YOUTUBE_THUMBNAIL_CTR_AVAILABLE, that data is never
+  // fetched (the query always failed on the real API).
   insights: {
     likes: number | null;
     comments: number | null;
@@ -23,8 +25,6 @@ export type NormalizedYoutubeVideo = {
     averageViewPercentage: number | null;
     subscribersGained: number | null;
     subscribersLost: number | null;
-    impressions: number | null;
-    impressionsClickThroughRate: number | null;
   };
 };
 
@@ -53,8 +53,6 @@ export function normalizeVideo(
       averageViewPercentage: metric(metrics, "averageViewPercentage"),
       subscribersGained: metric(metrics, "subscribersGained"),
       subscribersLost: metric(metrics, "subscribersLost"),
-      impressions: metric(metrics, "impressions"),
-      impressionsClickThroughRate: metric(metrics, "impressionsClickThroughRate"),
     },
   };
 }

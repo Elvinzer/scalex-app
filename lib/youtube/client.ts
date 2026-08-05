@@ -320,13 +320,6 @@ const ANALYTICS_METRICS = [
   "subscribersLost",
 ] as const;
 
-// Impressions/CTR live on a separate metric group in practice (only
-// populated once YouTube has enough impression data for a video) — queried
-// as a second call per batch so one group's rejection never drops the core
-// metrics above, same graceful-degradation philosophy as Instagram's
-// fetchMediaInsights.
-const ANALYTICS_IMPRESSION_METRICS = ["impressions", "impressionsClickThroughRate"] as const;
-
 function parseReportsResponse(body: unknown): Map<string, VideoAnalyticsMetrics> {
   const rec = asRecord(body) ?? {};
   const headers = Array.isArray(rec.columnHeaders) ? rec.columnHeaders : [];
@@ -374,9 +367,15 @@ async function queryReports(
 // channel creation -> today) so the numbers are lifetime cumulative totals,
 // same semantics as Instagram's reach/likes snapshot, never a windowed
 // delta. `sinceDate` in backfill.ts only controls WHICH videos are included
-// in a given sync, not this date range. Never throws on a rejected metric
-// group or a failed batch — that batch's videos simply get an empty metrics
-// object, same graceful-degradation rule as fetchMediaInsights.
+// in a given sync, not this date range. Never throws on a failed batch —
+// that batch's videos simply get an empty metrics object, same
+// graceful-degradation rule as fetchMediaInsights.
+//
+// Deliberately does NOT query impressions/impressionsClickThroughRate —
+// see protocol.ts's YOUTUBE_THUMBNAIL_CTR_AVAILABLE for why (confirmed via
+// a live probe: those metric names are rejected outright by the real-time
+// Analytics API, for every video, so querying them was a wasted call that
+// always failed).
 export async function fetchVideoAnalytics(
   accessToken: string,
   videoIds: string[],
@@ -388,19 +387,13 @@ export async function fetchVideoAnalytics(
 
   for (let i = 0; i < videoIds.length; i += YOUTUBE_ANALYTICS_BATCH_SIZE) {
     const chunk = videoIds.slice(i, i + YOUTUBE_ANALYTICS_BATCH_SIZE);
-    const [core, impressions] = await Promise.all([
-      queryReports(accessToken, chunk, ANALYTICS_METRICS, startDate, endDate).catch((error) => {
-        console.error(`[youtube] fetchVideoAnalytics core metrics chunk starting at ${i} failed`, error);
-        return new Map<string, VideoAnalyticsMetrics>();
-      }),
-      queryReports(accessToken, chunk, ANALYTICS_IMPRESSION_METRICS, startDate, endDate).catch((error) => {
-        console.error(`[youtube] fetchVideoAnalytics impression metrics chunk starting at ${i} failed`, error);
-        return new Map<string, VideoAnalyticsMetrics>();
-      }),
-    ]);
+    const core = await queryReports(accessToken, chunk, ANALYTICS_METRICS, startDate, endDate).catch((error) => {
+      console.error(`[youtube] fetchVideoAnalytics core metrics chunk starting at ${i} failed`, error);
+      return new Map<string, VideoAnalyticsMetrics>();
+    });
     for (const videoId of chunk) {
-      const merged = { ...(core.get(videoId) ?? {}), ...(impressions.get(videoId) ?? {}) };
-      if (Object.keys(merged).length > 0) result.set(videoId, merged);
+      const metrics = core.get(videoId);
+      if (metrics && Object.keys(metrics).length > 0) result.set(videoId, metrics);
     }
   }
   return result;

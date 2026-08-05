@@ -42,8 +42,6 @@ export function YoutubeVideoDetailDialog({ insight, trigger }: { insight: Youtub
 
   const stats: { label: string; value: string }[] = [
     { label: "Vues", value: formatStat(insight.views) },
-    { label: "Impressions", value: formatStat(insight.impressions) },
-    { label: "Taux de clic (CTR)", value: formatPercentValue(insight.impressionsClickThroughRate) },
     { label: "Rétention moyenne", value: formatPercentValue(insight.averageViewPercentage) },
     { label: "Durée de vue moyenne", value: formatDurationSeconds(insight.averageViewDurationSeconds) },
     { label: "Durée de la vidéo", value: formatDurationSeconds(insight.durationSeconds) },
@@ -73,11 +71,6 @@ export function YoutubeVideoDetailDialog({ insight, trigger }: { insight: Youtub
             </div>
           ))}
         </div>
-
-        <p className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-          Les clics sortants vers un lien externe ne sont pas mesurables via l&apos;API YouTube — le CTR ci-dessus est
-          un clic sur la miniature, pas un clic sortant.
-        </p>
 
         <Button asChild variant="outline" className="mt-4">
           <a href={`https://www.youtube.com/watch?v=${insight.videoId}`} target="_blank" rel="noreferrer">

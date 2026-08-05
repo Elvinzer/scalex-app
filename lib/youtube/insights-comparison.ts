@@ -2,11 +2,16 @@ import type { YoutubeVideoInsightRow } from "./queries";
 
 // Turns raw per-video numbers into a comparative signal — "this video did
 // better/worse than your own baseline" — rather than a wall of counts with
-// no reference point. Mirrors lib/instagram/insights-comparison.ts, but the
-// comparison metric is impressions CTR: YouTube's own stated recommendation
-// is to compare a video against your recent uploads rather than an absolute
-// threshold, and CTR (alongside watch time) is the metric most correlated
-// with algorithmic promotion.
+// no reference point. Mirrors lib/instagram/insights-comparison.ts.
+//
+// Comparison metric is audience retention (averageViewPercentage), not CTR:
+// thumbnail impressions/CTR are not retrievable via the real-time YouTube
+// Analytics API this integration uses — confirmed by a live probe, see
+// protocol.ts's YOUTUBE_THUMBNAIL_CTR_AVAILABLE — so it was never actually
+// populated and this comparison was permanently dead when built on it.
+// Retention is the closest working analog: it's the other metric YouTube's
+// own docs cite as most correlated with algorithmic promotion, alongside
+// CTR, and it's a real, always-fetchable number for every synced video.
 
 export type VideoPerformanceTier = "above" | "inline" | "below";
 export type VideoPerformanceComparison = { tier: VideoPerformanceTier; ratio: number; value: number; cohortSize: number };
@@ -24,10 +29,10 @@ function median(values: number[]): number {
 // Exported (not just used internally) so callers can show/sort by this same
 // value even for a video whose cohort is below MIN_COHORT_SIZE and therefore
 // has no entry in computeVideoPerformanceComparisons' result. Null when
-// YouTube hasn't surfaced enough impressions yet to compute a CTR (common
-// for videos in their first hours/days).
+// YouTube hasn't surfaced retention data yet (common for videos in their
+// first hours/days).
 export function comparisonMetric(row: YoutubeVideoInsightRow): number | null {
-  return row.impressionsClickThroughRate;
+  return row.averageViewPercentage;
 }
 
 // Single cohort (all videos) rather than split by duration/format — a

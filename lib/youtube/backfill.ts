@@ -103,8 +103,6 @@ async function processNormalizedVideo(userId: string, normalized: ReturnType<typ
       averageViewPercentage: normalized.insights.averageViewPercentage,
       subscribersGained: normalized.insights.subscribersGained,
       subscribersLost: normalized.insights.subscribersLost,
-      impressions: normalized.insights.impressions,
-      impressionsClickThroughRate: normalized.insights.impressionsClickThroughRate,
       rawInsights: raw,
       lastFetchedAt: new Date(),
     })
@@ -123,8 +121,6 @@ async function processNormalizedVideo(userId: string, normalized: ReturnType<typ
         averageViewPercentage: normalized.insights.averageViewPercentage,
         subscribersGained: normalized.insights.subscribersGained,
         subscribersLost: normalized.insights.subscribersLost,
-        impressions: normalized.insights.impressions,
-        impressionsClickThroughRate: normalized.insights.impressionsClickThroughRate,
         rawInsights: raw,
         lastFetchedAt: new Date(),
       },

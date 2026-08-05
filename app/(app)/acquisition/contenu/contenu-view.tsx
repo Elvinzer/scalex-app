@@ -12,6 +12,7 @@ import { DATE_FILTERS, type DateFilterKey, isWithinPeriod } from "@/lib/content-
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
+import { VIDEO_FORMATS, type VideoFormat, matchesFormat } from "@/lib/youtube/format";
 import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
 
 import { PostsTable } from "./posts-table";
@@ -159,6 +160,34 @@ function PeriodPills({ period, onChange }: { period: DateFilterKey; onChange: (k
   );
 }
 
+// YouTube-only — Instagram has no equivalent format split. Shown next to
+// PeriodPills so a creator can isolate Shorts from long-form instead of
+// having both mixed into the same averages/ranking (their view counts and
+// CTR aren't on the same scale, so mixed numbers are misleading either way).
+function FormatPills({ format, onChange }: { format: VideoFormat; onChange: (key: VideoFormat) => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-bold text-muted-foreground">Format :</span>
+      {VIDEO_FORMATS.map((option) => (
+        <button
+          key={option.key}
+          type="button"
+          onClick={() => onChange(option.key)}
+          className={cn(
+            "rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
+            format === option.key
+              ? "border-accent-border bg-accent-soft text-accent-text"
+              : "border-border text-muted-foreground hover:border-border-hover"
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+      <InfoPopover text="YouTube ne fournit aucun indicateur officiel « Short » via son API. On classe comme Short toute vidéo de 2min ou moins -  une vidéo longue publiée au format court peut être mal classée." />
+    </div>
+  );
+}
+
 function InstagramPanel({
   connected,
   username,
@@ -250,11 +279,20 @@ function YoutubePanel({
   period: DateFilterKey;
   onPeriodChange: (key: DateFilterKey) => void;
 }) {
-  const filtered = useMemo(() => videos.filter((video) => isWithinPeriod(video.publishedAt, period)), [videos, period]);
+  const [format, setFormat] = useState<VideoFormat>("all");
+
+  const filtered = useMemo(
+    () => videos.filter((video) => matchesFormat(video, format) && isWithinPeriod(video.publishedAt, period)),
+    [videos, format, period]
+  );
   const retentionValues = filtered.map((video) => video.averageViewPercentage).filter((value): value is number => value !== null);
   const avgRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, value) => sum + value, 0) / retentionValues.length : null;
-  const ctrValues = filtered.map((video) => video.impressionsClickThroughRate).filter((value): value is number => value !== null);
-  const avgCtr = ctrValues.length > 0 ? ctrValues.reduce((sum, value) => sum + value, 0) / ctrValues.length : null;
+  // No CTR KPI — thumbnail impressions/CTR aren't retrievable via the
+  // real-time YouTube Analytics API (see protocol.ts's
+  // YOUTUBE_THUMBNAIL_CTR_AVAILABLE), so it's never a real number to
+  // average. Views is the working, always-fetchable analog, same as the
+  // Instagram panel's own "Vues sur la période" card above.
+  const totalViews = filtered.reduce((sum, video) => sum + (video.views ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -270,6 +308,7 @@ function YoutubePanel({
       {connected && (
         <>
           <PeriodPills period={period} onChange={onPeriodChange} />
+          <FormatPills format={format} onChange={setFormat} />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="sticker-card flex flex-col p-5">
@@ -281,20 +320,17 @@ function YoutubePanel({
             <div className="sticker-card flex flex-col p-5">
               <div className="flex items-center gap-1.5">
                 <p className="text-sm font-bold text-muted-foreground">Rétention moyenne</p>
-                <InfoPopover text="Pourcentage moyen de tes vidéos regardé par les spectateurs, sur la période sélectionnée — le signal que YouTube utilise pour juger si une vidéo mérite d'être recommandée." />
+                <InfoPopover text="Pourcentage moyen de tes vidéos regardé par les spectateurs, sur la période et le format sélectionnés — le signal que YouTube utilise pour juger si une vidéo mérite d'être recommandée." />
               </div>
               <p className="mt-2 font-display text-3xl font-bold">{avgRetention === null ? "—" : `${Math.round(avgRetention * 10) / 10}%`}</p>
             </div>
             <div className="sticker-card flex flex-col p-5">
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-bold text-muted-foreground">CTR moyen</p>
-                <InfoPopover text="Taux de clic moyen sur la miniature de tes vidéos, sur la période sélectionnée — avec le watch time, le signal le plus pondéré par l'algorithme YouTube." />
-              </div>
-              <p className="mt-2 font-display text-3xl font-bold">{avgCtr === null ? "—" : `${Math.round(avgCtr * 10) / 10}%`}</p>
+              <p className="text-sm font-bold text-muted-foreground">Vues sur la période</p>
+              <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(totalViews)}</p>
             </div>
           </div>
 
-          <YoutubeVideosTable videos={videos} period={period} />
+          <YoutubeVideosTable videos={videos} period={period} format={format} />
         </>
       )}
     </div>

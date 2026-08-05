@@ -94,3 +94,27 @@ export const YOUTUBE_REQUEST_RETRY_DELAY_MS = 750;
 // lib/content-posts/rates.ts and the connection card's copy. Mirrors
 // INSTAGRAM_ORGANIC_CLICKS_AVAILABLE.
 export const YOUTUBE_ORGANIC_CLICKS_AVAILABLE = false;
+
+// Thumbnail impressions/CTR are NOT retrievable via the real-time Analytics
+// API (`youtubeAnalytics/v2/reports`) this integration is built on —
+// confirmed 2026-08 by probing the live API with a real refreshed token:
+//   - metrics=impressions,impressionsClickThroughRate -> 400 "Unknown
+//     identifier (impressions) given in field parameters.metrics." for
+//     every video tried, Shorts and long-form alike (these are stale
+//     metric names; Google's older `impressions` ad-monetization metric was
+//     itself renamed to `adImpressions` back in 2016, so this never worked).
+//   - metrics=videoThumbnailImpressions,videoThumbnailImpressionsClickRate
+//     (the names Google DOES recognize today, confirmed by a distinct
+//     "query not supported" error instead of "unknown identifier") -> 400
+//     for every dimensions/filters combination tried (video, day, no
+//     dimension; with/without a video filter). This data appears to only
+//     be exposed via the separate, async Bulk Reporting API
+//     (`youtube/reporting/v1`, scheduled CSV report jobs) — a materially
+//     different integration, not a metric-name fix, and out of scope here.
+// Consequence: youtubeVideoInsights.impressions/impressionsClickThroughRate
+// are never populated (columns kept, always null, no migration needed) —
+// lib/youtube/client.ts no longer even queries them (the query always
+// failed anyway), and the per-video comparison tier in insights-comparison.ts
+// uses averageViewPercentage (retention) instead, the closest working
+// analog to "how well is this thumbnail/hook performing".
+export const YOUTUBE_THUMBNAIL_CTR_AVAILABLE = false;
