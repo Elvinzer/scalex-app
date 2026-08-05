@@ -53,6 +53,33 @@ function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+// Google's API error envelope is { error: { code, message, errors: [{
+// reason, message }] } } — pulling the reason/message out (never anything
+// from the request itself) turns a bare "status 403" into something
+// actionable in server logs, e.g. "accessNotConfigured: YouTube Data API v3
+// has not been used in project ... before or it is disabled" (the project's
+// API not enabled in Google Cloud Console — the most common first-connect
+// failure) vs. "insufficientPermissions" (missing scope) vs.
+// "quotaExceeded".
+function describeApiError(body: unknown): string {
+  const error = asRecord(asRecord(body)?.error);
+  if (!error) return "no error body";
+  const reason = str(asRecord(Array.isArray(error.errors) ? error.errors[0] : null)?.reason);
+  const message = str(error.message);
+  return [reason, message].filter(Boolean).join(": ") || "unrecognized error shape";
+}
+
+// The OAuth token endpoint (YOUTUBE_TOKEN_URL) uses the plain OAuth2 error
+// shape { error: "invalid_grant", error_description: "..." }, distinct from
+// describeApiError's Google API envelope above.
+function describeOAuthError(body: unknown): string {
+  const rec = asRecord(body);
+  if (!rec) return "no error body";
+  const error = str(rec.error);
+  const description = str(rec.error_description);
+  return [error, description].filter(Boolean).join(": ") || "unrecognized error shape";
+}
+
 // Thrown when the connected account has no YouTube channel at all (a Google
 // account that never created one) — the one actionable failure mode this
 // integration needs to surface clearly, same role as
@@ -87,7 +114,7 @@ export async function exchangeCodeForTokens(params: {
   const accessToken = str(rec.access_token);
   const expiresInSeconds = num(rec.expires_in);
   if (status < 200 || status >= 300 || !accessToken || expiresInSeconds === null) {
-    throw new Error(`YouTube code exchange failed (status ${status})`);
+    throw new Error(`YouTube code exchange failed (status ${status}): ${describeOAuthError(resBody)}`);
   }
   return { accessToken, refreshToken: str(rec.refresh_token), expiresInSeconds };
 }
@@ -123,7 +150,7 @@ export async function refreshAccessToken(refreshToken: string, clientId: string,
   const accessToken = str(rec.access_token);
   const expiresInSeconds = num(rec.expires_in);
   if (status < 200 || status >= 300 || !accessToken || expiresInSeconds === null) {
-    throw new Error(`YouTube token refresh failed (status ${status})`);
+    throw new Error(`YouTube token refresh failed (status ${status}): ${describeOAuthError(resBody)}`);
   }
   return { accessToken, expiresInSeconds };
 }
@@ -150,7 +177,7 @@ export async function fetchChannel(accessToken: string): Promise<YoutubeChannel>
   url.searchParams.set("mine", "true");
   const { status, body } = await request(url, { headers: authHeaders(accessToken) });
   if (status < 200 || status >= 300) {
-    throw new Error(`YouTube channel fetch failed (status ${status})`);
+    throw new Error(`YouTube channel fetch failed (status ${status}): ${describeApiError(body)}`);
   }
   const rec = asRecord(body) ?? {};
   const items = Array.isArray(rec.items) ? rec.items : [];
