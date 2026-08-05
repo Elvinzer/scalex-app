@@ -457,8 +457,11 @@ export function AppSidebar({
               key={entry.href}
               href={entry.href}
               className={cn(
-                "hidden items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] transition-colors lg:flex",
-                active ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                // Labels stay black in every state, active included — hence
+                // the soft coral tint rather than the filled coral pill the
+                // sidebar rail uses, which would force white text.
+                "hidden items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] text-foreground transition-colors lg:flex",
+                active ? "bg-accent-soft" : "hover:bg-muted"
               )}
             >
               <Icon className="size-4" />
