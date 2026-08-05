@@ -1,9 +1,6 @@
 import { eq } from "drizzle-orm";
 
 import { AgentBanner } from "@/components/agent-banner";
-import { InfoPopover } from "@/components/info-popover";
-import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
-import { YoutubeConnectionCard } from "@/components/youtube/youtube-connection-card";
 import { db } from "@/db";
 import { instagramConnections, youtubeConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
@@ -17,8 +14,7 @@ import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 
-import { PostsTable } from "./posts-table";
-import { YoutubeVideosTable } from "./youtube-videos-table";
+import { ContenuView } from "./contenu-view";
 
 function currentMonthWindow(): { year: number; month: number } {
   const now = new Date();
@@ -65,22 +61,10 @@ export default async function ContenuPage({
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
   const postsThisMonth = posts.filter((post) => post.publishedAt.startsWith(monthPrefix));
 
-  const totalViewsThisMonth = postsThisMonth.reduce((sum, post) => sum + post.views, 0);
-  const totalLeadsThisMonth = postsThisMonth.reduce((sum, post) => sum + (post.leads ?? 0), 0);
-
   const clickRates = postsThisMonth.map((post) => computePostRates(post).clickRate).filter((rate): rate is number => rate !== null);
   const avgClickRate = clickRates.length > 0 ? clickRates.reduce((sum, rate) => sum + rate, 0) / clickRates.length : null;
 
-  const topPost = postsThisMonth
-    .map((post) => ({ post, rates: computePostRates(post) }))
-    .filter((entry) => entry.rates.viewToLeadRate !== null)
-    .sort((a, b) => (b.rates.viewToLeadRate ?? 0) - (a.rates.viewToLeadRate ?? 0))[0]?.post ?? null;
-
   const youtubeVideos = Array.from(youtubeInsights.values());
-  const retentionValues = youtubeVideos.map((v) => v.averageViewPercentage).filter((v): v is number => v !== null);
-  const avgRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, v) => sum + v, 0) / retentionValues.length : null;
-  const ctrValues = youtubeVideos.map((v) => v.impressionsClickThroughRate).filter((v): v is number => v !== null);
-  const avgCtr = ctrValues.length > 0 ? ctrValues.reduce((sum, v) => sum + v, 0) / ctrValues.length : null;
 
   const stateText =
     avgClickRate !== null
@@ -111,84 +95,27 @@ export default async function ContenuPage({
           {INSTAGRAM_ERROR_MESSAGES[instagramError] ?? INSTAGRAM_ERROR_MESSAGES.unknown}
         </div>
       )}
-
-      <InstagramConnectionCard
-        connected={instagramConnected}
-        username={instagramConnection?.username}
-        initialSyncStatus={instagramConnection?.initialSyncStatus}
-        initialSyncCompletedAt={instagramConnection?.initialSyncCompletedAt}
-        subscriptionActive={subscriptionActive}
-        primaryCta={!instagramConnected}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Vues ce mois-ci</p>
-          <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat("fr-FR").format(totalViewsThisMonth)}</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold text-muted-foreground">Taux de clic moyen</p>
-            <InfoPopover text="Instagram ne fournit aucune donnée de clics sortants pour un post organique — ce chiffre reste vide par nature, ce n'est pas un bug." />
-          </div>
-          <p className="mt-2 font-display text-3xl font-bold">{avgClickRate === null ? "—" : formatPercent(avgClickRate)}</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold text-muted-foreground">Leads attribués</p>
-            <InfoPopover text="Un lead attribué à un post nécessite un rattachement manuel, qui n'existe plus depuis que le contenu vient uniquement d'Instagram — ce chiffre reste à 0 pour l'instant." />
-          </div>
-          <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat("fr-FR").format(totalLeadsThisMonth)}</p>
-        </div>
-      </div>
-
-      <PostsTable posts={posts} topPostId={topPost?.id ?? null} instagramInsights={instagramInsights} />
-
       {youtubeError && (
         <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
           {YOUTUBE_ERROR_MESSAGES[youtubeError] ?? YOUTUBE_ERROR_MESSAGES.unknown}
         </div>
       )}
 
-      <YoutubeConnectionCard
-        connected={youtubeConnected}
-        channelTitle={youtubeConnection?.channelTitle}
-        initialSyncStatus={youtubeConnection?.initialSyncStatus}
-        initialSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt}
+      <ContenuView
+        posts={posts}
+        instagramInsights={instagramInsights}
+        instagramConnected={instagramConnected}
+        instagramUsername={instagramConnection?.username ?? null}
+        instagramSyncStatus={instagramConnection?.initialSyncStatus ?? null}
+        instagramSyncCompletedAt={instagramConnection?.initialSyncCompletedAt ?? null}
+        youtubeVideos={youtubeVideos}
+        youtubeConnected={youtubeConnected}
+        youtubeChannelTitle={youtubeConnection?.channelTitle ?? null}
+        youtubeSyncStatus={youtubeConnection?.initialSyncStatus ?? null}
+        youtubeSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt ?? null}
+        youtubeSubscriberCount={youtubeConnection?.subscriberCount ?? null}
         subscriptionActive={subscriptionActive}
-        primaryCta={!instagramConnected && !youtubeConnected}
       />
-
-      {youtubeConnected && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="sticker-card flex flex-col p-5">
-              <p className="text-sm font-bold text-muted-foreground">Abonnés</p>
-              <p className="mt-2 font-display text-3xl font-bold">
-                {youtubeConnection?.subscriberCount === null || youtubeConnection?.subscriberCount === undefined
-                  ? "—"
-                  : new Intl.NumberFormat("fr-FR").format(youtubeConnection.subscriberCount)}
-              </p>
-            </div>
-            <div className="sticker-card flex flex-col p-5">
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-bold text-muted-foreground">Rétention moyenne</p>
-                <InfoPopover text="Pourcentage moyen de tes vidéos regardé par les spectateurs, tous chiffres remontés confondus — le signal que YouTube utilise pour juger si une vidéo mérite d'être recommandée." />
-              </div>
-              <p className="mt-2 font-display text-3xl font-bold">{avgRetention === null ? "—" : `${Math.round(avgRetention * 10) / 10}%`}</p>
-            </div>
-            <div className="sticker-card flex flex-col p-5">
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-bold text-muted-foreground">CTR moyen</p>
-                <InfoPopover text="Taux de clic moyen sur la miniature de tes vidéos — avec le watch time, le signal le plus pondéré par l'algorithme YouTube." />
-              </div>
-              <p className="mt-2 font-display text-3xl font-bold">{avgCtr === null ? "—" : `${Math.round(avgCtr * 10) / 10}%`}</p>
-            </div>
-          </div>
-
-          <YoutubeVideosTable videos={youtubeVideos} />
-        </>
-      )}
     </div>
   );
 }

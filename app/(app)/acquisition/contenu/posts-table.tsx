@@ -1,20 +1,24 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Camera, ChevronsUpDown } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { InfoPopover } from "@/components/info-popover";
 import { formatWatchTime, InstagramPostDetailDialog } from "@/components/instagram/instagram-post-detail-dialog";
+import { computePostRates } from "@/lib/content-posts/rates";
 import type { ContentPostRow } from "@/lib/content-posts/types";
+import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
 import { comparisonMetric, computePostPerformanceComparisons, type PostPerformanceTier } from "@/lib/instagram/insights-comparison";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
-type SortKey = "publishedAt" | "views" | "interactionRate";
-type DateFilterKey = "7d" | "30d" | "3m" | "all";
+import { Pager } from "./pager";
 
+type SortKey = "publishedAt" | "views" | "interactionRate";
+
+const PAGE_SIZE = 10;
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 
@@ -28,13 +32,6 @@ const EXPLANATIONS = {
     "Temps de visionnage moyen par vue, pour les Reels/vidéos uniquement. Instagram ne fournit pas la durée totale de la vidéo via son API, donc un vrai taux de rétention (temps regardé / durée totale) n'est pas calculable — ce chiffre est le temps brut, pas un pourcentage.",
   abonnes: "Nombre de nouveaux abonnés générés directement par ce post, remonté par Instagram.",
 } as const;
-
-const DATE_FILTERS: { key: DateFilterKey; label: string; days: number | null }[] = [
-  { key: "7d", label: "7 jours", days: 7 },
-  { key: "30d", label: "30 jours", days: 30 },
-  { key: "3m", label: "3 mois", days: 90 },
-  { key: "all", label: "Tout", days: null },
-];
 
 // Colors the number itself (not a pill) for a fast column-wide scan of
 // "what's working" — same principle already used for the big percentage in
@@ -158,29 +155,36 @@ function TopPostsPanel({ entries }: { entries: { post: ContentPostRow; insight: 
 
 export function PostsTable({
   posts,
-  topPostId,
+  period,
   instagramInsights,
 }: {
   posts: ContentPostRow[];
-  topPostId: string | null;
+  period: DateFilterKey;
   instagramInsights?: Map<string, InstagramPostInsightRow>;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
   const [sortDesc, setSortDesc] = useState(true);
-  const [dateFilter, setDateFilter] = useState<DateFilterKey>("all");
+  const [page, setPage] = useState(1);
 
   // Independent of the date filter — "ever" means ever, not "in the
   // selected window". Computed from the full, unfiltered `posts`.
   const topPosts = useMemo(() => computeTopPosts(posts, instagramInsights), [posts, instagramInsights]);
 
-  const filteredPosts = useMemo(() => {
-    const days = DATE_FILTERS.find((f) => f.key === dateFilter)?.days ?? null;
-    if (days === null) return posts;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-    return posts.filter((post) => post.publishedAt >= cutoffStr);
-  }, [posts, dateFilter]);
+  const filteredPosts = useMemo(() => posts.filter((post) => isWithinPeriod(post.publishedAt, period)), [posts, period]);
+
+  // Best post *within the selected period*, by view-to-lead rate — reruns
+  // whenever `period` changes so the "Top" badge tracks the same window as
+  // the KPI cards above, instead of a fixed "this month" the badge used to
+  // be pinned to.
+  const topPostId = useMemo(() => {
+    const best = filteredPosts
+      .map((post) => ({ post, rates: computePostRates(post) }))
+      .filter((entry) => entry.rates.viewToLeadRate !== null)
+      .sort((a, b) => (b.rates.viewToLeadRate ?? 0) - (a.rates.viewToLeadRate ?? 0))[0]?.post;
+    return best?.id ?? null;
+  }, [filteredPosts]);
+
+  useEffect(() => setPage(1), [period]);
 
   const comparisons = useMemo(
     () => computePostPerformanceComparisons(Array.from(instagramInsights?.values() ?? [])),
@@ -204,6 +208,10 @@ export function PostsTable({
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- interactionRateOf closes over instagramInsights, already a dep
   }, [filteredPosts, sortKey, sortDesc, instagramInsights]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = useMemo(() => sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE), [sorted, safePage]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -241,23 +249,9 @@ export function PostsTable({
     <div className="flex flex-col gap-6">
       <TopPostsPanel entries={topPosts} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold text-muted-foreground">Période :</span>
-        {DATE_FILTERS.map((filter) => (
-          <button
-            key={filter.key}
-            type="button"
-            onClick={() => setDateFilter(filter.key)}
-            className={cn(
-              "rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
-              dateFilter === filter.key
-                ? "border-accent-border bg-accent-soft text-accent-text"
-                : "border-border text-muted-foreground hover:border-border-hover"
-            )}
-          >
-            {filter.label}
-          </button>
-        ))}
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-base font-bold">Tous les posts</h2>
+        <p className="text-sm text-muted-foreground">{sorted.length} post{sorted.length > 1 ? "s" : ""} sur la période sélectionnée</p>
       </div>
 
       {sorted.length === 0 ? (
@@ -302,7 +296,7 @@ export function PostsTable({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((post) => {
+              {paged.map((post) => {
                 const insight = post.externalId ? instagramInsights?.get(post.externalId) : undefined;
                 const isStory = insight?.mediaType === "STORY";
                 const rate = insight && !isStory ? comparisonMetric(insight) : null;
@@ -389,6 +383,8 @@ export function PostsTable({
           </table>
         </div>
       )}
+
+      <Pager page={safePage} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }

@@ -1,18 +1,21 @@
 "use client";
 
 import { ArrowDown, ArrowUp, ChevronsUpDown, MonitorPlay } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { InfoPopover } from "@/components/info-popover";
 import { Button } from "@/components/ui/button";
 import { YoutubeVideoDetailDialog } from "@/components/youtube/youtube-video-detail-dialog";
+import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
 import { comparisonMetric, computeVideoPerformanceComparisons, type VideoPerformanceTier } from "@/lib/youtube/insights-comparison";
 import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
 import { cn } from "@/lib/utils";
 
-type SortKey = "publishedAt" | "views" | "ctr";
-type DateFilterKey = "7d" | "30d" | "3m" | "all";
+import { Pager } from "./pager";
 
+type SortKey = "publishedAt" | "views" | "ctr";
+
+const PAGE_SIZE = 10;
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 
@@ -24,13 +27,6 @@ const EXPLANATIONS = {
   watchTime: "Temps de visionnage total cumulé sur cette vidéo, en minutes.",
   abonnes: "Abonnés gagnés moins abonnés perdus, générés directement par cette vidéo, remonté par YouTube.",
 } as const;
-
-const DATE_FILTERS: { key: DateFilterKey; label: string; days: number | null }[] = [
-  { key: "7d", label: "7 jours", days: 7 },
-  { key: "30d", label: "30 jours", days: 30 },
-  { key: "3m", label: "3 mois", days: 90 },
-  { key: "all", label: "Tout", days: null },
-];
 
 const TIER_TEXT_CLASS: Record<VideoPerformanceTier, string> = {
   above: "text-state-healthy",
@@ -119,20 +115,16 @@ function TopVideosPanel({ videos }: { videos: YoutubeVideoInsightRow[] }) {
   );
 }
 
-export function YoutubeVideosTable({ videos }: { videos: YoutubeVideoInsightRow[] }) {
+export function YoutubeVideosTable({ videos, period }: { videos: YoutubeVideoInsightRow[]; period: DateFilterKey }) {
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
   const [sortDesc, setSortDesc] = useState(true);
-  const [dateFilter, setDateFilter] = useState<DateFilterKey>("all");
+  const [page, setPage] = useState(1);
 
   const topVideos = useMemo(() => computeTopVideos(videos), [videos]);
 
-  const filteredVideos = useMemo(() => {
-    const days = DATE_FILTERS.find((f) => f.key === dateFilter)?.days ?? null;
-    if (days === null) return videos;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    return videos.filter((video) => video.publishedAt >= cutoff);
-  }, [videos, dateFilter]);
+  const filteredVideos = useMemo(() => videos.filter((video) => isWithinPeriod(video.publishedAt, period)), [videos, period]);
+
+  useEffect(() => setPage(1), [period]);
 
   const comparisons = useMemo(() => computeVideoPerformanceComparisons(videos), [videos]);
 
@@ -149,6 +141,10 @@ export function YoutubeVideosTable({ videos }: { videos: YoutubeVideoInsightRow[
     });
     return arr;
   }, [filteredVideos, sortKey, sortDesc]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = useMemo(() => sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE), [sorted, safePage]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -186,23 +182,9 @@ export function YoutubeVideosTable({ videos }: { videos: YoutubeVideoInsightRow[
     <div className="flex flex-col gap-6">
       <TopVideosPanel videos={topVideos} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold text-muted-foreground">Période :</span>
-        {DATE_FILTERS.map((filter) => (
-          <button
-            key={filter.key}
-            type="button"
-            onClick={() => setDateFilter(filter.key)}
-            className={cn(
-              "rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
-              dateFilter === filter.key
-                ? "border-accent-border bg-accent-soft text-accent-text"
-                : "border-border text-muted-foreground hover:border-border-hover"
-            )}
-          >
-            {filter.label}
-          </button>
-        ))}
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-base font-bold">Toutes les vidéos</h2>
+        <p className="text-sm text-muted-foreground">{sorted.length} vidéo{sorted.length > 1 ? "s" : ""} sur la période sélectionnée</p>
       </div>
 
       {sorted.length === 0 ? (
@@ -246,7 +228,7 @@ export function YoutubeVideosTable({ videos }: { videos: YoutubeVideoInsightRow[
               </tr>
             </thead>
             <tbody>
-              {sorted.map((video) => {
+              {paged.map((video) => {
                 const ctr = comparisonMetric(video);
                 const tier = comparisons.get(video.videoId)?.tier;
                 const netSubscribers =
@@ -313,6 +295,8 @@ export function YoutubeVideosTable({ videos }: { videos: YoutubeVideoInsightRow[
           </table>
         </div>
       )}
+
+      <Pager page={safePage} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }
