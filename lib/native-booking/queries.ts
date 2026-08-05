@@ -10,6 +10,7 @@ import {
   nativeBookings,
   users,
 } from "@/db/schema";
+import { getCalendarStatesForClosers, listBusyForConnection } from "@/lib/native-booking/calendar";
 
 import { generateBookingSlots, type GeneratedBookingSlot } from "./slots";
 
@@ -75,11 +76,17 @@ export async function getPublicNativeBookingSlots(
   if (!event) return null;
 
   const now = options?.now ?? new Date();
-  const [availability, exceptions, bookings] = await Promise.all([
+  const [availability, exceptions, bookings, closers] = await Promise.all([
     db.select().from(nativeBookingAvailability).where(eq(nativeBookingAvailability.eventId, event.id)),
     db.select().from(nativeBookingExceptions).where(eq(nativeBookingExceptions.eventId, event.id)),
     db
-      .select({ startAt: nativeBookings.startAt, endAt: nativeBookings.endAt, status: nativeBookings.status, holdExpiresAt: nativeBookings.holdExpiresAt })
+      .select({
+        startAt: nativeBookings.startAt,
+        endAt: nativeBookings.endAt,
+        status: nativeBookings.status,
+        holdExpiresAt: nativeBookings.holdExpiresAt,
+        closerUserId: nativeBookings.closerUserId,
+      })
       .from(nativeBookings)
       .where(
         and(
@@ -89,19 +96,75 @@ export async function getPublicNativeBookingSlots(
           gte(nativeBookings.endAt, now)
         )
       ),
+    db
+      .select({ closerUserId: nativeBookingEventClosers.closerUserId })
+      .from(nativeBookingEventClosers)
+      .where(
+        and(
+          eq(nativeBookingEventClosers.eventId, event.id),
+          eq(nativeBookingEventClosers.isActive, true),
+          eq(nativeBookingEventClosers.isOff, false)
+        )
+      ),
   ]);
+
+  const baseSlots = generateBookingSlots({
+    event,
+    availability,
+    exceptions,
+    bookings: [],
+    now,
+    fromDate: options?.fromDate,
+    days: options?.days ?? 14,
+  });
+  const calendarStates = await getCalendarStatesForClosers(
+    event.userId,
+    closers.map(({ closerUserId }) => closerUserId)
+  );
+  const externalBusyByCloser = new Map<string, Array<{ startAt: Date; endAt: Date }>>();
+  const calendarUnavailable = new Set<string>();
+  const busyFrom = baseSlots[0]?.startAt ?? now;
+  const busyTo = baseSlots[baseSlots.length - 1]?.endAt ?? new Date(now.getTime() + event.bookingHorizonDays * 86_400_000);
+
+  await Promise.all(
+    closers.map(async ({ closerUserId }) => {
+      const state = calendarStates.get(closerUserId);
+      if (!state) return;
+      if (state.unavailable) {
+        calendarUnavailable.add(closerUserId);
+        return;
+      }
+      if (!state.connection) return;
+      try {
+        externalBusyByCloser.set(closerUserId, await listBusyForConnection(state.connection, busyFrom, busyTo));
+      } catch (error) {
+        console.error("[native-booking] calendar availability failed", { closerUserId, error });
+        calendarUnavailable.add(closerUserId);
+      }
+    })
+  );
+
+  const availableSlots = baseSlots.filter((slot) =>
+    closers.some(({ closerUserId }) =>
+      !calendarUnavailable.has(closerUserId) &&
+      !bookings.some((booking) => {
+        if (booking.closerUserId !== closerUserId) return false;
+        if (booking.status !== "confirmed" && booking.status !== "sync_failed" && !(booking.status === "pending" && booking.holdExpiresAt && booking.holdExpiresAt > now)) return false;
+        const bufferedStart = new Date(booking.startAt.getTime() - event.bufferBeforeMinutes * 60_000);
+        const bufferedEnd = new Date(booking.endAt.getTime() + event.bufferAfterMinutes * 60_000);
+        return slot.startAt < bufferedEnd && slot.endAt > bufferedStart;
+      }) &&
+      !(externalBusyByCloser.get(closerUserId) ?? []).some((period) => {
+        const bufferedStart = new Date(period.startAt.getTime() - event.bufferBeforeMinutes * 60_000);
+        const bufferedEnd = new Date(period.endAt.getTime() + event.bufferAfterMinutes * 60_000);
+        return slot.startAt < bufferedEnd && slot.endAt > bufferedStart;
+      })
+    )
+  );
 
   return {
     event,
-    slots: generateBookingSlots({
-      event,
-      availability,
-      exceptions,
-      bookings,
-      now,
-      fromDate: options?.fromDate,
-      days: options?.days ?? 14,
-    }),
+    slots: availableSlots,
   };
 }
 

@@ -31,6 +31,34 @@ Après une soumission valide, le système SHALL révéler les créneaux disponib
 - **WHEN** le visiteur soumet un formulaire valide avec des paramètres UTM
 - **THEN** les créneaux apparaissent, les coordonnées restent remplies et les paramètres UTM peuvent encore être associés à la future réservation
 
+### Requirement: Abandoned attempts become relaunchable leads
+
+Après validation des quatre coordonnées et avant ou au moment de la révélation des créneaux, le système SHALL créer ou actualiser une tentative de réservation account-scoped. Cette tentative SHALL conserver le nom, l’email, le téléphone, le fuseau du prospect, l’instant de consentement au recontact, la dernière étape atteinte, le dernier créneau sélectionné lorsqu’il existe, ainsi que la page d’entrée et l’attribution disponible. Elle SHALL rester distincte d’un rendez-vous confirmé.
+
+#### Scenario: Valid opt-in creates a follow-up lead
+
+- **WHEN** un visiteur valide ses coordonnées puis quitte la page sans confirmer de créneau
+- **THEN** un prospect à relancer est disponible dans l’espace rendez-vous avec ses informations de contact et l’étape « créneaux consultés »
+
+#### Scenario: Selected slot is retained on abandonment
+
+- **WHEN** un visiteur sélectionne un créneau puis ferme la page avant la confirmation
+- **THEN** la tentative conserve le créneau visé et sa dernière activité afin que le closer puisse contextualiser la relance
+
+### Requirement: Authorized users can work abandoned leads
+
+L’espace « Ventes → Rendez-vous » SHALL afficher aux membres disposant de la permission rendez-vous les tentatives non converties avec au minimum le nom, l’email, le téléphone, l’événement, la dernière étape, la dernière activité, le créneau visé et la source marketing disponible. Il SHALL proposer des actions pour marquer un lead comme contacté ou le masquer sans supprimer l’historique. Un visiteur public ou un membre non autorisé SHALL ne pouvoir lire ni modifier ces données.
+
+#### Scenario: Sales user sees a relaunch list
+
+- **WHEN** un closer autorisé ouvre l’espace rendez-vous après un abandon
+- **THEN** il voit une section « À relancer » et peut ouvrir l’email ou le téléphone du prospect avec le contexte de sa tentative
+
+#### Scenario: Completed booking closes the lead
+
+- **WHEN** la tentative est convertie en rendez-vous confirmé
+- **THEN** le lead est marqué « converti », lié au rendez-vous et n’apparaît plus dans la liste des relances ouvertes
+
 ### Requirement: Prospect timezone display
 
 Le système SHALL afficher par défaut les créneaux dans le fuseau horaire détecté du prospect et SHALL proposer une bascule vers le fuseau horaire de l’événement. Le choix d’affichage SHALL modifier les libellés visibles sans modifier l’instant réservé.

@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, teamMembers, users } from "@/db/schema";
-import { canCreateNativeBookingEvent } from "@/lib/billing/plan-gate";
+import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, teamMembers, users } from "@/db/schema";
+import { canCreateNativeBookingEvent, getNativeBookingEntitlements } from "@/lib/billing/plan-gate";
 import { requireUserId } from "@/lib/current-user";
 import { getNativeBookingEvent, getNativeBookingEventDetail } from "@/lib/native-booking/queries";
 import { availabilitySchema, exceptionSchema, nativeBookingEventInputSchema } from "@/lib/native-booking/validation";
@@ -17,6 +17,20 @@ const closerActionSchema = eventActionSchema.extend({ closerUserId: z.string().u
 const toggleEventSchema = eventActionSchema.extend({ status: z.enum(["draft", "active", "paused", "archived"]) });
 const availabilityActionSchema = eventActionSchema.extend({ availability: z.array(availabilitySchema).max(7) });
 const exceptionActionSchema = eventActionSchema.extend({ exception: exceptionSchema });
+const bookingLinkActionSchema = eventActionSchema.extend({
+  label: z.string().trim().min(2, "Le nom du lien est requis").max(120),
+  platform: z.string().trim().min(2).max(40),
+  contentLabel: z.string().trim().max(160).optional().default(""),
+  utmSource: z.string().trim().max(160).optional().default(""),
+  utmMedium: z.string().trim().max(160).optional().default(""),
+  utmCampaign: z.string().trim().max(160).optional().default(""),
+  utmContent: z.string().trim().max(160).optional().default(""),
+  utmTerm: z.string().trim().max(160).optional().default(""),
+});
+const leadStatusActionSchema = z.object({
+  leadId: z.string().uuid(),
+  status: z.enum(["open", "contacted", "dismissed"]),
+});
 
 type ActionResult = { error: string | null };
 
@@ -155,6 +169,8 @@ export async function toggleNativeBookingEventAction(eventId: string, status: st
   if (!detail) return { error: "Événement introuvable." };
 
   if (parsed.data.status === "active") {
+    const entitlements = await getNativeBookingEntitlements(access.accountId);
+    if (!entitlements.enabled) return { error: "La prise de rendez-vous native n’est plus incluse dans ton abonnement." };
     if (detail.availability.length === 0) return { error: "Ajoute au moins une disponibilité avant d’activer l’événement." };
     if (detail.closers.filter(({ assignment }) => assignment.isActive && !assignment.isOff).length === 0) {
       return { error: "Ajoute au moins un closer disponible avant d’activer l’événement." };
@@ -216,5 +232,62 @@ export async function toggleNativeBookingCloserOffAction(input: unknown): Promis
     .set({ isOff: parsed.data.isOff, updatedAt: new Date() })
     .where(and(eq(nativeBookingEventClosers.eventId, event.id), eq(nativeBookingEventClosers.closerUserId, parsed.data.closerUserId)));
   revalidatePath(`/ventes/rdv/${event.id}`);
+  return { error: null };
+}
+
+export async function createNativeBookingLinkAction(input: unknown): Promise<ActionResult & { linkId?: string }> {
+  const access = await getBookingAccess();
+  if (isActionError(access)) return access;
+  const parsed = bookingLinkActionSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Lien invalide." };
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  if (!event) return { error: "Événement introuvable." };
+
+  const [link] = await db
+    .insert(nativeBookingLinks)
+    .values({
+      userId: access.accountId,
+      eventId: event.id,
+      label: parsed.data.label,
+      platform: parsed.data.platform,
+      contentLabel: parsed.data.contentLabel || null,
+      utmSource: parsed.data.utmSource || null,
+      utmMedium: parsed.data.utmMedium || null,
+      utmCampaign: parsed.data.utmCampaign || null,
+      utmContent: parsed.data.utmContent || null,
+      utmTerm: parsed.data.utmTerm || null,
+    })
+    .returning({ id: nativeBookingLinks.id });
+  if (!link) return { error: "Impossible de créer ce lien." };
+
+  revalidatePath(`/ventes/rdv/${event.id}`);
+  return { error: null, linkId: link.id };
+}
+
+export async function updateNativeBookingLeadStatusAction(input: unknown): Promise<ActionResult> {
+  const access = await getBookingAccess();
+  if (isActionError(access)) return access;
+  const parsed = leadStatusActionSchema.safeParse(input);
+  if (!parsed.success) return { error: "Statut de relance invalide." };
+
+  const [lead] = await db
+    .select({ id: nativeBookingLeads.id })
+    .from(nativeBookingLeads)
+    .where(and(eq(nativeBookingLeads.id, parsed.data.leadId), eq(nativeBookingLeads.userId, access.accountId)))
+    .limit(1);
+  if (!lead) return { error: "Prospect introuvable." };
+
+  const now = new Date();
+  await db
+    .update(nativeBookingLeads)
+    .set({
+      status: parsed.data.status,
+      contactedAt: parsed.data.status === "contacted" ? now : null,
+      dismissedAt: parsed.data.status === "dismissed" ? now : null,
+      updatedAt: now,
+    })
+    .where(and(eq(nativeBookingLeads.id, lead.id), eq(nativeBookingLeads.userId, access.accountId)));
+
+  revalidatePath("/ventes/rdv");
   return { error: null };
 }

@@ -56,21 +56,30 @@ export const publicContactSchema = z.object({
   email: z.string().trim().email("Adresse email invalide").max(240),
   phone: z.string().trim().min(7, "Numéro de téléphone invalide").max(40),
   guestTimeZone: z.string().refine(isValidTimeZone, "Fuseau horaire invalide"),
+  leadSessionKey: z.string().uuid().nullable().default(null),
+  landingPage: z.string().url().nullable().default(null),
+  referrer: z.string().url().nullable().default(null),
+  linkId: z.string().uuid().nullable().default(null),
+  utm: z.record(z.string().max(500)).default({}),
 });
 
 export const publicBookingRequestSchema = publicContactSchema.extend({
   startAt: z.string().datetime({ offset: true }),
   idempotencyKey: z.string().uuid(),
-  linkId: z.string().uuid().nullable().default(null),
-  landingPage: z.string().url().nullable().default(null),
-  referrer: z.string().url().nullable().default(null),
-  utm: z.record(z.string().max(500)).default({}),
+  leadId: z.string().uuid().nullable().default(null),
+});
+
+export const publicLeadTouchSchema = publicContactSchema.extend({
+  leadId: z.string().uuid(),
+  lastStep: z.enum(["slots_revealed", "slot_selected", "booking_failed"]),
+  startAt: z.string().datetime({ offset: true }).nullable().default(null),
 });
 
 export type NativeBookingEventInput = z.infer<typeof nativeBookingEventInputSchema>;
 export type AvailabilityWindowInput = z.infer<typeof availabilityWindowSchema>;
 export type PublicContactInput = z.infer<typeof publicContactSchema>;
 export type PublicBookingRequest = z.infer<typeof publicBookingRequestSchema>;
+export type PublicLeadTouchInput = z.infer<typeof publicLeadTouchSchema>;
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();

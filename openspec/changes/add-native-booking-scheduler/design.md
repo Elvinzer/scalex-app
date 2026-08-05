@@ -13,6 +13,7 @@ La proposition ajoute un parcours public qui ne peut pas dépendre du layout aut
 - Faire du fuseau IANA de l’événement la référence métier, tout en affichant les heures dans le fuseau du prospect par défaut.
 - Isoler les secrets OAuth et les données personnelles derrière des frontières serveur et des contrôles account/team.
 - Rendre le parcours public rapide, compréhensible, accessible au clavier et testable de bout en bout avec `agent-browser`.
+- Préserver une intention de réservation exploitable par les closers sans transformer un formulaire incomplet en faux rendez-vous confirmé.
 
 **Non-Goals:**
 
@@ -32,12 +33,15 @@ Les réservations seront stockées dans un domaine propre, puis projetées vers 
 - `native_booking_exceptions` : fermetures et plages particulières par date.
 - `native_booking_event_closers` : closers associés, ordre de rotation et état d’éligibilité.
 - `native_bookings` : coordonnées du prospect, horaires UTC, fuseaux, closer attribué, état, tokens d’action, état de synchronisation externe et snapshot UTM.
+- `native_booking_leads` : tentative de réservation qualifiée mais non confirmée, coordonnées contactables, étape atteinte, créneau consulté, consentement de recontact, dernier passage et snapshot d’attribution.
 - `native_calendar_connections` et `native_calendar_sources` : fournisseur, closer, calendriers sélectionnés et état de synchronisation.
 - `native_booking_links` : liens nommés avec paramètres UTM prédéfinis et état actif.
 
 Les tables account-scoped SHALL être créées avec RLS et les requêtes authentifiées SHALL toujours filtrer par `accountId`. Le public ne recevra jamais une ligne brute de ces tables : les handlers publics retourneront uniquement une projection minimale de l’événement et des créneaux.
 
 Pour conserver la compatibilité, `sales_calls` recevra un lien nullable vers `native_bookings`, une référence structurée au closer et la source `native`. Le champ historique `iclosed_call_id` restera rempli avec un identifiant stable préfixé `native:` pour ne pas casser son index unique ni les lecteurs existants ; une migration ultérieure pourra le renommer génériquement lorsque toutes les sources auront été traitées.
+
+`native_bookings` recevra un lien nullable vers le lead qui a précédé la confirmation. Une conversion mettra le lead à l’état `converted` dans la même transaction que la création du rendez-vous et de l’appel de vente.
 
 ### 2. Utiliser des règles relationnelles et UTC pour calculer les créneaux
 
@@ -92,6 +96,14 @@ Les paramètres UTM seront lus dès l’entrée sur la page, conservés pendant 
 
 Le système privilégiera les paramètres explicitement présents dans l’URL d’entrée. Les données de formulaire, UTM et referrer ne seront jamais utilisées pour prendre une décision d’autorisation ou de routage sans validation serveur.
 
+### 8. Transformer l’opt-in en lead de relance sans exposer de PII au public
+
+Après validation des coordonnées et avant la révélation des créneaux, le handler public créera ou actualisera une ligne de lead liée à l’événement. Le lead conservera les informations saisies avec l’instant de consentement au recontact, le fuseau du prospect, la dernière étape (`slots_revealed`, `slot_selected` ou équivalent), le dernier créneau sélectionné, la page d’entrée, le referrer et le snapshot UTM. Un identifiant de session opaque permettra d’actualiser la même tentative sans placer d’email ou de téléphone dans l’URL.
+
+Le lead sera account-scoped côté serveur et ne sera jamais renvoyé dans la projection publique au-delà d’un identifiant opaque nécessaire à la suite du parcours. Les membres autorisés le verront dans « Ventes → Rendez-vous » sous forme de liste « À relancer », avec des actions réversibles pour marquer le contact comme traité ou masquer la relance. Une tentative confirmée passera automatiquement à `converted` ; une erreur de réservation la laissera relançable avec son dernier créneau connu.
+
+Alternative écartée : ajouter des colonnes d’abandon directement à `native_bookings`. Une ligne de réservation n’existe pas encore lorsqu’un prospect quitte le formulaire ; une table de leads séparée permet de distinguer proprement intention, conversion et rendez-vous confirmé.
+
 ## Risks / Trade-offs
 
 - **[Double réservation concurrente]** → transaction de confirmation, hold court, contraintes Postgres, revalidation du busy calendrier et clé d’idempotence par réservation.
@@ -102,6 +114,8 @@ Le système privilégiera les paramètres explicitement présents dans l’URL d
 - **[Limiteur mémoire non distribué]** → réutiliser le rate limiter actuel pour le premier lancement, instrumenter les refus et prévoir un store partagé si le trafic public le justifie.
 - **[Trop de champs avant les créneaux]** → limiter le premier écran aux coordonnées indispensables, validation inline et questions supplémentaires reportées après la sélection si elles sont activées.
 - **[Token OAuth expiré]** → statut de connexion visible, tentative de refresh serveur, reconnexion guidée et exclusion temporaire du closer si la disponibilité ne peut plus être garantie.
+- **[PII de prospects abandonnés]** → collecte uniquement après validation des coordonnées, stockage account-scoped, consentement de recontact horodaté, aucune PII dans les URLs publiques et accès admin soumis à la permission rendez-vous.
+- **[Accumulation de relances obsolètes]** → statuts `open/contacted/converted/dismissed`, vue centrée sur les leads ouverts, action de masquage non destructive et futur mécanisme de rétention à instrumenter.
 
 ## Migration Plan
 
@@ -109,6 +123,7 @@ Le système privilégiera les paramètres explicitement présents dans l’URL d
 2. Ajouter les schémas Zod, guards de facturation et permissions account/team sans exposer encore de lien public actif.
 3. Livrer l’éditeur admin, l’aperçu public verrouillé et les liens UTM ; activer la fonctionnalité sur un compte de test.
 4. Livrer les adaptateurs Google/Outlook, la disponibilité, l’attribution round robin, la confirmation idempotente et les notifications.
-5. Activer progressivement l’entitlement sur les plans, exécuter la matrice `agent-browser` sur desktop/mobile et vérifier les appels historiques iClosed/Calendly.
+5. Livrer le suivi des leads abandonnés, la vue de relance et la conversion atomique vers une réservation confirmée.
+6. Activer progressivement l’entitlement sur les plans, exécuter la matrice `agent-browser` sur desktop/mobile et vérifier les appels historiques iClosed/Calendly.
 
 Le rollback fonctionnel consiste à désactiver l’entitlement ou à mettre les événements en pause. Les migrations sont additives ; aucune table historique de vente ne doit être supprimée. Les réservations déjà confirmées restent conservées, avec reprise manuelle ou automatique des synchronisations externes en attente.

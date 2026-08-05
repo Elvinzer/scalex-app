@@ -1,0 +1,336 @@
+"use client";
+
+import { LockKeyhole, MapPin, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+
+type PublicEvent = {
+  slug: string;
+  name: string;
+  description: string;
+  durationMinutes: number;
+  timeZone: string;
+  meetingLabel: string;
+  publicHeading: string;
+  publicDescription: string;
+};
+
+type Slot = { startAt: string; endAt: string };
+type Contact = { firstName: string; lastName: string; email: string; phone: string };
+
+const EMPTY_CONTACT: Contact = { firstName: "", lastName: "", email: "", phone: "" };
+
+function formatSlot(dateString: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" }).format(new Date(dateString));
+}
+
+function formatSlotDay(dateString: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("fr-FR", { timeZone, weekday: "long", day: "numeric", month: "long" }).format(new Date(dateString));
+}
+
+function slotDayKey(dateString: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(dateString));
+}
+
+function getUtmFromUrl(): Record<string, string> {
+  const entries = Array.from(new URLSearchParams(window.location.search).entries()).filter(([key, value]) => key.startsWith("utm_") && value.trim());
+  return Object.fromEntries(entries);
+}
+
+export function PublicBookingPage({ event }: { event: PublicEvent }) {
+  const [contact, setContact] = useState<Contact>(EMPTY_CONTACT);
+  const [guestTimeZone, setGuestTimeZone] = useState("Europe/Paris");
+  const [displayTimeZone, setDisplayTimeZone] = useState(event.timeZone);
+  const [utm, setUtm] = useState<Record<string, string>>({});
+  const [linkId, setLinkId] = useState<string | null>(null);
+  const [landingPage, setLandingPage] = useState<string | null>(null);
+  const [referrer, setReferrer] = useState<string | null>(null);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+  const [confirmation, setConfirmation] = useState<null | { startAt: string; endAt: string; closerName: string; meetingUrl: string | null; calendarSyncWarning?: boolean }>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [isPending, setIsPending] = useState(false);
+  const [bookingKey, setBookingKey] = useState("");
+  const [leadSessionKey, setLeadSessionKey] = useState<string | null>(null);
+  const [leadId, setLeadId] = useState<string | null>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detected) {
+      setGuestTimeZone(detected);
+      setDisplayTimeZone(detected);
+    }
+    setUtm(getUtmFromUrl());
+    setLinkId(new URLSearchParams(window.location.search).get("link") ?? new URLSearchParams(window.location.search).get("link_id"));
+    setLandingPage(window.location.href);
+    setReferrer(document.referrer || null);
+    const storageKey = `native-booking-lead:${event.slug}`;
+    const existingSessionKey = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
+    window.sessionStorage.setItem(storageKey, existingSessionKey);
+    setLeadSessionKey(existingSessionKey);
+  }, [event.slug]);
+
+  const groupedSlots = useMemo(() => {
+    const groups = new Map<string, { label: string; slots: Slot[] }>();
+    for (const slot of slots) {
+      const key = slotDayKey(slot.startAt, displayTimeZone);
+      const group = groups.get(key) ?? { label: formatSlotDay(slot.startAt, displayTimeZone), slots: [] };
+      group.slots.push(slot);
+      groups.set(key, group);
+    }
+    return Array.from(groups.values());
+  }, [displayTimeZone, slots]);
+
+  function updateContact(field: keyof Contact, value: string) {
+    setContact((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: [] }));
+    setError(null);
+  }
+
+  async function unlockAvailability(formEvent: FormEvent<HTMLFormElement>) {
+    formEvent.preventDefault();
+    setError(null);
+    setFieldErrors({});
+    setIsPending(true);
+    try {
+      const response = await fetch(`/api/public/booking/${event.slug}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode: "unlock", ...contact, guestTimeZone, leadSessionKey, landingPage, referrer, linkId, utm }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error ?? "Vérifie les informations saisies.");
+        setFieldErrors(payload.fieldErrors ?? {});
+        return;
+      }
+      setSlots(payload.slots ?? []);
+      setLeadId(payload.leadId ?? null);
+      setUnlocked(true);
+      setDisplayTimeZone(guestTimeZone);
+      window.setTimeout(() => calendarRef.current?.focus(), 80);
+    } catch {
+      setError("Impossible de charger les créneaux. Réessaie dans un instant.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  async function touchLead(lastStep: "slot_selected" | "booking_failed", slot: Slot | null) {
+    if (!leadId) return;
+    try {
+      await fetch(`/api/public/booking/${event.slug}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode: "touch",
+          ...contact,
+          guestTimeZone,
+          leadId,
+          lastStep,
+          startAt: slot?.startAt ?? null,
+        }),
+      });
+    } catch {
+      // The booking journey must remain usable if a non-critical lead touch fails.
+    }
+  }
+
+  async function confirmBooking() {
+    if (!selectedSlot) return;
+    const idempotencyKey = bookingKey || crypto.randomUUID();
+    setBookingKey(idempotencyKey);
+    setError(null);
+    setIsPending(true);
+    try {
+      const response = await fetch(`/api/public/booking/${event.slug}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode: "book",
+          ...contact,
+          guestTimeZone,
+          startAt: selectedSlot.startAt,
+          idempotencyKey,
+          leadId,
+          utm,
+          landingPage,
+          referrer,
+          linkId,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error ?? "Ce créneau n’est plus disponible.");
+        void touchLead("booking_failed", selectedSlot);
+        if (payload.code === "slot_unavailable") setSlots((current) => current.filter((slot) => slot.startAt !== selectedSlot.startAt));
+        return;
+      }
+      setConfirmation(payload.booking);
+    } catch {
+      setError("La réservation n’a pas pu être confirmée. Réessaie.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  if (confirmation) {
+    return (
+      <main className="public-booking-page min-h-screen bg-canvas px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto flex max-w-3xl flex-col gap-6">
+          <div className="sticker-card flex flex-col items-center gap-4 p-8 text-center sm:p-12">
+            <div className="flex size-14 items-center justify-center rounded-full bg-state-healthy-bg text-state-healthy">
+              <ShieldCheck className="size-7" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-state-healthy">Rendez-vous confirmé</p>
+              <h1 className="mt-2 text-3xl font-bold">C&apos;est réservé, {contact.firstName}.</h1>
+              <p className="mt-2 text-muted-foreground">Tu recevras les informations utiles à l&apos;adresse {contact.email}.</p>
+            </div>
+            <div className="mt-3 w-full max-w-lg rounded-[var(--radius-card)] border border-border bg-muted/50 p-5 text-left">
+              <p className="font-bold">{formatSlotDay(confirmation.startAt, displayTimeZone)}</p>
+              <p className="mt-1 text-xl font-bold">{formatSlot(confirmation.startAt, displayTimeZone)} – {formatSlot(confirmation.endAt, displayTimeZone)}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{event.meetingLabel} · {displayTimeZone}</p>
+              <p className="mt-1 text-sm font-bold">Avec {confirmation.closerName}</p>
+              {confirmation.meetingUrl && <a className="mt-3 inline-block text-sm font-bold text-accent underline" href={confirmation.meetingUrl}>Rejoindre le rendez-vous</a>}
+              {confirmation.calendarSyncWarning && <p className="mt-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution/10 px-3 py-2 text-xs font-bold text-state-caution">Ton rendez-vous est bien réservé, mais l&apos;agenda du closer doit être reconnecté.</p>}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="public-booking-page min-h-screen bg-canvas px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6">
+        <header className="flex flex-wrap items-center justify-between gap-3 px-1">
+          <div>
+            <p className="text-sm font-bold tracking-wide text-accent uppercase">{event.name}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{event.durationMinutes} minutes · {event.timeZone}</p>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground"><ShieldCheck className="size-4 text-state-healthy" /> Réservation sécurisée</div>
+        </header>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(300px,0.9fr)_minmax(0,1.5fr)] lg:items-start">
+          <section className="sticker-card p-6 sm:p-8">
+            <p className="text-sm font-bold text-accent">Une étape avant les créneaux</p>
+            <h1 className="mt-2 text-3xl leading-tight font-bold">{event.publicHeading}</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{event.publicDescription}</p>
+            {event.description && <p className="mt-4 border-l-2 border-accent pl-3 text-sm leading-6">{event.description}</p>}
+
+            <form onSubmit={unlockAvailability} className="mt-7 flex flex-col gap-4" noValidate>
+              <Field label="Prénom" error={fieldErrors.firstName?.[0]}>
+                <input autoComplete="given-name" value={contact.firstName} onChange={(input) => updateContact("firstName", input.target.value)} className="public-booking-input" />
+              </Field>
+              <Field label="Nom" error={fieldErrors.lastName?.[0]}>
+                <input autoComplete="family-name" value={contact.lastName} onChange={(input) => updateContact("lastName", input.target.value)} className="public-booking-input" />
+              </Field>
+              <Field label="Email" error={fieldErrors.email?.[0]} hint="Utilisé pour confirmer ton rendez-vous.">
+                <input type="email" inputMode="email" autoComplete="email" value={contact.email} onChange={(input) => updateContact("email", input.target.value)} className="public-booking-input" />
+              </Field>
+              <Field label="Téléphone" error={fieldErrors.phone?.[0]} hint="Avec ton indicatif pays, par exemple +33.">
+                <input type="tel" inputMode="tel" autoComplete="tel" value={contact.phone} onChange={(input) => updateContact("phone", input.target.value)} className="public-booking-input" />
+              </Field>
+              {error && <p className="rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm font-bold text-state-critical" role="alert">{error}</p>}
+              {!unlocked ? (
+                <button type="submit" disabled={isPending} className="public-booking-primary">
+                  {isPending ? "Vérification…" : "Voir les créneaux"}
+                </button>
+              ) : (
+                <p className="rounded-[var(--radius-control)] bg-state-healthy-bg px-3 py-2 text-sm font-bold text-state-healthy">Coordonnées enregistrées. Choisis maintenant ton créneau.</p>
+              )}
+              <p className="text-xs leading-5 text-muted-foreground">En continuant, tu acceptes d&apos;être recontacté au sujet de cet appel. Tes informations restent liées à cette réservation.</p>
+            </form>
+          </section>
+
+          <section ref={calendarRef} tabIndex={-1} aria-label="Disponibilités" className="sticker-card relative min-h-[520px] overflow-hidden p-5 outline-none focus-visible:ring-3 focus-visible:ring-accent/20 sm:p-7">
+            {!unlocked ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/30 p-6">
+                <div aria-hidden="true" className="pointer-events-none w-full select-none blur-md opacity-50">
+                  <SlotSkeleton />
+                </div>
+                <div className="absolute max-w-xs rounded-[var(--radius-card)] border border-border bg-background/95 p-5 text-center shadow-lg">
+                  <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-accent/10 text-accent"><LockKeyhole className="size-5" /></div>
+                  <p className="mt-3 font-bold">Les créneaux sont prêts</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Laisse tes coordonnées pour voir les disponibilités et choisir ton appel.</p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold">Choisis ton créneau</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">Les heures sont affichées dans {displayTimeZone}.</p>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                    <span className="sr-only">Fuseau horaire</span>
+                    <select value={displayTimeZone} onChange={(input) => setDisplayTimeZone(input.target.value)} className="rounded-[var(--radius-control)] border border-border bg-background px-2 py-1.5 text-xs">
+                      <option value={guestTimeZone}>Mon fuseau ({guestTimeZone})</option>
+                      <option value={event.timeZone}>Fuseau de l&apos;événement ({event.timeZone})</option>
+                    </select>
+                  </label>
+                </div>
+                {groupedSlots.length === 0 ? (
+                  <div className="mt-10 rounded-[var(--radius-card)] border border-dashed border-border p-8 text-center">
+                    <p className="font-bold">Aucun créneau disponible</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Reviens un peu plus tard ou contacte-nous directement.</p>
+                  </div>
+                ) : (
+                  <div className="mt-6 flex flex-col gap-6">
+                    {groupedSlots.map((group) => (
+                      <div key={group.label}>
+                        <h3 className="text-sm font-bold capitalize">{group.label}</h3>
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {group.slots.map((slot) => {
+                            const selected = selectedSlot?.startAt === slot.startAt;
+                            return <button key={slot.startAt} type="button" onClick={() => { setSelectedSlot(slot); void touchLead("slot_selected", slot); }} className={`min-h-11 rounded-[var(--radius-control)] border px-3 py-2 text-sm font-bold transition-colors ${selected ? "border-accent bg-accent text-white" : "border-border bg-background hover:border-accent hover:bg-accent/5"}`}>{formatSlot(slot.startAt, displayTimeZone)}</button>;
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                  <p className="text-xs text-muted-foreground"><MapPin className="mr-1 inline size-3.5" />{event.meetingLabel}</p>
+                  <button type="button" disabled={!selectedSlot || isPending} onClick={confirmBooking} className="public-booking-primary sm:w-auto">
+                    {isPending ? "Confirmation…" : selectedSlot ? "Confirmer ce créneau" : "Sélectionne un créneau"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5 text-sm">
+      <span className="font-bold">{label}</span>
+      {children}
+      {hint && !error && <span className="text-xs text-muted-foreground">{hint}</span>}
+      {error && <span className="text-xs font-bold text-state-critical" role="alert">{error}</span>}
+    </label>
+  );
+}
+
+function SlotSkeleton() {
+  return (
+    <div className="flex flex-col gap-5 p-5">
+      <div className="h-7 w-48 rounded bg-muted" />
+      {["Lundi 12 mai", "Mardi 13 mai", "Mercredi 14 mai"].map((day) => (
+        <div key={day}>
+          <div className="h-4 w-32 rounded bg-muted" />
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {[1, 2, 3, 4, 5, 6].map((item) => <div key={item} className="h-11 rounded border border-border bg-muted" />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

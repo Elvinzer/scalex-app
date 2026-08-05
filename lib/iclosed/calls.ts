@@ -14,12 +14,18 @@ export type CallOutcome = "pending" | "closed" | "not_closed" | "awaiting_decisi
 // same source of truth the /ventes/suivi page uses.
 export type SalesCallRow = {
   id: string;
-  source: string; // "iclosed" | "calendly"
+  source: string; // "iclosed" | "calendly" | "native" | "manual"
   inviteeName: string | null;
   inviteeEmail: string | null;
+  inviteePhone: string | null;
   scheduledAt: string; // ISO
   closer: string | null;
   eventType: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
   attendance: CallAttendance;
   outcome: CallOutcome;
   saleId: string | null;
@@ -53,9 +59,15 @@ export async function getSalesCalls(accountId: string): Promise<SalesCallRow[]> 
     source: call.source,
     inviteeName: call.inviteeName,
     inviteeEmail: call.inviteeEmail,
+    inviteePhone: call.inviteePhone,
     scheduledAt: call.scheduledAt.toISOString(),
     closer: call.closer,
     eventType: call.eventType,
+    utmSource: call.utmSource,
+    utmMedium: call.utmMedium,
+    utmCampaign: call.utmCampaign,
+    utmContent: call.utmContent,
+    utmTerm: call.utmTerm,
     attendance: call.attendance,
     outcome: call.outcome,
     saleId: call.saleId,

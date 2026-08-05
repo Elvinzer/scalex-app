@@ -361,6 +361,21 @@ export const nativeBookingSyncStatus = pgEnum("native_booking_sync_status", [
   "failed",
 ]);
 
+export const nativeBookingLeadStatus = pgEnum("native_booking_lead_status", [
+  "open",
+  "contacted",
+  "converted",
+  "dismissed",
+]);
+
+export const nativeBookingLeadStep = pgEnum("native_booking_lead_step", [
+  "contact_submitted",
+  "slots_revealed",
+  "slot_selected",
+  "booking_failed",
+  "converted",
+]);
+
 export const nativeCalendarProvider = pgEnum("native_calendar_provider", ["google", "outlook"]);
 
 export const nativeCalendarConnectionStatus = pgEnum("native_calendar_connection_status", [
@@ -513,6 +528,54 @@ export const nativeBookingLinks = pgTable(
   (table) => [index("native_booking_links_event_idx").on(table.eventId, table.isActive)]
 ).enableRLS();
 
+export const nativeBookingLeads = pgTable(
+  "native_booking_leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    sessionKey: uuid("session_key").notNull(),
+    status: nativeBookingLeadStatus("status").notNull().default("open"),
+    lastStep: nativeBookingLeadStep("last_step").notNull().default("contact_submitted"),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    email: text("email").notNull(),
+    emailNormalized: text("email_normalized").notNull(),
+    phone: text("phone").notNull(),
+    phoneNormalized: text("phone_normalized").notNull(),
+    guestTimeZone: text("guest_time_zone").notNull(),
+    eventTimeZone: text("event_time_zone").notNull(),
+    selectedStartAt: timestamp("selected_start_at", { withTimezone: true }),
+    selectedEndAt: timestamp("selected_end_at", { withTimezone: true }),
+    contactConsentAt: timestamp("contact_consent_at", { withTimezone: true }).notNull().defaultNow(),
+    landingPage: text("landing_page"),
+    referrer: text("referrer"),
+    linkId: uuid("link_id").references(() => nativeBookingLinks.id, { onDelete: "set null" }),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    utmTerm: text("utm_term"),
+    utmMetadata: jsonb("utm_metadata").notNull().$type<Record<string, string>>().default({}),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    contactedAt: timestamp("contacted_at", { withTimezone: true }),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    convertedAt: timestamp("converted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_leads_event_session_idx").on(table.eventId, table.sessionKey),
+    index("native_booking_leads_user_status_seen_idx").on(table.userId, table.status, table.lastSeenAt),
+    index("native_booking_leads_event_status_idx").on(table.eventId, table.status),
+    index("native_booking_leads_user_email_idx").on(table.userId, table.emailNormalized),
+  ]
+).enableRLS();
+
 export const nativeBookings = pgTable(
   "native_bookings",
   {
@@ -523,6 +586,7 @@ export const nativeBookings = pgTable(
     eventId: uuid("event_id")
       .notNull()
       .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    abandonedLeadId: uuid("abandoned_lead_id").references(() => nativeBookingLeads.id, { onDelete: "set null" }),
     idempotencyKey: text("idempotency_key").notNull(),
     status: nativeBookingStatus("status").notNull().default("pending"),
     syncStatus: nativeBookingSyncStatus("sync_status").notNull().default("not_required"),

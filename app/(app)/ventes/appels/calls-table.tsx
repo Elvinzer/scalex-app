@@ -15,6 +15,13 @@ const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
   minute: "2-digit",
 });
 
+function sourceLabel(source: string): string {
+  if (source === "calendly") return "Calendly";
+  if (source === "manual") return "Manuel";
+  if (source === "native") return "Rendez-vous natif";
+  return "iClosed";
+}
+
 export function CallsTable({
   calls,
   pendingDecisions,
@@ -163,8 +170,13 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
         <p className="font-bold">{call.inviteeName ?? "—"}</p>
         {call.inviteeEmail && <p className="text-xs text-muted-foreground">{call.inviteeEmail}</p>}
         <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-          {call.source === "calendly" ? "Calendly" : call.source === "manual" ? "Manuel" : "iClosed"}
+          {sourceLabel(call.source)}
         </p>
+        {call.source === "native" && (call.utmSource || call.utmCampaign || call.utmContent) && (
+          <p className="mt-1 text-[10px] font-bold text-accent">
+            {[call.utmSource, call.utmCampaign, call.utmContent].filter(Boolean).join(" · ")}
+          </p>
+        )}
       </td>
       <td className="p-3 align-top text-muted-foreground">{call.closer ?? "—"}</td>
       <td className="p-3 align-top">

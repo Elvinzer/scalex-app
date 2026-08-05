@@ -24,6 +24,13 @@ const STAMP_FORMAT = new Intl.DateTimeFormat("fr-FR", {
   minute: "2-digit",
 });
 
+function sourceLabel(source: string): string {
+  if (source === "calendly") return "Calendly";
+  if (source === "manual") return "Manuel";
+  if (source === "native") return "Rendez-vous natif";
+  return "iClosed";
+}
+
 export function CallDetailDrawer({
   call,
   open,
@@ -112,8 +119,14 @@ export function CallDetailDrawer({
             <span>{DATE_FORMAT.format(new Date(call.scheduledAt))}</span>
             {call.closer && <span>Closer : {call.closer}</span>}
             <span className="text-[10px] font-bold tracking-wide uppercase">
-              {call.source === "calendly" ? "Calendly" : call.source === "manual" ? "Manuel" : "iClosed"}
+              {sourceLabel(call.source)}
             </span>
+            {call.inviteePhone && <span>{call.inviteePhone}</span>}
+            {call.source === "native" && (call.utmSource || call.utmMedium || call.utmCampaign || call.utmContent) && (
+              <span className="text-accent">
+                Attribution : {[call.utmSource, call.utmMedium, call.utmCampaign, call.utmContent].filter(Boolean).join(" · ")}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-border p-4">

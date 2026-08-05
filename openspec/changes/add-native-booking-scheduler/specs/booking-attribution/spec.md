@@ -39,3 +39,12 @@ Le suivi des appels SHALL afficher la source marketing disponible pour un appel 
 
 - **WHEN** un appel natif provient d’un lien YouTube associé à une vidéo
 - **THEN** le détail de l’appel affiche YouTube, la campagne et l’identifiant ou le libellé de la vidéo
+
+### Requirement: Attribution survives an abandoned attempt
+
+Lorsqu’un visiteur arrive par un lien nommé ou des paramètres UTM puis abandonne après avoir soumis ses coordonnées, le système SHALL conserver un snapshot de la source sur la tentative de réservation. La conversion ultérieure SHALL reprendre ce snapshot sans dépendre de l’URL encore présente ni réécrire une réservation déjà confirmée.
+
+#### Scenario: Abandoned lead keeps the originating platform
+
+- **WHEN** un visiteur provenant d’un lien YouTube abandonne après avoir consulté les créneaux
+- **THEN** le lead à relancer conserve YouTube et le contenu de la vidéo comme source disponible à la relance

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f package.json ] && grep -q '\"typecheck\"' package.json; then npm run typecheck --silent 2>&1 | tail -n 40; fi; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}

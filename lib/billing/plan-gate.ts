@@ -1,4 +1,4 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import { nativeBookingEvents, subscriptionPlans, subscriptions, users } from "@/db/schema";
@@ -82,7 +82,7 @@ export async function getNativeBookingUsage(accountId: string): Promise<number> 
   const [row] = await db
     .select({ count: count() })
     .from(nativeBookingEvents)
-    .where(eq(nativeBookingEvents.userId, accountId));
+    .where(and(eq(nativeBookingEvents.userId, accountId), ne(nativeBookingEvents.status, "archived")));
   return Number(row?.count ?? 0);
 }
 
