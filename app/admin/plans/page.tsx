@@ -44,16 +44,28 @@ export default async function AdminPlansPage() {
           </thead>
           <tbody>
             {plans.map((plan) => {
-              const features = plan.features as { teamMembersEnabled?: boolean; maxTeamMembers?: number | null };
+              const features = plan.features as {
+                teamMembersEnabled?: boolean;
+                maxTeamMembers?: number | null;
+                nativeBookingEnabled?: boolean;
+                maxBookingEvents?: number | null;
+              };
               return (
                 <tr key={plan.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-bold">{plan.name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{plan.key}</td>
                   <td className="px-4 py-3 tabular-nums">{formatUsdCents(plan.priceMonthlyCents)}</td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {features.teamMembersEnabled
-                      ? `Incluse${features.maxTeamMembers ? ` (max ${features.maxTeamMembers})` : ""}`
-                      : "—"}
+                    <div>
+                      {features.teamMembersEnabled
+                        ? `Incluse${features.maxTeamMembers ? ` (max ${features.maxTeamMembers})` : ""}`
+                        : "—"}
+                    </div>
+                    <div className="mt-1 text-xs">
+                      {features.nativeBookingEnabled
+                        ? `Rendez-vous${features.maxBookingEvents ? ` (max ${features.maxBookingEvents})` : " (illimité)"}`
+                        : "Rendez-vous —"}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <PlanActiveToggle id={plan.id} isActive={plan.isActive} />

@@ -20,6 +20,7 @@ export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
   "/ventes": [
     { href: "/ventes/suivi", label: "Suivi des ventes", permission: "ventes:suivi" },
     { href: "/ventes/appels", label: "Suivi des appels", permission: "ventes:appels" },
+    { href: "/ventes/rdv", label: "Rendez-vous", permission: "ventes:rdv" },
     { href: "/ventes/produits", label: "Produits", permission: "business" },
     { href: "/ventes/upsell", label: "Upsell", permission: "ventes:upsell" },
   ],

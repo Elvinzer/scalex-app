@@ -52,7 +52,12 @@ export async function savePlan(id: string | null, data: unknown): Promise<{ erro
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
   const input = parsed.data;
-  const features = { teamMembersEnabled: input.teamMembersEnabled, maxTeamMembers: input.maxTeamMembers };
+  const features = {
+    teamMembersEnabled: input.teamMembersEnabled,
+    maxTeamMembers: input.maxTeamMembers,
+    nativeBookingEnabled: input.nativeBookingEnabled,
+    maxBookingEvents: input.maxBookingEvents,
+  };
   const stripe = getPlatformStripeClient();
 
   if (id) {

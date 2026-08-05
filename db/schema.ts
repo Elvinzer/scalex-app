@@ -331,6 +331,239 @@ export const instagramPostInsights = pgTable(
   ]
 ).enableRLS();
 
+// --- Native booking scheduler ----------------------------------------------
+// These tables deliberately live beside (rather than inside) the legacy
+// iClosed/Calendly call ingestion model. A native booking is projected into
+// sales_calls after confirmation, while this domain keeps the scheduling
+// invariants, guest details, calendar sync state and attribution snapshot.
+
+export const nativeBookingEventStatus = pgEnum("native_booking_event_status", [
+  "draft",
+  "active",
+  "paused",
+  "archived",
+]);
+
+export const nativeBookingExceptionType = pgEnum("native_booking_exception_type", ["closed", "custom"]);
+
+export const nativeBookingStatus = pgEnum("native_booking_status", [
+  "pending",
+  "confirmed",
+  "cancelled",
+  "expired",
+  "sync_failed",
+]);
+
+export const nativeBookingSyncStatus = pgEnum("native_booking_sync_status", [
+  "not_required",
+  "pending",
+  "synced",
+  "failed",
+]);
+
+export const nativeCalendarProvider = pgEnum("native_calendar_provider", ["google", "outlook"]);
+
+export const nativeCalendarConnectionStatus = pgEnum("native_calendar_connection_status", [
+  "connected",
+  "reconnect_required",
+  "revoked",
+]);
+
+export type NativeBookingWindow = { startTime: string; endTime: string };
+
+export const nativeBookingEvents = pgTable(
+  "native_booking_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    durationMinutes: integer("duration_minutes").notNull().default(60),
+    bufferBeforeMinutes: integer("buffer_before_minutes").notNull().default(0),
+    bufferAfterMinutes: integer("buffer_after_minutes").notNull().default(0),
+    minNoticeMinutes: integer("min_notice_minutes").notNull().default(60),
+    bookingHorizonDays: integer("booking_horizon_days").notNull().default(30),
+    timeZone: text("time_zone").notNull().default("Europe/Paris"),
+    meetingLabel: text("meeting_label").notNull().default("Appel stratégique"),
+    meetingUrl: text("meeting_url"),
+    status: nativeBookingEventStatus("status").notNull().default("draft"),
+    requireContactBeforeSlots: boolean("require_contact_before_slots").notNull().default(true),
+    publicHeading: text("public_heading").notNull().default("Réserve ton appel stratégique"),
+    publicDescription: text("public_description").notNull().default("Choisis le créneau qui te convient le mieux."),
+    roundRobinEnabled: boolean("round_robin_enabled").notNull().default(true),
+    roundRobinCursor: integer("round_robin_cursor").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_events_user_slug_idx").on(table.userId, table.slug),
+    index("native_booking_events_user_status_idx").on(table.userId, table.status),
+  ]
+).enableRLS();
+
+export const nativeBookingAvailability = pgTable(
+  "native_booking_availability",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    weekday: integer("weekday").notNull(),
+    startTime: text("start_time").notNull(),
+    endTime: text("end_time").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_availability_unique_idx").on(table.eventId, table.weekday, table.startTime, table.endTime),
+    index("native_booking_availability_event_idx").on(table.eventId, table.weekday),
+  ]
+).enableRLS();
+
+export const nativeBookingExceptions = pgTable(
+  "native_booking_exceptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    type: nativeBookingExceptionType("type").notNull().default("closed"),
+    windows: jsonb("windows").notNull().$type<NativeBookingWindow[]>().default([]),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("native_booking_exceptions_event_date_idx").on(table.eventId, table.date)]
+).enableRLS();
+
+export const nativeBookingEventClosers = pgTable(
+  "native_booking_event_closers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    closerUserId: uuid("closer_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    isOff: boolean("is_off").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_event_closers_unique_idx").on(table.eventId, table.closerUserId),
+    index("native_booking_event_closers_closer_idx").on(table.closerUserId),
+  ]
+).enableRLS();
+
+export const nativeCalendarConnections = pgTable(
+  "native_calendar_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    closerUserId: uuid("closer_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: nativeCalendarProvider("provider").notNull(),
+    providerAccountEmail: text("provider_account_email"),
+    accessTokenEncrypted: text("access_token_encrypted"),
+    refreshTokenEncrypted: text("refresh_token_encrypted"),
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+    selectedCalendarIds: jsonb("selected_calendar_ids").notNull().$type<string[]>().default([]),
+    status: nativeCalendarConnectionStatus("status").notNull().default("connected"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_calendar_connections_closer_provider_idx").on(table.closerUserId, table.provider),
+    index("native_calendar_connections_user_idx").on(table.userId),
+  ]
+).enableRLS();
+
+export const nativeBookingLinks = pgTable(
+  "native_booking_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    platform: text("platform").notNull(),
+    contentLabel: text("content_label"),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    utmTerm: text("utm_term"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("native_booking_links_event_idx").on(table.eventId, table.isActive)]
+).enableRLS();
+
+export const nativeBookings = pgTable(
+  "native_bookings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    status: nativeBookingStatus("status").notNull().default("pending"),
+    syncStatus: nativeBookingSyncStatus("sync_status").notNull().default("not_required"),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    email: text("email").notNull(),
+    emailNormalized: text("email_normalized").notNull(),
+    phone: text("phone").notNull(),
+    phoneNormalized: text("phone_normalized").notNull(),
+    guestTimeZone: text("guest_time_zone").notNull(),
+    eventTimeZone: text("event_time_zone").notNull(),
+    startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+    endAt: timestamp("end_at", { withTimezone: true }).notNull(),
+    closerUserId: uuid("closer_user_id").references(() => users.id, { onDelete: "set null" }),
+    calendarConnectionId: uuid("calendar_connection_id").references(() => nativeCalendarConnections.id, { onDelete: "set null" }),
+    externalEventId: text("external_event_id"),
+    externalEventUrl: text("external_event_url"),
+    holdExpiresAt: timestamp("hold_expires_at", { withTimezone: true }),
+    cancellationTokenHash: text("cancellation_token_hash"),
+    rescheduleTokenHash: text("reschedule_token_hash"),
+    landingPage: text("landing_page"),
+    referrer: text("referrer"),
+    linkId: uuid("link_id").references(() => nativeBookingLinks.id, { onDelete: "set null" }),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    utmTerm: text("utm_term"),
+    utmMetadata: jsonb("utm_metadata").notNull().$type<Record<string, string>>().default({}),
+    syncError: text("sync_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_bookings_event_idempotency_idx").on(table.eventId, table.idempotencyKey),
+    index("native_bookings_user_email_start_idx").on(table.userId, table.emailNormalized, table.startAt),
+    index("native_bookings_event_start_idx").on(table.eventId, table.startAt),
+    index("native_bookings_closer_start_idx").on(table.closerUserId, table.startAt),
+  ]
+).enableRLS();
+
 // YouTube connection — OAuth via Google (see lib/youtube/protocol.ts). Unlike
 // Instagram's single long-lived token, Google issues a short-lived (~1h)
 // access token ALONGSIDE a long-lived refresh token — refreshTokenEncrypted
@@ -961,6 +1194,7 @@ export const salesCalls = pgTable(
     iclosedCallId: text("iclosed_call_id").notNull(),
     inviteeName: text("invitee_name"),
     inviteeEmail: text("invitee_email"),
+    inviteePhone: text("invitee_phone"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
     // Free text, same convention as sales.closer / leads.closer (no closers
     // table exists in this codebase).
@@ -977,6 +1211,13 @@ export const salesCalls = pgTable(
     // (an iClosed numeric id, or a Calendly scheduled_event URI) — kept under
     // that name to avoid a risky rename of the existing unique index.
     source: text("source").notNull().default("iclosed"),
+    nativeBookingId: uuid("native_booking_id"),
+    closerUserId: uuid("closer_user_id").references(() => users.id, { onDelete: "set null" }),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    utmTerm: text("utm_term"),
     attendance: salesCallAttendance("attendance").notNull().default("booked"),
     outcome: salesCallOutcome("outcome").notNull().default("pending"),
     // Set once the call is marked "closed" — POINTS at the sale, never
@@ -993,9 +1234,11 @@ export const salesCalls = pgTable(
   },
   (table) => [
     uniqueIndex("sales_calls_user_iclosed_call_idx").on(table.userId, table.iclosedCallId),
+    uniqueIndex("sales_calls_user_native_booking_idx").on(table.userId, table.nativeBookingId),
     index("sales_calls_user_scheduled_idx").on(table.userId, table.scheduledAt),
     index("sales_calls_setter_idx").on(table.setterId),
     index("sales_calls_sale_idx").on(table.saleId),
+    index("sales_calls_closer_idx").on(table.closerUserId),
   ]
 ).enableRLS();
 

@@ -11,7 +11,16 @@ export const planInputSchema = z.object({
   priceMonthlyCents: z.number().int().positive("Le prix doit être positif"),
   teamMembersEnabled: z.boolean(),
   maxTeamMembers: z.number().int().positive().nullable(),
+  nativeBookingEnabled: z.boolean(),
+  maxBookingEvents: z.number().int().positive().nullable(),
   isActive: z.boolean(),
 });
 
 export type PlanInput = z.infer<typeof planInputSchema>;
+
+export type PlanFeatures = {
+  teamMembersEnabled?: boolean;
+  maxTeamMembers?: number | null;
+  nativeBookingEnabled?: boolean;
+  maxBookingEvents?: number | null;
+};

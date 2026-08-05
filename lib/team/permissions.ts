@@ -24,6 +24,7 @@ export const PERMISSION_KEYS = [
   "acquisition:setters",
   "ventes:suivi",
   "ventes:videos",
+  "ventes:rdv",
   // Legacy — Closing was folded into Appels (its content now lives at
   // /ventes/appels/funnel, gated by "ventes:appels"). Same treatment as
   // "acquisition:setting" above.
@@ -52,6 +53,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "acquisition:setters": "Acquisition — Setters",
   "ventes:suivi": "Ventes — Suivi des ventes",
   "ventes:videos": "Ventes — Vidéos de closing",
+  "ventes:rdv": "Ventes — Rendez-vous natifs",
   "ventes:closing": "Ventes — Closing",
   "ventes:appels": "Ventes — Suivi des appels (iClosed)",
   "ventes:upsell": "Ventes — Upsell",
@@ -63,6 +65,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
 // including adding permissions beyond these defaults.
 export const DEFAULT_ROLES: { key: string; name: string; permissions: PermissionKey[] }[] = [
   { key: "setting", name: "Setting", permissions: ["acquisition:pipeline", "acquisition:setters"] },
-  { key: "closing", name: "Closing", permissions: ["ventes:closing", "ventes:appels"] },
+  { key: "closing", name: "Closing", permissions: ["ventes:closing", "ventes:appels", "ventes:rdv"] },
   { key: "financier", name: "Financier", permissions: ["ventes:suivi", "datas", "dashboard"] },
 ];
