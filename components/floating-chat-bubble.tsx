@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
 import { useFalcoAnimationsEnabled } from "@/components/falco/falco-context";
 import { FalcoSkinImage } from "@/components/falco/falco-skin-image";
 import { ImproveChat } from "@/components/improve-chat";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { resolvePageContext } from "@/lib/agent/page-context";
 import type { ChatContext } from "@/lib/chat-context";
 import { FALCO_SKIN_CHAT_LABEL, resolveAgentKeyForRoute, resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
@@ -102,6 +103,20 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
   const engagedRef = useRef(false);
   const showNotification = hasUnseenInsight && !dismissed;
   const chatLabel = skin ? FALCO_SKIN_CHAT_LABEL[skin] : "Falco, ton copilote IA";
+  // Page-scoped context: sourcePage carries the page identity to the API
+  // (the only client field it doesn't overwrite from the conversation row),
+  // and topicKey gives each page its OWN conversation —
+  // findOrCreateConversationForTopic matches on (userId, topicType,
+  // topicKey), so without it every page would resume the single shared
+  // "general" thread and the page hook would only ever fire once, on the
+  // very first open in the whole app. Pages with no expertise mapping fall
+  // back to the previous app-wide general thread.
+  const chatContext = useMemo<ChatContext>(() => {
+    const page = resolvePageContext(pathname);
+    return page
+      ? { topicType: "general", topicKey: page.pageKey, topicLabel: page.label, sourcePage: page.pageKey }
+      : GENERAL_CONTEXT;
+  }, [pathname]);
   // Deep link to the full hub — precise (route→agent, not skin→agent, so no
   // ambiguity between e.g. Setting/Ads sharing the "acquisition" skin); a
   // page with no matching agent just links to the hub with no ?agent= param.
@@ -123,7 +138,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
     if (next) {
       engagedRef.current = false;
       setDismissed(true);
-      void recordImproveChatOpened(GENERAL_CONTEXT);
+      void recordImproveChatOpened(chatContext);
     }
   }
 
@@ -160,7 +175,8 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
             </div>
             <div className="flex-1 overflow-hidden">
               <ImproveChat
-                context={GENERAL_CONTEXT}
+                key={chatContext.sourcePage}
+                context={chatContext}
                 period="3-months"
                 gapBadge={null}
                 falcoSkin={skin}

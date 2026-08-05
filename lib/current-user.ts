@@ -32,7 +32,16 @@ export const getCurrentUser = cache(async () => {
   const accountId = context?.accountId ?? userId;
 
   const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
-  return { userId, accountId, user };
+
+  // `user` is the ACCOUNT owner's row (business data, integrations, BYOK key
+  // — all account-scoped). `currentUser` is the logged-in person's own row,
+  // which is what personal fields like displayName belong to: /settings'
+  // updateProfile writes to claims.sub, not to accountId. For an owner the
+  // two are the same row, so this costs no extra query in the common case.
+  const currentUser =
+    userId === accountId ? user : (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
+
+  return { userId, accountId, user, currentUser };
 });
 
 // Single source of truth for the "get the authenticated user's id or bail"

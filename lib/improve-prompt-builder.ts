@@ -1,5 +1,6 @@
 import type { AgentRegistryRow } from "@/lib/agent/agents-registry";
 import type { LeverAgentData } from "@/lib/agent/lever-agent-data";
+import type { PageAgentContext } from "@/lib/agent/page-context";
 import type { ClosingTotals } from "@/lib/closing/metrics";
 import type { ChatContext } from "@/lib/chat-context";
 import type { MetricKey } from "@/lib/diagnostic/benchmarks";
@@ -127,6 +128,9 @@ export function buildImprovePrompt({
   agent,
   leverAgentData,
   mode,
+  pageContext,
+  pageAgentData,
+  userName,
 }: {
   context: ChatContext;
   businessProfile: BusinessProfileData;
@@ -138,6 +142,15 @@ export function buildImprovePrompt({
   agent?: AgentRegistryRow | null;
   leverAgentData?: LeverAgentData | null;
   mode?: LeverMode | null;
+  // Set when the chat was opened from the floating bubble on a page Falco
+  // has an expertise for (lib/agent/page-context.ts). Turns the otherwise
+  // generic "general" opening into a page-specific one.
+  pageContext?: PageAgentContext | null;
+  pageAgentData?: LeverAgentData | null;
+  // The logged-in person's own display name (users.displayName), null when
+  // they haven't set one — never fall back to the email local-part here, an
+  // address like "ibrahimchauvin1995" reads worse than no name at all.
+  userName?: string | null;
 }): string {
   const isGeneral = context.topicType === "general";
   const isLever = context.topicType === "lever";
@@ -171,6 +184,7 @@ export function buildImprovePrompt({
     role,
     "",
     "# CONTEXTE BUSINESS DE L'UTILISATEUR",
+    ...(userName ? [`L'utilisateur s'appelle ${userName}.`] : []),
     describeBusinessContext(businessProfile),
     "",
     "# DONNÉES RÉELLES (3 derniers mois)",
@@ -179,6 +193,16 @@ export function buildImprovePrompt({
     isGeneral ? "# LES POINTS À AMÉLIORER (classés par impact)" : isLever ? "# DONNÉES DU LEVIER" : "# LE SUJET DE CETTE CONVERSATION",
     gapDescription,
     "",
+    // Page block sits AFTER the global picture on purpose: Falco still knows
+    // the whole business, but opens on what the user is looking at.
+    ...(pageContext
+      ? [
+          `# LA PAGE OÙ SE TROUVE L'UTILISATEUR : ${pageContext.label}`,
+          `Sur cette page, ${pageContext.specialty}.`,
+          ...(pageAgentData ? ["", "# DONNÉES DE CETTE PAGE", pageAgentData.metricsBlock] : []),
+          "",
+        ]
+      : []),
     "# MISSION",
     isGeneral
       ? "Aide l'utilisateur à comprendre et prioriser ses données, en t'appuyant sur son business réel " +
@@ -196,14 +220,26 @@ export function buildImprovePrompt({
     "- Maximum 300 mots par réponse. Termine TOUJOURS par une seule question qui fait avancer.",
     "- Ne promets jamais un résultat chiffré (\"tu vas gagner X€\") : reste sur des estimations prudentes (\"de l'ordre de\", \"≈\").",
     "- Ne recommande jamais un outil concurrent de Scale X.",
+    ...(userName
+      ? [
+          `- L'utilisateur s'appelle ${userName} : appelle-le par son prénom de temps en temps, naturellement — dans ton message d'ouverture puis seulement quand ça sonne juste, jamais à chaque phrase.`,
+        ]
+      : []),
     ...(topicLabel
       ? [
           `- Le sujet en cours est ${topicLabel} : raisonne en expert de CE domaine. Si l'utilisateur change de sujet, tu le suis sans changer de personnage — tu restes Falco, jamais besoin de "rediriger vers un autre agent".`,
         ]
       : []),
+    ...(pageContext
+      ? [
+          `- Tu es sur la page ${pageContext.label} : raisonne en expert de CE domaine et appuie-toi d'abord sur les données de cette page.`,
+        ]
+      : []),
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : " +
-      (topicLabel
-        ? "commence par un message qui résume en une phrase le problème et propose une première piste concrète."
-        : "commence par un résumé en une phrase de l'état général du business et demande sur quoi on bosse aujourd'hui."),
+      (pageContext
+        ? `${pageContext.hook}. Deux phrases d'analyse maximum avant la proposition, en citant au moins un chiffre réel de cette page.`
+        : topicLabel
+          ? "commence par un message qui résume en une phrase le problème et propose une première piste concrète."
+          : "commence par un résumé en une phrase de l'état général du business et demande sur quoi on bosse aujourd'hui."),
   ].join("\n");
 }

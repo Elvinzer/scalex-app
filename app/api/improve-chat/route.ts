@@ -6,6 +6,8 @@ import { AGENT_KEY_CONSOLIDATION } from "@/lib/agent/agent-consolidation";
 import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { appendConversationMessage, getConversation, titleFor, updateConversationTitle } from "@/lib/agent/chat-history";
 import { resolveLeverAgentData } from "@/lib/agent/lever-agent-data";
+import { resolvePageAgentData } from "@/lib/agent/page-agent-data";
+import { getPageContextByKey } from "@/lib/agent/page-context";
 import { createSseAccumulatorStream } from "@/lib/agent/sse-accumulator";
 import { track } from "@/lib/analytics";
 import { db } from "@/db";
@@ -131,6 +133,14 @@ export async function POST(request: NextRequest) {
     allClosingEntries,
   });
 
+  // Falco addresses the PERSON, so the name comes from the logged-in user's
+  // own row: users.displayName is personal (/settings' updateProfile writes
+  // it to claims.sub), while userRow above is the account owner's row. Same
+  // row for an owner, so this costs nothing in the common case.
+  const [currentUserRow] =
+    userId === accountId ? [userRow] : await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const userName = currentUserRow?.displayName?.trim() || null;
+
   const benchmarks = await getDiagnosticBenchmarks(userRow?.sector ?? null);
   const points = computeDiagnosticPoints({
     settingTotals,
@@ -192,6 +202,31 @@ export async function POST(request: NextRequest) {
     leverMode = mode ?? "optimiser";
   }
 
+  // Page hook — only for the floating bubble ("general"), which is the one
+  // entry point with no topic of its own. sourcePage is the sole client-sent
+  // field not overwritten by the conversation row above, so it's what
+  // carries the page identity. Failing to resolve the page data is never
+  // fatal: the prompt just falls back to the generic general opening.
+  const pageContext = context.topicType === "general" ? getPageContextByKey(context.sourcePage) : null;
+  let pageAgentData: Awaited<ReturnType<typeof resolvePageAgentData>> = null;
+  if (pageContext) {
+    try {
+      pageAgentData = await resolvePageAgentData(pageContext, {
+        accountId,
+        businessProfile,
+        settingTotals,
+        closingTotals,
+        cashContractedTotal,
+        periodMonths: months.length,
+        months,
+        points,
+        sector: userRow?.sector ?? null,
+      });
+    } catch (error) {
+      console.error(`[improve-chat] page data for ${pageContext.pageKey} failed, continuing without it`, error);
+    }
+  }
+
   const systemPrompt = buildImprovePrompt({
     context,
     businessProfile,
@@ -203,6 +238,9 @@ export async function POST(request: NextRequest) {
     agent,
     leverAgentData,
     mode: leverMode,
+    pageContext,
+    pageAgentData,
+    userName,
   });
 
   let provider;

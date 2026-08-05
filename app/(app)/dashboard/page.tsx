@@ -49,7 +49,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ checkin?: string; bandeau?: string }>;
 }) {
   const params = await searchParams;
-  const { userId, accountId, user } = await getCurrentUser();
+  const { userId, accountId, user, currentUser } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
   const accountContext = await getAccountContext(userId);
   const hasDestinationPermission = (permission: "acquisition:pipeline" | "ventes:appels" | "ventes:rdv") => {
@@ -75,7 +75,10 @@ export default async function DashboardPage({
       getRecentWeeklyReports(accountId),
     ]);
 
-  const firstName = user?.email.split("@")[0] || "là";
+  // The greeting is personal, so it reads the logged-in person's own row
+  // (currentUser), not the account owner's — a team member should be
+  // greeted by their own name. Falls back to the email local-part, as before.
+  const firstName = currentUser?.displayName?.trim() || currentUser?.email.split("@")[0] || "là";
 
   // Technical-alert data — independent of the diagnostic engine above, so
   // fetched as its own batch rather than folded into it. Revenue actions are

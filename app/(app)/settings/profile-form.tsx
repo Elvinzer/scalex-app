@@ -126,21 +126,24 @@ export function ProfileForm({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted-foreground">Pseudo (affiché dans le menu)</span>
+          <span className="text-muted-foreground">Ton nom</span>
           <input
             type="text"
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
             maxLength={40}
-            placeholder="Ton pseudo"
+            placeholder="Ex : Ibrahim"
             className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           />
+          <span className="text-xs text-muted-foreground">
+            Utilisé pour t&apos;accueillir sur le Dashboard, dans le menu, et par Falco quand il te parle.
+          </span>
         </label>
 
         {error && <p className="text-sm text-state-critical">{error}</p>}
 
         <Button type="submit" disabled={isPending} className="self-start">
-          {isPending ? "Enregistrement..." : "Enregistrer le pseudo"}
+          {isPending ? "Enregistrement..." : "Enregistrer"}
         </Button>
       </form>
     </div>
