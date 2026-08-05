@@ -242,7 +242,7 @@ function ProfileMenu({
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-[12.5px] font-bold tracking-[-0.005em] text-mist/90">
-                {displayName || businessName || "Mon business"}
+                {displayName || businessName || "Mon compte"}
               </p>
               <p className="truncate text-[11px] tracking-[-0.005em] text-mist/50">{email}</p>
             </div>
