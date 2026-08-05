@@ -7,6 +7,7 @@ import { YoutubeConnectionCard } from "@/components/youtube/youtube-connection-c
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections, instagramConnections, stripeConnections, youtubeConnections } from "@/db/schema";
+import { isAdminEmail } from "@/lib/admin";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
@@ -20,6 +21,7 @@ export default async function IntegrationsPage() {
   const { accountId } = await requireOwnerOrRedirect(userId);
   const { user } = await getCurrentUser();
   const stripeConnected = Boolean(user?.stripeConnectId);
+  const isAdmin = Boolean(user && isAdminEmail(user.email));
 
   const iclosedConnected = Boolean(user?.iclosedConnected);
   const calendlyConnected = Boolean(user?.calendlyConnected);
@@ -76,20 +78,31 @@ export default async function IntegrationsPage() {
           )}
         </div>
 
-        {stripeConnected && connection && !connection.livemode && (
+        {stripeConnected && connection && !connection.livemode && !isAdmin && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
             Ce compte Stripe est en mode test : aucune synchronisation ne sera effectuée pour éviter de mélanger des
             données test et réelles. Reconnecte un compte en mode live.
           </div>
         )}
 
-        {stripeConnected && connection?.livemode && connection.initialSyncStatus === "pending" && (
+        {/* Admins (ADMIN_EMAILS) can sync a test-mode account to exercise the
+            diagnostic without a live Stripe account — see the matching
+            bypass in lib/inngest/functions/sync-stripe-account.ts. Never
+            shown to regular users, who stay on the blocking warning above. */}
+        {stripeConnected && connection && !connection.livemode && isAdmin && (
+          <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
+            Compte Stripe en mode test — synchronisé quand même (accès admin). Les données ci-dessous sont des
+            données de test, pas des données réelles.
+          </div>
+        )}
+
+        {stripeConnected && (connection?.livemode || isAdmin) && connection?.initialSyncStatus === "pending" && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm font-bold text-muted-foreground">
             Synchronisation de tes 12 derniers mois en cours…
           </div>
         )}
 
-        {stripeConnected && connection?.livemode && connection.initialSyncStatus === "completed" && (
+        {stripeConnected && (connection?.livemode || isAdmin) && connection?.initialSyncStatus === "completed" && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm font-bold text-state-healthy">
             12 mois synchronisés
             {connection.initialSyncCompletedAt && ` le ${new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(connection.initialSyncCompletedAt)}`}
@@ -97,7 +110,7 @@ export default async function IntegrationsPage() {
           </div>
         )}
 
-        {stripeConnected && connection?.livemode && connection.initialSyncStatus === "failed" && (
+        {stripeConnected && (connection?.livemode || isAdmin) && connection?.initialSyncStatus === "failed" && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
             La synchronisation a échoué. Déconnecte puis reconnecte Stripe pour réessayer.
           </div>

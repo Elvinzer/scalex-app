@@ -152,7 +152,7 @@ export default async function SettingsPage() {
       <StripeConnectionCard stripeConnectId={user?.stripeConnectId ?? null} />
 
       <div className="sticker-card border-state-critical/30 p-8">
-        <p className="text-sm font-bold text-state-critical">Zone dangereuse</p>
+        <p className="text-sm font-bold text-state-critical">Suppression de données</p>
         <div className="mt-4">
           <DangerZoneForm email={user?.email ?? ""} />
         </div>

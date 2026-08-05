@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 
 import { db } from "@/db";
-import { diagnostics, stripeConnections } from "@/db/schema";
+import { diagnostics, stripeConnections, users } from "@/db/schema";
+import { isAdminEmail } from "@/lib/admin";
 import { track } from "@/lib/analytics";
 import { decrypt } from "@/lib/crypto";
 import { inngest, stripeAccountConnected } from "@/lib/inngest/client";
@@ -19,14 +20,22 @@ export const syncStripeAccount = inngest.createFunction(
 
     // Test-mode vs livemode is checked ONCE up front, before either step —
     // never scan a test account's charges into diagnostics/monthly_metrics,
-    // which would mix test and real business data.
+    // which would mix test and real business data. Exception: admins
+    // (ADMIN_EMAILS, see lib/admin.ts) need to exercise the diagnostic
+    // against a test-mode Stripe account without a live one — the bypass
+    // never applies to regular users.
     const connection = await step.run("load-connection", async () => {
       const [row] = await db.select().from(stripeConnections).where(eq(stripeConnections.userId, userId)).limit(1);
       if (!row) throw new NonRetriableError(`No Stripe connection for user ${userId}`);
       return row;
     });
 
-    if (!connection.livemode) {
+    const isAdminBypass = await step.run("check-admin-bypass", async () => {
+      const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+      return Boolean(user && isAdminEmail(user.email));
+    });
+
+    if (!connection.livemode && !isAdminBypass) {
       await step.run("mark-sync-skipped-test-mode", async () => {
         await db
           .update(stripeConnections)
