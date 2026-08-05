@@ -74,6 +74,8 @@ const MEASURE_HINTS: Record<string, string> = {
   closingRate: "Renseigne tes appels pris et tes ventes conclues dans Datas.",
   content_click_rate: "Renseigne les vues et les clics de tes posts dans Contenu.",
   content_lead_rate: "Renseigne les clics et les leads de tes posts dans Contenu.",
+  content_booking_rate: "Renseigne les RDV bookés de tes vidéos dans Contenu.",
+  content_close_rate: "Renseigne les RDV bookés et closés de tes vidéos dans Contenu.",
 };
 
 export default async function DiagnosticPage({

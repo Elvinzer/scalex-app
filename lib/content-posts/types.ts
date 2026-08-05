@@ -13,7 +13,9 @@ export type ContentPostRow = {
   shares: number | null;
   clicks: number | null;
   leads: number | null;
-  source: string; // "manual" | "instagram"
+  bookings: number | null; // RDV bookés attribués à ce post — manuel
+  dealsClosed: number | null; // RDV closés attribués à ce post — manuel
+  source: string; // "manual" | "instagram" | "youtube"
   externalId: string | null;
   createdAt: string;
 };

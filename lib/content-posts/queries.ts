@@ -3,6 +3,7 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { contentPosts } from "@/db/schema";
 
+import type { ContentPostCommercialStatsInput } from "./schema";
 import type { ContentPostRow } from "./types";
 
 function toRow(row: typeof contentPosts.$inferSelect): ContentPostRow {
@@ -19,6 +20,8 @@ function toRow(row: typeof contentPosts.$inferSelect): ContentPostRow {
     shares: row.shares,
     clicks: row.clicks,
     leads: row.leads,
+    bookings: row.bookings,
+    dealsClosed: row.dealsClosed,
     source: row.source,
     externalId: row.externalId,
     createdAt: row.createdAt.toISOString(),
@@ -67,4 +70,21 @@ export async function getPostLeadsSumByMonth(userId: string, year: number): Prom
     .groupBy(sql`extract(month from ${contentPosts.publishedAt})`);
 
   return Object.fromEntries(rows.map((row) => [row.month, row.leads]));
+}
+
+// The one write path onto a synced (non-"manual") row — matched by
+// (userId, source, externalId), the same unique index the sync upsert uses
+// (contentPosts_user_source_external_idx), so the caller never needs the
+// row's own id. Only ever touches bookings/dealsClosed — see
+// db/schema.ts's contentPosts comment.
+export async function updateContentPostCommercialStats(
+  userId: string,
+  source: string,
+  externalId: string,
+  data: ContentPostCommercialStatsInput
+): Promise<void> {
+  await db
+    .update(contentPosts)
+    .set(data)
+    .where(and(eq(contentPosts.userId, userId), eq(contentPosts.source, source), eq(contentPosts.externalId, externalId)));
 }

@@ -169,7 +169,12 @@ async function buildContentData(ctx: LeverAgentDataContext): Promise<LeverAgentD
   const recent = allPosts.slice(0, 3);
   const recentLines =
     recent.length > 0
-      ? recent.map((p) => `- ${p.title} (${p.platform}, ${p.publishedAt}) : ${p.views} vues, ${p.clicks ?? 0} clics, ${p.leads ?? 0} leads.`).join("\n")
+      ? recent
+          .map(
+            (p) =>
+              `- ${p.title} (${p.platform}, ${p.publishedAt}) : ${p.views} vues, ${p.clicks ?? 0} clics, ${p.leads ?? 0} leads${p.bookings !== null ? `, ${p.bookings} RDV bookés` : ""}${p.dealsClosed !== null ? `, ${p.dealsClosed} RDV closés` : ""}.`
+          )
+          .join("\n")
       : "Aucun post enregistré pour l'instant.";
 
   // Worst-performing metric (if any) drives the gap badge, same "headline"

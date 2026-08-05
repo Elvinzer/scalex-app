@@ -17,6 +17,8 @@ function makePost(overrides: Partial<ContentPostRow>): ContentPostRow {
     shares: null,
     clicks: null,
     leads: null,
+    bookings: null,
+    dealsClosed: null,
     source: "instagram",
     externalId: "media-1",
     createdAt: "2026-01-01T00:00:00.000Z",

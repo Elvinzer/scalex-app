@@ -1,8 +1,9 @@
 "use client";
 
 import { MonitorPlay } from "lucide-react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
+import { updatePostCommercialStats } from "@/app/(app)/acquisition/contenu/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
@@ -34,8 +35,37 @@ function formatSignedStat(value: number | null): string {
   return `${value >= 0 ? "+" : ""}${NUMBER_FORMAT.format(value)}`;
 }
 
-export function YoutubeVideoDetailDialog({ insight, trigger }: { insight: YoutubeVideoInsightRow; trigger: React.ReactNode }) {
+export function YoutubeVideoDetailDialog({
+  insight,
+  bookings,
+  dealsClosed,
+  trigger,
+}: {
+  insight: YoutubeVideoInsightRow;
+  bookings: number | null;
+  dealsClosed: number | null;
+  trigger: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
+  const [bookingsInput, setBookingsInput] = useState(bookings === null ? "" : String(bookings));
+  const [dealsClosedInput, setDealsClosedInput] = useState(dealsClosed === null ? "" : String(dealsClosed));
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleCommercialStatsBlur() {
+    const parsedBookings = bookingsInput === "" ? null : Number(bookingsInput);
+    const parsedDealsClosed = dealsClosedInput === "" ? null : Number(dealsClosedInput);
+    if (parsedBookings === bookings && parsedDealsClosed === dealsClosed) return;
+
+    setError(null);
+    startTransition(async () => {
+      const result = await updatePostCommercialStats("youtube", insight.videoId, {
+        bookings: parsedBookings,
+        dealsClosed: parsedDealsClosed,
+      });
+      if (result.error) setError(result.error);
+    });
+  }
 
   const netSubscribers =
     insight.subscribersGained !== null && insight.subscribersLost !== null ? insight.subscribersGained - insight.subscribersLost : null;
@@ -70,6 +100,40 @@ export function YoutubeVideoDetailDialog({ insight, trigger }: { insight: Youtub
               <p className="mt-1 font-display text-lg font-bold tabular-nums">{stat.value}</p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Suivi commercial (manuel)</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            YouTube n&apos;expose aucune donnée de RDV — renseigne-les ici pour cette vidéo.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-muted-foreground">RDV bookés</span>
+              <input
+                type="number"
+                min={0}
+                value={bookingsInput}
+                onChange={(event) => setBookingsInput(event.target.value)}
+                onBlur={handleCommercialStatsBlur}
+                disabled={isPending}
+                className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none tabular-nums focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-muted-foreground">RDV closés</span>
+              <input
+                type="number"
+                min={0}
+                value={dealsClosedInput}
+                onChange={(event) => setDealsClosedInput(event.target.value)}
+                onBlur={handleCommercialStatsBlur}
+                disabled={isPending}
+                className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none tabular-nums focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+              />
+            </label>
+          </div>
+          {error && <p className="mt-2 text-sm text-state-critical">{error}</p>}
         </div>
 
         <Button asChild variant="outline" className="mt-4">

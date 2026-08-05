@@ -30,6 +30,7 @@ type ContenuViewProps = {
   instagramSyncStatus: string | null;
   instagramSyncCompletedAt: Date | null;
   youtubeVideos: YoutubeVideoInsightRow[];
+  youtubeCommercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
   youtubeConnected: boolean;
   youtubeChannelTitle: string | null;
   youtubeSyncStatus: string | null;
@@ -52,6 +53,7 @@ export function ContenuView({
   instagramSyncStatus,
   instagramSyncCompletedAt,
   youtubeVideos,
+  youtubeCommercialStats,
   youtubeConnected,
   youtubeChannelTitle,
   youtubeSyncStatus,
@@ -126,6 +128,7 @@ export function ContenuView({
           subscriberCount={youtubeSubscriberCount}
           subscriptionActive={subscriptionActive}
           videos={youtubeVideos}
+          commercialStats={youtubeCommercialStats}
           period={period}
           onPeriodChange={setPeriod}
         />
@@ -266,6 +269,7 @@ function YoutubePanel({
   subscriberCount,
   subscriptionActive,
   videos,
+  commercialStats,
   period,
   onPeriodChange,
 }: {
@@ -276,6 +280,7 @@ function YoutubePanel({
   subscriberCount: number | null;
   subscriptionActive: boolean;
   videos: YoutubeVideoInsightRow[];
+  commercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
   period: DateFilterKey;
   onPeriodChange: (key: DateFilterKey) => void;
 }) {
@@ -330,7 +335,7 @@ function YoutubePanel({
             </div>
           </div>
 
-          <YoutubeVideosTable videos={videos} period={period} format={format} />
+          <YoutubeVideosTable videos={videos} commercialStats={commercialStats} period={period} format={format} />
         </>
       )}
     </div>

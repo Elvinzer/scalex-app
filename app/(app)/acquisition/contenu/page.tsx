@@ -66,6 +66,18 @@ export default async function ContenuPage({
 
   const youtubeVideos = Array.from(youtubeInsights.values());
 
+  // Keyed by videoId (== content_posts.externalId for source="youtube",
+  // see lib/youtube/backfill.ts) — the manual bookings/dealsClosed entered
+  // on the read-only-otherwise youtube_video_insights-driven table below
+  // actually live on the matching content_posts row (the platform-shared
+  // table lib/diagnostic/content-metrics.ts aggregates), not a new column
+  // on youtube_video_insights itself.
+  const youtubeCommercialStats = new Map(
+    posts
+      .filter((post) => post.source === "youtube" && post.externalId)
+      .map((post) => [post.externalId as string, { bookings: post.bookings, dealsClosed: post.dealsClosed }])
+  );
+
   const stateText =
     avgClickRate !== null
       ? `Ton taux de clic moyen est de ${formatPercent(avgClickRate)} ce mois-ci.`
@@ -109,6 +121,7 @@ export default async function ContenuPage({
         instagramSyncStatus={instagramConnection?.initialSyncStatus ?? null}
         instagramSyncCompletedAt={instagramConnection?.initialSyncCompletedAt ?? null}
         youtubeVideos={youtubeVideos}
+        youtubeCommercialStats={youtubeCommercialStats}
         youtubeConnected={youtubeConnected}
         youtubeChannelTitle={youtubeConnection?.channelTitle ?? null}
         youtubeSyncStatus={youtubeConnection?.initialSyncStatus ?? null}

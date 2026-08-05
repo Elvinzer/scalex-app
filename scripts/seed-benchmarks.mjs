@@ -31,6 +31,16 @@ const GLOBAL = {
   // sector-specific data source exists yet.
   content_click_rate: 0.015,
   content_lead_rate: 0.3,
+  // Content -> pipeline mini-funnel (views -> RDV bookés -> RDV closés,
+  // lib/diagnostic/content-metrics.ts) — first-pass calibration, no real
+  // cross-user data source exists yet, adjustable here without a redeploy.
+  // content_booking_rate is deliberately far below content_click_rate:
+  // booking a call is a much bigger commitment than a click. content_close_rate
+  // reuses the same 0.3 as the sales cascade's own closingRate below — no
+  // reason a content-sourced RDV should structurally close differently
+  // once it's actually booked.
+  content_booking_rate: 0.005,
+  content_close_rate: 0.3,
   // Pipeline Kanban (leads travaillés -> closés, lib/diagnostic/pipeline-metrics.ts)
   // — a wider funnel than closingRate (which starts from calls attended,
   // not raw leads), so deliberately lower. No real cross-user data exists

@@ -919,6 +919,13 @@ export const diagnosticMetricEnum = pgEnum("diagnostic_metric", [
   // 5-stage sales cascade above, see lib/content-posts/rates.ts.
   "content_click_rate",
   "content_lead_rate",
+  // Content -> pipeline mini-funnel (views -> RDV bookés -> RDV closés,
+  // from content_posts.bookings/dealsClosed, manual entry) — see
+  // lib/diagnostic/content-metrics.ts. Distinct from content_lead_rate
+  // above: this tracks calls actually booked/closed off a piece of
+  // content, not a generic "lead" click-through.
+  "content_booking_rate",
+  "content_close_rate",
   // Pipeline Kanban (leads travaillés -> closés) — a different denominator
   // than closingRate above (which starts from calls attended, not leads
   // entering the pipeline), see lib/diagnostic/pipeline-metrics.ts.
@@ -970,12 +977,23 @@ export const contentPosts = pgTable(
     // click count), so this stays null for every synced Instagram row.
     clicks: integer("clicks"),
     leads: integer("leads"),
-    // "manual" | "instagram" — mirrors salesCalls.source's multi-source
-    // pattern. externalId is the Instagram media id when source="instagram"
-    // (points at instagram_post_insights.mediaId), null for manual rows.
-    // Rows with source != "manual" are never hand-edited/deleted (enforced
-    // in lib/content-posts/queries.ts, not just hidden in the UI) — a resync
-    // upserts them instead.
+    // RDV bookés / closés attribués à ce post — manual entry only (no API
+    // exposes this), narrow exception to the "never hand-edited" rule below:
+    // the sync upsert (lib/youtube/backfill.ts, lib/instagram/backfill.ts)
+    // deliberately excludes these two columns from its `set:` clause, so a
+    // resync never overwrites what's entered here. See
+    // lib/diagnostic/content-metrics.ts for the content_booking_rate/
+    // content_close_rate metrics built from them.
+    bookings: integer("bookings"),
+    dealsClosed: integer("deals_closed"),
+    // "manual" | "instagram" | "youtube" — mirrors salesCalls.source's
+    // multi-source pattern. externalId is the platform's own id
+    // (instagram_post_insights.mediaId / youtube_video_insights.videoId)
+    // when source != "manual", null for manual rows. Every OTHER field on a
+    // synced (non-"manual") row is never hand-edited/deleted (enforced in
+    // lib/content-posts/queries.ts, not just hidden in the UI) — a resync
+    // upserts them instead; bookings/dealsClosed above are the sole
+    // exception.
     source: text("source").notNull().default("manual"),
     externalId: text("external_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

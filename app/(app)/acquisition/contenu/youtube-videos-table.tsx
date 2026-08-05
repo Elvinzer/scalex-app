@@ -26,6 +26,8 @@ const EXPLANATIONS = {
     "Pourcentage moyen de la vidéo regardé par les spectateurs — ce que YouTube utilise pour juger si une vidéo mérite d'être recommandée, avec le watch time. La couleur compare cette vidéo à la médiane de tes autres vidéos du même format (Shorts vs. vidéos longues, si un filtre de format est actif — leur rétention n'est pas sur la même échelle) : vert au-dessus, gris dans la moyenne, rouge en dessous — YouTube recommande lui-même de comparer une vidéo à tes uploads récents plutôt qu'à un seuil absolu.",
   watchTime: "Temps de visionnage total cumulé sur cette vidéo, en minutes.",
   abonnes: "Abonnés gagnés moins abonnés perdus, générés directement par cette vidéo, remonté par YouTube.",
+  bookings: "Nombre de RDV bookés attribués à cette vidéo — saisie manuelle, aucune donnée YouTube ne l'expose. Clique sur une vidéo pour la renseigner.",
+  dealsClosed: "Nombre de RDV issus de cette vidéo qui se sont conclus par une vente — saisie manuelle. Clique sur une vidéo pour la renseigner.",
 } as const;
 
 const TIER_TEXT_CLASS: Record<VideoPerformanceTier, string> = {
@@ -123,10 +125,12 @@ function TopVideosPanel({ videos, format }: { videos: YoutubeVideoInsightRow[]; 
 
 export function YoutubeVideosTable({
   videos,
+  commercialStats,
   period,
   format,
 }: {
   videos: YoutubeVideoInsightRow[];
+  commercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
   period: DateFilterKey;
   format: VideoFormat;
 }) {
@@ -254,6 +258,18 @@ export function YoutubeVideosTable({
                     <InfoPopover text={EXPLANATIONS.abonnes} />
                   </div>
                 </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">RDV bookés</span>
+                    <InfoPopover text={EXPLANATIONS.bookings} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">RDV closés</span>
+                    <InfoPopover text={EXPLANATIONS.dealsClosed} />
+                  </div>
+                </th>
                 <th className="p-3" />
               </tr>
             </thead>
@@ -263,6 +279,7 @@ export function YoutubeVideosTable({
                 const tier = comparisons.get(video.videoId)?.tier;
                 const netSubscribers =
                   video.subscribersGained !== null && video.subscribersLost !== null ? video.subscribersGained - video.subscribersLost : null;
+                const stats = commercialStats.get(video.videoId) ?? { bookings: null, dealsClosed: null };
 
                 return (
                   <tr key={video.id} className="border-b border-border last:border-0">
@@ -303,10 +320,18 @@ export function YoutubeVideosTable({
                     <td className={cn("p-3 text-right tabular-nums", netSubscribers === null && "text-muted-foreground")}>
                       {netSubscribers === null ? "—" : `${netSubscribers >= 0 ? "+" : ""}${NUMBER_FORMAT.format(netSubscribers)}`}
                     </td>
+                    <td className={cn("p-3 text-right tabular-nums", stats.bookings === null && "text-muted-foreground")}>
+                      {stats.bookings === null ? "—" : NUMBER_FORMAT.format(stats.bookings)}
+                    </td>
+                    <td className={cn("p-3 text-right tabular-nums", stats.dealsClosed === null && "text-muted-foreground")}>
+                      {stats.dealsClosed === null ? "—" : NUMBER_FORMAT.format(stats.dealsClosed)}
+                    </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">
                         <YoutubeVideoDetailDialog
                           insight={video}
+                          bookings={stats.bookings}
+                          dealsClosed={stats.dealsClosed}
                           trigger={
                             <Button type="button" variant="ghost" size="icon-sm" aria-label="Voir le détail">
                               <MonitorPlay className="size-3.5" />

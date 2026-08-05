@@ -37,6 +37,10 @@ export function adviceFor(key: string, statKey: string | undefined, currentPerce
       return `Ton taux de clic sur ton contenu est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Le hook ou l'accroche ne retient pas assez l'attention. ${agentName} peut retravailler tes accroches.`;
     case "content_lead_rate":
       return `Ton taux de conversion clic → lead est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Ta landing page ou ton lead magnet ne convertit pas assez. ${agentName} peut retravailler ce tunnel.`;
+    case "content_booking_rate":
+      return `Ton taux de RDV bookés depuis ton contenu est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Ton call-to-action ou l'offre en fin de vidéo ne convertit pas assez de viewers en RDV. ${agentName} peut retravailler ta conclusion.`;
+    case "content_close_rate":
+      return `Ton taux de closing des RDV issus du contenu est à ${currentPercent}% (benchmark ${benchmarkPercent}%). Ces RDV arrivent peut-être moins qualifiés qu'un autre canal. ${agentName} peut t'aider à mieux les pré-qualifier avant l'appel.`;
     default:
       return `Ton taux est à ${currentPercent}% (benchmark ${benchmarkPercent}%). ${agentName} peut t'aider à identifier quoi corriger.`;
   }
