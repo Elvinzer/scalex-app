@@ -94,8 +94,6 @@ Avant de dire qu'une tâche est terminée :
   Sentry, ou messages d'erreur renvoyés au client
 - Dépendances : `npm audit` avant chaque ajout de package non trivial ; pas de package
   peu maintenu ou sans historique clair dans le flux BYOK/paiement
-- Toute nouvelle route ou Server Action qui touche à l'auth, aux paiements ou à la clé
-  Anthropic suit la règle déjà en place : proposer un plan avant d'éditer
 
 ## Workflow Git (on est 2, dont 1 non-technique)
 - Phase init (pas encore d'utilisateurs réels) : tout se passe sur `main`, commits directs,
