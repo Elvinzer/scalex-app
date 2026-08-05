@@ -345,12 +345,13 @@ export function AppSidebar({
 
   return (
     <>
-      {/* Top bar — every breakpoint now (used to be mobile-only, back when
-          the wordmark + profile both lived inside the sidebar itself). The
-          hamburger stays lg:hidden since the sidebar below is permanently
-          visible at that size, no trigger needed. Logo sits at h-14's
-          vertical center via items-center; profile is pinned far right via
-          ml-auto — both live ONLY here now, removed from the sidebar. */}
+      {/* Top bar — every breakpoint now (used to be mobile-only). Spans the
+          full width but the sidebar (z-40) draws over its left 256px on lg,
+          so it visually starts at the sidebar's right edge. The wordmark
+          here is lg:hidden for exactly that reason — on desktop the logo
+          lives in the sidebar's own h-14 row below, which is aligned to
+          this bar's midline; on mobile the sidebar is off-canvas, so the
+          bar carries the wordmark itself. Profile is pinned far right. */}
       <header
         className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 px-4 text-mist shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:px-6"
         style={{ background: "var(--gradient-dark)" }}
@@ -363,8 +364,8 @@ export function AppSidebar({
         >
           <Menu className="size-5" />
         </button>
-        <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
-          <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-7 w-auto lg:h-8" />
+        <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80 lg:hidden">
+          <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-7 w-auto" />
         </Link>
         <div className="ml-auto min-w-0">
           <ProfileMenu
@@ -390,29 +391,35 @@ export function AppSidebar({
         />
       )}
 
-      {/* Starts below the header (top-14) at every breakpoint now — the
-          header above is permanent, not just a mobile overlay trigger
-          anymore, so the sidebar no longer needs its own top clearance for
-          a logo row (removed, lives in the header now). */}
+      {/* Full height (inset-y-0), unchanged from before the top bar existed
+          — it deliberately overlaps the header's left 256px rather than
+          starting below it, so the dark rail runs edge-to-edge with no gap
+          at the bottom. */}
       <aside
         className={cn(
-          "fixed top-14 bottom-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-hidden px-3 py-5 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-hidden px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ background: "var(--gradient-dark)" }}
       >
-        <div className="flex justify-end pb-3 lg:hidden">
+        {/* h-14 mirrors the top bar's own height, so the wordmark's vertical
+            center lands exactly on that bar's midline (28px) — the "logo
+            centré à la hauteur du milieu du menu horizontal" ask. */}
+        <div className="flex h-14 shrink-0 items-center justify-between px-3">
+          <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
+            <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
+          </Link>
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
             aria-label="Fermer le menu"
-            className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/70 transition-colors hover:bg-white/10"
+            className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/70 transition-colors hover:bg-white/10 lg:hidden"
           >
             <X className="size-4.5" />
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+        <nav className="flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto overscroll-contain pt-6">
           {visibleTopEntries.map((entry) => (
             <Fragment key={entry.href}>
               {/* Marks Copilote as a distinct space (action/chat) from the
