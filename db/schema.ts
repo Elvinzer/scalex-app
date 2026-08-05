@@ -702,6 +702,14 @@ export const youtubeVideoInsights = pgTable(
     // metric as content_posts.clicks (an outbound link click) — see
     // YOUTUBE_ORGANIC_CLICKS_AVAILABLE in lib/youtube/protocol.ts.
     impressionsClickThroughRate: real("impressions_click_through_rate"),
+    // "public" | "unlisted" | "private", straight from the Data API's
+    // status.privacyStatus. Only "public" videos are surfaced in
+    // /acquisition/contenu — a private or unlisted upload isn't part of the
+    // channel's public content performance. Nullable because rows synced
+    // before this column existed have no value yet: those are treated as
+    // public (see isPublicVideo in lib/youtube/format.ts) so an existing
+    // library doesn't vanish from the UI until its next resync.
+    privacyStatus: text("privacy_status"),
     // Full API response passthrough — future-proofs any metric not yet
     // promoted to its own column, and is the audit trail if the API surface
     // shifts (see protocol.ts's file-header disclaimer).

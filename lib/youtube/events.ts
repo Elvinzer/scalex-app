@@ -11,6 +11,10 @@ export type NormalizedYoutubeVideo = {
   thumbnailUrl: string | null;
   publishedAt: Date;
   durationSeconds: number | null;
+  // "public" | "unlisted" | "private" — null when the Data API didn't return
+  // a status for this id. Only public videos are surfaced in the UI, see
+  // isPublicVideo in lib/youtube/format.ts.
+  privacyStatus: string | null;
   // Projection field for content_posts — see backfill.ts.
   views: number;
   // Full metric set for youtube_video_insights. No impressions/CTR fields —
@@ -35,7 +39,8 @@ function metric(metrics: VideoAnalyticsMetrics, key: string): number | null {
 export function normalizeVideo(
   video: RawYoutubeVideo,
   metrics: VideoAnalyticsMetrics,
-  durationSeconds: number | null
+  durationSeconds: number | null,
+  privacyStatus: string | null
 ): NormalizedYoutubeVideo {
   return {
     videoId: video.id,
@@ -43,6 +48,7 @@ export function normalizeVideo(
     thumbnailUrl: video.thumbnailUrl,
     publishedAt: new Date(video.publishedAt),
     durationSeconds,
+    privacyStatus,
     views: metric(metrics, "views") ?? 0,
     insights: {
       likes: metric(metrics, "likes"),

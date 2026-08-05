@@ -23,3 +23,12 @@ export function matchesFormat(video: Pick<YoutubeVideoInsightRow, "durationSecon
   if (format === "all") return true;
   return isShortFormat(video.durationSeconds) === (format === "short");
 }
+
+// Private and unlisted uploads aren't part of a channel's public content
+// performance, so they're excluded from /acquisition/contenu entirely.
+// A null status means the row predates the privacy_status column (see
+// db/schema.ts) — treated as public so an existing library doesn't vanish
+// from the UI before its next resync backfills the real value.
+export function isPublicVideo(video: Pick<YoutubeVideoInsightRow, "privacyStatus">): boolean {
+  return video.privacyStatus === null || video.privacyStatus === "public";
+}

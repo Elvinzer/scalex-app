@@ -112,35 +112,31 @@ const topEntries: LinkEntry[] = [
   { type: "link", href: "/copilote", label: "Copilote", icon: MessageCircle, permission: "diagnostic" },
 ];
 
-// SECONDAIRE — real, permission-gated content pages (same "business"/
-// "dashboard" permissions the pages themselves check) that don't get a slot
-// in the primary rail because they're occasional destinations, not part of
-// the weekly value loop. Rendered as their own muted section in the sidebar
-// body (below the score badge) rather than hidden behind the avatar — an
-// avatar/profile trigger reads as "my account", not "two more app pages",
-// which is what made the old flat profile menu (business pages + settings +
-// admin all in one list) feel arbitrary.
-const secondaryEntries: LinkEntry[] = [
-  { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
-  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
-];
-
 // BARRE DU HAUT — pages promoted into the horizontal top bar, rendered at
 // the far left of its *visible* area (the sidebar draws over the header's
 // first 256px on lg, hence the header's lg:pl-[17rem]). Deliberately a
-// separate list from topEntries: this strip is a shortcut to a page buried
-// as a pillar sub-tab (/ventes/rdv lives under Vente's PillarTabs), not a
-// second copy of the sidebar rail. Hidden below lg, where the bar already
-// carries the hamburger + wordmark + profile and has no room left.
+// separate list from topEntries: this strip holds occasional destinations
+// that don't earn a slot in the primary rail, not a second copy of it.
+// Rendez-vous stays first (explicitly asked to sit far left).
+//
+// The bar itself is desktop-only (no room below lg once the hamburger,
+// wordmark and profile are in), so these same entries are ALSO rendered
+// inside the mobile drawer — see the lg:hidden block in the sidebar nav.
+// Without that, moving a page here would silently make it unreachable on
+// mobile.
 const topBarEntries: LinkEntry[] = [
   { type: "link", href: "/ventes/rdv", label: "Rendez-vous", icon: CalendarClock, permission: "ventes:rdv" },
+  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
 ];
 
 // COMPTE — account-level config behind the avatar/profile dropdown
-// (ProfileMenu). No `permission` field: owner-only, same gate as each
-// page's own requireOwnerOrRedirect. This dropdown is now purely "my
-// account", not a catch-all for anything that didn't fit elsewhere.
+// (ProfileMenu). Mon business sits here too: it's the account's own
+// identity/offer setup, which reads as "my account" rather than as one of
+// the weekly value-loop pages. It keeps its "business" permission (the
+// others have none — owner-only, same gate as each page's own
+// requireOwnerOrRedirect).
 const profileMenuEntries: LinkEntry[] = [
+  { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
   { type: "link", href: "/parrainage", label: "Parrainage", icon: Gift },
@@ -198,24 +194,6 @@ function NavLink({
   );
 }
 
-function SecondaryLink({ entry, pathname }: { entry: LinkEntry; pathname: string }) {
-  const Icon = entry.icon;
-  const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
-
-  return (
-    <Link
-      href={entry.href}
-      className={cn(
-        "flex items-center gap-2.5 rounded-[var(--radius-control)] py-2 pl-3 pr-3 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
-        active ? "bg-white/5 text-mist" : "text-mist/55 hover:bg-mist/10 hover:text-mist/85"
-      )}
-    >
-      <Icon className="size-3.5" />
-      {entry.label}
-    </Link>
-  );
-}
-
 function ProfileMenu({
   businessName,
   displayName,
@@ -242,24 +220,24 @@ function ProfileMenu({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-1.5 text-left transition-colors hover:bg-mist/10"
+            className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted"
           >
             {avatarUrl ? (
-              <div className="relative size-7 shrink-0 overflow-hidden rounded-full">
-                <Image src={avatarUrl} alt="" fill sizes="28px" className="object-cover" />
+              <div className="relative size-8 shrink-0 overflow-hidden rounded-full">
+                <Image src={avatarUrl} alt="" fill sizes="32px" className="object-cover" />
               </div>
             ) : (
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-on-dark">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
                 {initial}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12.5px] font-bold tracking-[-0.005em] text-mist/90">
+              <p className="truncate text-[12.5px] font-bold tracking-[-0.005em] text-foreground">
                 {displayName || businessName || "Mon compte"}
               </p>
-              <p className="truncate text-[11px] tracking-[-0.005em] text-mist/50">{email}</p>
+              <p className="truncate text-[11px] tracking-[-0.005em] text-muted-foreground">{email}</p>
             </div>
-            <ChevronsUpDown className="size-3.5 shrink-0 text-mist/40" />
+            <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
           </button>
         </PopoverTrigger>
         <PopoverContent side="bottom" align="end" sideOffset={10} className="w-56 p-1.5">
@@ -362,7 +340,6 @@ export function AppSidebar({
   }
 
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
-  const visibleSecondaryEntries = secondaryEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const visibleTopBarEntries = topBarEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
@@ -377,19 +354,21 @@ export function AppSidebar({
           h-18 row below, aligned to this bar's midline; on mobile the
           sidebar is off-canvas, so the bar carries the wordmark itself. */}
       <header
-        className="fixed inset-x-0 top-0 z-30 flex h-18 items-center gap-3 border-b border-[color:var(--surface-dark)] px-4 text-mist shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:pr-6 lg:pl-[17rem]"
-        style={{ background: "var(--gradient-dark)" }}
+        className="fixed inset-x-0 top-0 z-30 flex h-18 items-center gap-3 border-b border-[color:var(--surface-dark)] bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:pr-6 lg:pl-[17rem]"
       >
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Ouvrir le menu"
-          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist transition-colors hover:bg-white/10 lg:hidden"
+          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-foreground transition-colors hover:bg-muted lg:hidden"
         >
           <Menu className="size-5" />
         </button>
+        {/* -light is the dark-ink wordmark (the default one renders "Scale"
+            in white, invisible on this now-white bar). The sidebar below
+            keeps the white-ink default — it's still a dark surface. */}
         <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80 lg:hidden">
-          <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-7 w-auto" />
+          <Image src="/scalex-wordmark-light.png" alt="Scale X" width={398} height={100} priority className="h-7 w-auto" />
         </Link>
 
         {visibleTopBarEntries.map((entry) => {
@@ -401,7 +380,7 @@ export function AppSidebar({
               href={entry.href}
               className={cn(
                 "hidden items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] transition-colors lg:flex",
-                active ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]" : "text-mist/80 hover:bg-mist/10 hover:text-white"
+                active ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <Icon className="size-4" />
@@ -475,27 +454,14 @@ export function AppSidebar({
           ))}
         </nav>
 
-        {scaleScore && (
-          <div className="px-3 pt-3">
-            <ScaleScoreBadge
-              scaleScore={scaleScore}
-              scaleScoreGapText={scaleScoreGapText}
-              scaleScoreMonthNote={scaleScoreMonthNote}
-              delta7d={scaleScoreDelta7d}
-              delta30d={scaleScoreDelta30d}
-              sparkline={scaleScoreSparkline}
-              currentMonthlyRevenue={currentMonthlyRevenue}
-              potentialMonthlyRevenue={potentialMonthlyRevenue}
-            />
-          </div>
-        )}
-
-        {visibleSecondaryEntries.length > 0 && (
-          <div className="px-3 pt-4">
-            <div className="h-px bg-white/10" />
-            <nav className="flex flex-col gap-0.5 pt-3">
-              {visibleSecondaryEntries.map((entry) => (
-                <SecondaryLink key={entry.href} entry={entry} pathname={pathname} />
+        {/* Mobile mirror of the top bar: that bar is desktop-only, so
+            without this its entries would be unreachable on a phone. */}
+        {visibleTopBarEntries.length > 0 && (
+          <div className="px-0 pt-4 lg:hidden">
+            <div className="mx-3 h-px bg-white/10" />
+            <nav className="flex flex-col gap-1 pt-3">
+              {visibleTopBarEntries.map((entry) => (
+                <NavLink key={entry.href} entry={entry} pathname={pathname} indented={false} />
               ))}
             </nav>
           </div>
@@ -510,6 +476,23 @@ export function AppSidebar({
               <ShieldCheck className="size-3.5" />
               {adminEntry.label}
             </Link>
+          </div>
+        )}
+
+        {/* Pinned last, below every navigable entry — it's a readout, not a
+            destination, so it sits under the pages rather than between them. */}
+        {scaleScore && (
+          <div className="px-3 pt-4">
+            <ScaleScoreBadge
+              scaleScore={scaleScore}
+              scaleScoreGapText={scaleScoreGapText}
+              scaleScoreMonthNote={scaleScoreMonthNote}
+              delta7d={scaleScoreDelta7d}
+              delta30d={scaleScoreDelta30d}
+              sparkline={scaleScoreSparkline}
+              currentMonthlyRevenue={currentMonthlyRevenue}
+              potentialMonthlyRevenue={potentialMonthlyRevenue}
+            />
           </div>
         )}
       </aside>

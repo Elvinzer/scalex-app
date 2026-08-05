@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { contentPosts, youtubeVideoInsights } from "@/db/schema";
 
-import { fetchVideoAnalytics, fetchVideoDurations, listUploadedVideos } from "./client";
+import { fetchVideoAnalytics, fetchVideoDetails, listUploadedVideos } from "./client";
 import { normalizeVideo } from "./events";
 import { YOUTUBE_BACKFILL_TIME_BUDGET_MS } from "./protocol";
 
@@ -45,9 +45,9 @@ export async function backfillYoutubeVideos(
   // Instagram) — see protocol.ts's YOUTUBE_ANALYTICS_BATCH_SIZE, the
   // deliberate architectural difference this API surface allows.
   const videoIds = scoped.map((video) => video.id);
-  const [analytics, durations] = await Promise.all([
+  const [analytics, { durations, privacyStatuses }] = await Promise.all([
     fetchVideoAnalytics(accessToken, videoIds, channelPublishedAt),
-    fetchVideoDurations(accessToken, videoIds),
+    fetchVideoDetails(accessToken, videoIds),
   ]);
 
   const startedAt = Date.now();
@@ -66,7 +66,7 @@ export async function backfillYoutubeVideos(
       break;
     }
     try {
-      const normalized = normalizeVideo(item, analytics.get(item.id) ?? {}, durations.get(item.id) ?? null);
+      const normalized = normalizeVideo(item, analytics.get(item.id) ?? {}, durations.get(item.id) ?? null, privacyStatuses.get(item.id) ?? null);
       await processNormalizedVideo(userId, normalized);
       processed += 1;
     } catch (error) {
@@ -103,6 +103,7 @@ async function processNormalizedVideo(userId: string, normalized: ReturnType<typ
       averageViewPercentage: normalized.insights.averageViewPercentage,
       subscribersGained: normalized.insights.subscribersGained,
       subscribersLost: normalized.insights.subscribersLost,
+      privacyStatus: normalized.privacyStatus,
       rawInsights: raw,
       lastFetchedAt: new Date(),
     })
@@ -121,6 +122,7 @@ async function processNormalizedVideo(userId: string, normalized: ReturnType<typ
         averageViewPercentage: normalized.insights.averageViewPercentage,
         subscribersGained: normalized.insights.subscribersGained,
         subscribersLost: normalized.insights.subscribersLost,
+        privacyStatus: normalized.privacyStatus,
         rawInsights: raw,
         lastFetchedAt: new Date(),
       },

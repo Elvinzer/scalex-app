@@ -276,17 +276,23 @@ function parseIso8601Duration(value: string | null): number | null {
 }
 
 export type VideoDurations = Map<string, number>; // videoId -> seconds
+export type VideoPrivacyStatuses = Map<string, string>; // videoId -> "public" | "unlisted" | "private"
+export type VideoDetails = { durations: VideoDurations; privacyStatuses: VideoPrivacyStatuses };
 
-// GET /videos?part=contentDetails, batched by 50 ids (the Data API's max per
-// call) — duration isn't exposed on the playlistItems edge, only here.
-export async function fetchVideoDurations(accessToken: string, videoIds: string[]): Promise<VideoDurations> {
-  const result: VideoDurations = new Map();
+// GET /videos?part=contentDetails,status, batched by 50 ids (the Data API's
+// max per call) — neither duration nor privacy status is exposed on the
+// playlistItems edge, only here. Both parts ride the same request: videos.list
+// costs 1 quota unit per call regardless of how many parts are asked for, so
+// privacy status is free compared to a second round of calls.
+export async function fetchVideoDetails(accessToken: string, videoIds: string[]): Promise<VideoDetails> {
+  const durations: VideoDurations = new Map();
+  const privacyStatuses: VideoPrivacyStatuses = new Map();
   const headers = authHeaders(accessToken);
 
   for (let i = 0; i < videoIds.length; i += 50) {
     const chunk = videoIds.slice(i, i + 50);
     const url = new URL(`${YOUTUBE_DATA_API_BASE}/videos`);
-    url.searchParams.set("part", "contentDetails");
+    url.searchParams.set("part", "contentDetails,status");
     url.searchParams.set("id", chunk.join(","));
     try {
       const { status, body } = await request(url, { headers });
@@ -296,14 +302,17 @@ export async function fetchVideoDurations(accessToken: string, videoIds: string[
       for (const raw of items) {
         const item = asRecord(raw);
         const id = str(item?.id);
+        if (!id) continue;
         const duration = parseIso8601Duration(str(asRecord(item?.contentDetails)?.duration));
-        if (id && duration !== null) result.set(id, duration);
+        if (duration !== null) durations.set(id, duration);
+        const privacyStatus = str(asRecord(item?.status)?.privacyStatus);
+        if (privacyStatus) privacyStatuses.set(id, privacyStatus);
       }
     } catch (error) {
-      console.error(`[youtube] fetchVideoDurations chunk starting at ${i} failed, continuing`, error);
+      console.error(`[youtube] fetchVideoDetails chunk starting at ${i} failed, continuing`, error);
     }
   }
-  return result;
+  return { durations, privacyStatuses };
 }
 
 export type VideoAnalyticsMetrics = Record<string, number>;
