@@ -18,11 +18,10 @@ export default async function SetterDetailPage({ params }: { params: Promise<{ s
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:setters");
 
-  const setter = await getSetter(accountId, setterId);
+  const [setter, businessProfile] = await Promise.all([getSetter(accountId, setterId), getBusinessProfile(accountId)]);
   if (!setter) notFound();
 
-  const businessProfile = await getBusinessProfile(accountId);
-  const commissions = await computeSetterCommissions(accountId, setterId, businessProfile.sales.offers);
+  const commissions = await computeSetterCommissions(accountId, setterId, setter.defaultCommissionPct, businessProfile.sales.offers);
 
   return (
     <div className="flex flex-col gap-8">

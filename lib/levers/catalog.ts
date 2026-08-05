@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
 import { db } from "@/db";
@@ -52,30 +53,38 @@ export const TOTAL_LEVER_COUNT_FALLBACK = 19; // used only if the catalog table 
 // /copilote's server-side data fetch to intermittently hang/error against
 // the Postgres pooler — deduping here removes the redundant load instead of
 // just papering over the symptom with a timeout.
-export const getLeversCatalog = cache(async (): Promise<LeverCatalogEntry[]> => {
-  const rows = await db
-    .select()
-    .from(leversCatalog)
-    .where(eq(leversCatalog.isActive, true))
-    .orderBy(asc(leversCatalog.category), asc(leversCatalog.sortOrder));
+const getLeversCatalogCached = unstable_cache(
+  async (): Promise<LeverCatalogEntry[]> => {
+    const rows = await db
+      .select()
+      .from(leversCatalog)
+      .where(eq(leversCatalog.isActive, true))
+      .orderBy(asc(leversCatalog.category), asc(leversCatalog.sortOrder));
 
-  return rows.map((row) => ({
-      id: row.id,
-      leverKey: row.leverKey,
-      label: row.label,
-      category: row.category as LeverCategory,
-      questions: row.questions,
-      readsFromProfile: row.readsFromProfile,
-      benchmarkValue: row.benchmarkValue,
-      benchmarkStatKey: row.benchmarkStatKey,
-      formulaType: row.formulaType,
-      formulaParams: row.formulaParams,
-      effort: row.effort as "faible" | "moyen" | "eleve",
-      sortOrder: row.sortOrder,
-      explanation: row.explanation,
-      estTimeLabel: row.estTimeLabel,
-    }));
-});
+    return rows.map((row) => ({
+        id: row.id,
+        leverKey: row.leverKey,
+        label: row.label,
+        category: row.category as LeverCategory,
+        questions: row.questions,
+        readsFromProfile: row.readsFromProfile,
+        benchmarkValue: row.benchmarkValue,
+        benchmarkStatKey: row.benchmarkStatKey,
+        formulaType: row.formulaType,
+        formulaParams: row.formulaParams,
+        effort: row.effort as "faible" | "moyen" | "eleve",
+        sortOrder: row.sortOrder,
+        explanation: row.explanation,
+        estTimeLabel: row.estTimeLabel,
+      }));
+  },
+  ["levers-catalog"],
+  { revalidate: 3600 }
+);
+
+// unstable_cache-wrapped underneath (seed-script-only data, no in-app
+// writes) on top of the per-request cache() dedup described above.
+export const getLeversCatalog = cache(getLeversCatalogCached);
 
 // The 4 levers explicitly called out in the brief as "already in
 // business_profile, never re-ask" — each resolved from the CLOSEST real

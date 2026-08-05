@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
 import { db } from "@/db";
@@ -22,15 +23,23 @@ export type PriorityRule = {
 // Config data, not code — see db/schema.ts's comment above priorityRules
 // for the params shape expected per condition. cache()-wrapped like
 // getDiagnosticBenchmarks/getLeversCatalog: read by both /diagnostic and
-// /dashboard in the same request.
-export const getPriorityRules = cache(async (): Promise<PriorityRule[]> => {
-  const rows = await db.select().from(priorityRules).where(eq(priorityRules.isActive, true));
+// /dashboard in the same request, and unstable_cache-wrapped underneath
+// (seed-script-only data, no in-app writes) so it's not re-queried from
+// Postgres on every request either.
+const getPriorityRulesCached = unstable_cache(
+  async (): Promise<PriorityRule[]> => {
+    const rows = await db.select().from(priorityRules).where(eq(priorityRules.isActive, true));
 
-  return rows.map((row) => ({
-    id: row.id,
-    condition: row.condition,
-    params: row.params,
-    factor: row.factor,
-    reasonTemplate: row.reasonTemplate,
-  }));
-});
+    return rows.map((row) => ({
+      id: row.id,
+      condition: row.condition,
+      params: row.params,
+      factor: row.factor,
+      reasonTemplate: row.reasonTemplate,
+    }));
+  },
+  ["priority-rules"],
+  { revalidate: 3600 }
+);
+
+export const getPriorityRules = cache(getPriorityRulesCached);

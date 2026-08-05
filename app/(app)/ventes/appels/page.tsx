@@ -66,13 +66,13 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
   const calendlyConnected = Boolean(user?.calendlyConnected);
   const anyConnected = iclosedConnected || calendlyConnected;
 
-  const [iclosedConnection] = iclosedConnected
-    ? await db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
-    : [];
-  const [calendlyConnection] = calendlyConnected
-    ? await db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
-    : [];
-  const [subscriptionActive, calls, setters] = await Promise.all([
+  const [[iclosedConnection], [calendlyConnection], subscriptionActive, calls, setters] = await Promise.all([
+    iclosedConnected
+      ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    calendlyConnected
+      ? db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
     hasActiveSubscription(accountId),
     getSalesCalls(accountId),
     getSetters(accountId),

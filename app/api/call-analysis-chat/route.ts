@@ -5,6 +5,7 @@ import { getAiProvider } from "@/lib/ai-provider";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { buildCallAnalysisPrompt } from "@/lib/call-analysis-prompt-builder";
 import { getClosingVideo } from "@/lib/closing-videos/queries";
+import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -29,6 +30,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Session expirée, reconnecte-toi." }, { status: 401 });
   }
   const userId = data.claims.sub as string;
+  // Per-user, not per-IP: an LLM call, so the thing worth protecting is the
+  // server's shared upstream key/quota, not just request volume.
+  if (isRateLimited(`call-analysis-chat:${userId}`, 20)) {
+    return NextResponse.json({ error: "Trop de messages envoyés, réessaie dans une minute." }, { status: 429 });
+  }
   const access = await requirePermission(userId, "ventes:videos");
   if (!access) {
     return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });

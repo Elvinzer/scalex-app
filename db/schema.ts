@@ -745,6 +745,7 @@ export const leads = pgTable(
   (table) => [
     index("leads_user_stage_idx").on(table.userId, table.stage),
     index("leads_user_created_idx").on(table.userId, table.createdAt),
+    index("leads_setter_idx").on(table.setterId),
   ]
 ).enableRLS();
 
@@ -817,7 +818,11 @@ export const sales = pgTable(
     leadId: uuid("lead_id").references((): AnyPgColumn => leads.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("sales_user_sale_date_idx").on(table.userId, table.saleDate)]
+  (table) => [
+    index("sales_user_sale_date_idx").on(table.userId, table.saleDate),
+    index("sales_setter_idx").on(table.setterId),
+    index("sales_lead_idx").on(table.leadId),
+  ]
 ).enableRLS();
 
 // Attendance is iClosed-driven (webhook lifecycle: a call is booked, then the
@@ -890,6 +895,8 @@ export const salesCalls = pgTable(
   (table) => [
     uniqueIndex("sales_calls_user_iclosed_call_idx").on(table.userId, table.iclosedCallId),
     index("sales_calls_user_scheduled_idx").on(table.userId, table.scheduledAt),
+    index("sales_calls_setter_idx").on(table.setterId),
+    index("sales_calls_sale_idx").on(table.saleId),
   ]
 ).enableRLS();
 
@@ -1031,15 +1038,19 @@ export const leverStarterProgress = pgTable(
 // (no API key needed), so they never go stale if a video is renamed;
 // durationLabel is the one field oEmbed can't provide, so it's curated by
 // hand alongside the URL.
-export const leverResources = pgTable("lever_resources", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  leverKey: text("lever_key").notNull(),
-  youtubeUrl: text("youtube_url").notNull(),
-  durationLabel: text("duration_label"),
-  lang: text("lang").notNull().default("fr"),
-  sortOrder: integer("sort_order").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
-}).enableRLS();
+export const leverResources = pgTable(
+  "lever_resources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leverKey: text("lever_key").notNull(),
+    youtubeUrl: text("youtube_url").notNull(),
+    durationLabel: text("duration_label"),
+    lang: text("lang").notNull().default("fr"),
+    sortOrder: integer("sort_order").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+  },
+  (table) => [index("lever_resources_lever_key_idx").on(table.leverKey)]
+).enableRLS();
 
 // --- Agents spécialisés par levier (Copilote Groq) --------------------------
 // Config data, not code — one row per lever/page-specific agent persona,
@@ -1233,23 +1244,27 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 // own timeline, and this repo has no versioned migrations to ALTER TYPE
 // against (schema changes only go through `db:push`) — validated with Zod at
 // the webhook boundary instead, per CLAUDE.md's external-data rule.
-export const subscriptions = pgTable("subscriptions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .unique()
-    .references(() => users.id, { onDelete: "cascade" }),
-  planId: uuid("plan_id")
-    .notNull()
-    .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
-  stripeCustomerId: text("stripe_customer_id").notNull(),
-  stripeSubscriptionId: text("stripe_subscription_id").unique(),
-  status: text("status").notNull().default("incomplete"),
-  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
-  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-}).enableRLS();
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    planId: uuid("plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
+    stripeCustomerId: text("stripe_customer_id").notNull(),
+    stripeSubscriptionId: text("stripe_subscription_id").unique(),
+    status: text("status").notNull().default("incomplete"),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("subscriptions_plan_idx").on(table.planId)]
+).enableRLS();
 
 // Idempotency ledger for the Stripe billing webhook
 // (app/api/webhooks/stripe-billing/route.ts) — the first Stripe webhook in
@@ -1438,22 +1453,26 @@ export const projectStatus = pgEnum("project_status", ["active", "done"]);
 
 export type ProjectMilestone = { order: number; title: string; done: boolean; doneAt: string | null };
 
-export const projects = pgTable("projects", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  description: text("description").notNull().default(""),
-  // "acquisition" | "vente" | "delivrabilite" | "autre" — plain text, same
-  // convention as leversCatalog.category/diagnostics.category (no real pg
-  // enum exists in this repo for this value set).
-  category: text("category").notNull(),
-  deadline: date("deadline", { mode: "string" }),
-  milestones: jsonb("milestones").notNull().default([]).$type<ProjectMilestone[]>(),
-  status: projectStatus("status").notNull().default("active"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}).enableRLS();
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    // "acquisition" | "vente" | "delivrabilite" | "autre" — plain text, same
+    // convention as leversCatalog.category/diagnostics.category (no real pg
+    // enum exists in this repo for this value set).
+    category: text("category").notNull(),
+    deadline: date("deadline", { mode: "string" }),
+    milestones: jsonb("milestones").notNull().default([]).$type<ProjectMilestone[]>(),
+    status: projectStatus("status").notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("projects_user_idx").on(table.userId)]
+).enableRLS();
 
 // projectId is nullable — most tasks are personal, never touching the
 // journal (see isBusinessImprovement below). onDelete "set null" so

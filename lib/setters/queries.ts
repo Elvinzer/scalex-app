@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { sales, setters } from "@/db/schema";
@@ -51,15 +51,11 @@ export async function updateSetter(
 // definition a validated sale (there's no "draft sale" concept — a lead
 // still in the Kanban has no row here at all), so "never count an
 // unvalidated sale" is structural, not an extra filter.
-export async function computeSetterCommissions(userId: string, setterId: string, offers: Offer[]): Promise<SetterCommissions> {
-  const setter = await db.select().from(setters).where(and(eq(setters.id, setterId), eq(setters.userId, userId))).limit(1);
-  const defaultCommissionPct = setter[0]?.defaultCommissionPct ?? 0;
-
-  const setterSales = await db
-    .select()
-    .from(sales)
-    .where(and(eq(sales.userId, userId), eq(sales.setterId, setterId)));
-
+//
+// defaultCommissionPct is passed in rather than re-queried: every caller
+// already has the SetterRow in hand (getSetter/getSetters), so re-fetching
+// it here was a redundant round-trip on top of the sales query below.
+function buildCommissions(setterSales: (typeof sales.$inferSelect)[], defaultCommissionPct: number, offers: Offer[]): SetterCommissions {
   let commissionPaidEur = 0;
   let commissionUpcomingEur = 0;
   let validatedRevenueEur = 0;
@@ -112,4 +108,42 @@ export async function computeSetterCommissions(userId: string, setterId: string,
     sales: details.sort((a, b) => b.saleDate.localeCompare(a.saleDate)),
     monthly,
   };
+}
+
+// Single-setter detail page (/acquisition/setters/[setterId]).
+export async function computeSetterCommissions(
+  userId: string,
+  setterId: string,
+  defaultCommissionPct: number,
+  offers: Offer[]
+): Promise<SetterCommissions> {
+  const setterSales = await db
+    .select()
+    .from(sales)
+    .where(and(eq(sales.userId, userId), eq(sales.setterId, setterId)));
+  return buildCommissions(setterSales, defaultCommissionPct, offers);
+}
+
+// Setters list page (/acquisition/setters) — one batched `sales` query for
+// every setter instead of computeSetterCommissions called in a loop (that
+// was N separate round-trips, one per setter, each also re-fetching the
+// setter row it already had).
+export async function computeSettersCommissions(userId: string, settersList: SetterRow[], offers: Offer[]): Promise<SetterCommissions[]> {
+  if (settersList.length === 0) return [];
+
+  const setterIds = settersList.map((setter) => setter.id);
+  const allSales = await db
+    .select()
+    .from(sales)
+    .where(and(eq(sales.userId, userId), inArray(sales.setterId, setterIds)));
+
+  const salesBySetterId = new Map<string, (typeof sales.$inferSelect)[]>();
+  for (const sale of allSales) {
+    if (!sale.setterId) continue;
+    const bucket = salesBySetterId.get(sale.setterId) ?? [];
+    bucket.push(sale);
+    salesBySetterId.set(sale.setterId, bucket);
+  }
+
+  return settersList.map((setter) => buildCommissions(salesBySetterId.get(setter.id) ?? [], setter.defaultCommissionPct, offers));
 }

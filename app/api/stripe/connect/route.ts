@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
 import { requireEnv } from "@/lib/utils";
@@ -17,6 +18,9 @@ export async function GET(request: NextRequest) {
   // Owner-only: grants OAuth access to the account's real Stripe payments.
   const access = await requireOwner(data.claims.sub as string);
   if (!access) {
+    return NextResponse.redirect(new URL("/integrations", origin));
+  }
+  if (isRateLimited(`stripe-connect:${access.accountId}`, 10)) {
     return NextResponse.redirect(new URL("/integrations", origin));
   }
 

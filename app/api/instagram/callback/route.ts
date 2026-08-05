@@ -6,6 +6,7 @@ import { instagramConnections, users } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { exchangeCodeForToken, exchangeForLongLivedToken, fetchProfile, InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { inngest, instagramAccountConnected } from "@/lib/inngest/client";
+import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
 import { requireEnv } from "@/lib/utils";
@@ -31,6 +32,9 @@ export async function GET(request: NextRequest) {
   // directly.
   const access = await requireOwner(userId);
   if (!access) {
+    return NextResponse.redirect(new URL("/integrations", origin));
+  }
+  if (isRateLimited(`instagram-callback:${access.accountId}`, 10)) {
     return NextResponse.redirect(new URL("/integrations", origin));
   }
 

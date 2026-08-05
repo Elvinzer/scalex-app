@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { isRateLimited } from "@/lib/rate-limit";
 import { getPlatformStripeClient } from "@/lib/stripe/platform-client";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,6 +19,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-in", origin));
   }
   const userId = data.claims.sub as string;
+  if (isRateLimited(`billing-portal:${userId}`, 10)) {
+    return NextResponse.redirect(billingUrl);
+  }
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user?.stripeCustomerId) {

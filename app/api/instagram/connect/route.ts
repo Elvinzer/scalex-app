@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { INSTAGRAM_AUTHORIZE_URL, INSTAGRAM_OAUTH_SCOPES } from "@/lib/instagram/protocol";
+import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
 import { requireEnv } from "@/lib/utils";
@@ -24,6 +25,9 @@ export async function GET(request: NextRequest) {
   }
   const access = await requireOwner(data.claims.sub as string);
   if (!access) {
+    return NextResponse.redirect(new URL("/integrations", origin));
+  }
+  if (isRateLimited(`instagram-connect:${access.accountId}`, 10)) {
     return NextResponse.redirect(new URL("/integrations", origin));
   }
 

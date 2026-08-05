@@ -11,6 +11,7 @@ import { monthlyMetrics, users } from "@/db/schema";
 import { enrichMapping, groupValuesByMonth } from "@/lib/import/aggregate";
 import { ImportParseError, MAX_FILES_PER_IMPORT, parseImportFile, type ParsedFile } from "@/lib/import/parse";
 import type { AnalyzeSheetResult } from "@/lib/import/schema";
+import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -55,6 +56,13 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Session expirée, reconnecte-toi." }, { status: 401 });
   }
   const userId = data.claims.sub as string;
+  // Per-user: this call spends the account's BYOK Anthropic key (or the
+  // shared fallback), so it's the upstream quota being protected, not just
+  // request volume — a lower ceiling than the chat endpoints since each
+  // call can process multiple files.
+  if (isRateLimited(`import-analyze:${userId}`, 10)) {
+    return NextResponse.json({ error: "Trop d'imports lancés, réessaie dans une minute." }, { status: 429 });
+  }
   const access = await requirePermission(userId, "datas");
   if (!access) {
     return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });

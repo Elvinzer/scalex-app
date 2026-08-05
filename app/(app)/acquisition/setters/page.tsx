@@ -4,7 +4,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
-import { computeSetterCommissions, getSetters } from "@/lib/setters/queries";
+import { computeSettersCommissions, getSetters } from "@/lib/setters/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { AddSetterDialog } from "./add-setter-dialog";
@@ -16,9 +16,7 @@ export default async function SettersPage() {
 
   const [setters, businessProfile] = await Promise.all([getSetters(accountId), getBusinessProfile(accountId)]);
 
-  const summaries = await Promise.all(
-    setters.map((setter) => computeSetterCommissions(accountId, setter.id, businessProfile.sales.offers))
-  );
+  const summaries = await computeSettersCommissions(accountId, setters, businessProfile.sales.offers);
 
   const chatContext: ChatContext = { topicType: "lever", topicKey: "ceo_vision", topicLabel: "Vision", sourcePage: "acquisition_setters" };
   const falcoSkin = resolveFalcoSkin("/acquisition/setters");

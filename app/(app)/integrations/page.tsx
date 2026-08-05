@@ -20,26 +20,26 @@ export default async function IntegrationsPage() {
   const { user } = await getCurrentUser();
   const stripeConnected = Boolean(user?.stripeConnectId);
 
-  const [connection] = stripeConnected
-    ? await db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1)
-    : [];
-
   const iclosedConnected = Boolean(user?.iclosedConnected);
-  const [iclosedConnection] = iclosedConnected
-    ? await db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
-    : [];
-
   const calendlyConnected = Boolean(user?.calendlyConnected);
-  const [calendlyConnection] = calendlyConnected
-    ? await db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
-    : [];
-
   const instagramConnected = Boolean(user?.instagramConnected);
-  const [instagramConnection] = instagramConnected
-    ? await db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
-    : [];
 
-  const subscriptionActive = await hasActiveSubscription(accountId);
+  // 5 independent reads — run together instead of as sequential round-trips.
+  const [[connection], [iclosedConnection], [calendlyConnection], [instagramConnection], subscriptionActive] = await Promise.all([
+    stripeConnected
+      ? db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    iclosedConnected
+      ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    calendlyConnected
+      ? db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    instagramConnected
+      ? db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    hasActiveSubscription(accountId),
+  ]);
 
   return (
     <div className="flex flex-col gap-8">

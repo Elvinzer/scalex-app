@@ -95,13 +95,16 @@ export default async function DashboardPage({
 
   // Overdue-actions data — independent of the diagnostic engine above, so
   // fetched as its own batch rather than folded into it.
-  const [salesCalls, leads] = await Promise.all([getSalesCalls(accountId), getLeads(accountId)]);
-  const [iclosedConnection] = user?.iclosedConnected
-    ? await db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
-    : [];
-  const [calendlyConnection] = user?.calendlyConnected
-    ? await db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
-    : [];
+  const [salesCalls, leads, [iclosedConnection], [calendlyConnection]] = await Promise.all([
+    getSalesCalls(accountId),
+    getLeads(accountId),
+    user?.iclosedConnected
+      ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    user?.calendlyConnected
+      ? db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+  ]);
   const overdueActions = buildOverdueActions({
     awaitingDecisionCalls: salesCalls.filter((call) => call.outcome === "awaiting_decision"),
     leads,
