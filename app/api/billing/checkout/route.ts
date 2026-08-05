@@ -2,10 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
-import { subscriptionPlans, users } from "@/db/schema";
+import { referralAttributions, subscriptionPlans, users } from "@/db/schema";
 import { isRateLimited } from "@/lib/rate-limit";
 import { getPlatformStripeClient } from "@/lib/stripe/platform-client";
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/team/context";
 
 // GET (not a Server Action) so the browser can be redirected straight to
 // Stripe's hosted Checkout page — same pattern as /api/stripe/connect for
@@ -24,7 +25,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/sign-in", origin));
   }
   const userId = data.claims.sub as string;
-  if (isRateLimited(`billing-checkout:${userId}`, 10)) {
+  const access = await requireOwner(userId);
+  if (!access) {
+    return NextResponse.redirect(billingUrl);
+  }
+  const accountId = access.accountId;
+  if (isRateLimited(`billing-checkout:${accountId}`, 10)) {
     return NextResponse.redirect(billingUrl);
   }
 
@@ -37,10 +43,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(billingUrl);
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
   if (!user) {
     return NextResponse.redirect(billingUrl);
   }
+
+  const [attribution] = await db
+    .select({ id: referralAttributions.id })
+    .from(referralAttributions)
+    .where(eq(referralAttributions.referredAccountId, accountId))
+    .limit(1);
 
   const stripe = getPlatformStripeClient();
 
@@ -59,11 +71,17 @@ export async function GET(request: NextRequest) {
     line_items: [{ price: plan.stripePriceId, quantity: 1 }],
     success_url: new URL("/settings/facturation?checkout=success", origin).toString(),
     cancel_url: new URL("/settings/facturation?checkout=cancelled", origin).toString(),
-    client_reference_id: userId,
+    client_reference_id: accountId,
     // Set on the Subscription itself (not just this Checkout Session) so
     // the webhook's customer.subscription.* handlers can resolve
     // userId/planId directly — see app/api/webhooks/stripe-billing/route.ts.
-    subscription_data: { metadata: { userId, planId: plan.id } },
+    subscription_data: {
+      metadata: {
+        userId: accountId,
+        planId: plan.id,
+        ...(attribution ? { referralAttributionId: attribution.id } : {}),
+      },
+    },
   });
 
   if (!session.url) {

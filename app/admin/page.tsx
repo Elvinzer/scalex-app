@@ -5,6 +5,8 @@ import {
   getNorthStarTrend,
   getTwoWeekRetentionRate,
 } from "@/lib/posthog-query";
+import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 
 async function safe<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
@@ -27,8 +29,15 @@ export default async function AdminPage() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
       <div>
-        <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Dashboard fondateurs</h1>
-        <p className="mt-1 text-sm text-muted-foreground">La boucle de valeur, mesurée.</p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Dashboard fondateurs</h1>
+            <p className="mt-1 text-sm text-muted-foreground">La boucle de valeur, mesurée.</p>
+          </div>
+          <Link href="/admin/referrals" className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-bold text-foreground transition-all duration-[var(--motion-fast)] hover:-translate-y-px hover:border-border-hover hover:shadow-sm">
+            Gérer le parrainage <ArrowUpRight className="size-4" />
+          </Link>
+        </div>
       </div>
 
       <div className="sticker-card p-6">

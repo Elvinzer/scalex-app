@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ChevronsUpDown,
   Database,
+  Gift,
   Handshake,
   LayoutDashboard,
   LogOut,
@@ -142,6 +143,7 @@ const topBarEntries: LinkEntry[] = [
 const profileMenuEntries: LinkEntry[] = [
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
+  { type: "link", href: "/parrainage", label: "Parrainage", icon: Gift },
 ];
 
 // Separate from the permission model entirely — gated by isAdmin (the

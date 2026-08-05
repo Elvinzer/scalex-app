@@ -6,6 +6,7 @@ import { users } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountContext } from "@/lib/team/context";
+import { captureReferralAttribution } from "@/lib/referrals/attribution";
 
 // Shared by every (app) page: the auth guard in app/(app)/layout.tsx
 // already ensures a session exists, so this trusts the claims are present.
@@ -62,7 +63,11 @@ export async function requireUserIdOrError(): Promise<string | { error: string }
 // this idempotent upsert-or-skip is how the users row actually gets
 // created. onConflictDoNothing + returning() is also how "signup" is
 // detected precisely once: an empty return means the row already existed.
-export async function ensureUserRow(userId: string, email: string): Promise<{ isNewUser: boolean }> {
+export async function ensureUserRow(
+  userId: string,
+  email: string,
+  options: { captureReferral?: boolean } = {}
+): Promise<{ isNewUser: boolean }> {
   const [inserted] = await db
     .insert(users)
     .values({ id: userId, email })
@@ -72,6 +77,9 @@ export async function ensureUserRow(userId: string, email: string): Promise<{ is
   const isNewUser = Boolean(inserted);
   if (isNewUser) {
     await track("signup", userId);
+    if (options.captureReferral !== false) {
+      await captureReferralAttribution(userId);
+    }
   }
   return { isNewUser };
 }

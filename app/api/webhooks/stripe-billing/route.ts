@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { processedStripeEvents, subscriptions } from "@/db/schema";
+import { recordPaidReferralInvoice, reverseAvailableReferralCommission } from "@/lib/referrals/commissions";
 import { getPlatformStripeClient } from "@/lib/stripe/platform-client";
 import { requireEnv } from "@/lib/utils";
 
@@ -20,7 +21,58 @@ import { requireEnv } from "@/lib/utils";
 const subscriptionMetadataSchema = z.object({
   userId: z.string().uuid(),
   planId: z.string().uuid(),
+  referralAttributionId: z.string().uuid().optional(),
 });
+
+const invoicePayloadSchema = z.object({
+  id: z.string().min(1),
+  subscription: z.union([z.string().min(1), z.object({ id: z.string().min(1) })]).nullable().optional(),
+  currency: z.string().regex(/^[a-zA-Z]{3}$/),
+  amount_paid: z.number().int().nonnegative(),
+  total_excluding_tax: z.number().int().nonnegative().nullable(),
+  period_start: z.number().int().nullable().optional(),
+  period_end: z.number().int().nullable().optional(),
+});
+
+function subscriptionIdFromInvoice(value: string | { id: string } | null | undefined): string | null {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id;
+}
+
+function stripeEpochToDate(value: number | null | undefined): Date | null {
+  return typeof value === "number" ? new Date(value * 1000) : null;
+}
+
+async function recordInvoiceCommission(stripe: Stripe, object: unknown): Promise<void> {
+  const parsedInvoice = invoicePayloadSchema.safeParse(object);
+  if (!parsedInvoice.success) return;
+
+  const subscriptionId = subscriptionIdFromInvoice(parsedInvoice.data.subscription);
+  if (!subscriptionId) return;
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const parsedMetadata = subscriptionMetadataSchema.safeParse(subscription.metadata);
+  if (!parsedMetadata.success) return;
+
+  await recordPaidReferralInvoice({
+    invoiceId: parsedInvoice.data.id,
+    stripeSubscriptionId: subscription.id,
+    referredAccountId: parsedMetadata.data.userId,
+    currency: parsedInvoice.data.currency,
+    grossAmountCents: parsedInvoice.data.amount_paid,
+    eligibleAmountCents:
+      parsedInvoice.data.total_excluding_tax === null
+        ? 0
+        : Math.min(parsedInvoice.data.total_excluding_tax, parsedInvoice.data.amount_paid),
+    periodStart: stripeEpochToDate(parsedInvoice.data.period_start),
+    periodEnd: stripeEpochToDate(parsedInvoice.data.period_end),
+  });
+}
+
+async function reverseInvoiceCommission(object: unknown): Promise<void> {
+  const parsedInvoice = invoicePayloadSchema.pick({ id: true }).safeParse(object);
+  if (parsedInvoice.success) await reverseAvailableReferralCommission(parsedInvoice.data.id);
+}
 
 async function markProcessed(eventId: string, type: string): Promise<boolean> {
   const [inserted] = await db
@@ -93,6 +145,14 @@ export async function POST(request: NextRequest) {
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       await upsertFromSubscription(event.data.object as Stripe.Subscription);
+      break;
+    }
+    case "invoice.paid": {
+      await recordInvoiceCommission(stripe, event.data.object);
+      break;
+    }
+    case "invoice.voided": {
+      await reverseInvoiceCommission(event.data.object);
       break;
     }
     default:

@@ -26,7 +26,10 @@ export async function acceptInvite(token: string): Promise<{ error: string | nul
     return { error: `Cette invitation est destinée à ${invite.email}. Connecte-toi avec cette adresse.` };
   }
 
-  await ensureUserRow(userId, email);
+  // Team members join an existing account and must not become independent
+  // referral owners if a referral cookie happens to be present in their
+  // browser.
+  await ensureUserRow(userId, email, { captureReferral: false });
 
   await db
     .update(teamMembers)

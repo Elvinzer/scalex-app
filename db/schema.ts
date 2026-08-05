@@ -1701,6 +1701,121 @@ export const processedStripeEvents = pgTable("processed_stripe_events", {
   processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 
+// --- Referral programme ------------------------------------------------------
+// Referral revenue belongs to the Scale X platform subscription, not to the
+// customer's Stripe Connect account. Rates are stored in basis points (100 =
+// 1%) so calculations stay integer-only and every commission can retain the
+// exact rate that produced it.
+export const referralProgramSettings = pgTable("referral_program_settings", {
+  id: text("id").primaryKey().default("default"),
+  isEnabled: boolean("is_enabled").notNull().default(false),
+  defaultCommissionRateBps: integer("default_commission_rate_bps").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+// One active code per account. A nullable rate means "inherit the current
+// admin default"; zero is a deliberate per-account override that disables
+// commissions for that code without deactivating the link itself.
+export const referralCodes = pgTable(
+  "referral_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    code: text("code").notNull().unique(),
+    commissionRateBps: integer("commission_rate_bps"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("referral_codes_account_idx").on(table.accountId)]
+).enableRLS();
+
+// The first valid referral attribution wins and is permanent. This is scoped
+// to account owners: team members must never become independent referrers.
+export const referralAttributions = pgTable(
+  "referral_attributions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    referralCodeId: uuid("referral_code_id")
+      .notNull()
+      .references(() => referralCodes.id, { onDelete: "restrict" }),
+    referrerAccountId: uuid("referrer_account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    referredAccountId: uuid("referred_account_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("referral_attributions_referrer_idx").on(table.referrerAccountId),
+    index("referral_attributions_code_idx").on(table.referralCodeId),
+  ]
+).enableRLS();
+
+// Manual monthly payouts are recorded as immutable batches. Commission rows
+// retain their own amount/rate snapshots and are linked to a payout only once
+// an admin records the external transfer.
+export const referralPayouts = pgTable(
+  "referral_payouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    referrerAccountId: uuid("referrer_account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    currency: text("currency").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }),
+    periodEnd: timestamp("period_end", { withTimezone: true }),
+    externalReference: text("external_reference"),
+    note: text("note"),
+    paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("referral_payouts_referrer_idx").on(table.referrerAccountId, table.paidAt)]
+).enableRLS();
+
+// One commission per paid Stripe invoice. Stripe fees are deliberately not
+// represented here: eligibleAmountCents is the invoice total excluding tax,
+// while commissionAmountCents is computed from that amount only.
+export const referralCommissions = pgTable(
+  "referral_commissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    attributionId: uuid("attribution_id")
+      .notNull()
+      .references(() => referralAttributions.id, { onDelete: "restrict" }),
+    referrerAccountId: uuid("referrer_account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    referredAccountId: uuid("referred_account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    stripeInvoiceId: text("stripe_invoice_id").notNull().unique(),
+    stripeSubscriptionId: text("stripe_subscription_id").notNull(),
+    currency: text("currency").notNull(),
+    grossAmountCents: integer("gross_amount_cents").notNull(),
+    eligibleAmountCents: integer("eligible_amount_cents").notNull(),
+    commissionRateBps: integer("commission_rate_bps").notNull(),
+    commissionAmountCents: integer("commission_amount_cents").notNull(),
+    status: text("status").notNull().default("available"),
+    periodStart: timestamp("period_start", { withTimezone: true }),
+    periodEnd: timestamp("period_end", { withTimezone: true }),
+    payoutId: uuid("payout_id").references(() => referralPayouts.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("referral_commissions_referrer_idx").on(table.referrerAccountId, table.status),
+    index("referral_commissions_attribution_idx").on(table.attributionId, table.createdAt),
+  ]
+).enableRLS();
+
 // Idempotency ledger for the iClosed webhook (app/api/webhooks/iclosed/
 // [token]/route.ts) — same pattern as processed_stripe_events above: id is
 // iClosed's own event id, inserting it is the atomic "already processed?" check.
