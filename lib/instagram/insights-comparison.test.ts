@@ -38,36 +38,48 @@ function makeRow(overrides: Partial<InstagramPostInsightRow> & { mediaId: string
 describe("computePostPerformanceComparisons", () => {
   it("ignores a cohort smaller than the minimum size", () => {
     const rows = [
-      makeRow({ mediaId: "a", totalInteractions: 10 }),
-      makeRow({ mediaId: "b", totalInteractions: 20 }),
+      makeRow({ mediaId: "a", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "b", totalInteractions: 20, reach: 100 }),
     ];
     expect(computePostPerformanceComparisons(rows).size).toBe(0);
   });
 
-  it("flags a post well above the cohort median as 'above'", () => {
+  it("flags a post well above the cohort median (interactions/reach rate) as 'above'", () => {
     const rows = [
-      makeRow({ mediaId: "a", totalInteractions: 100 }),
-      makeRow({ mediaId: "b", totalInteractions: 90 }),
-      makeRow({ mediaId: "c", totalInteractions: 110 }),
-      makeRow({ mediaId: "d", totalInteractions: 500 }),
+      makeRow({ mediaId: "a", totalInteractions: 10, reach: 100 }), // 10%
+      makeRow({ mediaId: "b", totalInteractions: 9, reach: 100 }), // 9%
+      makeRow({ mediaId: "c", totalInteractions: 11, reach: 100 }), // 11%
+      makeRow({ mediaId: "d", totalInteractions: 50, reach: 100 }), // 50%
     ];
     const result = computePostPerformanceComparisons(rows);
     expect(result.get("d")?.tier).toBe("above");
+    expect(result.get("d")?.value).toBeCloseTo(0.5);
     expect(result.get("a")?.tier).toBe("inline");
   });
 
   it("flags a post well below the cohort median as 'below'", () => {
     const rows = [
-      makeRow({ mediaId: "a", totalInteractions: 100 }),
-      makeRow({ mediaId: "b", totalInteractions: 100 }),
-      makeRow({ mediaId: "c", totalInteractions: 100 }),
-      makeRow({ mediaId: "d", totalInteractions: 5 }),
+      makeRow({ mediaId: "a", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "b", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "c", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "d", totalInteractions: 1, reach: 200 }),
     ];
     const result = computePostPerformanceComparisons(rows);
     expect(result.get("d")?.tier).toBe("below");
   });
 
-  it("falls back to reach when totalInteractions is null (e.g. Stories)", () => {
+  it("ranks a post reaching far more people but at a worse rate below one with a smaller, more engaged reach", () => {
+    const rows = [
+      makeRow({ mediaId: "a", totalInteractions: 100, reach: 1000 }), // 10%
+      makeRow({ mediaId: "b", totalInteractions: 100, reach: 1000 }), // 10%
+      makeRow({ mediaId: "c", totalInteractions: 100, reach: 1000 }), // 10%
+      makeRow({ mediaId: "big-reach-low-rate", totalInteractions: 200, reach: 10000 }), // 2%
+    ];
+    const result = computePostPerformanceComparisons(rows);
+    expect(result.get("big-reach-low-rate")?.tier).toBe("below");
+  });
+
+  it("uses raw reach for Stories, which have no interactions metric", () => {
     const rows = [
       makeRow({ mediaId: "a", mediaType: "STORY", totalInteractions: null, reach: 50 }),
       makeRow({ mediaId: "b", mediaType: "STORY", totalInteractions: null, reach: 55 }),
@@ -82,23 +94,21 @@ describe("computePostPerformanceComparisons", () => {
       makeRow({ mediaId: "s1", mediaType: "STORY", totalInteractions: null, reach: 1000 }),
       makeRow({ mediaId: "s2", mediaType: "STORY", totalInteractions: null, reach: 1000 }),
       makeRow({ mediaId: "s3", mediaType: "STORY", totalInteractions: null, reach: 1000 }),
-      makeRow({ mediaId: "f1", mediaType: "IMAGE", totalInteractions: 10 }),
-      makeRow({ mediaId: "f2", mediaType: "IMAGE", totalInteractions: 10 }),
-      makeRow({ mediaId: "f3", mediaType: "IMAGE", totalInteractions: 10 }),
+      makeRow({ mediaId: "f1", mediaType: "IMAGE", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "f2", mediaType: "IMAGE", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "f3", mediaType: "IMAGE", totalInteractions: 10, reach: 100 }),
     ];
     const result = computePostPerformanceComparisons(rows);
-    // A feed post with 10 interactions must not be compared against a
-    // 1000-reach story baseline just because both cohorts exist.
     expect(result.get("f1")?.tier).toBe("inline");
     expect(result.get("s1")?.tier).toBe("inline");
   });
 
-  it("excludes a post with no usable metric from the result", () => {
+  it("excludes a feed post missing reach (rate not computable) from the result", () => {
     const rows = [
-      makeRow({ mediaId: "a", totalInteractions: 10 }),
-      makeRow({ mediaId: "b", totalInteractions: 10 }),
-      makeRow({ mediaId: "c", totalInteractions: 10 }),
-      makeRow({ mediaId: "d", totalInteractions: null, reach: null }),
+      makeRow({ mediaId: "a", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "b", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "c", totalInteractions: 10, reach: 100 }),
+      makeRow({ mediaId: "d", totalInteractions: 10, reach: null }),
     ];
     const result = computePostPerformanceComparisons(rows);
     expect(result.has("d")).toBe(false);

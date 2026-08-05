@@ -5,15 +5,14 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { InfoPopover } from "@/components/info-popover";
-import { InstagramPostDetailDialog } from "@/components/instagram/instagram-post-detail-dialog";
-import { computePostRates } from "@/lib/content-posts/rates";
+import { formatWatchTime, InstagramPostDetailDialog } from "@/components/instagram/instagram-post-detail-dialog";
 import type { ContentPostRow } from "@/lib/content-posts/types";
-import { computePostPerformanceComparisons, type PostPerformanceTier } from "@/lib/instagram/insights-comparison";
+import { comparisonMetric, computePostPerformanceComparisons, type PostPerformanceTier } from "@/lib/instagram/insights-comparison";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
-type SortKey = "publishedAt" | "views" | "engagementRate";
+type SortKey = "publishedAt" | "views" | "interactionRate";
 type DateFilterKey = "7d" | "30d" | "3m" | "all";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
@@ -22,9 +21,12 @@ const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "s
 const EXPLANATIONS = {
   topPosts:
     "Classement de tes posts, reels et carrousels par interactions totales (likes + commentaires + partages + enregistrements), depuis la connexion de ton compte Instagram. Les Stories ne sont pas incluses : leur seule mesure comparable, la portée, n'est pas sur la même échelle.",
-  interactions:
-    "Somme des likes, commentaires, partages et enregistrements sur ce post, remontée directement par Instagram. Le badge à côté compare ce post à la médiane de tes autres posts du même type (feed ou story) : au-dessus, dans la moyenne, ou en dessous.",
-  engagement: "(Likes + commentaires + partages) / vues, en %.",
+  interactionRate:
+    "Interactions (likes + commentaires + partages + enregistrements) divisées par la portée du post — le vrai indicateur de performance, indépendant du nombre de personnes touchées. La couleur compare ce post à la médiane de tes autres posts du même type (feed ou story) : vert au-dessus, gris dans la moyenne, rouge en dessous. Vide pour les Stories, qui n'ont pas de métrique d'interactions.",
+  partages: "Partages divisés par la portée du post — Instagram donne 3 à 5 fois plus de poids algorithmique à un partage qu'à un like.",
+  watchTime:
+    "Temps de visionnage moyen par vue, pour les Reels/vidéos uniquement. Instagram ne fournit pas la durée totale de la vidéo via son API, donc un vrai taux de rétention (temps regardé / durée totale) n'est pas calculable — ce chiffre est le temps brut, pas un pourcentage.",
+  abonnes: "Nombre de nouveaux abonnés générés directement par ce post, remonté par Instagram.",
 } as const;
 
 const DATE_FILTERS: { key: DateFilterKey; label: string; days: number | null }[] = [
@@ -34,13 +36,15 @@ const DATE_FILTERS: { key: DateFilterKey; label: string; days: number | null }[]
   { key: "all", label: "Tout", days: null },
 ];
 
-// Same token pattern as components/import/import-preview.tsx's
-// CONFIDENCE_CLASS — semantic state tokens only, never a hex/raw Tailwind
-// color (CLAUDE.md's DA rule).
-const TIER_CLASS: Record<PostPerformanceTier, string> = {
-  above: "bg-state-healthy-bg text-state-healthy",
-  inline: "bg-muted text-muted-foreground",
-  below: "bg-state-critical-bg text-state-critical",
+// Colors the number itself (not a pill) for a fast column-wide scan of
+// "what's working" — same principle already used for the big percentage in
+// app/(app)/acquisition/pipeline/pipeline-stats-banner.tsx's
+// BenchmarkedTile (TIER_TEXT_CLASS there). Semantic state tokens only,
+// never a hex/raw Tailwind color (CLAUDE.md's DA rule).
+const TIER_TEXT_CLASS: Record<PostPerformanceTier, string> = {
+  above: "text-state-healthy",
+  inline: "text-foreground",
+  below: "text-state-critical",
 };
 
 // Small thumbnail for the title cell. thumbnailUrl is preferred whenever
@@ -178,23 +182,28 @@ export function PostsTable({
     return posts.filter((post) => post.publishedAt >= cutoffStr);
   }, [posts, dateFilter]);
 
-  const sorted = useMemo(() => {
-    const withRates = filteredPosts.map((post) => ({ post, rates: computePostRates(post) }));
-
-    withRates.sort((a, b) => {
-      const valueOf = (entry: (typeof withRates)[number]) =>
-        sortKey === "publishedAt" || sortKey === "views" ? entry.post[sortKey] : (entry.rates[sortKey] ?? -1);
-      const diff = (valueOf(a) as number) < (valueOf(b) as number) ? -1 : (valueOf(a) as number) > (valueOf(b) as number) ? 1 : 0;
-      return sortDesc ? -diff : diff;
-    });
-
-    return withRates;
-  }, [filteredPosts, sortKey, sortDesc]);
-
   const comparisons = useMemo(
     () => computePostPerformanceComparisons(Array.from(instagramInsights?.values() ?? [])),
     [instagramInsights]
   );
+
+  // Feed-only interaction rate (see insights-comparison.ts's comparisonMetric)
+  // — Stories have no interactions metric, never sortable/colored by it.
+  function interactionRateOf(post: ContentPostRow): number | null {
+    const insight = post.externalId ? instagramInsights?.get(post.externalId) : undefined;
+    return insight && insight.mediaType !== "STORY" ? comparisonMetric(insight) : null;
+  }
+
+  const sorted = useMemo(() => {
+    const arr = [...filteredPosts];
+    arr.sort((a, b) => {
+      const valueOf = (post: ContentPostRow) => (sortKey === "publishedAt" || sortKey === "views" ? post[sortKey] : (interactionRateOf(post) ?? -1));
+      const diff = (valueOf(a) as number) < (valueOf(b) as number) ? -1 : (valueOf(a) as number) > (valueOf(b) as number) ? 1 : 0;
+      return sortDesc ? -diff : diff;
+    });
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- interactionRateOf closes over instagramInsights, already a dep
+  }, [filteredPosts, sortKey, sortDesc, instagramInsights]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -267,22 +276,39 @@ export function PostsTable({
                 <th className="p-3 text-right"><SortHeader label="Vues" sortKeyValue="views" /></th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">Interactions</span>
-                    <InfoPopover text={EXPLANATIONS.interactions} />
+                    <SortHeader label="Taux d'interaction" sortKeyValue="interactionRate" />
+                    <InfoPopover text={EXPLANATIONS.interactionRate} />
                   </div>
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <SortHeader label="Engagement" sortKeyValue="engagementRate" />
-                    <InfoPopover text={EXPLANATIONS.engagement} />
+                    <span className="text-xs font-bold text-muted-foreground">Partages</span>
+                    <InfoPopover text={EXPLANATIONS.partages} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">Visionnage</span>
+                    <InfoPopover text={EXPLANATIONS.watchTime} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">Abonnés</span>
+                    <InfoPopover text={EXPLANATIONS.abonnes} />
                   </div>
                 </th>
                 <th className="p-3" />
               </tr>
             </thead>
             <tbody>
-              {sorted.map(({ post, rates }) => {
+              {sorted.map((post) => {
                 const insight = post.externalId ? instagramInsights?.get(post.externalId) : undefined;
+                const isStory = insight?.mediaType === "STORY";
+                const rate = insight && !isStory ? comparisonMetric(insight) : null;
+                const tier = insight ? comparisons.get(insight.mediaId)?.tier : undefined;
+                const sharesRate = insight?.sharesCount != null && insight?.reach ? insight.sharesCount / insight.reach : null;
+
                 return (
                   <tr key={post.id} className="border-b border-border last:border-0">
                     <td className="p-3 whitespace-nowrap text-muted-foreground">{post.publishedAt}</td>
@@ -312,32 +338,35 @@ export function PostsTable({
                       </span>
                     </td>
                     <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(post.views)}</td>
-                    <td className={cn("p-3 text-right tabular-nums", insight?.totalInteractions == null && "text-muted-foreground")}>
-                      {insight?.totalInteractions == null ? (
-                        "—"
+                    <td className="p-3 text-right">
+                      {rate === null ? (
+                        <span className="tabular-nums text-muted-foreground">—</span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5">
-                          {NUMBER_FORMAT.format(insight.totalInteractions)}
-                          {(() => {
-                            const comparison = comparisons.get(insight.mediaId);
-                            if (!comparison) return null;
-                            const pct = Math.round((comparison.ratio - 1) * 100);
-                            return (
-                              <span
-                                className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums", TIER_CLASS[comparison.tier])}
-                                title={`${
-                                  comparison.tier === "above" ? "Au-dessus" : comparison.tier === "below" ? "En dessous" : "Dans la moyenne"
-                                } de tes ${comparison.cohortSize} posts comparables`}
-                              >
-                                {comparison.tier === "inline" ? "≈" : `${pct > 0 ? "+" : ""}${pct}%`}
-                              </span>
-                            );
-                          })()}
-                        </span>
+                        <div className="flex flex-col items-end">
+                          <span
+                            className={cn("font-bold tabular-nums", tier ? TIER_TEXT_CLASS[tier] : "text-foreground")}
+                            title={
+                              tier
+                                ? `${tier === "above" ? "Au-dessus" : tier === "below" ? "En dessous" : "Dans la moyenne"} de tes ${comparisons.get(insight!.mediaId)?.cohortSize} posts comparables`
+                                : undefined
+                            }
+                          >
+                            {formatPercent(rate)}
+                          </span>
+                          <span className="text-[10px] tabular-nums text-muted-foreground">
+                            {NUMBER_FORMAT.format(insight!.totalInteractions!)} interactions
+                          </span>
+                        </div>
                       )}
                     </td>
-                    <td className={cn("p-3 text-right tabular-nums", rates.engagementRate === null && "text-muted-foreground")}>
-                      {rates.engagementRate === null ? "—" : formatPercent(rates.engagementRate)}
+                    <td className={cn("p-3 text-right tabular-nums", sharesRate === null && "text-muted-foreground")}>
+                      {sharesRate === null ? "—" : formatPercent(sharesRate)}
+                    </td>
+                    <td className={cn("p-3 text-right tabular-nums", insight?.avgWatchTimeMs == null && "text-muted-foreground")}>
+                      {formatWatchTime(insight?.avgWatchTimeMs ?? null)}
+                    </td>
+                    <td className={cn("p-3 text-right tabular-nums", insight?.follows == null && "text-muted-foreground")}>
+                      {insight?.follows == null ? "—" : `+${NUMBER_FORMAT.format(insight.follows)}`}
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">

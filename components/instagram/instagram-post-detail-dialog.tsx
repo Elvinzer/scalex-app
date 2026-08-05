@@ -13,7 +13,7 @@ function formatStat(value: number | null): string {
   return value === null ? "—" : NUMBER_FORMAT.format(value);
 }
 
-function formatWatchTime(ms: number | null): string {
+export function formatWatchTime(ms: number | null): string {
   if (ms === null) return "—";
   const totalSeconds = Math.round(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
