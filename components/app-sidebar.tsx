@@ -110,29 +110,35 @@ const topEntries: LinkEntry[] = [
   { type: "link", href: "/copilote", label: "Copilote", icon: MessageCircle, permission: "diagnostic" },
 ];
 
-// HORS-NAVIGATION — account-level pages under the profile dropdown
-// (ProfileMenu). Mon business moved back here (was briefly promoted to the
-// core nav). Réglages/Intégrations have no `permission`: owner-only, same
-// gate as their pages' own requireOwnerOrRedirect.
-//
-// Journal de bord (/journal) lives here rather than in topEntries: it's a
-// real, permission-gated feature (same "dashboard" permission as the page
-// itself checks), but a secondary/occasional destination, not part of the
-// weekly value loop — putting it in the profile menu makes it reachable
-// without adding an 8th entry to the primary rail.
-const profileMenuEntries: LinkEntry[] = [
+// SECONDAIRE — real, permission-gated content pages (same "business"/
+// "dashboard" permissions the pages themselves check) that don't get a slot
+// in the primary rail because they're occasional destinations, not part of
+// the weekly value loop. Rendered as their own muted section in the sidebar
+// body (below the score badge) rather than hidden behind the avatar — an
+// avatar/profile trigger reads as "my account", not "two more app pages",
+// which is what made the old flat profile menu (business pages + settings +
+// admin all in one list) feel arbitrary.
+const secondaryEntries: LinkEntry[] = [
   { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
   { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
+];
+
+// COMPTE — account-level config behind the avatar/profile dropdown
+// (ProfileMenu). No `permission` field: owner-only, same gate as each
+// page's own requireOwnerOrRedirect. This dropdown is now purely "my
+// account", not a catch-all for anything that didn't fit elsewhere.
+const profileMenuEntries: LinkEntry[] = [
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
 ];
 
 // Separate from the permission model entirely — gated by isAdmin (the
 // ADMIN_EMAILS allowlist, see lib/admin.ts), not by role/permission or even
-// isOwner. Only ever true for founders. Lives in the profile dropdown
-// (ProfileMenu), appended manually rather than through profileMenuEntries
-// since it isn't permission-gated at all. app/admin/layout.tsx still does
-// its own server-side check regardless of this link being visible.
+// isOwner. Only ever true for founders, and categorically different from
+// "my account" (it manages every customer, not this one) — rendered as its
+// own tiny pinned link at the bottom of the sidebar rather than folded into
+// the account dropdown. app/admin/layout.tsx still does its own
+// server-side check regardless of this link being visible.
 const adminEntry: LinkEntry = { type: "link", href: "/admin", label: "Panel admin", icon: ShieldCheck };
 
 function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonly PermissionKey[]): boolean {
@@ -178,6 +184,24 @@ function NavLink({
   );
 }
 
+function SecondaryLink({ entry, pathname }: { entry: LinkEntry; pathname: string }) {
+  const Icon = entry.icon;
+  const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
+
+  return (
+    <Link
+      href={entry.href}
+      className={cn(
+        "flex items-center gap-2.5 rounded-[var(--radius-control)] py-2 pl-3 pr-3 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+        active ? "bg-white/5 text-mist" : "text-mist/55 hover:bg-mist/10 hover:text-mist/85"
+      )}
+    >
+      <Icon className="size-3.5" />
+      {entry.label}
+    </Link>
+  );
+}
+
 function ProfileMenu({
   businessName,
   displayName,
@@ -185,7 +209,6 @@ function ProfileMenu({
   email,
   isOwner,
   permissions,
-  isAdmin,
   onSignOut,
 }: {
   businessName: string;
@@ -194,13 +217,11 @@ function ProfileMenu({
   email: string;
   isOwner: boolean;
   permissions: readonly PermissionKey[];
-  isAdmin: boolean;
   onSignOut: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const initial = email.charAt(0).toUpperCase() || "?";
-  const visibleEntries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
-  const entries = isAdmin ? [...visibleEntries, adminEntry] : visibleEntries;
+  const entries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
     <div className="flex items-center gap-2">
@@ -316,6 +337,7 @@ export function AppSidebar({
   }
 
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
+  const visibleSecondaryEntries = secondaryEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
     <>
@@ -396,6 +418,17 @@ export function AppSidebar({
           </div>
         )}
 
+        {visibleSecondaryEntries.length > 0 && (
+          <div className="px-3 pt-4">
+            <div className="h-px bg-white/10" />
+            <nav className="flex flex-col gap-0.5 pt-3">
+              {visibleSecondaryEntries.map((entry) => (
+                <SecondaryLink key={entry.href} entry={entry} pathname={pathname} />
+              ))}
+            </nav>
+          </div>
+        )}
+
         <div className="px-3 pt-4">
           <ProfileMenu
             businessName={businessName}
@@ -404,10 +437,21 @@ export function AppSidebar({
             email={email}
             isOwner={isOwner}
             permissions={permissions}
-            isAdmin={isAdmin}
             onSignOut={handleSignOut}
           />
         </div>
+
+        {isAdmin && (
+          <div className="px-3 pt-2">
+            <Link
+              href={adminEntry.href}
+              className="flex items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/35 uppercase transition-colors hover:bg-mist/10 hover:text-mist/60"
+            >
+              <ShieldCheck className="size-3.5" />
+              {adminEntry.label}
+            </Link>
+          </div>
+        )}
       </aside>
     </>
   );
