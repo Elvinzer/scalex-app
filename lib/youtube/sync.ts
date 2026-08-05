@@ -1,0 +1,58 @@
+import { eq } from "drizzle-orm";
+
+import { db } from "@/db";
+import { youtubeConnections } from "@/db/schema";
+import { decrypt, encrypt } from "@/lib/crypto";
+import { requireEnv } from "@/lib/utils";
+
+import { backfillYoutubeVideos, type BackfillResult } from "./backfill";
+import { fetchChannel, refreshAccessToken } from "./client";
+
+export type YoutubeConnectionRow = typeof youtubeConnections.$inferSelect;
+
+// Only the two fields runYoutubeSync actually reads — deliberately narrower
+// than the full row. Inngest's step.run serializes its return value to JSON
+// (see the Inngest functions in lib/inngest/functions/*-youtube-*), which
+// turns every Date column into a string; a parameter typed as the full
+// YoutubeConnectionRow would reject that serialized shape even though only
+// these two string fields are ever used here.
+export type YoutubeSyncConnection = Pick<YoutubeConnectionRow, "userId" | "refreshTokenEncrypted">;
+
+// Shared orchestration for every YouTube sync entry point (the "Rafraîchir"
+// Server Action, the one-time connect job, the recurring cron, and the
+// backfill continuation chain): refreshes the short-lived access token via
+// the stored refresh token — unlike Instagram's days-long refresh margin,
+// this runs on EVERY sync since the access token is only ~1h (see
+// protocol.ts) — then re-fetches the channel snapshot (subscriberCount/
+// viewCountTotal/title/thumbnail, kept fresh the same way Instagram
+// refreshes its username) before running the video backfill. Persists the
+// refreshed access token + channel snapshot regardless of backfill outcome,
+// so the next call always starts from a valid token. Throws
+// YoutubeTokenRevokedError/YoutubeChannelNotFoundError (from
+// lib/youtube/client.ts) for callers to branch on, same as
+// InstagramNotProfessionalAccountError.
+export async function runYoutubeSync(connection: YoutubeSyncConnection, sinceDate?: Date): Promise<BackfillResult> {
+  const clientId = requireEnv("YOUTUBE_CLIENT_ID");
+  const clientSecret = requireEnv("YOUTUBE_CLIENT_SECRET");
+  const refreshToken = decrypt(connection.refreshTokenEncrypted);
+
+  const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret);
+  const accessToken = refreshed.accessToken;
+  const tokenExpiresAt = new Date(Date.now() + refreshed.expiresInSeconds * 1000);
+
+  const channel = await fetchChannel(accessToken);
+
+  await db
+    .update(youtubeConnections)
+    .set({
+      channelTitle: channel.title,
+      channelThumbnailUrl: channel.thumbnailUrl,
+      subscriberCount: channel.subscriberCount,
+      viewCountTotal: channel.viewCountTotal,
+      accessTokenEncrypted: encrypt(accessToken),
+      tokenExpiresAt,
+    })
+    .where(eq(youtubeConnections.userId, connection.userId));
+
+  return backfillYoutubeVideos(connection.userId, accessToken, channel.uploadsPlaylistId, channel.publishedAt, sinceDate);
+}

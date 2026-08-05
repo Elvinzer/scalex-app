@@ -47,4 +47,23 @@ export const instagramBackfillContinue = eventType("instagram/backfill.continue"
   schema: staticSchema<InstagramBackfillContinue>(),
 });
 
+type YoutubeAccountConnected = {
+  userId: string;
+};
+
+export const youtubeAccountConnected = eventType("youtube/account.connected", {
+  schema: staticSchema<YoutubeAccountConnected>(),
+});
+
+type YoutubeBackfillContinue = {
+  userId: string;
+};
+
+// Self-chained follow-up when backfillYoutubeVideos stops early because it
+// hit its time budget (see lib/youtube/protocol.ts's
+// YOUTUBE_BACKFILL_TIME_BUDGET_MS) — mirrors instagramBackfillContinue.
+export const youtubeBackfillContinue = eventType("youtube/backfill.continue", {
+  schema: staticSchema<YoutubeBackfillContinue>(),
+});
+
 export const inngest = new Inngest({ id: "scale-x" });

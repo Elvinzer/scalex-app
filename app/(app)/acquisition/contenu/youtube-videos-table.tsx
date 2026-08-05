@@ -1,0 +1,318 @@
+"use client";
+
+import { ArrowDown, ArrowUp, ChevronsUpDown, MonitorPlay } from "lucide-react";
+import { useMemo, useState } from "react";
+
+import { InfoPopover } from "@/components/info-popover";
+import { Button } from "@/components/ui/button";
+import { YoutubeVideoDetailDialog } from "@/components/youtube/youtube-video-detail-dialog";
+import { comparisonMetric, computeVideoPerformanceComparisons, type VideoPerformanceTier } from "@/lib/youtube/insights-comparison";
+import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
+import { cn } from "@/lib/utils";
+
+type SortKey = "publishedAt" | "views" | "ctr";
+type DateFilterKey = "7d" | "30d" | "3m" | "all";
+
+const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
+const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+
+const EXPLANATIONS = {
+  topVideos: "Classement de tes vidéos par vues, depuis la connexion de ta chaîne YouTube.",
+  ctr:
+    "Taux de clic sur la miniature (impressions -> clics), un des deux signaux que l'algorithme YouTube pondère le plus avec le watch time. La couleur compare cette vidéo à la médiane de tes autres vidéos : vert au-dessus, gris dans la moyenne, rouge en dessous — YouTube recommande lui-même de comparer une vidéo à tes uploads récents plutôt qu'à un seuil absolu.",
+  retention: "Pourcentage moyen de la vidéo regardé par les spectateurs — ce que YouTube utilise pour juger si une vidéo mérite d'être recommandée.",
+  watchTime: "Temps de visionnage total cumulé sur cette vidéo, en minutes.",
+  abonnes: "Abonnés gagnés moins abonnés perdus, générés directement par cette vidéo, remonté par YouTube.",
+} as const;
+
+const DATE_FILTERS: { key: DateFilterKey; label: string; days: number | null }[] = [
+  { key: "7d", label: "7 jours", days: 7 },
+  { key: "30d", label: "30 jours", days: 30 },
+  { key: "3m", label: "3 mois", days: 90 },
+  { key: "all", label: "Tout", days: null },
+];
+
+const TIER_TEXT_CLASS: Record<VideoPerformanceTier, string> = {
+  above: "text-state-healthy",
+  inline: "text-foreground",
+  below: "text-state-critical",
+};
+
+function VideoThumbnail({ thumbnailUrl }: { thumbnailUrl: string | null }) {
+  const [broken, setBroken] = useState(false);
+
+  if (!thumbnailUrl || broken) {
+    return (
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] border border-border bg-muted">
+        <MonitorPlay className="size-4 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- external YouTube CDN thumbnail, not a Next-optimizable asset
+    <img
+      src={thumbnailUrl}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setBroken(true)}
+      className="size-10 shrink-0 rounded-[var(--radius-control)] border border-border object-cover"
+    />
+  );
+}
+
+const TOP_VIDEOS_COUNT = 3;
+
+function computeTopVideos(videos: YoutubeVideoInsightRow[]): YoutubeVideoInsightRow[] {
+  return [...videos]
+    .filter((video) => video.views !== null)
+    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+    .slice(0, TOP_VIDEOS_COUNT);
+}
+
+function TopVideosPanel({ videos }: { videos: YoutubeVideoInsightRow[] }) {
+  if (videos.length === 0) return null;
+
+  return (
+    <div className="sticker-card p-6">
+      <div className="flex items-center gap-1.5">
+        <h2 className="text-base font-bold">Tes 3 meilleures vidéos</h2>
+        <InfoPopover text={EXPLANATIONS.topVideos} />
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">Classées par vues, toutes vidéos confondues depuis ta connexion.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        {videos.map((video, index) => (
+          <a
+            key={video.id}
+            href={`https://www.youtube.com/watch?v=${video.videoId}`}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              "flex flex-col gap-3 rounded-[var(--radius-control)] border p-4 transition-colors",
+              index === 0 ? "border-accent-border bg-accent-soft" : "border-border hover:border-border-hover"
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className={cn(
+                  "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                  index === 0 ? "bg-accent text-white" : "bg-muted text-muted-foreground"
+                )}
+              >
+                {index + 1}
+              </span>
+              <VideoThumbnail thumbnailUrl={video.thumbnailUrl} />
+              <div className="min-w-0">
+                <p className={cn("truncate text-sm font-bold", index === 0 && "text-accent-text")}>{video.title}</p>
+                <p className="text-xs text-muted-foreground">{DATE_FORMAT.format(video.publishedAt)}</p>
+              </div>
+            </div>
+            <p className="font-display text-2xl font-bold tabular-nums">
+              {NUMBER_FORMAT.format(video.views ?? 0)}
+              <span className="ml-1.5 font-sans text-xs font-bold text-muted-foreground">vues</span>
+            </p>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function YoutubeVideosTable({ videos }: { videos: YoutubeVideoInsightRow[] }) {
+  const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
+  const [sortDesc, setSortDesc] = useState(true);
+  const [dateFilter, setDateFilter] = useState<DateFilterKey>("all");
+
+  const topVideos = useMemo(() => computeTopVideos(videos), [videos]);
+
+  const filteredVideos = useMemo(() => {
+    const days = DATE_FILTERS.find((f) => f.key === dateFilter)?.days ?? null;
+    if (days === null) return videos;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return videos.filter((video) => video.publishedAt >= cutoff);
+  }, [videos, dateFilter]);
+
+  const comparisons = useMemo(() => computeVideoPerformanceComparisons(videos), [videos]);
+
+  const sorted = useMemo(() => {
+    const arr = [...filteredVideos];
+    arr.sort((a, b) => {
+      const valueOf = (video: YoutubeVideoInsightRow): number => {
+        if (sortKey === "publishedAt") return video.publishedAt.getTime();
+        if (sortKey === "views") return video.views ?? -1;
+        return comparisonMetric(video) ?? -1;
+      };
+      const diff = valueOf(a) - valueOf(b);
+      return sortDesc ? -diff : diff;
+    });
+    return arr;
+  }, [filteredVideos, sortKey, sortDesc]);
+
+  function toggleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDesc((prev) => !prev);
+    } else {
+      setSortKey(key);
+      setSortDesc(true);
+    }
+  }
+
+  function SortHeader({ label, sortKeyValue }: { label: string; sortKeyValue: SortKey }) {
+    const active = sortKey === sortKeyValue;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(sortKeyValue)}
+        className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground"
+      >
+        {label}
+        {active ? sortDesc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" /> : <ChevronsUpDown className="size-3 opacity-40" />}
+      </button>
+    );
+  }
+
+  if (videos.length === 0) {
+    return (
+      <div className="sticker-card-dashed p-6 text-center">
+        <p className="text-sm font-bold">Aucune vidéo synchronisée pour l&apos;instant</p>
+        <p className="mt-1 text-sm text-muted-foreground">Connecte ta chaîne YouTube ci-dessus pour voir tes vidéos.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <TopVideosPanel videos={topVideos} />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-bold text-muted-foreground">Période :</span>
+        {DATE_FILTERS.map((filter) => (
+          <button
+            key={filter.key}
+            type="button"
+            onClick={() => setDateFilter(filter.key)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
+              dateFilter === filter.key
+                ? "border-accent-border bg-accent-soft text-accent-text"
+                : "border-border text-muted-foreground hover:border-border-hover"
+            )}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      {sorted.length === 0 ? (
+        <div className="sticker-card-dashed p-6 text-center">
+          <p className="text-sm font-bold">Aucune vidéo sur cette période</p>
+          <p className="mt-1 text-sm text-muted-foreground">Choisis &laquo;&nbsp;Tout&nbsp;&raquo; pour voir l&apos;historique complet.</p>
+        </div>
+      ) : (
+        <div className="sticker-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="p-3 text-left"><SortHeader label="Date" sortKeyValue="publishedAt" /></th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Titre</th>
+                <th className="p-3 text-right"><SortHeader label="Vues" sortKeyValue="views" /></th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <SortHeader label="CTR" sortKeyValue="ctr" />
+                    <InfoPopover text={EXPLANATIONS.ctr} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">Rétention</span>
+                    <InfoPopover text={EXPLANATIONS.retention} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">Watch time</span>
+                    <InfoPopover text={EXPLANATIONS.watchTime} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">Abonnés</span>
+                    <InfoPopover text={EXPLANATIONS.abonnes} />
+                  </div>
+                </th>
+                <th className="p-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((video) => {
+                const ctr = comparisonMetric(video);
+                const tier = comparisons.get(video.videoId)?.tier;
+                const netSubscribers =
+                  video.subscribersGained !== null && video.subscribersLost !== null ? video.subscribersGained - video.subscribersLost : null;
+
+                return (
+                  <tr key={video.id} className="border-b border-border last:border-0">
+                    <td className="p-3 whitespace-nowrap text-muted-foreground">{DATE_FORMAT.format(video.publishedAt)}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-3">
+                        <VideoThumbnail thumbnailUrl={video.thumbnailUrl} />
+                        <a
+                          href={`https://www.youtube.com/watch?v=${video.videoId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="line-clamp-1 max-w-[16rem] font-bold hover:underline"
+                        >
+                          {video.title}
+                        </a>
+                      </div>
+                    </td>
+                    <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(video.views ?? 0)}</td>
+                    <td className="p-3 text-right">
+                      {ctr === null ? (
+                        <span className="tabular-nums text-muted-foreground">—</span>
+                      ) : (
+                        <span
+                          className={cn("font-bold tabular-nums", tier ? TIER_TEXT_CLASS[tier] : "text-foreground")}
+                          title={
+                            tier
+                              ? `${tier === "above" ? "Au-dessus" : tier === "below" ? "En dessous" : "Dans la moyenne"} de tes ${comparisons.get(video.videoId)?.cohortSize} vidéos comparables`
+                              : undefined
+                          }
+                        >
+                          {`${NUMBER_FORMAT.format(Math.round(ctr * 10) / 10)}%`}
+                        </span>
+                      )}
+                    </td>
+                    <td className={cn("p-3 text-right tabular-nums", video.averageViewPercentage === null && "text-muted-foreground")}>
+                      {video.averageViewPercentage === null ? "—" : `${NUMBER_FORMAT.format(Math.round(video.averageViewPercentage * 10) / 10)}%`}
+                    </td>
+                    <td className={cn("p-3 text-right tabular-nums", video.estimatedMinutesWatched === null && "text-muted-foreground")}>
+                      {video.estimatedMinutesWatched === null ? "—" : `${NUMBER_FORMAT.format(video.estimatedMinutesWatched)} min`}
+                    </td>
+                    <td className={cn("p-3 text-right tabular-nums", netSubscribers === null && "text-muted-foreground")}>
+                      {netSubscribers === null ? "—" : `${netSubscribers >= 0 ? "+" : ""}${NUMBER_FORMAT.format(netSubscribers)}`}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex justify-end gap-1">
+                        <YoutubeVideoDetailDialog
+                          insight={video}
+                          trigger={
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label="Voir le détail">
+                              <MonitorPlay className="size-3.5" />
+                            </Button>
+                          }
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

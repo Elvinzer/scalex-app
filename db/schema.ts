@@ -87,6 +87,9 @@ export const users = pgTable("users", {
   // Same denormalized "is connected" flag for Instagram (content analytics,
   // not a call-booking tool — see instagram_connections/instagram_post_insights).
   instagramConnected: boolean("instagram_connected").notNull().default(false),
+  // Same denormalized "is connected" flag for YouTube (channel analytics —
+  // see youtube_connections/youtube_video_insights).
+  youtubeConnected: boolean("youtube_connected").notNull().default(false),
   sector: prospectionSector("sector"),
   // Set once the 3-screen /onboarding wizard finishes (or is skipped) —
   // existing users are backfilled to true via migration default so they
@@ -325,6 +328,92 @@ export const instagramPostInsights = pgTable(
   (table) => [
     uniqueIndex("instagram_post_insights_user_media_idx").on(table.userId, table.mediaId),
     index("instagram_post_insights_user_published_idx").on(table.userId, table.mediaPublishedAt),
+  ]
+).enableRLS();
+
+// YouTube connection — OAuth via Google (see lib/youtube/protocol.ts). Unlike
+// Instagram's single long-lived token, Google issues a short-lived (~1h)
+// access token ALONGSIDE a long-lived refresh token — refreshTokenEncrypted
+// is only ever populated on first consent (or a re-consent that forces
+// `prompt=consent`, see app/api/youtube/connect/route.ts), so accessToken is
+// refreshed via it on every sync rather than on a days-long margin like
+// Instagram's INSTAGRAM_TOKEN_REFRESH_MARGIN_DAYS. Owner-only, never
+// delegable, same boundary as Stripe/iClosed/Calendly/Instagram.
+export const youtubeConnections = pgTable("youtube_connections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  channelId: text("channel_id").notNull(),
+  channelTitle: text("channel_title"), // display only ("Connecté en tant que [chaîne]")
+  channelThumbnailUrl: text("channel_thumbnail_url"),
+  // Channel-level snapshot from Data API channels.list, refreshed on every
+  // sync — powers headline stat tiles without a separate aggregation query
+  // over youtube_video_insights.
+  subscriberCount: integer("subscriber_count"),
+  viewCountTotal: integer("view_count_total"),
+  accessTokenEncrypted: text("access_token_encrypted").notNull(),
+  refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }).notNull(),
+  // Granted OAuth scope — audit visibility only, mirrors stripeConnections.scope.
+  scope: text("scope"),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  // "pending" | "completed" | "failed" | "token_expired" — same
+  // connection-health vocabulary as instagramConnections.initialSyncStatus.
+  initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
+  initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
+  lastAnalyticsSyncAt: timestamp("last_analytics_sync_at", { withTimezone: true }),
+}).enableRLS();
+
+// Full-fidelity raw cache — one row per YouTube video, every metric fetched
+// from the Data API (metadata) + Analytics API (performance). content_posts
+// only ever gets a projection of this (see lib/youtube/backfill.ts), same
+// split as instagram_post_insights/content_posts. Re-fetched periodically
+// (recurring cron, not just at connect) since watch-time/retention numbers
+// keep evolving after publish, same rationale as Instagram's insights.
+export const youtubeVideoInsights = pgTable(
+  "youtube_video_insights",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    videoId: text("video_id").notNull(),
+    title: text("title").notNull(),
+    thumbnailUrl: text("thumbnail_url"),
+    durationSeconds: integer("duration_seconds"),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
+    views: integer("views"),
+    likes: integer("likes"),
+    comments: integer("comments"),
+    shares: integer("shares"),
+    // Watch time — the metric YouTube's own algorithm weighs most heavily
+    // alongside impressions CTR below.
+    estimatedMinutesWatched: integer("estimated_minutes_watched"),
+    averageViewDurationSeconds: integer("average_view_duration_seconds"),
+    // Audience retention, 0-100 — what YouTube uses to judge whether a video
+    // is worth recommending. A raw API metric (not a business rate derived
+    // from other columns), so it's stored as-is like every other insight
+    // column here, consistent with CLAUDE.md's "compute rates in code" rule
+    // which targets derived business rates, not passthrough API values.
+    averageViewPercentage: real("average_view_percentage"),
+    subscribersGained: integer("subscribers_gained"),
+    subscribersLost: integer("subscribers_lost"),
+    impressions: integer("impressions"),
+    // 0-100 — thumbnail/suggested-video click-through rate. NOT the same
+    // metric as content_posts.clicks (an outbound link click) — see
+    // YOUTUBE_ORGANIC_CLICKS_AVAILABLE in lib/youtube/protocol.ts.
+    impressionsClickThroughRate: real("impressions_click_through_rate"),
+    // Full API response passthrough — future-proofs any metric not yet
+    // promoted to its own column, and is the audit trail if the API surface
+    // shifts (see protocol.ts's file-header disclaimer).
+    rawInsights: jsonb("raw_insights").notNull().$type<Record<string, unknown>>(),
+    lastFetchedAt: timestamp("last_fetched_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("youtube_video_insights_user_video_idx").on(table.userId, table.videoId),
+    index("youtube_video_insights_user_published_idx").on(table.userId, table.publishedAt),
   ]
 ).enableRLS();
 

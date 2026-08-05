@@ -66,10 +66,13 @@ Avant de dire qu'une tâche est terminée :
   et être idempotents (checker un `event.id` déjà traité avant d'agir)
 - Ne jamais pré-agréger côté LLM : calculer sommes/taux/deltas en code, envoyer seulement
   les chiffres calculés au modèle. Le produit est AI-augmented, pas AI-native.
-- Une seule intégration à la fois. Deux sont greenlitées : Stripe (paiements, source
-  principale du diagnostic) et iClosed (tracking des prises d'appel de closing, clé API BYOK
-  côté client, onglet `/ventes/appels` — un appel closé alimente le CA via la table `sales`).
-  Ne pas ajouter Kajabi/Brevo/Calendly sans que ce soit explicitement demandé.
+- Intégrations actives : Stripe (paiements, source principale du diagnostic, OAuth Connect),
+  iClosed (tracking des prises d'appel de closing, clé API BYOK côté client, onglet
+  `/ventes/appels` — un appel closé alimente le CA via la table `sales`), Calendly (second outil
+  de prise d'appel, Personal Access Token BYOK, mêmes onglets qu'iClosed), Instagram (analytics
+  de contenu, OAuth app-level, `/acquisition/contenu`) et YouTube (analytics de chaîne, OAuth
+  app-level, même page). Ne pas ajouter Kajabi/Brevo ou une autre intégration sans que ce soit
+  explicitement demandé.
 - Webhook iClosed : auth par jeton opaque par connexion dans l'URL (`/api/webhooks/iclosed/[token]`)
   + vérification de signature HMAC si iClosed fournit un secret ; idempotent via
   `processed_iclosed_events`. Le mécanisme exact de signature iClosed reste à confirmer sur le
@@ -119,12 +122,20 @@ Avant de dire qu'une tâche est terminée :
 - Core Web Vitals surveillés : images en `next/image`, pas de JS bloquant le rendu,
   `app/(marketing)/` reste statique/ISR (voir Structure) pour rester rapide
 
+## Zones sensibles (`lib/agent/`, `db/schema.ts`, webhooks Stripe, auth)
+- Avant d'éditer un de ces fichiers/dossiers : donner un résumé en 2-3 phrases de l'approche
+  envisagée dans la réponse (pas un document de plan formel, pas de bascule en Plan Mode),
+  puis enchaîner directement sur l'implémentation dans le même tour de réponse
+- Si l'approche a plusieurs options structurantes qui changent l'architecture (ex: schéma DB,
+  flux d'auth, contrat d'un webhook), lister brièvement les options avant de choisir — sinon,
+  ne pas s'arrêter pour une simple confirmation
+- Objectif : garder une trace de l'intention avant modification sur ces zones, sans déclencher
+  de changement de mode de permission ni interrompre le flux de la session
+
 ## Ce qu'il ne faut PAS faire
 - Ne pas ajouter de vector DB managé (Pinecone etc.) — pgvector (Supabase) suffit si besoin
 - Ne pas ajouter Trigger.dev ou un orchestrateur payant tant qu'Inngest free tier suffit
 - Ne pas écrire de tests e2e complets avant la Phase 1 (MVP) terminée — prioriser la vitesse
-- Si une tâche touche `lib/agent/`, `db/schema.ts`, les webhooks Stripe, ou l'auth : proposer
-  un plan avant d'éditer, ne pas foncer directement dans le code
 - Ne pas ajouter de serveur MCP par confort — chaque serveur connecté charge ses définitions
   d'outils à chaque message, même si non utilisé
 - Pour une recherche large dans le code (où est utilisé X, quels fichiers touchent Y) :

@@ -3,9 +3,10 @@ import { eq } from "drizzle-orm";
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
 import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
+import { YoutubeConnectionCard } from "@/components/youtube/youtube-connection-card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { calendlyConnections, iclosedConnections, instagramConnections, stripeConnections } from "@/db/schema";
+import { calendlyConnections, iclosedConnections, instagramConnections, stripeConnections, youtubeConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
@@ -23,9 +24,10 @@ export default async function IntegrationsPage() {
   const iclosedConnected = Boolean(user?.iclosedConnected);
   const calendlyConnected = Boolean(user?.calendlyConnected);
   const instagramConnected = Boolean(user?.instagramConnected);
+  const youtubeConnected = Boolean(user?.youtubeConnected);
 
-  // 5 independent reads — run together instead of as sequential round-trips.
-  const [[connection], [iclosedConnection], [calendlyConnection], [instagramConnection], subscriptionActive] = await Promise.all([
+  // 6 independent reads — run together instead of as sequential round-trips.
+  const [[connection], [iclosedConnection], [calendlyConnection], [instagramConnection], [youtubeConnection], subscriptionActive] = await Promise.all([
     stripeConnected
       ? db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -37,6 +39,9 @@ export default async function IntegrationsPage() {
       : Promise.resolve([]),
     instagramConnected
       ? db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    youtubeConnected
+      ? db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
     hasActiveSubscription(accountId),
   ]);
@@ -125,7 +130,7 @@ export default async function IntegrationsPage() {
         <div>
           <p className="text-sm font-bold text-muted-foreground">Contenu</p>
           <p className="text-sm text-muted-foreground">
-            Connecte ton compte Instagram pour voir automatiquement quels posts performent.
+            Connecte Instagram et/ou YouTube pour voir automatiquement quels posts et vidéos performent.
           </p>
         </div>
         <InstagramConnectionCard
@@ -133,6 +138,13 @@ export default async function IntegrationsPage() {
           username={instagramConnection?.username}
           initialSyncStatus={instagramConnection?.initialSyncStatus}
           initialSyncCompletedAt={instagramConnection?.initialSyncCompletedAt}
+          subscriptionActive={subscriptionActive}
+        />
+        <YoutubeConnectionCard
+          connected={youtubeConnected}
+          channelTitle={youtubeConnection?.channelTitle}
+          initialSyncStatus={youtubeConnection?.initialSyncStatus}
+          initialSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt}
           subscriptionActive={subscriptionActive}
         />
       </div>

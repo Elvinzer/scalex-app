@@ -49,6 +49,8 @@ export type AnalyticsEvent =
   | "calendly_sync_failed"
   | "instagram_sync_completed"
   | "instagram_sync_failed"
+  | "youtube_sync_completed"
+  | "youtube_sync_failed"
   | "lever_page_viewed"
   | "lever_started"
   | "lever_starter_step_done"

@@ -3,8 +3,9 @@ import { eq } from "drizzle-orm";
 import { AgentBanner } from "@/components/agent-banner";
 import { InfoPopover } from "@/components/info-popover";
 import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
+import { YoutubeConnectionCard } from "@/components/youtube/youtube-connection-card";
 import { db } from "@/db";
-import { instagramConnections } from "@/db/schema";
+import { instagramConnections, youtubeConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import type { ChatContext } from "@/lib/chat-context";
 import { computePostRates } from "@/lib/content-posts/rates";
@@ -14,8 +15,10 @@ import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 
 import { PostsTable } from "./posts-table";
+import { YoutubeVideosTable } from "./youtube-videos-table";
 
 function currentMonthWindow(): { year: number; month: number } {
   const now = new Date();
@@ -28,18 +31,33 @@ const INSTAGRAM_ERROR_MESSAGES: Record<string, string> = {
   unknown: "La connexion Instagram a échoué. Réessaie dans un instant.",
 };
 
-export default async function ContenuPage({ searchParams }: { searchParams: Promise<{ instagram_error?: string }> }) {
+const YOUTUBE_ERROR_MESSAGES: Record<string, string> = {
+  no_channel: "Aucune chaîne YouTube n'est associée à ce compte Google. Connecte-toi avec le compte qui possède la chaîne.",
+  no_refresh_token: "Google n'a pas renvoyé d'accès permanent. Réessaie la connexion — si le problème persiste, révoque l'accès Scale X dans les paramètres de ton compte Google puis reconnecte.",
+  unknown: "La connexion YouTube a échoué. Réessaie dans un instant.",
+};
+
+export default async function ContenuPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ instagram_error?: string; youtube_error?: string }>;
+}) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:contenu");
-  const { instagram_error: instagramError } = await searchParams;
+  const { instagram_error: instagramError, youtube_error: youtubeError } = await searchParams;
 
   const instagramConnected = Boolean(user?.instagramConnected);
-  const [posts, [instagramConnection], instagramInsights, subscriptionActive] = await Promise.all([
+  const youtubeConnected = Boolean(user?.youtubeConnected);
+  const [posts, [instagramConnection], instagramInsights, [youtubeConnection], youtubeInsights, subscriptionActive] = await Promise.all([
     getContentPosts(accountId),
     instagramConnected
       ? db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
     getInstagramPostInsightsMap(accountId),
+    youtubeConnected
+      ? db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    getYoutubeVideoInsightsMap(accountId),
     hasActiveSubscription(accountId),
   ]);
 
@@ -57,6 +75,12 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
     .map((post) => ({ post, rates: computePostRates(post) }))
     .filter((entry) => entry.rates.viewToLeadRate !== null)
     .sort((a, b) => (b.rates.viewToLeadRate ?? 0) - (a.rates.viewToLeadRate ?? 0))[0]?.post ?? null;
+
+  const youtubeVideos = Array.from(youtubeInsights.values());
+  const retentionValues = youtubeVideos.map((v) => v.averageViewPercentage).filter((v): v is number => v !== null);
+  const avgRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, v) => sum + v, 0) / retentionValues.length : null;
+  const ctrValues = youtubeVideos.map((v) => v.impressionsClickThroughRate).filter((v): v is number => v !== null);
+  const avgCtr = ctrValues.length > 0 ? ctrValues.reduce((sum, v) => sum + v, 0) / ctrValues.length : null;
 
   const stateText =
     avgClickRate !== null
@@ -78,7 +102,7 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
       <div>
         <h1 className="text-3xl font-bold">Contenu</h1>
         <p className="mt-1 text-muted-foreground">
-          Performance de tes posts Instagram : vues, engagement, clics et leads générés.
+          Performance de ton contenu, tous canaux connectés confondus : vues, engagement, clics et leads générés.
         </p>
       </div>
 
@@ -119,6 +143,52 @@ export default async function ContenuPage({ searchParams }: { searchParams: Prom
       </div>
 
       <PostsTable posts={posts} topPostId={topPost?.id ?? null} instagramInsights={instagramInsights} />
+
+      {youtubeError && (
+        <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
+          {YOUTUBE_ERROR_MESSAGES[youtubeError] ?? YOUTUBE_ERROR_MESSAGES.unknown}
+        </div>
+      )}
+
+      <YoutubeConnectionCard
+        connected={youtubeConnected}
+        channelTitle={youtubeConnection?.channelTitle}
+        initialSyncStatus={youtubeConnection?.initialSyncStatus}
+        initialSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt}
+        subscriptionActive={subscriptionActive}
+        primaryCta={!instagramConnected && !youtubeConnected}
+      />
+
+      {youtubeConnected && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="sticker-card flex flex-col p-5">
+              <p className="text-sm font-bold text-muted-foreground">Abonnés</p>
+              <p className="mt-2 font-display text-3xl font-bold">
+                {youtubeConnection?.subscriberCount === null || youtubeConnection?.subscriberCount === undefined
+                  ? "—"
+                  : new Intl.NumberFormat("fr-FR").format(youtubeConnection.subscriberCount)}
+              </p>
+            </div>
+            <div className="sticker-card flex flex-col p-5">
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-bold text-muted-foreground">Rétention moyenne</p>
+                <InfoPopover text="Pourcentage moyen de tes vidéos regardé par les spectateurs, tous chiffres remontés confondus — le signal que YouTube utilise pour juger si une vidéo mérite d'être recommandée." />
+              </div>
+              <p className="mt-2 font-display text-3xl font-bold">{avgRetention === null ? "—" : `${Math.round(avgRetention * 10) / 10}%`}</p>
+            </div>
+            <div className="sticker-card flex flex-col p-5">
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-bold text-muted-foreground">CTR moyen</p>
+                <InfoPopover text="Taux de clic moyen sur la miniature de tes vidéos — avec le watch time, le signal le plus pondéré par l'algorithme YouTube." />
+              </div>
+              <p className="mt-2 font-display text-3xl font-bold">{avgCtr === null ? "—" : `${Math.round(avgCtr * 10) / 10}%`}</p>
+            </div>
+          </div>
+
+          <YoutubeVideosTable videos={youtubeVideos} />
+        </>
+      )}
     </div>
   );
 }
