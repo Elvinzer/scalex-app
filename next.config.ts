@@ -59,29 +59,6 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Production only: `next build` content-hashes these filenames, so a
-        // changed asset always gets a new URL — safe to cache forever and
-        // skip revalidation entirely.
-        //
-        // Turbopack's DEV server does NOT content-hash them: it reuses a
-        // stable chunk name (e.g. [root-of-the-server]__<id>._.css) whose
-        // *contents* change on every edit. Serving that with `immutable`
-        // pins the browser to the first CSS/JS it ever fetched — a plain
-        // reload won't dislodge it (browsers honour `immutable` and skip
-        // revalidation), so edits appear to have no effect until a hard
-        // reload. `no-store` in dev keeps the URL always fresh.
-        source: "/_next/static/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value:
-              process.env.NODE_ENV === "production"
-                ? "public, max-age=31536000, immutable"
-                : "no-store, must-revalidate",
-          },
-        ],
-      },
-      {
         source: "/:path*",
         headers: [
           { key: "Content-Security-Policy", value: csp },
