@@ -6,14 +6,20 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
 import { YoutubeConnectionCard } from "@/components/youtube/youtube-connection-card";
+import { AgentBanner } from "@/components/agent-banner";
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import type { DateFilterKey } from "@/lib/content-posts/period-filter";
+import type { ChatContext } from "@/lib/chat-context";
+import type { FalcoSkinKey } from "@/lib/falco-skins";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 import type { VideoFormat } from "@/lib/youtube/format";
 import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
 import { cn } from "@/lib/utils";
 
 import { InstagramView } from "./instagram-view";
+import { YoutubeHooksSection } from "./youtube-hooks-section";
+import type { YoutubeRecommendationCard } from "./youtube/youtube-recommendations-section";
+import { YoutubeRecommendationsSection } from "./youtube/youtube-recommendations-section";
 import { YoutubeView } from "./youtube-view";
 
 type Platform = "instagram" | "youtube";
@@ -33,6 +39,14 @@ type ContenuViewProps = {
   youtubeSyncStatus: string | null;
   youtubeSyncCompletedAt: Date | null;
   youtubeSubscriberCount: number | null;
+  youtubeRecommendations?: YoutubeRecommendationCard[];
+  youtubeAnalyzableVideoCount?: number;
+  youtubeFalcoStateText?: string;
+  youtubeChatContext?: ChatContext;
+  youtubeFalcoSkin?: FalcoSkinKey | null;
+  overviewStateText?: string;
+  overviewChatContext?: ChatContext;
+  overviewFalcoSkin?: FalcoSkinKey | null;
   subscriptionActive: boolean;
   hasConnectedPlatform: boolean;
 };
@@ -41,6 +55,19 @@ const PLATFORM_OPTIONS: { id: Platform; label: string; icon: typeof Camera }[] =
   { id: "instagram", label: "Instagram", icon: Camera },
   { id: "youtube", label: "YouTube", icon: MonitorPlay },
 ];
+
+const DEFAULT_OVERVIEW_CONTEXT: ChatContext = {
+  topicType: "lever",
+  topicKey: "content",
+  topicLabel: "Contenu",
+  sourcePage: "acquisition_contenu",
+};
+const DEFAULT_YOUTUBE_CONTEXT: ChatContext = {
+  topicType: "general",
+  topicKey: null,
+  topicLabel: null,
+  sourcePage: "page_contenu_youtube",
+};
 
 function isPlatform(value: string | null): value is Platform {
   return value === "instagram" || value === "youtube";
@@ -61,6 +88,14 @@ export function ContenuView({
   youtubeSyncStatus,
   youtubeSyncCompletedAt,
   youtubeSubscriberCount,
+  youtubeRecommendations = [],
+  youtubeAnalyzableVideoCount = 0,
+  youtubeFalcoStateText = "Je regarde les signaux de ta chaîne YouTube.",
+  youtubeChatContext = DEFAULT_YOUTUBE_CONTEXT,
+  youtubeFalcoSkin = null,
+  overviewStateText = "Regardons la performance de ton contenu.",
+  overviewChatContext = DEFAULT_OVERVIEW_CONTEXT,
+  overviewFalcoSkin = null,
   subscriptionActive,
   hasConnectedPlatform,
 }: ContenuViewProps) {
@@ -92,6 +127,15 @@ export function ContenuView({
 
   return (
     <div className="flex flex-col gap-6">
+      <AgentBanner
+        stateText={platform === "youtube" ? youtubeFalcoStateText : overviewStateText}
+        ctaLabel="Parler contenu →"
+        chatContext={platform === "youtube" ? youtubeChatContext : overviewChatContext}
+        gapBadge={platform === "youtube" ? "Falco Créateur" : null}
+        mode={platform === "youtube" ? null : "optimiser"}
+        falcoSkin={platform === "youtube" ? youtubeFalcoSkin : overviewFalcoSkin}
+      />
+
       <div className="flex flex-wrap gap-2" role="group" aria-label="Plateforme de contenu">
         {PLATFORM_OPTIONS.map((option) => {
           const Icon = option.icon;
@@ -166,6 +210,8 @@ export function ContenuView({
             onPeriodChange={setPeriod}
             format={youtubeFormat}
             onFormatChange={setYoutubeFormat}
+            recommendations={youtubeRecommendations}
+            analyzableVideoCount={youtubeAnalyzableVideoCount}
           />
         )}
       </div>
@@ -225,6 +271,8 @@ function YoutubePanel({
   onPeriodChange,
   format,
   onFormatChange,
+  recommendations,
+  analyzableVideoCount,
 }: {
   connected: boolean;
   channelTitle: string | null;
@@ -238,6 +286,8 @@ function YoutubePanel({
   onPeriodChange: (period: DateFilterKey) => void;
   format: VideoFormat;
   onFormatChange: (format: VideoFormat) => void;
+  recommendations: YoutubeRecommendationCard[];
+  analyzableVideoCount: number;
 }) {
   return (
     <>
@@ -251,15 +301,23 @@ function YoutubePanel({
       />
 
       {connected && (
-        <YoutubeView
-          videos={videos}
-          commercialStats={commercialStats}
-          subscriberCount={subscriberCount}
-          period={period}
-          onPeriodChange={onPeriodChange}
-          format={format}
-          onFormatChange={onFormatChange}
-        />
+        <>
+          <YoutubeHooksSection videos={videos} />
+          <YoutubeView
+            videos={videos}
+            commercialStats={commercialStats}
+            subscriberCount={subscriberCount}
+            period={period}
+            onPeriodChange={onPeriodChange}
+            format={format}
+            onFormatChange={onFormatChange}
+          />
+          <YoutubeRecommendationsSection
+            recommendations={recommendations}
+            analyzedVideoCount={analyzableVideoCount}
+            publishedVideos={videos.map((video) => ({ videoId: video.videoId, title: video.title }))}
+          />
+        </>
       )}
     </>
   );

@@ -1,17 +1,19 @@
 "use server";
 
 import { and, desc, eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { db } from "@/db";
-import { closingKpiEntries, improvementEvents, settingKpiEntries, users } from "@/db/schema";
+import { closingKpiEntries, contentRecommendations, improvementEvents, settingKpiEntries, users } from "@/db/schema";
 import { track } from "@/lib/analytics";
-import type { ChatContext } from "@/lib/chat-context";
+import { chatContextSchema, type ChatContext } from "@/lib/chat-context";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { METRIC_KEYS, type MetricKey } from "@/lib/diagnostic/benchmarks";
 import { buildRates, labelFor } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/team/context";
 
 function isMetricKey(value: string): value is MetricKey {
   return (METRIC_KEYS as string[]).includes(value);
@@ -30,27 +32,49 @@ function isMetricKey(value: string): value is MetricKey {
 // follow-up, not part of this fix) so the next weekly check-in can show a
 // before/after.
 export async function recordImproveChatOpened(context: ChatContext, mode?: string | null): Promise<void> {
+  const parsedContext = chatContextSchema.safeParse(context);
+  if (!parsedContext.success) return;
+  const safeContext = parsedContext.data;
+
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) return;
   const userId = data.claims.sub as string;
 
   await track("improve_chat_opened", userId, {
-    topic_type: context.topicType,
-    topic_key: context.topicKey,
-    source_page: context.sourcePage,
+    topic_type: safeContext.topicType,
+    topic_key: safeContext.topicKey,
+    source_page: safeContext.sourcePage,
   });
 
   // Additive: the specific agent_key/mode pairing, alongside (not instead
   // of) the generic improve_chat_opened above — that event already powers
   // existing PostHog dashboards (lib/posthog-query.ts), this is scoped only
   // to lever-agent pages.
-  if (context.topicType === "lever" && context.topicKey) {
-    await track("agent_chat_opened", userId, { agent_key: context.topicKey, mode: mode ?? null });
+  if (safeContext.topicType === "lever" && safeContext.topicKey) {
+    await track("agent_chat_opened", userId, { agent_key: safeContext.topicKey, mode: mode ?? null });
   }
 
-  if (context.topicType !== "metric" || !context.topicKey || !isMetricKey(context.topicKey)) return;
-  const metricKey = context.topicKey;
+  if (safeContext.topicType === "content_idea" && safeContext.topicKey) {
+    const parsedRecommendationId = z.string().uuid().safeParse(safeContext.topicKey);
+    const access = await requirePermission(userId, "acquisition:contenu");
+    if (parsedRecommendationId.success && access) {
+      await db
+        .update(contentRecommendations)
+        .set({ status: "building", updatedAt: new Date() })
+        .where(
+          and(
+            eq(contentRecommendations.id, parsedRecommendationId.data),
+            eq(contentRecommendations.userId, access.accountId),
+            eq(contentRecommendations.status, "new")
+          )
+        );
+      await track("content_reco_developed", userId, { reco_id: parsedRecommendationId.data });
+    }
+  }
+
+  if (safeContext.topicType !== "metric" || !safeContext.topicKey || !isMetricKey(safeContext.topicKey)) return;
+  const metricKey = safeContext.topicKey;
 
   const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),

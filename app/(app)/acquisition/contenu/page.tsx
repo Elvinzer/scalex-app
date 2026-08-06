@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 
-import { AgentBanner } from "@/components/agent-banner";
 import { db } from "@/db";
 import { instagramConnections, youtubeConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
@@ -13,8 +12,10 @@ import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
+import { getContentRecommendations, getWinningPatterns } from "@/lib/youtube/recommendations";
 
 import { ContenuView } from "./contenu-view";
+import type { YoutubeRecommendationCard } from "./youtube/youtube-recommendations-section";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
@@ -67,6 +68,8 @@ export default async function ContenuPage({
     instagramInsights,
     [youtubeConnection],
     youtubeInsights,
+    youtubeRecommendations,
+    youtubeWinningPatterns,
     subscriptionActive,
   ] = await Promise.all([
     getContentPosts(accountId),
@@ -78,6 +81,8 @@ export default async function ContenuPage({
       ? db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
     getYoutubeVideoInsightsMap(accountId),
+    getContentRecommendations(accountId),
+    getWinningPatterns(accountId),
     hasActiveSubscription(accountId),
   ]);
 
@@ -102,6 +107,22 @@ export default async function ContenuPage({
       .map((post) => [post.externalId as string, { bookings: post.bookings, dealsClosed: post.dealsClosed }])
   );
 
+  const youtubeAnalyzableVideoCount =
+    youtubeWinningPatterns?.analyzedVideoCount ??
+    youtubeVideos.filter((video) => video.title.trim().length > 0 && (video.views ?? 0) > 0).length;
+  const youtubeFalcoStateText =
+    youtubeAnalyzableVideoCount < 5
+      ? "Je regarde déjà tes premiers signaux. Publie encore quelques vidéos et je pourrai repérer tes vrais patterns gagnants."
+      : youtubeRecommendations.length > 0
+        ? `D'après tes insights YouTube, j'ai repéré ${youtubeRecommendations.length} idée${youtubeRecommendations.length > 1 ? "s" : ""} ancrée${youtubeRecommendations.length > 1 ? "s" : "e"} dans ce qui marche déjà chez toi.`
+        : "Tes données YouTube sont suffisantes pour faire émerger de nouvelles idées. Régénère-les avec Falco Créateur.";
+  const youtubeChatContext: ChatContext = {
+    topicType: "general",
+    topicKey: null,
+    topicLabel: null,
+    sourcePage: "page_contenu_youtube",
+  };
+
   const anyConnected = instagramConnected || youtubeConnected;
   const stateText = anyConnected
     ? `${NUMBER_FORMAT.format(global.views)} vues cumulées sur ${NUMBER_FORMAT.format(global.posts)} publication${global.posts > 1 ? "s" : ""}, tous réseaux confondus.`
@@ -111,14 +132,6 @@ export default async function ContenuPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <AgentBanner
-        stateText={stateText}
-        ctaLabel="Améliorer →"
-        chatContext={chatContext}
-        mode="optimiser"
-        falcoSkin={falcoSkin}
-      />
-
       <div>
         <h1 className="text-3xl font-bold">Contenu</h1>
         <p className="mt-1 text-muted-foreground">
@@ -152,6 +165,18 @@ export default async function ContenuPage({
         youtubeSyncStatus={youtubeConnection?.initialSyncStatus ?? null}
         youtubeSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt ?? null}
         youtubeSubscriberCount={youtubeConnection?.subscriberCount ?? null}
+        youtubeRecommendations={youtubeRecommendations.map<YoutubeRecommendationCard>((recommendation) => ({
+          ...recommendation,
+          createdAt: recommendation.createdAt.toISOString(),
+          updatedAt: recommendation.updatedAt.toISOString(),
+        }))}
+        youtubeAnalyzableVideoCount={youtubeAnalyzableVideoCount}
+        youtubeFalcoStateText={youtubeFalcoStateText}
+        youtubeChatContext={youtubeChatContext}
+        youtubeFalcoSkin={falcoSkin}
+        overviewStateText={stateText}
+        overviewChatContext={chatContext}
+        overviewFalcoSkin={falcoSkin}
         subscriptionActive={subscriptionActive}
         hasConnectedPlatform={anyConnected}
       />

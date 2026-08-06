@@ -6,11 +6,12 @@ import { agentChatMessages, conversations } from "@/db/schema";
 export const MAX_AGENT_MESSAGES = 20;
 
 export type StoredChatMessage = { role: "user" | "assistant"; content: string };
+export type ConversationTopicType = "general" | "lever" | "content_idea";
 
 export type ConversationRow = {
   id: string;
   title: string;
-  topicType: "general" | "lever";
+  topicType: ConversationTopicType;
   topicKey: string | null;
   topicLabel: string | null;
   resolved: boolean;
@@ -101,7 +102,7 @@ export async function getConversationMessages(accountId: string, conversationId:
 // findOrCreateConversationForTopic below when no match exists yet.
 export async function createConversation(
   accountId: string,
-  data: { id?: string; topicType: "general" | "lever"; topicKey: string | null; topicLabel: string | null }
+  data: { id?: string; topicType: ConversationTopicType; topicKey: string | null; topicLabel: string | null }
 ): Promise<ConversationRow> {
   const [row] = await db
     .insert(conversations)
@@ -127,7 +128,7 @@ export async function createConversation(
 // caller that doesn't explicitly manage conversations itself.
 export async function findOrCreateConversationForTopic(
   accountId: string,
-  topic: { topicType: "general" | "lever"; topicKey: string | null; topicLabel: string | null }
+  topic: { topicType: ConversationTopicType; topicKey: string | null; topicLabel: string | null }
 ): Promise<ConversationRow> {
   const [existing] = await db
     .select()

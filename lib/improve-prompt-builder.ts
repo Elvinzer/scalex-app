@@ -9,6 +9,7 @@ import type { FollowupCompliance } from "@/lib/diagnostic/followups";
 import { formatEur } from "@/lib/currency";
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
+import type { YoutubeRecommendationRecord, YoutubeWinningPatternsSnapshot } from "@/lib/youtube/recommendation-types";
 
 export type ImproveMetricKey = MetricKey | "followupRecovery" | "general";
 
@@ -103,6 +104,48 @@ function describeAllPoints(points: DiagnosticPoint[]): string {
     .join("\n");
 }
 
+function describeContentPatterns(patterns: YoutubeWinningPatternsSnapshot | null): string {
+  if (!patterns || patterns.analyzedVideoCount < 1) return "Aucun profil de contenu gagnant n'est encore disponible.";
+
+  const themes = patterns.themes
+    .slice(0, 5)
+    .map((theme) => {
+      const examples = theme.examples.map((example) => `« ${example.title} »`).join(", ");
+      return `- ${theme.label} : ${theme.count} vidéo(s), ${Math.round(theme.averageViews)} vues moyennes${examples ? ` — exemples : ${examples}` : ""}`;
+    })
+    .join("\n");
+  const formats = patterns.formats.map((format) => `- ${format.label} : ${format.count} vidéo(s), ${Math.round(format.averageViews)} vues moyennes`).join("\n");
+  const structures = patterns.titleStructures.map((structure) => `- ${structure.label}`).join("\n");
+  const angles = patterns.angles.map((angle) => `- ${angle.label}`).join("\n");
+
+  return [
+    `Profil extrait de ${patterns.analyzedVideoCount} vidéos analysables (top vidéo ids : ${patterns.topVideoIds.join(", ") || "aucun"})`,
+    "Thèmes gagnants :",
+    themes || "- non identifié",
+    "Formats observés :",
+    formats || "- non identifié",
+    "Structures de titres récurrentes :",
+    structures || "- non identifiées",
+    "Angles récurrents :",
+    angles || "- non identifiés",
+  ].join("\n");
+}
+
+function describeContentIdea(
+  recommendation: YoutubeRecommendationRecord | null,
+  patterns: YoutubeWinningPatternsSnapshot | null
+): string {
+  if (!recommendation) return "Recommandation introuvable.";
+  return [
+    `Titre proposé : « ${recommendation.title} »`,
+    `Angle / format : ${recommendation.angle}`,
+    `Pourquoi cette idée : ${recommendation.rationale}`,
+    `Impact estimé : ${recommendation.estImpact === null ? "non chiffré" : `≈ ${recommendation.estImpact} vues`} — ${recommendation.impactBasis ?? "estimation prudente, pas une garantie"}`,
+    `Effort estimé : ${recommendation.effort}`,
+    `Profil gagnant de la chaîne :\n${describeContentPatterns(patterns)}`,
+  ].join("\n");
+}
+
 const LEVER_MISSION_BY_MODE: Record<LeverMode, string> = {
   optimiser:
     "Aide l'utilisateur à améliorer précisément ce levier, en t'appuyant sur les données ci-dessus (son business " +
@@ -131,6 +174,8 @@ export function buildImprovePrompt({
   pageContext,
   pageAgentData,
   userName,
+  contentRecommendation,
+  winningPatterns,
 }: {
   context: ChatContext;
   businessProfile: BusinessProfileData;
@@ -151,9 +196,14 @@ export function buildImprovePrompt({
   // they haven't set one — never fall back to the email local-part here, an
   // address like "ibrahimchauvin1995" reads worse than no name at all.
   userName?: string | null;
+  // Present only for a persisted content_idea conversation. Both objects are
+  // reloaded server-side from the account that owns the conversation.
+  contentRecommendation?: YoutubeRecommendationRecord | null;
+  winningPatterns?: YoutubeWinningPatternsSnapshot | null;
 }): string {
   const isGeneral = context.topicType === "general";
   const isLever = context.topicType === "lever";
+  const isContentIdea = context.topicType === "content_idea";
 
   // Always the single unified Falco identity now, regardless of topicType —
   // the caller always fetches the one agents_registry row (agentKey
@@ -170,6 +220,8 @@ export function buildImprovePrompt({
     ? describeAllPoints(points ?? [])
     : isLever && leverAgentData
       ? leverAgentData.metricsBlock
+      : isContentIdea
+        ? describeContentIdea(contentRecommendation ?? null, winningPatterns ?? null)
       : point
         ? `Point à améliorer : ${point.label} (${point.category}). Taux actuel : ${point.currentRatePercent}%, benchmark de la niche : ${point.benchmarkRatePercent}%. ${point.explanation} Manque à gagner estimé : ${point.monthlyGain !== null ? `${formatEur(point.monthlyGain)}/mois` : "non chiffrable (pas d'offre principale renseignée)"}.`
         : followup
@@ -190,7 +242,13 @@ export function buildImprovePrompt({
     "# DONNÉES RÉELLES (3 derniers mois)",
     describeRealNumbers(settingTotals, closingTotals),
     "",
-    isGeneral ? "# LES POINTS À AMÉLIORER (classés par impact)" : isLever ? "# DONNÉES DU LEVIER" : "# LE SUJET DE CETTE CONVERSATION",
+    isGeneral
+      ? "# LES POINTS À AMÉLIORER (classés par impact)"
+      : isLever
+        ? "# DONNÉES DU LEVIER"
+        : isContentIdea
+          ? "# RECOMMANDATION YOUTUBE À EXÉCUTER"
+          : "# LE SUJET DE CETTE CONVERSATION",
     gapDescription,
     "",
     // Page block sits AFTER the global picture on purpose: Falco still knows
@@ -203,6 +261,13 @@ export function buildImprovePrompt({
           "",
         ]
       : []),
+    ...(isContentIdea && contentRecommendation
+      ? [
+          "# DONNÉES DU PROFIL GAGNANT",
+          describeContentPatterns(winningPatterns ?? null),
+          "",
+        ]
+      : []),
     "# MISSION",
     isGeneral
       ? "Aide l'utilisateur à comprendre et prioriser ses données, en t'appuyant sur son business réel " +
@@ -210,6 +275,8 @@ export function buildImprovePrompt({
         "Il peut te poser des questions sur n'importe quel chiffre ou point ci-dessus."
       : isLever
         ? LEVER_MISSION_BY_MODE[leverMode]
+        : isContentIdea
+          ? "Aide l'utilisateur à exécuter cette recommandation YouTube : construis avec lui un hook, un script complet, une structure claire, un titre final et une idée de miniature. Pars de la recommandation et du profil gagnant réel, jamais d'un conseil générique."
         : "Aide l'utilisateur à améliorer précisément CE sujet, en t'appuyant sur son business réel " +
           "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques.",
     "",
@@ -235,11 +302,19 @@ export function buildImprovePrompt({
           `- Tu es sur la page ${pageContext.label} : raisonne en expert de CE domaine et appuie-toi d'abord sur les données de cette page.`,
         ]
       : []),
+    ...(isContentIdea
+      ? [
+          "- Tu es Falco Créateur : tu aides à produire la vidéo, pas seulement à discuter de stratégie.",
+          "- Ne transforme jamais une estimation de vues en promesse. Utilise « ≈ » et rappelle que l'impact est estimé.",
+        ]
+      : []),
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : " +
       (pageContext
         ? `${pageContext.hook}. Deux phrases d'analyse maximum avant la proposition, en citant au moins un chiffre réel de cette page.`
         : topicLabel
-          ? "commence par un message qui résume en une phrase le problème et propose une première piste concrète."
+          ? isContentIdea
+            ? `reprends le titre proposé « ${contentRecommendation?.title ?? "cette idée"} », rappelle en une phrase la donnée qui l'ancre, puis propose de construire le hook et le plan.`
+            : "commence par un message qui résume en une phrase le problème et propose une première piste concrète."
           : "commence par un résumé en une phrase de l'état général du business et demande sur quoi on bosse aujourd'hui."),
   ].join("\n");
 }

@@ -2,11 +2,13 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { youtubeConnections } from "@/db/schema";
+import { track } from "@/lib/analytics";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { requireEnv } from "@/lib/utils";
 
 import { backfillYoutubeDeepInsights, backfillYoutubeVideos, type BackfillResult } from "./backfill";
 import { fetchChannel, refreshAccessToken } from "./client";
+import { rebuildYoutubeContentRecommendations } from "./recommendations";
 
 export type YoutubeConnectionRow = typeof youtubeConnections.$inferSelect;
 
@@ -65,6 +67,19 @@ export async function runYoutubeSync(connection: YoutubeSyncConnection, sinceDat
     console.log(`[youtube] deep insights for ${connection.userId}: ${deep.processed} fetched, ${deep.skipped} skipped`);
   } catch (error) {
     console.error(`[youtube] deep insights for ${connection.userId} failed, sync itself unaffected`, error);
+  }
+
+  // Recommendations are a derived product of the freshly upserted videos +
+  // attribution rows. A Groq outage must never make a successful YouTube
+  // analytics sync fail, so this enrichment is isolated just like deep
+  // insights above.
+  try {
+    const recommendations = await rebuildYoutubeContentRecommendations(connection.userId);
+    if (recommendations.state === "generated") {
+      await track("content_reco_generated", connection.userId, { count: recommendations.count });
+    }
+  } catch (error) {
+    console.error(`[youtube] content recommendations for ${connection.userId} failed, sync itself unaffected`, error);
   }
 
   return result;

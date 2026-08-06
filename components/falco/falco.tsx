@@ -25,6 +25,15 @@ const FALCO_ASSETS = {
   bust: { src: falcoBust, alt: "Falco, ton copilote IA" },
 } as const;
 
+const FALCO_DIMENSIONS: Record<FalcoVariant, { width: number; height: number }> = {
+  hero: { width: 784, height: 1119 },
+  dashboard: { width: 640, height: 1177 },
+  assistant: { width: 800, height: 1152 },
+  flying: { width: 1216, height: 1032 },
+  insights: { width: 862, height: 1187 },
+  bust: { width: 800, height: 800 },
+};
+
 export type FalcoVariant = keyof typeof FALCO_ASSETS;
 
 // Semantic pose → concrete asset. No dedicated "sleeping" art exists yet;
@@ -130,6 +139,8 @@ export function Falco({
   const resolvedVariant: FalcoVariant = pose ? POSE_TO_VARIANT[pose] : (variant ?? "bust");
   const asset = FALCO_ASSETS[resolvedVariant];
   const isBust = resolvedVariant === "bust";
+  const imageWidth = isBust ? BUST_SIZE_PX[size] : SIZE_PX[size];
+  const imageHeight = Math.round((imageWidth * FALCO_DIMENSIONS[resolvedVariant].height) / FALCO_DIMENSIONS[resolvedVariant].width);
   const animationsEnabled = useFalcoAnimationsEnabled();
   // Pose-aware entrance — replaces the generic `animate="enter"` fade with a
   // morph matching the pose whenever one is known (see lib/falco-motion.ts;
@@ -154,6 +165,8 @@ export function Falco({
     <Image
       src={asset.src}
       alt={alt ?? asset.alt}
+      width={imageWidth}
+      height={imageHeight}
       priority={priority}
       sizes={`${isBust ? BUST_SIZE_PX[size] : SIZE_PX[size]}px`}
       className={cn(

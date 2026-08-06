@@ -25,6 +25,8 @@ import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
+import { getContentRecommendation, getWinningPatterns } from "@/lib/youtube/recommendations";
+import type { YoutubeWinningPatternsSnapshot } from "@/lib/youtube/recommendation-types";
 
 const MAX_MESSAGES = 20;
 
@@ -159,6 +161,8 @@ export async function POST(request: NextRequest) {
   let followup = null as ReturnType<typeof computeFollowupCompliance>[number] | null;
   let leverAgentData: Awaited<ReturnType<typeof resolveLeverAgentData>> = null;
   let leverMode: LeverMode | null = null;
+  let contentRecommendation: Awaited<ReturnType<typeof getContentRecommendation>> = null;
+  let contentWinningPatterns: YoutubeWinningPatternsSnapshot | null = null;
 
   if (context.topicType === "metric") {
     if (!context.topicKey || !(METRIC_TOPIC_KEYS as readonly string[]).includes(context.topicKey)) {
@@ -202,6 +206,27 @@ export async function POST(request: NextRequest) {
     leverMode = mode ?? "optimiser";
   }
 
+  if (context.topicType === "content_idea") {
+    if (!context.topicKey) {
+      return NextResponse.json({ error: "Recommandation manquante. Recharge la page." }, { status: 400 });
+    }
+    contentRecommendation = await getContentRecommendation(accountId, context.topicKey);
+    if (!contentRecommendation) {
+      return NextResponse.json({ error: "Cette recommandation n'est plus disponible. Recharge la page." }, { status: 400 });
+    }
+    const patternRow = await getWinningPatterns(accountId);
+    contentWinningPatterns = patternRow
+      ? {
+          themes: patternRow.themes,
+          formats: patternRow.formats,
+          titleStructures: patternRow.titleStructures,
+          angles: patternRow.angles,
+          topVideoIds: patternRow.topVideoIds,
+          analyzedVideoCount: patternRow.analyzedVideoCount,
+        }
+      : null;
+  }
+
   // Page hook — only for the floating bubble ("general"), which is the one
   // entry point with no topic of its own. sourcePage is the sole client-sent
   // field not overwritten by the conversation row above, so it's what
@@ -241,6 +266,8 @@ export async function POST(request: NextRequest) {
     pageContext,
     pageAgentData,
     userName,
+    contentRecommendation,
+    winningPatterns: contentWinningPatterns,
   });
 
   let provider;

@@ -33,6 +33,11 @@ export function YoutubeHooksSection({ videos }: { videos: YoutubeVideoInsightRow
   // rouge".
   const measurable = videos.filter(hasUsableRetention);
   if (measurable.length === 0) {
+    const importedRetention = videos.filter(
+      (video) => (video.views ?? 0) >= YOUTUBE_RETENTION_MIN_VIEWS && video.averageViewPercentage !== null
+    );
+    if (importedRetention.length > 0) return <ImportedRetentionFallback videos={importedRetention} />;
+
     return (
       <div className="flex flex-col gap-3">
         <h2 className="text-base font-bold">Ce qui fait cliquer et regarder</h2>
@@ -165,6 +170,43 @@ export function YoutubeHooksSection({ videos }: { videos: YoutubeVideoInsightRow
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ImportedRetentionFallback({ videos }: { videos: YoutubeVideoInsightRow[] }) {
+  const average = videos.reduce((sum, video) => sum + (video.averageViewPercentage ?? 0), 0) / videos.length;
+  const best = [...videos].sort((a, b) => (b.averageViewPercentage ?? 0) - (a.averageViewPercentage ?? 0)).slice(0, 3);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-base font-bold">Ce qui fait cliquer et regarder</h2>
+        <p className="text-xs text-muted-foreground">
+          Sur {videos.length} vidéo{videos.length > 1 ? "s" : ""} déjà analysée{videos.length > 1 ? "s" : ""}
+        </p>
+      </div>
+
+      <div className="sticker-card flex flex-col gap-4 p-5">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-bold text-muted-foreground">Rétention moyenne importée</p>
+          <InfoPopover text="Pourcentage moyen regardé par les spectateurs, déjà récupéré depuis YouTube pour tes vidéos qui dépassent le seuil de 100 vues." />
+        </div>
+        <p className="font-display text-3xl font-bold tabular-nums">{Math.round(average * 10) / 10}%</p>
+        <p className="text-sm text-muted-foreground">
+          Tes vidéos sont bien analysées. Les courbes détaillées seront récupérées au prochain rafraîchissement YouTube ; les chiffres
+          ci-dessus restent déjà utilisables pour comparer tes formats.
+        </p>
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <p className="text-sm font-bold">Meilleures rétentions importées</p>
+          {best.map((video) => (
+            <div key={video.videoId} className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate">{video.title}</span>
+              <span className="shrink-0 font-bold tabular-nums">{Math.round(video.averageViewPercentage ?? 0)}%</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

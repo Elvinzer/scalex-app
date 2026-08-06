@@ -164,6 +164,8 @@ describe("ContenuView connected panels", () => {
     expect(html).toContain("Shorts");
     expect(html).toContain("Vidéos longues");
     expect(html).toContain("Rétention moyenne");
+    expect(html).toContain("Rétention moyenne importée");
+    expect(html).not.toContain("Pas encore assez de données de rétention");
     expect(html).toContain("Tes 3 meilleures vidéos");
     expect(html).toContain("Toutes les vidéos");
     expect(html).toContain("L’Analyse technique est incroyable");

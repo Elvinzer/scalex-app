@@ -12,7 +12,8 @@ import { resolveConversationForTopic, startNewConversation } from "@/lib/agent/c
 import { recordCopiloteConversationOpened, recordCopiloteNewConversation, recordCopiloteTopic } from "@/lib/agent/copilote-tracking";
 import { AGENT_KEY_TO_SKIN, AGENT_KEY_TO_TOPIC_LABEL, type FalcoSkinKey } from "@/lib/falco-skins";
 
-function skinFor(topicKey: string | null): FalcoSkinKey | null {
+function skinFor(topicKey: string | null, topicType: ConversationRow["topicType"]): FalcoSkinKey | null {
+  if (topicType === "content_idea") return "contenu";
   if (!topicKey) return null;
   const consolidatedKey = AGENT_KEY_CONSOLIDATION[topicKey] ?? topicKey;
   return AGENT_KEY_TO_SKIN[consolidatedKey] ?? null;
@@ -115,7 +116,7 @@ export function CopilotePageClient({
                 topicType={selected.topicType}
                 topicKey={selected.topicKey}
                 topicLabel={selected.topicLabel}
-                skin={skinFor(selected.topicKey)}
+                skin={skinFor(selected.topicKey, selected.topicType)}
                 onConversationChange={handleConversationChange}
               />
             </ChatErrorBoundary>

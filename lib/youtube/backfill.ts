@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { contentPosts, youtubeVideoInsights } from "@/db/schema";
@@ -197,7 +197,16 @@ export async function backfillYoutubeDeepInsights(
   const candidates = await db
     .select()
     .from(youtubeVideoInsights)
-    .where(and(eq(youtubeVideoInsights.userId, userId), eq(youtubeVideoInsights.privacyStatus, "public")))
+    .where(
+      and(
+        eq(youtubeVideoInsights.userId, userId),
+        // Rows imported before privacy_status was added are null and are
+        // deliberately treated as public by isPublicVideo(). Keep the deep
+        // insight backfill aligned with that UI rule so old videos get a
+        // retention curve on the next sync instead of being skipped forever.
+        or(eq(youtubeVideoInsights.privacyStatus, "public"), isNull(youtubeVideoInsights.privacyStatus))
+      )
+    )
     .orderBy(desc(youtubeVideoInsights.views))
     .limit(YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT);
 

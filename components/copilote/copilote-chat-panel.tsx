@@ -7,7 +7,7 @@ import { useRef } from "react";
 import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-chat-thread";
 import { Falco } from "@/components/falco/falco";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { ConversationRow } from "@/lib/agent/chat-history";
+import type { ConversationRow, ConversationTopicType } from "@/lib/agent/chat-history";
 import type { ChatContext } from "@/lib/chat-context";
 import { AGENT_KEY_TO_ROUTE, type FalcoSkinKey } from "@/lib/falco-skins";
 
@@ -20,7 +20,7 @@ export function CopiloteChatPanel({
   onConversationChange,
 }: {
   conversationId: string;
-  topicType: "general" | "lever";
+  topicType: ConversationTopicType;
   topicKey: string | null;
   topicLabel: string | null;
   skin: FalcoSkinKey | null;

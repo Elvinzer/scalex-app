@@ -6,6 +6,7 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
+import { getWinningPatterns } from "@/lib/youtube/recommendations";
 
 import type { LeverAgentData, LeverAgentDataContext } from "./lever-agent-data";
 import { resolveLeverAgentData } from "./lever-agent-data";
@@ -31,6 +32,7 @@ async function buildYoutubeContentData(ctx: LeverAgentDataContext): Promise<Leve
     getContentPosts(ctx.accountId),
     db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, ctx.accountId)).limit(1),
   ]);
+  const winning = await getWinningPatterns(ctx.accountId);
 
   const videos = Array.from(insights.values()).filter(isPublicVideo);
   if (videos.length === 0) {
@@ -80,8 +82,16 @@ async function buildYoutubeContentData(ctx: LeverAgentDataContext): Promise<Leve
     .filter(Boolean)
     .join(", ");
 
+  const winningLines = winning
+    ? [
+        `Profil gagnant extrait de ${winning.analyzedVideoCount} vidéos :`,
+        ...winning.themes.slice(0, 3).map((theme) => `- thème ${theme.label}, ${Math.round(theme.averageViews)} vues moyennes`),
+        ...winning.formats.slice(0, 2).map((format) => `- format ${format.label}, ${Math.round(format.averageViews)} vues moyennes`),
+      ].join("\n")
+    : "Profil gagnant encore en cours de construction.";
+
   return {
-    metricsBlock: `Chaîne YouTube : ${channelLine}.\n\nTop 3 vidéos par vues :\n${topLines}`,
+    metricsBlock: `Chaîne YouTube : ${channelLine}.\n\nTop 3 vidéos par vues :\n${topLines}\n\n${winningLines}`,
     impactAmountEur: null,
     impactExplanation: "Pas de simulation de gain chiffré pour le contenu — pas de cascade directe jusqu'à la vente.",
     gapBadge: avgRetention === null ? null : `${Math.round(avgRetention)}% de rétention moyenne`,

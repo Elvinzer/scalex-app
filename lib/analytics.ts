@@ -78,7 +78,11 @@ export type AnalyticsEvent =
   | "video_attribution_declared"
   | "content_insight_clicked"
   | "dormant_video_flagged"
-  | "offer_gap_flagged";
+  | "offer_gap_flagged"
+  | "content_reco_generated"
+  | "content_reco_developed"
+  | "content_reco_accepted"
+  | "content_reco_published";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

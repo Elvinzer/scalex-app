@@ -7,7 +7,7 @@ import { Falco } from "@/components/falco/falco";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { Button } from "@/components/ui/button";
 import { loadConversationMessages, resolveConversationForTopic, startNewConversation } from "@/lib/agent/chat-history-actions";
-import type { ConversationRow } from "@/lib/agent/chat-history";
+import type { ConversationRow, ConversationTopicType } from "@/lib/agent/chat-history";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 
@@ -220,7 +220,8 @@ export const AgentChatThread = forwardRef<
   // (the Copilote hub's whole premise is a durable thread, including the
   // generalist one).
   const isPersisted = context.topicType !== "metric";
-  const topicType = context.topicType as "general" | "lever";
+  const topicType: ConversationTopicType =
+    context.topicType === "general" ? "general" : context.topicType === "lever" ? "lever" : "content_idea";
   // Not React state: reassigned synchronously right after resolution so
   // `send`/`handleNewConversation` always read the current id without
   // waiting on a re-render. The Copilote hub, which DOES need a render on

@@ -11,12 +11,13 @@ import { z } from "zod";
 // (components/ad-copy-chat.tsx, components/call-analysis-chat.tsx) — those
 // are separate, already-correctly-scoped implementations with their own
 // prompt builders and request shapes; unifying them isn't part of this fix.
-export const CHAT_TOPIC_TYPES = ["metric", "lever", "general"] as const;
+export const CHAT_TOPIC_TYPES = ["metric", "lever", "general", "content_idea"] as const;
 export type ChatTopicType = (typeof CHAT_TOPIC_TYPES)[number];
 
 export type ChatContext = {
   topicType: ChatTopicType;
-  // MetricKey | "followupRecovery" | leverKey — null only for "general".
+  // MetricKey | "followupRecovery" | leverKey | content recommendation id —
+  // null only for "general".
   topicKey: string | null;
   // Human-readable label shown in the drawer header ("Améliorer : {topicLabel}")
   // — null only for "general" (shows "Copilote" instead, no fake topic).

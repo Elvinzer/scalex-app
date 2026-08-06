@@ -7,6 +7,7 @@ import {
   getConversationMessages,
   getConversations,
   type ConversationRow,
+  type ConversationTopicType,
   type ConversationWithPreview,
   type StoredChatMessage,
 } from "@/lib/agent/chat-history";
@@ -39,7 +40,7 @@ export async function loadConversationMessages(conversationId: string): Promise<
 // findOrCreate) since starting fresh is an explicit user action here, not
 // an implicit resume.
 export async function startNewConversation(
-  topicType: "general" | "lever",
+  topicType: ConversationTopicType,
   topicKey: string | null,
   topicLabel: string | null
 ): Promise<ConversationRow | { error: string }> {
@@ -57,7 +58,7 @@ export async function startNewConversation(
 // starts one, so these callers keep their existing "one continuous topic
 // thread" feel without managing conversation ids themselves.
 export async function resolveConversationForTopic(
-  topicType: "general" | "lever",
+  topicType: ConversationTopicType,
   topicKey: string | null,
   topicLabel: string | null
 ): Promise<ConversationRow | { error: string }> {

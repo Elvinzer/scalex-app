@@ -25,6 +25,7 @@ import type {
   BusinessIdentity,
   BusinessSales,
 } from "@/lib/business/types";
+import type { YoutubePatternGroup, YoutubePatternLabel } from "@/lib/youtube/recommendation-types";
 import type { SaleInstallment } from "@/lib/sales/types";
 import type { WeeklyReportBottleneck, WeeklyReportStatCard } from "@/lib/dashboard/weekly-report-types";
 
@@ -1072,6 +1073,59 @@ export const youtubeVideoInsights = pgTable(
   ]
 ).enableRLS();
 
+// Content recommendation memory — one computed profile per account. The
+// groups keep the evidence (video ids/titles and already-computed metrics)
+// alongside the labels so Falco and the recommendation generator can cite
+// the user's own channel instead of inventing generic advice.
+export const winningPatterns = pgTable(
+  "winning_patterns",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    themes: jsonb("themes").notNull().default([]).$type<YoutubePatternGroup[]>(),
+    formats: jsonb("formats").notNull().default([]).$type<YoutubePatternGroup[]>(),
+    titleStructures: jsonb("title_structures").notNull().default([]).$type<YoutubePatternLabel[]>(),
+    angles: jsonb("angles").notNull().default([]).$type<YoutubePatternLabel[]>(),
+    topVideoIds: jsonb("top_video_ids").notNull().default([]).$type<string[]>(),
+    analyzedVideoCount: integer("analyzed_video_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+).enableRLS();
+
+export const contentRecommendationStatus = pgEnum("content_recommendation_status", [
+  "new",
+  "building",
+  "filming",
+  "published",
+]);
+
+// Versioned ideas generated from the profile above. Previous ideas stay in
+// the table once they are being built/filmed/published, which preserves the
+// closed-loop link to a future YouTube video; only untouched "new" ideas are
+// replaced during a regeneration.
+export const contentRecommendations = pgTable(
+  "content_recommendations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    angle: text("angle").notNull(),
+    rationale: text("rationale").notNull(),
+    estImpact: integer("est_impact"),
+    impactBasis: text("impact_basis"),
+    effort: text("effort").notNull(),
+    status: contentRecommendationStatus("status").notNull().default("new"),
+    sourceVideoIds: jsonb("source_video_ids").notNull().default([]).$type<string[]>(),
+    linkedVideoId: text("linked_video_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("content_recommendations_user_created_idx").on(table.userId, table.createdAt)]
+).enableRLS();
+
 export const diagnostics = pgTable(
   "diagnostics",
   {
@@ -1915,7 +1969,7 @@ export const agentsRegistry = pgTable("agents_registry", {
 // once the first real exchange completes (not the auto-opening greeting).
 // resolved is a manual/future flag (not set anywhere yet in this chantier)
 // for a "still needs attention" indicator in the history list.
-export const conversationTopicType = pgEnum("conversation_topic_type", ["general", "lever"]);
+export const conversationTopicType = pgEnum("conversation_topic_type", ["general", "lever", "content_idea"]);
 
 export const conversations = pgTable(
   "conversations",
@@ -2473,6 +2527,7 @@ export const improvementEventType = pgEnum("improvement_event_type", [
   "checkin_rate_improved",
   "lever_activated",
   "copilote_started",
+  "content_recommendation_accepted",
 ]);
 
 // The Journal calendar's single read source (✦ marker + "Ce que tu as
