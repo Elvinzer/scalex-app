@@ -83,4 +83,12 @@ export const nativeBookingNotificationRequested = eventType("native-booking/noti
   schema: staticSchema<NativeBookingNotificationRequested>(),
 });
 
+type NativeBookingReminderRequested = {
+  deliveryId: string;
+};
+
+export const nativeBookingReminderRequested = eventType("native-booking/reminder.requested", {
+  schema: staticSchema<NativeBookingReminderRequested>(),
+});
+
 export const inngest = new Inngest({ id: "scale-x" });

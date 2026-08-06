@@ -7,6 +7,8 @@ import {
   nativeBookingEvents,
   nativeBookingExceptions,
   nativeBookingLinks,
+  nativeBookingQuestions,
+  nativeBookingReminderRules,
   nativeBookings,
   users,
 } from "@/db/schema";
@@ -36,7 +38,7 @@ export async function getNativeBookingEventDetail(accountId: string, eventId: st
   const event = await getNativeBookingEvent(accountId, eventId);
   if (!event) return null;
 
-  const [availability, exceptions, closers, links] = await Promise.all([
+  const [availability, exceptions, closers, links, questions, reminders] = await Promise.all([
     db
       .select()
       .from(nativeBookingAvailability)
@@ -54,9 +56,11 @@ export async function getNativeBookingEventDetail(accountId: string, eventId: st
       .where(eq(nativeBookingEventClosers.eventId, event.id))
       .orderBy(asc(nativeBookingEventClosers.position), asc(users.displayName), asc(users.email)),
     db.select().from(nativeBookingLinks).where(eq(nativeBookingLinks.eventId, event.id)).orderBy(desc(nativeBookingLinks.createdAt)),
+    db.select().from(nativeBookingQuestions).where(eq(nativeBookingQuestions.eventId, event.id)).orderBy(asc(nativeBookingQuestions.position)),
+    db.select().from(nativeBookingReminderRules).where(eq(nativeBookingReminderRules.eventId, event.id)).orderBy(asc(nativeBookingReminderRules.position)),
   ]);
 
-  return { event, availability, exceptions, closers, links };
+  return { event, availability, exceptions, closers, links, questions, reminders };
 }
 
 export async function getPublicNativeBookingEvent(slug: string) {
@@ -65,12 +69,18 @@ export async function getPublicNativeBookingEvent(slug: string) {
     .from(nativeBookingEvents)
     .where(and(eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
     .limit(1);
-  return event ?? null;
+  if (!event) return null;
+  const questions = await db
+    .select()
+    .from(nativeBookingQuestions)
+    .where(eq(nativeBookingQuestions.eventId, event.id))
+    .orderBy(asc(nativeBookingQuestions.position));
+  return { ...event, questions };
 }
 
 export async function getPublicNativeBookingSlots(
   slug: string,
-  options?: { fromDate?: string; days?: number; now?: Date; excludeBookingId?: string }
+  options?: { fromDate?: string; days?: number; now?: Date; excludeBookingId?: string; closerUserId?: string | null }
 ): Promise<{ event: NonNullable<Awaited<ReturnType<typeof getPublicNativeBookingEvent>>>; slots: GeneratedBookingSlot[] } | null> {
   const event = await getPublicNativeBookingEvent(slug);
   if (!event) return null;
@@ -103,7 +113,8 @@ export async function getPublicNativeBookingSlots(
         and(
           eq(nativeBookingEventClosers.eventId, event.id),
           eq(nativeBookingEventClosers.isActive, true),
-          eq(nativeBookingEventClosers.isOff, false)
+          eq(nativeBookingEventClosers.isOff, false),
+          ...(options?.closerUserId ? [eq(nativeBookingEventClosers.closerUserId, options.closerUserId)] : [])
         )
       ),
   ]);

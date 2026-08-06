@@ -2,8 +2,10 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingNotifications, nativeBookings, users } from "@/db/schema";
+import { decrypt } from "@/lib/crypto";
 import { inngest, nativeBookingNotificationRequested } from "@/lib/inngest/client";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
+import { getAppUrl } from "@/lib/utils";
 
 export type NativeBookingNotificationKind = "confirmation" | "cancellation" | "reschedule";
 
@@ -13,6 +15,8 @@ type NotificationBooking = {
   closerEmail: string | null;
   closerName: string;
 };
+
+type NotificationAudience = "prospect" | "closer";
 
 function formatDateTime(startAt: Date, endAt: Date, timeZone: string) {
   const dateLabel = new Intl.DateTimeFormat("fr-FR", { timeZone, dateStyle: "full" }).format(startAt);
@@ -47,18 +51,35 @@ async function loadNotificationBooking(bookingId: string): Promise<NotificationB
   };
 }
 
-async function sendNotificationEmail(to: string, details: NotificationBooking, kind: NativeBookingNotificationKind) {
+function getManagementUrl(details: NotificationBooking): string {
+  const rescheduleToken = details.booking.rescheduleTokenEncrypted ? decrypt(details.booking.rescheduleTokenEncrypted) : "";
+  const cancellationToken = details.booking.cancellationTokenEncrypted ? decrypt(details.booking.cancellationTokenEncrypted) : "";
+  if (!rescheduleToken && !cancellationToken) return "";
+  const params = new URLSearchParams();
+  if (rescheduleToken) params.set("manage", rescheduleToken);
+  if (cancellationToken) params.set("cancel", cancellationToken);
+  return `${getAppUrl()}/book/${details.event.slug}?${params.toString()}`;
+}
+
+async function sendNotificationEmail(to: string, details: NotificationBooking, kind: NativeBookingNotificationKind, audience: NotificationAudience) {
   if (!isResendConfigured()) return;
   const copy = notificationCopy(kind);
   const { booking, event, closerName } = details;
   const dateLine = formatDateTime(booking.startAt, booking.endAt, booking.eventTimeZone);
   const joinLine = event.meetingUrl ? `Lien pour rejoindre l'appel : ${event.meetingUrl}` : "";
+  const management = getManagementUrl(details);
+  const icsToken = booking.rescheduleTokenEncrypted ? decrypt(booking.rescheduleTokenEncrypted) : booking.cancellationTokenEncrypted ? decrypt(booking.cancellationTokenEncrypted) : "";
+  const ics = icsToken ? `${getAppUrl()}/api/public/booking/${event.slug}/ics?token=${encodeURIComponent(icsToken)}` : "";
+  const greeting = audience === "prospect" ? `Bonjour ${booking.firstName},` : `Bonjour ${closerName},`;
+  const audienceAction = audience === "prospect"
+    ? [management ? `Gérer mon rendez-vous : ${management}` : "", ics ? `Ajouter à mon agenda : ${ics}` : ""]
+    : [copy.closerAction];
   await getResendClient().emails.send({
     from: process.env.RESEND_FROM_EMAIL ?? "Scale X <hello@scalex.app>",
     to,
     subject: `${copy.subject} — ${event.meetingLabel}`,
     text: [
-      `Bonjour ${booking.firstName},`,
+      greeting,
       "",
       copy.intro,
       `Événement : ${event.name}`,
@@ -67,7 +88,7 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
       joinLine,
       event.bookingInstructions ? `Consignes : ${event.bookingInstructions}` : "",
       "",
-      copy.closerAction,
+      ...audienceAction,
       "",
       "Scale X",
     ].filter(Boolean).join("\n"),
@@ -86,12 +107,12 @@ export async function deliverNativeBookingNotification(bookingId: string, kind: 
   const details = await loadNotificationBooking(bookingId);
   if (!details) return "skipped" as const;
 
-  const shouldNotify = kind === "confirmation"
+  const shouldNotifyCloser = kind === "confirmation"
     ? details.event.notifyCloserOnBooking
     : kind === "cancellation"
       ? details.event.notifyCloserOnCancellation
       : details.event.notifyCloserOnReschedule;
-  if (!shouldNotify) return "skipped" as const;
+  if (!shouldNotifyCloser && !details.booking.email) return "skipped" as const;
 
   const [existing] = await db
     .select()
@@ -124,9 +145,12 @@ export async function deliverNativeBookingNotification(bookingId: string, kind: 
 
   try {
     const recipients = new Set<string>();
-    if (details.closerEmail) recipients.add(details.closerEmail);
-    if (details.booking.email) recipients.add(details.booking.email);
-    for (const recipient of recipients) await sendNotificationEmail(recipient, details, kind);
+    if (details.booking.email) recipients.add(`prospect:${details.booking.email}`);
+    if (shouldNotifyCloser && details.closerEmail) recipients.add(`closer:${details.closerEmail}`);
+    for (const recipient of recipients) {
+      const [audience, address] = recipient.split(":", 2) as [NotificationAudience, string];
+      await sendNotificationEmail(address, details, kind, audience);
+    }
 
     await db
       .update(nativeBookingNotifications)

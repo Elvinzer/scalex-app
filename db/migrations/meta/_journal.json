@@ -22,6 +22,20 @@
       "when": 1786006207860,
       "tag": "0002_native_booking_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786022032633,
+      "tag": "0003_freezing_phil_sheldon",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786025913537,
+      "tag": "0004_native_booking_activity_history",
+      "breakpoints": true
     }
   ]
 }

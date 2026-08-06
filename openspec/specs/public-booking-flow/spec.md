@@ -1,71 +1,99 @@
 # public-booking-flow Specification
 
 ## Purpose
+
 Cette capacité fournit une page publique de réservation qui qualifie le prospect avant de révéler les créneaux, applique les règles de disponibilité et crée une réservation fiable avec confirmation.
+
 ## Requirements
+
 ### Requirement: Contact opt-in gates availability
 
-Pour un événement configuré avec la qualification préalable, le système SHALL demander le prénom, le nom et le téléphone avant de rendre les créneaux visibles et sélectionnables. La zone de disponibilités SHALL rester clairement verrouillée et non interactive tant que le formulaire n’est pas valide.
+Pour un événement configuré avec la qualification préalable, le système SHALL demander les informations par paliers successifs : téléphone seul, puis prénom et nom, puis email et questions configurées, avant de rendre les créneaux visibles et sélectionnables. Chaque palier SHALL proposer un bouton `Continuer`. Les paliers validés SHALL rester visibles et ne SHALL jamais se refermer automatiquement. La zone de disponibilités SHALL rester clairement verrouillée et non interactive tant que le dernier palier requis n’est pas valide.
 
-#### Scenario: Visitor sees locked availability before submitting details
+#### Scenario: Visitor sees only the phone stage first
 
 - **WHEN** un visiteur ouvre un événement actif pour la première fois
-- **THEN** il voit le formulaire de coordonnées à gauche et un aperçu verrouillé ou flouté des disponibilités à droite, sans pouvoir sélectionner un horaire
+- **THEN** il voit le téléphone comme seul champ actif, les étapes suivantes restent masquées et le calendrier apparaît verrouillé
+
+#### Scenario: Valid phone reveals the next stage
+
+- **WHEN** le visiteur valide un téléphone international avec `Continuer`
+- **THEN** le palier téléphone reste visible en résumé et le palier prénom/nom est révélé sans fermer le téléphone
+
+#### Scenario: Valid qualification reveals the calendar
+
+- **WHEN** le visiteur valide l’identité, l’email et toutes les questions obligatoires
+- **THEN** le calendrier devient interactif et le focus est déplacé vers le calendrier ou le premier créneau disponible
 
 ### Requirement: Contact fields are validated
 
-Le système SHALL valider les trois champs requis côté client et côté serveur. Le téléphone SHALL accepter un indicatif international et SHALL être normalisé avant toute recherche de rendez-vous existant. Les erreurs SHALL être affichées près du champ concerné et le formulaire SHALL conserver les valeurs valides.
+Le système SHALL valider chaque palier côté client et côté serveur. Le téléphone SHALL être validé comme numéro international et normalisé en E.164 avant toute recherche de rendez-vous existant. L’email SHALL être requis et valide avant la révélation des créneaux. Les champs SHALL être validés au blur ou à la validation du palier, jamais à chaque caractère. Les erreurs SHALL être affichées près du champ concerné et le bouton `Continuer` SHALL rester inactif tant que le palier courant est invalide.
 
-#### Scenario: Invalid phone prevents reveal
+#### Scenario: Invalid phone prevents progression
 
-- **WHEN** le visiteur saisit un numéro invalide puis soumet le formulaire
-- **THEN** le système refuse la soumission, indique comment corriger le numéro et ne révèle pas les créneaux
+- **WHEN** le visiteur quitte un téléphone invalide puis clique sur `Continuer`
+- **THEN** le système refuse la progression, explique le format attendu et ne révèle pas le palier suivant
+
+#### Scenario: Invalid email prevents calendar reveal
+
+- **WHEN** le visiteur saisit un email invalide au palier email/questions
+- **THEN** le système conserve les valeurs valides, indique comment corriger l’email et laisse le calendrier verrouillé
 
 ### Requirement: Slots are revealed without losing context
 
-Après une soumission valide, le système SHALL révéler les créneaux disponibles sans rechargement destructif, conserver les informations saisies et déplacer le focus vers le calendrier. Les paramètres d’attribution présents dans l’URL SHALL être conservés pendant cette transition.
+Après chaque validation de palier, le système SHALL révéler le palier suivant sans rechargement destructif, conserver les informations saisies, conserver les paramètres d’attribution et déplacer le focus vers le premier champ ou contrôle révélé. Le brouillon du formulaire SHALL être conservé uniquement dans la session du navigateur et ne SHALL pas devenir une source d’autorité pour la réservation.
 
-#### Scenario: Valid opt-in reveals the calendar
+#### Scenario: Valid stages preserve attribution and draft
 
-- **WHEN** le visiteur soumet un formulaire valide avec des paramètres UTM
-- **THEN** les créneaux apparaissent, les coordonnées restent remplies et les paramètres UTM peuvent encore être associés à la future réservation
+- **WHEN** un visiteur progresse avec des paramètres UTM puis revient dans la même session
+- **THEN** les champs, le palier atteint et les paramètres d’attribution sont restaurés sans créer de nouvelle réservation
+
+#### Scenario: Reduced motion keeps the same progression
+
+- **WHEN** le navigateur demande `prefers-reduced-motion`
+- **THEN** les étapes changent sans animation décorative, avec le même ordre et le même déplacement de focus
 
 ### Requirement: Abandoned attempts become relaunchable leads
 
-Dès qu’au moins un des champs prénom, nom ou téléphone est saisi puis quitté, le système SHALL créer ou actualiser immédiatement une tentative de réservation account-scoped, sans attendre la soumission du formulaire. Cette tentative SHALL conserver les informations disponibles, même partielles, le fuseau du prospect, l’instant de consentement au recontact, la dernière étape atteinte, le dernier créneau sélectionné lorsqu’il existe, ainsi que la page d’entrée et l’attribution disponible. Elle SHALL rester distincte d’un rendez-vous confirmé.
+À la validation du palier prénom/nom, le système SHALL créer ou actualiser une tentative account-scoped idempotente, même si le prospect abandonne avant l’email ou les questions. Cette tentative SHALL conserver le téléphone E.164, l’identité disponible, le fuseau, l’instant de consentement au recontact, la dernière étape atteinte, l’attribution et le dernier créneau sélectionné lorsqu’il existe. L’email et les réponses SHALL être ajoutés ou actualisés lorsque le palier suivant est validé. Une tentative incomplète SHALL rester distincte d’un rendez-vous confirmé.
 
-#### Scenario: Valid opt-in creates a follow-up lead
+#### Scenario: Lead is created after identity stage
 
-- **WHEN** un visiteur valide ses coordonnées puis quitte la page sans confirmer de créneau
-- **THEN** un prospect à relancer est disponible dans l’espace rendez-vous avec ses informations de contact et l’étape « créneaux consultés »
+- **WHEN** un visiteur valide son prénom et son nom puis ferme la page
+- **THEN** il apparaît dans « À relancer » avec son téléphone, son identité, son événement et l’étape atteinte
 
-#### Scenario: Selected slot is retained on abandonment
+#### Scenario: Phone-only draft is not a relaunch lead
 
-- **WHEN** un visiteur sélectionne un créneau puis ferme la page avant la confirmation
-- **THEN** la tentative conserve le créneau visé et sa dernière activité afin que le closer puisse contextualiser la relance
+- **WHEN** un visiteur saisit uniquement son téléphone sans valider le palier suivant
+- **THEN** le système peut conserver un brouillon de session mais ne l’affiche pas comme lead relançable account-scoped
 
 ### Requirement: Authorized users can work abandoned leads
 
-L’espace « Ventes → Rendez-vous » SHALL afficher aux membres disposant de la permission rendez-vous les tentatives non converties avec au minimum les informations saisies (nom et/ou téléphone), l’événement, la dernière étape, la dernière activité, le créneau visé et la source marketing disponible. Il SHALL proposer des actions pour marquer un lead comme contacté ou le masquer sans supprimer l’historique. Un visiteur public ou un membre non autorisé SHALL ne pouvoir lire ni modifier ces données.
+L’espace « Ventes → Rendez-vous » SHALL afficher aux membres disposant de la permission rendez-vous les tentatives non converties avec les informations disponibles, y compris l’email et les réponses déjà validées lorsqu’elles existent. Il SHALL proposer les actions de relance prévues, dont l’appel et le lien WhatsApp, sans exposer ces données à un visiteur public ou à un membre non autorisé.
 
-#### Scenario: Sales user sees a relaunch list
+#### Scenario: Sales user sees qualification context
 
-- **WHEN** un closer autorisé ouvre l’espace rendez-vous après un abandon
-- **THEN** il voit une section « À relancer » et peut appeler le prospect lorsque son téléphone est disponible, avec le contexte de sa tentative
+- **WHEN** un closer autorisé ouvre une tentative abandonnée après le palier email/questions
+- **THEN** il voit l’email et les réponses enregistrées avec le contexte de la tentative
 
 #### Scenario: Completed booking closes the lead
 
 - **WHEN** la tentative est convertie en rendez-vous confirmé
-- **THEN** le lead est marqué « converti », lié au rendez-vous et n’apparaît plus dans la liste des relances ouvertes
+- **THEN** le lead est marqué « converti », lié au rendez-vous et n’apparaît plus dans les relances ouvertes
 
 ### Requirement: Prospect timezone display
 
-Le système SHALL afficher par défaut les créneaux dans le fuseau horaire détecté du prospect et SHALL proposer une bascule vers le fuseau horaire de l’événement. Le choix d’affichage SHALL modifier les libellés visibles sans modifier l’instant réservé.
+Le système SHALL afficher par défaut les créneaux dans le fuseau horaire de l’événement. Si le fuseau du navigateur du prospect diffère, la page SHALL afficher cette différence et proposer une bascule explicite vers le fuseau du prospect. Le choix d’affichage SHALL modifier les libellés visibles sans modifier l’instant réservé.
 
-#### Scenario: Visitor switches to event timezone
+#### Scenario: Visitor sees event timezone by default
 
-- **WHEN** un prospect sélectionne « Fuseau horaire de l’événement »
-- **THEN** les dates et heures sont recalculées et étiquetées dans le fuseau de l’événement, tandis que la disponibilité réelle reste identique
+- **WHEN** le prospect ouvre une page dont l’événement est en `Europe/Paris`
+- **THEN** les dates et heures sont affichées en `Europe/Paris`, même si son navigateur utilise un autre fuseau
+
+#### Scenario: Visitor switches to browser timezone
+
+- **WHEN** le prospect active la bascule vers son fuseau de navigateur
+- **THEN** les libellés sont recalculés dans ce fuseau et l’instant réellement réservé reste identique
 
 ### Requirement: Existing future appointment is blocked
 
@@ -87,12 +115,12 @@ Le système SHALL revalider le créneau, les exceptions, les limites, l’absenc
 
 ### Requirement: Native booking feeds sales tracking
 
-Lorsqu’une réservation est confirmée et synchronisée, le système SHALL créer ou mettre à jour un appel de vente avec la source `native`, le nom, le téléphone, l’horaire, le closer attribué et l’identifiant de réservation. Une répétition de la même confirmation SHALL être idempotente.
+Lorsqu’une réservation est confirmée et synchronisée, le système SHALL créer ou mettre à jour un appel de vente avec la source `native`, le nom, l’email, le téléphone, l’horaire, le closer attribué, l’identifiant de réservation et les réponses de qualification. Une répétition de la même confirmation SHALL être idempotente.
 
-#### Scenario: Confirmed native booking appears in sales calls
+#### Scenario: Confirmed native booking retains qualification
 
-- **WHEN** un prospect confirme un créneau et que le calendrier est synchronisé
-- **THEN** un seul appel de vente natif apparaît dans le suivi des appels avec les informations de la réservation
+- **WHEN** un prospect confirme un créneau après avoir répondu aux questions
+- **THEN** un seul appel de vente natif apparaît dans le suivi des appels avec l’email et le contexte de qualification disponibles
 
 ### Requirement: Public booking errors are safe and recoverable
 
@@ -103,3 +131,11 @@ Les endpoints publics SHALL limiter les abus et ne SHALL pas divulguer de donné
 - **WHEN** une même origine envoie un nombre anormal de demandes publiques sur une courte période
 - **THEN** le système ralentit ou refuse temporairement les demandes et affiche un message de réessai ultérieur
 
+### Requirement: Public booking keeps secure post-booking management
+
+Après une réservation native confirmée, la page SHALL conserver l’écran de confirmation et proposer, lorsque les jetons existent, l’annulation et le déplacement publics sécurisés. Ces actions SHALL respecter les mêmes contrôles de disponibilité et d’état que les actions administrateur.
+
+#### Scenario: Prospect manages a confirmed booking
+
+- **WHEN** le prospect ouvre son lien de gestion après confirmation
+- **THEN** il peut consulter le rendez-vous, télécharger son `.ics`, le déplacer ou l’annuler selon les actions encore disponibles

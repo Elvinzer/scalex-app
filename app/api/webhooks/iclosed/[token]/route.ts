@@ -102,6 +102,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           inviteeName: call.inviteeName,
           inviteeEmail: call.inviteeEmail,
           scheduledAt: call.scheduledAt,
+          durationMinutes: call.durationMinutes,
           closer: call.closer,
           eventType: call.eventType,
         })
@@ -122,12 +123,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           inviteeName: call.inviteeName,
           inviteeEmail: call.inviteeEmail,
           scheduledAt: call.scheduledAt,
+          durationMinutes: call.durationMinutes,
           closer: call.closer,
           eventType: call.eventType,
         })
         .onConflictDoUpdate({
           target: [salesCalls.userId, salesCalls.iclosedCallId],
-          set: { scheduledAt: call.scheduledAt, updatedAt: new Date() },
+          set: { scheduledAt: call.scheduledAt, durationMinutes: call.durationMinutes, updatedAt: new Date() },
         });
       break;
     }
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           inviteeName: call.inviteeName,
           inviteeEmail: call.inviteeEmail,
           scheduledAt: call.scheduledAt,
+          durationMinutes: call.durationMinutes,
           closer: call.closer,
           eventType: call.eventType,
           attendance: "cancelled",

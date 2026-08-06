@@ -10,6 +10,7 @@ export type NormalizedCalendlyCall = {
   inviteeName: string | null;
   inviteeEmail: string | null;
   scheduledAt: Date;
+  durationMinutes: number | null;
   closer: string | null;
   eventType: string | null;
   attendance: CalendlyAttendance;
@@ -47,6 +48,7 @@ export function normalizeScheduledEvent(event: Rec, invitee: Rec | null): Normal
     inviteeName: firstString(inv.name, joinName(inv.first_name, inv.last_name)),
     inviteeEmail: firstString(inv.email),
     scheduledAt,
+    durationMinutes: durationMinutesFromEvent(event, scheduledAt),
     closer: hostName(event),
     eventType: firstString(event.name),
     attendance: firstString(event.status) === "canceled" ? "cancelled" : "booked",
@@ -81,6 +83,7 @@ export function parseCalendlyWebhook(
           inviteeName: firstString(payload.name, joinName(payload.first_name, payload.last_name)),
           inviteeEmail: firstString(payload.email),
           scheduledAt,
+          durationMinutes: durationMinutesFromEvent(event, scheduledAt),
           closer: hostName(event),
           eventType: firstString(event.name),
           attendance: eventType === "invitee.canceled" ? "cancelled" : "booked",
@@ -95,4 +98,13 @@ function joinName(first: unknown, last: unknown): string | null {
   const l = typeof last === "string" ? last.trim() : "";
   const joined = `${f} ${l}`.trim();
   return joined === "" ? null : joined;
+}
+
+function durationMinutesFromEvent(event: Rec, startAt: Date): number | null {
+  const direct = typeof event.duration_minutes === "number" ? event.duration_minutes : typeof event.duration_minutes === "string" ? Number(event.duration_minutes) : null;
+  if (direct && Number.isFinite(direct) && direct > 0 && direct <= 1440) return Math.round(direct);
+  const end = toDate(event.end_time);
+  if (!end || end <= startAt) return null;
+  const duration = Math.round((end.getTime() - startAt.getTime()) / 60_000);
+  return duration > 0 && duration <= 1440 ? duration : null;
 }

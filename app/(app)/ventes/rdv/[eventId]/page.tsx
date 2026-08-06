@@ -149,6 +149,21 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
         links={detail.links}
         publicUrl={publicUrl}
         previewSlots={previewSlots}
+        questions={detail.questions.map((question) => ({
+          id: question.id,
+          type: question.type,
+          label: question.label,
+          helpText: question.helpText,
+          isRequired: question.isRequired,
+          options: question.options,
+        }))}
+        reminders={detail.reminders.map((reminder) => ({
+          id: reminder.id,
+          delayMinutes: reminder.delayMinutes,
+          subject: reminder.subject,
+          message: reminder.message,
+          isActive: reminder.isActive,
+        }))}
       />
     </div>
   );

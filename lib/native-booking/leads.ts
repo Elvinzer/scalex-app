@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { nativeBookingEvents, nativeBookingLeads, nativeBookingLinks } from "@/db/schema";
+import { nativeBookingEvents, nativeBookingLeads, nativeBookingLinks, type NativeBookingAnswerSnapshot } from "@/db/schema";
 
-import { normalizePhone, sanitizeUtm, type PublicContactInput, type PublicLeadCaptureInput } from "./validation";
+import { normalizeEmail, normalizePhone, sanitizeUtm, type PublicContactInput, type PublicLeadCaptureInput, type PublicQualificationInput } from "./validation";
 
 export type NativeBookingLeadStep =
   | "contact_submitted"
@@ -26,13 +26,14 @@ type PublicLeadEvent = Pick<typeof nativeBookingEvents.$inferSelect, "id" | "use
 
 function leadValues(
   event: PublicLeadEvent,
-  contact: PublicLeadCaptureInput,
+  contact: PublicLeadCaptureInput | PublicQualificationInput,
   metadata: PublicLeadMetadata,
   link: typeof nativeBookingLinks.$inferSelect | undefined,
   sessionKey: string,
   step: NativeBookingLeadStep,
   selectedStartAt: Date | null,
-  selectedEndAt: Date | null
+  selectedEndAt: Date | null,
+  answers: NativeBookingAnswerSnapshot[]
 ) {
   const safeUtm = sanitizeUtm(metadata.utm);
   return {
@@ -43,12 +44,11 @@ function leadValues(
     lastStep: step,
     firstName: contact.firstName.trim() || null,
     lastName: contact.lastName.trim() || null,
-    // Email is intentionally not collected in the first version of the
-    // public booking form. Keep the columns nullable for future expansion.
-    email: null,
-    emailNormalized: null,
+    email: "email" in contact ? contact.email.trim() : null,
+    emailNormalized: "email" in contact ? normalizeEmail(contact.email) : null,
     phone: contact.phone.trim() || null,
     phoneNormalized: contact.phone.trim() ? normalizePhone(contact.phone) : null,
+    answers,
     guestTimeZone: contact.guestTimeZone,
     eventTimeZone: event.timeZone,
     selectedStartAt,
@@ -80,11 +80,12 @@ async function findActiveLink(eventId: string, linkId: string | null | undefined
 
 export async function upsertPublicBookingLead(params: {
   event: PublicLeadEvent;
-  contact: PublicLeadCaptureInput;
+  contact: PublicLeadCaptureInput | PublicQualificationInput;
   metadata: PublicLeadMetadata;
   step: NativeBookingLeadStep;
   selectedStartAt?: Date | null;
   selectedEndAt?: Date | null;
+  answers?: NativeBookingAnswerSnapshot[];
 }) {
   const sessionKey = params.metadata.sessionKey ?? randomUUID();
   const link = await findActiveLink(params.event.id, params.metadata.linkId);
@@ -96,7 +97,8 @@ export async function upsertPublicBookingLead(params: {
     sessionKey,
     params.step,
     params.selectedStartAt ?? null,
-    params.selectedEndAt ?? null
+    params.selectedEndAt ?? null,
+    params.answers ?? []
   );
 
   return db.transaction(async (tx) => {
@@ -107,6 +109,7 @@ export async function upsertPublicBookingLead(params: {
         contactConsentAt: nativeBookingLeads.contactConsentAt,
         email: nativeBookingLeads.email,
         emailNormalized: nativeBookingLeads.emailNormalized,
+        answers: nativeBookingLeads.answers,
         landingPage: nativeBookingLeads.landingPage,
         referrer: nativeBookingLeads.referrer,
         linkId: nativeBookingLeads.linkId,
@@ -132,6 +135,7 @@ export async function upsertPublicBookingLead(params: {
           contactConsentAt: existing.contactConsentAt,
           email: existing.email ?? values.email,
           emailNormalized: existing.emailNormalized ?? values.emailNormalized,
+          answers: params.answers !== undefined ? values.answers : existing.answers,
           landingPage: existing.landingPage ?? values.landingPage,
           referrer: existing.referrer ?? values.referrer,
           linkId: existing.linkId ?? values.linkId,
@@ -159,6 +163,7 @@ export async function touchPublicBookingLead(params: {
   step: Exclude<NativeBookingLeadStep, "contact_submitted" | "converted">;
   selectedStartAt?: Date | null;
   selectedEndAt?: Date | null;
+  answers?: NativeBookingAnswerSnapshot[];
 }) {
   const [lead] = await db
     .select({ lead: nativeBookingLeads, event: nativeBookingEvents })
@@ -181,8 +186,11 @@ export async function touchPublicBookingLead(params: {
     .set({
       firstName: params.contact.firstName.trim(),
       lastName: params.contact.lastName.trim(),
+      email: params.contact.email.trim(),
+      emailNormalized: normalizeEmail(params.contact.email),
       phone: params.contact.phone.trim(),
       phoneNormalized: normalizePhone(params.contact.phone),
+      answers: params.answers ?? lead.lead.answers,
       guestTimeZone: params.contact.guestTimeZone,
       lastStep: params.step,
       selectedStartAt: params.selectedStartAt ?? lead.lead.selectedStartAt,

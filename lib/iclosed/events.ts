@@ -16,6 +16,7 @@ export type NormalizedCall = {
   inviteeName: string | null;
   inviteeEmail: string | null;
   scheduledAt: Date;
+  durationMinutes: number | null;
   closer: string | null;
   eventType: string | null;
   // Auto-mapped from iClosed's own disposition (task.outcome / cancelledBy) and
@@ -117,6 +118,7 @@ export function readCall(source: Rec): NormalizedCall | null {
     inviteeName,
     inviteeEmail,
     scheduledAt,
+    durationMinutes: durationMinutesFromCall(body, scheduledAt),
     closer,
     eventType,
     ...disposition,
@@ -170,4 +172,16 @@ function joinName(first: unknown, last: unknown): string | null {
   const l = typeof last === "string" ? last.trim() : "";
   const joined = `${f} ${l}`.trim();
   return joined === "" ? null : joined;
+}
+
+function durationMinutesFromCall(body: Rec, startAt: Date): number | null {
+  const directValue = body.durationMinutes ?? body.duration_minutes ?? body.duration;
+  const direct = typeof directValue === "number" ? directValue : typeof directValue === "string" ? Number(directValue) : null;
+  if (direct && Number.isFinite(direct) && direct > 0 && direct <= 1440) return Math.round(direct);
+  const endRaw = firstString(body.endTime, body.end_time, body.endAt, body.end_at, body.dateTimeEnd);
+  if (!endRaw) return null;
+  const end = new Date(endRaw);
+  if (Number.isNaN(end.getTime()) || end <= startAt) return null;
+  const duration = Math.round((end.getTime() - startAt.getTime()) / 60_000);
+  return duration > 0 && duration <= 1440 ? duration : null;
 }

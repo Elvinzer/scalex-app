@@ -29,6 +29,7 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
         inviteeName: c.inviteeName,
         inviteeEmail: c.inviteeEmail,
         scheduledAt: c.scheduledAt,
+        durationMinutes: c.durationMinutes,
         closer: c.closer,
         eventType: c.eventType,
         attendance: c.attendance ?? "booked",

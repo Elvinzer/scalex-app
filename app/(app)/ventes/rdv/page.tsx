@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { getNativeBookingEntitlements, getNativeBookingUsage } from "@/lib/billing/plan-gate";
 import { getCurrentUser } from "@/lib/current-user";
 import { listNativeBookingLeads } from "@/lib/native-booking/leads";
-import { listNativeBookingEvents, listUpcomingNativeBookings } from "@/lib/native-booking/queries";
+import { listUnifiedAgendaAppointments } from "@/lib/native-booking/agenda";
+import { listNativeBookingEvents } from "@/lib/native-booking/queries";
+import { agendaFiltersSchema } from "@/lib/native-booking/validation";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CreateEventForm } from "./create-event-form";
 import { AbandonedLeadsPanel } from "./abandoned-leads-panel";
 import { EventStatusButton } from "./event-status-button";
-import { UpcomingBookingsPanel } from "./upcoming-bookings-panel";
+import { UnifiedAgenda } from "./unified-agenda";
 
 const STATUS_LABELS = {
   draft: "Brouillon",
@@ -21,16 +23,38 @@ const STATUS_LABELS = {
   archived: "Archivé",
 } as const;
 
+function dateFromRange(range: "today" | "next7" | "next30" | "custom", from: string | null, to: string | null) {
+  const now = new Date();
+  if (range === "custom" && from && to) return { from: new Date(from), to: new Date(to) };
+  const days = range === "today" ? 1 : range === "next30" ? 30 : 7;
+  return { from: now, to: new Date(now.getTime() + days * 86_400_000) };
+}
+
 export default async function NativeBookingEventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ lead?: string; from?: string; calendar_error?: string; provider?: string; calendar?: string }>;
+  searchParams: Promise<{ lead?: string; from?: string; calendar_error?: string; provider?: string; calendar?: string; view?: string; source?: string; closer?: string; status?: string; range?: string; to?: string; tz?: string }>;
 }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:rdv");
   const params = await searchParams;
   const fromDashboard = params.from === "dashboard";
   const targetLeadId = z.string().uuid().safeParse(params.lead).success ? params.lead ?? null : null;
+  const requestedSources = params.source ? params.source.split(",") : ["native", "iclosed", "calendly"];
+  const requestedClosers = params.closer ? params.closer.split(",") : [];
+  const requestedStatuses = params.status === "all" ? ["confirmed", "cancelled", "past"] : params.status ? params.status.split(",") : ["confirmed"];
+  const parsedFilters = agendaFiltersSchema.safeParse({
+    view: params.view,
+    source: requestedSources,
+    closerIds: requestedClosers,
+    status: requestedStatuses,
+    range: params.range,
+    from: params.from ?? null,
+    to: params.to ?? null,
+    timeZone: params.tz ?? "Europe/Paris",
+  });
+  const filters = parsedFilters.success ? parsedFilters.data : agendaFiltersSchema.parse({});
+  const periodBounds = dateFromRange(filters.range, filters.from, filters.to);
   const calendarProvider = params.provider === "outlook" ? "Outlook" : "Google Calendar";
   const calendarErrorMessage = params.calendar_error === "not_configured"
     ? `La connexion ${calendarProvider} n'est pas encore configurée sur cet environnement.`
@@ -47,12 +71,18 @@ export default async function NativeBookingEventsPage({
               : null;
   const calendarConnected = params.calendar === "connected";
 
-  const [events, entitlements, usage, leads, upcomingBookings] = await Promise.all([
+  const [events, entitlements, usage, leads, agendaAppointments] = await Promise.all([
     listNativeBookingEvents(accountId),
     getNativeBookingEntitlements(accountId),
     getNativeBookingUsage(accountId),
     listNativeBookingLeads(accountId),
-    listUpcomingNativeBookings(accountId),
+    listUnifiedAgendaAppointments(accountId, {
+      from: periodBounds.from,
+      to: periodBounds.to,
+      sources: filters.source,
+      closerIds: filters.closerIds,
+      statuses: filters.status,
+    }),
   ]);
 
   const leadViews = leads.map(({ lead, event }) => ({
@@ -69,21 +99,22 @@ export default async function NativeBookingEventsPage({
     utmSource: lead.utmSource,
     utmCampaign: lead.utmCampaign,
     utmContent: lead.utmContent,
+    email: lead.email,
+    answers: lead.answers.map((answer) => ({ questionId: answer.questionId, label: answer.label, answer: answer.answer })),
   }));
 
-  const bookingViews = upcomingBookings.map(({ booking, event, closer }) => ({
-    id: booking.id,
-    eventId: event.id,
-    eventName: event.name,
-    firstName: booking.firstName,
-    lastName: booking.lastName,
-    phone: booking.phone,
-    closerName: closer?.displayName || closer?.email || "Closer non assigné",
-    startAt: booking.startAt.toISOString(),
-    endAt: booking.endAt.toISOString(),
-    timeZone: booking.eventTimeZone,
-    status: booking.status as "confirmed" | "sync_failed",
-    syncError: booking.syncError,
+  const agendaViews = agendaAppointments.map((appointment) => ({
+    ...appointment,
+    startAt: appointment.startAt.toISOString(),
+    endAt: appointment.endAt.toISOString(),
+    activities: appointment.activities.map((activity) => ({
+      ...activity,
+      fromStartAt: activity.fromStartAt?.toISOString() ?? null,
+      fromEndAt: activity.fromEndAt?.toISOString() ?? null,
+      toStartAt: activity.toStartAt?.toISOString() ?? null,
+      toEndAt: activity.toEndAt?.toISOString() ?? null,
+      createdAt: activity.createdAt.toISOString(),
+    })),
   }));
 
   return (
@@ -93,8 +124,7 @@ export default async function NativeBookingEventsPage({
           <p className="text-sm font-bold text-accent">Troisième source d&apos;appels</p>
           <h2 className="mt-1 text-3xl font-bold">Rendez-vous</h2>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Crée une page de réservation Scale X, collecte les coordonnées avant les créneaux et répartis les appels
-            entre tes closers.
+            Un agenda unique pour les réservations natives, iClosed et Calendly. Les appels manuels restent dans le journal détaillé.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
@@ -122,7 +152,19 @@ export default async function NativeBookingEventsPage({
       )}
 
       <AbandonedLeadsPanel leads={leadViews} targetLeadId={targetLeadId} />
-      <UpcomingBookingsPanel bookings={bookingViews} />
+      <UnifiedAgenda
+        appointments={agendaViews}
+        filters={{
+          view: filters.view,
+          source: filters.source,
+          closerIds: filters.closerIds,
+          status: filters.status,
+          range: filters.range,
+          from: filters.from,
+          to: filters.to,
+          timeZone: filters.timeZone,
+        }}
+      />
 
       {!entitlements.enabled ? (
         <div className="sticker-card flex flex-col gap-4 p-6 sm:p-8">

@@ -3,6 +3,7 @@ import { and, asc, eq, gt, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   nativeBookingAvailability,
+  nativeBookingActivities,
   nativeBookingEventClosers,
   nativeBookingEvents,
   nativeBookingExceptions,
@@ -20,6 +21,7 @@ import {
   updateExternalCalendarEvent,
 } from "./calendar";
 import { scheduleNativeBookingNotification } from "./notifications";
+import { cancelNativeBookingReminders, rebuildNativeBookingReminders } from "./reminders";
 import { getPublicNativeBookingSlots } from "./queries";
 import { generateBookingSlots } from "./slots";
 import { hashBookingManagementToken } from "./tokens";
@@ -77,9 +79,10 @@ async function markCalendarFailure(bookingId: string, message: string, markBooki
 
 export async function cancelNativeBooking(bookingId: string): Promise<NativeBookingCancellationResult | NativeBookingMutationError> {
   const [row] = await db
-    .select({ booking: nativeBookings, event: nativeBookingEvents })
+    .select({ booking: nativeBookings, event: nativeBookingEvents, closer: users })
     .from(nativeBookings)
     .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
+    .leftJoin(users, eq(nativeBookings.closerUserId, users.id))
     .where(eq(nativeBookings.id, bookingId))
     .limit(1);
   if (!row) return { error: "not_found" };
@@ -102,6 +105,14 @@ export async function cancelNativeBooking(bookingId: string): Promise<NativeBook
         updatedAt: new Date(),
       })
       .where(eq(nativeBookings.id, bookingId));
+    await tx.insert(nativeBookingActivities).values({
+      bookingId,
+      kind: "cancelled",
+      fromStartAt: booking.startAt,
+      fromEndAt: booking.endAt,
+      fromCloserUserId: booking.closerUserId,
+      fromCloserName: row.closer?.displayName || row.closer?.email || null,
+    });
     await tx
       .update(salesCalls)
       .set({ attendance: "cancelled", updatedAt: new Date() })
@@ -134,6 +145,7 @@ export async function cancelNativeBooking(bookingId: string): Promise<NativeBook
   }
 
   await scheduleNativeBookingNotification(bookingId, "cancellation");
+  await cancelNativeBookingReminders(bookingId);
   return { ...transactionResult, ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}) };
 }
 
@@ -156,12 +168,24 @@ export async function rescheduleNativeBooking(
     db
       .select({ closerUserId: nativeBookingEventClosers.closerUserId })
       .from(nativeBookingEventClosers)
-      .where(and(eq(nativeBookingEventClosers.eventId, row.event.id), eq(nativeBookingEventClosers.isActive, true), eq(nativeBookingEventClosers.isOff, false))),
+      .where(
+        and(
+          eq(nativeBookingEventClosers.eventId, row.event.id),
+          eq(nativeBookingEventClosers.isActive, true),
+          or(eq(nativeBookingEventClosers.isOff, false), eq(nativeBookingEventClosers.closerUserId, row.booking.closerUserId ?? ""))
+        )
+      ),
     db
       .select({ assignment: nativeBookingEventClosers, user: users })
       .from(nativeBookingEventClosers)
       .innerJoin(users, eq(nativeBookingEventClosers.closerUserId, users.id))
-      .where(and(eq(nativeBookingEventClosers.eventId, row.event.id), eq(nativeBookingEventClosers.isActive, true), eq(nativeBookingEventClosers.isOff, false)))
+      .where(
+        and(
+          eq(nativeBookingEventClosers.eventId, row.event.id),
+          eq(nativeBookingEventClosers.isActive, true),
+          or(eq(nativeBookingEventClosers.isOff, false), eq(nativeBookingEventClosers.closerUserId, row.booking.closerUserId ?? ""))
+        )
+      )
       .orderBy(asc(nativeBookingEventClosers.position), asc(users.email)),
   ]);
   const now = new Date();
@@ -220,13 +244,8 @@ export async function rescheduleNativeBooking(
       .select({ startAt: nativeBookings.startAt, endAt: nativeBookings.endAt, status: nativeBookings.status, holdExpiresAt: nativeBookings.holdExpiresAt, closerUserId: nativeBookings.closerUserId })
       .from(nativeBookings)
       .where(and(eq(nativeBookings.eventId, row.event.id), ne(nativeBookings.id, current.id), ne(nativeBookings.status, "cancelled"), ne(nativeBookings.status, "expired")));
-    const startIndex = Math.abs(row.event.roundRobinCursor) % assignedClosers.length;
-    const roundRobinOrder = assignedClosers.map((_, index) => assignedClosers[(startIndex + index) % assignedClosers.length]);
-    const orderedClosers = [
-      ...roundRobinOrder.filter(({ assignment }) => assignment.closerUserId === current.closerUserId),
-      ...roundRobinOrder.filter(({ assignment }) => assignment.closerUserId !== current.closerUserId),
-    ];
-    const selected = orderedClosers.find(({ assignment }) => {
+    const selected = assignedClosers.find(({ assignment }) => {
+      if (!current.closerUserId || assignment.closerUserId !== current.closerUserId) return false;
       if (unavailableClosers.has(assignment.closerUserId)) return false;
       if ((externalBusyByCloser.get(assignment.closerUserId) ?? []).some((period) => {
         const bufferedStart = new Date(period.startAt.getTime() - row.event.bufferBeforeMinutes * 60_000);
@@ -265,6 +284,18 @@ export async function rescheduleNativeBooking(
         updatedAt: new Date(),
       })
       .where(eq(nativeBookings.id, current.id));
+    await tx.insert(nativeBookingActivities).values({
+      bookingId: current.id,
+      kind: "rescheduled",
+      fromStartAt: current.startAt,
+      fromEndAt: current.endAt,
+      toStartAt: requestedStartAt,
+      toEndAt: requestedEndAt,
+      fromCloserUserId: current.closerUserId,
+      fromCloserName: current.closerUserId === selected.assignment.closerUserId ? selected.user.displayName || selected.user.email : null,
+      toCloserUserId: selected.assignment.closerUserId,
+      toCloserName: selected.user.displayName || selected.user.email,
+    });
     await tx
       .update(salesCalls)
       .set({ scheduledAt: requestedStartAt, closer: selected.user.displayName || selected.user.email, closerUserId: selected.assignment.closerUserId, updatedAt: new Date() })
@@ -340,6 +371,7 @@ export async function rescheduleNativeBooking(
   }
 
   await scheduleNativeBookingNotification(bookingId, "reschedule");
+  await rebuildNativeBookingReminders(bookingId);
   return { ...transactionResult, ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}) };
 }
 
@@ -363,7 +395,7 @@ async function findBookingByManagementToken(slug: string, token: string, kind: "
 export async function getPublicNativeBookingRescheduleSlots(slug: string, token: string) {
   const row = await findBookingByManagementToken(slug, token, "reschedule");
   if (!row) return null;
-  const slots = await getPublicNativeBookingSlots(slug, { days: 14, excludeBookingId: row.booking.id });
+  const slots = await getPublicNativeBookingSlots(slug, { days: 14, excludeBookingId: row.booking.id, closerUserId: row.booking.closerUserId });
   return slots;
 }
 

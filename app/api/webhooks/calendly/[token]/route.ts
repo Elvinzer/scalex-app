@@ -97,6 +97,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         inviteeName: call.inviteeName,
         inviteeEmail: call.inviteeEmail,
         scheduledAt: call.scheduledAt,
+        durationMinutes: call.durationMinutes,
         closer: call.closer,
         eventType: call.eventType,
       })
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         inviteeName: call.inviteeName,
         inviteeEmail: call.inviteeEmail,
         scheduledAt: call.scheduledAt,
+        durationMinutes: call.durationMinutes,
         closer: call.closer,
         eventType: call.eventType,
         attendance: "cancelled",

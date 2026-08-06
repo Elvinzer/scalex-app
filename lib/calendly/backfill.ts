@@ -22,6 +22,7 @@ export async function backfillCalendlyCalls(userId: string, token: string, userU
         inviteeName: c.inviteeName,
         inviteeEmail: c.inviteeEmail,
         scheduledAt: c.scheduledAt,
+        durationMinutes: c.durationMinutes,
         closer: c.closer,
         eventType: c.eventType,
         attendance: c.attendance,

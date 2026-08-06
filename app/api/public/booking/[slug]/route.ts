@@ -1,16 +1,62 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { and, eq, or } from "drizzle-orm";
 
+import { db } from "@/db";
+import { nativeBookingEvents, nativeBookings, users } from "@/db/schema";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { createNativeBooking, createNativeBookingHold } from "@/lib/native-booking/booking";
 import { cancelNativeBookingByToken, getPublicNativeBookingRescheduleSlots, rescheduleNativeBookingByToken } from "@/lib/native-booking/mutations";
 import { getPublicNativeBookingEvent, getPublicNativeBookingSlots, hasFutureNativeBooking } from "@/lib/native-booking/queries";
 import { touchPublicBookingLead, upsertPublicBookingLead } from "@/lib/native-booking/leads";
-import { normalizePhone, publicBookingCancelSchema, publicBookingRequestSchema, publicBookingRescheduleSchema, publicBookingRescheduleSlotsSchema, publicContactSchema, publicLeadCaptureSchema, publicLeadTouchSchema, sanitizeUtm } from "@/lib/native-booking/validation";
+import { validateNativeBookingAnswers } from "@/lib/native-booking/questions";
+import { hashBookingManagementToken } from "@/lib/native-booking/tokens";
+import { normalizePhone, publicBookingCancelSchema, publicBookingRequestSchema, publicBookingRescheduleSchema, publicBookingRescheduleSlotsSchema, publicBookingRouteSchema, publicQualificationSchema, publicLeadCaptureSchema, publicLeadTouchSchema, publicPhoneStageSchema, sanitizeUtm } from "@/lib/native-booking/validation";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
 function jsonError(message: string, status = 400, code?: string) {
   return NextResponse.json({ error: message, ...(code ? { code } : {}) }, { status });
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  const { slug } = await context.params;
+  const rescheduleToken = request.nextUrl.searchParams.get("manage")?.trim() ?? "";
+  const cancellationToken = request.nextUrl.searchParams.get("cancel")?.trim() ?? "";
+  if (!rescheduleToken && !cancellationToken) return jsonError("Lien de gestion invalide.", 400, "invalid_token");
+  const rescheduleHash = rescheduleToken ? hashBookingManagementToken(rescheduleToken) : null;
+  const cancellationHash = cancellationToken ? hashBookingManagementToken(cancellationToken) : null;
+  const tokenFilter = rescheduleHash && cancellationHash
+    ? and(eq(nativeBookings.rescheduleTokenHash, rescheduleHash), eq(nativeBookings.cancellationTokenHash, cancellationHash))
+    : rescheduleHash
+      ? eq(nativeBookings.rescheduleTokenHash, rescheduleHash)
+      : eq(nativeBookings.cancellationTokenHash, cancellationHash ?? "");
+  const [booking] = await db
+    .select({ booking: nativeBookings, event: nativeBookingEvents, closer: users })
+    .from(nativeBookings)
+    .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
+    .leftJoin(users, eq(nativeBookings.closerUserId, users.id))
+    .where(
+      and(
+        eq(nativeBookingEvents.slug, slug),
+        tokenFilter,
+        or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed"))
+      )
+    )
+    .limit(1);
+  if (!booking) return jsonError("Ce lien de gestion n’est plus valide.", 404, "not_found");
+  return NextResponse.json({
+    booking: {
+      startAt: booking.booking.startAt.toISOString(),
+      endAt: booking.booking.endAt.toISOString(),
+      firstName: booking.booking.firstName,
+      lastName: booking.booking.lastName,
+      email: booking.booking.email,
+      closerName: booking.closer?.displayName || booking.closer?.email || "ton closer",
+      meetingUrl: booking.event.meetingUrl,
+      cancellationToken: cancellationToken || null,
+      rescheduleToken: rescheduleToken || null,
+    },
+  });
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -28,7 +74,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (!body || typeof body !== "object") return jsonError("Requête invalide.");
-  const mode = (body as { mode?: unknown }).mode;
+  const parsedRoute = publicBookingRouteSchema.safeParse(body);
+  if (!parsedRoute.success) return jsonError("Requête de réservation invalide.", 422, "invalid_request");
+  const mode = parsedRoute.data.mode;
+
+  if (mode === "validate-phone") {
+    const parsed = publicPhoneStageSchema.safeParse(parsedRoute.data);
+    if (!parsed.success) return jsonError("Vérifie ton numéro de téléphone.", 422, "invalid_phone");
+    return NextResponse.json({ phone: normalizePhone(parsed.data.phone) });
+  }
 
   if (mode === "capture") {
     const parsed = publicLeadCaptureSchema.safeParse(body);
@@ -60,7 +114,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (mode === "unlock") {
-    const parsed = publicContactSchema.safeParse(body);
+    const parsed = publicQualificationSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Vérifie les informations saisies.", fieldErrors: parsed.error.flatten().fieldErrors },
@@ -70,6 +124,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const slots = await getPublicNativeBookingSlots(slug, { days: 14 });
     if (!slots) return jsonError("Cette page de réservation n’est plus disponible.", 404, "not_found");
+
+    const answerValidation = validateNativeBookingAnswers(slots.event.questions, parsed.data.answers);
+    if (!answerValidation.ok) {
+      return NextResponse.json(
+        { error: "Réponds aux questions obligatoires avant de voir les créneaux.", fieldErrors: answerValidation.fieldErrors },
+        { status: 422 }
+      );
+    }
 
     const existing = await hasFutureNativeBooking(slots.event.userId, normalizePhone(parsed.data.phone));
     if (existing) {
@@ -91,6 +153,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         utm: parsed.data.utm,
       },
       step: "slots_revealed",
+      answers: answerValidation.snapshot,
     });
     if (!leadId) return jsonError("Impossible d’enregistrer ta demande. Réessaie dans un instant.", 500, "lead_capture_failed");
 
@@ -101,7 +164,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         durationMinutes: slots.event.durationMinutes,
       },
       slots: slots.slots.map((slot) => ({ startAt: slot.startAt.toISOString(), endAt: slot.endAt.toISOString() })),
-      utm: sanitizeUtm((body as { utm?: Record<string, string> }).utm),
+      utm: sanitizeUtm(parsed.data.utm),
     });
   }
 

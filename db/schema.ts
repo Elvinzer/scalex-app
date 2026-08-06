@@ -390,6 +390,28 @@ export const nativeBookingNotificationStatus = pgEnum("native_booking_notificati
   "failed",
 ]);
 
+export const nativeBookingQuestionType = pgEnum("native_booking_question_type", [
+  "radio",
+  "checkbox",
+  "text",
+  "textarea",
+  "select",
+]);
+
+export const nativeBookingReminderStatus = pgEnum("native_booking_reminder_status", [
+  "pending",
+  "processing",
+  "sent",
+  "cancelled",
+  "failed",
+]);
+
+export const nativeBookingActivityKind = pgEnum("native_booking_activity_kind", [
+  "booked",
+  "rescheduled",
+  "cancelled",
+]);
+
 export const nativeCalendarProvider = pgEnum("native_calendar_provider", ["google", "outlook"]);
 
 export const nativeCalendarConnectionStatus = pgEnum("native_calendar_connection_status", [
@@ -399,6 +421,15 @@ export const nativeCalendarConnectionStatus = pgEnum("native_calendar_connection
 ]);
 
 export type NativeBookingWindow = { startTime: string; endTime: string };
+export type NativeBookingAnswerSnapshot = {
+  questionId: string;
+  type: "radio" | "checkbox" | "text" | "textarea" | "select";
+  label: string;
+  helpText: string | null;
+  isRequired: boolean;
+  options: string[];
+  answer: string | string[];
+};
 
 // Native booking data is account-scoped even when the signed-in person is a
 // delegated team member. The function is installed by the additive security
@@ -423,6 +454,15 @@ const nativeBookingEventForAccountAccess = (eventId: AnyPgColumn, accountId: Any
   )`;
 
 const nativeBookingNotificationAccess = (bookingId: AnyPgColumn) =>
+  sql`exists (
+    select 1
+    from public.native_bookings as booking
+    join public.native_booking_events as event on event.id = booking.event_id
+    where booking.id = ${bookingId}
+      and public.native_booking_account_member(event.user_id)
+  )`;
+
+const nativeBookingActivityAccess = (bookingId: AnyPgColumn) =>
   sql`exists (
     select 1
     from public.native_bookings as booking
@@ -475,6 +515,61 @@ export const nativeBookingEvents = pgTable(
       to: "authenticated",
       using: nativeBookingAccountAccess(table.userId),
       withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ]
+).enableRLS();
+
+export const nativeBookingQuestions = pgTable(
+  "native_booking_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    type: nativeBookingQuestionType("type").notNull(),
+    label: text("label").notNull(),
+    helpText: text("help_text"),
+    isRequired: boolean("is_required").notNull().default(false),
+    options: jsonb("options").notNull().$type<string[]>().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_questions_event_position_idx").on(table.eventId, table.position),
+    index("native_booking_questions_event_idx").on(table.eventId, table.position),
+    pgPolicy("native_booking_questions_event_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingEventAccess(table.eventId),
+      withCheck: nativeBookingEventAccess(table.eventId),
+    }),
+  ]
+).enableRLS();
+
+export const nativeBookingReminderRules = pgTable(
+  "native_booking_reminder_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    delayMinutes: integer("delay_minutes").notNull(),
+    subject: text("subject").notNull(),
+    message: text("message").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_reminder_rules_event_delay_idx").on(table.eventId, table.delayMinutes),
+    index("native_booking_reminder_rules_event_position_idx").on(table.eventId, table.position),
+    pgPolicy("native_booking_reminder_rules_event_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingEventAccess(table.eventId),
+      withCheck: nativeBookingEventAccess(table.eventId),
     }),
   ]
 ).enableRLS();
@@ -643,14 +738,15 @@ export const nativeBookingLeads = pgTable(
     sessionKey: uuid("session_key").notNull(),
     status: nativeBookingLeadStatus("status").notNull().default("open"),
     lastStep: nativeBookingLeadStep("last_step").notNull().default("contact_submitted"),
-    // Leads are intentionally partial: a prospect is captured as soon as
-    // they leave any one of the three first-step fields.
+    // A relaunchable lead is created after the identity stage, never from a
+    // phone-only browser draft.
     firstName: text("first_name"),
     lastName: text("last_name"),
     email: text("email"),
     emailNormalized: text("email_normalized"),
     phone: text("phone"),
     phoneNormalized: text("phone_normalized"),
+    answers: jsonb("answers").notNull().$type<NativeBookingAnswerSnapshot[]>().default([]),
     guestTimeZone: text("guest_time_zone").notNull(),
     eventTimeZone: text("event_time_zone").notNull(),
     selectedStartAt: timestamp("selected_start_at", { withTimezone: true }),
@@ -706,6 +802,7 @@ export const nativeBookings = pgTable(
     emailNormalized: text("email_normalized"),
     phone: text("phone").notNull(),
     phoneNormalized: text("phone_normalized").notNull(),
+    answers: jsonb("answers").notNull().$type<NativeBookingAnswerSnapshot[]>().default([]),
     guestTimeZone: text("guest_time_zone").notNull(),
     eventTimeZone: text("event_time_zone").notNull(),
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
@@ -717,6 +814,8 @@ export const nativeBookings = pgTable(
     holdExpiresAt: timestamp("hold_expires_at", { withTimezone: true }),
     cancellationTokenHash: text("cancellation_token_hash"),
     rescheduleTokenHash: text("reschedule_token_hash"),
+    cancellationTokenEncrypted: text("cancellation_token_encrypted"),
+    rescheduleTokenEncrypted: text("reschedule_token_encrypted"),
     landingPage: text("landing_page"),
     referrer: text("referrer"),
     linkId: uuid("link_id").references(() => nativeBookingLinks.id, { onDelete: "set null" }),
@@ -744,6 +843,39 @@ export const nativeBookings = pgTable(
   ]
 ).enableRLS();
 
+export const nativeBookingActivities = pgTable(
+  "native_booking_activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => nativeBookings.id, { onDelete: "cascade" }),
+    kind: nativeBookingActivityKind("kind").notNull(),
+    fromStartAt: timestamp("from_start_at", { withTimezone: true }),
+    fromEndAt: timestamp("from_end_at", { withTimezone: true }),
+    toStartAt: timestamp("to_start_at", { withTimezone: true }),
+    toEndAt: timestamp("to_end_at", { withTimezone: true }),
+    fromCloserUserId: uuid("from_closer_user_id").references(() => users.id, { onDelete: "set null" }),
+    fromCloserName: text("from_closer_name"),
+    toCloserUserId: uuid("to_closer_user_id").references(() => users.id, { onDelete: "set null" }),
+    toCloserName: text("to_closer_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("native_booking_activities_booking_created_idx").on(table.bookingId, table.createdAt),
+    pgPolicy("native_booking_activities_account_read", {
+      for: "select",
+      to: "authenticated",
+      using: nativeBookingActivityAccess(table.bookingId),
+    }),
+    pgPolicy("native_booking_activities_account_insert", {
+      for: "insert",
+      to: "authenticated",
+      withCheck: nativeBookingActivityAccess(table.bookingId),
+    }),
+  ]
+).enableRLS();
+
 export const nativeBookingNotifications = pgTable(
   "native_booking_notifications",
   {
@@ -767,6 +899,48 @@ export const nativeBookingNotifications = pgTable(
       to: "authenticated",
       using: nativeBookingNotificationAccess(table.bookingId),
       withCheck: nativeBookingNotificationAccess(table.bookingId),
+    }),
+  ]
+).enableRLS();
+
+export const nativeBookingReminderDeliveries = pgTable(
+  "native_booking_reminder_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => nativeBookings.id, { onDelete: "cascade" }),
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => nativeBookingReminderRules.id, { onDelete: "cascade" }),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+    status: nativeBookingReminderStatus("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_reminder_deliveries_booking_rule_idx").on(table.bookingId, table.ruleId),
+    index("native_booking_reminder_deliveries_due_idx").on(table.status, table.scheduledFor),
+    pgPolicy("native_booking_reminder_deliveries_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: sql`exists (
+        select 1
+        from public.native_bookings as booking
+        join public.native_booking_events as event on event.id = booking.event_id
+        where booking.id = ${table.bookingId}
+          and public.native_booking_account_member(event.user_id)
+      )`,
+      withCheck: sql`exists (
+        select 1
+        from public.native_bookings as booking
+        join public.native_booking_events as event on event.id = booking.event_id
+        where booking.id = ${table.bookingId}
+          and public.native_booking_account_member(event.user_id)
+      )`,
     }),
   ]
 ).enableRLS();
@@ -1444,6 +1618,10 @@ export const salesCalls = pgTable(
     // (an iClosed numeric id, or a Calendly scheduled_event URI) — kept under
     // that name to avoid a risky rename of the existing unique index.
     source: text("source").notNull().default("iclosed"),
+    // Optional because some external providers only expose a start instant.
+    // The unified agenda uses a clearly-labelled 30-minute visual estimate
+    // when this value is null; it never writes that estimate back here.
+    durationMinutes: integer("duration_minutes"),
     nativeBookingId: uuid("native_booking_id"),
     closerUserId: uuid("closer_user_id").references(() => users.id, { onDelete: "set null" }),
     utmSource: text("utm_source"),

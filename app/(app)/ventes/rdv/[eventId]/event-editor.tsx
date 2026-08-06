@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck2, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { CalendarCheck2, ChevronDown, ChevronUp, ExternalLink, GripVertical, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { NativeBookingWindow } from "@/db/schema";
+import { getUnknownReminderVariables } from "@/lib/native-booking/validation";
 
 import {
   addNativeBookingCloserAction,
@@ -15,6 +16,7 @@ import {
   saveNativeBookingAvailabilityAction,
   saveNativeBookingExceptionAction,
   saveNativeCalendarSelectionAction,
+  rebalanceNativeBookingAction,
   toggleNativeBookingLinkAction,
   toggleNativeBookingCloserOffAction,
   updateNativeBookingEventAction,
@@ -43,6 +45,22 @@ type EventData = {
   notifyCloserOnReschedule: boolean;
   requireContactBeforeSlots: boolean;
   roundRobinEnabled: boolean;
+};
+
+type QuestionDraft = {
+  id?: string;
+  type: "radio" | "checkbox" | "text" | "textarea" | "select";
+  label: string;
+  helpText: string | null;
+  isRequired: boolean;
+  options: string[];
+};
+type ReminderDraft = {
+  id?: string;
+  delayMinutes: number;
+  subject: string;
+  message: string;
+  isActive: boolean;
 };
 
 type AvailabilityRow = { weekday: number; startTime: string; endTime: string };
@@ -81,6 +99,16 @@ const WEEKDAYS = [
   [0, "Dimanche"],
 ] as const;
 
+const REMINDER_VARIABLES = [
+  ["firstName", "prénom"],
+  ["eventName", "événement"],
+  ["date", "date"],
+  ["time", "heure"],
+  ["timeZone", "fuseau"],
+  ["meetingUrl", "réunion"],
+  ["managementUrl", "gestion"],
+] as const;
+
 function initialDays(rows: AvailabilityRow[]): Record<number, DayDraft> {
   const result: Record<number, DayDraft> = {};
   for (const [weekday] of WEEKDAYS) {
@@ -106,6 +134,60 @@ function formatPreviewSlot(value: string, timeZone: string): string {
   }).format(new Date(value));
 }
 
+type ReminderVariable = (typeof REMINDER_VARIABLES)[number][0];
+
+const REMINDER_PREVIEW_VALUES: Record<ReminderVariable, string> = {
+  firstName: "Camille",
+  eventName: "Appel stratégique",
+  date: "jeudi 6 août 2026",
+  time: "14:00",
+  timeZone: "Europe/Paris",
+  meetingUrl: "https://exemple.test/rejoindre",
+  managementUrl: "https://exemple.test/gerer",
+};
+
+function renderReminderPreview(value: string): string {
+  return value.replace(/{{\s*([a-zA-Z][a-zA-Z0-9]*)\s*}}/g, (match, variable: string) => REMINDER_PREVIEW_VALUES[variable as ReminderVariable] ?? match);
+}
+
+function questionDraftError(question: QuestionDraft): string | null {
+  if (!question.label.trim()) return "Ajoute un libellé avant d’enregistrer.";
+  if (["radio", "checkbox", "select"].includes(question.type) && question.options.length === 0) return "Ajoute au moins une option pour ce type.";
+  if (new Set(question.options.map((option) => option.trim().toLowerCase())).size !== question.options.length) return "Les options doivent être uniques.";
+  if (!["radio", "checkbox", "select"].includes(question.type) && question.options.length > 0) return "Ce type ne prend pas d’option.";
+  return null;
+}
+
+function QuestionPreview({ questions }: { questions: QuestionDraft[] }) {
+  return (
+    <div className="mt-5 rounded-[var(--radius-card)] border border-accent/30 bg-accent-soft/40 p-4" aria-label="Aperçu public des questions">
+      <p className="text-sm font-bold">Aperçu public</p>
+      <p className="mt-1 text-xs text-muted-foreground">Rendu indicatif, non interactif.</p>
+      <div className="pointer-events-none mt-4 flex flex-col gap-4">
+        {questions.map((question, index) => (
+          <div key={question.id ?? `preview-${index}`} className="flex flex-col gap-1.5">
+            <p className="text-sm font-bold">{question.label || "Question sans libellé"}{question.isRequired ? <span className="ml-1 text-accent">*</span> : <span className="ml-1 font-normal text-muted-foreground">(optionnel)</span>}</p>
+            {question.helpText && <p className="text-xs text-muted-foreground">{question.helpText}</p>}
+            {["radio", "checkbox"].includes(question.type) ? (
+              <div className="flex flex-col gap-2">{question.options.map((option) => <div key={option} className="flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm"><span className="size-4 rounded-full border border-border" aria-hidden="true" />{option}</div>)}</div>
+            ) : question.type === "select" ? (
+              <div className="flex min-h-11 items-center rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm text-muted-foreground">Sélectionne une réponse</div>
+            ) : question.type === "textarea" ? (
+              <div className="min-h-20 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm text-muted-foreground">Ta réponse…</div>
+            ) : (
+              <div className="flex min-h-11 items-center rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm text-muted-foreground">Ta réponse…</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReminderVariables({ onInsert }: { onInsert: (variable: string) => void }) {
+  return <span className="text-xs leading-6 text-muted-foreground">Variables : {REMINDER_VARIABLES.map(([token, label], index) => <span key={token}>{index > 0 && " · "}<button type="button" onClick={() => onInsert(token)} className="font-mono text-accent underline">{label}</button></span>)}</span>;
+}
+
 export function EventEditor({
   event,
   availability,
@@ -116,6 +198,8 @@ export function EventEditor({
   links,
   publicUrl,
   previewSlots,
+  questions,
+  reminders,
 }: {
   event: EventData;
   availability: AvailabilityRow[];
@@ -126,6 +210,8 @@ export function EventEditor({
   links: BookingLinkSummary[];
   publicUrl: string;
   previewSlots: string[];
+  questions: QuestionDraft[];
+  reminders: ReminderDraft[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -145,11 +231,25 @@ export function EventEditor({
       )
     )
   );
+  const [questionDrafts, setQuestionDrafts] = useState<QuestionDraft[]>(questions);
+  const [reminderDrafts, setReminderDrafts] = useState<ReminderDraft[]>(reminders);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [draggedQuestionIndex, setDraggedQuestionIndex] = useState<number | null>(null);
 
   const assignedIds = useMemo(() => new Set(closers.map((closer) => closer.id)), [closers]);
   const availableCandidates = candidates.filter((candidate) => !assignedIds.has(candidate.id));
 
-  function run(action: () => Promise<{ error: string | null }>, success: string) {
+  useEffect(() => {
+    function warnBeforeExit(event: BeforeUnloadEvent) {
+      if (!hasUnsavedChanges) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", warnBeforeExit);
+    return () => window.removeEventListener("beforeunload", warnBeforeExit);
+  }, [hasUnsavedChanges]);
+
+  function run(action: () => Promise<{ error: string | null }>, success: string, onSuccess?: () => void) {
     setError(null);
     setSaved(null);
     startTransition(async () => {
@@ -157,6 +257,7 @@ export function EventEditor({
       if (result.error) setError(result.error);
       else {
         setSaved(success);
+        onSuccess?.();
         router.refresh();
       }
     });
@@ -187,9 +288,64 @@ export function EventEditor({
           notifyCloserOnReschedule: form.get("notifyCloserOnReschedule") === "on",
           requireContactBeforeSlots: true,
           roundRobinEnabled: true,
+          questions: questionDrafts,
+          reminders: reminderDrafts,
         }),
-      "Détails enregistrés."
+      "Détails, questions et rappels enregistrés.",
+      () => setHasUnsavedChanges(false)
     );
+  }
+
+  function markConfigurationDirty() {
+    setHasUnsavedChanges(true);
+    setSaved(null);
+  }
+
+  function addQuestion() {
+    setQuestionDrafts((current) => [...current, { id: crypto.randomUUID(), type: "text", label: "", helpText: null, isRequired: false, options: [] }]);
+    markConfigurationDirty();
+  }
+
+  function moveQuestion(index: number, direction: -1 | 1) {
+    setQuestionDrafts((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      if (item) next.splice(nextIndex, 0, item);
+      return next;
+    });
+    markConfigurationDirty();
+  }
+
+  function dropQuestion(index: number) {
+    if (draggedQuestionIndex === null || draggedQuestionIndex === index) {
+      setDraggedQuestionIndex(null);
+      return;
+    }
+    setQuestionDrafts((current) => {
+      const next = [...current];
+      const [item] = next.splice(draggedQuestionIndex, 1);
+      if (item) next.splice(index, 0, item);
+      return next;
+    });
+    setDraggedQuestionIndex(null);
+    markConfigurationDirty();
+  }
+
+  function addReminder() {
+    setReminderDrafts((current) => [...current, { id: crypto.randomUUID(), delayMinutes: 60, subject: "Ton rendez-vous approche", message: "Bonjour {{firstName}}, ton rendez-vous {{eventName}} est prévu le {{date}} à {{time}} ({{timeZone}}).", isActive: true }]);
+    markConfigurationDirty();
+  }
+
+  function updateQuestion(index: number, patch: Partial<QuestionDraft>) {
+    setQuestionDrafts((current) => current.map((question, questionIndex) => questionIndex === index ? { ...question, ...patch } : question));
+    markConfigurationDirty();
+  }
+
+  function updateReminder(index: number, patch: Partial<ReminderDraft>) {
+    setReminderDrafts((current) => current.map((reminder, reminderIndex) => reminderIndex === index ? { ...reminder, ...patch } : reminder));
+    markConfigurationDirty();
   }
 
   function saveAvailability() {
@@ -202,7 +358,8 @@ export function EventEditor({
             windows: days[weekday].enabled ? days[weekday].windows : [],
           })),
         }),
-      "Disponibilités enregistrées."
+      "Disponibilités enregistrées.",
+      () => setHasUnsavedChanges(false)
     );
   }
 
@@ -309,6 +466,7 @@ export function EventEditor({
             <p className="mt-1 text-sm text-muted-foreground">Le nom, le lien et le fuseau affichés sur ta page publique.</p>
           </div>
           <form
+            onChange={markConfigurationDirty}
             onSubmit={(event) => {
               event.preventDefault();
               saveDetails(new FormData(event.currentTarget));
@@ -399,6 +557,95 @@ export function EventEditor({
         </section>
 
         <section className="sticker-card p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-lg font-bold">Questions de qualification</p>
+              <p className="mt-1 text-sm text-muted-foreground">Elles apparaissent après le prénom, le nom et l&apos;email. Aucune question n&apos;est ajoutée automatiquement.</p>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={addQuestion}><Plus className="size-4" /> Ajouter une question</Button>
+          </div>
+          {questionDrafts.length === 0 ? (
+            <div className="mt-4 rounded-[var(--radius-card)] border border-dashed border-border bg-muted/30 p-5 text-sm text-muted-foreground">Aucune question configurée. L&apos;événement reste réservable sans qualification supplémentaire.</div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-3">
+              {questionDrafts.map((question, index) => {
+                const draftError = questionDraftError(question);
+                return <article key={question.id ?? index} draggable onDragStart={() => setDraggedQuestionIndex(index)} onDragOver={(dragEvent) => dragEvent.preventDefault()} onDrop={(dragEvent) => { dragEvent.preventDefault(); dropQuestion(index); }} className={`rounded-[var(--radius-card)] border border-border bg-muted/20 p-4 ${draggedQuestionIndex === index ? "opacity-60" : ""}`}>
+                  <div className="flex items-start gap-3">
+                    <button type="button" aria-label={`Déplacer la question ${index + 1}`} className="mt-1 cursor-grab rounded-[var(--radius-control)] p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing" onDragStart={() => setDraggedQuestionIndex(index)}><GripVertical className="size-4" aria-hidden="true" /></button>
+                    <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-[minmax(0,1fr)_170px]">
+                      <label className="flex flex-col gap-1.5 text-sm"><span className="font-bold">Libellé</span><input aria-invalid={Boolean(draftError && !question.label.trim())} value={question.label} onChange={(input) => updateQuestion(index, { label: input.target.value })} className="booking-admin-input" placeholder="Ex. Où en est ton activité ?" /></label>
+                      <label className="flex flex-col gap-1.5 text-sm"><span className="font-bold">Type</span><select value={question.type} onChange={(input) => updateQuestion(index, { type: input.target.value as QuestionDraft["type"], options: ["radio", "checkbox", "select"].includes(input.target.value) ? question.options : [] })} className="booking-admin-input"><option value="radio">Choix unique</option><option value="checkbox">Choix multiples</option><option value="select">Liste déroulante</option><option value="text">Texte court</option><option value="textarea">Texte long</option></select></label>
+                      <label className="flex flex-col gap-1.5 text-sm sm:col-span-2"><span className="font-bold">Aide (facultatif)</span><input value={question.helpText ?? ""} onChange={(input) => updateQuestion(index, { helpText: input.target.value || null })} className="booking-admin-input" placeholder="Explique ce que tu attends comme réponse." /></label>
+                      {["radio", "checkbox", "select"].includes(question.type) && <label className="flex flex-col gap-1.5 text-sm sm:col-span-2"><span className="font-bold">Options <span className="font-normal text-muted-foreground">(une par ligne)</span></span><textarea aria-invalid={Boolean(draftError && (question.options.length === 0 || new Set(question.options.map((option) => option.trim().toLowerCase())).size !== question.options.length))} value={question.options.join("\n")} onChange={(input) => updateQuestion(index, { options: input.target.value.split("\n").map((option) => option.trim()).filter(Boolean) })} rows={3} className="booking-admin-input resize-y" placeholder="Moins de 10k€/mois\n10–30k€/mois\nPlus de 30k€/mois" /></label>}
+                      <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={question.isRequired} onChange={(input) => updateQuestion(index, { isRequired: input.target.checked })} /><span>Réponse obligatoire</span></label>
+                      {draftError && <p className="text-xs font-bold text-state-critical" role="alert">{draftError}</p>}
+                    </div>
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <button type="button" aria-label="Monter la question" disabled={index === 0} onClick={() => moveQuestion(index, -1)} className="rounded-[var(--radius-control)] p-2 text-muted-foreground hover:bg-muted disabled:opacity-30"><ChevronUp className="size-4" /></button>
+                      <button type="button" aria-label="Descendre la question" disabled={index === questionDrafts.length - 1} onClick={() => moveQuestion(index, 1)} className="rounded-[var(--radius-control)] p-2 text-muted-foreground hover:bg-muted disabled:opacity-30"><ChevronDown className="size-4" /></button>
+                      <button type="button" aria-label="Supprimer la question" onClick={() => { setQuestionDrafts((current) => current.filter((_, questionIndex) => questionIndex !== index)); markConfigurationDirty(); }} className="rounded-[var(--radius-control)] p-2 text-muted-foreground hover:bg-muted hover:text-state-critical"><Trash2 className="size-4" /></button>
+                    </div>
+                  </div>
+                </article>;
+              })}
+            </div>
+          )}
+          {questionDrafts.length > 0 && <QuestionPreview questions={questionDrafts} />}
+        </section>
+
+        <section className="sticker-card p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-lg font-bold">Rappels email prospect</p>
+              <p className="mt-1 text-sm text-muted-foreground">Les rappels sont envoyés uniquement au prospect. Les notifications du closer restent séparées.</p>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={addReminder}><Plus className="size-4" /> Ajouter un rappel</Button>
+          </div>
+          {reminderDrafts.length === 0 ? (
+            <div className="mt-4 rounded-[var(--radius-card)] border border-dashed border-border bg-muted/30 p-5 text-sm text-muted-foreground">Aucun rappel configuré. Les emails de confirmation, annulation et déplacement restent actifs.</div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-3">
+              {reminderDrafts.map((reminder, index) => {
+                const unknownVariables = Array.from(new Set([...getUnknownReminderVariables(reminder.subject), ...getUnknownReminderVariables(reminder.message)]));
+                return <article key={reminder.id ?? index} className="rounded-[var(--radius-card)] border border-border bg-muted/20 p-4">
+                  <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-bold">Délai avant le RDV</span>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min={1} value={reminder.delayMinutes} onChange={(input) => updateReminder(index, { delayMinutes: Number(input.target.value) })} className="booking-admin-input w-28" />
+                        <span className="text-xs text-muted-foreground">minutes</span>
+                      </div>
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-bold">Sujet</span>
+                      <input value={reminder.subject} onChange={(input) => updateReminder(index, { subject: input.target.value })} className="booking-admin-input" />
+                      <ReminderVariables onInsert={(variable) => updateReminder(index, { subject: `${reminder.subject} {{${variable}}}` })} />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm sm:col-span-2">
+                      <span className="font-bold">Message</span>
+                      <textarea value={reminder.message} onChange={(input) => updateReminder(index, { message: input.target.value })} rows={4} className="booking-admin-input resize-y" />
+                      <ReminderVariables onInsert={(variable) => updateReminder(index, { message: `${reminder.message} {{${variable}}}` })} />
+                    </label>
+                    <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={reminder.isActive} onChange={(input) => updateReminder(index, { isActive: input.target.checked })} /><span>Rappel actif</span></label>
+                  </div>
+                  {unknownVariables.length > 0 && <p className="mt-3 rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-xs font-bold text-state-critical" role="alert">Variable inconnue : {unknownVariables.join(", ")}.</p>}
+                  <div className="mt-3 rounded-[var(--radius-control)] border border-border bg-background/70 p-3 text-sm">
+                    <p className="text-xs font-bold text-muted-foreground">Aperçu avec données d&apos;exemple</p>
+                    <p className="mt-2 font-bold">{renderReminderPreview(reminder.subject)}</p>
+                    <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">{renderReminderPreview(reminder.message)}</p>
+                  </div>
+                  <div className="mt-3 flex justify-end border-t border-border pt-3">
+                    <button type="button" onClick={() => { setReminderDrafts((current) => current.filter((_, reminderIndex) => reminderIndex !== index)); markConfigurationDirty(); }} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-state-critical hover:underline"><Trash2 className="size-4" /> Supprimer</button>
+                  </div>
+                </article>;
+              })}
+            </div>
+          )}
+          <p className="mt-4 text-xs text-muted-foreground">Une réservation proche de l&apos;échéance déclenche le rappel immédiatement. Une annulation supprime les rappels restants.</p>
+        </section>
+
+        <section className="sticker-card p-5 sm:p-6">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-lg font-bold">Horaires et limites</p>
@@ -413,7 +660,10 @@ export function EventEditor({
                   <input
                     type="checkbox"
                     checked={days[weekday].enabled}
-                    onChange={(input) => setDays((current) => ({ ...current, [weekday]: { ...current[weekday], enabled: input.target.checked } }))}
+                    onChange={(input) => {
+                      setDays((current) => ({ ...current, [weekday]: { ...current[weekday], enabled: input.target.checked } }));
+                      markConfigurationDirty();
+                    }}
                   />
                   {label}
                 </label>
@@ -425,17 +675,18 @@ export function EventEditor({
                         type="time"
                         value={window.startTime}
                         disabled={!days[weekday].enabled}
-                        onChange={(input) =>
+                        onChange={(input) => {
                           setDays((current) => ({
-                            ...current,
-                            [weekday]: {
-                              ...current[weekday],
-                              windows: current[weekday].windows.map((item, index) =>
-                                index === windowIndex ? { ...item, startTime: input.target.value } : item
-                              ),
-                            },
-                          }))
-                        }
+                              ...current,
+                              [weekday]: {
+                                ...current[weekday],
+                                windows: current[weekday].windows.map((item, index) =>
+                                  index === windowIndex ? { ...item, startTime: input.target.value } : item
+                                ),
+                              },
+                            }));
+                          markConfigurationDirty();
+                        }}
                         className="booking-admin-input w-32"
                       />
                       <span className="text-sm text-muted-foreground">à</span>
@@ -444,32 +695,34 @@ export function EventEditor({
                         type="time"
                         value={window.endTime}
                         disabled={!days[weekday].enabled}
-                        onChange={(input) =>
+                        onChange={(input) => {
                           setDays((current) => ({
-                            ...current,
-                            [weekday]: {
-                              ...current[weekday],
-                              windows: current[weekday].windows.map((item, index) =>
-                                index === windowIndex ? { ...item, endTime: input.target.value } : item
-                              ),
-                            },
-                          }))
-                        }
+                              ...current,
+                              [weekday]: {
+                                ...current[weekday],
+                                windows: current[weekday].windows.map((item, index) =>
+                                  index === windowIndex ? { ...item, endTime: input.target.value } : item
+                                ),
+                              },
+                            }));
+                          markConfigurationDirty();
+                        }}
                         className="booking-admin-input w-32"
                       />
                       <button
                         type="button"
                         aria-label={`Supprimer la plage ${windowIndex + 1} du ${label}`}
                         disabled={!days[weekday].enabled || days[weekday].windows.length === 1}
-                        onClick={() =>
+                        onClick={() => {
                           setDays((current) => ({
-                            ...current,
-                            [weekday]: {
-                              ...current[weekday],
-                              windows: current[weekday].windows.filter((_, index) => index !== windowIndex),
-                            },
-                          }))
-                        }
+                              ...current,
+                              [weekday]: {
+                                ...current[weekday],
+                                windows: current[weekday].windows.filter((_, index) => index !== windowIndex),
+                              },
+                            }));
+                          markConfigurationDirty();
+                        }}
                         className="rounded-[var(--radius-control)] p-2 text-muted-foreground hover:bg-muted hover:text-state-critical disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Trash2 className="size-4" />
@@ -479,15 +732,16 @@ export function EventEditor({
                   <button
                     type="button"
                     disabled={!days[weekday].enabled || days[weekday].windows.length >= 4}
-                    onClick={() =>
+                    onClick={() => {
                       setDays((current) => ({
-                        ...current,
-                        [weekday]: {
-                          ...current[weekday],
-                          windows: [...current[weekday].windows, { startTime: "13:00", endTime: "17:00" }],
-                        },
-                      }))
-                    }
+                          ...current,
+                          [weekday]: {
+                            ...current[weekday],
+                            windows: [...current[weekday].windows, { startTime: "13:00", endTime: "17:00" }],
+                          },
+                        }));
+                      markConfigurationDirty();
+                    }}
                     className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Plus className="size-3.5" /> Ajouter une plage
@@ -711,11 +965,22 @@ export function EventEditor({
               </Button>
             </div>
           )}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="max-w-sm text-xs text-muted-foreground">Réinitialise uniquement le prochain tour de round robin. Les rendez-vous déjà réservés restent inchangés.</p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => run(() => rebalanceNativeBookingAction({ eventId: event.id }), "Prochain tour rééquilibré.")}
+            >
+              Rééquilibrer
+            </Button>
+          </div>
         </section>
 
         <section className="sticker-card border-accent/30 bg-accent-soft p-5">
           <p className="text-lg font-bold">Capture avant les créneaux</p>
-          <p className="mt-2 text-sm text-muted-foreground">Prénom, nom et téléphone sont demandés avant de dévoiler la disponibilité. Chaque information saisie est enregistrée automatiquement pour permettre une relance si le prospect abandonne.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Téléphone, prénom, nom puis email sont demandés avant de dévoiler la disponibilité. Chaque étape validée peut alimenter une relance si le prospect abandonne.</p>
           <div className="mt-4 rounded-[var(--radius-control)] bg-background/70 p-3 text-sm">
             <p className="font-bold">Lien public</p>
             <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{publicUrl}</p>
