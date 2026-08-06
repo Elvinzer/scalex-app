@@ -76,7 +76,7 @@ export function CreateEventForm({ canCreate }: { canCreate: boolean }) {
           </span>
           <span className="mt-1 block text-sm text-muted-foreground">Un formulaire simple pour commencer avec des horaires de semaine.</span>
         </span>
-        <span className="text-sm font-bold text-accent">{isOpen ? "Fermer" : "Commencer"}</span>
+        <span className="text-sm font-bold text-accent-text">{isOpen ? "Fermer" : "Commencer"}</span>
       </button>
 
       {isOpen && (

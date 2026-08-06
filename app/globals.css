@@ -106,7 +106,7 @@
 
   /* Textes */
   --text-primary: #16150f;
-  --text-secondary: #8d8b82;
+  --text-secondary: #6d6a61;
   --text-on-dark: #ffffff;
   --text-on-dark-muted: #9b998f;
 
@@ -137,7 +137,7 @@
 
   /* Sémantique — texte + fonds doux, un peu plus saturés qu'avant pour
      porter davantage de couleur dans les badges/graphiques. */
-  --positive: #3b7a4a;
+  --positive: #2f6b3b;
   --positive-on-dark: #5dcaa5;
   --positive-soft: #e3f1e6;
   --negative: #a32d2d;
