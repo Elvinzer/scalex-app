@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, gt, ne, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -70,12 +70,19 @@ export async function getPublicNativeBookingEvent(slug: string) {
 
 export async function getPublicNativeBookingSlots(
   slug: string,
-  options?: { fromDate?: string; days?: number; now?: Date }
+  options?: { fromDate?: string; days?: number; now?: Date; excludeBookingId?: string }
 ): Promise<{ event: NonNullable<Awaited<ReturnType<typeof getPublicNativeBookingEvent>>>; slots: GeneratedBookingSlot[] } | null> {
   const event = await getPublicNativeBookingEvent(slug);
   if (!event) return null;
 
   const now = options?.now ?? new Date();
+  const bookingFilters = [
+    eq(nativeBookings.eventId, event.id),
+    ne(nativeBookings.status, "cancelled"),
+    ne(nativeBookings.status, "expired"),
+    gte(nativeBookings.endAt, now),
+    ...(options?.excludeBookingId ? [ne(nativeBookings.id, options.excludeBookingId)] : []),
+  ];
   const [availability, exceptions, bookings, closers] = await Promise.all([
     db.select().from(nativeBookingAvailability).where(eq(nativeBookingAvailability.eventId, event.id)),
     db.select().from(nativeBookingExceptions).where(eq(nativeBookingExceptions.eventId, event.id)),
@@ -88,14 +95,7 @@ export async function getPublicNativeBookingSlots(
         closerUserId: nativeBookings.closerUserId,
       })
       .from(nativeBookings)
-      .where(
-        and(
-          eq(nativeBookings.eventId, event.id),
-          ne(nativeBookings.status, "cancelled"),
-          ne(nativeBookings.status, "expired"),
-          gte(nativeBookings.endAt, now)
-        )
-      ),
+      .where(and(...bookingFilters)),
     db
       .select({ closerUserId: nativeBookingEventClosers.closerUserId })
       .from(nativeBookingEventClosers)
@@ -177,13 +177,33 @@ export async function hasFutureNativeBooking(accountId: string, phoneNormalized:
         eq(nativeBookings.userId, accountId),
         eq(nativeBookings.phoneNormalized, phoneNormalized),
         gte(nativeBookings.startAt, now),
-        ne(nativeBookings.status, "cancelled"),
-        ne(nativeBookings.status, "expired")
+        or(
+          eq(nativeBookings.status, "confirmed"),
+          eq(nativeBookings.status, "sync_failed"),
+          and(eq(nativeBookings.status, "pending"), gt(nativeBookings.holdExpiresAt, now))
+        )
       )
     )
     .orderBy(asc(nativeBookings.startAt))
     .limit(1);
   return booking ?? null;
+}
+
+export async function listUpcomingNativeBookings(accountId: string, now = new Date()) {
+  return db
+    .select({ booking: nativeBookings, event: nativeBookingEvents, closer: users })
+    .from(nativeBookings)
+    .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
+    .leftJoin(users, eq(nativeBookings.closerUserId, users.id))
+    .where(
+      and(
+        eq(nativeBookingEvents.userId, accountId),
+        gte(nativeBookings.startAt, now),
+        or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed"))
+      )
+    )
+    .orderBy(asc(nativeBookings.startAt))
+    .limit(100);
 }
 
 export async function getEventClosers(accountId: string, eventId: string) {

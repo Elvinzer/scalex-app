@@ -15,6 +15,13 @@
       "when": 1786004850383,
       "tag": "0001_native_booking_closer_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786006207860,
+      "tag": "0002_native_booking_notifications",
+      "breakpoints": true
     }
   ]
 }

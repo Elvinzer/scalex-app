@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { getNativeBookingEntitlements, getNativeBookingUsage } from "@/lib/billing/plan-gate";
 import { getCurrentUser } from "@/lib/current-user";
 import { listNativeBookingLeads } from "@/lib/native-booking/leads";
-import { listNativeBookingEvents } from "@/lib/native-booking/queries";
+import { listNativeBookingEvents, listUpcomingNativeBookings } from "@/lib/native-booking/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CreateEventForm } from "./create-event-form";
 import { AbandonedLeadsPanel } from "./abandoned-leads-panel";
 import { EventStatusButton } from "./event-status-button";
+import { UpcomingBookingsPanel } from "./upcoming-bookings-panel";
 
 const STATUS_LABELS = {
   draft: "Brouillon",
@@ -31,11 +32,12 @@ export default async function NativeBookingEventsPage({
   const fromDashboard = params.from === "dashboard";
   const targetLeadId = z.string().uuid().safeParse(params.lead).success ? params.lead ?? null : null;
 
-  const [events, entitlements, usage, leads] = await Promise.all([
+  const [events, entitlements, usage, leads, upcomingBookings] = await Promise.all([
     listNativeBookingEvents(accountId),
     getNativeBookingEntitlements(accountId),
     getNativeBookingUsage(accountId),
     listNativeBookingLeads(accountId),
+    listUpcomingNativeBookings(accountId),
   ]);
 
   const leadViews = leads.map(({ lead, event }) => ({
@@ -52,6 +54,21 @@ export default async function NativeBookingEventsPage({
     utmSource: lead.utmSource,
     utmCampaign: lead.utmCampaign,
     utmContent: lead.utmContent,
+  }));
+
+  const bookingViews = upcomingBookings.map(({ booking, event, closer }) => ({
+    id: booking.id,
+    eventId: event.id,
+    eventName: event.name,
+    firstName: booking.firstName,
+    lastName: booking.lastName,
+    phone: booking.phone,
+    closerName: closer?.displayName || closer?.email || "Closer non assigné",
+    startAt: booking.startAt.toISOString(),
+    endAt: booking.endAt.toISOString(),
+    timeZone: booking.eventTimeZone,
+    status: booking.status as "confirmed" | "sync_failed",
+    syncError: booking.syncError,
   }));
 
   return (
@@ -79,6 +96,7 @@ export default async function NativeBookingEventsPage({
       </div>
 
       <AbandonedLeadsPanel leads={leadViews} targetLeadId={targetLeadId} />
+      <UpcomingBookingsPanel bookings={bookingViews} />
 
       {!entitlements.enabled ? (
         <div className="sticker-card flex flex-col gap-4 p-6 sm:p-8">

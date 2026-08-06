@@ -74,4 +74,13 @@ export const nativeBookingCalendarSyncRequested = eventType("native-booking/cale
   schema: staticSchema<NativeBookingCalendarSyncRequested>(),
 });
 
+type NativeBookingNotificationRequested = {
+  bookingId: string;
+  kind: "confirmation" | "cancellation" | "reschedule";
+};
+
+export const nativeBookingNotificationRequested = eventType("native-booking/notification.requested", {
+  schema: staticSchema<NativeBookingNotificationRequested>(),
+});
+
 export const inngest = new Inngest({ id: "scale-x" });

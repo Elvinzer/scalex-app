@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
-import { createNativeBooking } from "@/lib/native-booking/booking";
+import { createNativeBooking, createNativeBookingHold } from "@/lib/native-booking/booking";
+import { cancelNativeBookingByToken, getPublicNativeBookingRescheduleSlots, rescheduleNativeBookingByToken } from "@/lib/native-booking/mutations";
 import { getPublicNativeBookingEvent, getPublicNativeBookingSlots, hasFutureNativeBooking } from "@/lib/native-booking/queries";
 import { touchPublicBookingLead, upsertPublicBookingLead } from "@/lib/native-booking/leads";
-import { normalizePhone, publicBookingRequestSchema, publicContactSchema, publicLeadCaptureSchema, publicLeadTouchSchema, sanitizeUtm } from "@/lib/native-booking/validation";
+import { normalizePhone, publicBookingCancelSchema, publicBookingRequestSchema, publicBookingRescheduleSchema, publicBookingRescheduleSlotsSchema, publicContactSchema, publicLeadCaptureSchema, publicLeadTouchSchema, sanitizeUtm } from "@/lib/native-booking/validation";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -124,7 +125,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ ok: true });
   }
 
-  if (mode === "book") {
+  if (mode === "cancel") {
+    const parsed = publicBookingCancelSchema.safeParse(body);
+    if (!parsed.success) return jsonError("Lien de gestion invalide.", 422, "invalid_token");
+    const result = await cancelNativeBookingByToken(slug, parsed.data.token);
+    if ("error" in result) return jsonError("Ce lien de gestion n’est plus valide.", 404, "not_found");
+    return NextResponse.json({ ok: true, calendarSyncWarning: result.calendarSyncWarning ?? false });
+  }
+
+  if (mode === "reschedule-slots") {
+    const parsed = publicBookingRescheduleSlotsSchema.safeParse(body);
+    if (!parsed.success) return jsonError("Lien de gestion invalide.", 422, "invalid_token");
+    const result = await getPublicNativeBookingRescheduleSlots(slug, parsed.data.token);
+    if (!result) return jsonError("Ce lien de gestion n’est plus valide.", 404, "not_found");
+    return NextResponse.json({ slots: result.slots.map((slot) => ({ startAt: slot.startAt.toISOString(), endAt: slot.endAt.toISOString() })) });
+  }
+
+  if (mode === "reschedule") {
+    const parsed = publicBookingRescheduleSchema.safeParse(body);
+    if (!parsed.success) return jsonError("Nouvel horaire invalide.", 422, "invalid_reschedule");
+    const result = await rescheduleNativeBookingByToken(slug, parsed.data.token, new Date(parsed.data.startAt));
+    if ("error" in result) {
+      if (result.error === "not_found") return jsonError("Ce lien de gestion n’est plus valide.", 404, "not_found");
+      if (result.error === "slot_unavailable") return jsonError("Ce créneau n’est plus disponible.", 409, "slot_unavailable");
+      return jsonError("Le rendez-vous n’a pas pu être déplacé.", 500, "reschedule_failed");
+    }
+    return NextResponse.json({ booking: { ...result, startAt: result.startAt.toISOString(), endAt: result.endAt.toISOString() } });
+  }
+
+  if (mode === "hold" || mode === "book") {
     const parsed = publicBookingRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -133,7 +162,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const result = await createNativeBooking(slug, parsed.data);
+    const result = mode === "hold" ? await createNativeBookingHold(slug, parsed.data) : await createNativeBooking(slug, parsed.data);
     if ("error" in result) {
       if (result.error === "not_found") return jsonError("Cette page de réservation n’est plus disponible.", 404, "not_found");
       if (result.error === "existing_booking") {
@@ -141,6 +170,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
       if (result.error === "slot_unavailable") return jsonError("Ce créneau vient d’être pris. Choisis-en un autre.", 409, "slot_unavailable");
       return jsonError("La réservation n’a pas pu être confirmée. Réessaie.", 500, "booking_failed");
+    }
+    if (mode === "hold") {
+      if (!("expiresAt" in result)) return jsonError("Le créneau n’a pas pu être réservé temporairement. Réessaie.", 500, "hold_failed");
+      return NextResponse.json({
+        hold: {
+          ...result,
+          startAt: result.startAt.toISOString(),
+          endAt: result.endAt.toISOString(),
+          expiresAt: result.expiresAt.toISOString(),
+        },
+      });
     }
     return NextResponse.json({ booking: { ...result, startAt: result.startAt.toISOString(), endAt: result.endAt.toISOString() } });
   }

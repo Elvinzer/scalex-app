@@ -37,7 +37,7 @@
 - [x] 5.4 Ajouter l’écran de gestion des connexions par closer avec états connecté, reconnexion nécessaire, erreur et déconnexion.
 - [x] 5.5 Implémenter la lecture des périodes busy avec cache court contrôlé et exclusion des calendriers sélectionnés.
 - [x] 5.6 Implémenter la création externe idempotente, les retries Inngest et les états `pending`/`sync_failed` sans envoyer de confirmation trompeuse.
-- [ ] 5.7 Implémenter la synchronisation des annulations et déplacements, avec journalisation de l’erreur et reprise manuelle.
+- [x] 5.7 Implémenter la synchronisation des annulations et déplacements, avec journalisation de l’erreur et reprise manuelle.
 
 ## 6. Administration des événements
 
@@ -47,7 +47,7 @@
 - [x] 6.4 Construire l’éditeur des disponibilités récurrentes et des exceptions par date avec aperçu des créneaux générés.
 - [x] 6.5 Construire l’éditeur closers/round robin et afficher les connexions calendrier manquantes comme avertissements actionnables.
 - [x] 6.6 Construire la section Informations invité avec opt-in obligatoire, champs prénom/nom/téléphone et réglages de questions complémentaires.
-- [ ] 6.7 Construire la section Notifications, confirmation et personnalisation minimale de la page publique.
+- [x] 6.7 Construire la section Notifications, confirmation et personnalisation minimale de la page publique.
 - [x] 6.8 Construire le gestionnaire de liens nommés et UTM avec copie, désactivation et affichage de l’historique non destructif.
 
 ## 7. Parcours public de réservation
@@ -58,7 +58,7 @@
 - [x] 7.4 Révéler les créneaux sans rechargement destructif après validation, conserver les données saisies et déplacer le focus vers le calendrier.
 - [x] 7.5 Implémenter l’affichage par défaut dans le fuseau du prospect et la bascule vers le fuseau de l’événement sans modifier l’instant réservé.
 - [x] 7.6 Implémenter la détection account-scoped d’un rendez-vous futur non annulé et le warning de blocage avant toute nouvelle réservation.
-- [ ] 7.7 Implémenter le hold court, la clé d’idempotence, la revalidation finale, la confirmation atomique et les erreurs de créneau pris.
+- [x] 7.7 Implémenter le hold court, la clé d’idempotence, la revalidation finale, la confirmation atomique et les erreurs de créneau pris.
 - [x] 7.8 Construire la page de confirmation avec date, fuseau, closer, lieu, instructions et état de synchronisation.
 - [x] 7.9 Ajouter la protection rate limit, la validation serveur stricte et des réponses publiques qui ne divulguent aucune donnée d’un autre prospect.
 - [x] 7.10 Adapter le parcours aux écrans 375 px, 768 px et desktop, avec navigation clavier, focus visible, annonces d’erreur et respect de `prefers-reduced-motion`.
@@ -69,18 +69,18 @@
 - [x] 8.2 Enregistrer le snapshot UTM et le lien utilisé au moment de la confirmation sans réécrire l’historique après modification du lien.
 - [x] 8.3 Créer ou upserter l’appel `sales_calls` natif avec les coordonnées, l’horaire, le closer, l’événement et l’attribution marketing.
 - [x] 8.4 Afficher la source native, la plateforme, la campagne et le contenu dans le suivi et le détail des appels sans régression des sources existantes.
-- [ ] 8.5 Ajouter les emails de confirmation, d’annulation et de déplacement, ainsi que les jobs de retry idempotents nécessaires.
+- [x] 8.5 Ajouter les emails de confirmation, d’annulation et de déplacement, ainsi que les jobs de retry idempotents nécessaires.
 
 ## 9. Vérification avec agent-browser et livraison
 
-- [ ] 9.1 Préparer un compte de test, des événements fixtures, des closers fixtures, des liens UTM et un fournisseur calendrier contrôlé pour les scénarios reproductibles.
+- [x] 9.1 Préparer un compte de test, des événements fixtures, des closers fixtures, des liens UTM et un fournisseur calendrier contrôlé pour les scénarios reproductibles.
 - [x] 9.2 Tester avec `agent-browser` le lien public inactif, l’opt-in, le flou non interactif, la validation des trois champs et la révélation des créneaux.
 - [x] 9.3 Tester avec `agent-browser` la réservation réussie, la confirmation, la conservation des UTM et l’apparition dans le suivi des appels.
-- [ ] 9.4 Tester avec `agent-browser` le blocage d’un rendez-vous futur, le créneau déjà pris, la mise en pause et l’absence de divulgation d’informations.
-- [ ] 9.5 Tester avec `agent-browser` le fuseau du prospect, le fuseau de l’événement, les exceptions, le round robin et le fallback de closer.
-- [ ] 9.6 Tester avec `agent-browser` les parcours Google/Outlook simulés, la reconnexion nécessaire, le conflit calendrier et le retry idempotent.
-- [ ] 9.7 Tester avec `agent-browser` les limites du plan d’entrée, l’illimité du plan supérieur et le downgrade sans suppression de données.
-- [ ] 9.8 Tester avec `agent-browser` les layouts 375 px, 768 px et desktop, le clavier, les focus, les erreurs et les états de chargement.
+- [x] 9.4 Tester avec `agent-browser` le blocage d’un rendez-vous futur, le créneau déjà pris, la mise en pause et l’absence de divulgation d’informations.
+- [x] 9.5 Tester avec `agent-browser` le fuseau du prospect, le fuseau de l’événement, les exceptions, le round robin et le fallback de closer.
+- [x] 9.6 Tester avec `agent-browser` les parcours Google/Outlook simulés, la reconnexion nécessaire, le conflit calendrier et le retry idempotent.
+- [x] 9.7 Tester avec `agent-browser` les limites du plan d’entrée, l’illimité du plan supérieur et le downgrade sans suppression de données.
+- [x] 9.8 Tester avec `agent-browser` les layouts 375 px, 768 px et desktop, le clavier, les focus, les erreurs et les états de chargement.
 - [x] 9.9 Exécuter `npm run typecheck`, `npm run lint`, la validation OpenSpec et les vérifications de migration avant d’activer la fonctionnalité pour les utilisateurs.
 
 ## 10. Relance des réservations abandonnées

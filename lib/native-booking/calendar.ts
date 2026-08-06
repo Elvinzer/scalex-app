@@ -30,6 +30,15 @@ export type CalendarOption = { id: string; name: string; isPrimary: boolean };
 
 const BUSY_CACHE_TTL_MS = 15_000;
 const busyCache = new Map<string, { expiresAt: number; periods: BusyPeriod[] }>();
+const testExternalEvents = new Map<string, { connectionId: string; title: string; startAt: Date; endAt: Date }>();
+
+function isCalendarTestMode() {
+  return process.env.NODE_ENV !== "production" && process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE === "1";
+}
+
+function isTestFailure(connection: CalendarConnection) {
+  return connection.providerAccountEmail?.toLowerCase().includes("fixture-fail") ?? false;
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -133,6 +142,7 @@ async function refreshCalendarToken(provider: Provider, refreshToken: string) {
 }
 
 async function getAccessToken(connection: CalendarConnection): Promise<{ connection: CalendarConnection; accessToken: string }> {
+  if (isCalendarTestMode()) return { connection, accessToken: "native-booking-calendar-fixture" };
   if (!connection.accessTokenEncrypted) throw new Error("Calendar connection has no access token");
   if (connection.tokenExpiresAt && connection.tokenExpiresAt.getTime() > Date.now() + 60_000) {
     return { connection, accessToken: decrypt(connection.accessTokenEncrypted) };
@@ -220,6 +230,13 @@ export async function getCalendarAccountEmail(accessToken: string, provider: Pro
 }
 
 export async function listCalendarsForConnection(connection: CalendarConnection): Promise<CalendarOption[]> {
+  if (isCalendarTestMode()) {
+    if (isTestFailure(connection)) throw new Error("Calendar fixture unavailable");
+    return [
+      { id: "fixture-primary", name: "Agenda fixture principale", isPrimary: true },
+      { id: "fixture-team", name: "Agenda fixture équipe", isPrimary: false },
+    ];
+  }
   const { accessToken } = await getAccessToken(connection);
   if (connection.provider === "google") {
     const response = await requestJson(`${GOOGLE_API_BASE}/users/me/calendarList?minAccessRole=reader`, {
@@ -259,6 +276,13 @@ export async function listBusyForConnection(connection: CalendarConnection, from
   const cached = busyCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.periods;
   if (cached) busyCache.delete(cacheKey);
+
+  if (isCalendarTestMode()) {
+    if (isTestFailure(connection)) throw new Error("Calendar fixture unavailable");
+    const periods = connection.providerAccountEmail?.toLowerCase().includes("fixture-busy") ? [{ startAt: from, endAt: to }] : [];
+    busyCache.set(cacheKey, { expiresAt: Date.now() + BUSY_CACHE_TTL_MS, periods });
+    return periods;
+  }
 
   const { accessToken } = await getAccessToken(connection);
   let periods: BusyPeriod[];
@@ -374,6 +398,12 @@ export async function createExternalCalendarEvent({
   guestEmail: string | null;
   meetingUrl: string | null;
 }): Promise<ExternalCalendarEvent> {
+  if (isCalendarTestMode()) {
+    if (isTestFailure(connection)) throw new Error("Calendar fixture create failed");
+    const id = `fixture-${idempotencyKey.replace(/[^a-z0-9]/gi, "").toLowerCase()}`;
+    testExternalEvents.set(id, { connectionId: connection.id, title, startAt, endAt });
+    return { id, url: `https://calendar.fixture.test/event/${id}` };
+  }
   const { accessToken } = await getAccessToken(connection);
   if (connection.provider === "google") {
     const calendarId = connection.selectedCalendarIds[0] ?? "primary";
@@ -430,10 +460,72 @@ export async function createExternalCalendarEvent({
 }
 
 export async function cancelExternalCalendarEvent(connection: CalendarConnection, externalEventId: string): Promise<void> {
+  if (isCalendarTestMode()) {
+    if (isTestFailure(connection)) throw new Error("Calendar fixture cancellation failed");
+    testExternalEvents.delete(externalEventId);
+    return;
+  }
   const { accessToken } = await getAccessToken(connection);
   const url = connection.provider === "google"
     ? `${GOOGLE_API_BASE}/calendars/${encodeURIComponent(connection.selectedCalendarIds[0] ?? "primary")}/events/${encodeURIComponent(externalEventId)}`
     : `${MICROSOFT_API_BASE}/me/events/${encodeURIComponent(externalEventId)}`;
   const response = await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
   if (response.status !== 204 && (response.status < 200 || response.status >= 300)) throw new Error(`Calendar event cancellation failed (${response.status})`);
+}
+
+export async function updateExternalCalendarEvent({
+  connection,
+  externalEventId,
+  title,
+  description,
+  startAt,
+  endAt,
+  guestName,
+  guestEmail,
+  meetingUrl,
+}: {
+  connection: CalendarConnection;
+  externalEventId: string;
+  title: string;
+  description: string;
+  startAt: Date;
+  endAt: Date;
+  guestName: string;
+  guestEmail: string | null;
+  meetingUrl: string | null;
+}): Promise<ExternalCalendarEvent> {
+  if (isCalendarTestMode()) {
+    if (isTestFailure(connection)) throw new Error("Calendar fixture update failed");
+    const existing = testExternalEvents.get(externalEventId);
+    if (existing) testExternalEvents.set(externalEventId, { ...existing, title, startAt, endAt });
+    return { id: externalEventId, url: `https://calendar.fixture.test/event/${externalEventId}` };
+  }
+  const { accessToken } = await getAccessToken(connection);
+  const body = connection.provider === "google"
+    ? {
+        summary: title,
+        description: [description, meetingUrl ? `Lien : ${meetingUrl}` : ""].filter(Boolean).join("\n\n"),
+        start: { dateTime: startAt.toISOString(), timeZone: "UTC" },
+        end: { dateTime: endAt.toISOString(), timeZone: "UTC" },
+        ...(guestEmail ? { attendees: [{ email: guestEmail, displayName: guestName }] } : {}),
+      }
+    : {
+        subject: title,
+        body: { contentType: "text", content: [description, meetingUrl ? `Lien : ${meetingUrl}` : ""].filter(Boolean).join("\n\n") },
+        start: { dateTime: startAt.toISOString(), timeZone: "UTC" },
+        end: { dateTime: endAt.toISOString(), timeZone: "UTC" },
+        ...(guestEmail ? { attendees: [{ emailAddress: { address: guestEmail, name: guestName }, type: "required" }] } : {}),
+      };
+  const url = connection.provider === "google"
+    ? `${GOOGLE_API_BASE}/calendars/${encodeURIComponent(connection.selectedCalendarIds[0] ?? "primary")}/events/${encodeURIComponent(externalEventId)}`
+    : `${MICROSOFT_API_BASE}/me/events/${encodeURIComponent(externalEventId)}`;
+  const response = await requestJson(url, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const responseBody = asRecord(response.body);
+  const id = stringValue(responseBody.id) ?? externalEventId;
+  if (response.status < 200 || response.status >= 300) throw new Error(`Calendar event update failed (${response.status})`);
+  return { id, url: stringValue(responseBody.htmlLink) ?? stringValue(responseBody.webLink) };
 }

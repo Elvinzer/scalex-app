@@ -24,6 +24,12 @@ export const nativeBookingEventInputSchema = z.object({
   meetingUrl: z.string().trim().url("Lien de réunion invalide").nullable(),
   publicHeading: z.string().trim().min(2).max(120),
   publicDescription: z.string().trim().max(300),
+  confirmationTitle: z.string().trim().min(2).max(120).default("Rendez-vous confirmé"),
+  confirmationMessage: z.string().trim().max(300).default("Ton closer te recontactera pour la suite."),
+  bookingInstructions: z.string().trim().max(1000).default(""),
+  notifyCloserOnBooking: z.boolean().default(true),
+  notifyCloserOnCancellation: z.boolean().default(true),
+  notifyCloserOnReschedule: z.boolean().default(true),
   requireContactBeforeSlots: z.boolean(),
   roundRobinEnabled: z.boolean(),
 });
@@ -83,6 +89,17 @@ export const publicBookingRequestSchema = publicContactSchema.extend({
   startAt: z.string().datetime({ offset: true }),
   idempotencyKey: z.string().uuid(),
   leadId: z.string().uuid().nullable().default(null),
+});
+
+const bookingManagementTokenSchema = z.string().trim().min(32).max(128);
+
+export const publicBookingCancelSchema = z.object({ token: bookingManagementTokenSchema });
+
+export const publicBookingRescheduleSlotsSchema = z.object({ token: bookingManagementTokenSchema });
+
+export const publicBookingRescheduleSchema = z.object({
+  token: bookingManagementTokenSchema,
+  startAt: z.string().datetime({ offset: true }),
 });
 
 export const publicLeadTouchSchema = publicContactSchema.extend({

@@ -35,6 +35,12 @@ type EventData = {
   meetingUrl: string | null;
   publicHeading: string;
   publicDescription: string;
+  confirmationTitle: string;
+  confirmationMessage: string;
+  bookingInstructions: string;
+  notifyCloserOnBooking: boolean;
+  notifyCloserOnCancellation: boolean;
+  notifyCloserOnReschedule: boolean;
   requireContactBeforeSlots: boolean;
   roundRobinEnabled: boolean;
 };
@@ -173,6 +179,12 @@ export function EventEditor({
           meetingUrl: String(form.get("meetingUrl") ?? "").trim() || null,
           publicHeading: String(form.get("publicHeading") ?? ""),
           publicDescription: String(form.get("publicDescription") ?? ""),
+          confirmationTitle: String(form.get("confirmationTitle") ?? "Rendez-vous confirmé"),
+          confirmationMessage: String(form.get("confirmationMessage") ?? ""),
+          bookingInstructions: String(form.get("bookingInstructions") ?? ""),
+          notifyCloserOnBooking: form.get("notifyCloserOnBooking") === "on",
+          notifyCloserOnCancellation: form.get("notifyCloserOnCancellation") === "on",
+          notifyCloserOnReschedule: form.get("notifyCloserOnReschedule") === "on",
           requireContactBeforeSlots: true,
           roundRobinEnabled: true,
         }),
@@ -347,6 +359,38 @@ export function EventEditor({
               <span className="font-bold">Introduction publique</span>
               <textarea name="publicDescription" defaultValue={event.publicDescription} rows={2} className="booking-admin-input resize-y" />
             </label>
+            <div className="sm:col-span-2 rounded-[var(--radius-card)] border border-border bg-muted/40 p-4">
+              <p className="font-bold">Notifications, confirmation et personnalisation</p>
+              <p className="mt-1 text-xs text-muted-foreground">Ces textes apparaissent après la réservation. Les notifications sont envoyées au closer sans ajouter d&apos;email obligatoire au formulaire prospect.</p>
+              <div className="mt-3 grid gap-3">
+                <label className="flex flex-col gap-1.5 text-sm">
+                  <span className="font-bold">Titre de confirmation</span>
+                  <input name="confirmationTitle" defaultValue={event.confirmationTitle} className="booking-admin-input" />
+                </label>
+                <label className="flex flex-col gap-1.5 text-sm">
+                  <span className="font-bold">Message de confirmation</span>
+                  <textarea name="confirmationMessage" defaultValue={event.confirmationMessage} rows={2} className="booking-admin-input resize-y" />
+                </label>
+                <label className="flex flex-col gap-1.5 text-sm">
+                  <span className="font-bold">Consignes avant l&apos;appel</span>
+                  <textarea name="bookingInstructions" defaultValue={event.bookingInstructions} rows={3} placeholder="Ex. Prépare tes chiffres et connecte-toi 5 minutes avant." className="booking-admin-input resize-y" />
+                </label>
+                <div className="grid gap-2 text-sm sm:grid-cols-3">
+                  <label className="flex items-start gap-2 rounded-[var(--radius-control)] border border-border bg-background/70 p-3">
+                    <input type="checkbox" name="notifyCloserOnBooking" defaultChecked={event.notifyCloserOnBooking} className="mt-0.5" />
+                    <span>Confirmation</span>
+                  </label>
+                  <label className="flex items-start gap-2 rounded-[var(--radius-control)] border border-border bg-background/70 p-3">
+                    <input type="checkbox" name="notifyCloserOnCancellation" defaultChecked={event.notifyCloserOnCancellation} className="mt-0.5" />
+                    <span>Annulation</span>
+                  </label>
+                  <label className="flex items-start gap-2 rounded-[var(--radius-control)] border border-border bg-background/70 p-3">
+                    <input type="checkbox" name="notifyCloserOnReschedule" defaultChecked={event.notifyCloserOnReschedule} className="mt-0.5" />
+                    <span>Déplacement</span>
+                  </label>
+                </div>
+              </div>
+            </div>
             <div className="flex items-center justify-between gap-3 sm:col-span-2">
               <p className="text-xs text-muted-foreground">Les coordonnées restent obligatoires avant les créneaux.</p>
               <Button type="submit" disabled={isPending}>{isPending ? "Enregistrement…" : "Enregistrer"}</Button>

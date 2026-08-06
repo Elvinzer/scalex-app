@@ -378,6 +378,18 @@ export const nativeBookingLeadStep = pgEnum("native_booking_lead_step", [
   "converted",
 ]);
 
+export const nativeBookingNotificationKind = pgEnum("native_booking_notification_kind", [
+  "confirmation",
+  "cancellation",
+  "reschedule",
+]);
+
+export const nativeBookingNotificationStatus = pgEnum("native_booking_notification_status", [
+  "pending",
+  "sent",
+  "failed",
+]);
+
 export const nativeCalendarProvider = pgEnum("native_calendar_provider", ["google", "outlook"]);
 
 export const nativeCalendarConnectionStatus = pgEnum("native_calendar_connection_status", [
@@ -410,6 +422,15 @@ const nativeBookingEventForAccountAccess = (eventId: AnyPgColumn, accountId: Any
       and public.native_booking_account_member(event.user_id)
   )`;
 
+const nativeBookingNotificationAccess = (bookingId: AnyPgColumn) =>
+  sql`exists (
+    select 1
+    from public.native_bookings as booking
+    join public.native_booking_events as event on event.id = booking.event_id
+    where booking.id = ${bookingId}
+      and public.native_booking_account_member(event.user_id)
+  )`;
+
 const nativeBookingAccountUserAccess = (accountId: AnyPgColumn | SQL<unknown>, memberId: AnyPgColumn | SQL<unknown>) =>
   sql`public.native_booking_account_user_member(${accountId}, ${memberId})`;
 
@@ -435,6 +456,12 @@ export const nativeBookingEvents = pgTable(
     requireContactBeforeSlots: boolean("require_contact_before_slots").notNull().default(true),
     publicHeading: text("public_heading").notNull().default("Réserve ton appel stratégique"),
     publicDescription: text("public_description").notNull().default("Choisis le créneau qui te convient le mieux."),
+    confirmationTitle: text("confirmation_title").notNull().default("Rendez-vous confirmé"),
+    confirmationMessage: text("confirmation_message").notNull().default("Ton closer te recontactera pour la suite."),
+    bookingInstructions: text("booking_instructions").notNull().default(""),
+    notifyCloserOnBooking: boolean("notify_closer_on_booking").notNull().default(true),
+    notifyCloserOnCancellation: boolean("notify_closer_on_cancellation").notNull().default(true),
+    notifyCloserOnReschedule: boolean("notify_closer_on_reschedule").notNull().default(true),
     roundRobinEnabled: boolean("round_robin_enabled").notNull().default(true),
     roundRobinCursor: integer("round_robin_cursor").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -713,6 +740,33 @@ export const nativeBookings = pgTable(
       to: "authenticated",
       using: nativeBookingEventForAccountAccess(table.eventId, table.userId),
       withCheck: nativeBookingEventForAccountAccess(table.eventId, table.userId),
+    }),
+  ]
+).enableRLS();
+
+export const nativeBookingNotifications = pgTable(
+  "native_booking_notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => nativeBookings.id, { onDelete: "cascade" }),
+    kind: nativeBookingNotificationKind("kind").notNull(),
+    status: nativeBookingNotificationStatus("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_notifications_booking_kind_idx").on(table.bookingId, table.kind),
+    index("native_booking_notifications_status_idx").on(table.status, table.updatedAt),
+    pgPolicy("native_booking_notifications_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingNotificationAccess(table.bookingId),
+      withCheck: nativeBookingNotificationAccess(table.bookingId),
     }),
   ]
 ).enableRLS();

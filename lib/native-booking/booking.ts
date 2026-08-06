@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, gt, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -18,11 +18,15 @@ import { inngest, nativeBookingCalendarSyncRequested } from "@/lib/inngest/clien
 import { generateBookingSlots } from "./slots";
 import {
   createExternalCalendarEvent,
+  cancelExternalCalendarEvent,
   getCalendarStatesForClosers,
   listBusyForConnection,
+  updateExternalCalendarEvent,
   type CalendarConnection,
 } from "./calendar";
 import { normalizePhone, sanitizeUtm, type PublicBookingRequest } from "./validation";
+import { scheduleNativeBookingNotification } from "./notifications";
+import { createBookingManagementTokens } from "./tokens";
 
 export type NativeBookingResult = {
   bookingId: string;
@@ -33,15 +37,42 @@ export type NativeBookingResult = {
   meetingLabel: string;
   meetingUrl: string | null;
   eventTimeZone: string;
+  cancellationToken: string | null;
+  rescheduleToken: string | null;
   calendarSyncWarning?: boolean;
 };
 
+export type NativeBookingHoldResult = {
+  holdId: string;
+  startAt: Date;
+  endAt: Date;
+  closerName: string;
+  eventTimeZone: string;
+  expiresAt: Date;
+};
+
+const BOOKING_HOLD_DURATION_MS = 5 * 60_000;
+
 type NativeBookingError = { error: "not_found" | "existing_booking" | "slot_unavailable" | "invalid" };
-type InternalNativeBookingResult = NativeBookingResult & {
+type BookingMode = "hold" | "confirm";
+type InternalNativeBookingResult = {
+  bookingId: string;
+  callId: string | null;
+  startAt: Date;
+  endAt: Date;
+  closerName: string;
+  meetingLabel: string;
+  meetingUrl: string | null;
+  eventTimeZone: string;
+  cancellationToken: string | null;
+  rescheduleToken: string | null;
+  mode: BookingMode;
+  holdExpiresAt: Date | null;
   idempotencyKey: string;
   calendarConnectionId: string | null;
   calendarConnection: CalendarConnection | null;
   shouldSyncCalendar: boolean;
+  calendarSyncWarning?: boolean;
 };
 type InternalBookingResult = InternalNativeBookingResult | NativeBookingError;
 
@@ -65,7 +96,7 @@ function closerIsBusy(
   });
 }
 
-export async function createNativeBooking(slug: string, request: PublicBookingRequest): Promise<NativeBookingResult | { error: "not_found" | "existing_booking" | "slot_unavailable" | "invalid" }> {
+async function createNativeBookingInternal(slug: string, request: PublicBookingRequest, mode: BookingMode): Promise<InternalBookingResult> {
   const event = await db
     .select()
     .from(nativeBookingEvents)
@@ -132,7 +163,7 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
       .from(nativeBookings)
       .where(and(eq(nativeBookings.eventId, eventRow.id), eq(nativeBookings.idempotencyKey, request.idempotencyKey)))
       .limit(1);
-    if (existingAttempt && existingAttempt.status !== "cancelled" && existingAttempt.status !== "expired" && existingAttempt.closerUserId) {
+    if (existingAttempt && existingAttempt.status !== "cancelled" && existingAttempt.status !== "expired" && existingAttempt.status !== "pending" && existingAttempt.closerUserId) {
       const [closer] = await tx.select().from(users).where(eq(users.id, existingAttempt.closerUserId)).limit(1);
       const [call] = await tx.select({ id: salesCalls.id }).from(salesCalls).where(eq(salesCalls.nativeBookingId, existingAttempt.id)).limit(1);
       if (closer && call) {
@@ -146,6 +177,10 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
           meetingLabel: eventRow.meetingLabel,
           meetingUrl: eventRow.meetingUrl,
           eventTimeZone: eventRow.timeZone,
+          cancellationToken: null,
+          rescheduleToken: null,
+          mode: "confirm",
+          holdExpiresAt: null,
           calendarConnectionId: existingAttempt.calendarConnectionId,
           calendarConnection: existingAttempt.calendarConnectionId
             ? calendarStates.get(existingAttempt.closerUserId)?.connection ?? null
@@ -156,27 +191,38 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
       }
       return { error: "invalid" };
     }
+    if (mode === "confirm" && existingAttempt?.status === "pending" && (!existingAttempt.holdExpiresAt || existingAttempt.holdExpiresAt <= now)) {
+      return { error: "slot_unavailable" };
+    }
+
+    const duplicateConditions = [
+      eq(nativeBookings.userId, eventRow.userId),
+      eq(nativeBookings.phoneNormalized, phoneNormalized),
+      gte(nativeBookings.startAt, now),
+      or(
+        eq(nativeBookings.status, "confirmed"),
+        eq(nativeBookings.status, "sync_failed"),
+        and(eq(nativeBookings.status, "pending"), gt(nativeBookings.holdExpiresAt, now))
+      ),
+    ];
+    if (existingAttempt) duplicateConditions.push(ne(nativeBookings.id, existingAttempt.id));
 
     const [duplicate] = await tx
       .select({ id: nativeBookings.id })
       .from(nativeBookings)
-      .where(
-        and(
-          eq(nativeBookings.userId, eventRow.userId),
-          eq(nativeBookings.phoneNormalized, phoneNormalized),
-          gte(nativeBookings.startAt, now),
-          ne(nativeBookings.status, "cancelled"),
-          ne(nativeBookings.status, "expired")
-        )
-      )
+      .where(and(...duplicateConditions))
       .limit(1);
     if (duplicate) return { error: "existing_booking" };
+
+    const allBookingConditions = [eq(nativeBookings.eventId, eventRow.id), ne(nativeBookings.status, "cancelled"), ne(nativeBookings.status, "expired")];
+    if (existingAttempt) allBookingConditions.push(ne(nativeBookings.id, existingAttempt.id));
 
     const [availability, exceptions, allBookings, assignedClosers] = await Promise.all([
       tx.select().from(nativeBookingAvailability).where(eq(nativeBookingAvailability.eventId, eventRow.id)),
       tx.select().from(nativeBookingExceptions).where(eq(nativeBookingExceptions.eventId, eventRow.id)),
       tx
         .select({
+          id: nativeBookings.id,
           startAt: nativeBookings.startAt,
           endAt: nativeBookings.endAt,
           status: nativeBookings.status,
@@ -184,7 +230,7 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
           closerUserId: nativeBookings.closerUserId,
         })
         .from(nativeBookings)
-        .where(and(eq(nativeBookings.eventId, eventRow.id), ne(nativeBookings.status, "cancelled"), ne(nativeBookings.status, "expired"))),
+        .where(and(...allBookingConditions)),
       tx
         .select({ assignment: nativeBookingEventClosers, user: users })
         .from(nativeBookingEventClosers)
@@ -241,15 +287,16 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
           .limit(1)
       : [];
 
-    const [booking] = await tx
-      .insert(nativeBookings)
-      .values({
+    const calendarConnection = calendarStates.get(selected.assignment.closerUserId)?.connection ?? null;
+    const nextHoldExpiresAt = mode === "hold" ? new Date(now.getTime() + BOOKING_HOLD_DURATION_MS) : null;
+    const managementTokens = mode === "confirm" ? createBookingManagementTokens() : null;
+    const bookingValues = {
         userId: eventRow.userId,
         eventId: eventRow.id,
         abandonedLeadId: lead?.status === "converted" ? null : lead?.id ?? null,
         idempotencyKey: request.idempotencyKey,
-        status: "confirmed",
-        syncStatus: calendarStates.get(selected.assignment.closerUserId)?.connection ? "pending" : "not_required",
+        status: mode === "hold" ? "pending" as const : "confirmed" as const,
+        syncStatus: calendarConnection ? "pending" as const : "not_required" as const,
         firstName: request.firstName.trim(),
         lastName: request.lastName.trim(),
         email: null,
@@ -261,7 +308,13 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
         startAt: requestedStart,
         endAt: requestedEnd,
         closerUserId: selected.assignment.closerUserId,
-        calendarConnectionId: calendarStates.get(selected.assignment.closerUserId)?.connection?.id ?? null,
+        calendarConnectionId: calendarConnection?.id ?? null,
+        externalEventId: null,
+        externalEventUrl: null,
+        holdExpiresAt: nextHoldExpiresAt,
+        cancellationTokenHash: managementTokens?.cancellationTokenHash ?? existingAttempt?.cancellationTokenHash ?? null,
+        rescheduleTokenHash: managementTokens?.rescheduleTokenHash ?? existingAttempt?.rescheduleTokenHash ?? null,
+        syncError: null,
         linkId: link?.id ?? null,
         landingPage: request.landingPage,
         referrer: request.referrer,
@@ -271,13 +324,21 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
         utmContent: safeUtm.utm_content ?? link?.utmContent ?? null,
         utmTerm: safeUtm.utm_term ?? link?.utmTerm ?? null,
         utmMetadata: safeUtm,
-      })
-      .returning({ id: nativeBookings.id });
+      };
+    const [booking] = existingAttempt?.status === "pending"
+      ? await tx
+          .update(nativeBookings)
+          .set(bookingValues)
+          .where(eq(nativeBookings.id, existingAttempt.id))
+          .returning({ id: nativeBookings.id })
+      : await tx.insert(nativeBookings).values(bookingValues).returning({ id: nativeBookings.id });
     if (!booking) return { error: "invalid" };
 
-    const [call] = await tx
-      .insert(salesCalls)
-      .values({
+    let call: { id: string } | undefined;
+    if (mode === "confirm") {
+      [call] = await tx
+        .insert(salesCalls)
+        .values({
         userId: eventRow.userId,
         iclosedCallId: `native:${booking.id}`,
         nativeBookingId: booking.id,
@@ -293,11 +354,12 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
         utmCampaign: safeUtm.utm_campaign ?? link?.utmCampaign ?? null,
         utmContent: safeUtm.utm_content ?? link?.utmContent ?? null,
         utmTerm: safeUtm.utm_term ?? link?.utmTerm ?? null,
-      })
-      .returning({ id: salesCalls.id });
-    if (!call) return { error: "invalid" };
+        })
+        .returning({ id: salesCalls.id });
+      if (!call) return { error: "invalid" };
+    }
 
-    if (lead && lead.status !== "converted") {
+    if (mode === "confirm" && lead && lead.status !== "converted") {
       await tx
         .update(nativeBookingLeads)
         .set({
@@ -310,14 +372,16 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
         .where(eq(nativeBookingLeads.id, lead.id));
     }
 
-    await tx
-      .update(nativeBookingEvents)
-      .set({ roundRobinCursor: (selected.assignment.position + 1) % Math.max(assignedClosers.length, 1), updatedAt: new Date() })
-      .where(eq(nativeBookingEvents.id, eventRow.id));
+    if (mode === "confirm") {
+      await tx
+        .update(nativeBookingEvents)
+        .set({ roundRobinCursor: (selected.assignment.position + 1) % Math.max(assignedClosers.length, 1), updatedAt: new Date() })
+        .where(eq(nativeBookingEvents.id, eventRow.id));
+    }
 
     return {
       bookingId: booking.id,
-      callId: call.id,
+      callId: call?.id ?? null,
       idempotencyKey: request.idempotencyKey,
       startAt: requestedStart,
       endAt: requestedEnd,
@@ -325,15 +389,19 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
       meetingLabel: eventRow.meetingLabel,
       meetingUrl: eventRow.meetingUrl,
       eventTimeZone: eventRow.timeZone,
-      calendarConnectionId: calendarStates.get(selected.assignment.closerUserId)?.connection?.id ?? null,
-      calendarConnection: calendarStates.get(selected.assignment.closerUserId)?.connection ?? null,
-      shouldSyncCalendar: Boolean(calendarStates.get(selected.assignment.closerUserId)?.connection),
+      cancellationToken: managementTokens?.cancellationToken ?? null,
+      rescheduleToken: managementTokens?.rescheduleToken ?? null,
+      mode,
+      holdExpiresAt: nextHoldExpiresAt,
+      calendarConnectionId: calendarConnection?.id ?? null,
+      calendarConnection,
+      shouldSyncCalendar: mode === "confirm" && Boolean(calendarConnection),
     };
   });
 
   if ("error" in transactionResult) return transactionResult;
   let calendarSyncWarning = Boolean(transactionResult.calendarSyncWarning);
-  if (transactionResult.shouldSyncCalendar && transactionResult.calendarConnection) {
+  if (transactionResult.mode === "confirm" && transactionResult.shouldSyncCalendar && transactionResult.calendarConnection) {
     try {
       const externalEvent = await createExternalCalendarEvent({
         connection: transactionResult.calendarConnection,
@@ -373,16 +441,48 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
     }
   }
 
+  if (transactionResult.mode === "confirm") {
+    await scheduleNativeBookingNotification(transactionResult.bookingId, "confirmation");
+  }
+
+  return { ...transactionResult, ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}) };
+}
+
+export async function createNativeBooking(
+  slug: string,
+  request: PublicBookingRequest
+): Promise<NativeBookingResult | NativeBookingError> {
+  const result = await createNativeBookingInternal(slug, request, "confirm");
+  if ("error" in result) return result;
+  if (!result.callId) return { error: "invalid" };
   return {
-    bookingId: transactionResult.bookingId,
-    callId: transactionResult.callId,
-    startAt: transactionResult.startAt,
-    endAt: transactionResult.endAt,
-    closerName: transactionResult.closerName,
-    meetingLabel: transactionResult.meetingLabel,
-    meetingUrl: transactionResult.meetingUrl,
-    eventTimeZone: transactionResult.eventTimeZone,
-    ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}),
+    bookingId: result.bookingId,
+    callId: result.callId,
+    startAt: result.startAt,
+    endAt: result.endAt,
+    closerName: result.closerName,
+    meetingLabel: result.meetingLabel,
+    meetingUrl: result.meetingUrl,
+    eventTimeZone: result.eventTimeZone,
+    cancellationToken: result.cancellationToken,
+    rescheduleToken: result.rescheduleToken,
+    ...(result.calendarSyncWarning ? { calendarSyncWarning: true } : {}),
+  };
+}
+
+export async function createNativeBookingHold(
+  slug: string,
+  request: PublicBookingRequest
+): Promise<NativeBookingHoldResult | NativeBookingError> {
+  const result = await createNativeBookingInternal(slug, request, "hold");
+  if ("error" in result) return result;
+  return {
+    holdId: result.bookingId,
+    startAt: result.startAt,
+    endAt: result.endAt,
+    closerName: result.closerName,
+    eventTimeZone: result.eventTimeZone,
+    expiresAt: result.holdExpiresAt ?? new Date(Date.now() + BOOKING_HOLD_DURATION_MS),
   };
 }
 
@@ -394,7 +494,7 @@ export async function retryNativeBookingCalendarSync(bookingId: string): Promise
     .where(eq(nativeBookings.id, bookingId))
     .limit(1);
   if (!row) return "skipped";
-  if (row.booking.externalEventId || row.booking.status === "cancelled" || !row.booking.calendarConnectionId) return "skipped";
+  if (!row.booking.calendarConnectionId) return "skipped";
 
   const [connection] = await db
     .select()
@@ -404,17 +504,39 @@ export async function retryNativeBookingCalendarSync(bookingId: string): Promise
   if (!connection) return "skipped";
 
   try {
-    const externalEvent = await createExternalCalendarEvent({
-      connection,
-      idempotencyKey: row.booking.idempotencyKey,
-      title: row.event.meetingLabel,
-      description: row.event.description,
-      startAt: row.booking.startAt,
-      endAt: row.booking.endAt,
-      guestName: `${row.booking.firstName} ${row.booking.lastName}`,
-      guestEmail: null,
-      meetingUrl: row.event.meetingUrl,
-    });
+    if (row.booking.status === "cancelled") {
+      if (!row.booking.externalEventId) return "skipped";
+      await cancelExternalCalendarEvent(connection, row.booking.externalEventId);
+      await db
+        .update(nativeBookings)
+        .set({ calendarConnectionId: null, externalEventId: null, externalEventUrl: null, syncStatus: "synced", syncError: null, updatedAt: new Date() })
+        .where(eq(nativeBookings.id, bookingId));
+      return "synced";
+    }
+
+    const externalEvent = row.booking.externalEventId
+      ? await updateExternalCalendarEvent({
+          connection,
+          externalEventId: row.booking.externalEventId,
+          title: row.event.meetingLabel,
+          description: row.event.description,
+          startAt: row.booking.startAt,
+          endAt: row.booking.endAt,
+          guestName: `${row.booking.firstName} ${row.booking.lastName}`,
+          guestEmail: row.booking.email,
+          meetingUrl: row.event.meetingUrl,
+        })
+      : await createExternalCalendarEvent({
+          connection,
+          idempotencyKey: row.booking.idempotencyKey,
+          title: row.event.meetingLabel,
+          description: row.event.description,
+          startAt: row.booking.startAt,
+          endAt: row.booking.endAt,
+          guestName: `${row.booking.firstName} ${row.booking.lastName}`,
+          guestEmail: row.booking.email,
+          meetingUrl: row.event.meetingUrl,
+        });
     await db
       .update(nativeBookings)
       .set({
@@ -427,6 +549,7 @@ export async function retryNativeBookingCalendarSync(bookingId: string): Promise
         updatedAt: new Date(),
       })
       .where(eq(nativeBookings.id, bookingId));
+    await scheduleNativeBookingNotification(bookingId, "confirmation");
     return "synced";
   } catch (error) {
     await db

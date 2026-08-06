@@ -35,6 +35,9 @@ export default async function PublicBookingRoute({ params }: { params: Promise<{
         meetingLabel: event.meetingLabel,
         publicHeading: event.publicHeading,
         publicDescription: event.publicDescription,
+        confirmationTitle: event.confirmationTitle,
+        confirmationMessage: event.confirmationMessage,
+        bookingInstructions: event.bookingInstructions,
       }}
     />
   );
