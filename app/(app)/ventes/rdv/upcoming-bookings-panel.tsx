@@ -2,8 +2,9 @@
 
 import { Ban, CalendarClock, MessageCircle, Phone, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { phoneHref, whatsappHref } from "@/lib/native-booking/phone-links";
 
@@ -34,8 +35,17 @@ export function UpcomingBookingsPanel({ bookings }: { bookings: BookingView[] })
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<BookingView | null>(null);
+  const [hiddenBookingIds, setHiddenBookingIds] = useState<Set<string>>(() => new Set());
 
-  function run(action: () => Promise<{ error: string | null; warning?: boolean }>, success: string) {
+  useEffect(() => {
+    setHiddenBookingIds((current) => {
+      const next = new Set(Array.from(current).filter((id) => bookings.some((booking) => booking.id === id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [bookings]);
+
+  function run(action: () => Promise<{ error: string | null; warning?: boolean }>, success: string, onSuccess?: () => void) {
     setError(null);
     setMessage(null);
     startTransition(async () => {
@@ -43,18 +53,35 @@ export function UpcomingBookingsPanel({ bookings }: { bookings: BookingView[] })
       if (result.error) setError(result.error);
       else {
         setMessage(result.warning ? `${success} Le calendrier devra être vérifié.` : success);
+        onSuccess?.();
         router.refresh();
       }
     });
   }
 
+  function confirmCancel() {
+    if (!pendingCancel) return;
+    const booking = pendingCancel;
+    run(
+      () => cancelNativeBookingAction({ bookingId: booking.id }),
+      "Rendez-vous annulé.",
+      () => {
+        setHiddenBookingIds((current) => new Set(current).add(booking.id));
+        setPendingCancel(null);
+      },
+    );
+  }
+
+  const visibleBookings = useMemo(() => bookings.filter((booking) => !hiddenBookingIds.has(booking.id)), [bookings, hiddenBookingIds]);
+
   return (
-    <section className="flex flex-col gap-3" aria-labelledby="upcoming-bookings-title">
+    <>
+      <section className="flex flex-col gap-3" aria-labelledby="upcoming-bookings-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h3 id="upcoming-bookings-title" className="text-lg font-bold">Rendez-vous à venir</h3>
-            {bookings.length > 0 && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">{bookings.length}</span>}
+            {visibleBookings.length > 0 && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">{visibleBookings.length}</span>}
           </div>
           <p className="text-sm text-muted-foreground">Annule ou déplace un appel sans perdre l&apos;historique d&apos;attribution.</p>
         </div>
@@ -63,18 +90,32 @@ export function UpcomingBookingsPanel({ bookings }: { bookings: BookingView[] })
       {error && <p className="rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm font-bold text-state-critical" role="alert">{error}</p>}
       {message && <p className="rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm font-bold text-state-healthy" role="status">{message}</p>}
 
-      {bookings.length === 0 ? (
+      {visibleBookings.length === 0 ? (
         <div className="sticker-card-dashed flex items-center gap-3 p-6 text-sm text-muted-foreground">
           <CalendarClock className="size-5 shrink-0" /> Aucun rendez-vous futur à gérer.
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
-          {bookings.map((booking) => (
-            <BookingCard key={booking.id} booking={booking} disabled={isPending} run={run} />
+          {visibleBookings.map((booking) => (
+            <BookingCard key={booking.id} booking={booking} disabled={isPending} run={run} onRequestCancel={() => { setError(null); setPendingCancel(booking); }} />
           ))}
         </div>
       )}
-    </section>
+      </section>
+
+      <ConfirmationDialog
+        open={pendingCancel !== null}
+        title="Annuler ce rendez-vous ?"
+        description="Le créneau sera libéré et le prospect recevra un email pour l’informer de l’annulation."
+        detail={pendingCancel && <div className="flex flex-col gap-1"><p className="font-bold">{pendingCancel.firstName} {pendingCancel.lastName}</p><p className="text-muted-foreground">{pendingCancel.eventName} · {formatBookingDate(pendingCancel.startAt, pendingCancel.endAt, pendingCancel.timeZone)}</p></div>}
+        confirmLabel="Annuler le rendez-vous"
+        cancelLabel="Garder le rendez-vous"
+        pending={isPending}
+        error={error}
+        onCancel={() => { if (!isPending) { setPendingCancel(null); setError(null); } }}
+        onConfirm={confirmCancel}
+      />
+    </>
   );
 }
 
@@ -82,10 +123,12 @@ function BookingCard({
   booking,
   disabled,
   run,
+  onRequestCancel,
 }: {
   booking: BookingView;
   disabled: boolean;
   run: (action: () => Promise<{ error: string | null; warning?: boolean }>, success: string) => void;
+  onRequestCancel: () => void;
 }) {
   const [nextStartAt, setNextStartAt] = useState("");
   const call = phoneHref(booking.phone);
@@ -148,9 +191,7 @@ function BookingCard({
           <Button
             type="button"
             disabled={disabled}
-            onClick={() => {
-              if (window.confirm("Annuler ce rendez-vous ?")) run(() => cancelNativeBookingAction({ bookingId: booking.id }), "Rendez-vous annulé.");
-            }}
+            onClick={onRequestCancel}
             variant="outline"
             size="lg"
             className="min-h-11 text-muted-foreground"

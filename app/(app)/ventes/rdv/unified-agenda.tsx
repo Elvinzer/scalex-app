@@ -1,9 +1,10 @@
 "use client";
 
-import { MessageCircle, Phone } from "lucide-react";
+import { CheckCircle2, MessageCircle, Phone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from "react";
 
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { phoneHref, whatsappHref as buildWhatsAppHref } from "@/lib/native-booking/phone-links";
 
@@ -114,6 +115,9 @@ export function UnifiedAgenda({ appointments, filters }: { appointments: Appoint
   const [selectedMoveSlot, setSelectedMoveSlot] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<Appointment | null>(null);
+  const [hiddenAppointmentIds, setHiddenAppointmentIds] = useState<Set<string>>(() => new Set());
   const [isPending, startTransition] = useTransition();
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
 
@@ -140,6 +144,19 @@ export function UnifiedAgenda({ appointments, filters }: { appointments: Appoint
       previousFocus?.focus();
     };
   }, [drawerAppointment]);
+
+  useEffect(() => {
+    if (!actionMessage) return;
+    const timeout = window.setTimeout(() => setActionMessage(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [actionMessage]);
+
+  useEffect(() => {
+    setHiddenAppointmentIds((current) => {
+      const next = new Set(Array.from(current).filter((id) => appointments.find((appointment) => appointment.id === id)?.status === "confirmed"));
+      return next.size === current.size ? current : next;
+    });
+  }, [appointments]);
 
   const closers = useMemo(() => {
     const map = new Map<string, string>();
@@ -215,31 +232,56 @@ export function UnifiedAgenda({ appointments, filters }: { appointments: Appoint
     });
   }
 
-  function cancelAppointment(appointment: Appointment) {
-    if (!appointment.nativeBookingId || !window.confirm("Annuler ce rendez-vous ?")) return;
+  function requestCancel(appointment: Appointment) {
+    if (!appointment.nativeBookingId) return;
     setActionError(null);
     setActionMessage(null);
+    setCancelError(null);
+    setPendingCancel(appointment);
+  }
+
+  function closeCancelDialog() {
+    if (isPending) return;
+    setPendingCancel(null);
+    setCancelError(null);
+  }
+
+  function confirmCancel() {
+    const appointment = pendingCancel;
+    if (!appointment?.nativeBookingId) return;
+    setCancelError(null);
     startTransition(async () => {
       const result = await cancelNativeBookingAction({ bookingId: appointment.nativeBookingId });
       if (result.error) {
-        setActionError(result.error);
+        setCancelError(result.error);
         return;
       }
+      setHiddenAppointmentIds((current) => new Set(current).add(appointment.id));
+      setPendingCancel(null);
       setDrawerAppointment(null);
+      setMovingId(null);
+      setMoveSlots([]);
+      setSelectedMoveSlot(null);
+      setActionMessage("Rendez-vous annulé. Le prospect reçoit un email de confirmation.");
       router.refresh();
     });
   }
 
+  const visibleAppointments = useMemo(
+    () => appointments.filter((appointment) => !hiddenAppointmentIds.has(appointment.id)),
+    [appointments, hiddenAppointmentIds],
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<string, { label: string; appointments: Appointment[] }>();
-    for (const appointment of appointments) {
+    for (const appointment of visibleAppointments) {
       const key = dayKey(appointment.startAt, filters.timeZone);
       const group = map.get(key) ?? { label: formatDay(appointment.startAt, filters.timeZone), appointments: [] };
       group.appointments.push(appointment);
       map.set(key, group);
     }
     return Array.from(map.values());
-  }, [appointments, filters.timeZone]);
+  }, [filters.timeZone, visibleAppointments]);
 
   const resetFilters = () => updateUrl({ source: null, closer: null, status: null, range: "next7", from: null, to: null });
 
@@ -253,8 +295,10 @@ export function UnifiedAgenda({ appointments, filters }: { appointments: Appoint
         <label className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-3 text-sm font-bold"><span className="sr-only">Closer</span><select value={filters.closerIds.length === 1 ? filters.closerIds[0] : "all"} onChange={(input) => updateUrl({ closer: input.target.value === "all" ? null : input.target.value })} className="max-w-48 bg-transparent outline-none"><option value="all">Tous les closers</option>{closers.map((closer) => <option key={closer.id} value={closer.id}>{closer.name}</option>)}</select></label>
         <label className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-3 text-sm font-bold"><span className="sr-only">Statut</span><select value={filters.status.length === 1 ? filters.status[0] : "all"} onChange={(input) => updateUrl({ status: input.target.value === "all" ? "confirmed,cancelled,past" : input.target.value })} className="bg-transparent outline-none"><option value="confirmed">Confirmés</option><option value="all">Tous les statuts</option><option value="cancelled">Annulés</option><option value="past">Passés</option></select></label>
         <label className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-3 text-sm font-bold"><span className="sr-only">Période</span><select value={filters.range} onChange={(input) => updateUrl({ range: input.target.value, from: null, to: null })} className="bg-transparent outline-none"><option value="today">Aujourd&apos;hui</option><option value="next7">7 prochains jours</option><option value="next30">30 prochains jours</option><option value="custom">Plage personnalisée</option></select></label>
-        <span className="ml-auto text-sm text-muted-foreground"><strong className="text-foreground">{appointments.length}</strong> rendez-vous</span>
+        <span className="ml-auto text-sm text-muted-foreground"><strong className="text-foreground">{visibleAppointments.length}</strong> rendez-vous</span>
       </div>
+
+      {actionMessage && !drawerAppointment && <div className="flex items-start gap-2 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2.5 text-sm font-bold text-state-healthy" role="status" aria-live="polite"><CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><span>{actionMessage}</span><button type="button" className="ml-auto min-h-7 min-w-7 rounded-full px-1 text-base leading-none hover:bg-background/60" aria-label="Fermer le message" onClick={() => setActionMessage(null)}>×</button></div>}
 
       {filters.range === "custom" && <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius-card)] border border-border bg-muted/30 p-3">
         <label className="flex flex-col gap-1 text-xs font-bold"><span>Du</span><input type="date" value={dateInputValue(filters.from, filters.timeZone)} onChange={(input) => updateUrl({ from: localDateToIso(input.target.value) })} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3" /></label>
@@ -262,9 +306,22 @@ export function UnifiedAgenda({ appointments, filters }: { appointments: Appoint
         <p className="text-xs text-muted-foreground">Les dates sont converties en instants UTC selon ton navigateur.</p>
       </div>}
 
-      {appointments.length === 0 ? <div className="sticker-card-dashed flex flex-col items-center gap-2 p-10 text-center"><p className="font-bold">Aucun rendez-vous sur cette période</p><p className="text-sm text-foreground/70">Aucune réservation ne correspond aux filtres actifs.</p><button type="button" onClick={resetFilters} className="min-h-11 text-sm font-bold text-accent-text underline">Réinitialiser les filtres</button></div> : filters.view === "agenda" ? <AgendaView groups={grouped} timeZone={filters.timeZone} onOpen={setDrawerAppointment} onMove={openMove} onCancel={cancelAppointment} /> : filters.view === "week" ? <WeekView appointments={appointments} timeZone={filters.timeZone} onOpen={setDrawerAppointment} /> : <ListView appointments={appointments} timeZone={filters.timeZone} onOpen={setDrawerAppointment} />}
+      {visibleAppointments.length === 0 ? <div className="sticker-card-dashed flex flex-col items-center gap-2 p-10 text-center"><p className="font-bold">Aucun rendez-vous sur cette période</p><p className="text-sm text-foreground/70">Aucune réservation ne correspond aux filtres actifs.</p><button type="button" onClick={resetFilters} className="min-h-11 text-sm font-bold text-accent-text underline">Réinitialiser les filtres</button></div> : filters.view === "agenda" ? <AgendaView groups={grouped} timeZone={filters.timeZone} onOpen={setDrawerAppointment} onMove={openMove} onCancel={requestCancel} /> : filters.view === "week" ? <WeekView appointments={visibleAppointments} timeZone={filters.timeZone} onOpen={setDrawerAppointment} /> : <ListView appointments={visibleAppointments} timeZone={filters.timeZone} onOpen={setDrawerAppointment} />}
 
-      {drawerAppointment && <AppointmentDrawer closeRef={drawerCloseRef} appointment={drawerAppointment} timeZone={filters.timeZone} moving={movingId === drawerAppointment.id} moveSlots={moveSlots} selectedMoveSlot={selectedMoveSlot} actionError={actionError} actionMessage={actionMessage} isPending={isPending} onLoadMove={() => openMove(drawerAppointment)} onSelectMoveSlot={setSelectedMoveSlot} onMove={confirmMove} onCancel={() => cancelAppointment(drawerAppointment)} onClose={() => { setDrawerAppointment(null); setMovingId(null); setMoveSlots([]); setActionError(null); setActionMessage(null); }} />}
+      {drawerAppointment && <AppointmentDrawer closeRef={drawerCloseRef} appointment={drawerAppointment} timeZone={filters.timeZone} moving={movingId === drawerAppointment.id} moveSlots={moveSlots} selectedMoveSlot={selectedMoveSlot} actionError={actionError} actionMessage={actionMessage} isPending={isPending} onLoadMove={() => openMove(drawerAppointment)} onSelectMoveSlot={setSelectedMoveSlot} onMove={confirmMove} onCancel={() => requestCancel(drawerAppointment)} onClose={() => { setDrawerAppointment(null); setMovingId(null); setMoveSlots([]); setActionError(null); setActionMessage(null); }} />}
+
+      <ConfirmationDialog
+        open={pendingCancel !== null}
+        title="Annuler ce rendez-vous ?"
+        description="Le créneau sera libéré et le prospect recevra un email pour l’informer de l’annulation."
+        detail={pendingCancel && <div className="flex flex-col gap-1"><p className="font-bold">{pendingCancel.prospectName}</p><p className="text-muted-foreground">{pendingCancel.eventName} · {formatDay(pendingCancel.startAt, filters.timeZone)} à {formatTime(pendingCancel.startAt, filters.timeZone)}</p></div>}
+        confirmLabel="Annuler le rendez-vous"
+        cancelLabel="Garder le rendez-vous"
+        pending={isPending}
+        error={cancelError}
+        onCancel={closeCancelDialog}
+        onConfirm={confirmCancel}
+      />
     </section>
   );
 }
