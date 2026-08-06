@@ -1,3 +1,5 @@
+import { AlertTriangle } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { tryDecrypt } from "@/lib/crypto";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
@@ -82,7 +84,7 @@ export default async function SettingsPage() {
         {maskedKey && keyInvalid && (
           <div className="mt-4 rounded-xl border border-state-critical/40 bg-state-critical/10 p-3">
             <p className="inline-flex items-center gap-2 font-mono text-sm font-bold text-state-critical">
-              <span className="size-2 rounded-full bg-state-critical" />
+              <AlertTriangle className="size-4 shrink-0" />
               {maskedKey} : ne fonctionne plus
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -95,7 +97,7 @@ export default async function SettingsPage() {
         {keyUnreadable && (
           <div className="mt-4 rounded-xl border border-state-critical/40 bg-state-critical/10 p-3">
             <p className="inline-flex items-center gap-2 text-sm font-bold text-state-critical">
-              <span className="size-2 rounded-full bg-state-critical" />
+              <AlertTriangle className="size-4 shrink-0" />
               Ta clé enregistrée n&apos;a pas pu être lue
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
