@@ -180,7 +180,7 @@ function NavLink({
     <Link
       href={entry.href}
       className={cn(
-        "flex items-center gap-3 rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+        "flex min-w-0 items-center gap-3 whitespace-normal break-words rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
         indented ? "pl-7 text-[13px] tracking-[-0.005em]" : "pl-3 text-[13.5px] tracking-[-0.01em]",
         active
           ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]"
@@ -188,8 +188,8 @@ function NavLink({
         className
       )}
     >
-      <Icon className="size-4" />
-      {entry.label}
+      <Icon className="size-4 shrink-0" />
+      <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
       {badge && (
         <span className="ml-auto rounded-full bg-mist/15 px-1.5 py-0.5 text-[9.5px] font-bold tracking-[0.06em] text-mist/70 uppercase">
           {badge}
@@ -233,7 +233,7 @@ function PillarNavGroup({
   if (subpages.length === 0) return <NavLink entry={entry} pathname={pathname} indented={false} />;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center gap-1">
         <NavLink entry={entry} pathname={pathname} indented={false} className="min-w-0 flex-1" />
         <button
@@ -258,11 +258,11 @@ function PillarNavGroup({
                 className={cn(
                   // pl-10 lines the label up under the parent's own label
                   // (pl-3 + size-4 icon + gap-3 = 40px).
-                  "flex items-center rounded-[var(--radius-control)] py-2 pr-3 pl-10 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+                  "flex min-w-0 items-center whitespace-normal break-words rounded-[var(--radius-control)] py-2 pr-3 pl-10 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
                   active ? "bg-white/10 text-white" : "text-mist/60 hover:bg-mist/10 hover:text-mist/90"
                 )}
               >
-                {sub.label}
+                <span className="min-w-0 whitespace-normal break-words">{sub.label}</span>
               </Link>
             );
           })}
@@ -310,10 +310,10 @@ function ProfileMenu({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12.5px] font-bold tracking-[-0.005em] text-foreground">
+              <p className="whitespace-normal break-words text-[12.5px] font-bold tracking-[-0.005em] text-foreground">
                 {displayName || businessName || "Mon compte"}
               </p>
-              <p className="truncate text-[11px] tracking-[-0.005em] text-muted-foreground">{email}</p>
+              <p className="whitespace-normal break-all text-[11px] tracking-[-0.005em] text-muted-foreground">{email}</p>
             </div>
             <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
           </button>
@@ -326,10 +326,10 @@ function ProfileMenu({
                 key={entry.href}
                 href={entry.href}
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-muted"
+                className="flex min-w-0 items-center gap-2.5 whitespace-normal break-words rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-muted"
               >
                 <Icon className="size-4 text-muted-foreground" />
-                {entry.label}
+                <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
               </Link>
             );
           })}
@@ -428,7 +428,7 @@ export function AppSidebar({
           desktop offset on the header itself avoids a second, fragile
           alignment rule based on padding while the sidebar draws over it. */}
       <header
-        className="fixed inset-x-0 top-0 z-30 flex h-18 items-center gap-2 overflow-hidden border-b border-[color:var(--surface-dark)] bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)] sm:gap-3 lg:left-64 lg:pr-6 lg:pl-4"
+        className="fixed inset-x-0 top-0 z-30 flex min-h-18 flex-wrap items-center gap-2 border-b border-[color:var(--surface-dark)] bg-card px-4 py-2 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)] sm:gap-3 lg:left-64 lg:pr-6 lg:pl-4"
       >
         <button
           type="button"
@@ -441,7 +441,7 @@ export function AppSidebar({
         {/* -light is the dark-ink wordmark (the default one renders "Scale"
             in white, invisible on this now-white bar). The sidebar below
             keeps the white-ink default — it's still a dark surface. */}
-        <Link href="/dashboard" className="flex min-w-0 max-w-[42vw] items-center transition-opacity hover:opacity-80 lg:hidden">
+        <Link href="/dashboard" className="flex min-w-0 max-w-[42vw] shrink-0 items-center transition-opacity hover:opacity-80 lg:hidden">
           <Image
             src="/scalex-wordmark-light.png"
             alt="Scale X"
@@ -452,7 +452,7 @@ export function AppSidebar({
           />
         </Link>
 
-        <nav aria-label="Navigation rapide" className="hidden min-w-0 items-center gap-1 overflow-x-auto lg:flex">
+        <nav aria-label="Navigation rapide" className="order-last flex w-full min-w-0 flex-wrap items-center gap-1 lg:order-none lg:w-auto">
           {visibleTopBarEntries.map((entry) => {
             const Icon = entry.icon;
             const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
@@ -464,18 +464,18 @@ export function AppSidebar({
                   // Labels stay black in every state, active included — hence
                   // the soft coral tint rather than the filled coral pill the
                   // sidebar rail uses, which would force white text.
-                  "flex shrink-0 items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] text-foreground transition-colors",
+                  "flex max-w-full items-center whitespace-normal break-words gap-2 rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] text-foreground transition-colors",
                   active ? "bg-accent-soft" : "hover:bg-muted"
                 )}
               >
-                <Icon className="size-4" />
-                {entry.label}
+                  <Icon className="size-4 shrink-0" />
+                  <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="ml-auto min-w-0 max-w-[40vw] shrink-0 sm:max-w-[18rem]">
+        <div className="ml-auto min-w-0 max-w-full flex-[1_1_auto] lg:max-w-[22rem] lg:flex-none">
           <ProfileMenu
             businessName={businessName}
             displayName={displayName}
@@ -504,7 +504,7 @@ export function AppSidebar({
           desktop. On smaller screens it becomes the off-canvas drawer. */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-hidden px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-y-auto overflow-x-visible px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ background: "var(--gradient-dark)" }}
@@ -527,7 +527,7 @@ export function AppSidebar({
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto overscroll-contain pt-6">
+        <nav className="flex min-h-0 flex-1 flex-col gap-1 overscroll-contain pt-6">
           {visibleTopEntries.map((entry) => (
             <Fragment key={entry.href}>
               {/* Marks Copilote as a distinct space (action/chat) from the
@@ -561,7 +561,7 @@ export function AppSidebar({
               className="flex items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/35 uppercase transition-colors hover:bg-mist/10 hover:text-mist/60"
             >
               <ShieldCheck className="size-3.5" />
-              {adminEntry.label}
+              <span className="min-w-0 whitespace-normal break-words">{adminEntry.label}</span>
             </Link>
           </div>
         )}
