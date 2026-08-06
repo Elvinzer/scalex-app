@@ -159,7 +159,7 @@ export default async function SettingsPage() {
       <div className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">Intégrations</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Stripe et les prochaines connexions (Kajabi, Brevo, Calendly...).
+          Stripe, iClosed, Calendly, Instagram et YouTube — les sources de ton diagnostic.
         </p>
         <Button asChild variant="outline" className="mt-4">
           <a href="/integrations">Voir les intégrations →</a>
