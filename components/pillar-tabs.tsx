@@ -21,9 +21,9 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
 
   return (
     <Tabs value={active}>
-      <TabsList>
+      <TabsList className="w-full justify-start md:justify-center">
         {tabs.map((tab) => (
-          <TabsTrigger key={tab.href} value={tab.href} asChild>
+          <TabsTrigger key={tab.href} value={tab.href} asChild className="text-center">
             <Link href={tab.href}>{tab.label}</Link>
           </TabsTrigger>
         ))}
