@@ -200,8 +200,10 @@ export default async function AppLayout({
           potentialMonthlyRevenue={potentialMonthlyRevenue}
         />
         {/* The sidebar is fixed, so reserve its width in normal document flow. */}
-        <div aria-hidden="true" className="w-[16rem] shrink-0" />
-        <main className="relative z-0 min-w-0 flex-1 px-16 pt-[6rem] pb-10">
+        <div aria-hidden="true" className="w-64 shrink-0" />
+        <main className="relative z-0 min-w-0 flex-1 px-16 pb-10">
+          {/* Keep the first page content below the fixed top navigation. */}
+          <div aria-hidden="true" className="h-24 shrink-0" />
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
         <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />

@@ -402,9 +402,12 @@ export function AppSidebar({
           explicit left edge keeps the header from ever sitting underneath
           or pushing the sidebar out of view. */}
       <header
-        className="fixed top-0 right-0 left-[16rem] z-50 grid h-[4.5rem] min-w-0 grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] border-b border-[color:var(--surface-dark)] bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)]"
+        className="fixed top-0 right-0 left-64 z-40 h-18 min-w-0 border-b-2 border-border bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)]"
       >
-        <nav aria-label="Navigation rapide" className="flex min-w-0 items-center justify-start gap-1 overflow-x-auto">
+        <nav
+          aria-label="Navigation rapide"
+          className="absolute inset-y-0 left-4 right-[22rem] flex min-w-0 items-center justify-start gap-1 overflow-x-auto"
+        >
           {visibleTopBarEntries.map((entry) => {
             const Icon = entry.icon;
             const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
@@ -416,7 +419,7 @@ export function AppSidebar({
                   // Labels stay black in every state, active included — hence
                   // the soft coral tint rather than the filled coral pill the
                   // sidebar rail uses, which would force white text.
-                  "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] text-foreground transition-colors",
+                  "flex max-w-full shrink-0 items-center gap-2 whitespace-normal break-words rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] text-foreground transition-colors",
                   active ? "bg-accent-soft" : "hover:bg-muted"
                 )}
               >
@@ -427,7 +430,7 @@ export function AppSidebar({
           })}
         </nav>
 
-        <div className="min-w-0 max-w-[22rem]">
+        <div className="absolute inset-y-0 right-4 flex w-[22rem] max-w-[40%] items-center">
           <ProfileMenu
             businessName={businessName}
             displayName={displayName}
@@ -444,14 +447,15 @@ export function AppSidebar({
           every viewport size so the app never renders without its primary
           navigation. */}
       <aside
-        className="fixed top-0 bottom-0 left-0 z-40 flex w-[16rem] flex-col overflow-x-hidden overflow-y-auto px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
+        className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-x-hidden overflow-y-auto px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
         style={{ background: "var(--gradient-dark)" }}
       >
+        <div aria-hidden="true" className="h-4 shrink-0" />
         {/* h-18 mirrors the top bar's own height, so the wordmark's vertical
             center lands exactly on that bar's midline (36px) — the "logo
             centré à la hauteur du milieu du menu horizontal" ask. Keep the
             two in sync if either height changes. */}
-        <div className="flex h-[4.5rem] shrink-0 items-center px-3">
+        <div className="flex h-18 shrink-0 items-center px-3">
           <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
             <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
           </Link>
