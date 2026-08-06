@@ -70,7 +70,7 @@ export async function runYoutubeSync(connection: YoutubeSyncConnection, sinceDat
   }
 
   // Recommendations are a derived product of the freshly upserted videos +
-  // attribution rows. A Groq outage must never make a successful YouTube
+  // attribution rows. An AI provider outage must never make a successful YouTube
   // analytics sync fail, so this enrichment is isolated just like deep
   // insights above.
   try {

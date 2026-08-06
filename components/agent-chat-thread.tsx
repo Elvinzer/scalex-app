@@ -17,6 +17,15 @@ type LeverMode = "optimiser" | "demarrer" | "decouverte";
 
 export const MAX_MESSAGES = 20;
 
+function conversationTopicKeyForContext(context: ChatContext): string | null {
+  // A general conversation opened from a page carries page-scoped numbers.
+  // Keep it separate from the global Copilote thread so an old opening (for
+  // example, from when YouTube had one video) cannot be mistaken for today's
+  // page data on a later visit.
+  if (context.topicType === "general" && context.sourcePage.startsWith("page_")) return context.sourcePage;
+  return context.topicKey;
+}
+
 // Only bold and unordered lists are required (design system doc) — hand
 // rolled rather than pulling in a markdown library for two constructs.
 function renderMarkdownLite(text: string) {
@@ -222,6 +231,7 @@ export const AgentChatThread = forwardRef<
   const isPersisted = context.topicType !== "metric";
   const topicType: ConversationTopicType =
     context.topicType === "general" ? "general" : context.topicType === "lever" ? "lever" : "content_idea";
+  const conversationTopicKey = conversationTopicKeyForContext(context);
   // Not React state: reassigned synchronously right after resolution so
   // `send`/`handleNewConversation` always read the current id without
   // waiting on a re-render. The Copilote hub, which DOES need a render on
@@ -244,7 +254,7 @@ export const AgentChatThread = forwardRef<
     void (async () => {
       let id = conversationIdRef.current;
       if (!id) {
-        const resolved = await resolveConversationForTopic(topicType, context.topicKey ?? null, context.topicLabel ?? null);
+        const resolved = await resolveConversationForTopic(topicType, conversationTopicKey, context.topicLabel ?? null);
         if ("error" in resolved) {
           setMessages([{ role: "assistant", content: resolved.error, isError: true }]);
           return;
@@ -358,7 +368,7 @@ export const AgentChatThread = forwardRef<
   async function handleNewConversation() {
     if (isStreaming) return;
     if (isPersisted) {
-      const created = await startNewConversation(topicType, context.topicKey ?? null, context.topicLabel ?? null);
+      const created = await startNewConversation(topicType, conversationTopicKey, context.topicLabel ?? null);
       if ("error" in created) {
         setMessages([{ role: "assistant", content: created.error, isError: true }]);
         return;

@@ -4,8 +4,8 @@ import { z } from "zod";
 import { db } from "@/db";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getContentPosts } from "@/lib/content-posts/queries";
-import { contentRecommendations, winningPatterns } from "@/db/schema";
-import { getAiProvider } from "@/lib/ai-provider";
+import { contentRecommendations, users, winningPatterns } from "@/db/schema";
+import { requestFalcoJson, resolveFalcoProvider } from "@/lib/agent/falco-provider";
 import { describeBusinessContext } from "@/lib/improve-prompt-builder";
 
 import { getVideoAttributionTotals } from "./attribution";
@@ -43,12 +43,22 @@ type ClassifiedVideo = {
   angle: string;
 };
 
-const groqResponseSchema = z.object({
+const openAiResponseSchema = z.object({
   choices: z.array(z.object({ message: z.object({ content: z.string() }) })).min(1),
   usage: z
     .object({
       prompt_tokens: z.number().int().nonnegative().optional(),
       completion_tokens: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
+});
+
+const anthropicResponseSchema = z.object({
+  content: z.array(z.object({ type: z.string(), text: z.string().optional() })).min(1),
+  usage: z
+    .object({
+      input_tokens: z.number().int().nonnegative().optional(),
+      output_tokens: z.number().int().nonnegative().optional(),
     })
     .optional(),
 });
@@ -311,48 +321,69 @@ function summarizeVideos(entries: VideoPerformance[]): string {
 function parseJsonText(content: string): unknown {
   const trimmed = content.trim();
   const withoutFence = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  return JSON.parse(withoutFence);
+  try {
+    return JSON.parse(withoutFence);
+  } catch {
+    const start = withoutFence.indexOf("{");
+    const end = withoutFence.lastIndexOf("}");
+    if (start < 0 || end <= start) throw new Error("JSON object not found");
+    return JSON.parse(withoutFence.slice(start, end + 1));
+  }
 }
 
-async function callGroq(userId: string, prompt: string): Promise<ModelResult> {
-  const provider = getAiProvider();
-  const response = await fetch(provider.baseURL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: provider.model,
-      temperature: 0.25,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "Tu es l'analyste contenu de Scale X. Tu travailles uniquement sur les données de la chaîne YouTube fournies. " +
-            "Tu ne cites jamais une autre chaîne et tu n'inventes jamais de chiffre. Réponds uniquement avec le JSON demandé.",
-        },
-        { role: "user", content: prompt },
-      ],
-    }),
-    signal: AbortSignal.timeout(20_000),
+async function callFalcoJson(providerUserId: string, prompt: string): Promise<ModelResult> {
+  const [user] = await db
+    .select({ id: users.id, anthropicApiKeyEncrypted: users.anthropicApiKeyEncrypted })
+    .from(users)
+    .where(eq(users.id, providerUserId))
+    .limit(1);
+  const provider = await resolveFalcoProvider({
+    id: providerUserId,
+    anthropicApiKeyEncrypted: user?.anthropicApiKeyEncrypted ?? null,
   });
+  const response = await requestFalcoJson(
+    provider,
+    "Tu es l'analyste contenu de Scale X. Tu travailles uniquement sur les données de la chaîne YouTube fournies. " +
+      "Tu ne cites jamais une autre chaîne et tu n'inventes jamais de chiffre. Réponds uniquement avec le JSON demandé.",
+    prompt,
+    0.25
+  );
 
-  if (!response.ok) throw new Error(`Groq recommendation request failed with status ${response.status}`);
-  const payload = groqResponseSchema.safeParse(await response.json());
-  if (!payload.success) throw new Error("Groq recommendation response malformed");
+  if (!response.ok) throw new Error(`${provider.kind} recommendation request failed with status ${response.status}`);
 
-  const inputTokens = payload.data.usage?.prompt_tokens ?? 0;
-  const outputTokens = payload.data.usage?.completion_tokens ?? 0;
-  console.info("[youtube-recommendations] groq usage", { userId, inputTokens, outputTokens });
+  const rawPayload: unknown = await response.json();
+  let content: string;
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  if (provider.kind === "anthropic") {
+    const payload = anthropicResponseSchema.safeParse(rawPayload);
+    if (!payload.success) throw new Error("Anthropic recommendation response malformed");
+    content = payload.data.content
+      .filter((block) => block.type === "text" && block.text)
+      .map((block) => block.text ?? "")
+      .join("");
+    inputTokens = payload.data.usage?.input_tokens ?? 0;
+    outputTokens = payload.data.usage?.output_tokens ?? 0;
+  } else {
+    const payload = openAiResponseSchema.safeParse(rawPayload);
+    if (!payload.success) throw new Error("Groq recommendation response malformed");
+    content = payload.data.choices[0].message.content;
+    inputTokens = payload.data.usage?.prompt_tokens ?? 0;
+    outputTokens = payload.data.usage?.completion_tokens ?? 0;
+  }
+
+  console.info(`[youtube-recommendations] ${provider.kind} usage`, { userId: providerUserId, inputTokens, outputTokens });
 
   const parsedJson = (() => {
     try {
-      return parseJsonText(payload.data.choices[0].message.content);
+      return parseJsonText(content);
     } catch {
-      throw new Error("Groq recommendation JSON could not be parsed");
+      throw new Error(`${provider.kind} recommendation JSON could not be parsed`);
     }
   })();
   const parsed = modelResultSchema.safeParse(parsedJson);
-  if (!parsed.success) throw new Error("Groq recommendation JSON failed validation");
+  if (!parsed.success) throw new Error(`${provider.kind} recommendation JSON failed validation`);
   return parsed.data;
 }
 
@@ -502,9 +533,12 @@ export type RebuildRecommendationsResult = {
 };
 
 // Called after every YouTube sync and by the manual regeneration action. All
-// aggregates/rankings are computed here in code; Groq receives the resulting
+// aggregates/rankings are computed here in code; Falco receives the resulting
 // figures and only labels patterns / writes the ideas.
-export async function rebuildYoutubeContentRecommendations(userId: string): Promise<RebuildRecommendationsResult> {
+export async function rebuildYoutubeContentRecommendations(
+  userId: string,
+  providerUserId = userId
+): Promise<RebuildRecommendationsResult> {
   const [videosMap, posts, attributions, businessProfile, previousPatternsRow] = await Promise.all([
     getYoutubeVideoInsightsMap(userId),
     getContentPosts(userId),
@@ -542,8 +576,8 @@ export async function rebuildYoutubeContentRecommendations(userId: string): Prom
   };
   let modelResult: ModelResult;
   try {
-    modelResult = await callGroq(
-      userId,
+    modelResult = await callFalcoJson(
+      providerUserId,
       buildPrompt(
         describeBusinessContext(businessProfile),
         mode,

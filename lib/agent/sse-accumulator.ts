@@ -1,4 +1,4 @@
-// Tees the Groq SSE stream: forwards every chunk to the client byte-for-byte
+// Tees an OpenAI-compatible SSE stream: forwards every chunk to the client byte-for-byte
 // (unchanged), while separately parsing the same "data: {...}" lines to
 // accumulate the assembled assistant reply — same parsing logic as
 // components/improve-chat.tsx's client-side streamChat, duplicated here

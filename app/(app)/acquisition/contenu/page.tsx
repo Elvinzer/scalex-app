@@ -12,7 +12,7 @@ import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
-import { getContentRecommendations, getWinningPatterns } from "@/lib/youtube/recommendations";
+import { getContentRecommendations } from "@/lib/youtube/recommendations";
 
 import { ContenuView } from "./contenu-view";
 import type { YoutubeRecommendationCard } from "./youtube/youtube-recommendations-section";
@@ -69,7 +69,6 @@ export default async function ContenuPage({
     [youtubeConnection],
     youtubeInsights,
     youtubeRecommendations,
-    youtubeWinningPatterns,
     subscriptionActive,
   ] = await Promise.all([
     getContentPosts(accountId),
@@ -82,7 +81,6 @@ export default async function ContenuPage({
       : Promise.resolve([]),
     getYoutubeVideoInsightsMap(accountId),
     getContentRecommendations(accountId),
-    getWinningPatterns(accountId),
     hasActiveSubscription(accountId),
   ]);
 
@@ -107,9 +105,12 @@ export default async function ContenuPage({
       .map((post) => [post.externalId as string, { bookings: post.bookings, dealsClosed: post.dealsClosed }])
   );
 
-  const youtubeAnalyzableVideoCount =
-    youtubeWinningPatterns?.analyzedVideoCount ??
-    youtubeVideos.filter((video) => video.title.trim().length > 0 && (video.views ?? 0) > 0).length;
+  // Always derive this from the current insight rows. The winning-patterns
+  // snapshot is intentionally persistent, so using its old count here made
+  // the page keep saying "1 vidéo" after a newer sync had imported hundreds.
+  const youtubeAnalyzableVideoCount = youtubeVideos.filter(
+    (video) => video.title.trim().length > 0 && (video.views ?? 0) > 0
+  ).length;
   const youtubeFalcoStateText =
     youtubeAnalyzableVideoCount < 5
       ? "Je regarde déjà tes premiers signaux. Publie encore quelques vidéos et je pourrai repérer tes vrais patterns gagnants."

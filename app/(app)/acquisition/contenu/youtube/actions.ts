@@ -33,7 +33,7 @@ export async function regenerateYoutubeRecommendations(): Promise<Recommendation
   const access = await requireYoutubeContentAccess();
   if ("error" in access) return access;
 
-  const result = await rebuildYoutubeContentRecommendations(access.accountId);
+  const result = await rebuildYoutubeContentRecommendations(access.accountId, access.userId);
   if (result.state === "generated") {
     await track("content_reco_generated", access.userId, { count: result.count });
   }

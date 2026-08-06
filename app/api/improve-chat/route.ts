@@ -5,6 +5,7 @@ import { z } from "zod";
 import { AGENT_KEY_CONSOLIDATION } from "@/lib/agent/agent-consolidation";
 import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { appendConversationMessage, getConversation, titleFor, updateConversationTitle } from "@/lib/agent/chat-history";
+import { requestFalcoStream, resolveFalcoProvider, transformAnthropicStream } from "@/lib/agent/falco-provider";
 import { resolveLeverAgentData } from "@/lib/agent/lever-agent-data";
 import { resolvePageAgentData } from "@/lib/agent/page-agent-data";
 import { getPageContextByKey } from "@/lib/agent/page-context";
@@ -12,7 +13,6 @@ import { createSseAccumulatorStream } from "@/lib/agent/sse-accumulator";
 import { track } from "@/lib/analytics";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
-import { getAiProvider } from "@/lib/ai-provider";
 import { chatContextSchema, type ChatContext } from "@/lib/chat-context";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
@@ -31,6 +31,16 @@ import type { YoutubeWinningPatternsSnapshot } from "@/lib/youtube/recommendatio
 const MAX_MESSAGES = 20;
 
 const METRIC_TOPIC_KEYS = ["responseRate", "proposalRate", "bookingRate", "showUpRate", "closingRate", "followupRecovery"] as const;
+
+function providerErrorMessage(provider: "anthropic" | "groq", status: number): string {
+  if (status === 401 || status === 403) {
+    return provider === "anthropic"
+      ? "La clé Anthropic de ce compte n'est pas acceptée. Vérifie-la dans Réglages."
+      : "Le fournisseur IA est inaccessible. Vérifie la configuration Groq côté serveur.";
+  }
+  if (status === 429) return "La limite de requêtes IA est atteinte. Réessaie dans un instant.";
+  return "L'IA n'a pas pu répondre pour l'instant. Réessaie dans un instant.";
+}
 
 const requestSchema = z.object({
   context: chatContextSchema,
@@ -142,6 +152,26 @@ export async function POST(request: NextRequest) {
   const [currentUserRow] =
     userId === accountId ? [userRow] : await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const userName = currentUserRow?.displayName?.trim() || null;
+
+  let falcoProvider: Awaited<ReturnType<typeof resolveFalcoProvider>>;
+  try {
+    const falcoUser = currentUserRow ?? userRow;
+    if (!falcoUser) {
+      return NextResponse.json({ error: "Compte utilisateur introuvable. Recharge la page." }, { status: 400 });
+    }
+    falcoProvider = await resolveFalcoProvider({
+      id: falcoUser.id,
+      anthropicApiKeyEncrypted: falcoUser.anthropicApiKeyEncrypted,
+    });
+  } catch (error) {
+    console.error("[improve-chat] Falco provider resolution failed", {
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
+    return NextResponse.json(
+      { error: "L'IA n'est pas configurée. Ajoute une clé Anthropic dans Réglages ou contacte l'administrateur." },
+      { status: 503 }
+    );
+  }
 
   const benchmarks = await getDiagnosticBenchmarks(userRow?.sector ?? null);
   const points = computeDiagnosticPoints({
@@ -270,16 +300,6 @@ export async function POST(request: NextRequest) {
     winningPatterns: contentWinningPatterns,
   });
 
-  let provider;
-  try {
-    provider = getAiProvider();
-  } catch {
-    return NextResponse.json(
-      { error: "L'IA n'est pas configurée côté serveur. Préviens l'administrateur." },
-      { status: 503 }
-    );
-  }
-
   // "messages" already includes the just-submitted user message — nothing
   // to persist on the very first call, which opens with an empty array.
   const lastMessage = messages[messages.length - 1];
@@ -295,25 +315,12 @@ export async function POST(request: NextRequest) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(provider.baseURL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${provider.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: provider.model,
-        stream: true,
-        temperature: agent?.temperature,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-      }),
-      // Without this, a Groq connection that never opens (network issue,
-      // DNS, provider outage) leaves this await pending forever — the
-      // client's own stall timeout only covers a stream that already
-      // started, not one that never starts.
-      signal: AbortSignal.timeout(20_000),
+    upstream = await requestFalcoStream(falcoProvider, systemPrompt, messages, agent?.temperature);
+  } catch (error) {
+    console.error("[improve-chat] Falco upstream request failed", {
+      provider: falcoProvider.kind,
+      errorName: error instanceof Error ? error.name : "unknown",
     });
-  } catch {
     return NextResponse.json(
       { error: "Impossible de joindre l'IA pour l'instant. Réessaie dans un instant." },
       { status: 502 }
@@ -322,28 +329,46 @@ export async function POST(request: NextRequest) {
 
   if (upstream.status === 429) {
     return NextResponse.json(
-      { error: "Beaucoup de monde utilise l'IA en ce moment, réessaie dans une minute." },
+      { error: providerErrorMessage(falcoProvider.kind, upstream.status) },
       { status: 429 }
     );
   }
 
   if (!upstream.ok || !upstream.body) {
-    return NextResponse.json({ error: "L'IA n'a pas pu répondre. Réessaie dans un instant." }, { status: 502 });
+    console.error("[improve-chat] Falco upstream rejected request", {
+      provider: falcoProvider.kind,
+      status: upstream.status,
+    });
+    return NextResponse.json(
+      { error: providerErrorMessage(falcoProvider.kind, upstream.status) },
+      { status: upstream.status === 401 || upstream.status === 403 ? 503 : 502 }
+    );
   }
+
+  const normalizedBody =
+    falcoProvider.kind === "anthropic"
+      ? transformAnthropicStream(upstream.body, (usage) => {
+          console.info("[improve-chat] Falco Anthropic usage", {
+            userId,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+          });
+        })
+      : upstream.body;
 
   // Tee the stream when the conversation persists: forward chunks to the
   // client unchanged while accumulating the assembled reply to persist once
   // the stream ends. The metric path passes the body straight through,
   // untouched.
   const body = conversation
-    ? upstream.body.pipeThrough(
+    ? normalizedBody.pipeThrough(
         createSseAccumulatorStream(async (fullText) => {
           if (fullText.trim().length > 0) {
             await appendConversationMessage(accountId, conversation.id, "assistant", fullText);
           }
         })
       )
-    : upstream.body;
+    : normalizedBody;
 
   return new Response(body, {
     headers: {

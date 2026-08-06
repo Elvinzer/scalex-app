@@ -1,12 +1,10 @@
-// Single point of change to swap the "Améliorer" chat's provider (Gemini,
-// OpenAI, Anthropic...) — everything else in this feature talks to
-// `baseURL`/`model`/`apiKey` generically via the OpenAI-compatible chat
-// completions shape, never to "Groq" by name.
+// Legacy OpenAI-compatible provider used by the content/advice endpoints and
+// as Falco's last-resort fallback. Falco prefers the current user's Anthropic
+// BYOK key; this config stays generic so the remaining endpoints can keep
+// talking to `baseURL`/`model`/`apiKey` without provider-specific code.
 //
-// Deliberate BYOK exception: unlike lib/agent/client.ts's resolveAgentKey
-// (BYOK-first, per-user Anthropic key), this reads one shared server key for
-// every user. Scoped to this one advice-chat feature only — see the plan
-// doc for why. Never exposed to the client.
+// This reads one shared server Groq key for endpoints that do not yet use the
+// Anthropic BYOK resolver. Never exposed to the client.
 export type AiProviderConfig = {
   baseURL: string;
   model: string;
