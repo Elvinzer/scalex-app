@@ -8,7 +8,11 @@ export const subscriptionMetadataSchema = z.object({
   userId: z.string().uuid(),
   planId: z.string().uuid(),
   stripePriceId: z.string().min(1).optional(),
-  priceMonthlyCents: z.string().regex(/^\d+$/).optional(),
+  priceMonthlyCents: z
+    .string()
+    .regex(/^\d+$/)
+    .refine((value) => Number.isSafeInteger(Number(value)), "Montant Stripe invalide")
+    .optional(),
   referralAttributionId: z.string().uuid().optional(),
 });
 
@@ -62,7 +66,7 @@ export type ParsedStripeSubscription = {
 
 export type SubscriptionProjectionSyncResult =
   | { ok: true; projection: ParsedStripeSubscription; planId: string }
-  | { ok: false; error: string };
+  | { ok: false; code: "invalid" | "mismatch" | "conflict" | "plan_missing"; error: string };
 
 function epochToDate(value: number | null | undefined): Date | null {
   return typeof value === "number" ? new Date(value * 1000) : null;
@@ -83,10 +87,9 @@ export function parseStripeSubscription(value: unknown): ParsedStripeSubscriptio
   if (!item) return null;
 
   const price = item.price;
-  const stripePriceId =
-    typeof price === "string" ? price : price.id;
+  const stripePriceId = typeof price === "string" ? price : price.id;
   const priceMonthlyCents =
-    typeof price === "object" && price.recurring?.interval === "month" && price.unit_amount !== undefined
+    typeof price === "object" && price.recurring?.interval === "month" && typeof price.unit_amount === "number"
       ? price.unit_amount
       : metadata.data.priceMonthlyCents
         ? Number(metadata.data.priceMonthlyCents)
@@ -112,11 +115,15 @@ export async function syncStripeSubscriptionProjection(
 ): Promise<SubscriptionProjectionSyncResult> {
   const projection = parseStripeSubscription(value);
   if (!projection) {
-    return { ok: false, error: "Les données Stripe de cet abonnement sont invalides ou incomplètes." };
+    return {
+      ok: false,
+      code: "invalid",
+      error: "Les données Stripe de cet abonnement sont invalides ou incomplètes.",
+    };
   }
 
   if (expectedUserId && projection.userId !== expectedUserId) {
-    return { ok: false, error: "Cet abonnement Stripe ne correspond pas au compte demandé." };
+    return { ok: false, code: "mismatch", error: "Cet abonnement Stripe ne correspond pas au compte demandé." };
   }
 
   const [existingBySubscription] = await db
@@ -125,7 +132,7 @@ export async function syncStripeSubscriptionProjection(
     .where(eq(subscriptions.stripeSubscriptionId, projection.stripeSubscriptionId))
     .limit(1);
   if (existingBySubscription && existingBySubscription.userId !== projection.userId) {
-    return { ok: false, error: "Cet abonnement Stripe est déjà rattaché à un autre compte." };
+    return { ok: false, code: "conflict", error: "Cet abonnement Stripe est déjà rattaché à un autre compte." };
   }
 
   const [planByPrice] = projection.stripePriceId
@@ -143,7 +150,7 @@ export async function syncStripeSubscriptionProjection(
     .where(eq(subscriptionPlans.id, planId))
     .limit(1);
   if (!plan) {
-    return { ok: false, error: "Le plan associé à cet abonnement est introuvable." };
+    return { ok: false, code: "plan_missing", error: "Le plan associé à cet abonnement est introuvable." };
   }
 
   const values = {

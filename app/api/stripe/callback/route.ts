@@ -9,7 +9,6 @@ import { inngest, stripeAccountConnected } from "@/lib/inngest/client";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
-import { requireEnv } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
@@ -38,14 +37,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/integrations", origin));
   }
 
-  const stripe = new Stripe(requireEnv("STRIPE_CONNECT_CLIENT_SECRET"));
-  const tokenResponse = await stripe.oauth.token({
-    grant_type: "authorization_code",
-    code,
-  });
+  const clientSecret = process.env.STRIPE_CONNECT_CLIENT_SECRET;
+  if (!clientSecret) {
+    console.error("[stripe] STRIPE_CONNECT_CLIENT_SECRET manquant — échange OAuth impossible");
+    return NextResponse.redirect(new URL("/integrations?stripe_error=config", origin));
+  }
+
+  const stripe = new Stripe(clientSecret);
+  let tokenResponse: Stripe.OAuthToken;
+  try {
+    tokenResponse = await stripe.oauth.token({ grant_type: "authorization_code", code });
+  } catch (error) {
+    console.error("[stripe] échange OAuth échoué", error);
+    return NextResponse.redirect(new URL("/integrations?stripe_error=oauth", origin));
+  }
 
   if (!tokenResponse.access_token || !tokenResponse.stripe_user_id) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+    return NextResponse.redirect(new URL("/integrations?stripe_error=oauth", origin));
   }
 
   const values = {

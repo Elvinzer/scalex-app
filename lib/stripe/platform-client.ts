@@ -18,3 +18,9 @@ export function getPlatformStripeClient(): Stripe {
   }
   return client;
 }
+
+export function getPlatformStripeDashboardUrl(resource: "customers" | "subscriptions", id: string): string {
+  const secret = requireEnv("STRIPE_CONNECT_CLIENT_SECRET");
+  const modePrefix = secret.startsWith("sk_test_") ? "/test" : "";
+  return `https://dashboard.stripe.com${modePrefix}/${resource}/${encodeURIComponent(id)}`;
+}

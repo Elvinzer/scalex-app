@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { isAdminEmail } from "@/lib/admin";
+import { formatSubscriptionAmount } from "@/lib/billing/admin-subscription-format";
+import { parsePlanFeatures } from "@/lib/billing/plan-schema";
 import { getAccountSubscription, getActivePlans } from "@/lib/billing/queries";
 import { formatUsdCents } from "@/lib/currency";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
@@ -11,7 +13,9 @@ const STATUS_LABELS: Record<string, string> = {
   past_due: "Paiement en retard",
   canceled: "Annulé",
   incomplete: "Incomplet",
+  incomplete_expired: "Paiement expiré",
   unpaid: "Impayé",
+  paused: "En pause",
 };
 
 export default async function FacturationPage() {
@@ -54,7 +58,7 @@ export default async function FacturationPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {formatUsdCents(subscription.plan.priceMonthlyCents)} / mois
+            {subscription.priceMonthlyCents === null ? "Montant historique à vérifier" : `${formatSubscriptionAmount(subscription.priceMonthlyCents)} / mois`}
             {subscription.currentPeriodEnd &&
               ` (${subscription.cancelAtPeriodEnd ? "se termine" : "renouvellement"} le ${new Date(
                 subscription.currentPeriodEnd
@@ -68,7 +72,7 @@ export default async function FacturationPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         {plans.map((plan) => {
-          const features = plan.features as { teamMembersEnabled?: boolean; maxTeamMembers?: number | null };
+          const features = parsePlanFeatures(plan.features);
           const isCurrent = subscription?.plan.id === plan.id && subscription.status !== "canceled";
           return (
             <div key={plan.id} className="sticker-card flex flex-col gap-3 p-6">

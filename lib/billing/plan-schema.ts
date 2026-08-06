@@ -24,3 +24,17 @@ export type PlanFeatures = {
   nativeBookingEnabled?: boolean;
   maxBookingEvents?: number | null;
 };
+
+export const planFeaturesSchema = z
+  .object({
+    teamMembersEnabled: z.boolean().optional(),
+    maxTeamMembers: z.number().int().positive().nullable().optional(),
+    nativeBookingEnabled: z.boolean().optional(),
+    maxBookingEvents: z.number().int().positive().nullable().optional(),
+  })
+  .passthrough();
+
+export function parsePlanFeatures(value: unknown): PlanFeatures {
+  const parsed = planFeaturesSchema.safeParse(value);
+  return parsed.success ? parsed.data : {};
+}

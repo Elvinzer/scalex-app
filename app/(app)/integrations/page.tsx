@@ -18,10 +18,21 @@ const UPCOMING_INTEGRATIONS = ["Kajabi", "Brevo"];
 
 // Owner-only: connecting/disconnecting Stripe grants OAuth access to the
 // account's real payments data — never delegable to a role.
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ stripe_error?: string }>;
+}) {
   const userId = await requireUserId();
   const { accountId } = await requireOwnerOrRedirect(userId);
   const { user } = await getCurrentUser();
+  const stripeError = (await searchParams).stripe_error;
+  const stripeErrorMessage =
+    stripeError === "config"
+      ? "La connexion Stripe est momentanément indisponible (configuration côté serveur). Réessaie plus tard ou contacte le support."
+      : stripeError === "oauth"
+        ? "La connexion Stripe n’a pas abouti. Réessaie, et si le problème persiste vérifie que tu autorises bien le bon compte."
+        : null;
   const stripeConnected = Boolean(user?.stripeConnectId);
   const isAdmin = Boolean(user && isAdminEmail(user.email));
 
@@ -58,6 +69,12 @@ export default async function IntegrationsPage() {
           Les sources de données que Scale X utilise pour ton diagnostic.
         </p>
       </div>
+
+      {stripeErrorMessage && (
+        <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-4 py-3 text-sm font-bold text-state-critical">
+          {stripeErrorMessage}
+        </div>
+      )}
 
       <div className="sticker-card p-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

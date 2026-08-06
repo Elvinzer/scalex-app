@@ -5,8 +5,10 @@ import {
   getNorthStarTrend,
   getTwoWeekRetentionRate,
 } from "@/lib/posthog-query";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, CreditCard, Layers3 } from "lucide-react";
 import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
 
 async function safe<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
@@ -34,9 +36,17 @@ export default async function AdminPage() {
             <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Dashboard fondateurs</h1>
             <p className="mt-1 text-sm text-muted-foreground">La boucle de valeur, mesurée.</p>
           </div>
-          <Link href="/admin/referrals" className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-bold text-foreground transition-all duration-[var(--motion-fast)] hover:-translate-y-px hover:border-border-hover hover:shadow-sm">
-            Gérer le parrainage <ArrowUpRight className="size-4" />
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href="/admin/subscriptions"><CreditCard className="size-4" /> Abonnements</Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href="/admin/plans"><Layers3 className="size-4" /> Plans</Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-11">
+              <Link href="/admin/referrals"><ArrowUpRight className="size-4" /> Parrainage</Link>
+            </Button>
+          </div>
         </div>
       </div>
 

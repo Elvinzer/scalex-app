@@ -4,9 +4,10 @@ import { resolveHandleForLegacySlug } from "@/lib/native-booking/queries";
 
 // Rétrocompat : les anciens endpoints /api/public/booking/{slug} redirigent vers
 // leur équivalent namespacé /api/public/booking/{handle}/{slug}. GET en 301,
-// POST en 308 (préserve la méthode et le corps). Les flux à jour appellent
-// directement l'URL namespacée ; ceci ne couvre que d'éventuels appels en vol.
-type RouteContext = { params: Promise<{ slug: string }> };
+// POST en 308 (préserve la méthode et le corps). Le segment est nommé
+// `[handle]` pour partager le préfixe dynamique avec la route canonique ; sa
+// valeur reste ici l’ancien slug.
+type RouteContext = { params: Promise<{ handle: string }> };
 
 async function redirectToNamespaced(request: NextRequest, slug: string, status: 301 | 308) {
   const handle = await resolveHandleForLegacySlug(slug);
@@ -17,11 +18,11 @@ async function redirectToNamespaced(request: NextRequest, slug: string, status: 
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { slug } = await context.params;
-  return redirectToNamespaced(request, slug, 301);
+  const { handle } = await context.params;
+  return redirectToNamespaced(request, handle, 301);
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const { slug } = await context.params;
-  return redirectToNamespaced(request, slug, 308);
+  const { handle } = await context.params;
+  return redirectToNamespaced(request, handle, 308);
 }

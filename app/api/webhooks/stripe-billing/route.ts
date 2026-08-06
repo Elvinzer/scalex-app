@@ -80,7 +80,7 @@ async function markProcessed(eventId: string, type: string): Promise<boolean> {
 
 async function upsertFromSubscription(subscription: unknown): Promise<void> {
   const result = await syncStripeSubscriptionProjection(subscription);
-  if (!result.ok && result.error === "Les données Stripe de cet abonnement sont invalides ou incomplètes.") {
+  if (!result.ok && result.code === "invalid") {
     // Not a subscription created by our own checkout — ignore unrelated
     // subscriptions without logging their payload or metadata.
     return;

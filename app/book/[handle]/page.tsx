@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { permanentRedirect, notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { resolveHandleForLegacySlug } from "@/lib/native-booking/queries";
 
 // Rétrocompat : les anciens liens /book/{slug} (déjà diffusés en e-mail/rappels)
-// redirigent en 301 vers l'URL canonique namespacée /book/{handle}/{slug}, en
-// préservant les paramètres de gestion/annulation/UTM.
+// redirigent en 301 vers l’URL canonique namespacée /book/{handle}/{slug}, en
+// préservant les paramètres de gestion/annulation/UTM. Le nom de segment
+// `[handle]` est volontairement partagé avec la route canonique : sa valeur
+// reste ici l’ancien slug, uniquement pour éviter un conflit de route Next.
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
@@ -29,11 +31,12 @@ export default async function LegacyPublicBookingRoute({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ handle: string }>;
   searchParams: Promise<SearchParams>;
 }) {
-  const [{ slug }, resolvedSearchParams] = await Promise.all([params, searchParams]);
-  const handle = await resolveHandleForLegacySlug(slug);
-  if (!handle) notFound();
-  permanentRedirect(`/book/${handle}/${slug}${buildQueryString(resolvedSearchParams)}`);
+  const [{ handle }, resolvedSearchParams] = await Promise.all([params, searchParams]);
+  const slug = handle;
+  const resolvedHandle = await resolveHandleForLegacySlug(slug);
+  if (!resolvedHandle) notFound();
+  permanentRedirect(`/book/${resolvedHandle}/${slug}${buildQueryString(resolvedSearchParams)}`);
 }

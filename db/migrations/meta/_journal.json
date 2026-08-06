@@ -43,6 +43,13 @@
       "when": 1786040064858,
       "tag": "0005_booking_account_handle",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786042613808,
+      "tag": "0006_admin_subscription_price_snapshot",
+      "breakpoints": true
     }
   ]
 }
