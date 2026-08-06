@@ -113,7 +113,6 @@ export const nativeBookingEventInputSchema = z.object({
   publicHeading: z.string().trim().min(2).max(120),
   publicDescription: z.string().trim().max(300),
   confirmationTitle: z.string().trim().min(2).max(120).default("Rendez-vous confirmé"),
-  confirmationMessage: z.string().trim().max(300).default("Ton closer te recontactera pour la suite."),
   bookingInstructions: z.string().trim().max(1000).default(""),
   notifyCloserOnBooking: z.boolean().default(true),
   notifyCloserOnCancellation: z.boolean().default(true),
