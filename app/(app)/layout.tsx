@@ -181,7 +181,7 @@ export default async function AppLayout({
       {FALCO_SKIN_KEYS.map((skin) => (
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
       ))}
-      <div className="min-h-screen bg-panel">
+      <div className="flex min-h-screen bg-panel">
         <AppSidebar
           email={typeof email === "string" ? email : ""}
           businessName={businessProfile.identity.businessName}
@@ -199,7 +199,9 @@ export default async function AppLayout({
           currentMonthlyRevenue={currentMonthlyRevenue}
           potentialMonthlyRevenue={potentialMonthlyRevenue}
         />
-        <main className="ml-64 min-w-0 px-16 pt-24 pb-10">
+        {/* The sidebar is fixed, so reserve its width in normal document flow. */}
+        <div aria-hidden="true" className="w-64 shrink-0" />
+        <main className="min-w-0 flex-1 px-16 pt-24 pb-10">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
         <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
