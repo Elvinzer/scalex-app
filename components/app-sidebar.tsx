@@ -170,18 +170,21 @@ function NavLink({
 }) {
   const Icon = entry.icon;
   const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
+  const activeClassName =
+    entry.href === "/copilote"
+      ? "bg-accent-2 text-white shadow-[0_2px_10px_var(--accent-2-glow)]"
+      : "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]";
 
   return (
     <Link
       href={entry.href}
       className={cn(
-        "flex min-w-0 items-center gap-3 whitespace-normal break-words rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+        "flex min-h-11 min-w-0 cursor-pointer items-center gap-3 whitespace-normal break-words rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2",
         indented ? "pl-7 text-[13px] tracking-[-0.005em]" : "pl-3 text-[13.5px] tracking-[-0.01em]",
-        active
-          ? "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]"
-          : "text-white hover:translate-x-0.5 hover:bg-mist/10",
+        active ? activeClassName : "text-white hover:translate-x-0.5 hover:bg-mist/10",
         className
       )}
+      aria-current={active ? "page" : undefined}
     >
       <Icon className="size-4 shrink-0" />
       <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
@@ -236,7 +239,7 @@ function PillarNavGroup({
           onClick={() => setOpen((prev) => !prev)}
           aria-expanded={open}
           aria-label={`${open ? "Replier" : "Déplier"} les pages ${entry.label}`}
-          className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/50 transition-colors hover:bg-mist/10 hover:text-mist"
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-control)] text-mist/50 transition-colors hover:bg-mist/10 hover:text-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
         >
           <ChevronDown className={cn("size-4 transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} />
         </button>
@@ -253,9 +256,10 @@ function PillarNavGroup({
                 className={cn(
                   // pl-10 lines the label up under the parent's own label
                   // (pl-3 + size-4 icon + gap-3 = 40px).
-                  "flex min-w-0 items-center whitespace-normal break-words rounded-[var(--radius-control)] py-2 pr-3 pl-10 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+                  "flex min-h-11 min-w-0 cursor-pointer items-center whitespace-normal break-words rounded-[var(--radius-control)] py-2 pr-3 pl-10 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2",
                   active ? "bg-white/10 text-white" : "text-mist/60 hover:bg-mist/10 hover:text-mist/90"
                 )}
+                aria-current={active ? "page" : undefined}
               >
                 <span className="min-w-0 whitespace-normal break-words">{sub.label}</span>
               </Link>
@@ -293,7 +297,7 @@ function ProfileMenu({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex w-full min-w-0 max-w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted"
+            className="flex min-h-11 w-full min-w-0 max-w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
           >
             {avatarUrl ? (
               <div className="relative size-8 shrink-0 overflow-hidden rounded-full">
@@ -394,6 +398,8 @@ export function AppSidebar({
   }
 
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
+  const visiblePrimaryEntries = visibleTopEntries.filter((entry) => entry.href !== "/copilote");
+  const visibleCopiloteEntry = visibleTopEntries.find((entry) => entry.href === "/copilote");
   const visibleTopBarEntries = topBarEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
   return (
@@ -402,9 +408,11 @@ export function AppSidebar({
           explicit left edge keeps the header from ever sitting underneath
           or pushing the sidebar out of view. */}
       <header
-        className="fixed top-4 right-0 left-64 z-50 flex h-18 min-w-0 items-center gap-3 border-b-2 border-border bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)]"
+        className="fixed top-0 right-0 left-64 z-50 flex h-18 min-w-0 items-center gap-4 border-b border-border bg-card/95 px-4 text-foreground shadow-sm backdrop-blur-sm"
       >
-        <nav aria-label="Navigation rapide" className="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border lg:block" />
+          <nav aria-label="Raccourcis" className="flex min-w-0 items-center justify-start gap-1 overflow-x-auto">
           {visibleTopBarEntries.map((entry) => {
             const Icon = entry.icon;
             const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
@@ -413,21 +421,22 @@ export function AppSidebar({
                 key={entry.href}
                 href={entry.href}
                 className={cn(
-                  // Labels stay black in every state, active included — hence
-                  // the soft coral tint rather than the filled coral pill the
-                  // sidebar rail uses, which would force white text.
-                  "flex max-w-full shrink-0 items-center gap-2 whitespace-normal break-words rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] text-foreground transition-colors",
-                  active ? "bg-accent-soft" : "hover:bg-muted"
+                  "flex min-h-11 max-w-full shrink-0 cursor-pointer items-center gap-2 whitespace-normal break-words rounded-[var(--radius-control)] border border-transparent px-3 text-[13.5px] font-bold tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 active:scale-[0.98]",
+                  active
+                    ? "border-accent-border bg-accent-soft text-foreground"
+                    : "text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
                 )}
+                aria-current={active ? "page" : undefined}
               >
-                  <Icon className="size-4 shrink-0" />
-                  <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
+                <Icon className="size-4 shrink-0" />
+                <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
               </Link>
             );
           })}
-        </nav>
+          </nav>
+        </div>
 
-        <div className="ml-auto min-w-0 max-w-[22rem] shrink-0">
+        <div className="ml-auto min-w-0 max-w-[22rem] shrink-0 border-l border-border pl-3">
           <ProfileMenu
             businessName={businessName}
             displayName={displayName}
@@ -444,27 +453,21 @@ export function AppSidebar({
           every viewport size so the app never renders without its primary
           navigation. */}
       <aside
-        className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-x-hidden overflow-y-auto px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
+        className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-hidden px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
         style={{ background: "var(--gradient-dark)" }}
       >
-        <div aria-hidden="true" className="h-4 shrink-0" />
         {/* h-18 mirrors the top bar's own height, so the wordmark's vertical
-            center lands exactly on that bar's midline (36px) — the "logo
-            centré à la hauteur du milieu du menu horizontal" ask. Keep the
-            two in sync if either height changes. */}
+            center lands exactly on that bar's midline (36px). Keep the two
+            in sync if either height changes. */}
         <div className="flex h-18 shrink-0 items-center px-3">
           <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
             <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
           </Link>
         </div>
 
-        <nav className="flex min-h-0 flex-1 flex-col gap-1 overscroll-contain pt-6">
-          {visibleTopEntries.map((entry) => (
+        <nav aria-label="Navigation principale" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain pt-6">
+          {visiblePrimaryEntries.map((entry) => (
             <Fragment key={entry.href}>
-              {/* Marks Copilote as a distinct space (action/chat) from the
-                  analysis pages above it — same hairline that used to
-                  separate the old "Avancé" entry. */}
-              {entry.href === "/copilote" && <div className="my-3 h-px bg-white/20" />}
               {/* PillarNavGroup falls back to a plain NavLink for any entry
                   with no sub-pages, so every entry goes through it. */}
               <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
@@ -472,34 +475,42 @@ export function AppSidebar({
           ))}
         </nav>
 
-        {isAdmin && (
-          <div className="px-3 pt-2">
-            <Link
-              href={adminEntry.href}
-              className="flex items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/35 uppercase transition-colors hover:bg-mist/10 hover:text-mist/60"
-            >
-              <ShieldCheck className="size-3.5" />
-              <span className="min-w-0 whitespace-normal break-words">{adminEntry.label}</span>
-            </Link>
-          </div>
-        )}
+        <div className="shrink-0">
+          {visibleCopiloteEntry && (
+            <div className="border-t border-sidebar-border pt-3">
+              <PillarNavGroup entry={visibleCopiloteEntry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
+            </div>
+          )}
 
-        {/* Pinned last, below every navigable entry — it's a readout, not a
-            destination, so it sits under the pages rather than between them. */}
-        {scaleScore && (
-          <div className="px-3 pt-4">
-            <ScaleScoreBadge
-              scaleScore={scaleScore}
-              scaleScoreGapText={scaleScoreGapText}
-              scaleScoreMonthNote={scaleScoreMonthNote}
-              delta7d={scaleScoreDelta7d}
-              delta30d={scaleScoreDelta30d}
-              sparkline={scaleScoreSparkline}
-              currentMonthlyRevenue={currentMonthlyRevenue}
-              potentialMonthlyRevenue={potentialMonthlyRevenue}
-            />
-          </div>
-        )}
+          {isAdmin && (
+            <div className="px-3 pt-2">
+              <Link
+                href={adminEntry.href}
+                className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/35 uppercase transition-colors hover:bg-mist/10 hover:text-mist/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+              >
+                <ShieldCheck className="size-3.5" />
+                <span className="min-w-0 whitespace-normal break-words">{adminEntry.label}</span>
+              </Link>
+            </div>
+          )}
+
+          {/* The score is a readout, not a destination, so it stays below the
+              pinned Copilote action and outside the scrollable nav. */}
+          {scaleScore && (
+            <div className="px-3 pt-4">
+              <ScaleScoreBadge
+                scaleScore={scaleScore}
+                scaleScoreGapText={scaleScoreGapText}
+                scaleScoreMonthNote={scaleScoreMonthNote}
+                delta7d={scaleScoreDelta7d}
+                delta30d={scaleScoreDelta30d}
+                sparkline={scaleScoreSparkline}
+                currentMonthlyRevenue={currentMonthlyRevenue}
+                potentialMonthlyRevenue={potentialMonthlyRevenue}
+              />
+            </div>
+          )}
+        </div>
       </aside>
     </>
   );
