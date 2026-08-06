@@ -10,6 +10,7 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 
+import { YoutubeHooksSection } from "../youtube-hooks-section";
 import { YoutubeView } from "../youtube-view";
 
 // Sub-page of /acquisition/contenu (the overview), same nesting pattern as
@@ -51,6 +52,11 @@ export default async function ContenuYoutubePage() {
           ← Retour au contenu
         </Link>
       </div>
+
+      {/* Famille 2 — placed above the raw table: actionable insights first,
+          detail below (the spec's "insights actionnables avant les tableaux
+          détaillés"). */}
+      <YoutubeHooksSection videos={videos} />
 
       <YoutubeView
         videos={videos}

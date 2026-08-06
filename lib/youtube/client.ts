@@ -13,6 +13,10 @@ import {
 // as every other BYOK/OAuth integration in this codebase.
 
 const REQUEST_TIMEOUT_MS = 15_000;
+// The audienceRetention report returns 100 rows and is measurably slower
+// than the batched metric calls — at 15s, 11 of 20 videos aborted mid-fetch
+// on a real channel. Only the deep-insight reports opt into this.
+const SLOW_REPORT_TIMEOUT_MS = 45_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -20,9 +24,12 @@ function sleep(ms: number): Promise<void> {
 
 type ApiResponse = { status: number; body: unknown };
 
-async function request(url: URL, init?: { method?: string; headers?: Record<string, string>; body?: URLSearchParams }): Promise<ApiResponse> {
+async function request(
+  url: URL,
+  init?: { method?: string; headers?: Record<string, string>; body?: URLSearchParams; timeoutMs?: number }
+): Promise<ApiResponse> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), init?.timeoutMs ?? REQUEST_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       method: init?.method ?? "GET",
@@ -406,4 +413,82 @@ export async function fetchVideoAnalytics(
     }
   }
   return result;
+}
+
+export type VideoDeepInsights = {
+  retentionCurve: { ratio: number; watchRatio: number }[];
+  trafficSources: { source: string; views: number }[];
+  searchTerms: { term: string; views: number }[];
+};
+
+// Rows come back as [dimensionValue, metric...]; every one of these reports
+// uses a single dimension, so the shape is always [string|number, number].
+function parseDimensionRows(body: unknown): [string | number, number][] {
+  const rec = asRecord(body) ?? {};
+  const rows = Array.isArray(rec.rows) ? rec.rows : [];
+  return rows
+    .filter((row): row is unknown[] => Array.isArray(row) && row.length >= 2)
+    .map((row) => [row[0] as string | number, typeof row[1] === "number" ? row[1] : 0]);
+}
+
+// One video's deep Analytics: the retention curve, where its views came
+// from, and the searches that surfaced it. Three separate report calls (the
+// API allows only one dimension per report), hence the caller's video cap —
+// see YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT.
+//
+// Unlike thumbnail CTR (see protocol.ts's YOUTUBE_THUMBNAIL_CTR_AVAILABLE),
+// all three of these were probed against the live API and answer correctly.
+// Each is independently fault-tolerant: a failing report yields an empty
+// array rather than losing the other two.
+export async function fetchVideoDeepInsights(
+  accessToken: string,
+  videoId: string,
+  startDate: string,
+  endDate: string
+): Promise<VideoDeepInsights> {
+  const headers = authHeaders(accessToken);
+
+  async function report(params: Record<string, string>): Promise<[string | number, number][]> {
+    const url = new URL(`${YOUTUBE_ANALYTICS_API_BASE}/reports`);
+    url.searchParams.set("ids", "channel==MINE");
+    url.searchParams.set("startDate", startDate);
+    url.searchParams.set("endDate", endDate);
+    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+    try {
+      const { status, body } = await request(url, { headers, timeoutMs: SLOW_REPORT_TIMEOUT_MS });
+      if (status < 200 || status >= 300) return [];
+      return parseDimensionRows(body);
+    } catch (error) {
+      console.error(`[youtube] deep insight report failed for ${videoId}`, error);
+      return [];
+    }
+  }
+
+  // Sequential, not Promise.all: three concurrent requests to the same slow
+  // reports endpoint contend with each other and push the heaviest one
+  // (retention) past its timeout.
+  const retention = await report({
+    metrics: "audienceWatchRatio",
+    dimensions: "elapsedVideoTimeRatio",
+    filters: `video==${videoId}`,
+  });
+  const traffic = await report({
+    metrics: "views",
+    dimensions: "insightTrafficSourceType",
+    filters: `video==${videoId}`,
+    sort: "-views",
+  });
+  const search = await report({
+    metrics: "views",
+    dimensions: "insightTrafficSourceDetail",
+    filters: `video==${videoId};insightTrafficSourceType==YT_SEARCH`,
+    maxResults: "10",
+    sort: "-views",
+  });
+
+  return {
+    retentionCurve: retention.map(([ratio, watchRatio]) => ({ ratio: Number(ratio), watchRatio })),
+    trafficSources: traffic.map(([source, views]) => ({ source: String(source), views })),
+    searchTerms: search.map(([term, views]) => ({ term: String(term), views })),
+  };
 }

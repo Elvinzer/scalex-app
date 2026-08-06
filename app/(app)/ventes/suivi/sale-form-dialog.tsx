@@ -20,16 +20,25 @@ export function SaleFormDialog({
   setters,
   sale,
   trigger,
+  youtubeVideos = [],
+  currentVideoId = null,
 }: {
   offers: Offer[];
   setters: SetterRow[];
   sale?: SaleRow;
   trigger: React.ReactNode;
+  // Public YouTube videos, most recent first — the choices for "which video
+  // brought this client". Empty when YouTube isn't connected, in which case
+  // the whole field is hidden rather than shown as an empty select.
+  youtubeVideos?: { videoId: string; title: string }[];
+  // Existing DECLARED attribution for this sale, so editing shows it.
+  currentVideoId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [selectedOfferId, setSelectedOfferId] = useState(sale?.offerId ?? offers.find((o) => o.isMain)?.id ?? "");
+  const [sourceVideoId, setSourceVideoId] = useState(currentVideoId ?? "");
   const [totalPrice, setTotalPrice] = useState<string>(String(sale?.totalPrice ?? offers.find((o) => o.id === (sale?.offerId ?? offers.find((o2) => o2.isMain)?.id))?.price ?? ""));
   const [paymentType, setPaymentType] = useState<"one_shot" | "installments">(sale?.paymentType ?? "one_shot");
   const [paymentMethod, setPaymentMethod] = useState<"stripe" | "virement">(sale?.paymentMethod ?? "virement");
@@ -63,6 +72,9 @@ export function SaleFormDialog({
       clientName: String(formData.get("clientName") ?? ""),
       clientEmail: String(formData.get("clientEmail") ?? "") || null,
       sourceChannel: String(formData.get("sourceChannel") ?? "") || null,
+      // Read from state, not FormData: the field is conditionally rendered,
+      // so FormData wouldn't carry it when YouTube isn't connected.
+      sourceVideoId: sourceVideoId || null,
       offerId: selectedOfferId || null,
       totalPrice: Number(totalPrice) || 0,
       paymentType,
@@ -185,6 +197,31 @@ export function SaleFormDialog({
               />
             </label>
           </div>
+
+          {/* Declared attribution — the ONLY input the Contenu insights
+              treat as fact. Hidden entirely when YouTube isn't connected:
+              an empty select would suggest data we can't offer. */}
+          {youtubeVideos.length > 0 && (
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-muted-foreground">Vidéo YouTube à l&apos;origine (optionnel)</span>
+              <select
+                value={sourceVideoId}
+                onChange={(event) => setSourceVideoId(event.target.value)}
+                className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+              >
+                <option value="">Je ne sais pas</option>
+                {youtubeVideos.map((video) => (
+                  <option key={video.videoId} value={video.videoId}>
+                    {video.title}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-muted-foreground">
+                Sert à mesurer ce que ton contenu rapporte vraiment. Laisse sur « Je ne sais pas » si tu n&apos;es pas sûr —
+                une réponse au hasard fausserait le calcul.
+              </span>
+            </label>
+          )}
 
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="text-muted-foreground">Setter (optionnel)</span>

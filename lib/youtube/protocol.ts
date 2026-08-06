@@ -118,3 +118,24 @@ export const YOUTUBE_ORGANIC_CLICKS_AVAILABLE = false;
 // uses averageViewPercentage (retention) instead, the closest working
 // analog to "how well is this thumbnail/hook performing".
 export const YOUTUBE_THUMBNAIL_CTR_AVAILABLE = false;
+
+// Deep per-video Analytics (retention curve, traffic sources, search terms)
+// cost ONE report call each — 3 calls per video, versus the single batched
+// call that covers every video for the headline metrics
+// (YOUTUBE_ANALYTICS_BATCH_SIZE above). On a 300-video channel that's ~900
+// calls per sync, which is why only the most-viewed videos get them: the
+// aggregate insights they feed (average drop-off point, 30s hook analysis)
+// are statistically meaningless on low-view videos anyway, and those same
+// videos are the ones the UI excludes from rate rankings.
+export const YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT = 20;
+
+// A video needs at least this many views before its retention curve is
+// trusted in aggregate figures — below it the curve is a handful of
+// sessions, not a signal. Same "don't paint a young video red" rule the
+// rest of the Contenu page follows.
+export const YOUTUBE_RETENTION_MIN_VIEWS = 100;
+
+// Refetch cadence for the deep metrics. They move much more slowly than
+// view counts (a two-year-old video's retention curve is settled), so this
+// is deliberately far longer than the headline refresh window above.
+export const YOUTUBE_DEEP_INSIGHTS_MAX_AGE_DAYS = 7;

@@ -3,13 +3,23 @@
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { z } from "zod";
+
 import { db } from "@/db";
 import { sales } from "@/db/schema";
 import { saleInputSchema } from "@/lib/sales/schema";
+import { attributeSaleToVideo, removeSaleAttribution } from "@/lib/youtube/attribution";
+import { track } from "@/lib/analytics";
 import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
 import type { InstallmentStatus } from "@/lib/sales/types";
+
+// The video credited for this sale, declared by the coach at closing time.
+// Kept OUT of saleInputSchema on purpose: it isn't a column on `sales`, it's
+// a row in video_attributions — one video can be credited for many sales,
+// and the credit has its own provenance (declared vs estimated).
+const saleAttributionSchema = z.object({ sourceVideoId: z.string().nullable().optional() });
 
 export async function saveSale(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
@@ -23,13 +33,36 @@ export async function saveSale(id: string | null, data: unknown): Promise<{ erro
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
+  let saleId = id;
   if (id) {
     await updateSale(accountId, id, parsed.data);
   } else {
-    await createSale(accountId, parsed.data);
+    const created = await createSale(accountId, parsed.data);
+    saleId = created.id;
+  }
+
+  // Attribution is written after the sale exists (it FKs to it). Failing
+  // here must never lose the sale itself, which is the record that matters —
+  // hence the isolated try/catch rather than one transaction.
+  const attribution = saleAttributionSchema.safeParse(data);
+  if (attribution.success && saleId) {
+    const videoId = attribution.data.sourceVideoId ?? null;
+    try {
+      if (videoId) {
+        await attributeSaleToVideo(accountId, saleId, videoId, "declared");
+        await track("video_attribution_declared", userId, { method: "declared" });
+      } else {
+        // Clearing the field un-credits the video rather than silently
+        // keeping a stale attribution.
+        await removeSaleAttribution(accountId, saleId);
+      }
+    } catch (error) {
+      console.error("[ventes] video attribution failed, sale itself saved", error);
+    }
   }
 
   revalidatePath("/ventes/suivi");
+  revalidatePath("/acquisition/contenu/youtube");
   revalidatePath("/diagnostic");
   return { error: null };
 }

@@ -14,6 +14,8 @@ import { stripeDashboardChargeUrl } from "@/lib/stripe/dashboard-url";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
 import { getSetters } from "@/lib/setters/queries";
+import { isPublicVideo } from "@/lib/youtube/format";
+import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import type { FailedPaymentItem } from "./failed-payments-banner";
@@ -28,15 +30,25 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:suivi");
   const stripeConnected = Boolean(user?.stripeConnectId);
-  const [sales, profile, setters, [connection]] = await Promise.all([
+  const [sales, profile, setters, [connection], youtubeInsights] = await Promise.all([
     getSales(accountId),
     getBusinessProfile(accountId),
     getSetters(accountId),
     stripeConnected
       ? db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
+    user?.youtubeConnected ? getYoutubeVideoInsightsMap(accountId) : Promise.resolve(new Map()),
   ]);
   const offers = profile.sales.offers;
+
+  // Choices for the sale form's "which video brought this client" field.
+  // Public only (a private upload can't have converted a stranger) and
+  // newest first, since a freshly-closed sale most often traces back to a
+  // recent video.
+  const youtubeVideoChoices = Array.from(youtubeInsights.values())
+    .filter(isPublicVideo)
+    .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
+    .map((video) => ({ videoId: video.videoId, title: video.title }));
 
   // Account-wide, not period-scoped — a failed payment needing action
   // shouldn't fall out of view just because the period tabs above narrow to
@@ -99,6 +111,7 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
           <SaleFormDialog
             offers={offers}
             setters={setters}
+            youtubeVideos={youtubeVideoChoices}
             trigger={
               <Button type="button">
                 <Plus className="size-4" />

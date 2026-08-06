@@ -72,7 +72,13 @@ export type AnalyticsEvent =
   | "lead_stage_changed"
   | "sale_validated"
   | "setter_added"
-  | "commission_pct_changed";
+  | "commission_pct_changed"
+  // Contenu insights (F1/F2) — see lib/youtube/attribution.ts.
+  | "content_insights_viewed"
+  | "video_attribution_declared"
+  | "content_insight_clicked"
+  | "dormant_video_flagged"
+  | "offer_gap_flagged";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

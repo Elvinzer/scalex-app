@@ -1,11 +1,16 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { contentPosts, youtubeVideoInsights } from "@/db/schema";
 
-import { fetchVideoAnalytics, fetchVideoDetails, listUploadedVideos } from "./client";
+import { fetchVideoAnalytics, fetchVideoDeepInsights, fetchVideoDetails, listUploadedVideos } from "./client";
 import { normalizeVideo } from "./events";
-import { YOUTUBE_BACKFILL_TIME_BUDGET_MS } from "./protocol";
+import {
+  YOUTUBE_BACKFILL_TIME_BUDGET_MS,
+  YOUTUBE_DEEP_INSIGHTS_MAX_AGE_DAYS,
+  YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT,
+  YOUTUBE_RETENTION_MIN_VIEWS,
+} from "./protocol";
 
 export type BackfillResult = { processed: number; skipped: number; completed: boolean };
 
@@ -168,4 +173,72 @@ export function insightsRefreshSinceDate(windowDays: number): Date {
   const since = new Date();
   since.setDate(since.getDate() - windowDays);
   return since;
+}
+
+// Deep per-video Analytics (retention curve, traffic sources, search terms),
+// fetched for the most-viewed public videos only — 3 report calls each, so
+// this is capped rather than run over the whole library (see
+// YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT). Runs AFTER the main backfill, from its
+// stored rows, so it never delays the headline sync and a failure here can't
+// lose view/retention data.
+//
+// Skips videos refreshed within YOUTUBE_DEEP_INSIGHTS_MAX_AGE_DAYS and
+// videos under YOUTUBE_RETENTION_MIN_VIEWS (a curve built from a handful of
+// sessions is noise, and those videos are excluded from the aggregates
+// anyway).
+export async function backfillYoutubeDeepInsights(
+  userId: string,
+  accessToken: string,
+  channelPublishedAt: string
+): Promise<{ processed: number; skipped: number }> {
+  const staleBefore = new Date();
+  staleBefore.setDate(staleBefore.getDate() - YOUTUBE_DEEP_INSIGHTS_MAX_AGE_DAYS);
+
+  const candidates = await db
+    .select()
+    .from(youtubeVideoInsights)
+    .where(and(eq(youtubeVideoInsights.userId, userId), eq(youtubeVideoInsights.privacyStatus, "public")))
+    .orderBy(desc(youtubeVideoInsights.views))
+    .limit(YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT);
+
+  const startDate = channelPublishedAt.slice(0, 10);
+  const endDate = new Date().toISOString().slice(0, 10);
+  let processed = 0;
+  let skipped = 0;
+
+  for (const video of candidates) {
+    const tooFewViews = (video.views ?? 0) < YOUTUBE_RETENTION_MIN_VIEWS;
+    const stillFresh = video.deepInsightsFetchedAt !== null && video.deepInsightsFetchedAt > staleBefore;
+    if (tooFewViews || stillFresh) {
+      skipped += 1;
+      continue;
+    }
+
+    const deep = await fetchVideoDeepInsights(accessToken, video.videoId, startDate, endDate);
+
+    // Every report is individually fault-tolerant (it yields [] on failure),
+    // so "all three empty" means the fetch failed, not that the video has no
+    // data. Leaving deepInsightsFetchedAt null in that case is what lets the
+    // next sync retry it — stamping it would mark a failure as fresh and
+    // freeze the gap in for YOUTUBE_DEEP_INSIGHTS_MAX_AGE_DAYS.
+    const gotSomething =
+      deep.retentionCurve.length > 0 || deep.trafficSources.length > 0 || deep.searchTerms.length > 0;
+    if (!gotSomething) {
+      skipped += 1;
+      continue;
+    }
+
+    await db
+      .update(youtubeVideoInsights)
+      .set({
+        retentionCurve: deep.retentionCurve.length > 0 ? deep.retentionCurve : null,
+        trafficSources: deep.trafficSources.length > 0 ? deep.trafficSources : null,
+        searchTerms: deep.searchTerms.length > 0 ? deep.searchTerms : null,
+        deepInsightsFetchedAt: new Date(),
+      })
+      .where(and(eq(youtubeVideoInsights.userId, userId), eq(youtubeVideoInsights.videoId, video.videoId)));
+    processed += 1;
+  }
+
+  return { processed, skipped };
 }

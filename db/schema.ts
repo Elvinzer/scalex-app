@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -1038,6 +1039,27 @@ export const youtubeVideoInsights = pgTable(
     // public (see isPublicVideo in lib/youtube/format.ts) so an existing
     // library doesn't vanish from the UI until its next resync.
     privacyStatus: text("privacy_status"),
+    // --- Deep-dive Analytics, fetched separately from the batch metrics
+    // above (one report call per video each, so only the top videos get
+    // them — see YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT in protocol.ts). All three
+    // are raw API passthroughs: no rate/average is ever stored, everything
+    // is recomputed on read (lib/youtube/retention.ts).
+    //
+    // 100 points from the audienceRetention report (elapsedVideoTimeRatio
+    // 0→1 with audienceWatchRatio) — the real drop-off curve, which is what
+    // makes a "tes spectateurs partent à 2:10" insight honest instead of a
+    // guess extrapolated from averageViewDuration.
+    retentionCurve: jsonb("retention_curve").$type<{ ratio: number; watchRatio: number }[]>(),
+    // insightTrafficSourceType report: where the views actually came from.
+    trafficSources: jsonb("traffic_sources").$type<{ source: string; views: number }[]>(),
+    // insightTrafficSourceDetail filtered to YT_SEARCH: the real queries
+    // that surfaced this video.
+    searchTerms: jsonb("search_terms").$type<{ term: string; views: number }[]>(),
+    deepInsightsFetchedAt: timestamp("deep_insights_fetched_at", { withTimezone: true }),
+    // Optional, user-entered: hours spent producing this video. Powers the
+    // hourly-ROI figure — absent for every video until the user fills it in,
+    // never inferred.
+    productionHours: real("production_hours"),
     // Full API response passthrough — future-proofs any metric not yet
     // promoted to its own column, and is the audit trail if the API surface
     // shifts (see protocol.ts's file-header disclaimer).
@@ -1572,6 +1594,48 @@ export const sales = pgTable(
     index("sales_user_sale_date_idx").on(table.userId, table.saleDate),
     index("sales_setter_idx").on(table.setterId),
     index("sales_lead_idx").on(table.leadId),
+  ]
+).enableRLS();
+
+// How a video gets credited for a sale or a lead. Deliberately its own table
+// rather than a column on sales/leads: one video can be credited for many
+// sales, and the same sale can later gain a second, better-sourced
+// attribution without overwriting the first.
+//
+// method is the honesty guarantee the whole Contenu-insights feature rests
+// on: "declared" is the coach saying so at closing time (the only thing we
+// treat as fact), "estimated" is a time-window correlation between a
+// publication and a spike. Every € figure derived from these MUST surface
+// which mix it came from — a correlation is never rendered as proof (see
+// lib/youtube/attribution.ts's reliability gate).
+export const videoAttributionMethod = pgEnum("video_attribution_method", ["declared", "estimated"]);
+
+export const videoAttributions = pgTable(
+  "video_attributions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // The platform's own id (youtube_video_insights.videoId). Not a FK: a
+    // video can be deleted from YouTube while the sale it generated remains
+    // real, and losing the attribution would silently understate revenue.
+    videoId: text("video_id").notNull(),
+    // Exactly one of the two is set — enforced by the check constraint below
+    // rather than by convention, since a row with neither is meaningless and
+    // a row with both would double-count in the € rollup.
+    saleId: uuid("sale_id").references(() => sales.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+    method: videoAttributionMethod("method").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("video_attributions_user_video_idx").on(table.userId, table.videoId),
+    uniqueIndex("video_attributions_user_sale_idx").on(table.userId, table.saleId),
+    check(
+      "video_attributions_target_check",
+      sql`(${table.saleId} is not null and ${table.leadId} is null) or (${table.saleId} is null and ${table.leadId} is not null)`
+    ),
   ]
 ).enableRLS();
 

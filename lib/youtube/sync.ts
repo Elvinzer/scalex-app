@@ -5,7 +5,7 @@ import { youtubeConnections } from "@/db/schema";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { requireEnv } from "@/lib/utils";
 
-import { backfillYoutubeVideos, type BackfillResult } from "./backfill";
+import { backfillYoutubeDeepInsights, backfillYoutubeVideos, type BackfillResult } from "./backfill";
 import { fetchChannel, refreshAccessToken } from "./client";
 
 export type YoutubeConnectionRow = typeof youtubeConnections.$inferSelect;
@@ -54,5 +54,18 @@ export async function runYoutubeSync(connection: YoutubeSyncConnection, sinceDat
     })
     .where(eq(youtubeConnections.userId, connection.userId));
 
-  return backfillYoutubeVideos(connection.userId, accessToken, channel.uploadsPlaylistId, channel.publishedAt, sinceDate);
+  const result = await backfillYoutubeVideos(connection.userId, accessToken, channel.uploadsPlaylistId, channel.publishedAt, sinceDate);
+
+  // Deep Analytics run from the rows the backfill just wrote, so they need
+  // it to have happened first. Isolated: this is enrichment for the Contenu
+  // insights, never a reason to fail a sync that already stored the
+  // headline metrics successfully.
+  try {
+    const deep = await backfillYoutubeDeepInsights(connection.userId, accessToken, channel.publishedAt);
+    console.log(`[youtube] deep insights for ${connection.userId}: ${deep.processed} fetched, ${deep.skipped} skipped`);
+  } catch (error) {
+    console.error(`[youtube] deep insights for ${connection.userId} failed, sync itself unaffected`, error);
+  }
+
+  return result;
 }
