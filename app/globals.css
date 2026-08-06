@@ -385,7 +385,8 @@
   }
 
   .public-booking-primary.public-booking-inline {
-    width: auto;
+    width: max-content;
+    max-width: 100%;
   }
 
   .public-booking-primary:hover:not(:disabled) {
