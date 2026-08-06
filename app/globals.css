@@ -384,6 +384,10 @@
       opacity var(--motion-fast) var(--ease-out);
   }
 
+  .public-booking-primary.public-booking-inline {
+    width: auto;
+  }
+
   .public-booking-primary:hover:not(:disabled) {
     background: #9e3e1f;
     transform: translateY(-1px);
