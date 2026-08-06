@@ -13,15 +13,9 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CreateEventForm } from "./create-event-form";
 import { AbandonedLeadsPanel } from "./abandoned-leads-panel";
+import { CopyLinkButton } from "./copy-link-button";
 import { EventStatusButton } from "./event-status-button";
 import { UnifiedAgenda } from "./unified-agenda";
-
-const STATUS_LABELS = {
-  draft: "Brouillon",
-  active: "Actif",
-  paused: "En pause",
-  archived: "Archivé",
-} as const;
 
 function dateFromRange(range: "today" | "next7" | "next30" | "custom", from: string | null, to: string | null) {
   const now = new Date();
@@ -234,7 +228,7 @@ export default async function NativeBookingEventsPage({
                           Voir la page <ExternalLink className="size-3.5" />
                         </a>
                       </Button>
-                      <span className="ml-auto text-xs font-bold text-muted-foreground">{STATUS_LABELS[event.status]}</span>
+                      <CopyLinkButton url={`/book/${event.slug}`} compact />
                     </div>
                   </article>
                 ))}
