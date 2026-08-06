@@ -181,7 +181,7 @@ export default async function AppLayout({
       {FALCO_SKIN_KEYS.map((skin) => (
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
       ))}
-      <div className="flex min-h-screen bg-panel">
+      <div className="min-h-screen bg-panel">
         <AppSidebar
           email={typeof email === "string" ? email : ""}
           businessName={businessProfile.identity.businessName}
@@ -199,7 +199,7 @@ export default async function AppLayout({
           currentMonthlyRevenue={currentMonthlyRevenue}
           potentialMonthlyRevenue={potentialMonthlyRevenue}
         />
-        <main className="min-w-0 flex-1 px-16 pt-24 pb-10 ml-64">
+        <main className="ml-64 min-w-0 px-16 pt-24 pb-10">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
         <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
