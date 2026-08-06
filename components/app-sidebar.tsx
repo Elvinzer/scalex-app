@@ -115,10 +115,10 @@ const topEntries: LinkEntry[] = [
 ];
 
 // BARRE DU HAUT — pages promoted into the horizontal top bar, rendered at
-// the far left of its *visible* area (the sidebar draws over the header's
-// first 256px on lg, hence the header's lg:pl-[17rem]). Deliberately a
-// separate list from topEntries: this strip holds occasional destinations
-// that don't earn a slot in the primary rail, not a second copy of it.
+// the far left of the area immediately to the right of the sidebar.
+// Deliberately a separate list from topEntries: this strip holds occasional
+// destinations that don't earn a slot in the primary rail, not a second copy
+// of it.
 // Rendez-vous stays first (explicitly asked to sit far left).
 //
 // The bar itself is desktop-only (no room below lg once the hamburger,
@@ -298,7 +298,7 @@ function ProfileMenu({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted"
+            className="flex w-full min-w-0 max-w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted"
           >
             {avatarUrl ? (
               <div className="relative size-8 shrink-0 overflow-hidden rounded-full">
@@ -422,17 +422,13 @@ export function AppSidebar({
 
   return (
     <>
-      {/* Top bar — every breakpoint now (used to be mobile-only). Spans the
-          full width but the sidebar (z-40) draws over its left 256px on lg,
-          so it visually starts at the sidebar's right edge — hence
-          lg:pl-[17rem] (16rem sidebar + 1rem gutter), which puts the nav
-          links at the far left of the bar's *visible* area instead of
-          underneath the sidebar. The wordmark here is lg:hidden for the
-          same reason: on desktop the logo lives in the sidebar's own
-          h-18 row below, aligned to this bar's midline; on mobile the
-          sidebar is off-canvas, so the bar carries the wordmark itself. */}
+      {/* Top bar — on desktop it starts exactly where the sidebar ends. On
+          smaller screens the sidebar becomes an off-canvas drawer and the
+          bar keeps the hamburger, wordmark and profile trigger. Keeping the
+          desktop offset on the header itself avoids a second, fragile
+          alignment rule based on padding while the sidebar draws over it. */}
       <header
-        className="fixed inset-x-0 top-0 z-30 flex h-18 items-center gap-3 border-b border-[color:var(--surface-dark)] bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)] lg:pr-6 lg:pl-[17rem]"
+        className="fixed inset-x-0 top-0 z-30 flex h-18 items-center gap-2 overflow-hidden border-b border-[color:var(--surface-dark)] bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)] sm:gap-3 lg:left-64 lg:pr-6 lg:pl-4"
       >
         <button
           type="button"
@@ -445,32 +441,41 @@ export function AppSidebar({
         {/* -light is the dark-ink wordmark (the default one renders "Scale"
             in white, invisible on this now-white bar). The sidebar below
             keeps the white-ink default — it's still a dark surface. */}
-        <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80 lg:hidden">
-          <Image src="/scalex-wordmark-light.png" alt="Scale X" width={398} height={100} priority className="h-7 w-auto" />
+        <Link href="/dashboard" className="flex min-w-0 max-w-[42vw] items-center transition-opacity hover:opacity-80 lg:hidden">
+          <Image
+            src="/scalex-wordmark-light.png"
+            alt="Scale X"
+            width={398}
+            height={100}
+            priority
+            className="h-6 w-auto max-w-full sm:h-7"
+          />
         </Link>
 
-        {visibleTopBarEntries.map((entry) => {
-          const Icon = entry.icon;
-          const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
-          return (
-            <Link
-              key={entry.href}
-              href={entry.href}
-              className={cn(
-                // Labels stay black in every state, active included — hence
-                // the soft coral tint rather than the filled coral pill the
-                // sidebar rail uses, which would force white text.
-                "hidden items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] text-foreground transition-colors lg:flex",
-                active ? "bg-accent-soft" : "hover:bg-muted"
-              )}
-            >
-              <Icon className="size-4" />
-              {entry.label}
-            </Link>
-          );
-        })}
+        <nav aria-label="Navigation rapide" className="hidden min-w-0 items-center gap-1 overflow-x-auto lg:flex">
+          {visibleTopBarEntries.map((entry) => {
+            const Icon = entry.icon;
+            const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
+            return (
+              <Link
+                key={entry.href}
+                href={entry.href}
+                className={cn(
+                  // Labels stay black in every state, active included — hence
+                  // the soft coral tint rather than the filled coral pill the
+                  // sidebar rail uses, which would force white text.
+                  "flex shrink-0 items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-[13.5px] font-bold tracking-[-0.01em] text-foreground transition-colors",
+                  active ? "bg-accent-soft" : "hover:bg-muted"
+                )}
+              >
+                <Icon className="size-4" />
+                {entry.label}
+              </Link>
+            );
+          })}
+        </nav>
 
-        <div className="ml-auto min-w-0">
+        <div className="ml-auto min-w-0 max-w-[40vw] shrink-0 sm:max-w-[18rem]">
           <ProfileMenu
             businessName={businessName}
             displayName={displayName}
@@ -494,10 +499,9 @@ export function AppSidebar({
         />
       )}
 
-      {/* Full height (inset-y-0), unchanged from before the top bar existed
-          — it deliberately overlaps the header's left 256px rather than
-          starting below it, so the dark rail runs edge-to-edge with no gap
-          at the bottom. */}
+      {/* Full height (inset-y-0): the dark rail owns the whole left column,
+          while the top bar owns the column immediately to its right on
+          desktop. On smaller screens it becomes the off-canvas drawer. */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-hidden px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
