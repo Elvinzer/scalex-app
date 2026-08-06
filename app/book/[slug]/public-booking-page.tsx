@@ -57,6 +57,17 @@ function isCountryCode(value: string): value is CountryCode {
   return COUNTRY_CODES.some((country) => country === value);
 }
 
+function countryFlag(country: CountryCode): string {
+  return country
+    .split("")
+    .map((letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
+    .join("");
+}
+
+function countryName(country: CountryCode): string {
+  return COUNTRY_NAMES[country] ?? country;
+}
+
 function formatSlot(dateString: string, timeZone: string): string {
   return new Intl.DateTimeFormat("fr-FR", { timeZone, hour: "2-digit", minute: "2-digit" }).format(new Date(dateString));
 }
@@ -110,6 +121,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   const [stage, setStage] = useState<Stage>(1);
   const [contact, setContact] = useState<Contact>(EMPTY_CONTACT);
   const [countryCode, setCountryCode] = useState<CountryCode>("FR");
+  const [countryNames, setCountryNames] = useState<Record<string, string>>({});
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [guestTimeZone, setGuestTimeZone] = useState("Europe/Paris");
   const [displayTimeZone, setDisplayTimeZone] = useState(event.timeZone);
@@ -145,6 +157,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   const [editingPhone, setEditingPhone] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
   const firstRevealedRef = useRef<HTMLInputElement>(null);
+  const phoneCaptureRef = useRef<{ phone: string; promise: Promise<string | null> } | null>(null);
 
   useEffect(() => {
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -157,6 +170,8 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     setLinkId(params.get("link") ?? params.get("link_id"));
     setLandingPage(window.location.href);
     setReferrer(document.referrer || null);
+    const displayNames = new Intl.DisplayNames(["fr-FR"], { type: "region" });
+    setCountryNames(Object.fromEntries(COUNTRY_CODES.map((country) => [country, displayNames.of(country) ?? country])));
 
     const sessionKey = `native-booking-session:${window.location.pathname}`;
     if (!window.sessionStorage.getItem(sessionKey)) window.sessionStorage.setItem(sessionKey, crypto.randomUUID());
@@ -286,6 +301,23 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     return { ...contact, phone: phoneCandidate(contact.phone, countryCode), email: contact.email.trim() };
   }
 
+  async function capturePhoneLead(phone: string) {
+    const normalizedPhone = parsePhoneNumberFromString(phone, countryCode)?.number ?? phone;
+    const existing = phoneCaptureRef.current;
+    if (existing?.phone === normalizedPhone) return existing.promise;
+
+    const promise = captureIdentity({ phone: normalizedPhone })
+      .catch(() => {
+        setError("Impossible d’enregistrer ton numéro. Réessaie dans un instant.");
+        return null;
+      })
+      .finally(() => {
+        if (phoneCaptureRef.current?.promise === promise) phoneCaptureRef.current = null;
+      });
+    phoneCaptureRef.current = { phone: normalizedPhone, promise };
+    return promise;
+  }
+
   async function validatePhoneStage() {
     setFieldErrors({});
     setError(null);
@@ -305,6 +337,8 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
         setFieldErrors({ phone: [payload.error ?? "Numéro de téléphone invalide."] });
         return;
       }
+      const capturedLeadId = await capturePhoneLead(payload.phone);
+      if (!capturedLeadId) return;
       updateContact("phone", payload.phone);
       setEditingPhone(false);
       setStage((current) => (current < 2 ? 2 : current));
@@ -315,8 +349,8 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     }
   }
 
-  async function captureIdentity(): Promise<string | null> {
-    const payload = buildContactPayload();
+  async function captureIdentity(contactOverride: Partial<Contact> = {}): Promise<string | null> {
+    const payload = { ...buildContactPayload(), ...contactOverride };
     const response = await fetch(`/api/public/booking/${event.slug}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -663,11 +697,12 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
                         <div className="flex min-h-12 overflow-hidden rounded-[var(--radius-control)] border border-border bg-background focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/10">
                           <div className="flex shrink-0 items-center border-r border-border bg-muted/50 px-2">
                             <span id="country-code-label" className="sr-only">Pays du numéro</span>
-                            <select id="countryCode" aria-labelledby="country-code-label" value={countryCode} onChange={(input) => setCountryCode(input.target.value as CountryCode)} className="max-w-24 bg-transparent px-1 text-sm font-bold outline-none">
-                              {COUNTRY_CODES.map((country) => <option key={country} value={country}>{country} +{getCountryCallingCode(country)}{COUNTRY_NAMES[country] ? ` · ${COUNTRY_NAMES[country]}` : ""}</option>)}
+                            <span aria-hidden="true" className="text-base">{countryFlag(countryCode)}</span>
+                            <select id="countryCode" aria-labelledby="country-code-label" value={countryCode} onChange={(input) => { if (isCountryCode(input.target.value)) setCountryCode(input.target.value); }} className="max-w-32 bg-transparent px-1 text-sm font-bold outline-none">
+                              {COUNTRY_CODES.map((country) => <option key={country} value={country}>{country} +{getCountryCallingCode(country)} · {countryNames[country] ?? countryName(country)}</option>)}
                             </select>
                           </div>
-                          <input id="phone" ref={stage === 1 ? firstRevealedRef : undefined} required type="tel" inputMode="tel" autoComplete="tel" value={contact.phone} onChange={(input) => updateContact("phone", input.target.value)} onBlur={() => setFieldTouched("phone")} placeholder="6 12 34 56 78" className="min-w-0 flex-1 border-0 bg-transparent px-3 outline-none" />
+                          <input id="phone" ref={stage === 1 ? firstRevealedRef : undefined} required type="tel" inputMode="tel" autoComplete="tel" value={contact.phone} onChange={(input) => updateContact("phone", input.target.value)} onBlur={() => { setFieldTouched("phone"); if (phoneValid) void capturePhoneLead(phoneValue); }} placeholder="6 12 34 56 78" className="min-w-0 flex-1 border-0 bg-transparent px-3 outline-none" />
                         </div>
                         {!fieldErrors.phone?.[0] && <span className="text-xs text-muted-foreground">Avec ton indicatif pays, par exemple +33.</span>}
                         {fieldErrors.phone?.[0] && <span className="text-xs font-bold text-state-critical" role="alert">{fieldErrors.phone[0]}</span>}
@@ -741,12 +776,11 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
                     <div className="mt-10 rounded-[var(--radius-card)] border border-dashed border-border p-8 text-center"><p className="font-bold">Aucun créneau disponible</p><p className="mt-1 text-sm text-muted-foreground">Reviens un peu plus tard ou contacte-nous directement.</p></div>
                   ) : (
                     <div className="mt-6 flex flex-col gap-6">
-                      {groupedSlots.map((group) => <div key={group.label}><h3 className="text-sm font-bold capitalize">{group.label}</h3><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{group.slots.map((slot) => { const selected = selectedSlot?.startAt === slot.startAt; return <button key={slot.startAt} type="button" disabled={isHolding || isPending} onClick={() => void holdSlot(slot)} className={`min-h-11 rounded-full border px-3 py-2 text-sm font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${selected ? "border-accent bg-accent text-primary-foreground" : "border-border bg-background hover:border-accent hover:bg-accent/5"}`}>{formatSlot(slot.startAt, displayTimeZone)}</button>; })}</div></div>)}
+                      {groupedSlots.map((group) => <div key={group.label}><h3 className="text-sm font-bold capitalize">{group.label}</h3><div className="mt-3 grid gap-2 sm:grid-cols-3">{group.slots.map((slot) => { const selected = selectedSlot?.startAt === slot.startAt; return <div key={slot.startAt} className={selected ? "flex min-w-0 gap-2 sm:col-span-2" : "min-w-0"}><button type="button" disabled={isHolding || isPending} onClick={() => void holdSlot(slot)} className={`min-h-11 rounded-full border px-3 py-2 text-sm font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${selected ? "min-w-0 flex-1 border-accent bg-accent text-primary-foreground" : "w-full border-border bg-background hover:border-accent hover:bg-accent/5"}`}>{formatSlot(slot.startAt, displayTimeZone)}</button>{selected && <button type="button" disabled={isPending || isHolding || !holdExpiresAt} onClick={confirmBooking} className="public-booking-primary min-h-11 w-auto shrink-0 px-4">{isPending ? "…" : "Confirmer"}</button>}</div>; })}</div></div>)}
                     </div>
                   )}
-                  <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                  <div className="mt-7 border-t border-border pt-5">
                     <div className="flex flex-col gap-1 text-xs text-muted-foreground"><p><MapPin className="mr-1 inline size-3.5" />{event.meetingLabel}</p>{holdExpiresAt && <p role="status">Créneau réservé temporairement, confirme pour le garder.</p>}</div>
-                    <button type="button" disabled={!selectedSlot || isPending || isHolding || !holdExpiresAt} onClick={confirmBooking} className="public-booking-primary sm:w-auto">{isHolding ? "Réservation temporaire…" : isPending ? "Confirmation…" : selectedSlot ? "Confirmer ce créneau" : "Sélectionne un créneau"}</button>
                   </div>
                 </div>
               )}

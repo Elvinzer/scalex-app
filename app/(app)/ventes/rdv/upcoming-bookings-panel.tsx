@@ -1,10 +1,11 @@
 "use client";
 
-import { Ban, CalendarClock, RefreshCw } from "lucide-react";
+import { Ban, CalendarClock, MessageCircle, Phone, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { phoneHref, whatsappHref } from "@/lib/native-booking/phone-links";
 
 import { cancelNativeBookingAction, rescheduleNativeBookingAction, retryNativeBookingCalendarSyncAction } from "./actions";
 
@@ -87,6 +88,8 @@ function BookingCard({
   run: (action: () => Promise<{ error: string | null; warning?: boolean }>, success: string) => void;
 }) {
   const [nextStartAt, setNextStartAt] = useState("");
+  const call = phoneHref(booking.phone);
+  const whatsapp = whatsappHref(booking.phone, `Bonjour ${booking.firstName}, je reviens vers toi au sujet de ${booking.eventName}.`);
   return (
     <article className="sticker-card flex flex-col gap-4 p-5">
       <div className="flex items-start justify-between gap-3">
@@ -106,7 +109,11 @@ function BookingCard({
         </div>
         <div>
           <dt className="text-xs text-muted-foreground">Téléphone</dt>
-          <dd className="mt-1 font-bold"><a href={`tel:${booking.phone}`} className="hover:underline">{booking.phone}</a></dd>
+          <dd className="mt-1 flex flex-wrap gap-2">
+            <span className="flex min-h-11 items-center font-bold">{booking.phone}</span>
+            {call && <a href={call} aria-label={`Appeler ${booking.firstName} ${booking.lastName}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-3 text-xs font-bold hover:bg-muted"><Phone className="size-3.5" /> Appeler</a>}
+            {whatsapp && <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-state-healthy-bg px-3 text-xs font-bold text-state-healthy hover:underline"><MessageCircle className="size-3.5" /> WhatsApp</a>}
+          </dd>
         </div>
       </dl>
       {booking.syncError && <p className="rounded-[var(--radius-control)] bg-state-caution/10 px-3 py-2 text-xs font-bold text-state-caution">{booking.syncError}</p>}

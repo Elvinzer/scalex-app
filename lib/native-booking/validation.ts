@@ -161,8 +161,8 @@ export const publicContactSchema = z.object({
 
 export const publicLeadCaptureSchema = z
   .object({
-    firstName: z.string().trim().min(1, "Le prénom est requis").max(80),
-    lastName: z.string().trim().min(1, "Le nom est requis").max(80),
+    firstName: z.string().trim().max(80).optional().default(""),
+    lastName: z.string().trim().max(80).optional().default(""),
     phone: z.string().trim().min(7, "Numéro de téléphone invalide").max(40).refine(isValidPhoneNumber, "Numéro de téléphone invalide"),
     guestTimeZone: z.string().refine(isValidTimeZone, "Fuseau horaire invalide"),
     leadSessionKey: z.string().uuid().nullable().default(null),

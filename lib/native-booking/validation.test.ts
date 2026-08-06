@@ -6,6 +6,7 @@ import {
   nativeBookingQuestionInputSchema,
   nativeBookingQuestionTypeSchema,
   nativeBookingReminderRuleInputSchema,
+  publicLeadCaptureSchema,
   publicPhoneStageSchema,
 } from "./validation";
 
@@ -19,6 +20,10 @@ describe("native booking validation", () => {
   it("normalizes international phone input and rejects invalid numbers", () => {
     expect(publicPhoneStageSchema.safeParse({ phone: "+33 6 12 34 56 78" }).success).toBe(true);
     expect(publicPhoneStageSchema.safeParse({ phone: "+33 00 00 00 00 00" }).success).toBe(false);
+  });
+
+  it("accepts a phone-only lead before the identity fields are known", () => {
+    expect(publicLeadCaptureSchema.safeParse({ phone: "+33 6 12 34 56 78", guestTimeZone: "Europe/Paris" }).success).toBe(true);
   });
 
   it("allows only the documented reminder variables", () => {

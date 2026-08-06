@@ -1,8 +1,10 @@
 "use client";
 
-import { ArchiveX, CheckCheck, Clock3, Phone, RotateCcw } from "lucide-react";
+import { ArchiveX, CheckCheck, Clock3, MessageCircle, Phone, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+
+import { phoneHref, whatsappHref } from "@/lib/native-booking/phone-links";
 
 import { updateNativeBookingLeadStatusAction } from "./actions";
 
@@ -156,10 +158,15 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
 
               <div className="grid gap-2 text-sm">
                 {lead.phone ? (
-                  <a href={`tel:${lead.phone}`} className="flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] bg-muted/60 px-3 font-bold hover:bg-muted">
+                  <div className="flex flex-wrap gap-2">
+                    <a href={phoneHref(lead.phone) ?? undefined} aria-label={`Appeler ${[lead.firstName, lead.lastName].filter(Boolean).join(" ") || "ce prospect"}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted/60 px-3 font-bold hover:bg-muted">
                     <Phone className="size-4 shrink-0 text-accent" />
                     <span className="truncate">{lead.phone}</span>
-                  </a>
+                    </a>
+                    {whatsappHref(lead.phone, `Bonjour${lead.firstName ? ` ${lead.firstName}` : ""}, je reviens vers toi au sujet de ${lead.eventName}.`) && <a href={whatsappHref(lead.phone, `Bonjour${lead.firstName ? ` ${lead.firstName}` : ""}, je reviens vers toi au sujet de ${lead.eventName}.`) ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-state-healthy-bg px-3 text-sm font-bold text-state-healthy hover:underline">
+                      <MessageCircle className="size-4" /> WhatsApp
+                    </a>}
+                  </div>
                 ) : (
                   <span className="flex min-h-11 items-center rounded-[var(--radius-control)] bg-muted/60 px-3 text-muted-foreground">Téléphone non renseigné</span>
                 )}

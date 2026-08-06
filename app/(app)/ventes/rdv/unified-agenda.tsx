@@ -1,9 +1,11 @@
 "use client";
 
+import { MessageCircle, Phone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
+import { phoneHref, whatsappHref as buildWhatsAppHref } from "@/lib/native-booking/phone-links";
 
 import {
   cancelNativeBookingAction,
@@ -81,12 +83,10 @@ function initials(name: string) {
 
 function whatsappHref(appointment: Appointment, timeZone: string) {
   if (!appointment.phone) return null;
-  const phone = appointment.phone.replace(/\D/g, "");
-  if (!phone) return null;
   const firstName = appointment.prospectName.split(" ")[0] ?? appointment.prospectName;
   const date = `${formatDay(appointment.startAt, timeZone)} à ${formatTime(appointment.startAt, timeZone)}`;
   const message = `Bonjour ${firstName}, ton rendez-vous ${appointment.eventName} est prévu le ${date}.`;
-  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  return buildWhatsAppHref(appointment.phone, message);
 }
 
 function localDateToIso(value: string): string | null {
@@ -274,8 +274,9 @@ function AgendaView({ groups, timeZone, onOpen, onMove, onCancel }: { groups: Ar
 }
 
 function AppointmentRow({ appointment, timeZone, onOpen, onMove, onCancel }: { appointment: Appointment; timeZone: string; onOpen: (appointment: Appointment) => void; onMove: (appointment: Appointment) => void; onCancel: (appointment: Appointment) => void }) {
+  const call = phoneHref(appointment.phone);
   const whatsapp = whatsappHref(appointment, timeZone);
-  return <article className="grid gap-3 border-b border-border p-4 last:border-b-0 hover:bg-muted/30 sm:grid-cols-[84px_minmax(0,1fr)_170px_auto] sm:items-center sm:gap-4"><div><p className="font-mono text-sm font-bold">{formatTime(appointment.startAt, timeZone)}</p><p className="font-mono text-xs text-muted-foreground">{appointment.durationMinutes} min{appointment.durationEstimated ? " · estimé" : ""}</p></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-bold">{appointment.prospectName}</p><StatusBadge status={appointment.status} /></div><p className="truncate text-xs text-muted-foreground">{appointment.email || "Email non renseigné"}{appointment.phone ? ` · ${appointment.phone}` : ""}</p><span className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${SOURCE_STYLES[appointment.source]}`}>{appointment.sourceLabel}</span></div><div className="flex min-w-0 items-center gap-2"><span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-background">{initials(appointment.closerName)}</span><div className="min-w-0"><p className="truncate text-xs font-bold">{appointment.closerName}</p><p className="truncate text-[11px] text-muted-foreground">{appointment.eventName}</p></div></div><div className="flex flex-wrap items-center gap-2 sm:justify-end"><a aria-disabled={!whatsapp} tabIndex={whatsapp ? 0 : -1} href={whatsapp ?? undefined} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-11 items-center rounded-full px-3 text-xs font-bold ${whatsapp ? "bg-state-healthy-bg text-state-healthy hover:underline" : "pointer-events-none bg-muted text-muted-foreground opacity-40"}`}>WhatsApp</a><button type="button" onClick={() => onOpen(appointment)} className="min-h-11 rounded-full border border-border px-3 text-xs font-bold hover:bg-muted">Voir la fiche</button>{appointment.canManage && appointment.status === "confirmed" && <><button type="button" onClick={() => onMove(appointment)} className="min-h-11 rounded-full border border-border px-3 text-xs font-bold hover:bg-muted">Déplacer</button><button type="button" onClick={() => onCancel(appointment)} className="min-h-11 rounded-full border border-border px-3 text-xs font-bold text-state-critical hover:bg-state-critical-bg">Annuler</button></>}</div></article>;
+  return <article className="grid gap-3 border-b border-border p-4 last:border-b-0 hover:bg-muted/30 sm:grid-cols-[84px_minmax(0,1fr)_170px_auto] sm:items-center sm:gap-4"><div><p className="font-mono text-sm font-bold">{formatTime(appointment.startAt, timeZone)}</p><p className="font-mono text-xs text-muted-foreground">{appointment.durationMinutes} min{appointment.durationEstimated ? " · estimé" : ""}</p></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-bold">{appointment.prospectName}</p><StatusBadge status={appointment.status} /></div><p className="truncate text-xs text-muted-foreground">{appointment.email || "Email non renseigné"}{appointment.phone ? ` · ${appointment.phone}` : ""}</p><span className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${SOURCE_STYLES[appointment.source]}`}>{appointment.sourceLabel}</span></div><div className="flex min-w-0 items-center gap-2"><span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-background">{initials(appointment.closerName)}</span><div className="min-w-0"><p className="truncate text-xs font-bold">{appointment.closerName}</p><p className="truncate text-[11px] text-muted-foreground">{appointment.eventName}</p></div></div><div className="flex flex-wrap items-center gap-2 sm:justify-end">{call && <a href={call} aria-label={`Appeler ${appointment.prospectName}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-bold hover:bg-muted"><Phone className="size-3.5" /> Appeler</a>}{whatsapp && <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-state-healthy-bg px-3 text-xs font-bold text-state-healthy hover:underline"><MessageCircle className="size-3.5" /> WhatsApp</a>}<button type="button" onClick={() => onOpen(appointment)} className="min-h-11 rounded-full border border-border px-3 text-xs font-bold hover:bg-muted">Voir la fiche</button>{appointment.canManage && appointment.status === "confirmed" && <><button type="button" onClick={() => onMove(appointment)} className="min-h-11 rounded-full border border-border px-3 text-xs font-bold hover:bg-muted">Déplacer</button><button type="button" onClick={() => onCancel(appointment)} className="min-h-11 rounded-full border border-border px-3 text-xs font-bold text-state-critical hover:bg-state-critical-bg">Annuler</button></>}</div></article>;
 }
 
 function timeMinutes(value: string, timeZone: string): number {
