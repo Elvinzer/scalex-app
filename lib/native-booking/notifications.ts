@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingNotifications, nativeBookings, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
+import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { inngest, nativeBookingNotificationRequested } from "@/lib/inngest/client";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
 import { getAppUrl } from "@/lib/utils";
@@ -12,6 +13,7 @@ export type NativeBookingNotificationKind = "confirmation" | "cancellation" | "r
 type NotificationBooking = {
   booking: typeof nativeBookings.$inferSelect;
   event: typeof nativeBookingEvents.$inferSelect;
+  ownerHandle: string;
   closerEmail: string | null;
   closerName: string;
 };
@@ -46,6 +48,7 @@ async function loadNotificationBooking(bookingId: string): Promise<NotificationB
   return {
     booking: row.booking,
     event: row.event,
+    ownerHandle: await ensureAccountBookingHandle(row.event.userId),
     closerEmail: row.closer?.email ?? null,
     closerName: row.closer?.displayName || row.closer?.email || "ton closer",
   };
@@ -58,7 +61,7 @@ function getManagementUrl(details: NotificationBooking): string {
   const params = new URLSearchParams();
   if (rescheduleToken) params.set("manage", rescheduleToken);
   if (cancellationToken) params.set("cancel", cancellationToken);
-  return `${getAppUrl()}/book/${details.event.slug}?${params.toString()}`;
+  return `${getAppUrl()}/book/${details.ownerHandle}/${details.event.slug}?${params.toString()}`;
 }
 
 async function sendNotificationEmail(to: string, details: NotificationBooking, kind: NativeBookingNotificationKind, audience: NotificationAudience) {
@@ -69,7 +72,7 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
   const joinLine = event.meetingUrl ? `Lien pour rejoindre l'appel : ${event.meetingUrl}` : "";
   const management = getManagementUrl(details);
   const icsToken = booking.rescheduleTokenEncrypted ? decrypt(booking.rescheduleTokenEncrypted) : booking.cancellationTokenEncrypted ? decrypt(booking.cancellationTokenEncrypted) : "";
-  const ics = icsToken ? `${getAppUrl()}/api/public/booking/${event.slug}/ics?token=${encodeURIComponent(icsToken)}` : "";
+  const ics = icsToken ? `${getAppUrl()}/api/public/booking/${details.ownerHandle}/${event.slug}/ics?token=${encodeURIComponent(icsToken)}` : "";
   const greeting = audience === "prospect" ? `Bonjour ${booking.firstName},` : `Bonjour ${closerName},`;
   const audienceAction = audience === "prospect"
     ? [management ? `Gérer mon rendez-vous : ${management}` : "", ics ? `Ajouter à mon agenda : ${ics}` : ""]

@@ -63,26 +63,53 @@ export async function getNativeBookingEventDetail(accountId: string, eventId: st
   return { event, availability, exceptions, closers, links, questions, reminders };
 }
 
-export async function getPublicNativeBookingEvent(slug: string) {
-  const [event] = await db
-    .select()
+// Résolution publique namespacée : un event n'est servi que si le couple
+// (handle du compte propriétaire, slug de l'event) correspond ET que l'event est
+// actif. Le JOIN sur users.booking_handle supprime l'ancienne ambiguïté d'un
+// slug résolu seul (deux comptes pouvaient partager le même slug). Le handle du
+// propriétaire est renvoyé pour construire les liens namespacés côté client.
+export async function getPublicNativeBookingEvent(handle: string, slug: string) {
+  const [row] = await db
+    .select({ event: nativeBookingEvents })
     .from(nativeBookingEvents)
-    .where(and(eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
+    .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
+    .where(and(eq(users.bookingHandle, handle), eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
     .limit(1);
-  if (!event) return null;
+  if (!row) return null;
   const questions = await db
     .select()
     .from(nativeBookingQuestions)
-    .where(eq(nativeBookingQuestions.eventId, event.id))
+    .where(eq(nativeBookingQuestions.eventId, row.event.id))
     .orderBy(asc(nativeBookingQuestions.position));
-  return { ...event, questions };
+  return { ...row.event, handle, questions };
+}
+
+// Rétrocompat : un ancien lien /book/{slug} ne porte pas de handle. On retrouve
+// le compte propriétaire de l'event actif portant ce slug pour rediriger vers
+// l'URL canonique. En cas de collision résiduelle (plusieurs comptes, même slug
+// déjà diffusé), on loggue et on prend le premier — pas pire que l'ancien
+// comportement, et la fenêtre se referme dès que les liens namespacés prennent le relais.
+export async function resolveHandleForLegacySlug(slug: string): Promise<string | null> {
+  const rows = await db
+    .select({ handle: users.bookingHandle })
+    .from(nativeBookingEvents)
+    .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
+    .where(and(eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
+    .limit(2);
+  const handles = rows.map((row) => row.handle).filter((handle): handle is string => Boolean(handle));
+  if (handles.length === 0) return null;
+  if (handles.length > 1) {
+    console.warn("[native-booking] collision de slug legacy sur plusieurs comptes", { slug });
+  }
+  return handles[0];
 }
 
 export async function getPublicNativeBookingSlots(
+  handle: string,
   slug: string,
   options?: { fromDate?: string; days?: number; now?: Date; excludeBookingId?: string; closerUserId?: string | null }
 ): Promise<{ event: NonNullable<Awaited<ReturnType<typeof getPublicNativeBookingEvent>>>; slots: GeneratedBookingSlot[] } | null> {
-  const event = await getPublicNativeBookingEvent(slug);
+  const event = await getPublicNativeBookingEvent(handle, slug);
   if (!event) return null;
 
   const now = options?.now ?? new Date();

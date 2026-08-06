@@ -375,14 +375,19 @@ export async function rescheduleNativeBooking(
   return { ...transactionResult, ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}) };
 }
 
-async function findBookingByManagementToken(slug: string, token: string, kind: "cancel" | "reschedule") {
+// Résolution d'un lien de gestion namespacé : le token est déjà globalement
+// unique, mais on filtre aussi sur (handle, slug) pour honorer l'URL publique et
+// empêcher qu'un lien vers un compte cible un event d'un autre compte.
+async function findBookingByManagementToken(handle: string, slug: string, token: string, kind: "cancel" | "reschedule") {
   const tokenHash = hashBookingManagementToken(token);
   const [row] = await db
     .select({ booking: nativeBookings, event: nativeBookingEvents })
     .from(nativeBookings)
     .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
+    .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
     .where(
       and(
+        eq(users.bookingHandle, handle),
         eq(nativeBookingEvents.slug, slug),
         kind === "cancel" ? eq(nativeBookings.cancellationTokenHash, tokenHash) : eq(nativeBookings.rescheduleTokenHash, tokenHash),
         or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed"))
@@ -392,21 +397,21 @@ async function findBookingByManagementToken(slug: string, token: string, kind: "
   return row ?? null;
 }
 
-export async function getPublicNativeBookingRescheduleSlots(slug: string, token: string) {
-  const row = await findBookingByManagementToken(slug, token, "reschedule");
+export async function getPublicNativeBookingRescheduleSlots(handle: string, slug: string, token: string) {
+  const row = await findBookingByManagementToken(handle, slug, token, "reschedule");
   if (!row) return null;
-  const slots = await getPublicNativeBookingSlots(slug, { days: 14, excludeBookingId: row.booking.id, closerUserId: row.booking.closerUserId });
+  const slots = await getPublicNativeBookingSlots(handle, slug, { days: 14, excludeBookingId: row.booking.id, closerUserId: row.booking.closerUserId });
   return slots;
 }
 
-export async function cancelNativeBookingByToken(slug: string, token: string) {
-  const row = await findBookingByManagementToken(slug, token, "cancel");
+export async function cancelNativeBookingByToken(handle: string, slug: string, token: string) {
+  const row = await findBookingByManagementToken(handle, slug, token, "cancel");
   if (!row) return { error: "not_found" as const };
   return cancelNativeBooking(row.booking.id);
 }
 
-export async function rescheduleNativeBookingByToken(slug: string, token: string, requestedStartAt: Date) {
-  const row = await findBookingByManagementToken(slug, token, "reschedule");
+export async function rescheduleNativeBookingByToken(handle: string, slug: string, token: string, requestedStartAt: Date) {
+  const row = await findBookingByManagementToken(handle, slug, token, "reschedule");
   if (!row) return { error: "not_found" as const };
   return rescheduleNativeBooking(row.booking.id, requestedStartAt);
 }

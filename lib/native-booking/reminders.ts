@@ -3,6 +3,7 @@ import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingReminderDeliveries, nativeBookingReminderRules, nativeBookings, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
+import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { inngest, nativeBookingReminderRequested } from "@/lib/inngest/client";
 import { getAppUrl } from "@/lib/utils";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
@@ -24,11 +25,11 @@ function formatReminderContext(startAt: Date, endAt: Date, timeZone: string): Pi
   };
 }
 
-function managementUrl(eventSlug: string, rescheduleTokenEncrypted: string | null, cancellationTokenEncrypted: string | null): string {
+function managementUrl(handle: string, eventSlug: string, rescheduleTokenEncrypted: string | null, cancellationTokenEncrypted: string | null): string {
   const params = new URLSearchParams();
   if (rescheduleTokenEncrypted) params.set("manage", decrypt(rescheduleTokenEncrypted));
   if (cancellationTokenEncrypted) params.set("cancel", decrypt(cancellationTokenEncrypted));
-  return params.size > 0 ? `${getAppUrl()}/book/${eventSlug}?${params.toString()}` : "";
+  return params.size > 0 ? `${getAppUrl()}/book/${handle}/${eventSlug}?${params.toString()}` : "";
 }
 
 function renderReminderMessage(template: string, context: ReminderContext): string {
@@ -169,6 +170,7 @@ async function claimReminder(deliveryId: string) {
 export async function deliverNativeBookingReminder(deliveryId: string) {
   const row = await claimReminder(deliveryId);
   if (!row) return "skipped" as const;
+  const ownerHandle = await ensureAccountBookingHandle(row.event.userId);
   const contextDate = formatReminderContext(row.booking.startAt, row.booking.endAt, row.booking.eventTimeZone);
   const context: ReminderContext = {
     firstName: row.booking.firstName,
@@ -177,7 +179,7 @@ export async function deliverNativeBookingReminder(deliveryId: string) {
     time: contextDate.time,
     timeZone: row.booking.eventTimeZone,
     meetingUrl: row.event.meetingUrl ?? "",
-    managementUrl: managementUrl(row.event.slug, row.booking.rescheduleTokenEncrypted, row.booking.cancellationTokenEncrypted),
+    managementUrl: managementUrl(ownerHandle, row.event.slug, row.booking.rescheduleTokenEncrypted, row.booking.cancellationTokenEncrypted),
   };
 
   try {

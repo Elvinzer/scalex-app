@@ -101,13 +101,14 @@ function closerIsBusy(
   });
 }
 
-async function createNativeBookingInternal(slug: string, request: PublicBookingRequest, mode: BookingMode): Promise<InternalBookingResult> {
+async function createNativeBookingInternal(handle: string, slug: string, request: PublicBookingRequest, mode: BookingMode): Promise<InternalBookingResult> {
   const event = await db
-    .select()
+    .select({ event: nativeBookingEvents })
     .from(nativeBookingEvents)
-    .where(and(eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
+    .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
+    .where(and(eq(users.bookingHandle, handle), eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
     .limit(1);
-  const [eventRow] = event;
+  const eventRow = event[0]?.event;
   if (!eventRow) return { error: "not_found" };
 
   const questions = await db
@@ -477,10 +478,11 @@ async function createNativeBookingInternal(slug: string, request: PublicBookingR
 }
 
 export async function createNativeBooking(
+  handle: string,
   slug: string,
   request: PublicBookingRequest
 ): Promise<NativeBookingResult | NativeBookingError> {
-  const result = await createNativeBookingInternal(slug, request, "confirm");
+  const result = await createNativeBookingInternal(handle, slug, request, "confirm");
   if ("error" in result) return result;
   if (!result.callId) return { error: "invalid" };
   return {
@@ -499,10 +501,11 @@ export async function createNativeBooking(
 }
 
 export async function createNativeBookingHold(
+  handle: string,
   slug: string,
   request: PublicBookingRequest
 ): Promise<NativeBookingHoldResult | NativeBookingError> {
-  const result = await createNativeBookingInternal(slug, request, "hold");
+  const result = await createNativeBookingInternal(handle, slug, request, "hold");
   if ("error" in result) return result;
   return {
     holdId: result.bookingId,

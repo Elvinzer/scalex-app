@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { listNativeBookingLeads } from "@/lib/native-booking/leads";
 import { listUnifiedAgendaAppointments } from "@/lib/native-booking/agenda";
 import { listNativeBookingEvents } from "@/lib/native-booking/queries";
+import { getAccountBookingHandle } from "@/lib/native-booking/handle";
 import { agendaFiltersSchema } from "@/lib/native-booking/validation";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -65,7 +66,7 @@ export default async function NativeBookingEventsPage({
               : null;
   const calendarConnected = params.calendar === "connected";
 
-  const [events, entitlements, usage, leads, agendaAppointments] = await Promise.all([
+  const [events, entitlements, usage, leads, agendaAppointments, bookingHandle] = await Promise.all([
     listNativeBookingEvents(accountId),
     getNativeBookingEntitlements(accountId),
     getNativeBookingUsage(accountId),
@@ -77,7 +78,11 @@ export default async function NativeBookingEventsPage({
       closerIds: filters.closerIds,
       statuses: filters.status,
     }),
+    getAccountBookingHandle(accountId),
   ]);
+  // Un compte avec au moins un event a forcément un handle (posé à la création
+  // du 1er event, backfillé pour l'existant) ; ce fallback ne sert que de garde-fou.
+  const publicHandle = bookingHandle ?? "";
 
   const leadViews = leads.map(({ lead, event }) => ({
     id: lead.id,
@@ -200,7 +205,7 @@ export default async function NativeBookingEventsPage({
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className="truncate text-lg font-bold">{event.name}</p>
-                        <p className="mt-1 truncate font-mono text-xs text-muted-foreground">/book/{event.slug}</p>
+                        <p className="mt-1 truncate font-mono text-xs text-muted-foreground">/book/{publicHandle}/{event.slug}</p>
                       </div>
                       <EventStatusButton eventId={event.id} status={event.status} />
                     </div>
@@ -224,11 +229,11 @@ export default async function NativeBookingEventsPage({
                         </Link>
                       </Button>
                       <Button asChild size="sm" variant="outline">
-                        <a href={`/book/${event.slug}`} target="_blank" rel="noreferrer">
+                        <a href={`/book/${publicHandle}/${event.slug}`} target="_blank" rel="noreferrer">
                           Voir la page <ExternalLink className="size-3.5" />
                         </a>
                       </Button>
-                      <CopyLinkButton url={`/book/${event.slug}`} compact />
+                      <CopyLinkButton url={`/book/${publicHandle}/${event.slug}`} compact />
                     </div>
                   </article>
                 ))}

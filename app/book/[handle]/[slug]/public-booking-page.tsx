@@ -15,6 +15,7 @@ type Question = {
 };
 
 type PublicEvent = {
+  handle: string;
   slug: string;
   name: string;
   description: string;
@@ -180,7 +181,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     if (manageToken) {
       setManagementMode("loading");
       setIsManaging(true);
-      void fetch(`/api/public/booking/${event.slug}?${params.get("manage") ? `manage=${encodeURIComponent(params.get("manage") ?? "")}` : `cancel=${encodeURIComponent(params.get("cancel") ?? "")}`}`)
+      void fetch(`/api/public/booking/${event.handle}/${event.slug}?${params.get("manage") ? `manage=${encodeURIComponent(params.get("manage") ?? "")}` : `cancel=${encodeURIComponent(params.get("cancel") ?? "")}`}`)
         .then(async (response) => {
           const payload = await response.json();
           if (!response.ok || !payload.booking) throw new Error(payload.error ?? "Lien invalide");
@@ -233,7 +234,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     } catch {
       window.sessionStorage.removeItem(getDraftKey(event.slug));
     }
-  }, [event.slug, event.timeZone]);
+  }, [event.handle, event.slug, event.timeZone]);
 
   useEffect(() => {
     window.sessionStorage.setItem(
@@ -327,7 +328,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     }
     setIsPending(true);
     try {
-      const response = await fetch(`/api/public/booking/${event.slug}`, {
+      const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "validate-phone", phone: phoneValue }),
@@ -351,7 +352,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
 
   async function captureIdentity(contactOverride: Partial<Contact> = {}): Promise<string | null> {
     const payload = { ...buildContactPayload(), ...contactOverride };
-    const response = await fetch(`/api/public/booking/${event.slug}`, {
+    const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ mode: "capture", ...payload, guestTimeZone, ...metadata() }),
@@ -411,7 +412,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       const createdLeadId = leadId ?? await captureIdentity();
       if (!createdLeadId) return;
       const payload = buildContactPayload();
-      const response = await fetch(`/api/public/booking/${event.slug}`, {
+      const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "unlock", ...payload, answers, guestTimeZone, ...metadata() }),
@@ -436,7 +437,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   async function touchLead(lastStep: "slot_selected" | "booking_failed", slot: Slot | null) {
     if (!leadId) return;
     try {
-      await fetch(`/api/public/booking/${event.slug}`, {
+      await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "touch", ...buildContactPayload(), answers, guestTimeZone, leadId, lastStep, startAt: slot?.startAt ?? null }),
@@ -454,7 +455,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     const idempotencyKey = bookingKey || crypto.randomUUID();
     setBookingKey(idempotencyKey);
     try {
-      const response = await fetch(`/api/public/booking/${event.slug}`, {
+      const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "hold", ...buildContactPayload(), answers, guestTimeZone, startAt: slot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId }),
@@ -483,7 +484,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     setError(null);
     setIsPending(true);
     try {
-      const response = await fetch(`/api/public/booking/${event.slug}`, {
+      const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "book", ...buildContactPayload(), answers, guestTimeZone, startAt: selectedSlot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId }),
@@ -510,7 +511,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     setManageMessage(null);
     setIsManaging(true);
     try {
-      const response = await fetch(`/api/public/booking/${event.slug}`, {
+      const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "reschedule-slots", token: confirmation.rescheduleToken }),
@@ -534,7 +535,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     setManageMessage(null);
     setIsManaging(true);
     try {
-      const response = await fetch(`/api/public/booking/${event.slug}`, {
+      const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "cancel", token: confirmation.cancellationToken }),
@@ -561,7 +562,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     setManageMessage(null);
     setIsManaging(true);
     try {
-      const response = await fetch(`/api/public/booking/${event.slug}`, {
+      const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode: "reschedule", token: confirmation.rescheduleToken, startAt: manageSlot.startAt }),
@@ -584,7 +585,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   }
 
   if (confirmation) {
-    const icsHref = confirmation.rescheduleToken ? `/api/public/booking/${event.slug}/ics?token=${encodeURIComponent(confirmation.rescheduleToken)}` : null;
+    const icsHref = confirmation.rescheduleToken ? `/api/public/booking/${event.handle}/${event.slug}/ics?token=${encodeURIComponent(confirmation.rescheduleToken)}` : null;
     return (
       <main className="public-booking-page min-h-screen bg-canvas px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto flex max-w-3xl flex-col gap-6">

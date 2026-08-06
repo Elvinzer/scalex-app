@@ -1,46 +1,39 @@
-import { CalendarX2 } from "lucide-react";
+import type { Metadata } from "next";
+import { permanentRedirect, notFound } from "next/navigation";
 
-import { getPublicNativeBookingEvent } from "@/lib/native-booking/queries";
+import { resolveHandleForLegacySlug } from "@/lib/native-booking/queries";
 
-import { PublicBookingPage } from "./public-booking-page";
+// Rétrocompat : les anciens liens /book/{slug} (déjà diffusés en e-mail/rappels)
+// redirigent en 301 vers l'URL canonique namespacée /book/{handle}/{slug}, en
+// préservant les paramètres de gestion/annulation/UTM.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
-export default async function PublicBookingRoute({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const event = await getPublicNativeBookingEvent(slug);
+type SearchParams = Record<string, string | string[] | undefined>;
 
-  if (!event) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
-        <div className="sticker-card flex max-w-md flex-col items-center gap-4 p-8 text-center">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-            <CalendarX2 className="size-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold">Cette page n&apos;est pas disponible</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Le lien est peut-être en pause ou n&apos;est plus actif.</p>
-          </div>
-        </div>
-      </main>
-    );
+function buildQueryString(searchParams: SearchParams): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, item);
+    } else if (value !== undefined) {
+      params.set(key, value);
+    }
   }
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
 
-  return (
-    <PublicBookingPage
-      event={{
-        slug: event.slug,
-        name: event.name,
-        description: event.description,
-        durationMinutes: event.durationMinutes,
-        timeZone: event.timeZone,
-        meetingLabel: event.meetingLabel,
-        meetingUrl: event.meetingUrl,
-        publicHeading: event.publicHeading,
-        publicDescription: event.publicDescription,
-        confirmationTitle: event.confirmationTitle,
-        confirmationMessage: event.confirmationMessage,
-        bookingInstructions: event.bookingInstructions,
-        questions: event.questions,
-      }}
-    />
-  );
+export default async function LegacyPublicBookingRoute({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<SearchParams>;
+}) {
+  const [{ slug }, resolvedSearchParams] = await Promise.all([params, searchParams]);
+  const handle = await resolveHandleForLegacySlug(slug);
+  if (!handle) notFound();
+  permanentRedirect(`/book/${handle}/${slug}${buildQueryString(resolvedSearchParams)}`);
 }

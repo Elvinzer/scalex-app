@@ -9,6 +9,7 @@ import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEven
 import { canCreateNativeBookingEvent, getNativeBookingEntitlements } from "@/lib/billing/plan-gate";
 import { requireUserId } from "@/lib/current-user";
 import { getNativeBookingEvent, getNativeBookingEventDetail } from "@/lib/native-booking/queries";
+import { bookingHandleSchema, ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { retryNativeBookingCalendarSync } from "@/lib/native-booking/booking";
 import { cancelNativeBooking, rescheduleNativeBooking } from "@/lib/native-booking/mutations";
 import { availabilitySchema, exceptionSchema, nativeBookingEventInputSchema } from "@/lib/native-booking/validation";
@@ -81,6 +82,10 @@ export async function createNativeBookingEventAction(input: unknown): Promise<Ac
     .limit(1);
   if (existingSlug) return { error: "Ce lien public existe déjà. Choisis un autre slug." };
 
+  // Génération paresseuse du handle de compte : le premier event de booking d'un
+  // compte lui attribue son handle public (/book/{handle}/{slug}). Idempotent.
+  await ensureAccountBookingHandle(access.accountId);
+
   try {
     const created = await db.transaction(async (tx) => {
       const { questions, reminders, ...eventValues } = parsed.data;
@@ -132,6 +137,32 @@ export async function createNativeBookingEventAction(input: unknown): Promise<Ac
     console.error("[native-booking] create event", error);
     return { error: "Impossible de créer l’événement pour le moment." };
   }
+}
+
+export async function updateBookingHandleAction(input: unknown): Promise<ActionResult> {
+  const access = await getBookingAccess();
+  if (isActionError(access)) return access;
+  const parsed = z.object({ handle: bookingHandleSchema }).safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Lien invalide." };
+
+  try {
+    const [updated] = await db
+      .update(users)
+      .set({ bookingHandle: parsed.data.handle })
+      .where(eq(users.id, access.accountId))
+      .returning({ bookingHandle: users.bookingHandle });
+    if (!updated) return { error: "Compte introuvable." };
+  } catch (error) {
+    // 23505 = unique_violation : le handle est déjà pris par un autre compte.
+    if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "23505") {
+      return { error: "Ce lien est déjà utilisé par un autre compte. Choisis-en un autre." };
+    }
+    console.error("[native-booking] update handle", error);
+    return { error: "Impossible de modifier le lien pour le moment." };
+  }
+
+  revalidatePath("/ventes/rdv");
+  return { error: null };
 }
 
 export async function updateNativeBookingEventAction(eventId: string, input: unknown): Promise<ActionResult> {

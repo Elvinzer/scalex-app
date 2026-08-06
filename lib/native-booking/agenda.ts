@@ -184,6 +184,8 @@ export async function getNativeBookingRescheduleSlotsForAccount(accountId: strin
     .limit(1);
   if (!row || !row.booking.closerUserId) return null;
   const { getPublicNativeBookingSlots } = await import("./queries");
-  const slots = await getPublicNativeBookingSlots(row.event.slug, { days: 30, excludeBookingId: bookingId, closerUserId: row.booking.closerUserId });
+  const { ensureAccountBookingHandle } = await import("./handle");
+  const handle = await ensureAccountBookingHandle(accountId);
+  const slots = await getPublicNativeBookingSlots(handle, row.event.slug, { days: 30, excludeBookingId: bookingId, closerUserId: row.booking.closerUserId });
   return slots?.slots ?? [];
 }

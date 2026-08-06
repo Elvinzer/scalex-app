@@ -136,7 +136,18 @@ export const users = pgTable("users", {
   // components/falco/falco-context.tsx's useFalcoAnimationsEnabled, which
   // combines both signals.
   reduceFalcoAnimations: boolean("reduce_falco_animations").notNull().default(false),
-}).enableRLS();
+  // Handle public URL-safe qui namespace les liens de réservation natifs
+  // (/book/{handle}/{slug}). Unique globalement (index partiel ci-dessous —
+  // NULL autorisés pour les comptes sans event de booking). Généré paresseusement
+  // à la création du premier event de booking et backfillé pour l'existant, voir
+  // lib/native-booking/handle.ts. Distinct de businessName (texte libre, éditable
+  // pour d'autres raisons, non URL-safe).
+  bookingHandle: text("booking_handle"),
+}, (table) => [
+  uniqueIndex("users_booking_handle_idx")
+    .on(table.bookingHandle)
+    .where(sql`booking_handle is not null`),
+]).enableRLS();
 
 export const stripeConnections = pgTable("stripe_connections", {
   id: uuid("id").primaryKey().defaultRandom(),

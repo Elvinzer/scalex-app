@@ -8,12 +8,14 @@ import { nativeCalendarConnections, teamMembers, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/current-user";
 import { listCalendarsForConnection } from "@/lib/native-booking/calendar";
 import { getNativeBookingEventDetail } from "@/lib/native-booking/queries";
+import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { generateBookingSlots } from "@/lib/native-booking/slots";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { and, eq, or } from "drizzle-orm";
 
 import { EventStatusButton } from "../event-status-button";
 import { CopyLinkButton } from "../copy-link-button";
+import { BookingHandleEditor } from "./booking-handle-editor";
 import { EventEditor } from "./event-editor";
 
 export default async function NativeBookingEventPage({ params }: { params: Promise<{ eventId: string }> }) {
@@ -72,7 +74,8 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
     calendarsByCloser.set(row.closerUserId, rows);
   }
 
-  const publicUrl = `/book/${detail.event.slug}`;
+  const bookingHandle = await ensureAccountBookingHandle(accountId);
+  const publicUrl = `/book/${bookingHandle}/${detail.event.slug}`;
   const isReady = detail.availability.length > 0 && detail.closers.some(({ assignment }) => assignment.isActive && !assignment.isOff);
   const previewSlots = generateBookingSlots({
     event: detail.event,
@@ -109,6 +112,8 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
           </details>
         </div>
       </div>
+
+      <BookingHandleEditor initialHandle={bookingHandle} />
 
       <header className="flex flex-wrap items-start justify-between gap-5">
         <div>
