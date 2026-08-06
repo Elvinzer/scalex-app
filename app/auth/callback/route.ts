@@ -6,21 +6,41 @@ import { users } from "@/db/schema";
 import { ensureUserRow } from "@/lib/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountContext } from "@/lib/team/context";
+import { z } from "zod";
+
+const authCallbackQuerySchema = z.object({
+  code: z.string().trim().min(1).max(1024).optional(),
+  invite: z.string().trim().min(1).max(256).optional(),
+  error: z.string().trim().min(1).max(128).optional(),
+});
+
+function redirectToSignIn(request: Request) {
+  const signInUrl = new URL("/sign-in", request.url);
+  signInUrl.searchParams.set("error", "auth_callback");
+  return NextResponse.redirect(signInUrl);
+}
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
-  const inviteToken = searchParams.get("invite");
+  const requestUrl = new URL(request.url);
+  const parsedQuery = authCallbackQuerySchema.safeParse(Object.fromEntries(requestUrl.searchParams.entries()));
+  if (!parsedQuery.success || parsedQuery.data.error || !parsedQuery.data.code) {
+    return redirectToSignIn(request);
+  }
+
+  const { code, invite: inviteToken } = parsedQuery.data;
 
   const supabase = await createClient();
-  if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+  try {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) return redirectToSignIn(request);
+  } catch {
+    return redirectToSignIn(request);
   }
 
   // A team member accepting an invite never goes through the
   // business-owner onboarding wizard — see app/invite/[token]/page.tsx.
   if (inviteToken) {
-    return NextResponse.redirect(`${origin}/invite/${inviteToken}`);
+    return NextResponse.redirect(new URL(`/invite/${encodeURIComponent(inviteToken)}`, requestUrl.origin));
   }
 
   // Checked directly here instead of always routing through /onboarding
@@ -45,5 +65,5 @@ export async function GET(request: Request) {
     destination = user?.onboardingCompleted ? "/dashboard" : "/onboarding";
   }
 
-  return NextResponse.redirect(`${origin}${destination}`);
+  return NextResponse.redirect(new URL(destination, requestUrl.origin));
 }

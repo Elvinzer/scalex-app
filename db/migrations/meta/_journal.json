@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786003010510,
+      "tag": "0000_native_booking_scheduler_followup",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786004850383,
+      "tag": "0001_native_booking_closer_rls",
+      "breakpoints": true
+    }
+  ]
+}

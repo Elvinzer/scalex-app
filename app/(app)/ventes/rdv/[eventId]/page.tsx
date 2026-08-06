@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { nativeCalendarConnections, teamMembers, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/current-user";
+import { listCalendarsForConnection } from "@/lib/native-booking/calendar";
 import { getNativeBookingEventDetail } from "@/lib/native-booking/queries";
+import { generateBookingSlots } from "@/lib/native-booking/slots";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { and, eq, or } from "drizzle-orm";
 
@@ -33,16 +35,38 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
 
   const calendarRows = await db
     .select({
+      connectionId: nativeCalendarConnections.id,
       closerUserId: nativeCalendarConnections.closerUserId,
       provider: nativeCalendarConnections.provider,
       email: nativeCalendarConnections.providerAccountEmail,
       status: nativeCalendarConnections.status,
+      selectedCalendarIds: nativeCalendarConnections.selectedCalendarIds,
     })
     .from(nativeCalendarConnections)
     .where(eq(nativeCalendarConnections.userId, accountId));
 
-  const calendarsByCloser = new Map<string, typeof calendarRows>();
-  for (const row of calendarRows) {
+  const calendarRowsWithOptions = await Promise.all(
+    calendarRows.map(async (row) => {
+      let options: Array<{ id: string; name: string; isPrimary: boolean }> = [];
+      let loadError = false;
+      if (row.status === "connected") {
+        try {
+          const [connection] = await db
+            .select()
+            .from(nativeCalendarConnections)
+            .where(eq(nativeCalendarConnections.id, row.connectionId))
+            .limit(1);
+          if (connection) options = await listCalendarsForConnection(connection);
+        } catch {
+          loadError = true;
+        }
+      }
+      return { ...row, options, loadError };
+    })
+  );
+
+  const calendarsByCloser = new Map<string, typeof calendarRowsWithOptions>();
+  for (const row of calendarRowsWithOptions) {
     const rows = calendarsByCloser.get(row.closerUserId) ?? [];
     rows.push(row);
     calendarsByCloser.set(row.closerUserId, rows);
@@ -50,6 +74,13 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
 
   const publicUrl = `/book/${detail.event.slug}`;
   const isReady = detail.availability.length > 0 && detail.closers.some(({ assignment }) => assignment.isActive && !assignment.isOff);
+  const previewSlots = generateBookingSlots({
+    event: detail.event,
+    availability: detail.availability,
+    exceptions: detail.exceptions,
+    bookings: [],
+    days: 14,
+  }).slice(0, 6).map((slot) => slot.startAt.toISOString());
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,12 +134,21 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
           email: user.email,
           isOff: assignment.isOff,
           isActive: assignment.isActive,
-          calendars: calendarsByCloser.get(assignment.closerUserId) ?? [],
+          calendars: (calendarsByCloser.get(assignment.closerUserId) ?? []).map((calendar) => ({
+            connectionId: calendar.connectionId,
+            provider: calendar.provider,
+            email: calendar.email,
+            status: calendar.status,
+            selectedCalendarIds: calendar.selectedCalendarIds,
+            options: calendar.options,
+            loadError: calendar.loadError,
+          })),
         }))}
         candidates={candidates}
         currentUserId={userId}
         links={detail.links}
         publicUrl={publicUrl}
+        previewSlots={previewSlots}
       />
     </div>
   );

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   title: "Sign in to Scale X",
 };
 
-export default async function SignInPage() {
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   // Un utilisateur déjà connecté qui atterrit sur /sign-in (session encore
   // valide) ne doit pas revoir le formulaire : on le renvoie directement dans
   // l'app. Même résolution de destination que app/auth/callback/route.ts.
@@ -42,7 +42,7 @@ export default async function SignInPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-8 px-6 py-16">
-      <SignInForm />
+      <SignInForm authCallbackError={(await searchParams).error === "auth_callback"} />
     </div>
   );
 }

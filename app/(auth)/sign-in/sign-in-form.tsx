@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
-export function SignInForm() {
+export function SignInForm({ authCallbackError = false }: { authCallbackError?: boolean }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
 
@@ -19,7 +19,7 @@ export function SignInForm() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
@@ -55,6 +55,12 @@ export function SignInForm() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold">Sign in to Scale X</h1>
+
+      {authCallbackError && status === "idle" && (
+        <p className="rounded-lg border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm text-state-critical">
+          That sign-in link is invalid or expired. Request a new one below.
+        </p>
+      )}
 
       <Button
         type="button"

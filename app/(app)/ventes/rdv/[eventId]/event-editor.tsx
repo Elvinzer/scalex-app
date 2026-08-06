@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck2, ExternalLink } from "lucide-react";
+import { CalendarCheck2, ExternalLink, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { NativeBookingWindow } from "@/db/schema";
@@ -10,8 +10,12 @@ import type { NativeBookingWindow } from "@/db/schema";
 import {
   addNativeBookingCloserAction,
   createNativeBookingLinkAction,
+  deleteNativeBookingExceptionAction,
+  disconnectNativeBookingCalendarAction,
   saveNativeBookingAvailabilityAction,
   saveNativeBookingExceptionAction,
+  saveNativeCalendarSelectionAction,
+  toggleNativeBookingLinkAction,
   toggleNativeBookingCloserOffAction,
   updateNativeBookingEventAction,
 } from "../actions";
@@ -36,8 +40,18 @@ type EventData = {
 };
 
 type AvailabilityRow = { weekday: number; startTime: string; endTime: string };
-type DayDraft = { enabled: boolean; startTime: string; endTime: string };
-type CalendarSummary = { provider: "google" | "outlook"; email: string | null; status: "connected" | "reconnect_required" | "revoked" };
+type TimeWindowDraft = { startTime: string; endTime: string };
+type DayDraft = { enabled: boolean; windows: TimeWindowDraft[] };
+type CalendarOption = { id: string; name: string; isPrimary: boolean };
+type CalendarSummary = {
+  connectionId: string;
+  provider: "google" | "outlook";
+  email: string | null;
+  status: "connected" | "reconnect_required" | "revoked";
+  selectedCalendarIds: string[];
+  options: CalendarOption[];
+  loadError: boolean;
+};
 type BookingLinkSummary = {
   id: string;
   label: string;
@@ -64,10 +78,26 @@ const WEEKDAYS = [
 function initialDays(rows: AvailabilityRow[]): Record<number, DayDraft> {
   const result: Record<number, DayDraft> = {};
   for (const [weekday] of WEEKDAYS) {
-    const row = rows.find((item) => item.weekday === weekday);
-    result[weekday] = { enabled: Boolean(row), startTime: row?.startTime ?? "09:00", endTime: row?.endTime ?? "17:00" };
+    const windows = rows
+      .filter((item) => item.weekday === weekday)
+      .map(({ startTime, endTime }) => ({ startTime, endTime }));
+    result[weekday] = {
+      enabled: windows.length > 0,
+      windows: windows.length > 0 ? windows : [{ startTime: "09:00", endTime: "17:00" }],
+    };
   }
   return result;
+}
+
+function formatPreviewSlot(value: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  }).format(new Date(value));
 }
 
 export function EventEditor({
@@ -79,6 +109,7 @@ export function EventEditor({
   currentUserId,
   links,
   publicUrl,
+  previewSlots,
 }: {
   event: EventData;
   availability: AvailabilityRow[];
@@ -88,6 +119,7 @@ export function EventEditor({
   currentUserId: string;
   links: BookingLinkSummary[];
   publicUrl: string;
+  previewSlots: string[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -95,9 +127,18 @@ export function EventEditor({
   const [saved, setSaved] = useState<string | null>(null);
   const [days, setDays] = useState(() => initialDays(availability));
   const [exceptionDate, setExceptionDate] = useState("");
+  const [exceptionType, setExceptionType] = useState<"closed" | "custom">("closed");
+  const [exceptionWindows, setExceptionWindows] = useState<TimeWindowDraft[]>([{ startTime: "09:00", endTime: "17:00" }]);
   const [exceptionReason, setExceptionReason] = useState("");
   const [selectedCloser, setSelectedCloser] = useState(candidates[0]?.id ?? "");
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  const [calendarSelections, setCalendarSelections] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(
+      closers.flatMap((closer) =>
+        closer.calendars.map((calendar) => [`${closer.id}:${calendar.provider}`, calendar.selectedCalendarIds])
+      )
+    )
+  );
 
   const assignedIds = useMemo(() => new Set(closers.map((closer) => closer.id)), [closers]);
   const availableCandidates = candidates.filter((candidate) => !assignedIds.has(candidate.id));
@@ -146,7 +187,7 @@ export function EventEditor({
           eventId: event.id,
           availability: WEEKDAYS.map(([weekday]) => ({
             weekday,
-            windows: days[weekday].enabled ? [{ startTime: days[weekday].startTime, endTime: days[weekday].endTime }] : [],
+            windows: days[weekday].enabled ? days[weekday].windows : [],
           })),
         }),
       "Disponibilités enregistrées."
@@ -162,12 +203,26 @@ export function EventEditor({
       () =>
         saveNativeBookingExceptionAction({
           eventId: event.id,
-          exception: { date: exceptionDate, type: "closed", windows: [], reason: exceptionReason.trim() || null },
+          exception: {
+            date: exceptionDate,
+            type: exceptionType,
+            windows: exceptionType === "custom" ? exceptionWindows : [],
+            reason: exceptionReason.trim() || null,
+          },
         }),
       "Exception ajoutée."
     );
     setExceptionDate("");
+    setExceptionType("closed");
+    setExceptionWindows([{ startTime: "09:00", endTime: "17:00" }]);
     setExceptionReason("");
+  }
+
+  function deleteException(date: string) {
+    run(
+      () => deleteNativeBookingExceptionAction({ eventId: event.id, date }),
+      "Exception supprimée."
+    );
   }
 
   function createLink(form: FormData) {
@@ -201,6 +256,36 @@ export function EventEditor({
     await navigator.clipboard.writeText(`${window.location.origin}${publicUrl}?${params.toString()}`);
     setCopiedLinkId(link.id);
     window.setTimeout(() => setCopiedLinkId(null), 1800);
+  }
+
+  function toggleLink(link: BookingLinkSummary) {
+    run(
+      () => toggleNativeBookingLinkAction({ eventId: event.id, linkId: link.id, isActive: !link.isActive }),
+      link.isActive ? "Lien désactivé." : "Lien réactivé."
+    );
+  }
+
+  function updateCalendarSelection(calendar: CalendarSummary, closerId: string, option: CalendarOption, checked: boolean) {
+    const key = `${closerId}:${calendar.provider}`;
+    setCalendarSelections((current) => {
+      const selected = current[key] ?? calendar.selectedCalendarIds;
+      const aliases = option.isPrimary ? [option.id, "primary"] : [option.id];
+      const withoutOption = selected.filter((id) => !aliases.includes(id));
+      return { ...current, [key]: checked ? [...withoutOption, option.id] : withoutOption };
+    });
+  }
+
+  function saveCalendarSelection(calendar: CalendarSummary, closerId: string) {
+    const key = `${closerId}:${calendar.provider}`;
+    const selected = calendarSelections[key] ?? calendar.selectedCalendarIds;
+    if (selected.length === 0) {
+      setError("Sélectionne au moins un calendrier.");
+      return;
+    }
+    run(
+      () => saveNativeCalendarSelectionAction({ eventId: event.id, connectionId: calendar.connectionId, selectedCalendarIds: selected }),
+      "Calendriers pris en compte enregistrés."
+    );
   }
 
   return (
@@ -279,8 +364,8 @@ export function EventEditor({
           </div>
           <div className="flex flex-col divide-y divide-border">
             {WEEKDAYS.map(([weekday, label]) => (
-              <div key={weekday} className="grid gap-3 py-3 sm:grid-cols-[minmax(120px,1fr)_auto_auto] sm:items-center">
-                <label className="flex items-center gap-2 text-sm font-bold">
+              <div key={weekday} className="grid gap-3 py-3 sm:grid-cols-[minmax(120px,160px)_minmax(0,1fr)] sm:items-start">
+                <label className="flex items-center gap-2 pt-2 text-sm font-bold">
                   <input
                     type="checkbox"
                     checked={days[weekday].enabled}
@@ -288,41 +373,175 @@ export function EventEditor({
                   />
                   {label}
                 </label>
-                <input
-                  aria-label={`${label} début`}
-                  type="time"
-                  value={days[weekday].startTime}
-                  disabled={!days[weekday].enabled}
-                  onChange={(input) => setDays((current) => ({ ...current, [weekday]: { ...current[weekday], startTime: input.target.value } }))}
-                  className="booking-admin-input sm:w-32"
-                />
-                <input
-                  aria-label={`${label} fin`}
-                  type="time"
-                  value={days[weekday].endTime}
-                  disabled={!days[weekday].enabled}
-                  onChange={(input) => setDays((current) => ({ ...current, [weekday]: { ...current[weekday], endTime: input.target.value } }))}
-                  className="booking-admin-input sm:w-32"
-                />
+                <div className="flex flex-col gap-2">
+                  {days[weekday].windows.map((window, windowIndex) => (
+                    <div key={`${weekday}-${windowIndex}`} className="flex flex-wrap items-center gap-2">
+                      <input
+                        aria-label={`${label} plage ${windowIndex + 1} début`}
+                        type="time"
+                        value={window.startTime}
+                        disabled={!days[weekday].enabled}
+                        onChange={(input) =>
+                          setDays((current) => ({
+                            ...current,
+                            [weekday]: {
+                              ...current[weekday],
+                              windows: current[weekday].windows.map((item, index) =>
+                                index === windowIndex ? { ...item, startTime: input.target.value } : item
+                              ),
+                            },
+                          }))
+                        }
+                        className="booking-admin-input w-32"
+                      />
+                      <span className="text-sm text-muted-foreground">à</span>
+                      <input
+                        aria-label={`${label} plage ${windowIndex + 1} fin`}
+                        type="time"
+                        value={window.endTime}
+                        disabled={!days[weekday].enabled}
+                        onChange={(input) =>
+                          setDays((current) => ({
+                            ...current,
+                            [weekday]: {
+                              ...current[weekday],
+                              windows: current[weekday].windows.map((item, index) =>
+                                index === windowIndex ? { ...item, endTime: input.target.value } : item
+                              ),
+                            },
+                          }))
+                        }
+                        className="booking-admin-input w-32"
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Supprimer la plage ${windowIndex + 1} du ${label}`}
+                        disabled={!days[weekday].enabled || days[weekday].windows.length === 1}
+                        onClick={() =>
+                          setDays((current) => ({
+                            ...current,
+                            [weekday]: {
+                              ...current[weekday],
+                              windows: current[weekday].windows.filter((_, index) => index !== windowIndex),
+                            },
+                          }))
+                        }
+                        className="rounded-[var(--radius-control)] p-2 text-muted-foreground hover:bg-muted hover:text-state-critical disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={!days[weekday].enabled || days[weekday].windows.length >= 4}
+                    onClick={() =>
+                      setDays((current) => ({
+                        ...current,
+                        [weekday]: {
+                          ...current[weekday],
+                          windows: [...current[weekday].windows, { startTime: "13:00", endTime: "17:00" }],
+                        },
+                      }))
+                    }
+                    className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Plus className="size-3.5" /> Ajouter une plage
+                  </button>
+                </div>
               </div>
             ))}
           </div>
           <div className="mt-5 border-t border-border pt-5">
             <p className="font-bold">Exceptions de date</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
+            <div className="mt-3 grid gap-3 sm:grid-cols-[auto_minmax(150px,0.7fr)_minmax(0,1fr)_auto]">
               <input type="date" value={exceptionDate} onChange={(input) => setExceptionDate(input.target.value)} className="booking-admin-input" aria-label="Date indisponible" />
+              <select value={exceptionType} onChange={(input) => setExceptionType(input.target.value as "closed" | "custom")} className="booking-admin-input" aria-label="Type d’exception">
+                <option value="closed">Jour fermé</option>
+                <option value="custom">Horaires personnalisés</option>
+              </select>
               <input value={exceptionReason} onChange={(input) => setExceptionReason(input.target.value)} placeholder="Motif (facultatif)" className="booking-admin-input" />
               <Button type="button" variant="outline" onClick={addException} disabled={isPending}>Ajouter une indisponibilité</Button>
             </div>
+            {exceptionType === "custom" && (
+              <div className="mt-3 flex flex-col gap-2 rounded-[var(--radius-control)] bg-muted/50 p-3">
+                <p className="text-xs font-bold text-muted-foreground">Plages ouvertes pour cette date</p>
+                {exceptionWindows.map((window, windowIndex) => (
+                  <div key={`exception-${windowIndex}`} className="flex flex-wrap items-center gap-2">
+                    <input
+                      aria-label={`Exception plage ${windowIndex + 1} début`}
+                      type="time"
+                      value={window.startTime}
+                      onChange={(input) => setExceptionWindows((current) => current.map((item, index) => index === windowIndex ? { ...item, startTime: input.target.value } : item))}
+                      className="booking-admin-input w-32"
+                    />
+                    <span className="text-sm text-muted-foreground">à</span>
+                    <input
+                      aria-label={`Exception plage ${windowIndex + 1} fin`}
+                      type="time"
+                      value={window.endTime}
+                      onChange={(input) => setExceptionWindows((current) => current.map((item, index) => index === windowIndex ? { ...item, endTime: input.target.value } : item))}
+                      className="booking-admin-input w-32"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Supprimer la plage d’exception ${windowIndex + 1}`}
+                      disabled={exceptionWindows.length === 1}
+                      onClick={() => setExceptionWindows((current) => current.filter((_, index) => index !== windowIndex))}
+                      className="rounded-[var(--radius-control)] p-2 text-muted-foreground hover:bg-background hover:text-state-critical disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  disabled={exceptionWindows.length >= 4}
+                  onClick={() => setExceptionWindows((current) => [...current, { startTime: "13:00", endTime: "17:00" }])}
+                  className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus className="size-3.5" /> Ajouter une plage
+                </button>
+              </div>
+            )}
             {exceptions.length > 0 && (
               <ul className="mt-3 flex flex-col gap-2 text-sm">
                 {exceptions.map((exception) => (
                   <li key={exception.date} className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] bg-muted px-3 py-2">
-                    <span className="font-bold">{exception.date}</span>
-                    <span className="text-muted-foreground">{exception.reason || "Indisponible"}</span>
+                    <div className="min-w-0">
+                      <p className="font-bold">{exception.date} · {exception.type === "custom" ? "Horaires personnalisés" : "Jour fermé"}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {exception.type === "custom" ? exception.windows.map((window) => `${window.startTime}–${window.endTime}`).join(" · ") : "Aucun créneau"}
+                        {exception.reason ? ` · ${exception.reason}` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Supprimer l’exception du ${exception.date}`}
+                      disabled={isPending}
+                      onClick={() => deleteException(exception.date)}
+                      className="rounded-[var(--radius-control)] p-2 text-muted-foreground hover:bg-background hover:text-state-critical disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+          <div className="mt-5 border-t border-border pt-5">
+            <p className="font-bold">Aperçu des prochains créneaux</p>
+            <p className="mt-1 text-xs text-muted-foreground">Aperçu basé sur les règles enregistrées, hors agendas personnels et rendez-vous déjà pris.</p>
+            {previewSlots.length > 0 ? (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {previewSlots.map((slot) => (
+                  <div key={slot} className="rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm font-bold">
+                    {formatPreviewSlot(slot, event.timeZone)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-[var(--radius-control)] bg-muted px-3 py-2 text-sm text-muted-foreground">Aucun créneau généré avec la configuration actuelle.</p>
             )}
           </div>
         </section>
@@ -362,10 +581,44 @@ export function EventEditor({
                   {closer.calendars.length > 0 ? (
                     <div className="mt-1 flex flex-wrap gap-2 text-muted-foreground">
                       {closer.calendars.map((calendar) => (
-                        <span key={calendar.provider} className={calendar.status === "connected" ? "text-state-healthy" : "text-state-caution"}>
-                          {calendar.provider === "google" ? "Google" : "Outlook"}: {calendar.status === "connected" ? "connecté" : "reconnexion requise"}
-                          {calendar.email ? ` · ${calendar.email}` : ""}
-                        </span>
+                        <div key={calendar.provider} className="w-full">
+                          <p className={calendar.status === "connected" ? "text-state-healthy" : "text-state-caution"}>
+                            {calendar.provider === "google" ? "Google" : "Outlook"}: {calendar.status === "connected" ? "connecté" : "reconnexion requise"}
+                            {calendar.email ? ` · ${calendar.email}` : ""}
+                          </p>
+                          {calendar.loadError && <p className="mt-1 text-state-caution">Impossible de charger les calendriers. Reconnecte ce compte.</p>}
+                          {calendar.status === "connected" && calendar.options.length > 0 && (
+                            <details className="mt-2 rounded-[var(--radius-control)] border border-border bg-background/70 p-2">
+                              <summary className="cursor-pointer font-bold">Calendriers pris en compte</summary>
+                              <div className="mt-2 flex flex-col gap-2">
+                                {calendar.options.map((option) => {
+                                  const key = `${closer.id}:${calendar.provider}`;
+                                  const selected = calendarSelections[key] ?? calendar.selectedCalendarIds;
+                                  const isChecked = selected.includes(option.id) || (option.isPrimary && selected.includes("primary"));
+                                  return (
+                                    <label key={option.id} className="flex items-center gap-2 text-muted-foreground">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(input) => updateCalendarSelection(calendar, closer.id, option, input.target.checked)}
+                                      />
+                                      <span className="truncate">{option.name}{option.isPrimary ? " · principal" : ""}</span>
+                                    </label>
+                                  );
+                                })}
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isPending || (calendarSelections[`${closer.id}:${calendar.provider}`] ?? calendar.selectedCalendarIds).length === 0}
+                                  onClick={() => saveCalendarSelection(calendar, closer.id)}
+                                >
+                                  Enregistrer la sélection
+                                </Button>
+                              </div>
+                            </details>
+                          )}
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -373,12 +626,26 @@ export function EventEditor({
                   )}
                   {closer.id === currentUserId && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <a href="/api/native-calendar/google/connect" className="inline-flex items-center gap-1 font-bold text-accent hover:underline">
-                        Relier Google <ExternalLink className="size-3" />
-                      </a>
-                      <a href="/api/native-calendar/outlook/connect" className="inline-flex items-center gap-1 font-bold text-accent hover:underline">
-                        Relier Outlook <ExternalLink className="size-3" />
-                      </a>
+                      {(["google", "outlook"] as const).map((provider) => {
+                        const connection = closer.calendars.find((calendar) => calendar.provider === provider);
+                        return (
+                          <div key={provider} className="flex items-center gap-2">
+                            <a href={`/api/native-calendar/${provider}/connect`} className="inline-flex items-center gap-1 font-bold text-accent hover:underline">
+                              {connection ? "Reconnecter" : "Relier"} {provider === "google" ? "Google" : "Outlook"} <ExternalLink className="size-3" />
+                            </a>
+                            {connection && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => run(() => disconnectNativeBookingCalendarAction({ eventId: event.id, provider }), `${provider === "google" ? "Google" : "Outlook"} déconnecté.`)}
+                                className="text-xs font-bold text-muted-foreground hover:text-state-critical disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Déconnecter
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -447,15 +714,20 @@ export function EventEditor({
           {links.length > 0 && (
             <div className="mt-5 flex flex-col gap-2 border-t border-border pt-4">
               {links.map((link) => (
-                <div key={link.id} className="rounded-[var(--radius-control)] bg-muted/60 p-3">
+                <div key={link.id} className={`rounded-[var(--radius-control)] p-3 ${link.isActive ? "bg-muted/60" : "bg-muted/30 opacity-75"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold">{link.label}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{link.platform}{link.contentLabel ? ` · ${link.contentLabel}` : ""}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{link.platform}{link.contentLabel ? ` · ${link.contentLabel}` : ""} · {link.isActive ? "Actif" : "Désactivé"}</p>
                     </div>
-                    <button type="button" onClick={() => copyLink(link)} className="shrink-0 text-xs font-bold text-accent hover:underline">
-                      {copiedLinkId === link.id ? "Copié" : "Copier"}
-                    </button>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <button type="button" disabled={!link.isActive} onClick={() => copyLink(link)} className="text-xs font-bold text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-40">
+                        {copiedLinkId === link.id ? "Copié" : "Copier"}
+                      </button>
+                      <button type="button" disabled={isPending} onClick={() => toggleLink(link)} className="text-xs font-bold text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40">
+                        {link.isActive ? "Désactiver" : "Réactiver"}
+                      </button>
+                    </div>
                   </div>
                   <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">{link.utmSource || "utm_source non défini"} · {link.utmContent || "contenu non défini"}</p>
                 </div>

@@ -14,7 +14,9 @@ import {
   uniqueIndex,
   uuid,
   type AnyPgColumn,
+  pgPolicy,
 } from "drizzle-orm/pg-core";
+import { sql, type SQL } from "drizzle-orm";
 
 import type {
   BusinessAcquisition,
@@ -386,6 +388,31 @@ export const nativeCalendarConnectionStatus = pgEnum("native_calendar_connection
 
 export type NativeBookingWindow = { startTime: string; endTime: string };
 
+// Native booking data is account-scoped even when the signed-in person is a
+// delegated team member. The function is installed by the additive security
+// migration; keeping the policy expressions here makes Drizzle's schema an
+// accurate description of the RLS contract.
+const nativeBookingAccountAccess = (accountId: AnyPgColumn) =>
+  sql`public.native_booking_account_member(${accountId})`;
+
+const nativeBookingEventAccess = (eventId: AnyPgColumn) =>
+  sql`exists (
+    select 1 from public.native_booking_events as event
+    where event.id = ${eventId}
+      and public.native_booking_account_member(event.user_id)
+  )`;
+
+const nativeBookingEventForAccountAccess = (eventId: AnyPgColumn, accountId: AnyPgColumn) =>
+  sql`exists (
+    select 1 from public.native_booking_events as event
+    where event.id = ${eventId}
+      and event.user_id = ${accountId}
+      and public.native_booking_account_member(event.user_id)
+  )`;
+
+const nativeBookingAccountUserAccess = (accountId: AnyPgColumn | SQL<unknown>, memberId: AnyPgColumn | SQL<unknown>) =>
+  sql`public.native_booking_account_user_member(${accountId}, ${memberId})`;
+
 export const nativeBookingEvents = pgTable(
   "native_booking_events",
   {
@@ -416,6 +443,12 @@ export const nativeBookingEvents = pgTable(
   (table) => [
     uniqueIndex("native_booking_events_user_slug_idx").on(table.userId, table.slug),
     index("native_booking_events_user_status_idx").on(table.userId, table.status),
+    pgPolicy("native_booking_events_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
   ]
 ).enableRLS();
 
@@ -434,6 +467,12 @@ export const nativeBookingAvailability = pgTable(
   (table) => [
     uniqueIndex("native_booking_availability_unique_idx").on(table.eventId, table.weekday, table.startTime, table.endTime),
     index("native_booking_availability_event_idx").on(table.eventId, table.weekday),
+    pgPolicy("native_booking_availability_event_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingEventAccess(table.eventId),
+      withCheck: nativeBookingEventAccess(table.eventId),
+    }),
   ]
 ).enableRLS();
 
@@ -451,7 +490,15 @@ export const nativeBookingExceptions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("native_booking_exceptions_event_date_idx").on(table.eventId, table.date)]
+  (table) => [
+    uniqueIndex("native_booking_exceptions_event_date_idx").on(table.eventId, table.date),
+    pgPolicy("native_booking_exceptions_event_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingEventAccess(table.eventId),
+      withCheck: nativeBookingEventAccess(table.eventId),
+    }),
+  ]
 ).enableRLS();
 
 export const nativeBookingEventClosers = pgTable(
@@ -473,6 +520,20 @@ export const nativeBookingEventClosers = pgTable(
   (table) => [
     uniqueIndex("native_booking_event_closers_unique_idx").on(table.eventId, table.closerUserId),
     index("native_booking_event_closers_closer_idx").on(table.closerUserId),
+    pgPolicy("native_booking_event_closers_event_access", {
+      for: "all",
+      to: "authenticated",
+      using: sql`${nativeBookingEventAccess(table.eventId)} and exists (
+        select 1 from public.native_booking_events as event
+        where event.id = ${table.eventId}
+          and ${nativeBookingAccountUserAccess(sql`event.user_id`, table.closerUserId)}
+      )`,
+      withCheck: sql`${nativeBookingEventAccess(table.eventId)} and exists (
+        select 1 from public.native_booking_events as event
+        where event.id = ${table.eventId}
+          and ${nativeBookingAccountUserAccess(sql`event.user_id`, table.closerUserId)}
+      )`,
+    }),
   ]
 ).enableRLS();
 
@@ -500,6 +561,12 @@ export const nativeCalendarConnections = pgTable(
   (table) => [
     uniqueIndex("native_calendar_connections_closer_provider_idx").on(table.closerUserId, table.provider),
     index("native_calendar_connections_user_idx").on(table.userId),
+    pgPolicy("native_calendar_connections_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: sql`${nativeBookingAccountAccess(table.userId)} and ${nativeBookingAccountUserAccess(table.userId, table.closerUserId)}`,
+      withCheck: sql`${nativeBookingAccountAccess(table.userId)} and ${nativeBookingAccountUserAccess(table.userId, table.closerUserId)}`,
+    }),
   ]
 ).enableRLS();
 
@@ -525,7 +592,15 @@ export const nativeBookingLinks = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("native_booking_links_event_idx").on(table.eventId, table.isActive)]
+  (table) => [
+    index("native_booking_links_event_idx").on(table.eventId, table.isActive),
+    pgPolicy("native_booking_links_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingEventForAccountAccess(table.eventId, table.userId),
+      withCheck: nativeBookingEventForAccountAccess(table.eventId, table.userId),
+    }),
+  ]
 ).enableRLS();
 
 export const nativeBookingLeads = pgTable(
@@ -575,6 +650,12 @@ export const nativeBookingLeads = pgTable(
     index("native_booking_leads_user_status_seen_idx").on(table.userId, table.status, table.lastSeenAt),
     index("native_booking_leads_event_status_idx").on(table.eventId, table.status),
     index("native_booking_leads_user_email_idx").on(table.userId, table.emailNormalized),
+    pgPolicy("native_booking_leads_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingEventForAccountAccess(table.eventId, table.userId),
+      withCheck: nativeBookingEventForAccountAccess(table.eventId, table.userId),
+    }),
   ]
 ).enableRLS();
 
@@ -627,6 +708,12 @@ export const nativeBookings = pgTable(
     index("native_bookings_user_email_start_idx").on(table.userId, table.emailNormalized, table.startAt),
     index("native_bookings_event_start_idx").on(table.eventId, table.startAt),
     index("native_bookings_closer_start_idx").on(table.closerUserId, table.startAt),
+    pgPolicy("native_bookings_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingEventForAccountAccess(table.eventId, table.userId),
+      withCheck: nativeBookingEventForAccountAccess(table.eventId, table.userId),
+    }),
   ]
 ).enableRLS();
 

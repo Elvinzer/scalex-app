@@ -290,7 +290,9 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
               <ShieldCheck className="size-7" />
             </div>
             <div>
-              <p className="text-sm font-bold text-state-healthy">Rendez-vous confirmé</p>
+              <p className={`text-sm font-bold ${confirmation.calendarSyncWarning ? "text-state-caution" : "text-state-healthy"}`}>
+                {confirmation.calendarSyncWarning ? "Réservation enregistrée" : "Rendez-vous confirmé"}
+              </p>
               <h1 className="mt-2 text-3xl font-bold">C&apos;est réservé, {contact.firstName}.</h1>
               <p className="mt-2 text-muted-foreground">Ton closer te recontactera au {contact.phone} pour la suite.</p>
             </div>
@@ -343,7 +345,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
                   {isPending ? "Vérification…" : "Voir les créneaux"}
                 </button>
               ) : (
-                <p className="rounded-[var(--radius-control)] bg-state-healthy-bg px-3 py-2 text-sm font-bold text-state-healthy">Coordonnées enregistrées. Choisis maintenant ton créneau.</p>
+                <p className="rounded-[var(--radius-control)] bg-state-healthy-bg px-3 py-2 text-sm font-bold text-foreground">Coordonnées enregistrées. Choisis maintenant ton créneau.</p>
               )}
               <p className="text-xs leading-5 text-muted-foreground">En continuant, tu acceptes d&apos;être recontacté au sujet de cet appel. Tes informations restent liées à cette réservation.</p>
             </form>

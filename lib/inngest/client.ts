@@ -66,4 +66,12 @@ export const youtubeBackfillContinue = eventType("youtube/backfill.continue", {
   schema: staticSchema<YoutubeBackfillContinue>(),
 });
 
+type NativeBookingCalendarSyncRequested = {
+  bookingId: string;
+};
+
+export const nativeBookingCalendarSyncRequested = eventType("native-booking/calendar.sync-requested", {
+  schema: staticSchema<NativeBookingCalendarSyncRequested>(),
+});
+
 export const inngest = new Inngest({ id: "scale-x" });

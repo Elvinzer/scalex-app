@@ -2,9 +2,9 @@
 
 - [x] 1.1 Ajouter dans `db/schema.ts` les tables Drizzle des événements, disponibilités récurrentes, exceptions, closers associés, réservations, liens UTM et connexions calendaires.
 - [x] 1.2 Ajouter les états de réservation et de synchronisation, les index account-scoped, l’unicité des slugs/idempotency keys et les contraintes nécessaires à l’absence de chevauchement.
-- [ ] 1.3 Ajouter les politiques RLS et vérifier les cas propriétaire, membre autorisé, membre non autorisé et visiteur anonyme pour chaque nouvelle table.
+- [x] 1.3 Ajouter les politiques RLS et vérifier les cas propriétaire, membre autorisé, membre non autorisé et visiteur anonyme pour chaque nouvelle table.
 - [x] 1.4 Étendre `sales_calls` avec le lien vers une réservation native, le closer structuré et la source `native`, en conservant la compatibilité de `iclosed_call_id`.
-- [ ] 1.5 Créer et vérifier la migration additive avec le workflow Drizzle du projet, sans modifier ni supprimer les données iClosed/Calendly existantes.
+- [x] 1.5 Créer et vérifier la migration additive avec le workflow Drizzle du projet, sans modifier ni supprimer les données iClosed/Calendly existantes.
 
 ## 2. Abonnements et autorisations
 
@@ -32,11 +32,11 @@
 ## 5. Connexions Google et Outlook
 
 - [x] 5.1 Définir l’interface serveur fournisseur-neutre pour lire les périodes busy, créer, mettre à jour et annuler un événement externe.
-- [ ] 5.2 Ajouter le flux OAuth Google Calendar séparé de `youtube_connections`, avec callback protégé, sélection de calendriers et stockage serveur des tokens.
-- [ ] 5.3 Ajouter le flux OAuth Microsoft/Outlook, la sélection des calendriers et la gestion des erreurs de consentement ou de refresh.
-- [ ] 5.4 Ajouter l’écran de gestion des connexions par closer avec états connecté, reconnexion nécessaire, erreur et déconnexion.
-- [ ] 5.5 Implémenter la lecture des périodes busy avec cache court contrôlé et exclusion des calendriers sélectionnés.
-- [ ] 5.6 Implémenter la création externe idempotente, les retries Inngest et les états `pending`/`sync_failed` sans envoyer de confirmation trompeuse.
+- [x] 5.2 Ajouter le flux OAuth Google Calendar séparé de `youtube_connections`, avec callback protégé, sélection de calendriers et stockage serveur des tokens.
+- [x] 5.3 Ajouter le flux OAuth Microsoft/Outlook, la sélection des calendriers et la gestion des erreurs de consentement ou de refresh.
+- [x] 5.4 Ajouter l’écran de gestion des connexions par closer avec états connecté, reconnexion nécessaire, erreur et déconnexion.
+- [x] 5.5 Implémenter la lecture des périodes busy avec cache court contrôlé et exclusion des calendriers sélectionnés.
+- [x] 5.6 Implémenter la création externe idempotente, les retries Inngest et les états `pending`/`sync_failed` sans envoyer de confirmation trompeuse.
 - [ ] 5.7 Implémenter la synchronisation des annulations et déplacements, avec journalisation de l’erreur et reprise manuelle.
 
 ## 6. Administration des événements
@@ -44,11 +44,11 @@
 - [x] 6.1 Ajouter l’entrée « Rendez-vous » dans la navigation ventes et la liste des événements avec statut, limite, closers et lien public.
 - [x] 6.2 Construire l’en-tête d’édition avec retour, aperçu public, copie du lien, intégration, statut actif/en pause et indicateur de readiness.
 - [x] 6.3 Construire l’éditeur des détails de l’événement, durée, lieu, fuseau, délai minimal et horizon.
-- [ ] 6.4 Construire l’éditeur des disponibilités récurrentes et des exceptions par date avec aperçu des créneaux générés.
+- [x] 6.4 Construire l’éditeur des disponibilités récurrentes et des exceptions par date avec aperçu des créneaux générés.
 - [x] 6.5 Construire l’éditeur closers/round robin et afficher les connexions calendrier manquantes comme avertissements actionnables.
 - [x] 6.6 Construire la section Informations invité avec opt-in obligatoire, champs prénom/nom/téléphone et réglages de questions complémentaires.
 - [ ] 6.7 Construire la section Notifications, confirmation et personnalisation minimale de la page publique.
-- [ ] 6.8 Construire le gestionnaire de liens nommés et UTM avec copie, désactivation et affichage de l’historique non destructif.
+- [x] 6.8 Construire le gestionnaire de liens nommés et UTM avec copie, désactivation et affichage de l’historique non destructif.
 
 ## 7. Parcours public de réservation
 
@@ -81,7 +81,7 @@
 - [ ] 9.6 Tester avec `agent-browser` les parcours Google/Outlook simulés, la reconnexion nécessaire, le conflit calendrier et le retry idempotent.
 - [ ] 9.7 Tester avec `agent-browser` les limites du plan d’entrée, l’illimité du plan supérieur et le downgrade sans suppression de données.
 - [ ] 9.8 Tester avec `agent-browser` les layouts 375 px, 768 px et desktop, le clavier, les focus, les erreurs et les états de chargement.
-- [ ] 9.9 Exécuter `npm run typecheck`, `npm run lint`, la validation OpenSpec et les vérifications de migration avant d’activer la fonctionnalité pour les utilisateurs.
+- [x] 9.9 Exécuter `npm run typecheck`, `npm run lint`, la validation OpenSpec et les vérifications de migration avant d’activer la fonctionnalité pour les utilisateurs.
 
 ## 10. Relance des réservations abandonnées
 

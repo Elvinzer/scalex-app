@@ -9,17 +9,19 @@ type Status = "idle" | "sending" | "sent" | "error";
 
 // Same auth primitives as app/(auth)/sign-in/sign-in-form.tsx, but the email
 // is locked to the invite's address and the redirect carries `?invite=` so
-// app/auth/confirm and app/auth/callback route back here instead of
-// /onboarding once the session is established.
+// app/auth/callback routes back here instead of /onboarding once the session
+// is established.
 export function InviteSignInForm({ email, token }: { email: string; token: string }) {
   const [status, setStatus] = useState<Status>("idle");
 
   async function handleMagicLink() {
     setStatus("sending");
     const supabase = createClient();
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+    callbackUrl.searchParams.set("invite", token);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/confirm?invite=${token}` },
+      options: { emailRedirectTo: callbackUrl.toString() },
     });
     setStatus(error ? "error" : "sent");
   }

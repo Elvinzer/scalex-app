@@ -77,7 +77,7 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
             <h3 id="abandoned-leads-title" className="text-lg font-bold">À relancer</h3>
             {leads.length > 0 && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">{leads.length}</span>}
           </div>
-          <p className="text-sm text-muted-foreground">Liste des prospects n'ayant pas finalisés la prise de rdv</p>
+          <p className="text-sm text-muted-foreground">Liste des prospects n&apos;ayant pas finalisés la prise de rdv</p>
         </div>
         <p className="text-xs text-muted-foreground">Les rendez-vous confirmés sortent automatiquement de cette liste.</p>
       </div>

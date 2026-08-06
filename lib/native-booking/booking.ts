@@ -9,9 +9,11 @@ import {
   nativeBookingLeads,
   nativeBookingLinks,
   nativeBookings,
+  nativeCalendarConnections,
   salesCalls,
   users,
 } from "@/db/schema";
+import { inngest, nativeBookingCalendarSyncRequested } from "@/lib/inngest/client";
 
 import { generateBookingSlots } from "./slots";
 import {
@@ -36,6 +38,7 @@ export type NativeBookingResult = {
 
 type NativeBookingError = { error: "not_found" | "existing_booking" | "slot_unavailable" | "invalid" };
 type InternalNativeBookingResult = NativeBookingResult & {
+  idempotencyKey: string;
   calendarConnectionId: string | null;
   calendarConnection: CalendarConnection | null;
   shouldSyncCalendar: boolean;
@@ -129,13 +132,14 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
       .from(nativeBookings)
       .where(and(eq(nativeBookings.eventId, eventRow.id), eq(nativeBookings.idempotencyKey, request.idempotencyKey)))
       .limit(1);
-    if (existingAttempt?.status === "confirmed" && existingAttempt.closerUserId) {
+    if (existingAttempt && existingAttempt.status !== "cancelled" && existingAttempt.status !== "expired" && existingAttempt.closerUserId) {
       const [closer] = await tx.select().from(users).where(eq(users.id, existingAttempt.closerUserId)).limit(1);
       const [call] = await tx.select({ id: salesCalls.id }).from(salesCalls).where(eq(salesCalls.nativeBookingId, existingAttempt.id)).limit(1);
       if (closer && call) {
         return {
           bookingId: existingAttempt.id,
           callId: call.id,
+          idempotencyKey: existingAttempt.idempotencyKey,
           startAt: existingAttempt.startAt,
           endAt: existingAttempt.endAt,
           closerName: closer.displayName || closer.email,
@@ -146,9 +150,11 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
           calendarConnection: existingAttempt.calendarConnectionId
             ? calendarStates.get(existingAttempt.closerUserId)?.connection ?? null
             : null,
-          shouldSyncCalendar: existingAttempt.syncStatus === "pending" && !existingAttempt.externalEventId,
+          shouldSyncCalendar: existingAttempt.syncStatus !== "synced" && !existingAttempt.externalEventId && Boolean(calendarStates.get(existingAttempt.closerUserId)?.connection),
+          ...(existingAttempt.status === "sync_failed" ? { calendarSyncWarning: true } : {}),
         };
       }
+      return { error: "invalid" };
     }
 
     const [duplicate] = await tx
@@ -312,6 +318,7 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
     return {
       bookingId: booking.id,
       callId: call.id,
+      idempotencyKey: request.idempotencyKey,
       startAt: requestedStart,
       endAt: requestedEnd,
       closerName: selected.user.displayName || selected.user.email,
@@ -325,11 +332,12 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
   });
 
   if ("error" in transactionResult) return transactionResult;
-  let calendarSyncWarning = false;
+  let calendarSyncWarning = Boolean(transactionResult.calendarSyncWarning);
   if (transactionResult.shouldSyncCalendar && transactionResult.calendarConnection) {
     try {
       const externalEvent = await createExternalCalendarEvent({
         connection: transactionResult.calendarConnection,
+        idempotencyKey: transactionResult.idempotencyKey,
         title: transactionResult.meetingLabel,
         description: eventRow.description,
         startAt: transactionResult.startAt,
@@ -349,12 +357,18 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
           updatedAt: new Date(),
         })
         .where(eq(nativeBookings.id, transactionResult.bookingId));
+      calendarSyncWarning = false;
     } catch (error) {
       console.error("[native-booking] external calendar event creation failed", error);
       await db
         .update(nativeBookings)
         .set({ syncStatus: "failed", status: "sync_failed", syncError: "La synchronisation du calendrier a échoué.", updatedAt: new Date() })
         .where(eq(nativeBookings.id, transactionResult.bookingId));
+      try {
+        await inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId: transactionResult.bookingId }));
+      } catch (scheduleError) {
+        console.error("[native-booking] calendar retry scheduling failed", scheduleError);
+      }
       calendarSyncWarning = true;
     }
   }
@@ -370,4 +384,60 @@ export async function createNativeBooking(slug: string, request: PublicBookingRe
     eventTimeZone: transactionResult.eventTimeZone,
     ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}),
   };
+}
+
+export async function retryNativeBookingCalendarSync(bookingId: string): Promise<"synced" | "skipped"> {
+  const [row] = await db
+    .select({ booking: nativeBookings, event: nativeBookingEvents })
+    .from(nativeBookings)
+    .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
+    .where(eq(nativeBookings.id, bookingId))
+    .limit(1);
+  if (!row) return "skipped";
+  if (row.booking.externalEventId || row.booking.status === "cancelled" || !row.booking.calendarConnectionId) return "skipped";
+
+  const [connection] = await db
+    .select()
+    .from(nativeCalendarConnections)
+    .where(eq(nativeCalendarConnections.id, row.booking.calendarConnectionId))
+    .limit(1);
+  if (!connection) return "skipped";
+
+  try {
+    const externalEvent = await createExternalCalendarEvent({
+      connection,
+      idempotencyKey: row.booking.idempotencyKey,
+      title: row.event.meetingLabel,
+      description: row.event.description,
+      startAt: row.booking.startAt,
+      endAt: row.booking.endAt,
+      guestName: `${row.booking.firstName} ${row.booking.lastName}`,
+      guestEmail: null,
+      meetingUrl: row.event.meetingUrl,
+    });
+    await db
+      .update(nativeBookings)
+      .set({
+        status: "confirmed",
+        syncStatus: "synced",
+        externalEventId: externalEvent.id,
+        externalEventUrl: externalEvent.url,
+        syncError: null,
+        holdExpiresAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(nativeBookings.id, bookingId));
+    return "synced";
+  } catch (error) {
+    await db
+      .update(nativeBookings)
+      .set({
+        status: "sync_failed",
+        syncStatus: "failed",
+        syncError: "La synchronisation du calendrier a échoué.",
+        updatedAt: new Date(),
+      })
+      .where(eq(nativeBookings.id, bookingId));
+    throw error;
+  }
 }

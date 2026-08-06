@@ -26,6 +26,10 @@ export const NATIVE_CALENDAR_SCOPES = {
 
 export type BusyPeriod = { startAt: Date; endAt: Date };
 export type ExternalCalendarEvent = { id: string; url: string | null };
+export type CalendarOption = { id: string; name: string; isPrimary: boolean };
+
+const BUSY_CACHE_TTL_MS = 15_000;
+const busyCache = new Map<string, { expiresAt: number; periods: BusyPeriod[] }>();
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -133,8 +137,24 @@ async function getAccessToken(connection: CalendarConnection): Promise<{ connect
   if (connection.tokenExpiresAt && connection.tokenExpiresAt.getTime() > Date.now() + 60_000) {
     return { connection, accessToken: decrypt(connection.accessTokenEncrypted) };
   }
-  if (!connection.refreshTokenEncrypted) throw new Error("Calendar connection needs to be reconnected");
-  const refreshed = await refreshCalendarToken(connection.provider, decrypt(connection.refreshTokenEncrypted));
+  if (!connection.refreshTokenEncrypted) {
+    await db
+      .update(nativeCalendarConnections)
+      .set({ status: "reconnect_required", lastError: "Le calendrier doit être reconnecté.", updatedAt: new Date() })
+      .where(eq(nativeCalendarConnections.id, connection.id));
+    throw new Error("Calendar connection needs to be reconnected");
+  }
+
+  let refreshed: Awaited<ReturnType<typeof refreshCalendarToken>>;
+  try {
+    refreshed = await refreshCalendarToken(connection.provider, decrypt(connection.refreshTokenEncrypted));
+  } catch (error) {
+    await db
+      .update(nativeCalendarConnections)
+      .set({ status: "reconnect_required", lastError: "La reconnexion du calendrier a échoué.", updatedAt: new Date() })
+      .where(eq(nativeCalendarConnections.id, connection.id));
+    throw error;
+  }
   const [updated] = await db
     .update(nativeCalendarConnections)
     .set({
@@ -199,8 +219,49 @@ export async function getCalendarAccountEmail(accessToken: string, provider: Pro
   return stringValue(body.mail) ?? stringValue(body.userPrincipalName);
 }
 
-export async function listBusyForConnection(connection: CalendarConnection, from: Date, to: Date): Promise<BusyPeriod[]> {
+export async function listCalendarsForConnection(connection: CalendarConnection): Promise<CalendarOption[]> {
   const { accessToken } = await getAccessToken(connection);
+  if (connection.provider === "google") {
+    const response = await requestJson(`${GOOGLE_API_BASE}/users/me/calendarList?minAccessRole=reader`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(`Google calendar list failed (${response.status})`);
+    const items = asRecord(response.body).items;
+    const calendars = Array.isArray(items)
+      ? items.flatMap((item) => {
+          const row = asRecord(item);
+          const id = stringValue(row.id);
+          if (!id) return [];
+          return [{ id, name: stringValue(row.summary) ?? id, isPrimary: row.primary === true }];
+        })
+      : [];
+    return calendars.length > 0 ? calendars : [{ id: "primary", name: "Agenda principale", isPrimary: true }];
+  }
+
+  const response = await requestJson(`${MICROSOFT_API_BASE}/me/calendars?$select=id,name,isDefaultCalendar`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (response.status < 200 || response.status >= 300) throw new Error(`Outlook calendar list failed (${response.status})`);
+  const values = asRecord(response.body).value;
+  const calendars = Array.isArray(values)
+    ? values.flatMap((item) => {
+        const row = asRecord(item);
+        const id = stringValue(row.id);
+        if (!id) return [];
+        return [{ id, name: stringValue(row.name) ?? id, isPrimary: row.isDefaultCalendar === true }];
+      })
+    : [];
+  return calendars.length > 0 ? calendars : [{ id: "primary", name: "Agenda principale", isPrimary: true }];
+}
+
+export async function listBusyForConnection(connection: CalendarConnection, from: Date, to: Date): Promise<BusyPeriod[]> {
+  const cacheKey = [connection.id, connection.provider, connection.selectedCalendarIds.join(","), from.toISOString(), to.toISOString()].join("|");
+  const cached = busyCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.periods;
+  if (cached) busyCache.delete(cacheKey);
+
+  const { accessToken } = await getAccessToken(connection);
+  let periods: BusyPeriod[];
   if (connection.provider === "google") {
     const calendarIds = connection.selectedCalendarIds.length > 0 ? connection.selectedCalendarIds : ["primary"];
     const response = await requestJson(`${GOOGLE_API_BASE}/freeBusy`, {
@@ -210,7 +271,7 @@ export async function listBusyForConnection(connection: CalendarConnection, from
     });
     if (response.status < 200 || response.status >= 300) throw new Error(`Google free/busy failed (${response.status})`);
     const calendars = asRecord(asRecord(response.body).calendars);
-    return Object.values(calendars).flatMap((value) => {
+    periods = Object.values(calendars).flatMap((value) => {
       const busy = asRecord(value).busy;
       return Array.isArray(busy)
         ? busy.flatMap((period) => {
@@ -221,35 +282,80 @@ export async function listBusyForConnection(connection: CalendarConnection, from
           })
         : [];
     });
-  }
+  } else if (connection.selectedCalendarIds.some((calendarId) => calendarId !== "primary")) {
+    const calendarIds = connection.selectedCalendarIds.filter((calendarId) => calendarId !== "primary");
+    const calendarPeriods = await Promise.all(
+      calendarIds.map(async (calendarId) => {
+        const periods: BusyPeriod[] = [];
+        let nextUrl: string | null = null;
+        let page = 0;
 
-  const schedule = connection.providerAccountEmail ?? "me";
-  const response = await requestJson(`${MICROSOFT_API_BASE}/me/calendar/getSchedule`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json", Prefer: 'outlook.timezone="UTC"' },
-    body: JSON.stringify({
-      schedules: [schedule],
-      startTime: { dateTime: from.toISOString(), timeZone: "UTC" },
-      endTime: { dateTime: to.toISOString(), timeZone: "UTC" },
-      availabilityViewInterval: 15,
-    }),
-  });
-  if (response.status < 200 || response.status >= 300) throw new Error(`Outlook free/busy failed (${response.status})`);
-  const values = asRecord(response.body).value;
-  const firstSchedule = Array.isArray(values) ? asRecord(values[0]) : {};
-  const scheduleItems = firstSchedule.scheduleItems;
-  return Array.isArray(scheduleItems)
-    ? scheduleItems.flatMap((period) => {
-        const row = asRecord(period);
-        const start = stringValue(asRecord(row.start).dateTime);
-        const end = stringValue(asRecord(row.end).dateTime);
-        return start && end ? [{ startAt: parseProviderDate(start), endAt: parseProviderDate(end) }] : [];
+        do {
+          const url = nextUrl ?? `${MICROSOFT_API_BASE}/me/calendars/${encodeURIComponent(calendarId)}/calendarView?${new URLSearchParams({
+            startDateTime: from.toISOString(),
+            endDateTime: to.toISOString(),
+            "$select": "start,end,showAs,isCancelled",
+            "$top": "1000",
+          }).toString()}`;
+          const response = await requestJson(url, {
+            headers: { Authorization: `Bearer ${accessToken}`, Prefer: 'outlook.timezone="UTC"' },
+          });
+          if (response.status < 200 || response.status >= 300) throw new Error(`Outlook calendar view failed (${response.status})`);
+          const body = asRecord(response.body);
+          const values = body.value;
+          if (Array.isArray(values)) {
+            for (const value of values) {
+              const row = asRecord(value);
+              if (row.isCancelled === true || row.showAs === "free") continue;
+              const start = stringValue(asRecord(row.start).dateTime);
+              const end = stringValue(asRecord(row.end).dateTime);
+              if (start && end) periods.push({ startAt: parseProviderDate(start), endAt: parseProviderDate(end) });
+            }
+          }
+          nextUrl = stringValue(body["@odata.nextLink"]);
+          page += 1;
+        } while (nextUrl && page < 10);
+
+        return periods;
       })
-    : [];
+    );
+    periods = calendarPeriods.flat();
+  } else {
+    const schedule = connection.providerAccountEmail ?? "me";
+    const response = await requestJson(`${MICROSOFT_API_BASE}/me/calendar/getSchedule`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json", Prefer: 'outlook.timezone="UTC"' },
+      body: JSON.stringify({
+        schedules: [schedule],
+        startTime: { dateTime: from.toISOString(), timeZone: "UTC" },
+        endTime: { dateTime: to.toISOString(), timeZone: "UTC" },
+        availabilityViewInterval: 15,
+      }),
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(`Outlook free/busy failed (${response.status})`);
+    const values = asRecord(response.body).value;
+    const firstSchedule = Array.isArray(values) ? asRecord(values[0]) : {};
+    const scheduleItems = firstSchedule.scheduleItems;
+    periods = Array.isArray(scheduleItems)
+      ? scheduleItems.flatMap((period) => {
+          const row = asRecord(period);
+          const start = stringValue(asRecord(row.start).dateTime);
+          const end = stringValue(asRecord(row.end).dateTime);
+          return start && end ? [{ startAt: parseProviderDate(start), endAt: parseProviderDate(end) }] : [];
+        })
+      : [];
+  }
+  busyCache.set(cacheKey, { expiresAt: Date.now() + BUSY_CACHE_TTL_MS, periods });
+  if (busyCache.size > 200) {
+    const oldestKey = busyCache.keys().next().value;
+    if (oldestKey) busyCache.delete(oldestKey);
+  }
+  return periods;
 }
 
 export async function createExternalCalendarEvent({
   connection,
+  idempotencyKey,
   title,
   description,
   startAt,
@@ -259,6 +365,7 @@ export async function createExternalCalendarEvent({
   meetingUrl,
 }: {
   connection: CalendarConnection;
+  idempotencyKey: string;
   title: string;
   description: string;
   startAt: Date;
@@ -270,7 +377,11 @@ export async function createExternalCalendarEvent({
   const { accessToken } = await getAccessToken(connection);
   if (connection.provider === "google") {
     const calendarId = connection.selectedCalendarIds[0] ?? "primary";
-    const response = await requestJson(`${GOOGLE_API_BASE}/calendars/${encodeURIComponent(calendarId)}/events`, {
+    const deterministicEventId = idempotencyKey.replace(/[^a-f0-9]/gi, "").toLowerCase();
+    const eventUrl = new URL(`${GOOGLE_API_BASE}/calendars/${encodeURIComponent(calendarId)}/events`);
+    eventUrl.searchParams.set("sendUpdates", "all");
+    if (deterministicEventId) eventUrl.searchParams.set("id", deterministicEventId);
+    const response = await requestJson(eventUrl.toString(), {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
       body: JSON.stringify({
@@ -279,11 +390,21 @@ export async function createExternalCalendarEvent({
         start: { dateTime: startAt.toISOString() },
         end: { dateTime: endAt.toISOString() },
         ...(guestEmail ? { attendees: [{ email: guestEmail, displayName: guestName }] } : {}),
-        sendUpdates: "all",
       }),
     });
     const body = asRecord(response.body);
     const id = stringValue(body.id);
+    if (response.status === 409 && deterministicEventId) {
+      const existing = await requestJson(
+        `${GOOGLE_API_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(deterministicEventId)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const existingBody = asRecord(existing.body);
+      const existingId = stringValue(existingBody.id);
+      if (existing.status >= 200 && existing.status < 300 && existingId) {
+        return { id: existingId, url: stringValue(existingBody.htmlLink) };
+      }
+    }
     if (response.status < 200 || response.status >= 300 || !id) throw new Error(`Google event creation failed (${response.status})`);
     return { id, url: stringValue(body.htmlLink) };
   }
@@ -297,6 +418,7 @@ export async function createExternalCalendarEvent({
       start: { dateTime: startAt.toISOString(), timeZone: "UTC" },
       end: { dateTime: endAt.toISOString(), timeZone: "UTC" },
       ...(guestEmail ? { attendees: [{ emailAddress: { address: guestEmail, name: guestName }, type: "required" }] } : {}),
+      transactionId: idempotencyKey,
       isReminderOn: true,
       reminderMinutesBeforeStart: 30,
     }),

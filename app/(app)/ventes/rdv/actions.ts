@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, teamMembers, users } from "@/db/schema";
+import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, nativeCalendarConnections, teamMembers, users } from "@/db/schema";
 import { canCreateNativeBookingEvent, getNativeBookingEntitlements } from "@/lib/billing/plan-gate";
 import { requireUserId } from "@/lib/current-user";
 import { getNativeBookingEvent, getNativeBookingEventDetail } from "@/lib/native-booking/queries";
@@ -17,6 +17,7 @@ const closerActionSchema = eventActionSchema.extend({ closerUserId: z.string().u
 const toggleEventSchema = eventActionSchema.extend({ status: z.enum(["draft", "active", "paused", "archived"]) });
 const availabilityActionSchema = eventActionSchema.extend({ availability: z.array(availabilitySchema).max(7) });
 const exceptionActionSchema = eventActionSchema.extend({ exception: exceptionSchema });
+const exceptionDeleteActionSchema = eventActionSchema.extend({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide") });
 const bookingLinkActionSchema = eventActionSchema.extend({
   label: z.string().trim().min(2, "Le nom du lien est requis").max(120),
   platform: z.string().trim().min(2).max(40),
@@ -26,6 +27,12 @@ const bookingLinkActionSchema = eventActionSchema.extend({
   utmCampaign: z.string().trim().max(160).optional().default(""),
   utmContent: z.string().trim().max(160).optional().default(""),
   utmTerm: z.string().trim().max(160).optional().default(""),
+});
+const bookingLinkStatusActionSchema = eventActionSchema.extend({ linkId: z.string().uuid(), isActive: z.boolean() });
+const calendarDisconnectActionSchema = eventActionSchema.extend({ provider: z.enum(["google", "outlook"]) });
+const calendarSelectionActionSchema = eventActionSchema.extend({
+  connectionId: z.string().uuid(),
+  selectedCalendarIds: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
 });
 const leadStatusActionSchema = z.object({
   leadId: z.string().uuid(),
@@ -160,6 +167,21 @@ export async function saveNativeBookingExceptionAction(input: unknown): Promise<
   return { error: null };
 }
 
+export async function deleteNativeBookingExceptionAction(input: unknown): Promise<ActionResult> {
+  const access = await getBookingAccess();
+  if (isActionError(access)) return access;
+  const parsed = exceptionDeleteActionSchema.safeParse(input);
+  if (!parsed.success) return { error: "Exception invalide." };
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  if (!event) return { error: "Événement introuvable." };
+
+  await db
+    .delete(nativeBookingExceptions)
+    .where(and(eq(nativeBookingExceptions.eventId, event.id), eq(nativeBookingExceptions.date, parsed.data.date)));
+  revalidatePath(`/ventes/rdv/${event.id}`);
+  return { error: null };
+}
+
 export async function toggleNativeBookingEventAction(eventId: string, status: string): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
@@ -235,6 +257,54 @@ export async function toggleNativeBookingCloserOffAction(input: unknown): Promis
   return { error: null };
 }
 
+export async function disconnectNativeBookingCalendarAction(input: unknown): Promise<ActionResult> {
+  const userId = await requireUserId();
+  const access = await requirePermission(userId, "ventes:rdv");
+  if (!access) return { error: "Tu n’as pas accès à la prise de rendez-vous." };
+  const parsed = calendarDisconnectActionSchema.safeParse(input);
+  if (!parsed.success) return { error: "Calendrier invalide." };
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  if (!event) return { error: "Événement introuvable." };
+
+  await db
+    .delete(nativeCalendarConnections)
+    .where(
+      and(
+        eq(nativeCalendarConnections.userId, access.accountId),
+        eq(nativeCalendarConnections.closerUserId, userId),
+        eq(nativeCalendarConnections.provider, parsed.data.provider)
+      )
+    );
+  revalidatePath(`/ventes/rdv/${event.id}`);
+  return { error: null };
+}
+
+export async function saveNativeCalendarSelectionAction(input: unknown): Promise<ActionResult> {
+  const userId = await requireUserId();
+  const access = await requirePermission(userId, "ventes:rdv");
+  if (!access) return { error: "Tu n’as pas accès à la prise de rendez-vous." };
+  const parsed = calendarSelectionActionSchema.safeParse(input);
+  if (!parsed.success) return { error: "Sélection de calendriers invalide." };
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  if (!event) return { error: "Événement introuvable." };
+
+  const [connection] = await db
+    .update(nativeCalendarConnections)
+    .set({ selectedCalendarIds: Array.from(new Set(parsed.data.selectedCalendarIds)), updatedAt: new Date() })
+    .where(
+      and(
+        eq(nativeCalendarConnections.id, parsed.data.connectionId),
+        eq(nativeCalendarConnections.userId, access.accountId),
+        eq(nativeCalendarConnections.closerUserId, userId)
+      )
+    )
+    .returning({ id: nativeCalendarConnections.id });
+  if (!connection) return { error: "Connexion calendrier introuvable." };
+
+  revalidatePath(`/ventes/rdv/${event.id}`);
+  return { error: null };
+}
+
 export async function createNativeBookingLinkAction(input: unknown): Promise<ActionResult & { linkId?: string }> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
@@ -262,6 +332,31 @@ export async function createNativeBookingLinkAction(input: unknown): Promise<Act
 
   revalidatePath(`/ventes/rdv/${event.id}`);
   return { error: null, linkId: link.id };
+}
+
+export async function toggleNativeBookingLinkAction(input: unknown): Promise<ActionResult> {
+  const access = await getBookingAccess();
+  if (isActionError(access)) return access;
+  const parsed = bookingLinkStatusActionSchema.safeParse(input);
+  if (!parsed.success) return { error: "Lien invalide." };
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  if (!event) return { error: "Événement introuvable." };
+
+  const [link] = await db
+    .update(nativeBookingLinks)
+    .set({ isActive: parsed.data.isActive, updatedAt: new Date() })
+    .where(
+      and(
+        eq(nativeBookingLinks.id, parsed.data.linkId),
+        eq(nativeBookingLinks.eventId, event.id),
+        eq(nativeBookingLinks.userId, access.accountId)
+      )
+    )
+    .returning({ id: nativeBookingLinks.id });
+  if (!link) return { error: "Lien introuvable." };
+
+  revalidatePath(`/ventes/rdv/${event.id}`);
+  return { error: null };
 }
 
 export async function updateNativeBookingLeadStatusAction(input: unknown): Promise<ActionResult> {
