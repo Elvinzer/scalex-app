@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { InfoPopover } from "@/components/info-popover";
 import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
@@ -12,22 +12,25 @@ import { YoutubeVideosTable } from "./youtube-videos-table";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
-// The interactive half of /acquisition/contenu/youtube. `videos` arrives
-// already filtered to public uploads by the page (see isPublicVideo) — no
-// private/unlisted video reaches this component at all, so nothing here
-// needs to re-check it.
+// The data panel for YouTube. The parent shell owns the filters so switching
+// platforms preserves the user's period and format choices.
 export function YoutubeView({
   videos,
   commercialStats,
   subscriberCount,
+  period,
+  onPeriodChange,
+  format,
+  onFormatChange,
 }: {
   videos: YoutubeVideoInsightRow[];
   commercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
   subscriberCount: number | null;
+  period: DateFilterKey;
+  onPeriodChange: (period: DateFilterKey) => void;
+  format: VideoFormat;
+  onFormatChange: (format: VideoFormat) => void;
 }) {
-  const [period, setPeriod] = useState<DateFilterKey>("all");
-  const [format, setFormat] = useState<VideoFormat>("all");
-
   const filtered = useMemo(
     () => videos.filter((video) => matchesFormat(video, format) && isWithinPeriod(video.publishedAt, period)),
     [videos, format, period]
@@ -41,8 +44,8 @@ export function YoutubeView({
 
   return (
     <div className="flex flex-col gap-6">
-      <PeriodPills period={period} onChange={setPeriod} />
-      <FormatPills format={format} onChange={setFormat} />
+      <PeriodPills period={period} onChange={onPeriodChange} />
+      <FormatPills format={format} onChange={onFormatChange} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="sticker-card flex flex-col p-5">

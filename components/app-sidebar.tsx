@@ -10,6 +10,7 @@ import {
   Handshake,
   LayoutDashboard,
   LogOut,
+  Menu,
   Megaphone,
   MessageCircle,
   Plug,
@@ -17,6 +18,7 @@ import {
   ShieldCheck,
   Store,
   Stethoscope,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -173,7 +175,7 @@ function NavLink({
   const activeClassName =
     entry.href === "/copilote"
       ? "bg-accent-2 text-white shadow-[0_2px_10px_var(--accent-2-glow)]"
-      : "bg-accent text-white shadow-[0_2px_10px_var(--accent-glow)]";
+      : "bg-accent text-foreground shadow-[0_2px_10px_var(--accent-glow)]";
 
   return (
     <Link
@@ -389,6 +391,11 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -408,10 +415,21 @@ export function AppSidebar({
           explicit left edge keeps the header from ever sitting underneath
           or pushing the sidebar out of view. */}
       <header
-        className="fixed top-0 right-0 left-64 z-50 flex h-18 min-w-0 items-center gap-4 border-b border-border bg-card/95 px-4 text-foreground shadow-sm backdrop-blur-sm"
+        className="fixed top-0 right-0 left-0 z-50 flex h-18 min-w-0 items-center gap-3 border-b border-border bg-card/95 px-3 text-foreground shadow-sm backdrop-blur-sm md:left-64 md:gap-4 md:px-4"
       >
+        <button
+          type="button"
+          aria-controls="app-navigation"
+          aria-expanded={mobileOpen}
+          aria-label={mobileOpen ? "Fermer la navigation" : "Ouvrir la navigation"}
+          onClick={() => setMobileOpen((open) => !open)}
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-control)] text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 md:hidden"
+        >
+          {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+        </button>
+
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border lg:block" />
+          <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border md:block" />
           <nav aria-label="Raccourcis" className="flex min-w-0 items-center justify-start gap-1 overflow-x-auto">
           {visibleTopBarEntries.map((entry) => {
             const Icon = entry.icon;
@@ -436,7 +454,7 @@ export function AppSidebar({
           </nav>
         </div>
 
-        <div className="ml-auto min-w-0 max-w-[22rem] shrink-0 border-l border-border pl-3">
+        <div className="ml-auto min-w-0 max-w-[11rem] shrink-0 border-l border-border pl-2 md:max-w-[22rem] md:pl-3">
           <ProfileMenu
             businessName={businessName}
             displayName={displayName}
@@ -449,11 +467,24 @@ export function AppSidebar({
         </div>
       </header>
 
-      {/* Full-height fixed rail. It is intentionally visible by default at
-          every viewport size so the app never renders without its primary
-          navigation. */}
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Fermer la navigation"
+          onClick={() => setMobileOpen(false)}
+          className="glass-overlay fixed inset-0 z-30 md:hidden"
+        />
+      )}
+
+      {/* Full-height fixed rail. It stays visible on desktop and becomes an
+          overlay drawer on small screens so the product content remains
+          usable without sacrificing the primary navigation. */}
       <aside
-        className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-hidden px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
+        id="app-navigation"
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-hidden px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out)] md:translate-x-0",
+          mobileOpen ? "translate-x-0 max-md:visible" : "-translate-x-full max-md:pointer-events-none max-md:invisible"
+        )}
         style={{ background: "var(--gradient-dark)" }}
       >
         {/* h-18 mirrors the top bar's own height, so the wordmark's vertical

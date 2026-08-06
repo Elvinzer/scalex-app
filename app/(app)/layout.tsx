@@ -199,9 +199,10 @@ export default async function AppLayout({
           currentMonthlyRevenue={currentMonthlyRevenue}
           potentialMonthlyRevenue={potentialMonthlyRevenue}
         />
-        {/* The sidebar is fixed, so reserve its width in normal document flow. */}
-        <div aria-hidden="true" className="w-64 shrink-0" />
-        <main className="relative z-0 min-w-0 flex-1 px-16 pb-10">
+        {/* The sidebar is fixed, so reserve its width in normal document flow
+            on desktop; mobile opens it as an overlay instead. */}
+        <div aria-hidden="true" className="w-0 shrink-0 md:w-64" />
+        <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-10 md:px-16">
           {/* Keep the first page content below the fixed top navigation. */}
           <div aria-hidden="true" className="h-20 shrink-0" />
           <div className="mx-auto max-w-6xl">{children}</div>

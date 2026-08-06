@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { InfoPopover } from "@/components/info-popover";
 import { computePostRates } from "@/lib/content-posts/rates";
@@ -14,19 +14,19 @@ import { PostsTable } from "./posts-table";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
-// The interactive half of /acquisition/contenu/instagram — period state has
-// to live client-side because it drives both the KPI tiles and the table.
-// The connection card is deliberately NOT rendered here: once the account is
-// synced it belongs to /integrations only (see the page's own comment).
+// The data panel for Instagram. The parent shell owns the period so switching
+// platforms does not reset the user's selected window.
 export function InstagramView({
   posts,
   instagramInsights,
+  period,
+  onPeriodChange,
 }: {
   posts: ContentPostRow[];
   instagramInsights: Map<string, InstagramPostInsightRow>;
+  period: DateFilterKey;
+  onPeriodChange: (period: DateFilterKey) => void;
 }) {
-  const [period, setPeriod] = useState<DateFilterKey>("all");
-
   const filtered = useMemo(() => posts.filter((post) => isWithinPeriod(post.publishedAt, period)), [posts, period]);
   const totalViews = filtered.reduce((sum, post) => sum + post.views, 0);
   const clickRates = filtered.map((post) => computePostRates(post).clickRate).filter((rate): rate is number => rate !== null);
@@ -35,7 +35,7 @@ export function InstagramView({
 
   return (
     <div className="flex flex-col gap-6">
-      <PeriodPills period={period} onChange={setPeriod} />
+      <PeriodPills period={period} onChange={onPeriodChange} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="sticker-card flex flex-col p-5">

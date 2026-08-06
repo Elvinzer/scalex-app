@@ -37,8 +37,8 @@ export default function RootLayout({
     // descendant) left <html> unable to see it, so that rule silently fell
     // back to the browser's default serif, which every element without its
     // own explicit font utility class then inherited.
-    <html lang="en" className={inter.variable}>
-      <body className="antialiased">
+    <html lang="en" className={`${inter.variable} overflow-x-clip`}>
+      <body className="antialiased overflow-x-clip">
         <PostHogInit />
         {children}
       </body>

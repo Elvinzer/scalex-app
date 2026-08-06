@@ -101,7 +101,7 @@ function TopVideosPanel({ videos, format }: { videos: YoutubeVideoInsightRow[]; 
               <span
                 className={cn(
                   "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                  index === 0 ? "bg-accent text-white" : "bg-muted text-muted-foreground"
+                  index === 0 ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"
                 )}
               >
                 {index + 1}
@@ -270,7 +270,9 @@ export function YoutubeVideosTable({
                     <InfoPopover text={EXPLANATIONS.dealsClosed} />
                   </div>
                 </th>
-                <th className="p-3" />
+                <th className="p-3" scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>

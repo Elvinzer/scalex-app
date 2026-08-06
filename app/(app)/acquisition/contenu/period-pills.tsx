@@ -19,7 +19,7 @@ export function PeriodPills({ period, onChange }: { period: DateFilterKey; onCha
           type="button"
           onClick={() => onChange(filter.key)}
           className={cn(
-            "rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
+            "inline-flex min-h-11 items-center justify-center rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
             period === filter.key
               ? "border-accent-border bg-accent-soft text-accent-text"
               : "border-border text-muted-foreground hover:border-border-hover"
@@ -45,7 +45,7 @@ export function FormatPills({ format, onChange }: { format: VideoFormat; onChang
           type="button"
           onClick={() => onChange(option.key)}
           className={cn(
-            "rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
+            "inline-flex min-h-11 items-center justify-center rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
             format === option.key
               ? "border-accent-border bg-accent-soft text-accent-text"
               : "border-border text-muted-foreground hover:border-border-hover"

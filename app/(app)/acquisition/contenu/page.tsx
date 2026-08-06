@@ -1,10 +1,6 @@
-import { Camera, MonitorPlay } from "lucide-react";
-import Link from "next/link";
 import { eq } from "drizzle-orm";
 
 import { AgentBanner } from "@/components/agent-banner";
-import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
-import { YoutubeConnectionCard } from "@/components/youtube/youtube-connection-card";
 import { db } from "@/db";
 import { instagramConnections, youtubeConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
@@ -13,10 +9,12 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
-import { formatPercent } from "@/lib/setting/funnel";
+import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
+
+import { ContenuView } from "./contenu-view";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
@@ -34,6 +32,11 @@ const YOUTUBE_ERROR_MESSAGES: Record<string, string> = {
 };
 
 type PlatformTotals = { posts: number; views: number; interactions: number };
+type ContentPlatform = "instagram" | "youtube";
+
+function parseContentPlatform(value: string | undefined): ContentPlatform | null {
+  return value === "instagram" || value === "youtube" ? value : null;
+}
 
 function totalsFor(posts: ContentPostRow[]): PlatformTotals {
   return posts.reduce(
@@ -49,19 +52,28 @@ function totalsFor(posts: ContentPostRow[]): PlatformTotals {
 export default async function ContenuPage({
   searchParams,
 }: {
-  searchParams: Promise<{ instagram_error?: string; youtube_error?: string }>;
+  searchParams: Promise<{ instagram_error?: string; youtube_error?: string; platform?: string }>;
 }) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:contenu");
-  const { instagram_error: instagramError, youtube_error: youtubeError } = await searchParams;
+  const { instagram_error: instagramError, youtube_error: youtubeError, platform: requestedPlatform } = await searchParams;
+  const initialPlatform = parseContentPlatform(requestedPlatform);
 
   const instagramConnected = Boolean(user?.instagramConnected);
   const youtubeConnected = Boolean(user?.youtubeConnected);
-  const [posts, [instagramConnection], [youtubeConnection], youtubeInsights, subscriptionActive] = await Promise.all([
+  const [
+    posts,
+    [instagramConnection],
+    instagramInsights,
+    [youtubeConnection],
+    youtubeInsights,
+    subscriptionActive,
+  ] = await Promise.all([
     getContentPosts(accountId),
     instagramConnected
       ? db.select().from(instagramConnections).where(eq(instagramConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
+    getInstagramPostInsightsMap(accountId),
     youtubeConnected
       ? db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -82,11 +94,13 @@ export default async function ContenuPage({
   const visiblePosts = posts.filter((post) => post.source !== "youtube" || (post.externalId !== null && publicVideoIds.has(post.externalId)));
 
   const instagramPosts = visiblePosts.filter((post) => post.source === "instagram");
-  const youtubePosts = visiblePosts.filter((post) => post.source === "youtube");
+  const youtubeVideos = Array.from(youtubeInsights.values()).filter(isPublicVideo);
   const global = totalsFor(visiblePosts);
-  const instagramTotals = totalsFor(instagramPosts);
-  const youtubeTotals = totalsFor(youtubePosts);
-  const engagementRate = global.views > 0 ? global.interactions / global.views : null;
+  const youtubeCommercialStats = new Map(
+    posts
+      .filter((post) => post.source === "youtube" && post.externalId)
+      .map((post) => [post.externalId as string, { bookings: post.bookings, dealsClosed: post.dealsClosed }])
+  );
 
   const anyConnected = instagramConnected || youtubeConnected;
   const stateText = anyConnected
@@ -94,29 +108,6 @@ export default async function ContenuPage({
     : "Connecte un réseau social pour voir la performance de ton contenu.";
   const chatContext: ChatContext = { topicType: "lever", topicKey: "content", topicLabel: "Contenu", sourcePage: "acquisition_contenu" };
   const falcoSkin = resolveFalcoSkin("/acquisition/contenu");
-
-  const platforms = [
-    {
-      key: "instagram",
-      label: "Instagram",
-      icon: Camera,
-      href: "/acquisition/contenu/instagram",
-      connected: instagramConnected,
-      handle: instagramConnection?.username ? `@${instagramConnection.username}` : null,
-      totals: instagramTotals,
-      unit: "publications",
-    },
-    {
-      key: "youtube",
-      label: "YouTube",
-      icon: MonitorPlay,
-      href: "/acquisition/contenu/youtube",
-      connected: youtubeConnected,
-      handle: youtubeConnection?.channelTitle ?? null,
-      totals: youtubeTotals,
-      unit: "vidéos",
-    },
-  ];
 
   return (
     <div className="flex flex-col gap-8">
@@ -131,7 +122,7 @@ export default async function ContenuPage({
       <div>
         <h1 className="text-3xl font-bold">Contenu</h1>
         <p className="mt-1 text-muted-foreground">
-          La performance globale de ton contenu, tous réseaux connectés confondus. Ouvre un réseau pour le détail publication par publication.
+          Performance de ton contenu, tous réseaux connectés confondus : vues, engagement, clics et leads générés.
         </p>
       </div>
 
@@ -146,97 +137,24 @@ export default async function ContenuPage({
         </div>
       )}
 
-      {anyConnected && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Publications</p>
-            <p className="mt-2 font-display text-3xl font-bold tabular-nums">{NUMBER_FORMAT.format(global.posts)}</p>
-          </div>
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Vues cumulées</p>
-            <p className="mt-2 font-display text-3xl font-bold tabular-nums">{NUMBER_FORMAT.format(global.views)}</p>
-          </div>
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Interactions</p>
-            <p className="mt-2 font-display text-3xl font-bold tabular-nums">{NUMBER_FORMAT.format(global.interactions)}</p>
-          </div>
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Taux d&apos;engagement</p>
-            <p className="mt-2 font-display text-3xl font-bold">{engagementRate === null ? "—" : formatPercent(engagementRate)}</p>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-3">
-        <h2 className="text-base font-bold">Par réseau</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {platforms.map((platform) => {
-            const Icon = platform.icon;
-
-            if (!platform.connected) {
-              return (
-                <div key={platform.key} className="sticker-card-dashed flex flex-col gap-2 p-5">
-                  <div className="flex items-center gap-2">
-                    <Icon className="size-4 text-muted-foreground" />
-                    <p className="font-bold">{platform.label}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Non connecté — connecte ce réseau pour suivre sa performance.</p>
-                </div>
-              );
-            }
-
-            return (
-              <Link
-                key={platform.key}
-                href={platform.href}
-                className="sticker-card flex flex-col gap-3 p-5 transition-colors hover:border-border-hover"
-              >
-                <div className="flex items-center gap-2">
-                  <Icon className="size-4 text-muted-foreground" />
-                  <p className="font-bold">{platform.label}</p>
-                  {platform.handle && <span className="truncate text-sm text-muted-foreground">{platform.handle}</span>}
-                </div>
-                <div className="flex items-baseline gap-5">
-                  <div>
-                    <p className="text-xs text-muted-foreground">{platform.unit}</p>
-                    <p className="font-display text-2xl font-bold tabular-nums">{NUMBER_FORMAT.format(platform.totals.posts)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">vues</p>
-                    <p className="font-display text-2xl font-bold tabular-nums">{NUMBER_FORMAT.format(platform.totals.views)}</p>
-                  </div>
-                </div>
-                <span className="text-sm font-bold text-accent-text">Voir le détail →</span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Connection cards only while a platform is still unconnected. Once
-          it's synced the card is pure noise here — managing/disconnecting an
-          integration lives on /integrations, which is the single place that
-          always shows them. */}
-      {!instagramConnected && (
-        <InstagramConnectionCard
-          connected={false}
-          username={null}
-          initialSyncStatus={null}
-          initialSyncCompletedAt={null}
-          subscriptionActive={subscriptionActive}
-          primaryCta
-        />
-      )}
-      {!youtubeConnected && (
-        <YoutubeConnectionCard
-          connected={false}
-          channelTitle={null}
-          initialSyncStatus={null}
-          initialSyncCompletedAt={null}
-          subscriptionActive={subscriptionActive}
-          primaryCta
-        />
-      )}
+      <ContenuView
+        initialPlatform={initialPlatform}
+        posts={instagramPosts}
+        instagramInsights={instagramInsights}
+        instagramConnected={instagramConnected}
+        instagramUsername={instagramConnection?.username ?? null}
+        instagramSyncStatus={instagramConnection?.initialSyncStatus ?? null}
+        instagramSyncCompletedAt={instagramConnection?.initialSyncCompletedAt ?? null}
+        youtubeVideos={youtubeVideos}
+        youtubeCommercialStats={youtubeCommercialStats}
+        youtubeConnected={youtubeConnected}
+        youtubeChannelTitle={youtubeConnection?.channelTitle ?? null}
+        youtubeSyncStatus={youtubeConnection?.initialSyncStatus ?? null}
+        youtubeSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt ?? null}
+        youtubeSubscriberCount={youtubeConnection?.subscriberCount ?? null}
+        subscriptionActive={subscriptionActive}
+        hasConnectedPlatform={anyConnected}
+      />
     </div>
   );
 }
