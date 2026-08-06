@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 
 // Read-only status — the actual connect/disconnect flow lives on
-// /settings (owner-only, see stripe-connection-card.tsx). This only tells
+// /integrations (owner-only, see integrations/stripe-disconnect-button.tsx).
+// This only tells
 // every team member with access to /ventes/suivi whether Stripe-tagged
 // sales are backed by a live sync right now. Deliberately not a coral
 // Button (variant="default") here — "Ajouter une vente" is already this

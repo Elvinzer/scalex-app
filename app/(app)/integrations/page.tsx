@@ -12,6 +12,8 @@ import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
+import { StripeDisconnectButton } from "./stripe-disconnect-button";
+
 const UPCOMING_INTEGRATIONS = ["Kajabi", "Brevo"];
 
 // Owner-only: connecting/disconnecting Stripe grants OAuth access to the
@@ -77,6 +79,18 @@ export default async function IntegrationsPage() {
             </Button>
           )}
         </div>
+
+        {stripeConnected && (
+          <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="truncate font-mono text-sm font-bold">{user?.stripeConnectId}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pour changer de compte Stripe, déconnecte-toi puis reconnecte-toi avec l&apos;autre compte.
+              </p>
+            </div>
+            <StripeDisconnectButton />
+          </div>
+        )}
 
         {stripeConnected && connection && !connection.livemode && !isAdmin && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">

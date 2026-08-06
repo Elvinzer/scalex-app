@@ -2021,13 +2021,23 @@ export const subscriptions = pgTable(
       .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
     stripeCustomerId: text("stripe_customer_id").notNull(),
     stripeSubscriptionId: text("stripe_subscription_id").unique(),
+    // Snapshot of the exact recurring Price attached to this subscription.
+    // The catalog row can point to a newer Price after a plan price change;
+    // admin billing must keep showing what this customer actually subscribed
+    // to until Stripe reports an explicit subscription change.
+    stripePriceId: text("stripe_price_id"),
+    priceMonthlyCents: integer("price_monthly_cents"),
     status: text("status").notNull().default("incomplete"),
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("subscriptions_plan_idx").on(table.planId)]
+  (table) => [
+    index("subscriptions_plan_idx").on(table.planId),
+    index("subscriptions_status_idx").on(table.status),
+    index("subscriptions_period_end_idx").on(table.currentPeriodEnd),
+  ]
 ).enableRLS();
 
 // Idempotency ledger for the Stripe billing webhook

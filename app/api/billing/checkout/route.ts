@@ -79,6 +79,8 @@ export async function GET(request: NextRequest) {
       metadata: {
         userId: accountId,
         planId: plan.id,
+        stripePriceId: plan.stripePriceId,
+        priceMonthlyCents: String(plan.priceMonthlyCents),
         ...(attribution ? { referralAttributionId: attribution.id } : {}),
       },
     },

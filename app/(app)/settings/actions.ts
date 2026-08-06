@@ -183,6 +183,7 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
   await db.update(users).set({ stripeConnectId: null }).where(eq(users.id, access.accountId));
 
   revalidatePath("/settings");
+  revalidatePath("/integrations");
   revalidatePath("/dashboard");
   revalidatePath("/datas");
   revalidatePath("/ventes/suivi");

@@ -3,7 +3,8 @@ import Stripe from "stripe";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { processedStripeEvents, subscriptions } from "@/db/schema";
+import { processedStripeEvents } from "@/db/schema";
+import { subscriptionMetadataSchema, syncStripeSubscriptionProjection } from "@/lib/billing/stripe-subscription";
 import { recordPaidReferralInvoice, reverseAvailableReferralCommission } from "@/lib/referrals/commissions";
 import { getPlatformStripeClient } from "@/lib/stripe/platform-client";
 import { requireEnv } from "@/lib/utils";
@@ -18,12 +19,6 @@ import { requireEnv } from "@/lib/utils";
 // subscription event — not just checkout.session.completed — carries a
 // stable, non-guessable link back to our own account/plan rows, regardless
 // of delivery order.
-const subscriptionMetadataSchema = z.object({
-  userId: z.string().uuid(),
-  planId: z.string().uuid(),
-  referralAttributionId: z.string().uuid().optional(),
-});
-
 const invoicePayloadSchema = z.object({
   id: z.string().min(1),
   subscription: z.union([z.string().min(1), z.object({ id: z.string().min(1) })]).nullable().optional(),
@@ -83,34 +78,14 @@ async function markProcessed(eventId: string, type: string): Promise<boolean> {
   return Boolean(inserted);
 }
 
-async function upsertFromSubscription(subscription: Stripe.Subscription): Promise<void> {
-  const parsed = subscriptionMetadataSchema.safeParse(subscription.metadata);
-  if (!parsed.success) {
-    // Not a subscription our own checkout created (e.g. one created by hand
-    // in the Stripe Dashboard while testing) — nothing to reconcile.
+async function upsertFromSubscription(subscription: unknown): Promise<void> {
+  const result = await syncStripeSubscriptionProjection(subscription);
+  if (!result.ok && result.error === "Les données Stripe de cet abonnement sont invalides ou incomplètes.") {
+    // Not a subscription created by our own checkout — ignore unrelated
+    // subscriptions without logging their payload or metadata.
     return;
   }
-
-  const currentPeriodEndSeconds = subscription.items.data[0]?.current_period_end;
-  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
-
-  const values = {
-    userId: parsed.data.userId,
-    planId: parsed.data.planId,
-    stripeCustomerId: customerId,
-    stripeSubscriptionId: subscription.id,
-    status: subscription.status,
-    currentPeriodEnd: currentPeriodEndSeconds ? new Date(currentPeriodEndSeconds * 1000) : null,
-    cancelAtPeriodEnd: subscription.cancel_at_period_end,
-  };
-
-  await db
-    .insert(subscriptions)
-    .values(values)
-    .onConflictDoUpdate({
-      target: subscriptions.userId,
-      set: { ...values, updatedAt: new Date() },
-    });
+  if (!result.ok) return;
 }
 
 export async function POST(request: NextRequest) {
@@ -135,16 +110,25 @@ export async function POST(request: NextRequest) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      if (typeof session.subscription === "string") {
-        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+      const session = z
+        .object({ subscription: z.union([z.string().min(1), z.object({ id: z.string().min(1) })]).nullable().optional() })
+        .safeParse(event.data.object);
+      const subscriptionId =
+        session.success && session.data.subscription
+          ? typeof session.data.subscription === "string"
+            ? session.data.subscription
+            : session.data.subscription.id
+          : null;
+      if (subscriptionId) {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
         await upsertFromSubscription(subscription);
       }
       break;
     }
+    case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
-      await upsertFromSubscription(event.data.object as Stripe.Subscription);
+      await upsertFromSubscription(event.data.object);
       break;
     }
     case "invoice.paid": {

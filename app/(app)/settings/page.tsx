@@ -9,7 +9,6 @@ import { ApiKeyForm } from "./api-key-form";
 import { DangerZoneForm } from "./danger-zone-form";
 import { FalcoPreferencesForm } from "./falco-preferences-form";
 import { ProfileForm } from "./profile-form";
-import { StripeConnectionCard } from "./stripe-connection-card";
 
 // Owner-only: BYOK key, Stripe Connect, billing, team & role management are
 // all account-level actions, never delegable to a role — see
@@ -166,8 +165,6 @@ export default async function SettingsPage() {
           <a href="/integrations">Voir les intégrations →</a>
         </Button>
       </div>
-
-      <StripeConnectionCard stripeConnectId={user?.stripeConnectId ?? null} />
 
       <div className="sticker-card border-state-critical/30 p-8">
         <p className="text-sm font-bold text-state-critical">Suppression de données</p>

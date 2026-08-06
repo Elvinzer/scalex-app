@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-06
+goal: Offrir une vue fiable des abonnements, entitlements et usages avec des
+  opérations admin sûres sans dupliquer Stripe
