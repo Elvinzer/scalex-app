@@ -6,11 +6,12 @@
     "dev": "trap 'kill 0' EXIT; next dev --turbopack 2>&1 | grep --line-buffered -v 'PUT /api/inngest 200' & npx -y inngest-cli@latest dev -u http://localhost:3000/api/inngest --no-discovery -l warn & wait",
     "dev:next": "next dev --turbopack",
     "build": "next build",
+    "vercel-build": "next build && npm run db:migrate",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
   },

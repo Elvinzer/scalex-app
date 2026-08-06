@@ -23,8 +23,17 @@ SaaS BYOK qui diagnostique le goulot d'étranglement business d'un infopreneur U
 ## Commandes
 - `npm run dev` — lancer en local
 - `npm run typecheck` — auto-déclenché après chaque edit via hook (`.Codex/settings.json`) ; relancer manuellement si le hook est absent
-- `npm run db:push` — appliquer une migration Drizzle en dev
 - `npm run lint` — avant chaque commit
+
+## Base de données — migrations UNIQUEMENT (jamais `db push`)
+Le schéma est géré par des fichiers de migration Drizzle, appliqués automatiquement
+au déploiement (`vercel-build` lance `db:migrate`). Ne JAMAIS utiliser `drizzle-kit push` :
+ça modifie la base sans créer de fichier, désynchronise l'historique
+(`__drizzle_migrations`) et fait échouer les déploiements. Workflow après un
+changement de `db/schema.ts` :
+- `npm run db:generate` — générer le fichier de migration (à committer)
+- `npm run db:migrate` — l'appliquer (dev == prod : même base Supabase partagée)
+- committer le `.sql` généré + le `meta/` : le déploiement Vercel rejoue `db:migrate`
 
 ## Definition of Done
 Avant de dire qu'une tâche est terminée :
@@ -32,7 +41,7 @@ Avant de dire qu'une tâche est terminée :
 - [ ] Aucun secret dans le diff (clé API, `.env`, token Stripe/Supabase)
 - [ ] `.env.example` mis à jour si une nouvelle variable d'env a été ajoutée
 - [ ] Preview Vercel qui build sans erreur
-- [ ] Migration Drizzle appliquée (`db:push`) si `db/schema.ts` a été touché
+- [ ] Migration Drizzle générée (`db:generate`) ET appliquée (`db:migrate`) si `db/schema.ts` a été touché
 
 ## Code style
 - ES modules uniquement, jamais de `require`

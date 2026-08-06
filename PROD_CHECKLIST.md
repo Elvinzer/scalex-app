@@ -17,7 +17,8 @@ dans un dashboard externe (pas du code, donc rien que `git log` ne peut retrouve
       séparé du dev — Client ID/Secret à recopier
 - [ ] RLS (Row Level Security) activée sur **toutes** les tables user-scoped de `db/schema.ts`,
       policies revérifiées une à une (pas seulement testées en dev)
-- [ ] Migrations Drizzle appliquées sur la DB de prod (`npm run db:push` pointé sur `DATABASE_URL` prod)
+- [ ] Migrations Drizzle appliquées sur la DB de prod — automatique au déploiement (`vercel-build`
+      lance `db:migrate`) ; en manuel si besoin : `npm run db:migrate` pointé sur `DIRECT_URL` prod
 - [ ] Email templates Supabase (magic link) : expéditeur/domaine cohérent avec la prod, pas les
       valeurs par défaut Supabase (`noreply@mail.app.supabase.io`)
 

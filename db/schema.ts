@@ -2005,9 +2005,9 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 // subscription state, kept in sync by the webhook. status is plain text, not
 // a pg enum: it mirrors Stripe's own status vocabulary directly ("active",
 // "trialing", "past_due", "canceled", ...), which Stripe can extend on its
-// own timeline, and this repo has no versioned migrations to ALTER TYPE
-// against (schema changes only go through `db:push`) — validated with Zod at
-// the webhook boundary instead, per CLAUDE.md's external-data rule.
+// own timeline — keeping it plain text avoids an ALTER TYPE migration every
+// time Stripe adds a status; validated with Zod at the webhook boundary
+// instead, per CLAUDE.md's external-data rule.
 export const subscriptions = pgTable(
   "subscriptions",
   {
