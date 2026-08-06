@@ -120,9 +120,9 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
             <h3 id="abandoned-leads-title" className="text-lg font-bold">À relancer</h3>
             {visibleLeads.length > 0 && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">{visibleLeads.length}</span>}
           </div>
-          <p className="text-sm text-muted-foreground">Liste des prospects n&apos;ayant pas finalisés la prise de rdv</p>
+          <p className="text-sm text-foreground/70">Liste des prospects n&apos;ayant pas finalisés la prise de rdv</p>
         </div>
-        <p className="text-xs text-muted-foreground">Les rendez-vous confirmés sortent automatiquement de cette liste.</p>
+        <p className="text-xs text-foreground/70">Les rendez-vous confirmés sortent automatiquement de cette liste.</p>
       </div>
 
       {error && <p className="rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm font-bold text-state-critical" role="alert">{error}</p>}
@@ -131,7 +131,7 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
         <div className="sticker-card-dashed flex flex-col items-center gap-2 p-7 text-center">
           <CheckCheck className="size-7 text-state-healthy" />
           <p className="font-bold">Aucune relance en attente</p>
-          <p className="max-w-md text-sm text-muted-foreground">Les coordonnées apparaîtront ici dès qu’un prospect aura déverrouillé les créneaux.</p>
+          <p className="max-w-md text-sm text-foreground/70">Les coordonnées apparaîtront ici dès qu’un prospect aura déverrouillé les créneaux.</p>
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">

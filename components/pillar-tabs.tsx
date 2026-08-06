@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
 export type PillarTab = { href: string; label: string };
 
 // Router-driven, not a content-switcher: each tab is a real route (Contenu,
@@ -18,16 +16,25 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
   if (tabs.length === 0) return null;
 
   const active = tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`))?.href ?? tabs[0].href;
-
   return (
-    <Tabs value={active}>
-      <TabsList className="w-full justify-start md:justify-center">
-        {tabs.map((tab) => (
-          <TabsTrigger key={tab.href} value={tab.href} asChild className="text-center">
-            <Link href={tab.href}>{tab.label}</Link>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+    <nav aria-label="Navigation Vente" className="w-full overflow-x-auto">
+      <div className="flex w-full min-w-max items-center justify-start gap-1 border-b-2 border-border md:justify-center" role="tablist">
+        {tabs.map((tab) => {
+          const isActive = tab.href === active;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              role="tab"
+              aria-selected={isActive}
+              aria-current={isActive ? "page" : undefined}
+              className={`-mb-0.5 shrink-0 border-b-2 border-transparent px-4 py-2.5 text-center text-sm font-bold whitespace-nowrap transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] ${isActive ? "border-accent text-foreground" : "text-foreground/70 hover:text-foreground"}`}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

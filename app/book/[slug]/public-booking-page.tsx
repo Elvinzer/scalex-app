@@ -653,7 +653,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
                   <h2 id="phone-stage-title" className="sr-only">Palier 1 : téléphone</h2>
                   {stage >= 2 && !editingPhone ? (
                     <div className="flex min-h-12 items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border bg-muted/40 px-3">
-                      <span className="flex items-center gap-2 text-sm font-bold"><span className="text-foreground">✓</span><span className="font-mono">{formatPhone(contact.phone)}</span></span>
+                      <span className="flex items-center gap-2 text-sm font-bold"><span aria-hidden="true" className="text-foreground">✓</span><span className="font-mono">{formatPhone(contact.phone)}</span></span>
                       <button type="button" onClick={() => setEditingPhone(true)} className="min-h-11 px-2 text-xs font-bold text-accent hover:underline">Modifier</button>
                     </div>
                   ) : (

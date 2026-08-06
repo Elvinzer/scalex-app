@@ -121,9 +121,9 @@ export default async function NativeBookingEventsPage({
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-accent">Troisième source d&apos;appels</p>
+          <p className="text-sm font-bold text-accent-text">Troisième source d&apos;appels</p>
           <h2 className="mt-1 text-3xl font-bold">Rendez-vous</h2>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
+          <p className="mt-2 max-w-2xl text-foreground/70">
             Un agenda unique pour les réservations natives, iClosed et Calendly. Les appels manuels restent dans le journal détaillé.
           </p>
         </div>

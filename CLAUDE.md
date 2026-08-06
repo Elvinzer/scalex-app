@@ -32,7 +32,7 @@ Avant de dire qu'une tâche est terminée :
 - [ ] Aucun secret dans le diff (clé API, `.env`, token Stripe/Supabase)
 - [ ] `.env.example` mis à jour si une nouvelle variable d'env a été ajoutée
 - [ ] Preview Vercel qui build sans erreur
-- [ ] Migration Drizzle appliquée (`db:push`) si `db/schema.ts` a été touché
+- [ ] Migration Drizzle appliquée (`db:migrate`) si `db/schema.ts` a été touché
 
 ## Code style
 - ES modules uniquement, jamais de `require`
