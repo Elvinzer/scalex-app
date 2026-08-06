@@ -59,7 +59,7 @@ export default async function NativeBookingEventsPage({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-accent">Troisième source d&apos;appels</p>
-          <h2 className="mt-1 text-3xl font-bold">Rendez-vous natifs</h2>
+          <h2 className="mt-1 text-3xl font-bold">Rendez-vous</h2>
           <p className="mt-2 max-w-2xl text-muted-foreground">
             Crée une page de réservation Scale X, collecte les coordonnées avant les créneaux et répartis les appels
             entre tes closers.

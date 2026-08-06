@@ -53,7 +53,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "acquisition:setters": "Acquisition — Setters",
   "ventes:suivi": "Ventes — Suivi des ventes",
   "ventes:videos": "Ventes — Vidéos de closing",
-  "ventes:rdv": "Ventes — Rendez-vous natifs",
+  "ventes:rdv": "Ventes — Rendez-vous",
   "ventes:closing": "Ventes — Closing",
   "ventes:appels": "Ventes — Suivi des appels (iClosed)",
   "ventes:upsell": "Ventes — Upsell",

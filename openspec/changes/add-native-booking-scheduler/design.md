@@ -47,7 +47,7 @@ Pour conserver la compatibilité, `sales_calls` recevra un lien nullable vers `n
 
 Les plages hebdomadaires et exceptions seront relationnelles afin de valider les chevauchements, les jours fermés et les modifications ciblées. Les rendez-vous seront persistés en UTC avec `eventTimeZone` et `guestTimeZone` en plus de `startAt`/`endAt`. Les calculs de dates utiliseront le fuseau IANA de l’événement et devront couvrir explicitement les changements d’heure été/hiver.
 
-Les créneaux seront calculés à la demande à partir de la fenêtre demandée, des règles récurrentes, des exceptions, des rendez-vous natifs et des périodes busy des closers. Une mise en cache courte peut être utilisée pour la lecture publique, mais la disponibilité sera toujours recalculée au moment de confirmer.
+Les créneaux seront calculés à la demande à partir de la fenêtre demandée, des règles récurrentes, des exceptions, des Rendez-vous et des périodes busy des closers. Une mise en cache courte peut être utilisée pour la lecture publique, mais la disponibilité sera toujours recalculée au moment de confirmer.
 
 Alternative écartée : stocker toutes les occurrences futures. Cette approche simplifierait la lecture mais rendrait les exceptions, les changements de fuseau et les modifications d’horaires difficiles à maintenir.
 

@@ -1,6 +1,6 @@
 ## Why
 
-Scale X sait déjà repérer un goulot business, mais les actions commerciales restent réparties entre le Dashboard, le Pipeline, le suivi des appels et les rendez-vous natifs. Le changement natif de réservation ajoute déjà des prospects abandonnés à relancer : c’est le moment de rendre ces signaux visibles dans une même file d’actions, sans lancer un CRM générique ni fusionner prématurément les modèles métier.
+Scale X sait déjà repérer un goulot business, mais les actions commerciales restent réparties entre le Dashboard, le Pipeline, le suivi des appels et les Rendez-vous. Le changement natif de réservation ajoute déjà des prospects abandonnés à relancer : c’est le moment de rendre ces signaux visibles dans une même file d’actions, sans lancer un CRM générique ni fusionner prématurément les modèles métier.
 
 ## What Changes
 
@@ -16,7 +16,7 @@ Scale X sait déjà repérer un goulot business, mais les actions commerciales r
 
 ### New Capabilities
 
-- `revenue-action-aggregation`: projection priorisée et account-scoped des actions commerciales issues des leads, appels et rendez-vous natifs.
+- `revenue-action-aggregation`: projection priorisée et account-scoped des actions commerciales issues des leads, appels et Rendez-vous.
 - `revenue-action-center`: surface Dashboard `À faire maintenant`, navigation vers les contextes sources et exigences d’accessibilité/responsive.
 
 ### Modified Capabilities

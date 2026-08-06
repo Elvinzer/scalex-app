@@ -15,7 +15,7 @@ Le système SHALL permettre à un closer autorisé de connecter un compte Google
 
 ### Requirement: Busy periods exclude slots
 
-Pour chaque closer connecté, le système SHALL exclure des créneaux les périodes occupées des calendriers sélectionnés, ainsi que les rendez-vous natifs déjà confirmés et les buffers de l’événement.
+Pour chaque closer connecté, le système SHALL exclure des créneaux les périodes occupées des calendriers sélectionnés, ainsi que les Rendez-vous déjà confirmés et les buffers de l’événement.
 
 #### Scenario: External calendar appointment blocks a slot
 

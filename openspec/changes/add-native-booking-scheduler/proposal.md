@@ -16,7 +16,7 @@ Le parcours public doit aussi qualifier le prospect avant de révéler les crén
 - Publier des liens partageables et conserver les paramètres UTM, y compris la vidéo ou le canal d’origine, sur la réservation et l’appel de vente.
 - Enregistrer directement une tentative de réservation dès qu’au moins une information est saisie, conserver sa dernière étape et le créneau consulté, puis l’exposer comme prospect à relancer tant qu’aucun rendez-vous n’est confirmé.
 - Afficher ces prospects dans l’espace « Ventes → Rendez-vous » avec leurs coordonnées, leur événement, leur activité récente et leur attribution, ainsi que des actions « contacté » et « ignoré » account-scoped.
-- Introduire les rendez-vous natifs comme nouvelle source de `sales_calls` sans casser les flux iClosed, Calendly ou manuels existants.
+- Introduire les Rendez-vous comme nouvelle source de `sales_calls` sans casser les flux iClosed, Calendly ou manuels existants.
 - Prévoir les confirmations, les états de réservation et les notifications nécessaires au suivi opérationnel.
 
 ## Capabilities

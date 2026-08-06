@@ -33,7 +33,7 @@ Le système SHALL vérifier la disponibilité réelle du closer sélectionné au
 
 ### Requirement: No overlapping assigned appointments
 
-Le système SHALL empêcher qu’un même closer possède deux rendez-vous natifs confirmés qui se chevauchent, y compris lorsque plusieurs prospects confirment simultanément le même créneau.
+Le système SHALL empêcher qu’un même closer possède deux Rendez-vous confirmés qui se chevauchent, y compris lorsque plusieurs prospects confirment simultanément le même créneau.
 
 #### Scenario: Concurrent confirmations compete for one closer
 

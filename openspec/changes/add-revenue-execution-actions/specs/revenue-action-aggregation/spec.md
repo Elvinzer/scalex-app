@@ -1,6 +1,6 @@
 ## Purpose
 
-Cette capacité fournit une projection account-scoped et déterministe des actions commerciales urgentes issues des données de leads, d’appels et de rendez-vous natifs existantes, sans créer de modèle de contact ou d’action générique.
+Cette capacité fournit une projection account-scoped et déterministe des actions commerciales urgentes issues des données de leads, d’appels et de Rendez-vous existantes, sans créer de modèle de contact ou d’action générique.
 
 ## ADDED Requirements
 
