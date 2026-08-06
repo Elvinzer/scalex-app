@@ -123,7 +123,7 @@ const topEntries: LinkEntry[] = [
 //
 // The bar itself is desktop-only (no room below lg once the hamburger,
 // wordmark and profile are in), so these same entries are ALSO rendered
-// inside the mobile drawer — see the lg:hidden block in the sidebar nav.
+// inside the mobile drawer — see the md:hidden block in the sidebar nav.
 // Without that, moving a page here would silently make it unreachable on
 // mobile.
 const topBarEntries: LinkEntry[] = [
@@ -428,20 +428,20 @@ export function AppSidebar({
           desktop offset on the header itself avoids a second, fragile
           alignment rule based on padding while the sidebar draws over it. */}
       <header
-        className="fixed inset-x-0 top-0 z-30 flex min-h-18 flex-wrap items-center gap-2 border-b border-[color:var(--surface-dark)] bg-card px-4 py-2 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)] sm:gap-3 lg:left-64 lg:pr-6 lg:pl-4"
+        className="fixed inset-x-0 top-0 z-30 flex min-h-18 flex-wrap items-center gap-2 border-b border-[color:var(--surface-dark)] bg-card px-4 py-2 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)] sm:gap-3 md:h-18 md:flex-nowrap md:py-0 md:left-64 md:pr-6 md:pl-4"
       >
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Ouvrir le menu"
-          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-foreground transition-colors hover:bg-muted lg:hidden"
+          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-foreground transition-colors hover:bg-muted md:hidden"
         >
           <Menu className="size-5" />
         </button>
         {/* -light is the dark-ink wordmark (the default one renders "Scale"
             in white, invisible on this now-white bar). The sidebar below
             keeps the white-ink default — it's still a dark surface. */}
-        <Link href="/dashboard" className="flex min-w-0 max-w-[42vw] shrink-0 items-center transition-opacity hover:opacity-80 lg:hidden">
+        <Link href="/dashboard" className="flex min-w-0 max-w-[42vw] shrink-0 items-center transition-opacity hover:opacity-80 md:hidden">
           <Image
             src="/scalex-wordmark-light.png"
             alt="Scale X"
@@ -452,7 +452,7 @@ export function AppSidebar({
           />
         </Link>
 
-        <nav aria-label="Navigation rapide" className="order-last flex w-full min-w-0 flex-wrap items-center gap-1 lg:order-none lg:w-auto">
+        <nav aria-label="Navigation rapide" className="order-last flex w-full min-w-0 flex-wrap items-center gap-1 md:order-none md:w-auto">
           {visibleTopBarEntries.map((entry) => {
             const Icon = entry.icon;
             const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
@@ -475,7 +475,7 @@ export function AppSidebar({
           })}
         </nav>
 
-        <div className="ml-auto min-w-0 max-w-full flex-[1_1_auto] lg:max-w-[22rem] lg:flex-none">
+        <div className="ml-auto min-w-0 max-w-full flex-[1_1_auto] md:max-w-[22rem] md:flex-none">
           <ProfileMenu
             businessName={businessName}
             displayName={displayName}
@@ -493,7 +493,7 @@ export function AppSidebar({
           while the drawer is open. */}
       {mobileOpen && (
         <div
-          className="glass-overlay fixed inset-0 z-[35] lg:hidden"
+          className="glass-overlay fixed inset-0 z-[35] md:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
@@ -504,7 +504,7 @@ export function AppSidebar({
           desktop. On smaller screens it becomes the off-canvas drawer. */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-y-auto overflow-x-visible px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] lg:w-64 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-y-auto overflow-x-visible px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-base)] ease-[var(--ease-out)] md:w-64 md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ background: "var(--gradient-dark)" }}
@@ -521,7 +521,7 @@ export function AppSidebar({
             type="button"
             onClick={() => setMobileOpen(false)}
             aria-label="Fermer le menu"
-            className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/70 transition-colors hover:bg-white/10 lg:hidden"
+            className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-mist/70 transition-colors hover:bg-white/10 md:hidden"
           >
             <X className="size-4.5" />
           </button>
@@ -544,7 +544,7 @@ export function AppSidebar({
         {/* Mobile mirror of the top bar: that bar is desktop-only, so
             without this its entries would be unreachable on a phone. */}
         {visibleTopBarEntries.length > 0 && (
-          <div className="px-0 pt-4 lg:hidden">
+          <div className="px-0 pt-4 md:hidden">
             <div className="mx-3 h-px bg-white/10" />
             <nav className="flex flex-col gap-1 pt-3">
               {visibleTopBarEntries.map((entry) => (
