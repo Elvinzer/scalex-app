@@ -31,5 +31,5 @@ export function phoneHref(value: string | null | undefined): string | null {
 export function whatsappHref(value: string | null | undefined, message?: string): string | null {
   const phone = internationalPhoneForLink(value);
   if (!phone) return null;
-  return `https://wa.me/${phone.slice(1)}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
+  return `https://wa.me/${phone}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
 }

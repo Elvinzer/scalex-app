@@ -17,6 +17,6 @@ describe("native booking phone links", () => {
 
   it("builds actionable tel and WhatsApp links", () => {
     expect(phoneHref("33640477052")).toBe("tel:+33640477052");
-    expect(whatsappHref("33640477052", "Bonjour")).toBe("https://wa.me/33640477052?text=Bonjour");
+    expect(whatsappHref("33640477052", "Bonjour")).toBe("https://wa.me/+33640477052?text=Bonjour");
   });
 });
