@@ -121,6 +121,7 @@ function buildListConditions(filters: AdminSubscriptionFilters) {
     const searchCondition = or(
       ilike(users.email, pattern),
       ilike(users.displayName, pattern),
+      ilike(users.stripeCustomerId, pattern),
       ilike(subscriptions.stripeCustomerId, pattern),
       ilike(subscriptions.stripeSubscriptionId, pattern)
     );

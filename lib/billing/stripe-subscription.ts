@@ -80,19 +80,21 @@ export function parseStripeSubscription(value: unknown): ParsedStripeSubscriptio
   if (!metadata.success) return null;
 
   const recurringItem = parsed.data.items.data.find((item) => {
-    if (typeof item.price === "string") return false;
+    if (typeof item.price === "string") return true;
     return item.price.recurring !== null && item.price.recurring !== undefined;
   });
-  const item = recurringItem ?? parsed.data.items.data[0];
+  const item = recurringItem;
   if (!item) return null;
 
   const price = item.price;
   const stripePriceId = typeof price === "string" ? price : price.id;
   const priceMonthlyCents =
-    typeof price === "object" && price.recurring?.interval === "month" && typeof price.unit_amount === "number"
-      ? price.unit_amount
-      : metadata.data.priceMonthlyCents
+    typeof price === "string"
+      ? metadata.data.priceMonthlyCents
         ? Number(metadata.data.priceMonthlyCents)
+        : null
+      : price.recurring?.interval === "month" && typeof price.unit_amount === "number"
+        ? price.unit_amount
         : null;
   const currentPeriodEndSeconds = parsed.data.current_period_end ?? item.current_period_end ?? null;
 
@@ -142,6 +144,13 @@ export async function syncStripeSubscriptionProjection(
         .where(eq(subscriptionPlans.stripePriceId, projection.stripePriceId))
         .limit(1)
     : [];
+  if (planByPrice && planByPrice.id !== projection.metadataPlanId) {
+    return {
+      ok: false,
+      code: "conflict",
+      error: "Le Price Stripe ne correspond pas au plan déclaré par cet abonnement.",
+    };
+  }
   const planId = planByPrice?.id ?? projection.metadataPlanId;
 
   const [plan] = await db

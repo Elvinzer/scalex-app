@@ -82,7 +82,7 @@ function AccountIdentity({ row }: { row: AdminSubscriptionListRow }) {
 function SubscriptionRowDetails({ row }: { row: AdminSubscriptionListRow }) {
   const subscription = row.subscription;
   if (!subscription) {
-    return <span className="text-sm text-muted-foreground">Pas d’abonnement</span>;
+    return <span className="text-sm text-muted-foreground">Sans abonnement</span>;
   }
 
   return (

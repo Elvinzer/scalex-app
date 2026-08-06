@@ -66,6 +66,7 @@ export function SubscriptionActions({ accountId, hasStripeSubscription, hasStrip
           className="mt-3 min-h-11"
           onClick={generatePortalLink}
           disabled={isPortalPending}
+          aria-busy={isPortalPending}
         >
           {isPortalPending ? "Génération…" : "Générer un lien temporaire"}
         </Button>
@@ -86,7 +87,7 @@ export function SubscriptionActions({ accountId, hasStripeSubscription, hasStrip
         <p className="mt-1 text-xs text-muted-foreground">
           Recharge l’état et le Price depuis Stripe sans modifier l’abonnement.
         </p>
-        <Button type="button" variant="outline" className="mt-3 min-h-11" onClick={resync} disabled={isResyncPending || !hasStripeSubscription}>
+        <Button type="button" variant="outline" className="mt-3 min-h-11" onClick={resync} disabled={isResyncPending || !hasStripeSubscription} aria-busy={isResyncPending}>
           <RefreshCw className={isResyncPending ? "size-4 animate-spin" : "size-4"} />
           {isResyncPending ? "Synchronisation…" : "Resynchroniser depuis Stripe"}
         </Button>
@@ -94,6 +95,11 @@ export function SubscriptionActions({ accountId, hasStripeSubscription, hasStrip
         {resyncMessage && <p className="mt-3 text-sm font-bold text-state-healthy" role="status">{resyncMessage}</p>}
         {resyncError && <p className="mt-3 text-sm font-bold text-state-critical" role="alert">{resyncError}</p>}
       </div>
+      {(isPortalPending || isResyncPending) && (
+        <p className="sr-only" role="status" aria-live="polite">
+          {isPortalPending ? "Génération du lien Billing Portal en cours." : "Resynchronisation Stripe en cours."}
+        </p>
+      )}
     </div>
   );
 }
