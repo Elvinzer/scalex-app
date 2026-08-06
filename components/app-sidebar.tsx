@@ -402,12 +402,9 @@ export function AppSidebar({
           explicit left edge keeps the header from ever sitting underneath
           or pushing the sidebar out of view. */}
       <header
-        className="fixed top-0 right-0 left-64 z-40 h-18 min-w-0 border-b-2 border-border bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)]"
+        className="fixed top-4 right-0 left-64 z-50 flex h-18 min-w-0 items-center gap-3 border-b-2 border-border bg-card px-4 text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.12)]"
       >
-        <nav
-          aria-label="Navigation rapide"
-          className="absolute inset-y-0 left-4 right-[22rem] flex min-w-0 items-center justify-start gap-1 overflow-x-auto"
-        >
+        <nav aria-label="Navigation rapide" className="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto">
           {visibleTopBarEntries.map((entry) => {
             const Icon = entry.icon;
             const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
@@ -430,7 +427,7 @@ export function AppSidebar({
           })}
         </nav>
 
-        <div className="absolute inset-y-0 right-4 flex w-[22rem] max-w-[40%] items-center">
+        <div className="ml-auto min-w-0 max-w-[22rem] shrink-0">
           <ProfileMenu
             businessName={businessName}
             displayName={displayName}
