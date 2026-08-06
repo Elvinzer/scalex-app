@@ -24,13 +24,28 @@ const STATUS_LABELS = {
 export default async function NativeBookingEventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ lead?: string; from?: string }>;
+  searchParams: Promise<{ lead?: string; from?: string; calendar_error?: string; provider?: string; calendar?: string }>;
 }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:rdv");
   const params = await searchParams;
   const fromDashboard = params.from === "dashboard";
   const targetLeadId = z.string().uuid().safeParse(params.lead).success ? params.lead ?? null : null;
+  const calendarProvider = params.provider === "outlook" ? "Outlook" : "Google Calendar";
+  const calendarErrorMessage = params.calendar_error === "not_configured"
+    ? `La connexion ${calendarProvider} n'est pas encore configurée sur cet environnement.`
+    : params.calendar_error === "oauth"
+      ? `${calendarProvider} n'a pas pu terminer la connexion. Vérifie l'autorisation du compte puis réessaie.`
+      : params.calendar_error === "denied"
+        ? `La connexion ${calendarProvider} a été annulée. Tu peux réessayer quand tu veux.`
+        : params.calendar_error === "state"
+          ? `La tentative de connexion ${calendarProvider} a expiré. Relance la connexion depuis cet écran.`
+          : params.calendar_error === "plan"
+            ? "La connexion à un agenda externe n'est pas incluse dans ton abonnement actuel."
+            : params.calendar_error === "provider"
+              ? "Ce fournisseur de calendrier n'est pas reconnu."
+              : null;
+  const calendarConnected = params.calendar === "connected";
 
   const [events, entitlements, usage, leads, upcomingBookings] = await Promise.all([
     listNativeBookingEvents(accountId),
@@ -94,6 +109,17 @@ export default async function NativeBookingEventsPage({
           </div>
         </div>
       </div>
+
+      {calendarErrorMessage && (
+        <div className="rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-4 py-3 text-sm font-bold text-state-critical" role="alert">
+          {calendarErrorMessage}
+        </div>
+      )}
+      {calendarConnected && (
+        <div className="rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-4 py-3 text-sm font-bold text-state-healthy" role="status">
+          Calendrier connecté. Tu peux maintenant choisir les agendas à prendre en compte.
+        </div>
+      )}
 
       <AbandonedLeadsPanel leads={leadViews} targetLeadId={targetLeadId} />
       <UpcomingBookingsPanel bookings={bookingViews} />

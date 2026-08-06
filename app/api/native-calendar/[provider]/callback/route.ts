@@ -15,6 +15,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
   const { provider: rawProvider } = await context.params;
   if (rawProvider !== "google" && rawProvider !== "outlook") return NextResponse.redirect(new URL("/ventes/rdv?calendar_error=provider", request.url));
   const provider = rawProvider as Provider;
+  const providerError = request.nextUrl.searchParams.get("error");
+  if (providerError) {
+    const response = NextResponse.redirect(new URL(`/ventes/rdv?calendar_error=denied&provider=${provider}`, request.url));
+    response.cookies.delete("native_calendar_oauth_state");
+    return response;
+  }
   const code = request.nextUrl.searchParams.get("code");
   const returnedState = request.nextUrl.searchParams.get("state");
   const storedState = request.cookies.get("native_calendar_oauth_state")?.value ?? "";

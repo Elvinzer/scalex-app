@@ -25,23 +25,33 @@ dans un dashboard externe (pas du code, donc rien que `git log` ne peut retrouve
 - [ ] Clés Stripe passées de test (`sk_test_...`) à live (`sk_live_...`)
 - [ ] `STRIPE_CONNECT_CLIENT_ID` / `STRIPE_CONNECT_CLIENT_SECRET` = version live (Stripe Dashboard
       → Connect → Settings)
-- [ ] Webhook endpoint créé côté Stripe pointant vers le domaine de prod, `STRIPE_WEBHOOK_SECRET`
-      renseigné — **rappel** : `.env.example` note que le receiver webhook n'est pas encore codé ;
-      si toujours vrai au moment de la MEP, vérifier si ce n'est plus bloquant pour le launch
+- [ ] Webhook Stripe Connect/configuration existante vérifiée côté domaine de prod si nécessaire
 - [ ] URI de redirection OAuth Connect mise à jour côté Stripe avec le domaine de prod
 
-## 4. Inngest
+## 4. Programme de parrainage
+- [ ] Dans l'admin Scale X (`/admin/referrals`), activer le programme et définir le taux global
+- [ ] Dans l'admin Scale X (`/admin/referrals`), vérifier les overrides par compte et le taux effectif
+- [ ] Dans l'espace utilisateur (`/parrainage`), créer un code de test et vérifier le lien `/r/<code>`
+- [ ] Dans le compte Stripe **plateforme** (pas Stripe Connect), créer un endpoint webhook vers
+      `https://<domaine-prod>/api/webhooks/stripe-billing`
+- [ ] Abonner cet endpoint aux événements `invoice.paid` et `invoice.voided`
+- [ ] Copier le signing secret de cet endpoint dans `STRIPE_WEBHOOK_SECRET` des variables Vercel
+- [ ] Tester attribution, premier paiement, renouvellement et calcul HT hors frais Stripe
+- [ ] Chaque mois, effectuer le virement hors plateforme puis utiliser `/admin/referrals` pour
+      marquer les commissions disponibles comme payées et enregistrer la référence du virement
+
+## 5. Inngest
 - [ ] App déployée connectée à Inngest Cloud (`INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` prod,
       pas les valeurs dev), `INNGEST_DEV` absent/à 0 en prod
 - [ ] Les fonctions (brief hebdo, sync Stripe, relances) apparaissent bien dans le dashboard
       Inngest Cloud après le premier déploiement
 - [ ] Vérifier qu'un run manuel de chaque fonction passe sans erreur en prod
 
-## 5. Resend
+## 6. Resend
 - [ ] Domaine d'envoi vérifié (SPF/DKIM configurés côté DNS) — sinon le brief hebdo part en spam
 - [ ] `RESEND_API_KEY` = clé prod
 
-## 6. Variables d'environnement Vercel
+## 7. Variables d'environnement Vercel
 Vérifier que **toutes** les variables de `.env.example` sont présentes dans Vercel (Production),
 avec des valeurs différentes de dev pour celles qui ne doivent jamais être partagées :
 - [ ] `ENCRYPTION_KEY` — valeur unique prod, jamais celle de dev
@@ -52,7 +62,7 @@ avec des valeurs différentes de dev pour celles qui ne doivent jamais être par
       `ANTHROPIC_SHARED_API_KEY`, `GROQ_API_KEY`, `POSTHOG_*`) présentes et pointées sur les
       bonnes ressources prod
 
-## 7. Sécurité (gap connu, à combler avant MEP)
+## 8. Sécurité (gap connu, à combler avant MEP)
 - [ ] **Headers de sécurité pas encore configurés** — `next.config.ts` n'a actuellement aucun
       header (CSP, `X-Frame-Options`, `Referrer-Policy`, HSTS). Exigé par `CLAUDE.md`, à faire
       avant l'ouverture au public
@@ -60,18 +70,18 @@ avec des valeurs différentes de dev pour celles qui ne doivent jamais être par
 - [ ] Aucun secret dans le repo (`git log -p | grep` sur les patterns de clés courantes, ou
       `git secrets`/équivalent)
 
-## 8. SEO/GEO (gap connu, à combler avant MEP)
+## 9. SEO/GEO (gap connu, à combler avant MEP)
 - [ ] **`robots.txt` et `sitemap.xml` n'existent pas encore** dans `app/` — exigés par
       `CLAUDE.md` pour `app/(marketing)/`, à générer avant le launch public
 - [ ] `llms.txt` / `llms-full.txt` à la racine, à jour avec le contenu réel des pages marketing
 - [ ] `app/(app)/` bien en `noindex, nofollow` (robots meta) — à vérifier, pas juste supposé
 
-## 9. Build & déploiement
+## 10. Build & déploiement
 - [ ] `npm run typecheck` && `npm run lint` clean
 - [ ] Preview Vercel build sans erreur sur le commit final
 - [ ] Domaine custom branché sur Vercel + HTTPS actif
 
-## 10. Smoke test post-déploiement (à faire sur le domaine de prod, pas en local)
+## 11. Smoke test post-déploiement (à faire sur le domaine de prod, pas en local)
 - [ ] Signup + connexion via magic link
 - [ ] Signup + connexion via Google (`Se connecter` sur la LP → `/sign-in` → bouton Google)
 - [ ] Connexion Stripe Connect avec un vrai compte (lecture seule des paiements)

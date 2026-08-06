@@ -44,9 +44,20 @@ function sourceLabel(lead: LeadView) {
 
 export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]; targetLeadId: string | null }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [focusedLeadId, setFocusedLeadId] = useState<string | null>(null);
+  const [pendingLeadIds, setPendingLeadIds] = useState<Set<string>>(new Set());
+  const [optimisticallyDismissedLeadIds, setOptimisticallyDismissedLeadIds] = useState<Set<string>>(new Set());
+
+  const visibleLeads = leads.filter((lead) => !optimisticallyDismissedLeadIds.has(lead.id));
+
+  useEffect(() => {
+    setOptimisticallyDismissedLeadIds((current) => {
+      const next = new Set([...current].filter((leadId) => leads.some((lead) => lead.id === leadId)));
+      return next.size === current.size ? current : next;
+    });
+  }, [leads]);
 
   useEffect(() => {
     if (!targetLeadId) return;
@@ -62,10 +73,42 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
 
   function updateLead(leadId: string, status: "open" | "contacted" | "dismissed") {
     setError(null);
+    setPendingLeadIds((current) => new Set(current).add(leadId));
+    if (status === "dismissed") {
+      setOptimisticallyDismissedLeadIds((current) => new Set(current).add(leadId));
+    }
+
     startTransition(async () => {
-      const result = await updateNativeBookingLeadStatusAction({ leadId, status });
-      if (result.error) setError(result.error);
-      else router.refresh();
+      try {
+        const result = await updateNativeBookingLeadStatusAction({ leadId, status });
+        if (result.error) {
+          setError(result.error);
+          if (status === "dismissed") {
+            setOptimisticallyDismissedLeadIds((current) => {
+              const next = new Set(current);
+              next.delete(leadId);
+              return next;
+            });
+          }
+        } else {
+          router.refresh();
+        }
+      } catch {
+        setError("Impossible de mettre à jour ce prospect pour le moment.");
+        if (status === "dismissed") {
+          setOptimisticallyDismissedLeadIds((current) => {
+            const next = new Set(current);
+            next.delete(leadId);
+            return next;
+          });
+        }
+      } finally {
+        setPendingLeadIds((current) => {
+          const next = new Set(current);
+          next.delete(leadId);
+          return next;
+        });
+      }
     });
   }
 
@@ -75,7 +118,7 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
         <div>
           <div className="flex items-center gap-2">
             <h3 id="abandoned-leads-title" className="text-lg font-bold">À relancer</h3>
-            {leads.length > 0 && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">{leads.length}</span>}
+            {visibleLeads.length > 0 && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">{visibleLeads.length}</span>}
           </div>
           <p className="text-sm text-muted-foreground">Liste des prospects n&apos;ayant pas finalisés la prise de rdv</p>
         </div>
@@ -84,7 +127,7 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
 
       {error && <p className="rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm font-bold text-state-critical" role="alert">{error}</p>}
 
-      {leads.length === 0 ? (
+      {visibleLeads.length === 0 ? (
         <div className="sticker-card-dashed flex flex-col items-center gap-2 p-7 text-center">
           <CheckCheck className="size-7 text-state-healthy" />
           <p className="font-bold">Aucune relance en attente</p>
@@ -92,11 +135,12 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
-          {leads.map((lead) => (
+          {visibleLeads.map((lead) => (
             <article
               key={lead.id}
               id={`native-booking-lead-${lead.id}`}
               tabIndex={-1}
+              aria-busy={pendingLeadIds.has(lead.id)}
               data-revenue-target={lead.id === focusedLeadId ? "true" : undefined}
               className={`sticker-card flex flex-col gap-4 p-5 outline-none focus-visible:ring-3 focus-visible:ring-accent/25 ${lead.id === focusedLeadId ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
             >
@@ -142,15 +186,15 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
 
               <div className="flex flex-wrap gap-2 border-t border-border pt-4">
                 {lead.status === "open" ? (
-                  <button type="button" disabled={isPending} onClick={() => updateLead(lead.id, "contacted")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-accent px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50">
+                  <button type="button" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "contacted")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-accent px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50">
                     <CheckCheck className="size-4" /> Marquer contacté
                   </button>
                 ) : (
-                  <button type="button" disabled={isPending} onClick={() => updateLead(lead.id, "open")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-3 py-2 text-sm font-bold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+                  <button type="button" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "open")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-3 py-2 text-sm font-bold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
                     <RotateCcw className="size-4" /> Réouvrir
                   </button>
                 )}
-                <button type="button" disabled={isPending} onClick={() => updateLead(lead.id, "dismissed")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "dismissed")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
                   <ArchiveX className="size-4" /> Ignorer
                 </button>
               </div>
