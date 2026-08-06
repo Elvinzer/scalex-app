@@ -39,3 +39,17 @@ export function decrypt(payload: string): string {
     "utf8"
   );
 }
+
+// Variante non-bloquante : renvoie null au lieu de lever si le payload ne peut
+// pas être déchiffré (ENCRYPTION_KEY qui a tourné, ciphertext corrompu…). À
+// utiliser quand l'échec de déchiffrement d'UNE valeur ne doit pas casser toute
+// la page (ex. aperçu masqué de la clé BYOK sur /settings). Ne logge JAMAIS le
+// payload, l'erreur brute ni le plaintext — juste un marqueur sans secret.
+export function tryDecrypt(payload: string): string | null {
+  try {
+    return decrypt(payload);
+  } catch {
+    console.warn("[crypto] déchiffrement impossible (clé de chiffrement changée ou donnée corrompue)");
+    return null;
+  }
+}

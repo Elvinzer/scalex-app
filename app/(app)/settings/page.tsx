@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { decrypt } from "@/lib/crypto";
+import { tryDecrypt } from "@/lib/crypto";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
@@ -20,9 +20,12 @@ export default async function SettingsPage() {
 
   // Decrypted only to build a masked preview — the plaintext key is never
   // sent to the client past this point, per CLAUDE.md's BYOK rules.
-  const maskedKey = user?.anthropicApiKeyEncrypted
-    ? `sk-ant-...${decrypt(user.anthropicApiKeyEncrypted).slice(-4)}`
-    : null;
+  // tryDecrypt (non-throwing) : si l'ENCRYPTION_KEY a changé depuis le
+  // chiffrement, une clé illisible ne doit pas casser toute la page /settings —
+  // on bascule sur un état "à re-saisir" plutôt qu'un 500.
+  const decryptedKey = user?.anthropicApiKeyEncrypted ? tryDecrypt(user.anthropicApiKeyEncrypted) : null;
+  const maskedKey = decryptedKey ? `sk-ant-...${decryptedKey.slice(-4)}` : null;
+  const keyUnreadable = Boolean(user?.anthropicApiKeyEncrypted) && decryptedKey === null;
   const keyInvalid = Boolean(user?.anthropicApiKeyInvalid);
 
   return (
@@ -85,6 +88,19 @@ export default async function SettingsPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Cette clé a été révoquée ou a expiré côté Anthropic. Génères-en une nouvelle
               ci-dessous pour débloquer à nouveau les insights.
+            </p>
+          </div>
+        )}
+
+        {keyUnreadable && (
+          <div className="mt-4 rounded-xl border border-state-critical/40 bg-state-critical/10 p-3">
+            <p className="inline-flex items-center gap-2 text-sm font-bold text-state-critical">
+              <span className="size-2 rounded-full bg-state-critical" />
+              Ta clé enregistrée n&apos;a pas pu être lue
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              La clé de chiffrement du serveur a changé depuis son enregistrement. Ta clé stockée
+              est inutilisable : re-saisis-la ci-dessous pour rétablir tes insights.
             </p>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { decrypt } from "@/lib/crypto";
+import { tryDecrypt } from "@/lib/crypto";
 
 import { checkAndIncrementSharedUsage } from "./quota";
 
@@ -21,7 +21,14 @@ export async function resolveAgentKey(user: {
   anthropicApiKeyEncrypted: string | null;
 }): Promise<AgentKey> {
   if (user.anthropicApiKeyEncrypted) {
-    return { source: "byok", apiKey: decrypt(user.anthropicApiKeyEncrypted) };
+    // tryDecrypt : une clé BYOK illisible (ENCRYPTION_KEY qui a tourné, donnée
+    // corrompue) ne doit pas casser l'appel agent — on la traite comme "pas de
+    // clé utilisable" et on retombe sur le fallback partagé ci-dessous plutôt
+    // que de lever. L'utilisateur re-saisira sa clé depuis /settings.
+    const byokKey = tryDecrypt(user.anthropicApiKeyEncrypted);
+    if (byokKey) {
+      return { source: "byok", apiKey: byokKey };
+    }
   }
 
   const sharedKey = process.env.ANTHROPIC_SHARED_API_KEY;
