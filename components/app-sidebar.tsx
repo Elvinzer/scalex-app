@@ -88,6 +88,7 @@ const topEntries: LinkEntry[] = [
     // "Acquisition" entry at all despite having a real page to reach.
     anyOfPermissions: ["acquisition:contenu", "acquisition:mail", "acquisition:pipeline", "acquisition:setters", "acquisition:ads"],
   },
+  { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
   {
     type: "link",
     href: "/ventes",
@@ -95,15 +96,13 @@ const topEntries: LinkEntry[] = [
     icon: Handshake,
     // Same anyOfPermissions gap as Acquisition above, fixed the same way —
     // this previously listed only suivi/closing, so a member with just
-    // "ventes:appels" (Appels' own permission), "business" (Produits), or
-    // "ventes:upsell" never saw the "Vente" entry at all. ventes:closing/
-    // ventes:videos are legacy/nested-page keys (see lib/team/permissions.ts)
-    // kept here too since they can still be granted on their own.
+    // "ventes:appels" (Appels' own permission) never saw the "Vente" entry at
+    // all. ventes:closing/ventes:videos and ventes:upsell are legacy keys (see
+    // lib/team/permissions.ts); the first two still expose nested sales pages,
+    // while offers and upsell configuration now live in Mon business.
     anyOfPermissions: [
       "ventes:suivi",
       "ventes:appels",
-      "business",
-      "ventes:upsell",
       "ventes:closing",
       "ventes:videos",
     ],
@@ -128,14 +127,10 @@ const topBarEntries: LinkEntry[] = [
   { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
 ];
 
-// COMPTE — account-level config behind the avatar/profile dropdown
-// (ProfileMenu). Mon business sits here too: it's the account's own
-// identity/offer setup, which reads as "my account" rather than as one of
-// the weekly value-loop pages. It keeps its "business" permission (the
-// others have none — owner-only, same gate as each page's own
-// requireOwnerOrRedirect).
+// COMPTE — account-level settings behind the avatar/profile dropdown
+// (ProfileMenu). Mon business is a primary destination now because offers and
+// upsell configuration are core product work, not secondary account settings.
 const profileMenuEntries: LinkEntry[] = [
-  { type: "link", href: "/business", label: "Mon business", icon: Store, permission: "business" },
   { type: "link", href: "/settings", label: "Réglages", icon: Settings },
   { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
   { type: "link", href: "/parrainage", label: "Parrainage", icon: Gift },

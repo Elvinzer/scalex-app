@@ -132,23 +132,13 @@ const PAGE_RULES: { prefix: string; context: PageAgentContext }[] = [
     },
   },
   {
-    prefix: "/ventes/produits",
+    prefix: "/business",
     context: {
-      pageKey: "page_produits",
-      label: "Produits",
-      specialty: "tu es expert structuration d'offre et pricing : promesse, packaging, niveaux de prix, garantie",
-      hook: "analyse brièvement quelle offre porte son chiffre d'affaires puis propose UN ajustement d'offre ou de prix à tester",
-      leverKey: "produits",
-    },
-  },
-  {
-    prefix: "/ventes/upsell",
-    context: {
-      pageKey: "page_upsell",
-      label: "Upsell",
-      specialty: "tu es expert ascension client : offre complémentaire, timing de proposition, script d'upsell",
-      hook: "analyse brièvement son taux d'upsell puis propose UNE offre complémentaire ou UN moment de proposition précis à mettre en place",
-      leverKey: "upsell_ascension",
+      pageKey: "page_business",
+      label: "Mon business",
+      specialty: "tu es expert structuration d'offre, pricing et ascension client : promesse, packaging, niveaux de prix, offre complémentaire",
+      hook: "analyse brièvement son offre principale et son ascension client puis propose UNE amélioration précise à configurer dans Mon business",
+      leverKey: "ventes",
     },
   },
   {

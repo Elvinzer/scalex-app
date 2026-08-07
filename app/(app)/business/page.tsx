@@ -1,5 +1,8 @@
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getCurrentUser } from "@/lib/current-user";
+import { todayUtc } from "@/lib/date-range";
+import { buildOfferPerformance, buildUpsellPerformance } from "@/lib/business/performance";
+import { getSalesForMonth } from "@/lib/sales/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { BusinessPageClient } from "./business-page-client";
@@ -11,7 +14,27 @@ export default async function BusinessPage() {
   // above), so this is free — used only to gate the owner-only Équipe card.
   const context = await getAccountContext(userId);
   const isOwner = context?.isOwner ?? false;
-  const profile = await getBusinessProfile(accountId);
+  const canViewSalesPerformance =
+    context === null || context === undefined
+      ? false
+      : context.permissions === "all"
+        ? true
+        : context.permissions.has("ventes:suivi");
+  const today = todayUtc();
+  const [profile, monthSales] = await Promise.all([
+    getBusinessProfile(accountId),
+    canViewSalesPerformance
+      ? getSalesForMonth(accountId, today.getUTCFullYear(), today.getUTCMonth() + 1)
+      : Promise.resolve([]),
+  ]);
 
-  return <BusinessPageClient initialProfile={profile} isOwner={isOwner} />;
+  return (
+    <BusinessPageClient
+      initialProfile={profile}
+      isOwner={isOwner}
+      canViewSalesPerformance={canViewSalesPerformance}
+      offerPerformance={buildOfferPerformance(profile.sales.offers, monthSales)}
+      upsellPerformance={buildUpsellPerformance(profile.sales.offers, monthSales)}
+    />
+  );
 }

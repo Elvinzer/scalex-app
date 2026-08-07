@@ -1,7 +1,9 @@
 "use client";
 
 import { computeSectionCompletion } from "@/lib/business/completion";
+import type { UpsellPerformance } from "@/lib/business/performance";
 import type { BusinessDelivery, Offer, SupportFormat } from "@/lib/business/types";
+import { formatEur } from "@/lib/currency";
 
 import { saveBusinessSection } from "./actions";
 import { CompletionBadge, SaveIndicator } from "./save-indicator";
@@ -25,10 +27,14 @@ const TESTIMONIAL_CHANNELS = ["Site web", "Réseaux sociaux", "Page de vente", "
 export function DeliverySection({
   value,
   offers,
+  showPerformance,
+  upsellPerformance,
   onChange,
 }: {
   value: BusinessDelivery;
   offers: Offer[];
+  showPerformance: boolean;
+  upsellPerformance: UpsellPerformance;
   onChange: (next: BusinessDelivery) => void;
 }) {
   const { schedule, status, error } = useDebouncedSave<BusinessDelivery>((next) =>
@@ -54,6 +60,9 @@ export function DeliverySection({
 
   const completion = computeSectionCompletion("delivery", value);
   const hasUpsell = value.upsellOfferId !== null;
+  const defaultUpsellOffer = offers.find((offer) => offer.isUpsell) ?? offers[0];
+  const upsellOffers = offers.filter((offer) => offer.isUpsell);
+  const upsellStatsByOfferId = new Map(upsellPerformance.offers.map((stats) => [stats.offerId, stats]));
 
   return (
     <div className="sticker-card p-8">
@@ -159,13 +168,18 @@ export function DeliverySection({
           </div>
         </div>
 
-        <div className="rounded-xl border border-border p-4">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-bold">Upsell / ascension</p>
+        <div id="upsell" className="scroll-mt-28 rounded-xl border border-border p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold">Upsell &amp; ascension</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Configure ici tes offres complémentaires et suis leur performance.
+              </p>
+            </div>
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => update({ upsellOfferId: offers[0]?.id ?? "" })}
+                onClick={() => update({ upsellOfferId: defaultUpsellOffer?.id ?? "" })}
                 className={
                   hasUpsell
                     ? "rounded-full border border-positive bg-positive-soft px-3 py-1 text-xs font-bold text-positive"
@@ -188,12 +202,83 @@ export function DeliverySection({
             </div>
           </div>
 
+          {showPerformance && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
+              <p className="text-xs font-bold text-muted-foreground">Take-rate ce mois</p>
+              <p className="mt-1 font-display text-xl font-bold">
+                {upsellPerformance.takeRate === null ? "—" : `${Math.round(upsellPerformance.takeRate * 100)} %`}
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
+              <p className="text-xs font-bold text-muted-foreground">CA upsell ce mois</p>
+              <p className="mt-1 font-display text-xl font-bold">{formatEur(upsellPerformance.revenue)}</p>
+            </div>
+            <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
+              <p className="text-xs font-bold text-muted-foreground">Panier avec upsell</p>
+              <p className="mt-1 font-display text-xl font-bold">
+                {upsellPerformance.avgWithUpsell === null ? "—" : formatEur(Math.round(upsellPerformance.avgWithUpsell))}
+              </p>
+            </div>
+            <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
+              <p className="text-xs font-bold text-muted-foreground">Panier sans upsell</p>
+              <p className="mt-1 font-display text-xl font-bold">
+                {upsellPerformance.avgWithoutUpsell === null ? "—" : formatEur(Math.round(upsellPerformance.avgWithoutUpsell))}
+              </p>
+            </div>
+            </div>
+          )}
+
+          {showPerformance && upsellOffers.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-bold text-muted-foreground">Performance par offre ce mois</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {upsellOffers.map((offer) => {
+                  const stats = upsellStatsByOfferId.get(offer.id);
+                  const scoreClass =
+                    stats?.score === null || stats?.score === undefined
+                      ? "bg-muted text-muted-foreground"
+                      : stats.score < 40
+                        ? "bg-state-critical/10 text-state-critical"
+                        : stats.score < 70
+                          ? "bg-state-caution/10 text-state-caution"
+                          : "bg-state-healthy/10 text-state-healthy";
+
+                  return (
+                    <div key={offer.id} className="rounded-[var(--radius-control)] border border-border p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-bold">{offer.name || "Offre sans nom"}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${scoreClass}`}>
+                          {stats?.score === null || stats?.score === undefined ? "Pas encore de données" : `Score ${stats.score}`}
+                        </span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Take-rate</p>
+                          <p className="font-bold tabular-nums">
+                            {stats?.takeRate === null || stats?.takeRate === undefined
+                              ? "—"
+                              : `${Math.round(stats.takeRate * 100)} %`}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">CA généré</p>
+                          <p className="font-bold tabular-nums">{formatEur(stats?.revenue ?? 0)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {hasUpsell && (
             <label className="mt-4 flex flex-col gap-1.5 text-sm">
               <span className="font-bold">Offre concernée</span>
               {offers.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Ajoute d&apos;abord une offre dans la section Vente.
+                  Ajoute d&apos;abord une offre dans la section Offres &amp; prix.
                 </p>
               ) : (
                 <select

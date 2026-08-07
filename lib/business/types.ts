@@ -67,7 +67,7 @@ export type Offer = {
   recurrence: Recurrence | null;
   isMain: boolean;
   // Non-exclusive (unlike isMain) — marks this offer as an upsell tracked
-  // on app/(app)/ventes/upsell/page.tsx, linked to real sales via
+  // in Mon business, linked to real sales via
   // sales.upsellOfferId. Optional so rows saved before this field existed
   // read as false, never a migration.
   isUpsell?: boolean;

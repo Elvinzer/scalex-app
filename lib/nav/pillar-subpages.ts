@@ -8,7 +8,8 @@ export type PillarSubpage = { href: string; label: string; permission: Permissio
 // (components/app-sidebar.tsx) no longer mirrors this list in a hover
 // flyout — it just links to the pillar's landing page, which redirects into
 // this same tab bar. Setting/Closing/Vidéos are deliberately absent here,
-// same "hide, don't delete" precedent already applied to their tabs.
+// and offers/upsell are owned by Mon business rather than this operational
+// pillar.
 export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
   "/acquisition": [
     { href: "/acquisition/contenu", label: "Contenu", permission: "acquisition:contenu" },
@@ -21,7 +22,5 @@ export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
     { href: "/ventes/suivi", label: "Suivi des ventes", permission: "ventes:suivi" },
     { href: "/ventes/appels", label: "Suivi des appels", permission: "ventes:appels" },
     { href: "/ventes/rdv", label: "Rendez-vous", permission: "ventes:rdv" },
-    { href: "/ventes/produits", label: "Produits", permission: "business" },
-    { href: "/ventes/upsell", label: "Upsell", permission: "ventes:upsell" },
   ],
 };

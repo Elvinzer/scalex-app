@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Falco, type FalcoPose } from "@/components/falco/falco";
 import { Button } from "@/components/ui/button";
 import { computeGlobalCompletion } from "@/lib/business/completion";
+import type { OfferPerformance, UpsellPerformance } from "@/lib/business/performance";
 import type { BusinessProfileData } from "@/lib/business/types";
 
 import { AcquisitionSection } from "./acquisition-section";
@@ -23,9 +24,15 @@ import { SalesSection } from "./sales-section";
 export function BusinessPageClient({
   initialProfile,
   isOwner,
+  canViewSalesPerformance,
+  offerPerformance,
+  upsellPerformance,
 }: {
   initialProfile: BusinessProfileData;
   isOwner: boolean;
+  canViewSalesPerformance: boolean;
+  offerPerformance: OfferPerformance[];
+  upsellPerformance: UpsellPerformance;
 }) {
   const [profile, setProfile] = useState(initialProfile);
   const completion = computeGlobalCompletion(profile);
@@ -75,6 +82,30 @@ export function BusinessPageClient({
         </div>
       </div>
 
+      <nav
+        aria-label="Sections de Mon business"
+        className="sticky top-20 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-[var(--radius-control)] border border-border bg-background/95 p-1 backdrop-blur-sm"
+      >
+        <a
+          href="#offres"
+          className="min-h-11 shrink-0 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+        >
+          Offres &amp; prix
+        </a>
+        <a
+          href="#upsell"
+          className="min-h-11 shrink-0 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+        >
+          Upsell &amp; ascension
+        </a>
+        <a
+          href="#livraison"
+          className="min-h-11 shrink-0 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+        >
+          Livraison client
+        </a>
+      </nav>
+
       <IdentitySection
         value={profile.identity}
         onChange={(identity) => setProfile((prev) => ({ ...prev, identity }))}
@@ -85,16 +116,24 @@ export function BusinessPageClient({
         onChange={(acquisition) => setProfile((prev) => ({ ...prev, acquisition }))}
       />
 
-      <SalesSection
-        value={profile.sales}
-        onChange={(sales) => setProfile((prev) => ({ ...prev, sales }))}
-      />
+      <section id="offres" className="scroll-mt-28">
+        <SalesSection
+          value={profile.sales}
+          showPerformance={canViewSalesPerformance}
+          offerPerformance={offerPerformance}
+          onChange={(sales) => setProfile((prev) => ({ ...prev, sales }))}
+        />
+      </section>
 
-      <DeliverySection
-        value={profile.delivery}
-        offers={profile.sales.offers}
-        onChange={(delivery) => setProfile((prev) => ({ ...prev, delivery }))}
-      />
+      <section id="livraison" className="scroll-mt-28">
+        <DeliverySection
+          value={profile.delivery}
+          offers={profile.sales.offers}
+          showPerformance={canViewSalesPerformance}
+          upsellPerformance={upsellPerformance}
+          onChange={(delivery) => setProfile((prev) => ({ ...prev, delivery }))}
+        />
+      </section>
 
       {/* Team & roles management belongs to the business itself — owner-only
           (the /settings/equipe page re-checks server-side regardless). */}

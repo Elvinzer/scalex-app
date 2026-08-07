@@ -56,7 +56,9 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "ventes:rdv": "Ventes — Rendez-vous",
   "ventes:closing": "Ventes — Closing",
   "ventes:appels": "Ventes — Suivi des appels (iClosed)",
-  "ventes:upsell": "Ventes — Upsell",
+  // Legacy grant kept so existing roles remain readable after the Upsell page
+  // moved into Mon business. New access is covered by the business permission.
+  "ventes:upsell": "Mon business — Upsell (legacy)",
   business: "Mon business",
 };
 

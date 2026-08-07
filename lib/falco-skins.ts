@@ -64,7 +64,8 @@ export const FALCO_SKIN_CHAT_LABEL: Record<FalcoSkinKey, string> = {
 // route-based resolution above (needed because the drawer itself doesn't
 // know the current pathname).
 // Consolidated to 4 agents (was 7): "ventes" (was closing+produits+
-// upsell_ascension) keeps the "vente" skin all 3 already shared;
+// upsell_ascension) keeps the "vente" skin for the operational and offer
+// surfaces that already shared it;
 // "ceo_vision" (was setting+ads) reuses "acquisition" — no dedicated "CEO"
 // illustrated skin exists among the 6 real renders, so this reuses the
 // closest existing asset rather than inventing one.
@@ -80,7 +81,7 @@ export const AGENT_KEY_TO_SKIN: Record<string, FalcoSkinKey> = {
 export const AGENT_KEY_TO_ROUTE: Record<string, string> = {
   email_marketing: "/acquisition/mail",
   content: "/acquisition/contenu",
-  ventes: "/ventes/produits",
+  ventes: "/business#offres",
   // Pipeline is ceo_vision's canonical page — Setting's old standalone
   // route is gone, its day-by-day funnel content now lives nested at
   // /acquisition/pipeline/funnel (app/(app)/acquisition/pipeline/funnel/).
@@ -110,7 +111,7 @@ export const AGENT_KEY_TO_TOPIC_LABEL: Record<string, string> = {
 // For the floating bubble's "Ouvrir dans le Copilote →" deep link — a
 // separate rules LIST rather than a reverse of AGENT_KEY_TO_ROUTE, because
 // several routes now intentionally point to the same consolidated agent
-// (ceo_vision absorbs Setting+Ads, ventes absorbs Closing+Produits+Upsell).
+// (ceo_vision absorbs Setting+Ads, ventes covers Appels plus Mon business).
 // Longest-prefix wins, same convention as SKIN_ROUTE_RULES above.
 const AGENT_ROUTE_RULES: { route: string; agentKey: string }[] = [
   { route: "/acquisition/mail", agentKey: "email_marketing" },
@@ -118,12 +119,11 @@ const AGENT_ROUTE_RULES: { route: string; agentKey: string }[] = [
   { route: "/acquisition/ads", agentKey: "ceo_vision" },
   { route: "/acquisition/pipeline", agentKey: "ceo_vision" },
   { route: "/acquisition/setters", agentKey: "ceo_vision" },
+  { route: "/business", agentKey: "ventes" },
   // Covers /ventes/appels itself plus its nested /funnel (ex-Closing) and
   // /videos pages via prefix match — Closing's old standalone rule pointed
   // only at itself, leaving Appels with no agent resolution at all.
   { route: "/ventes/appels", agentKey: "ventes" },
-  { route: "/ventes/produits", agentKey: "ventes" },
-  { route: "/ventes/upsell", agentKey: "ventes" },
 ];
 
 export function resolveAgentKeyForRoute(pathname: string): string | null {

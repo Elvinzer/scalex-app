@@ -23,7 +23,7 @@ import { getLeversCatalog, resolveFromBusinessProfile, type LeverCatalogEntry } 
 // a calibration, adjustable in the same benchmarks table if needed.
 const EMAIL_CTR_BENCHMARK = 0.025;
 
-// Same 20% reference already shown on /ventes/upsell/page.tsx — reused
+// Same 20% reference already shown in Mon business — reused
 // here rather than a second hardcoded number.
 const UPSELL_TAKE_RATE_BENCHMARK = 0.2;
 // Below this many sales in the period, a take-rate is too noisy to advise
@@ -578,7 +578,7 @@ export async function computeLeverOpportunities({
     }
 
     // Upsell take-rate — computed from REAL sales (same formula as
-    // /ventes/upsell/page.tsx and buildUpsellData in
+    // Mon business and buildUpsellData in
     // lib/agent/lever-agent-data.ts), not a self-declared Découverte stat:
     // upsell_ascension's catalog row has no questions/benchmarkStatKey at
     // all, and a real, continuously-updated number is more reliable than

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { computeSectionCompletion } from "@/lib/business/completion";
+import type { OfferPerformance } from "@/lib/business/performance";
 import type { BusinessSales, Offer, OfferType, Recurrence, SaleMode } from "@/lib/business/types";
 import { formatEur } from "@/lib/currency";
 
@@ -50,9 +51,13 @@ function emptyOffer(): Offer {
 
 export function SalesSection({
   value,
+  showPerformance,
+  offerPerformance,
   onChange,
 }: {
   value: BusinessSales;
+  showPerformance: boolean;
+  offerPerformance: OfferPerformance[];
   onChange: (next: BusinessSales) => void;
 }) {
   const { schedule, status, error } = useDebouncedSave<BusinessSales>((next) =>
@@ -91,13 +96,14 @@ export function SalesSection({
   }
 
   const completion = computeSectionCompletion("sales", value);
+  const performanceByOfferId = new Map(offerPerformance.map((stats) => [stats.offerId, stats]));
 
   return (
     <div className="sticker-card p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold">Vente</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Tes offres et ton process de closing.</p>
+          <h2 className="text-base font-bold">Offres &amp; prix</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Ce que tu vends, à quel prix et comment c&apos;est vendu.</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <CompletionBadge answered={completion.answered} total={completion.total} />
@@ -136,6 +142,32 @@ export function SalesSection({
                 </div>
               </AccordionTrigger>
               <AccordionContent className="flex flex-col gap-3">
+              {showPerformance && (() => {
+                const stats = performanceByOfferId.get(offer.id);
+                return (
+                  <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
+                    <p className="text-xs font-bold text-muted-foreground">Performance ce mois</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">CA</p>
+                        <p className="font-bold tabular-nums">{formatEur(stats?.revenue ?? 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Ventes</p>
+                        <p className="font-bold tabular-nums">{stats?.salesCount ?? 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Panier moyen</p>
+                        <p className="font-bold tabular-nums">
+                          {stats?.avgBasket === null || stats?.avgBasket === undefined
+                            ? "—"
+                            : formatEur(Math.round(stats.avgBasket))}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1 text-xs">
                   <span className="font-bold text-muted-foreground">Nom</span>
@@ -251,8 +283,8 @@ export function SalesSection({
                     {offer.isMain ? "Offre principale ✓" : "Définir comme offre principale"}
                   </button>
                   {/* Non-exclusive (unlike isMain) — several offers can be
-                      upsells at once. Drives the per-offer breakdown on
-                      app/(app)/ventes/upsell/page.tsx. */}
+                      upsells at once. The performance breakdown stays beside
+                      this configuration in Mon business. */}
                   <button
                     type="button"
                     onClick={() => updateOffer(offer.id, { isUpsell: !offer.isUpsell })}
