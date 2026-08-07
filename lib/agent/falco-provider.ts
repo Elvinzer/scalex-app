@@ -207,7 +207,9 @@ export function transformAnthropicStream(
         const finalBuffer = buffer.trim();
         if (finalBuffer) emitEvent(finalBuffer, controller);
         if (!sentDone) controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        onUsage({ inputTokens, outputTokens });
+        const usage = { inputTokens, outputTokens };
+        onUsage(usage);
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ usage })}\n\n`));
       },
     })
   );

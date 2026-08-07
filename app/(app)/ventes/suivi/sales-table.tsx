@@ -3,31 +3,18 @@
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/status-badge";
+import { SourceBadge, type MetricSource } from "@/components/source-badge";
 import type { Offer } from "@/lib/business/types";
 import { displayInstallments, summarize } from "@/lib/sales/installments";
-import type { InstallmentStatus, PaymentType, SaleRow } from "@/lib/sales/types";
+import type { OverallSaleStatus, PaymentType, SaleRow } from "@/lib/sales/types";
 import type { SetterRow } from "@/lib/setters/types";
-import { cn } from "@/lib/utils";
 
 import { removeSale } from "./actions";
 import { SaleDetailDrawer } from "./sale-detail-drawer";
 import { SaleFormDialog } from "./sale-form-dialog";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
-const STATUS_BADGE: Record<InstallmentStatus, string> = {
-  upcoming: "bg-warning-soft text-warning-text",
-  paid: "bg-positive-soft text-positive",
-  failed: "bg-state-critical/10 text-state-critical",
-  refunded: "bg-muted text-muted-foreground",
-};
-
-const STATUS_LABEL: Record<InstallmentStatus, string> = {
-  upcoming: "À venir",
-  paid: "Payé",
-  failed: "Impayé",
-  refunded: "Remboursé",
-};
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   stripe: "Stripe",
@@ -40,20 +27,35 @@ const PAYMENT_TYPE_LABEL: Record<PaymentType, string> = {
   subscription: "Abonnement",
 };
 
-type DisplayRow = {
+type DealDisplayRow = {
   sale: SaleRow;
-  installment: ReturnType<typeof displayInstallments>[number]["installment"];
-  installmentIndex: number;
+  summary: ReturnType<typeof summarize>;
+  nextInstallment: ReturnType<typeof displayInstallments>[number]["installment"] | null;
   installmentCount: number;
-  remaining: number | null;
 };
 
-function statusRank(sale: SaleRow, status: InstallmentStatus): number {
+function statusRank(sale: SaleRow, status: OverallSaleStatus): number {
   if (sale.isOrphan) return 0;
   if (status === "failed") return 1;
   if (status === "refunded") return 2;
-  if (status === "upcoming") return 3;
+  if (status === "in_progress") return 3;
   return 4;
+}
+
+function statusLabel(sale: SaleRow, status: OverallSaleStatus): string {
+  if (sale.isOrphan) return "À rattacher";
+  if (status === "failed") return "Paiement échoué";
+  if (status === "refunded") return "Remboursé";
+  if (status === "in_progress") return sale.paymentMethod === "virement" ? "Virement attendu" : "Échéance à venir";
+  return "Soldé";
+}
+
+function sourceForSale(sale: SaleRow): MetricSource {
+  if (sale.source === "stripe") return "Stripe";
+  const channel = sale.sourceChannel?.toLocaleLowerCase("fr-FR") ?? "";
+  if (channel.includes("calendly")) return "Calendly";
+  if (channel.includes("iclosed")) return "iClosed";
+  return "Saisie";
 }
 
 export function SalesTable({
@@ -80,8 +82,7 @@ export function SalesTable({
   const filtered = useMemo(
     () =>
       sales.filter((sale) => {
-        const rows = displayInstallments(sale.totalPrice, sale.saleDate, sale.installments);
-        const matchesStatus = statusFilter === "orphan" ? sale.isOrphan : rows.some(({ installment }) => installment.status === statusFilter);
+        const matchesStatus = statusFilter === "orphan" ? sale.isOrphan : displayInstallments(sale.totalPrice, sale.saleDate, sale.installments).some(({ installment }) => installment.status === statusFilter);
         return (
           (!setterFilter || sale.setterId === setterFilter) &&
           (!paymentMethodFilter || sale.paymentMethod === paymentMethodFilter) &&
@@ -93,20 +94,17 @@ export function SalesTable({
   );
 
   const displayRows = useMemo(() => {
-    const rows: DisplayRow[] = [];
+    const rows: DealDisplayRow[] = [];
     for (const sale of filtered) {
       const summary = summarize(sale.totalPrice, sale.installments);
       const saleRows = displayInstallments(sale.totalPrice, sale.saleDate, sale.installments);
-      const remaining = sale.paymentType === "installments" ? Math.max(0, sale.totalPrice - summary.paidTotal) : null;
-      for (const { installment, index } of saleRows) {
-        rows.push({ sale, installment, installmentIndex: index, installmentCount: saleRows.length, remaining });
-      }
+      rows.push({ sale, summary, nextInstallment: saleRows.find(({ installment }) => installment.status === "upcoming")?.installment ?? null, installmentCount: saleRows.length });
     }
 
     rows.sort((a, b) => {
-      const rankDelta = statusRank(a.sale, a.installment.status) - statusRank(b.sale, b.installment.status);
+      const rankDelta = statusRank(a.sale, a.summary.overallStatus) - statusRank(b.sale, b.summary.overallStatus);
       if (rankDelta !== 0) return rankDelta;
-      return b.installment.dueDate.localeCompare(a.installment.dueDate);
+      return b.sale.saleDate.localeCompare(a.sale.saleDate);
     });
     return rows;
   }, [filtered]);
@@ -199,16 +197,17 @@ export function SalesTable({
           <p className="mt-1 text-sm text-muted-foreground">Réinitialise un filtre pour retrouver les paiements.</p>
         </div>
       ) : (
-        <div className="sticker-card overflow-x-auto">
-          <table className="w-full min-w-[1060px] text-sm">
+        <>
+          <div className="sticker-card hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[920px] text-sm">
             <thead>
               <tr className="border-b border-border">
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">Date</th>
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">Client</th>
-                <th className="p-3 text-right text-xs font-bold text-muted-foreground">Montant</th>
+                <th className="p-3 text-right text-xs font-bold text-muted-foreground">Deal</th>
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">Nature</th>
-                <th className="p-3 text-right text-xs font-bold text-muted-foreground">Reste à payer</th>
-                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Paiement</th>
+                <th className="p-3 text-right text-xs font-bold text-muted-foreground">Encaissé</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Prochaine échéance</th>
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">Source</th>
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">Setter</th>
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">Closer</th>
@@ -217,47 +216,27 @@ export function SalesTable({
               </tr>
             </thead>
             <tbody>
-              {displayRows.map(({ sale, installment, installmentIndex, installmentCount, remaining }) => (
+              {displayRows.map(({ sale, summary, nextInstallment, installmentCount }) => (
                 <tr
-                  key={`${sale.id}-${installmentIndex}`}
+                  key={sale.id}
                   className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
                   onClick={() => setSelectedId(sale.id)}
                 >
-                  <td className="p-3 whitespace-nowrap text-muted-foreground">{installment.dueDate}</td>
+                  <td className="p-3 whitespace-nowrap text-muted-foreground">{sale.saleDate}</td>
                   <td className="p-3 font-bold">{sale.isOrphan ? "À identifier" : sale.clientName}</td>
-                  <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(installment.amount)} €</td>
+                  <td className="p-3 text-right font-bold tabular-nums">{NUMBER_FORMAT.format(sale.totalPrice)} €</td>
                   <td className="p-3">
                     <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                      {sale.paymentType === "installments"
-                        ? `Échéancier ${installmentIndex + 1}/${installmentCount}`
-                        : PAYMENT_TYPE_LABEL[sale.paymentType]}
+                      {sale.paymentType === "installments" ? `Échéancier · ${installmentCount} fois` : PAYMENT_TYPE_LABEL[sale.paymentType]}
                     </span>
                   </td>
-                  <td className="p-3 text-right tabular-nums text-muted-foreground">
-                    {remaining === null ? "—" : `${NUMBER_FORMAT.format(remaining)} €`}
-                  </td>
-                  <td className="p-3">
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                      {PAYMENT_METHOD_LABEL[sale.paymentMethod]}
-                    </span>
-                  </td>
-                  <td className="p-3 text-muted-foreground">{sale.source === "stripe" ? "Stripe" : sale.sourceChannel ?? "—"}</td>
+                  <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(summary.paidTotal)} €</td>
+                  <td className="p-3 text-muted-foreground">{nextInstallment ? `${nextInstallment.dueDate} · ${NUMBER_FORMAT.format(nextInstallment.amount)} €` : "—"}</td>
+                  <td className="p-3"><SourceBadge source={sourceForSale(sale)} /></td>
                   <td className="p-3 text-muted-foreground">{setterName(sale.setterId)}</td>
                   <td className="p-3 text-muted-foreground">{sale.closer ?? "—"}</td>
                   <td className="p-3">
-                    <div className="flex flex-wrap gap-1">
-                      {sale.isOrphan && (
-                        <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning-text">À rattacher</span>
-                      )}
-                      {!sale.isOrphan && (
-                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[installment.status])}>
-                          {STATUS_LABEL[installment.status]}
-                        </span>
-                      )}
-                      {sale.isOrphan && installment.status === "refunded" && (
-                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE.refunded)}>Remboursé</span>
-                      )}
-                    </div>
+                    <StatusBadge status={statusLabel(sale, summary.overallStatus)} />
                   </td>
                   <td className="p-3 text-right">
                     {sale.isOrphan ? (
@@ -294,7 +273,42 @@ export function SalesTable({
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+          <div className="flex flex-col gap-3 md:hidden">
+            {displayRows.map(({ sale, summary, nextInstallment, installmentCount }) => (
+              <article key={sale.id} className="sticker-card flex flex-col gap-3 p-4" onClick={() => setSelectedId(sale.id)}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold">{sale.isOrphan ? "À identifier" : sale.clientName}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{sale.saleDate} · {PAYMENT_METHOD_LABEL[sale.paymentMethod]}</p>
+                  </div>
+                  <StatusBadge status={statusLabel(sale, summary.overallStatus)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><p className="text-xs text-muted-foreground">Deal</p><p className="font-bold tabular-nums">{NUMBER_FORMAT.format(sale.totalPrice)} €</p></div>
+                  <div><p className="text-xs text-muted-foreground">Encaissé</p><p className="font-bold tabular-nums">{NUMBER_FORMAT.format(summary.paidTotal)} €</p></div>
+                  <div><p className="text-xs text-muted-foreground">Nature</p><p className="font-bold">{sale.paymentType === "installments" ? `${installmentCount} échéances` : PAYMENT_TYPE_LABEL[sale.paymentType]}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Prochaine échéance</p><p className="font-bold">{nextInstallment?.dueDate ?? "—"}</p></div>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
+                  <SourceBadge source={sourceForSale(sale)} />
+                  {sale.isOrphan ? (
+                    <SaleFormDialog
+                      offers={offers}
+                      setters={setters}
+                      sale={sale}
+                      trigger={<Button type="button" variant="outline" size="sm" onClick={(event) => event.stopPropagation()}>Créer la vente</Button>}
+                    />
+                  ) : (
+                    <Button type="button" variant="ghost" size="sm" onClick={(event) => { event.stopPropagation(); handleDelete(sale.id); }}>
+                      Supprimer
+                    </Button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </>
       )}
 
       <SaleDetailDrawer

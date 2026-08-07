@@ -2,6 +2,7 @@
 
 import { Send } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { z } from "zod";
 
 import { Falco } from "@/components/falco/falco";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
@@ -14,6 +15,12 @@ import type { FalcoSkinKey } from "@/lib/falco-skins";
 export type ChatMessage = { role: "user" | "assistant"; content: string; isError?: boolean };
 type Period = "3-months" | "current-month" | "12-months";
 type LeverMode = "optimiser" | "demarrer" | "decouverte";
+type ChatUsage = { inputTokens: number; outputTokens: number };
+
+const chatUsageSchema = z.object({
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+});
 
 export const MAX_MESSAGES = 20;
 
@@ -109,7 +116,8 @@ async function streamChat(
     conversationId?: string;
     messages: ChatMessage[];
   },
-  onToken: (token: string) => void
+  onToken: (token: string) => void,
+  onUsage: (usage: ChatUsage) => void
 ): Promise<{ error: string | null }> {
   const controller = new AbortController();
   const connectTimeoutId = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
@@ -153,9 +161,17 @@ async function streamChat(
         const line = event.replace(/^data:\s*/, "").trim();
         if (!line || line === "[DONE]") continue;
         try {
-          const json = JSON.parse(line);
-          const token = json.choices?.[0]?.delta?.content;
-          if (typeof token === "string") onToken(token);
+          const json: unknown = JSON.parse(line);
+          if (typeof json === "object" && json !== null && "choices" in json && Array.isArray(json.choices)) {
+            const firstChoice = json.choices[0];
+            if (typeof firstChoice === "object" && firstChoice !== null && "delta" in firstChoice && typeof firstChoice.delta === "object" && firstChoice.delta !== null && "content" in firstChoice.delta && typeof firstChoice.delta.content === "string") {
+              onToken(firstChoice.delta.content);
+            }
+          }
+          if (typeof json === "object" && json !== null && "usage" in json) {
+            const parsedUsage = chatUsageSchema.safeParse(json.usage);
+            if (parsedUsage.success) onUsage(parsedUsage.data);
+          }
         } catch {
           // Ignore malformed/partial SSE chunks — the next read() call
           // usually completes them.
@@ -222,6 +238,7 @@ export const AgentChatThread = forwardRef<
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [failedHistory, setFailedHistory] = useState<ChatMessage[] | null>(null);
+  const [usage, setUsage] = useState<ChatUsage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasOpenedRef = useRef(false);
   // "metric" stays fully ephemeral (per-diagnostic-point drill-downs
@@ -316,7 +333,8 @@ export const AgentChatThread = forwardRef<
             }
             return next;
           });
-        }
+        },
+        setUsage
       );
 
       if (result.error) {
@@ -431,6 +449,12 @@ export const AgentChatThread = forwardRef<
             Recommencer à zéro
           </Button>
         </div>
+      )}
+
+      {usage && (
+        <p className="border-t border-border px-4 py-2 text-right text-[11px] text-muted-foreground">
+          Conso de cette session · {usage.inputTokens.toLocaleString("fr-FR")} tokens entrants · {usage.outputTokens.toLocaleString("fr-FR")} sortants
+        </p>
       )}
 
       <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-border p-4">

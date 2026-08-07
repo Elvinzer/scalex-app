@@ -93,6 +93,12 @@ export function CopilotePageClient({
         <p className="mt-1 text-muted-foreground">Falco, ton copilote de croissance. Il connaît déjà tes chiffres.</p>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2" aria-label="Contexte utilisé par Falco">
+        <span className="rounded-full border border-accent-2-border bg-accent-2-soft px-3 py-1.5 text-xs font-bold text-accent-2-text">Contexte · {selected?.topicLabel ?? "Vue globale"}</span>
+        <span className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">Période · 3 derniers mois</span>
+        <span className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">Données · CA, funnel, offres</span>
+      </div>
+
       <div className="flex flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-0">
         <div className="lg:hidden">
           <ConversationHistoryPanel

@@ -289,6 +289,29 @@ export default async function DiagnosticPage({
 
       {overviewHeader}
 
+      <section id="diagnostic-spotlight" className="sticker-spotlight flex flex-col gap-5 px-7 py-6 sm:flex-row sm:items-end sm:justify-between" aria-labelledby="diagnostic-spotlight-heading">
+        <div>
+          <p className="text-xs font-bold tracking-[0.12em] text-mist/70 uppercase">Goulot principal détecté</p>
+          <h2 id="diagnostic-spotlight-heading" className="mt-2 max-w-xl text-2xl font-bold">{topPoints[0]?.label ?? "Aucun goulot mesurable pour l'instant"}</h2>
+          <p className="mt-2 max-w-xl text-sm text-mist/70">
+            {topPoints[0]
+              ? `${topPoints[0].currentRatePercent}% actuellement · benchmark ${topPoints[0].benchmarkRatePercent}% · ${topPoints[0].extraClients} client${topPoints[0].extraClients > 1 ? "s" : ""} potentiel${topPoints[0].extraClients > 1 ? "s" : ""} par mois.`
+              : "Renseigne davantage de données dans Mes chiffres pour obtenir un écart fiable au benchmark."}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button asChild>
+              <a href="#points-a-ameliorer">Traiter la priorité</a>
+            </Button>
+            <a href="#calcul" className="text-sm font-bold text-mist/70 underline-offset-4 hover:text-text-on-dark hover:underline">Comment c&apos;est calculé</a>
+          </div>
+        </div>
+        <div className="shrink-0 sm:text-right">
+          <p className="text-xs font-bold text-mist/70">Manque à gagner estimé</p>
+          <p className="mt-1 font-display text-4xl font-bold tabular-nums">{totalMonthlyGain === null ? "—" : `+${formatEur(totalMonthlyGain)}`}</p>
+          <p className="mt-1 text-xs text-mist/60">par mois · données calculées</p>
+        </div>
+      </section>
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <Falco
           skin="diagnostic"
@@ -324,21 +347,21 @@ export default async function DiagnosticPage({
       {/* ============================= SECTION 1 — OPTIMISER ============================= */}
       <div className="flex flex-col gap-8">
         <div>
-          <h2 className="text-lg font-bold">Optimise ce que tu fais déjà</h2>
+          <h2 className="text-lg font-bold">Optimiser ce que tu fais déjà</h2>
           <p className="mt-1 text-sm text-muted-foreground">Tes leviers actifs, comparés au benchmark de ta niche.</p>
         </div>
 
         {/* Le total "Optimiser" — calculé uniquement sur les 3 premiers points
             cascade, ouverture visuelle de cette section. */}
-        <div className="sticker-spotlight animate-rise px-7 py-6">
-          <p className="text-xs text-mist/70">Potentiel total détecté</p>
-          <p className="figure-hero gradient-text mt-2">
+        <div id="calcul" className="sticker-card-dashed animate-rise px-7 py-6">
+          <p className="text-xs text-muted-foreground">Potentiel total détecté</p>
+          <p className="mt-2 font-display text-3xl font-bold">
             {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain)}/mois`}
           </p>
-          <p className="mt-2 text-sm text-mist/70">
+          <p className="mt-2 text-sm text-muted-foreground">
             +{totalExtraClients} clients/mois possibles en corrigeant tes {topPoints.length} points les plus faibles
           </p>
-          <div className="mt-4 flex items-center gap-2 text-xs text-mist/60">
+          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
             {mainOffer?.price ? (
               <span>
                 Calculé avec ton offre {mainOffer.name || "principale"} à {formatEur(mainOffer.price)}
@@ -540,7 +563,7 @@ export default async function DiagnosticPage({
       {/* ============================== SECTION 2 — AJOUTER ============================== */}
       <div className="flex flex-col gap-8">
         <div>
-          <h2 className="text-lg font-bold">Ce que tu pourrais ajouter</h2>
+          <h2 className="text-lg font-bold">Ajouter de nouveaux leviers</h2>
           <p className="mt-1 text-sm text-muted-foreground">Des leviers que tu n&apos;exploites pas encore, classés par potentiel.</p>
         </div>
 
@@ -583,7 +606,7 @@ export default async function DiagnosticPage({
 
       {/* Bloc 3 — La vue complète */}
       <div>
-        <h2 className="text-base font-bold">Tout ton business en un coup d&apos;œil</h2>
+        <h2 className="text-base font-bold">Ce qui fonctionne déjà</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {summaries.map((summary) => (
             <MetricSummaryCard

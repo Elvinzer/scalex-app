@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { after } from "next/server";
 
 import { AgentBanner } from "@/components/agent-banner";
+import { KpiTile } from "@/components/kpi-tile";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics";
@@ -139,31 +140,13 @@ export default async function MailPage() {
 
       <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {listSize !== null && (
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Taille de liste</p>
-            <p className="mt-2 font-display text-3xl font-bold tabular-nums">{listSize}</p>
-          </div>
+          <KpiTile label="Taille de liste" value={listSize.toLocaleString("fr-FR")} />
         )}
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Envois ce mois</p>
-          <p className="mt-2 font-display text-3xl font-bold tabular-nums">{totalSends}</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Taux d&apos;ouverture</p>
-          <p className="mt-2 font-display text-3xl font-bold">{avgOpenRate === null ? "—" : formatPercent(avgOpenRate)}</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Taux de clic</p>
-          <p className="mt-2 font-display text-3xl font-bold">{avgCtr === null ? "—" : formatPercent(avgCtr)}</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">RDV bookés ce mois</p>
-          <p className="mt-2 font-display text-3xl font-bold tabular-nums">{totalBookings}</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">RDV closés ce mois</p>
-          <p className="mt-2 font-display text-3xl font-bold tabular-nums">{totalDealsClosed}</p>
-        </div>
+        <KpiTile label="Envois ce mois" value={totalSends.toLocaleString("fr-FR")} />
+        <KpiTile label="Taux d'ouverture" value={avgOpenRate === null ? "—" : formatPercent(avgOpenRate)} tone="positive" />
+        <KpiTile label="Taux de clic" value={avgCtr === null ? "—" : formatPercent(avgCtr)} tone="accent2" />
+        <KpiTile label="RDV bookés ce mois" value={totalBookings.toLocaleString("fr-FR")} />
+        <KpiTile label="RDV closés ce mois" value={totalDealsClosed.toLocaleString("fr-FR")} tone="positive" />
       </div>
 
       <CampaignsTable campaigns={campaigns} falcoSkin={falcoSkin} />

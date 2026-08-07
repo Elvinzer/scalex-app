@@ -34,7 +34,10 @@ export default async function AcquisitionLayout({ children }: { children: React.
       {skinsToPrefetch.map((skin) => (
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/falco-skin-${skin}.webp`} />
       ))}
-      <h1 className="text-3xl font-bold">Acquisition</h1>
+      <div>
+        <h1 className="text-3xl font-bold">Acquisition</h1>
+        <p className="mt-1 max-w-2xl text-muted-foreground">Comprends ce qui attire des prospects, puis transforme chaque source en prochaine action mesurable.</p>
+      </div>
       <PillarTabs tabs={tabs} />
       {children}
     </div>

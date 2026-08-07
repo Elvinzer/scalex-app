@@ -59,7 +59,7 @@ export function AgentBanner({
           <Falco pose={falcoPose} size="sm" />
         )}
         <p className="min-w-0 flex-1 text-sm font-bold text-[var(--text-on-dark)]">{stateText}</p>
-        <Button onClick={() => handleOpenChange(true)} className="shrink-0">
+        <Button onClick={() => handleOpenChange(true)} variant="accent2" className="shrink-0">
           {ctaLabel}
         </Button>
       </div>

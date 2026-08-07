@@ -39,6 +39,7 @@ describe("Falco provider stream", () => {
     expect(output).toContain('"content":"Bonjour"');
     expect(output).toContain('"content":" Falco"');
     expect(output).toContain("data: [DONE]");
+    expect(output).toContain('"usage":{"inputTokens":12,"outputTokens":7}');
     expect(usage).toEqual({ inputTokens: 12, outputTokens: 7 });
   });
 });

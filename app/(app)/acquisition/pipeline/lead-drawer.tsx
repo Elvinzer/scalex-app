@@ -17,6 +17,8 @@ import {
 import type { SetterRow } from "@/lib/setters/types";
 
 import { addCommentAction, deleteLeadAction, getLeadDetailAction, setReminderAction, toggleReminderDoneAction, updateLeadAction } from "./lead-actions";
+import { LostReasonDialog } from "./lost-reason-dialog";
+import { SaleValidationDialog } from "./sale-validation-dialog";
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -40,6 +42,8 @@ export function LeadDrawer({
   const [reminderDate, setReminderDate] = useState("");
   const [reminderNote, setReminderNote] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
+  const [lostDialogOpen, setLostDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
 
@@ -108,7 +112,8 @@ export function LeadDrawer({
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <>
+      <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         {/* Keyed by lead id — forces a remount of every uncontrolled
             defaultValue field below when the user clicks a different card
@@ -321,14 +326,25 @@ export function LeadDrawer({
               </div>
 
               <div className="border-t border-border pt-4">
-                <Button type="button" variant="destructive" size="sm" disabled={isDeleting} onClick={handleDelete}>
-                  {isDeleting ? "Suppression..." : "Supprimer ce lead"}
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button type="button" size="sm" onClick={() => setSaleDialogOpen(true)}>
+                    Valider une vente
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setLostDialogOpen(true)}>
+                    Perdu
+                  </Button>
+                  <Button type="button" variant="destructive" size="sm" disabled={isDeleting} onClick={handleDelete}>
+                    {isDeleting ? "Suppression..." : "Supprimer"}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </DrawerContent>
-    </Drawer>
+      </Drawer>
+      <LostReasonDialog leadId={lead.id} open={lostDialogOpen} onOpenChange={setLostDialogOpen} />
+      <SaleValidationDialog lead={lead} offers={offers} setters={setters} open={saleDialogOpen} onOpenChange={setSaleDialogOpen} />
+    </>
   );
 }

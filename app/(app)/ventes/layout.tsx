@@ -32,7 +32,10 @@ export default async function VentesLayout({ children }: { children: React.React
       {skinsToPrefetch.map((skin) => (
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/falco-skin-${skin}.webp`} />
       ))}
-      <h1 className="text-3xl font-bold">Vente</h1>
+      <div>
+        <h1 className="text-3xl font-bold">Vente</h1>
+        <p className="mt-1 max-w-2xl text-muted-foreground">Suis tes deals, tes échéances et tes appels pour savoir ce qui rentre vraiment.</p>
+      </div>
       <PillarTabs tabs={tabs} />
       {children}
     </div>

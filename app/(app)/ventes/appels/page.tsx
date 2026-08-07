@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
+import { IntegrationStatusRow, type IntegrationStatus } from "@/components/integration-status-row";
+import { KpiTile } from "@/components/kpi-tile";
 import { PeriodFilter } from "@/components/period-filter";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
@@ -26,31 +28,18 @@ function pct(numerator: number, denominator: number): string {
   return `${Math.round((numerator / denominator) * 100)} %`;
 }
 
-// Per-tool sync banner (pending / plan-gated / failed). Rendered for each
-// connected source so a problem on either tool is surfaced distinctly.
-function SyncStatus({ tool, status, planText }: { tool: string; status?: string | null; planText: string }) {
-  if (status === "pending") {
-    return (
-      <div className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm font-bold text-muted-foreground">
-        Récupération de tes appels {tool} en cours…
-      </div>
-    );
-  }
-  if (status === "no_api_access") {
-    return (
-      <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
-        <span className="font-bold">Accès API {tool} non actif.</span> {planText}
-      </div>
-    );
-  }
-  if (status === "failed") {
-    return (
-      <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
-        La synchronisation {tool} a échoué. Reconnecte {tool} depuis les intégrations pour réessayer.
-      </div>
-    );
-  }
-  return null;
+function connectionStatus(status?: string | null): IntegrationStatus {
+  if (status === "pending") return "syncing";
+  if (status === "no_api_access") return "plan_limited";
+  if (status === "failed") return "error";
+  return "connected";
+}
+
+function connectionDetail(tool: string, status?: string | null): string {
+  if (status === "pending") return `Récupération de tes appels ${tool} en cours.`;
+  if (status === "no_api_access") return `L'accès API ${tool} dépend de ton plan. Vérifie ton abonnement puis reconnecte l'outil.`;
+  if (status === "failed") return `La dernière synchronisation ${tool} a échoué. Reconnecte l'outil pour réessayer.`;
+  return `Tes appels ${tool} alimentent automatiquement ce suivi.`;
 }
 
 export default async function PriseDappelPage({ searchParams }: { searchParams: Promise<{ period?: string; call?: string; from?: string }> }) {
@@ -129,38 +118,28 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
       </div>
 
       {iclosedConnected && (
-        <SyncStatus
-          tool="iClosed"
-          status={iclosedConnection?.initialSyncStatus}
-          planText="L'API iClosed nécessite un plan Business ou Enterprise. Vérifie ton plan sur iclosed.io, puis reconnecte."
+        <IntegrationStatusRow
+          name="iClosed"
+          status={connectionStatus(iclosedConnection?.initialSyncStatus)}
+          detail={connectionDetail("iClosed", iclosedConnection?.initialSyncStatus)}
+          action={<Link href="/settings" className="text-sm font-bold text-muted-foreground hover:underline">Gérer</Link>}
         />
       )}
       {calendlyConnected && (
-        <SyncStatus
-          tool="Calendly"
-          status={calendlyConnection?.initialSyncStatus}
-          planText="L'API Calendly nécessite un plan payant. Vérifie ton plan sur calendly.com, puis reconnecte."
+        <IntegrationStatusRow
+          name="Calendly"
+          status={connectionStatus(calendlyConnection?.initialSyncStatus)}
+          detail={connectionDetail("Calendly", calendlyConnection?.initialSyncStatus)}
+          action={<Link href="/settings" className="text-sm font-bold text-muted-foreground hover:underline">Gérer</Link>}
         />
       )}
 
       {(anyConnected || calls.length > 0) && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Appels réservés</p>
-            <p className="mt-2 font-display text-3xl font-bold">{reserved}</p>
-          </div>
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Taux de présence</p>
-            <p className="mt-2 font-display text-3xl font-bold">{pct(shown, shown + noShow)}</p>
-          </div>
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Taux de closing</p>
-            <p className="mt-2 font-display text-3xl font-bold">{pct(closed, closed + notClosed)}</p>
-          </div>
-          <div className="sticker-card flex flex-col p-5">
-            <p className="text-sm font-bold text-muted-foreground">Cash encaissé</p>
-            <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashCollected)} €</p>
-          </div>
+          <KpiTile label="Appels réservés" value={NUMBER_FORMAT.format(reserved)} detail="Sur la période" />
+          <KpiTile label="Taux de présence" value={pct(shown, shown + noShow)} detail={`${shown} présents`} tone="positive" />
+          <KpiTile label="Taux de closing" value={pct(closed, closed + notClosed)} detail={`${closed} ventes conclues`} tone="accent2" />
+          <KpiTile label="Cash encaissé" value={`${NUMBER_FORMAT.format(cashCollected)} €`} detail="Sur la période" tone="positive" />
         </div>
       )}
 

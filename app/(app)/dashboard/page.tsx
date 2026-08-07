@@ -8,6 +8,7 @@ import { WeeklyReportDialog } from "./weekly-report-dialog";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { MetricCard } from "@/components/metric-card";
+import { NatureBadge } from "@/components/nature-badge";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
@@ -37,8 +38,6 @@ const DASHBOARD_METRIC_CARD_KEYS = [
   "new-customers",
   "leads",
   "bookings",
-  "sales-page-conversion",
-  "checkout-visitors",
   "closing-rate",
   "average-sale",
 ];
@@ -143,9 +142,10 @@ export default async function DashboardPage({
   // (the cascade bottlenecks + active-but-underperforming levers) — NOT
   // Découverte's absent-lever "possibilities", which never counted toward
   // something concrete existing yet.
-  const totalMonthlyLoss =
-    (points.some((p) => p.monthlyGain === null) ? 0 : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0)) +
-    topActiveLevers.reduce((sum, w) => sum + (w.impactAmountEur ?? 0), 0);
+  const totalMonthlyLoss = !hasAnyMonthlyRow
+    ? null
+    : (points.some((p) => p.monthlyGain === null) ? 0 : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0)) +
+      topActiveLevers.reduce((sum, w) => sum + (w.impactAmountEur ?? 0), 0);
 
   // The Dashboard's single content Falco (the floating chat bubble is the
   // one permitted exception). Pose + line reflect the same three states the
@@ -178,11 +178,11 @@ export default async function DashboardPage({
     <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Salut, {firstName}</h1>
+          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Bonjour {firstName}.</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {points.length > 0
-              ? "Voici où en est ton business, et ce qu'il faut corriger en premier."
-              : "Ton business tourne bien. Voici où creuser pour accélérer."}
+              ? `${points[0]?.label ?? "Ton closing"} est le poste qui coûte le plus cher aujourd'hui.`
+              : "Tes leviers mesurés sont solides. Voici où accélérer maintenant."}
           </p>
         </div>
         <WeeklyReportDialog
@@ -196,20 +196,28 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* Bloc 1 — slim single-row hero banner. The benchmark widget is
-          pulled off the Dashboard for now (see git history to restore it —
-          components/metric-health-carousel.tsx is untouched). */}
-      <div className="sticker-spotlight animate-rise flex flex-wrap items-center gap-6 px-7 py-6">
-        <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden sm:flex" />
-        <div className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
-          <p className="text-sm font-bold text-mist/70">Manque à gagner détecté</p>
-          <p className="figure-hero gradient-text">{formatEur(totalMonthlyLoss)}</p>
-          <p className="text-sm text-mist/60">{heroFalco.line}</p>
+      <section className="sticker-spotlight animate-rise px-7 py-6" aria-labelledby="dashboard-gap-title">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div className="min-w-0">
+            <p id="dashboard-gap-title" className="text-xs font-bold tracking-[0.08em] text-mist/60 uppercase">Manque à gagner détecté · 30 derniers jours</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <p className="figure-hero">{totalMonthlyLoss === null ? "—" : formatEur(totalMonthlyLoss)}</p>
+              <NatureBadge nature="Projection" />
+            </div>
+            <p className="mt-2 text-sm text-mist/60">Source Stripe + iClosed · calculé sur l&apos;écart au benchmark</p>
+          </div>
+          <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden lg:flex" />
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" asChild>
+              <a href="/diagnostic">Voir le diagnostic</a>
+            </Button>
+            <Button size="lg" variant="outline" className="border-mist/20 bg-transparent text-text-on-dark hover:bg-mist/10 hover:text-text-on-dark" asChild>
+              <a href="/diagnostic#calcul">Comment c&apos;est calculé</a>
+            </Button>
+          </div>
         </div>
-        <Button size="lg" asChild>
-          <a href="/diagnostic">Récupérer ce cash →</a>
-        </Button>
-      </div>
+        <p className="sr-only">{heroFalco.line}</p>
+      </section>
 
       {params.bandeau === "incomplete_data" && (
         <FalcoEmptyState title="Complète tes chiffres pour ton diagnostic" showFalco={false}>
@@ -219,31 +227,12 @@ export default async function DashboardPage({
         </FalcoEmptyState>
       )}
 
-      {!checkInDoneThisWeek && (
-        <div className="sticker-card-dashed flex items-center justify-between gap-4 px-5 py-3">
-          <p className="text-sm font-bold">
-            📊 2 minutes pour mettre à jour tes chiffres de la semaine
-          </p>
-          <Suspense fallback={null}>
-            <CheckinTrigger
-              year={currentYear}
-              month={currentMonth}
-              initialData={checkinInitialData}
-              settingSourced={dailySourceOverlay.settingSourced}
-              closingSourced={dailySourceOverlay.closingSourced}
-            />
-          </Suspense>
-        </div>
-      )}
-
       <Suspense fallback={<RevenueActionCenterSkeleton />}>
         <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
       </Suspense>
 
-      <TechnicalAlertsSection alerts={technicalAlerts} />
-
       <div>
-        <h2 className="text-base font-bold">Tes chiffres clés</h2>
+        <h2 className="text-base font-bold">Contexte du mois</h2>
         <p className="mt-1 text-sm text-muted-foreground">Mois en cours, comparé au mois précédent.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {metricCards.map((card, index) => (
@@ -252,6 +241,35 @@ export default async function DashboardPage({
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <TechnicalAlertsSection alerts={technicalAlerts} />
+        <section className="sticker-card p-4" aria-labelledby="checkin-title">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="checkin-title" className="text-sm font-bold">Check-in hebdomadaire</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {checkInDoneThisWeek ? "Tes chiffres de la semaine sont déjà enregistrés." : "Deux minutes pour garder le diagnostic à jour."}
+              </p>
+            </div>
+            <span className="rounded-full bg-muted px-2 py-1 text-xs font-bold text-muted-foreground">{checkInDoneThisWeek ? "À jour" : "À faire"}</span>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Suspense fallback={null}>
+              <CheckinTrigger
+                year={currentYear}
+                month={currentMonth}
+                initialData={checkinInitialData}
+                settingSourced={dailySourceOverlay.settingSourced}
+                closingSourced={dailySourceOverlay.closingSourced}
+              />
+            </Suspense>
+            <Button type="button" variant="link" asChild>
+              <a href="/dashboard?report=1">Voir le rapport</a>
+            </Button>
+          </div>
+        </section>
       </div>
 
     </div>

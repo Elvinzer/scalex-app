@@ -2,6 +2,9 @@ import { eq } from "drizzle-orm";
 import { Plus } from "lucide-react";
 
 import { AgentBanner } from "@/components/agent-banner";
+import { FailedPaymentsPanel, type FailedPaymentItem } from "@/components/failed-payments-panel";
+import { IntegrationStatusRow } from "@/components/integration-status-row";
+import { KpiTile } from "@/components/kpi-tile";
 import { PeriodFilter } from "@/components/period-filter";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
@@ -17,10 +20,8 @@ import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
-import { ReconciliationSummary } from "./reconciliation-summary";
 import { SaleFormDialog } from "./sale-form-dialog";
 import { SalesTable } from "./sales-table";
-import { StripeStatusLine } from "./stripe-status-line";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
@@ -50,16 +51,19 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
 
   // Account-wide, not period-scoped, so an issue does not disappear when the
   // period tabs narrow to a month that does not contain it.
-  const failedPaymentCount = sales.reduce(
-    (count, sale) => count + (sale.installments?.filter((installment) => installment.status === "failed").length ?? 0),
-    0
+  const failedPaymentItems: FailedPaymentItem[] = sales.flatMap((sale) =>
+    (sale.installments ?? [])
+      .map((installment, index) => ({ installment, index }))
+      .filter(({ installment }) => installment.status === "failed" && Boolean(installment.stripeChargeId))
+      .map(({ installment, index }) => ({
+        id: `${sale.id}-${index}`,
+        client: sale.isOrphan ? "Paiement à rattacher" : sale.clientName,
+        amount: installment.amount,
+        reason: installment.failureReason ?? "Paiement Stripe refusé",
+        dueDate: installment.dueDate,
+        attempts: 1,
+      }))
   );
-  const failedPaymentAmount = sales.reduce(
-    (total, sale) =>
-      total + (sale.installments?.filter((installment) => installment.status === "failed").reduce((sum, installment) => sum + installment.amount, 0) ?? 0),
-    0
-  );
-  const orphanCount = sales.filter((sale) => sale.isOrphan).length;
 
   const period = resolvePeriod((await searchParams).period);
   const periodSales = sales.filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)));
@@ -79,7 +83,7 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
 
   return (
     <div className="flex flex-col gap-8">
-      <ReconciliationSummary failedCount={failedPaymentCount} failedAmount={failedPaymentAmount} orphanCount={orphanCount} />
+      {stripeConnected && <FailedPaymentsPanel items={failedPaymentItems} />}
 
       <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
 
@@ -90,7 +94,16 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
             Chaque vente, avec son échéancier et ses impayés, au-delà des seuls totaux du funnel.
           </p>
           <div className="mt-3">
-            <StripeStatusLine connected={stripeConnected} />
+            <IntegrationStatusRow
+              name="Stripe"
+              status={stripeConnected ? "connected" : "not_connected"}
+              detail={stripeConnected ? "Les paiements alimentent ce suivi automatiquement." : "Connecte Stripe pour synchroniser tes paiements."}
+              action={
+                <Button asChild variant="outline" size="sm">
+                  <a href="/settings">{stripeConnected ? "Gérer" : "Connecter"}</a>
+                </Button>
+              }
+            />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -110,28 +123,10 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">CA contracté</p>
-          <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashContracted)} €</p>
-          <p className="mt-1 text-xs text-muted-foreground">{periodSales.length} ventes</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">CA encaissé</p>
-          <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashCollected)} €</p>
-          <p className="mt-1 text-xs text-muted-foreground">{periodSales.length} ventes</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Paiements en attente</p>
-          <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(pending)} €</p>
-          <p className="mt-1 text-xs text-muted-foreground">{periodSales.length} ventes</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Impayés</p>
-          <p className={`mt-2 font-display text-3xl font-bold ${failed > 0 ? "text-state-critical" : ""}`}>
-            {NUMBER_FORMAT.format(failed)} €
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">{periodSales.length} ventes</p>
-        </div>
+        <KpiTile label="CA contracté" value={`${NUMBER_FORMAT.format(cashContracted)} €`} detail={`${periodSales.length} ventes`} />
+        <KpiTile label="CA encaissé" value={`${NUMBER_FORMAT.format(cashCollected)} €`} detail={`${periodSales.length} ventes`} tone="positive" />
+        <KpiTile label="Échéances à venir" value={`${NUMBER_FORMAT.format(pending)} €`} detail="À encaisser" tone="accent2" />
+        <KpiTile label="Impayés" value={`${NUMBER_FORMAT.format(failed)} €`} detail="À traiter" tone={failed > 0 ? "negative" : "default"} />
       </div>
 
       <SalesTable

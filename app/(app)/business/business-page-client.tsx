@@ -36,6 +36,13 @@ export function BusinessPageClient({
 }) {
   const [profile, setProfile] = useState(initialProfile);
   const completion = computeGlobalCompletion(profile);
+  const sectionLabels: Record<string, string> = {
+    identity: "Identité",
+    acquisition: "Acquisition",
+    sales: "Offres & vente",
+    delivery: "Livraison",
+  };
+  const incompleteCount = Object.values(completion.bySection).reduce((sum, section) => sum + section.total - section.answered, 0);
 
   const falcoPose: FalcoPose = completion.percent >= 80 ? "happy" : completion.percent >= 40 ? "neutral" : "sleeping";
   const falcoLine =
@@ -47,45 +54,61 @@ export function BusinessPageClient({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="sticker-spotlight px-7 py-6">
-        <div className="mb-5 hidden sm:block">
-          <Falco pose={falcoPose} size="sm" animate="enter" withBubble bubbleText={falcoLine} bubbleOnDark />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold tracking-[0.16em] text-muted-foreground uppercase">Configuration</p>
+          <h1 className="mt-1 text-3xl font-bold">Business &amp; offres</h1>
+          <p className="mt-1 max-w-2xl text-muted-foreground">Décris ton modèle, tes offres et ta livraison pour que le diagnostic de Falco soit actionnable.</p>
         </div>
-        <p className="text-xs text-mist/70">Mon business</p>
-        <h1 className="mt-1 text-xl font-bold tracking-[-0.01em]">
-          Plus c&apos;est complet, plus ton diagnostic est précis.
-        </h1>
-        <div className="mt-6 flex items-center gap-4">
-          <p className="figure-hero">{completion.percent}%</p>
-          <p className="text-sm text-mist/70">complété</p>
-        </div>
-        {/* Neutral opacity ramp instead of 4 brand colors — coral and violet
-            are both reserved (action / Copilote), so a completion-by-section
-            legend that isn't either of those uses one neutral tone instead. */}
-        <div className="mt-4 flex h-2 gap-1 overflow-hidden rounded-full bg-mist/15">
-          <div
-            className="bg-text-on-dark transition-[flex-basis]"
-            style={{ flexBasis: `${completion.bySection.identity.percent / 4}%` }}
-          />
-          <div
-            className="bg-text-on-dark/70 transition-[flex-basis]"
-            style={{ flexBasis: `${completion.bySection.acquisition.percent / 4}%` }}
-          />
-          <div
-            className="bg-text-on-dark/45 transition-[flex-basis]"
-            style={{ flexBasis: `${completion.bySection.sales.percent / 4}%` }}
-          />
-          <div
-            className="bg-text-on-dark/25 transition-[flex-basis]"
-            style={{ flexBasis: `${completion.bySection.delivery.percent / 4}%` }}
-          />
+        <div className="hidden items-center gap-2 sm:flex">
+          <Falco pose={falcoPose} size="xs" animate="enter" />
+          <p className="max-w-xs text-sm text-muted-foreground">{falcoLine}</p>
         </div>
       </div>
+
+      <section className="sticker-card flex flex-col gap-5 p-6" aria-labelledby="business-completion-heading">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">Profil du business</p>
+            <h2 id="business-completion-heading" className="mt-1 text-xl font-bold">Ton diagnostic sera plus précis avec ces informations.</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{incompleteCount} élément{incompleteCount > 1 ? "s" : ""} à compléter pour débloquer des recommandations plus fines.</p>
+          </div>
+          <div className="flex items-end gap-4">
+            <div className="text-right">
+              <p className="font-display text-3xl font-bold tabular-nums">{completion.percent}%</p>
+              <p className="text-xs text-muted-foreground">complété</p>
+            </div>
+            <Button asChild size="sm">
+              <a href="#identite">Compléter</a>
+            </Button>
+          </div>
+        </div>
+        <div className="flex h-2 gap-1 overflow-hidden rounded-full bg-muted" aria-label={`${completion.percent}% du profil complété`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion.percent}>
+          <div className="bg-foreground transition-[flex-basis]" style={{ flexBasis: `${completion.bySection.identity.percent / 4}%` }} />
+          <div className="bg-foreground/70 transition-[flex-basis]" style={{ flexBasis: `${completion.bySection.acquisition.percent / 4}%` }} />
+          <div className="bg-foreground/45 transition-[flex-basis]" style={{ flexBasis: `${completion.bySection.sales.percent / 4}%` }} />
+          <div className="bg-foreground/25 transition-[flex-basis]" style={{ flexBasis: `${completion.bySection.delivery.percent / 4}%` }} />
+        </div>
+        <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          {Object.entries(completion.bySection).map(([key, section]) => (
+            <a key={key} href={key === "identity" ? "#identite" : key === "sales" ? "#offres" : key === "delivery" ? "#livraison" : "#acquisition"} className="rounded-[var(--radius-control)] border border-border p-3 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent">
+              <span className="flex items-center justify-between gap-2 font-bold"><span>{sectionLabels[key]}</span><span>{section.percent}%</span></span>
+              <span className="mt-1 block text-xs text-muted-foreground">{section.total - section.answered > 0 ? `${section.total - section.answered} à renseigner` : "Complet"}</span>
+            </a>
+          ))}
+        </div>
+      </section>
 
       <nav
         aria-label="Sections de Mon business"
         className="sticky top-20 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-[var(--radius-control)] border border-border bg-background/95 p-1 backdrop-blur-sm"
       >
+        <a
+          href="#identite"
+          className="min-h-11 shrink-0 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-accent-2"
+        >
+          Identité &amp; modèle
+        </a>
         <a
           href="#offres"
           className="min-h-11 shrink-0 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
@@ -104,17 +127,27 @@ export function BusinessPageClient({
         >
           Livraison client
         </a>
+        <a
+          href="#equipe"
+          className="min-h-11 shrink-0 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-accent-2"
+        >
+          Équipe
+        </a>
       </nav>
 
-      <IdentitySection
-        value={profile.identity}
-        onChange={(identity) => setProfile((prev) => ({ ...prev, identity }))}
-      />
+      <section id="identite" className="scroll-mt-28">
+        <IdentitySection
+          value={profile.identity}
+          onChange={(identity) => setProfile((prev) => ({ ...prev, identity }))}
+        />
+      </section>
 
-      <AcquisitionSection
-        value={profile.acquisition}
-        onChange={(acquisition) => setProfile((prev) => ({ ...prev, acquisition }))}
-      />
+      <section id="acquisition" className="scroll-mt-28">
+        <AcquisitionSection
+          value={profile.acquisition}
+          onChange={(acquisition) => setProfile((prev) => ({ ...prev, acquisition }))}
+        />
+      </section>
 
       <section id="offres" className="scroll-mt-28">
         <SalesSection
@@ -138,7 +171,7 @@ export function BusinessPageClient({
       {/* Team & roles management belongs to the business itself — owner-only
           (the /settings/equipe page re-checks server-side regardless). */}
       {isOwner && (
-        <div className="sticker-card flex flex-wrap items-center justify-between gap-4 p-6">
+        <div id="equipe" className="sticker-card flex flex-wrap items-center justify-between gap-4 p-6">
           <div className="flex items-start gap-4">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
               <Users className="size-4.5" />

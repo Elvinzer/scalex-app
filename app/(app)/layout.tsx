@@ -9,6 +9,7 @@ import { users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { FALCO_SKIN_KEYS } from "@/lib/falco-skins";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { computeGlobalCompletion } from "@/lib/business/completion";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { ensureUserRow } from "@/lib/current-user";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
@@ -82,6 +83,8 @@ export default async function AppLayout({
     db.select().from(users).where(eq(users.id, accountId)).limit(1),
     canSeeScaleScore ? getDiagnosticKpiRawData(accountId) : Promise.resolve(null),
   ]);
+  const businessCompletion = computeGlobalCompletion(businessProfile);
+  const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
 
   // Proactive "the AI has something to say" signal for the floating bubble
   // — true when the user has real business data to diagnose (not thin/empty)
@@ -190,6 +193,7 @@ export default async function AppLayout({
           isOwner={isOwner}
           permissions={permissions}
           isAdmin={isAdmin}
+          businessCompletionCount={businessCompletionCount}
           scaleScore={canSeeScaleScore ? scaleScore : null}
           scaleScoreGapText={scaleScoreGapText}
           scaleScoreMonthNote={scaleScoreMonthNote}
@@ -202,7 +206,7 @@ export default async function AppLayout({
         {/* The sidebar is fixed, so reserve its width in normal document flow
             on desktop; mobile opens it as an overlay instead. */}
         <div aria-hidden="true" className="w-0 shrink-0 md:w-64" />
-        <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-10 md:px-16">
+        <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-24 md:px-16 md:pb-10">
           {/* Keep the first page content below the fixed top navigation. */}
           <div aria-hidden="true" className="h-20 shrink-0" />
           <div className="mx-auto max-w-6xl">{children}</div>

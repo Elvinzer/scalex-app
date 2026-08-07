@@ -3,6 +3,7 @@ import { after } from "next/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
+import { KpiTile } from "@/components/kpi-tile";
 import { Button } from "@/components/ui/button";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
@@ -163,18 +164,9 @@ export default async function AdsPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Dépenses totales</p>
-          <p className="mt-2 font-display text-3xl font-bold">{formatEur(totalSpend)}</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">CTR moyen</p>
-          <p className="mt-2 font-display text-3xl font-bold">{avgCtr === null ? "—" : formatPercent(avgCtr)}</p>
-        </div>
-        <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Coût par lead moyen</p>
-          <p className="mt-2 font-display text-3xl font-bold">{avgCpl === null ? "—" : formatEur(avgCpl)}</p>
-        </div>
+        <KpiTile label="Dépenses totales" value={formatEur(totalSpend)} />
+        <KpiTile label="CTR moyen" value={avgCtr === null ? "—" : formatPercent(avgCtr)} tone="accent2" />
+        <KpiTile label="Coût par lead moyen" value={avgCpl === null ? "—" : formatEur(avgCpl)} tone="warning" />
       </div>
 
       <CampaignsTable campaigns={campaigns} />
