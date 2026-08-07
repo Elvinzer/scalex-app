@@ -1,4 +1,4 @@
-export type InstallmentStatus = "upcoming" | "paid" | "failed";
+export type InstallmentStatus = "upcoming" | "paid" | "failed" | "refunded";
 
 export type SaleInstallment = {
   amount: number; // euros
@@ -17,7 +17,7 @@ export type SaleInstallment = {
   acknowledgedAt: string | null; // ISO datetime
 };
 
-export type PaymentType = "one_shot" | "installments";
+export type PaymentType = "one_shot" | "installments" | "subscription";
 export type PaymentMethod = "stripe" | "virement";
 
 export type SaleRow = {
@@ -29,6 +29,11 @@ export type SaleRow = {
   totalPrice: number;
   paymentType: PaymentType;
   paymentMethod: PaymentMethod;
+  // Origin of the deal. Unlike sourceChannel (marketing attribution), this
+  // records which system created the deal row.
+  source: string;
+  isOrphan: boolean;
+  stripeCustomerId: string | null;
   installments: SaleInstallment[] | null;
   saleDate: string;
   closer: string | null;
@@ -42,12 +47,13 @@ export type SaleRow = {
   createdAt: string;
 };
 
-export type OverallSaleStatus = "paid_full" | "in_progress" | "failed";
+export type OverallSaleStatus = "paid_full" | "in_progress" | "failed" | "refunded";
 
 export type InstallmentSummary = {
   paidTotal: number;
   pendingTotal: number;
   failedTotal: number;
+  refundedTotal: number;
   nextDue: string | null;
   overallStatus: OverallSaleStatus;
 };

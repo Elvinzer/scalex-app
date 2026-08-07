@@ -20,6 +20,7 @@ import type { InstallmentStatus } from "@/lib/sales/types";
 // a row in video_attributions — one video can be credited for many sales,
 // and the credit has its own provenance (declared vs estimated).
 const saleAttributionSchema = z.object({ sourceVideoId: z.string().nullable().optional() });
+const saleIdSchema = z.string().uuid();
 
 export async function saveSale(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
@@ -63,6 +64,39 @@ export async function saveSale(id: string | null, data: unknown): Promise<{ erro
 
   revalidatePath("/ventes/suivi");
   revalidatePath("/acquisition/contenu/youtube");
+  revalidatePath("/diagnostic");
+  return { error: null };
+}
+
+// Converts a Stripe-created placeholder deal into a normal tracked sale. The
+// row is updated in place so its installments keep the original charge id;
+// creating a second row here would double-count the payment on the next sync.
+export async function createSaleFromOrphan(saleId: string, data: unknown): Promise<{ error: string | null }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+  const access = await requirePermission(userId, "ventes:suivi");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+
+  const parsedSaleId = saleIdSchema.safeParse(saleId);
+  if (!parsedSaleId.success) return { error: "Vente introuvable" };
+
+  const parsed = saleInputSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
+
+  const [row] = await db
+    .select({ id: sales.id, isOrphan: sales.isOrphan })
+    .from(sales)
+    .where(and(eq(sales.id, parsedSaleId.data), eq(sales.userId, access.accountId)))
+    .limit(1);
+
+  if (!row || !row.isOrphan) return { error: "Ce paiement n'est plus à rattacher." };
+
+  await db
+    .update(sales)
+    .set({ ...parsed.data, isOrphan: false })
+    .where(and(eq(sales.id, parsedSaleId.data), eq(sales.userId, access.accountId)));
+
+  revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic");
   return { error: null };
 }

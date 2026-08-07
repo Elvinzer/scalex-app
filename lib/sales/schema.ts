@@ -3,7 +3,7 @@ import { z } from "zod";
 const installmentSchema = z.object({
   amount: z.number().int().min(0),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  status: z.enum(["upcoming", "paid", "failed"]),
+  status: z.enum(["upcoming", "paid", "failed", "refunded"]),
   paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   stripeChargeId: z.string().nullable(),
   failureReason: z.string().nullable(),
@@ -19,7 +19,7 @@ export const saleInputSchema = z.object({
   sourceChannel: z.string().nullable(),
   offerId: z.string().nullable(),
   totalPrice: z.number().int().min(0),
-  paymentType: z.enum(["one_shot", "installments"]),
+  paymentType: z.enum(["one_shot", "installments", "subscription"]),
   paymentMethod: z.enum(["stripe", "virement"]),
   installments: z.array(installmentSchema).nullable(),
   saleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

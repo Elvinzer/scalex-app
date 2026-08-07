@@ -1480,7 +1480,7 @@ export const contentPosts = pgTable(
   ]
 ).enableRLS();
 
-export const salePaymentType = pgEnum("sale_payment_type", ["one_shot", "installments"]);
+export const salePaymentType = pgEnum("sale_payment_type", ["one_shot", "installments", "subscription"]);
 // How the client actually pays — distinct from paymentType (one-shot vs
 // échelonné), which is about the schedule shape, not the rail. Drives the
 // "Paiement" badge and moyen-de-paiement filter on /ventes/suivi, and gates
@@ -1625,6 +1625,15 @@ export const sales = pgTable(
     // assumption since every sale before Stripe charge-matching existed was
     // tracked by hand, which in practice meant wire transfers.
     paymentMethod: salePaymentMethod("payment_method").notNull().default("virement"),
+    // Origin of the deal, distinct from sourceChannel (marketing attribution).
+    // Existing rows are manual; Stripe reconciliation writes "stripe".
+    source: text("source").notNull().default("manual"),
+    // A Stripe payment with no safe single deal match stays visible until the
+    // owner confirms it from the sales page.
+    isOrphan: boolean("is_orphan").notNull().default(false),
+    // Only populated for Stripe subscription deals; recurring charges attach
+    // to this customer rather than being matched by their repeated amount.
+    stripeCustomerId: text("stripe_customer_id"),
     installments: jsonb("installments").$type<SaleInstallment[]>(),
     saleDate: date("sale_date", { mode: "string" }).notNull(),
     closer: text("closer"),
@@ -1646,8 +1655,16 @@ export const sales = pgTable(
   },
   (table) => [
     index("sales_user_sale_date_idx").on(table.userId, table.saleDate),
+    index("sales_user_source_idx").on(table.userId, table.source),
+    index("sales_user_stripe_customer_idx").on(table.userId, table.stripeCustomerId),
     index("sales_setter_idx").on(table.setterId),
     index("sales_lead_idx").on(table.leadId),
+    pgPolicy("sales_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
   ]
 ).enableRLS();
 

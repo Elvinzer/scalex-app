@@ -4,73 +4,111 @@ import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Offer } from "@/lib/business/types";
-import { summarize } from "@/lib/sales/installments";
-import type { SaleRow } from "@/lib/sales/types";
+import { displayInstallments, summarize } from "@/lib/sales/installments";
+import type { InstallmentStatus, PaymentType, SaleRow } from "@/lib/sales/types";
 import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
 
 import { removeSale } from "./actions";
 import { SaleDetailDrawer } from "./sale-detail-drawer";
+import { SaleFormDialog } from "./sale-form-dialog";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
-const STATUS_BADGE: Record<string, string> = {
-  paid_full: "bg-positive-soft text-positive",
-  in_progress: "bg-warning-soft text-warning-text",
+const STATUS_BADGE: Record<InstallmentStatus, string> = {
+  upcoming: "bg-warning-soft text-warning-text",
+  paid: "bg-positive-soft text-positive",
   failed: "bg-state-critical/10 text-state-critical",
+  refunded: "bg-muted text-muted-foreground",
 };
 
-// "in_progress" is deliberately split into two copies (not two colors — the
-// DA has no neutral "info" token beyond critical/caution/healthy) depending
-// on how the client is expected to pay the rest.
-function statusLabel(overallStatus: string, paymentMethod: string): string {
-  if (overallStatus === "paid_full") return "Payé intégralement";
-  if (overallStatus === "failed") return "Échec de paiement";
-  return paymentMethod === "stripe" ? "Paiement à venir" : "En attente de virement";
-}
+const STATUS_LABEL: Record<InstallmentStatus, string> = {
+  upcoming: "À venir",
+  paid: "Payé",
+  failed: "Impayé",
+  refunded: "Remboursé",
+};
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   stripe: "Stripe",
   virement: "Virement",
 };
 
+const PAYMENT_TYPE_LABEL: Record<PaymentType, string> = {
+  one_shot: "One-shot",
+  installments: "Échelonné",
+  subscription: "Abonnement",
+};
+
+type DisplayRow = {
+  sale: SaleRow;
+  installment: ReturnType<typeof displayInstallments>[number]["installment"];
+  installmentIndex: number;
+  installmentCount: number;
+  remaining: number | null;
+};
+
+function statusRank(sale: SaleRow, status: InstallmentStatus): number {
+  if (sale.isOrphan) return 0;
+  if (status === "failed") return 1;
+  if (status === "refunded") return 2;
+  if (status === "upcoming") return 3;
+  return 4;
+}
+
 export function SalesTable({
   sales,
+  allSales,
   setters,
   offers,
   stripeConnection,
 }: {
   sales: SaleRow[];
+  allSales: SaleRow[];
   setters: SetterRow[];
   offers: Offer[];
   stripeConnection?: { accountId: string; livemode: boolean } | null;
 }) {
-  // Tracks only the id, not the sale object itself — so after an edit
-  // revalidates `sales` from the server, the drawer re-derives the fresh
-  // row below instead of showing the stale snapshot captured at click time.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = selectedId ? (sales.find((sale) => sale.id === selectedId) ?? null) : null;
   const [setterFilter, setSetterFilter] = useState("");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [, startTransition] = useTransition();
 
   const filtered = useMemo(
     () =>
-      sales.filter(
-        (sale) =>
+      sales.filter((sale) => {
+        const rows = displayInstallments(sale.totalPrice, sale.saleDate, sale.installments);
+        const matchesStatus = statusFilter === "orphan" ? sale.isOrphan : rows.some(({ installment }) => installment.status === statusFilter);
+        return (
           (!setterFilter || sale.setterId === setterFilter) &&
-          (!paymentMethodFilter || sale.paymentMethod === paymentMethodFilter)
-      ),
-    [sales, setterFilter, paymentMethodFilter]
+          (!paymentMethodFilter || sale.paymentMethod === paymentMethodFilter) &&
+          (!paymentTypeFilter || sale.paymentType === paymentTypeFilter) &&
+          (!statusFilter || matchesStatus)
+        );
+      }),
+    [sales, setterFilter, paymentMethodFilter, paymentTypeFilter, statusFilter]
   );
 
-  const sorted = useMemo(() => {
-    const withSummary = filtered.map((sale) => ({ sale, summary: summarize(sale.totalPrice, sale.installments) }));
-    withSummary.sort((a, b) => {
-      const rank = (status: string) => (status === "failed" ? 0 : status === "in_progress" ? 1 : 2);
-      return rank(a.summary.overallStatus) - rank(b.summary.overallStatus);
+  const displayRows = useMemo(() => {
+    const rows: DisplayRow[] = [];
+    for (const sale of filtered) {
+      const summary = summarize(sale.totalPrice, sale.installments);
+      const saleRows = displayInstallments(sale.totalPrice, sale.saleDate, sale.installments);
+      const remaining = sale.paymentType === "installments" ? Math.max(0, sale.totalPrice - summary.paidTotal) : null;
+      for (const { installment, index } of saleRows) {
+        rows.push({ sale, installment, installmentIndex: index, installmentCount: saleRows.length, remaining });
+      }
+    }
+
+    rows.sort((a, b) => {
+      const rankDelta = statusRank(a.sale, a.installment.status) - statusRank(b.sale, b.installment.status);
+      if (rankDelta !== 0) return rankDelta;
+      return b.installment.dueDate.localeCompare(a.installment.dueDate);
     });
-    return withSummary;
+    return rows;
   }, [filtered]);
 
   function handleDelete(id: string) {
@@ -125,67 +163,143 @@ export function SalesTable({
             <option value="virement">Virement</option>
           </select>
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Nature</span>
+          <select
+            value={paymentTypeFilter}
+            onChange={(event) => setPaymentTypeFilter(event.target.value)}
+            className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+          >
+            <option value="">Toutes</option>
+            <option value="one_shot">One-shot</option>
+            <option value="installments">Échéancier</option>
+            <option value="subscription">Abonnement</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Statut</span>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+          >
+            <option value="">Tous</option>
+            <option value="paid">Payé</option>
+            <option value="upcoming">À venir</option>
+            <option value="failed">Impayé</option>
+            <option value="refunded">Remboursé</option>
+            <option value="orphan">À rattacher</option>
+          </select>
+        </label>
       </div>
 
-      <div className="sticker-card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Date</th>
-              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Client</th>
-              <th className="p-3 text-right text-xs font-bold text-muted-foreground">Prix</th>
-              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Paiement</th>
-              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Source</th>
-              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Setter</th>
-              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Closer</th>
-              <th className="p-3 text-left text-xs font-bold text-muted-foreground">Statut</th>
-              <th className="p-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map(({ sale, summary }) => (
-              <tr
-                key={sale.id}
-                className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
-                onClick={() => setSelectedId(sale.id)}
-              >
-                <td className="p-3 whitespace-nowrap text-muted-foreground">{sale.saleDate}</td>
-                <td className="p-3 font-bold">{sale.clientName}</td>
-                <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(sale.totalPrice)} €</td>
-                <td className="p-3">
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                    {PAYMENT_METHOD_LABEL[sale.paymentMethod]}
-                  </span>
-                </td>
-                <td className="p-3 text-muted-foreground">{sale.sourceChannel ?? "—"}</td>
-                <td className="p-3 text-muted-foreground">{setterName(sale.setterId)}</td>
-                <td className="p-3 text-muted-foreground">{sale.closer ?? "—"}</td>
-                <td className="p-3">
-                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[summary.overallStatus])}>
-                    {statusLabel(summary.overallStatus, sale.paymentMethod)}
-                  </span>
-                </td>
-                <td className="p-3 text-right">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleDelete(sale.id);
-                    }}
-                  >
-                    Supprimer
-                  </Button>
-                </td>
+      {displayRows.length === 0 ? (
+        <div className="sticker-card-dashed p-6 text-center">
+          <p className="text-sm font-bold">Aucune ligne ne correspond à ces filtres.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Réinitialise un filtre pour retrouver les paiements.</p>
+        </div>
+      ) : (
+        <div className="sticker-card overflow-x-auto">
+          <table className="w-full min-w-[1060px] text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Date</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Client</th>
+                <th className="p-3 text-right text-xs font-bold text-muted-foreground">Montant</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Nature</th>
+                <th className="p-3 text-right text-xs font-bold text-muted-foreground">Reste à payer</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Paiement</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Source</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Setter</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Closer</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Statut</th>
+                <th className="p-3" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {displayRows.map(({ sale, installment, installmentIndex, installmentCount, remaining }) => (
+                <tr
+                  key={`${sale.id}-${installmentIndex}`}
+                  className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
+                  onClick={() => setSelectedId(sale.id)}
+                >
+                  <td className="p-3 whitespace-nowrap text-muted-foreground">{installment.dueDate}</td>
+                  <td className="p-3 font-bold">{sale.isOrphan ? "À identifier" : sale.clientName}</td>
+                  <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(installment.amount)} €</td>
+                  <td className="p-3">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                      {sale.paymentType === "installments"
+                        ? `Échéancier ${installmentIndex + 1}/${installmentCount}`
+                        : PAYMENT_TYPE_LABEL[sale.paymentType]}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right tabular-nums text-muted-foreground">
+                    {remaining === null ? "—" : `${NUMBER_FORMAT.format(remaining)} €`}
+                  </td>
+                  <td className="p-3">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                      {PAYMENT_METHOD_LABEL[sale.paymentMethod]}
+                    </span>
+                  </td>
+                  <td className="p-3 text-muted-foreground">{sale.source === "stripe" ? "Stripe" : sale.sourceChannel ?? "—"}</td>
+                  <td className="p-3 text-muted-foreground">{setterName(sale.setterId)}</td>
+                  <td className="p-3 text-muted-foreground">{sale.closer ?? "—"}</td>
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-1">
+                      {sale.isOrphan && (
+                        <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning-text">À rattacher</span>
+                      )}
+                      {!sale.isOrphan && (
+                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[installment.status])}>
+                          {STATUS_LABEL[installment.status]}
+                        </span>
+                      )}
+                      {sale.isOrphan && installment.status === "refunded" && (
+                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE.refunded)}>Remboursé</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-3 text-right">
+                    {sale.isOrphan ? (
+                      <SaleFormDialog
+                        offers={offers}
+                        setters={setters}
+                        sale={sale}
+                        trigger={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            Créer la vente
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDelete(sale.id);
+                        }}
+                      >
+                        Supprimer
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <SaleDetailDrawer
         sale={selected}
+        allSales={allSales}
         offers={offers}
         setters={setters}
         stripeConnection={stripeConnection}

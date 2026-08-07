@@ -10,7 +10,6 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
-import { stripeDashboardChargeUrl } from "@/lib/stripe/dashboard-url";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
 import { getSetters } from "@/lib/setters/queries";
@@ -18,8 +17,7 @@ import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
-import type { FailedPaymentItem } from "./failed-payments-banner";
-import { FailedPaymentsBanner } from "./failed-payments-banner";
+import { ReconciliationSummary } from "./reconciliation-summary";
 import { SaleFormDialog } from "./sale-form-dialog";
 import { SalesTable } from "./sales-table";
 import { StripeStatusLine } from "./stripe-status-line";
@@ -50,29 +48,18 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
     .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
     .map((video) => ({ videoId: video.videoId, title: video.title }));
 
-  // Account-wide, not period-scoped — a failed payment needing action
-  // shouldn't fall out of view just because the period tabs above narrow to
-  // a month that doesn't contain it.
-  const failedPaymentItems: FailedPaymentItem[] = sales.flatMap((sale) => {
-    if (!sale.installments) return [];
-    return sale.installments.flatMap((installment, index) => {
-      if (installment.status !== "failed" || installment.acknowledgedAt) return [];
-      return [
-        {
-          saleId: sale.id,
-          installmentIndex: index,
-          clientName: sale.clientName,
-          amount: installment.amount,
-          dueDate: installment.dueDate,
-          failureReason: installment.failureReason ?? "Paiement refusé",
-          stripeDashboardUrl:
-            installment.stripeChargeId && connection
-              ? stripeDashboardChargeUrl(connection.stripeAccountId, installment.stripeChargeId, connection.livemode)
-              : null,
-        },
-      ];
-    });
-  });
+  // Account-wide, not period-scoped, so an issue does not disappear when the
+  // period tabs narrow to a month that does not contain it.
+  const failedPaymentCount = sales.reduce(
+    (count, sale) => count + (sale.installments?.filter((installment) => installment.status === "failed").length ?? 0),
+    0
+  );
+  const failedPaymentAmount = sales.reduce(
+    (total, sale) =>
+      total + (sale.installments?.filter((installment) => installment.status === "failed").reduce((sum, installment) => sum + installment.amount, 0) ?? 0),
+    0
+  );
+  const orphanCount = sales.filter((sale) => sale.isOrphan).length;
 
   const period = resolvePeriod((await searchParams).period);
   const periodSales = sales.filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)));
@@ -92,7 +79,7 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
 
   return (
     <div className="flex flex-col gap-8">
-      {stripeConnected && <FailedPaymentsBanner items={failedPaymentItems} />}
+      <ReconciliationSummary failedCount={failedPaymentCount} failedAmount={failedPaymentAmount} orphanCount={orphanCount} />
 
       <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
 
@@ -126,25 +113,30 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
         <div className="sticker-card flex flex-col p-5">
           <p className="text-sm font-bold text-muted-foreground">CA contracté</p>
           <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashContracted)} €</p>
+          <p className="mt-1 text-xs text-muted-foreground">{periodSales.length} ventes</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
           <p className="text-sm font-bold text-muted-foreground">CA encaissé</p>
           <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(cashCollected)} €</p>
+          <p className="mt-1 text-xs text-muted-foreground">{periodSales.length} ventes</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
           <p className="text-sm font-bold text-muted-foreground">Paiements en attente</p>
           <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(pending)} €</p>
+          <p className="mt-1 text-xs text-muted-foreground">{periodSales.length} ventes</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
           <p className="text-sm font-bold text-muted-foreground">Impayés</p>
           <p className={`mt-2 font-display text-3xl font-bold ${failed > 0 ? "text-state-critical" : ""}`}>
             {NUMBER_FORMAT.format(failed)} €
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">{periodSales.length} ventes</p>
         </div>
       </div>
 
       <SalesTable
         sales={periodSales}
+        allSales={sales}
         setters={setters}
         offers={offers}
         stripeConnection={connection ? { accountId: connection.stripeAccountId, livemode: connection.livemode } : null}

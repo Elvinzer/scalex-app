@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Offer } from "@/lib/business/types";
 import { generateSchedule } from "@/lib/sales/installments";
-import type { SaleRow } from "@/lib/sales/types";
+import type { PaymentType, SaleRow } from "@/lib/sales/types";
 import type { SetterRow } from "@/lib/setters/types";
 
-import { saveSale } from "./actions";
+import { createSaleFromOrphan, saveSale } from "./actions";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -40,7 +40,7 @@ export function SaleFormDialog({
   const [selectedOfferId, setSelectedOfferId] = useState(sale?.offerId ?? offers.find((o) => o.isMain)?.id ?? "");
   const [sourceVideoId, setSourceVideoId] = useState(currentVideoId ?? "");
   const [totalPrice, setTotalPrice] = useState<string>(String(sale?.totalPrice ?? offers.find((o) => o.id === (sale?.offerId ?? offers.find((o2) => o2.isMain)?.id))?.price ?? ""));
-  const [paymentType, setPaymentType] = useState<"one_shot" | "installments">(sale?.paymentType ?? "one_shot");
+  const [paymentType, setPaymentType] = useState<PaymentType>(sale?.paymentType ?? "one_shot");
   const [paymentMethod, setPaymentMethod] = useState<"stripe" | "virement">(sale?.paymentMethod ?? "virement");
   const [installmentCount, setInstallmentCount] = useState(sale?.installments?.length ?? 3);
   const [saleDate, setSaleDate] = useState(sale?.saleDate ?? today());
@@ -79,7 +79,16 @@ export function SaleFormDialog({
       totalPrice: Number(totalPrice) || 0,
       paymentType,
       paymentMethod,
-      installments: paymentType === "installments" ? (sale?.installments && sale.paymentType === "installments" ? sale.installments : preview) : null,
+      installments:
+        paymentType === "installments"
+          ? sale?.installments && sale.paymentType === "installments"
+            ? sale.installments
+            : preview
+          : paymentType === "subscription"
+            ? sale?.installments ?? null
+            : sale?.source === "stripe"
+              ? sale.installments
+              : null,
       saleDate,
       closer: String(formData.get("closer") ?? "") || null,
       hasUpsell,
@@ -92,7 +101,9 @@ export function SaleFormDialog({
     };
 
     startTransition(async () => {
-      const result = await saveSale(sale?.id ?? null, data);
+      const result = sale?.isOrphan
+        ? await createSaleFromOrphan(sale.id, data)
+        : await saveSale(sale?.id ?? null, data);
       if (result.error) {
         setError(result.error);
         return;
@@ -258,6 +269,16 @@ export function SaleFormDialog({
               >
                 Échelonné
               </Button>
+              {sale?.paymentType === "subscription" && (
+                <Button
+                  type="button"
+                  variant={paymentType === "subscription" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPaymentType("subscription")}
+                >
+                  Abonnement
+                </Button>
+              )}
             </div>
           </div>
 

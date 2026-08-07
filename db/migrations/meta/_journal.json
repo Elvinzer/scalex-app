@@ -57,6 +57,13 @@
       "when": 1786056243069,
       "tag": "0007_confused_dragon_lord",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786087291291,
+      "tag": "0008_magenta_george_stacy",
+      "breakpoints": true
     }
   ]
 }

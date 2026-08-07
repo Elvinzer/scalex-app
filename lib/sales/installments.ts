@@ -1,5 +1,11 @@
 import type { InstallmentSummary, OverallSaleStatus, SaleInstallment } from "./types";
 
+export type DisplayInstallment = {
+  installment: SaleInstallment;
+  index: number;
+  synthetic: boolean;
+};
+
 // Equal split, remainder absorbed by the last installment so the sum always
 // matches totalPrice exactly. Dates are spaced 1 month apart starting from
 // startDate — still fully editable per-row in the form after generation.
@@ -31,6 +37,9 @@ export function generateSchedule(
 
 function overallStatus(installments: SaleInstallment[]): OverallSaleStatus {
   if (installments.some((i) => i.status === "failed")) return "failed";
+  if (installments.some((i) => i.status === "refunded") && installments.every((i) => i.status === "paid" || i.status === "refunded")) {
+    return "refunded";
+  }
   if (installments.every((i) => i.status === "paid")) return "paid_full";
   return "in_progress";
 }
@@ -42,16 +51,46 @@ export function summarize(
   installments: SaleInstallment[] | null
 ): InstallmentSummary {
   if (!installments || installments.length === 0) {
-    return { paidTotal: totalPrice, pendingTotal: 0, failedTotal: 0, nextDue: null, overallStatus: "paid_full" };
+    return { paidTotal: totalPrice, pendingTotal: 0, failedTotal: 0, refundedTotal: 0, nextDue: null, overallStatus: "paid_full" };
   }
 
   const paidTotal = installments.filter((i) => i.status === "paid").reduce((sum, i) => sum + i.amount, 0);
   const pendingTotal = installments.filter((i) => i.status === "upcoming").reduce((sum, i) => sum + i.amount, 0);
   const failedTotal = installments.filter((i) => i.status === "failed").reduce((sum, i) => sum + i.amount, 0);
+  const refundedTotal = installments.filter((i) => i.status === "refunded").reduce((sum, i) => sum + i.amount, 0);
   const nextDue =
     installments
       .filter((i) => i.status === "upcoming")
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]?.dueDate ?? null;
 
-  return { paidTotal, pendingTotal, failedTotal, nextDue, overallStatus: overallStatus(installments) };
+  return { paidTotal, pendingTotal, failedTotal, refundedTotal, nextDue, overallStatus: overallStatus(installments) };
+}
+
+// One-shot sales historically store installments as null. The sale is still
+// one payment, so the table/drawer use a synthetic read-only row for it while
+// keeping the persisted deal shape unchanged.
+export function displayInstallments(
+  totalPrice: number,
+  saleDate: string,
+  installments: SaleInstallment[] | null
+): DisplayInstallment[] {
+  if (installments && installments.length > 0) {
+    return installments.map((installment, index) => ({ installment, index, synthetic: false }));
+  }
+
+  return [
+    {
+      installment: {
+        amount: totalPrice,
+        dueDate: saleDate,
+        status: "paid",
+        paidAt: saleDate,
+        stripeChargeId: null,
+        failureReason: null,
+        acknowledgedAt: null,
+      },
+      index: 0,
+      synthetic: true,
+    },
+  ];
 }

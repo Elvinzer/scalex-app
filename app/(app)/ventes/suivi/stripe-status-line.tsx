@@ -12,7 +12,7 @@ export function StripeStatusLine({ connected }: { connected: boolean }) {
     return (
       <div className="flex items-center gap-2 text-sm font-bold">
         <span className="size-1.5 rounded-full bg-state-healthy" />
-        <span className="text-state-healthy">Stripe connecté — synchronisation automatique active</span>
+        <span className="text-state-healthy">Stripe connecté · tes paiements alimentent ce suivi automatiquement</span>
         <Button asChild variant="link" size="sm">
           <a href="/settings">Déconnecter</a>
         </Button>

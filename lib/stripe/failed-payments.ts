@@ -1,10 +1,19 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { db } from "@/db";
 import { sales } from "@/db/schema";
 
 import type { ReadOnlyStripeClient } from "./read-only-client";
+import {
+  appendStripeSubscriptionCharge,
+  applyStripeChargeToSale,
+  buildStripeInstallment,
+  matchStripeCharge,
+  type ReconciliationSale,
+  type StripeChargeForReconciliation,
+} from "./reconcile-sales";
 
 const DECLINE_REASON_LABELS: Record<string, string> = {
   card_declined: "Carte refusée",
@@ -14,6 +23,10 @@ const DECLINE_REASON_LABELS: Record<string, string> = {
   processing_error: "Erreur de traitement",
   fraudulent: "Paiement bloqué (suspicion de fraude)",
 };
+
+const chargeInvoiceShape = z.object({
+  invoice: z.union([z.string(), z.object({ id: z.string().min(1) })]).nullable().optional(),
+});
 
 function declineReasonLabel(charge: Stripe.Charge): string {
   const code = charge.outcome?.reason ?? charge.failure_code ?? null;
@@ -25,67 +38,252 @@ function lookbackUnixSeconds(monthsBack: number): number {
   return Math.floor(Date.now() / 1000) - monthsBack * 31 * 24 * 60 * 60;
 }
 
-// Best-effort link between a failed Stripe charge and a manually-entered
-// sale: Stripe has no knowledge of our installment schedules, so a charge is
-// matched to the closest not-yet-paid installment of a "stripe" sale for the
-// same client email + exact amount. Unmatched charges (no sale on file with
-// that email/amount, or the sale was tagged "virement") are skipped rather
-// than spawning a phantom sale row — read-only by design, see
-// lib/stripe/read-only-client.ts.
+function resourceId(resource: string | { id: string } | null | undefined): string | null {
+  return typeof resource === "string" ? resource : resource?.id ?? null;
+}
+
+function chargeEmail(charge: Stripe.Charge): string | null {
+  return charge.billing_details.email?.trim() || charge.receipt_email?.trim() || null;
+}
+
+function chargeClientName(charge: Stripe.Charge): string | null {
+  return charge.billing_details.name?.trim() || null;
+}
+
+async function hasSubscriptionInvoice(
+  charge: Stripe.Charge,
+  stripe: ReadOnlyStripeClient
+): Promise<boolean> {
+  const parsed = chargeInvoiceShape.safeParse(charge);
+  if (!parsed.success || !parsed.data.invoice) return false;
+
+  const invoiceId = typeof parsed.data.invoice === "string" ? parsed.data.invoice : parsed.data.invoice.id;
+  try {
+    const invoice = await stripe.invoices.retrieve(invoiceId);
+    return Boolean(
+      invoice.billing_reason?.startsWith("subscription") || invoice.parent?.type === "subscription_details"
+    );
+  } catch {
+    // The charge is still useful even when an invoice cannot be retrieved. The
+    // customer-based fallback below handles existing subscription deals.
+    return false;
+  }
+}
+
+async function hasActiveSubscriptionAtCharge(
+  customerId: string,
+  chargeCreatedAt: number,
+  stripe: ReadOnlyStripeClient,
+  cache: Map<string, boolean>
+): Promise<boolean> {
+  const cached = cache.get(customerId);
+  if (cached !== undefined) return cached;
+
+  let found = false;
+  try {
+    for await (const subscription of stripe.subscriptions.list({ customer: customerId, status: "all", limit: 100 })) {
+      const startsBeforeCharge = subscription.created <= chargeCreatedAt;
+      const endsAfterCharge = subscription.ended_at === null || subscription.ended_at >= chargeCreatedAt;
+      if (startsBeforeCharge && endsAfterCharge) {
+        found = true;
+        break;
+      }
+    }
+  } catch {
+    // Subscription discovery is a classification aid, never a reason to
+    // abort the whole account sync. An existing local subscription deal still
+    // wins through the pure customer matcher.
+  }
+
+  cache.set(customerId, found);
+  return found;
+}
+
+async function toReconciliationCharge(
+  charge: Stripe.Charge,
+  stripe: ReadOnlyStripeClient,
+  refundedChargeIds: ReadonlySet<string>,
+  subscriptionCustomerCache: Map<string, boolean>
+): Promise<StripeChargeForReconciliation> {
+  const customerId = resourceId(charge.customer);
+  const invoiceSubscription = await hasSubscriptionInvoice(charge, stripe);
+  const customerSubscription = customerId
+    ? await hasActiveSubscriptionAtCharge(customerId, charge.created, stripe, subscriptionCustomerCache)
+    : false;
+
+  return {
+    id: charge.id,
+    status: charge.status === "failed" ? "failed" : "succeeded",
+    amountEur: Math.round(charge.amount / 100),
+    createdAt: new Date(charge.created * 1000).toISOString().slice(0, 10),
+    email: chargeEmail(charge),
+    clientName: chargeClientName(charge),
+    customerId,
+    isSubscription: invoiceSubscription || customerSubscription,
+    isRefunded: charge.refunded || charge.amount_refunded > 0 || refundedChargeIds.has(charge.id),
+    failureReason: charge.status === "failed" ? declineReasonLabel(charge) : null,
+  };
+}
+
+function toReconciliationSale(row: typeof sales.$inferSelect): ReconciliationSale {
+  return {
+    id: row.id,
+    clientEmail: row.clientEmail,
+    totalPrice: row.totalPrice,
+    paymentType: row.paymentType,
+    paymentMethod: row.paymentMethod,
+    installments: row.installments,
+    stripeCustomerId: row.stripeCustomerId,
+    isOrphan: row.isOrphan,
+  };
+}
+
+async function updateInstallments(accountId: string, sale: ReconciliationSale): Promise<void> {
+  await db
+    .update(sales)
+    .set({ installments: sale.installments })
+    .where(and(eq(sales.id, sale.id), eq(sales.userId, accountId)));
+}
+
+function replaceLocalSale(salesRows: ReconciliationSale[], updated: ReconciliationSale): void {
+  const index = salesRows.findIndex((sale) => sale.id === updated.id);
+  if (index >= 0) salesRows[index] = updated;
+}
+
+function newStripeSaleValues(charge: StripeChargeForReconciliation): Omit<typeof sales.$inferInsert, "userId"> {
+  return {
+    clientName: charge.clientName ?? "À identifier",
+    clientEmail: charge.email,
+    sourceChannel: "Stripe",
+    totalPrice: charge.amountEur,
+    paymentType: charge.isSubscription ? "subscription" : "one_shot",
+    paymentMethod: "stripe",
+    source: "stripe",
+    isOrphan: true,
+    stripeCustomerId: charge.isSubscription ? charge.customerId : null,
+    installments: [buildStripeInstallment(charge)],
+    saleDate: charge.createdAt,
+    hasUpsell: false,
+  };
+}
+
+export type StripeSalesSyncResult = {
+  matched: number;
+  created: number;
+  orphaned: number;
+  refunded: number;
+  skipped: number;
+  ambiguous: number;
+};
+
+/**
+ * Reconcile succeeded/failed Connect charges into the account's deal rows.
+ * Every database query is scoped to accountId and the only Stripe client this
+ * function accepts is the read-only Connect client.
+ */
+export async function syncStripeSales(
+  accountId: string,
+  stripe: ReadOnlyStripeClient,
+  monthsBack = 12
+): Promise<StripeSalesSyncResult> {
+  const since = lookbackUnixSeconds(monthsBack);
+  const charges: Stripe.Charge[] = [];
+  for await (const charge of stripe.charges.list({ created: { gte: since }, limit: 100 })) {
+    if (charge.status === "succeeded" || charge.status === "failed") charges.push(charge);
+  }
+
+  const refundedChargeIds = new Set<string>();
+  for await (const refund of stripe.refunds.list({ created: { gte: since }, limit: 100 })) {
+    const chargeId = resourceId(refund.charge);
+    if (chargeId) refundedChargeIds.add(chargeId);
+  }
+
+  const existingRows = await db.select().from(sales).where(eq(sales.userId, accountId));
+  const localSales = existingRows.map(toReconciliationSale);
+  const subscriptionCustomerCache = new Map<string, boolean>();
+  const result: StripeSalesSyncResult = { matched: 0, created: 0, orphaned: 0, refunded: 0, skipped: 0, ambiguous: 0 };
+
+  for (const stripeCharge of charges) {
+    const charge = await toReconciliationCharge(stripeCharge, stripe, refundedChargeIds, subscriptionCustomerCache);
+    const match = matchStripeCharge(charge, localSales);
+
+    if (match.kind === "already_recorded") {
+      const sale = localSales.find((candidate) => candidate.id === match.saleId);
+      const current = sale?.installments?.[match.installmentIndex];
+      if (sale && current && charge.isRefunded && current.status !== "refunded") {
+        const updated = applyStripeChargeToSale(sale, charge, match.installmentIndex);
+        await updateInstallments(accountId, updated);
+        replaceLocalSale(localSales, updated);
+        result.refunded += 1;
+      } else {
+        result.skipped += 1;
+      }
+      continue;
+    }
+
+    if (match.kind === "matched") {
+      const sale = localSales.find((candidate) => candidate.id === match.saleId);
+      if (!sale) continue;
+      const updated = applyStripeChargeToSale(sale, charge, match.installmentIndex);
+      await updateInstallments(accountId, updated);
+      replaceLocalSale(localSales, updated);
+      result.matched += 1;
+      if (charge.isRefunded) result.refunded += 1;
+      continue;
+    }
+
+    if (match.kind === "subscription") {
+      const sale = localSales.find((candidate) => candidate.id === match.saleId);
+      if (!sale) continue;
+      const updated = appendStripeSubscriptionCharge(sale, charge);
+      await updateInstallments(accountId, updated);
+      replaceLocalSale(localSales, updated);
+      result.matched += 1;
+      if (charge.isRefunded) result.refunded += 1;
+      continue;
+    }
+
+    if (match.kind === "ambiguous") {
+      result.ambiguous += 1;
+      if (charge.status !== "succeeded") {
+        result.skipped += 1;
+        continue;
+      }
+    }
+
+    if (match.kind === "skip_failed") {
+      result.skipped += 1;
+      continue;
+    }
+
+    // Failed charges retain the old best-effort behavior: they only update a
+    // clearly matched installment; they never create a phantom sale row.
+    if (charge.status !== "succeeded") {
+      result.skipped += 1;
+      continue;
+    }
+
+    const [createdRow] = await db
+      .insert(sales)
+      .values({ ...newStripeSaleValues(charge), userId: accountId })
+      .returning();
+    localSales.push(toReconciliationSale(createdRow));
+    result.created += 1;
+    result.orphaned += 1;
+    if (charge.isRefunded) result.refunded += 1;
+  }
+
+  return result;
+}
+
+// Kept as a compatibility wrapper for callers that only need the legacy
+// failed-payment count. The sync itself now covers succeeded charges and
+// refunds too; new code should call syncStripeSales directly.
 export async function syncFailedStripeCharges(
   accountId: string,
   stripe: ReadOnlyStripeClient,
   monthsBack = 12
 ): Promise<{ matched: number }> {
-  const since = lookbackUnixSeconds(monthsBack);
-
-  const failedCharges: Stripe.Charge[] = [];
-  for await (const charge of stripe.charges.list({ created: { gte: since }, limit: 100 })) {
-    if (charge.status !== "failed") continue;
-    failedCharges.push(charge);
-  }
-  if (failedCharges.length === 0) return { matched: 0 };
-
-  const candidates = await db
-    .select()
-    .from(sales)
-    .where(and(eq(sales.userId, accountId), eq(sales.paymentMethod, "stripe")));
-
-  let matched = 0;
-
-  for (const charge of failedCharges) {
-    const email = charge.billing_details?.email?.toLowerCase().trim() ?? null;
-    if (!email) continue;
-
-    const amountEur = Math.round(charge.amount / 100);
-
-    for (const sale of candidates) {
-      if (!sale.installments || sale.clientEmail?.toLowerCase().trim() !== email) continue;
-      // Idempotent re-sync — this exact charge was already recorded on a
-      // previous run.
-      if (sale.installments.some((installment) => installment.stripeChargeId === charge.id)) continue;
-
-      const index = sale.installments.findIndex(
-        (installment) => installment.status !== "paid" && installment.amount === amountEur
-      );
-      if (index === -1) continue;
-
-      const installments = [...sale.installments];
-      installments[index] = {
-        ...installments[index],
-        status: "failed",
-        stripeChargeId: charge.id,
-        failureReason: declineReasonLabel(charge),
-      };
-
-      await db.update(sales).set({ installments }).where(eq(sales.id, sale.id));
-      // Keep the in-memory candidate fresh so a second failed charge for the
-      // same sale (a different installment) doesn't match against stale data.
-      sale.installments = installments;
-      matched += 1;
-      break;
-    }
-  }
-
-  return { matched };
+  const result = await syncStripeSales(accountId, stripe, monthsBack);
+  return { matched: result.matched };
 }

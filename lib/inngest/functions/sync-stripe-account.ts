@@ -7,7 +7,7 @@ import { isAdminEmail } from "@/lib/admin";
 import { track } from "@/lib/analytics";
 import { decrypt } from "@/lib/crypto";
 import { inngest, stripeAccountConnected } from "@/lib/inngest/client";
-import { syncFailedStripeCharges } from "@/lib/stripe/failed-payments";
+import { syncStripeSales } from "@/lib/stripe/failed-payments";
 import { createReadOnlyStripeClient } from "@/lib/stripe/read-only-client";
 import { syncStripeMonthlyMetrics } from "@/lib/stripe/sync-write";
 
@@ -50,7 +50,8 @@ export const syncStripeAccount = inngest.createFunction(
       const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
 
       let total = 0;
-      for await (const charge of stripe.charges.list({ limit: 100 })) {
+      const since = Math.floor(Date.now() / 1000) - STRIPE_SYNC_MONTHS_BACK * 31 * 24 * 60 * 60;
+      for await (const charge of stripe.charges.list({ created: { gte: since }, limit: 100 })) {
         if (charge.status === "failed") {
           total += charge.amount;
         }
@@ -83,12 +84,12 @@ export const syncStripeAccount = inngest.createFunction(
         return syncStripeMonthlyMetrics(userId, stripe, STRIPE_SYNC_MONTHS_BACK);
       });
 
-      // Links failed charges to existing /ventes/suivi sales (moyen =
-      // "stripe") by client email + amount — feeds the "Paiements Stripe
-      // échoués" banner. Best-effort match, never creates a sale on its own.
-      await step.run("sync-failed-charges", async () => {
+      // Reconciles succeeded/failed Connect charges and refunds into the
+      // account's deal rows. Matching is scoped by account and idempotent on
+      // the Stripe charge id stored in each installment.
+      const reconciliation = await step.run("reconcile-sales", async () => {
         const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
-        return syncFailedStripeCharges(userId, stripe, STRIPE_SYNC_MONTHS_BACK);
+        return syncStripeSales(userId, stripe, STRIPE_SYNC_MONTHS_BACK);
       });
 
       await step.run("mark-sync-completed", async () => {
@@ -98,7 +99,16 @@ export const syncStripeAccount = inngest.createFunction(
           .where(eq(stripeConnections.userId, userId));
       });
 
-      await track("stripe_sync_completed", userId, { months: monthsSynced, duration_ms: Date.now() - startedAt });
+      await track("stripe_sync_completed", userId, {
+        months: monthsSynced,
+        duration_ms: Date.now() - startedAt,
+        matched: reconciliation.matched,
+        created: reconciliation.created,
+        orphaned: reconciliation.orphaned,
+        refunded: reconciliation.refunded,
+        skipped: reconciliation.skipped,
+        ambiguous: reconciliation.ambiguous,
+      });
     } catch (error) {
       await step.run("mark-sync-failed", async () => {
         await db
@@ -106,7 +116,7 @@ export const syncStripeAccount = inngest.createFunction(
           .set({ initialSyncStatus: "failed", initialSyncCompletedAt: new Date() })
           .where(eq(stripeConnections.userId, userId));
       });
-      await track("stripe_sync_failed", userId, { step: "sync-monthly-metrics" });
+      await track("stripe_sync_failed", userId, { step: "reconcile-sales" });
       throw error;
     }
   }

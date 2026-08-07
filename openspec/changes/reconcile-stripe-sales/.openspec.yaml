@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-07
+goal: Le Stripe connecté du client alimente automatiquement le Suivi des ventes en
+  transactions réconciliées avec les deals, avec impayés, remboursements, orphelins
+  et reste à payer visibles — sans double-compte et sans jamais lire le Stripe Billing
+  Scale X ni le parrainage
