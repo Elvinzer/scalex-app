@@ -8,6 +8,14 @@ export const stripeAccountConnected = eventType("stripe/account.connected", {
   schema: staticSchema<StripeAccountConnected>(),
 });
 
+type StripeSyncRequested = {
+  userId: string;
+};
+
+export const stripeSyncRequested = eventType("stripe/sync.requested", {
+  schema: staticSchema<StripeSyncRequested>(),
+});
+
 type IclosedAccountConnected = {
   userId: string;
 };

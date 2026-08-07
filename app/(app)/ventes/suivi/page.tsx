@@ -7,6 +7,7 @@ import { IntegrationStatusRow } from "@/components/integration-status-row";
 import { KpiTile } from "@/components/kpi-tile";
 import { PeriodFilter } from "@/components/period-filter";
 import { Button } from "@/components/ui/button";
+import { StripeInsightsSection } from "./stripe-insights-section";
 import { db } from "@/db";
 import { stripeConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
@@ -16,6 +17,8 @@ import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
 import { getSetters } from "@/lib/setters/queries";
+import { getLatestStripeInsightRun, getStripeInsightData } from "@/lib/stripe/insight-queries";
+import { buildStripeInsightSignals, buildStripeInsightSnapshot, buildStripeTrend } from "@/lib/stripe/transaction-insights";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
@@ -25,10 +28,12 @@ import { SalesTable } from "./sales-table";
 
 const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
-export default async function SuiviDesVentesPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+export default async function SuiviDesVentesPage({ searchParams }: { searchParams: Promise<{ period?: string; currency?: string }> }) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:suivi");
   const stripeConnected = Boolean(user?.stripeConnectId);
+  const query = await searchParams;
+  const period = resolvePeriod(query.period);
   const [sales, profile, setters, [connection], youtubeInsights] = await Promise.all([
     getSales(accountId),
     getBusinessProfile(accountId),
@@ -65,7 +70,6 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
       }))
   );
 
-  const period = resolvePeriod((await searchParams).period);
   const periodSales = sales.filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)));
 
   const cashContracted = periodSales.reduce((sum, sale) => sum + sale.totalPrice, 0);
@@ -73,6 +77,30 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
   const cashCollected = summaries.reduce((sum, summary) => sum + summary.paidTotal, 0);
   const pending = summaries.reduce((sum, summary) => sum + summary.pendingTotal, 0);
   const failed = summaries.reduce((sum, summary) => sum + summary.failedTotal, 0);
+
+  let stripeInsight = connection
+    ? await getStripeInsightData(accountId, connection.stripeAccountId, period, query.currency)
+    : null;
+  // Manual sales use euros. They are included in the risk amount only when
+  // Stripe's active currency is EUR; no implicit FX conversion is allowed.
+  if (stripeInsight?.snapshot && stripeInsight.activeCurrency === "eur" && pending > 0) {
+    const snapshot = buildStripeInsightSnapshot(
+      stripeInsight.transactions,
+      stripeInsight.refunds,
+      period,
+      stripeInsight.activeCurrency,
+      pending * 100,
+    );
+    stripeInsight = {
+      ...stripeInsight,
+      snapshot,
+      signals: buildStripeInsightSignals(snapshot),
+      trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency),
+    };
+  }
+  const latestStripeInsight = stripeInsight?.activeCurrency
+    ? await getLatestStripeInsightRun(accountId, stripeInsight.activeCurrency, period)
+    : null;
 
   const stateText =
     periodSales.length > 0
@@ -128,6 +156,24 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
         <KpiTile label="Échéances à venir" value={`${NUMBER_FORMAT.format(pending)} €`} detail="À encaisser" tone="accent2" />
         <KpiTile label="Impayés" value={`${NUMBER_FORMAT.format(failed)} €`} detail="À traiter" tone={failed > 0 ? "negative" : "default"} />
       </div>
+
+      <StripeInsightsSection
+        connected={stripeConnected}
+        connection={connection ? {
+          initialSyncStatus: connection.initialSyncStatus,
+          lastSyncStartedAt: connection.lastSyncStartedAt?.toISOString() ?? null,
+          lastSyncCompletedAt: connection.lastSyncCompletedAt?.toISOString() ?? null,
+          lastSyncError: connection.lastSyncError,
+        } : null}
+        periodKey={period.key}
+        availableCurrencies={stripeInsight?.availableCurrencies ?? []}
+        activeCurrency={stripeInsight?.activeCurrency ?? null}
+        snapshot={stripeInsight?.snapshot ?? null}
+        signals={stripeInsight?.signals ?? []}
+        trend={stripeInsight?.trend ?? []}
+        visibleTransactions={stripeInsight?.visibleTransactions ?? []}
+        initialInsightText={latestStripeInsight?.insightText ?? null}
+      />
 
       <SalesTable
         sales={periodSales}

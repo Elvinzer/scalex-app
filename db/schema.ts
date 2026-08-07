@@ -37,6 +37,13 @@ const authUsers = authSchema.table("users", {
   id: uuid("id").primaryKey(),
 });
 
+// User-scoped data is account-scoped even when a delegated team member is
+// signed in. This helper is declared before all tables that use it so the
+// Drizzle schema mirrors the RLS contract without relying on declaration
+// order quirks.
+const nativeBookingAccountAccess = (accountId: AnyPgColumn) =>
+  sql`public.native_booking_account_member(${accountId})`;
+
 // Used to pick which row of lib/setting/benchmarks.ts to compare a user's
 // KPI rates against — null means "not set", falls back to the global (all
 // sectors) benchmark.
@@ -180,7 +187,131 @@ export const stripeConnections = pgTable("stripe_connections", {
   // resync-button/polling infra, deferred).
   initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
   initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
+  // Refresh lifecycle for the transaction-insights projection. These fields
+  // are deliberately separate from initialSyncCompletedAt so a later manual
+  // or scheduled refresh never rewrites the onboarding history.
+  lastSyncStartedAt: timestamp("last_sync_started_at", { withTimezone: true }),
+  lastSyncCompletedAt: timestamp("last_sync_completed_at", { withTimezone: true }),
+  lastSyncError: text("last_sync_error"),
 }).enableRLS();
+
+// Read-only Stripe transaction projection used by the deterministic insight
+// engine. One row represents one Connect charge; the unique key makes a full
+// 12-month re-sync safe when Stripe sends late refunds or retries a job.
+export const stripeTransactions = pgTable(
+  "stripe_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stripeAccountId: text("stripe_account_id").notNull(),
+    stripeChargeId: text("stripe_charge_id").notNull(),
+    paymentIntentId: text("payment_intent_id"),
+    customerId: text("customer_id"),
+    invoiceId: text("invoice_id"),
+    subscriptionId: text("subscription_id"),
+    amountCents: integer("amount_cents").notNull(),
+    amountRefundedCents: integer("amount_refunded_cents").notNull().default(0),
+    currency: text("currency").notNull(),
+    // Validated in lib/stripe/transaction-insights.ts rather than a database
+    // enum so a future Stripe status can be ingested and surfaced safely.
+    status: text("status").notNull(),
+    paymentType: text("payment_type").notNull().default("unknown"),
+    failureCode: text("failure_code"),
+    failureMessage: text("failure_message"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("stripe_transactions_account_charge_idx").on(
+      table.userId,
+      table.stripeAccountId,
+      table.stripeChargeId,
+    ),
+    index("stripe_transactions_user_occurred_idx").on(table.userId, table.occurredAt),
+    index("stripe_transactions_user_currency_idx").on(table.userId, table.currency),
+    index("stripe_transactions_user_customer_idx").on(table.userId, table.customerId),
+    pgPolicy("stripe_transactions_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Refunds are kept independently because a refund can happen after the
+// original charge's period. Aggregations therefore use refund.occurredAt,
+// not only Charge.amount_refunded, while the charge row remains a convenient
+// current-state projection.
+export const stripeTransactionRefunds = pgTable(
+  "stripe_transaction_refunds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stripeAccountId: text("stripe_account_id").notNull(),
+    stripeRefundId: text("stripe_refund_id").notNull(),
+    stripeChargeId: text("stripe_charge_id"),
+    paymentIntentId: text("payment_intent_id"),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull(),
+    status: text("status").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("stripe_transaction_refunds_account_refund_idx").on(
+      table.userId,
+      table.stripeAccountId,
+      table.stripeRefundId,
+    ),
+    index("stripe_transaction_refunds_user_charge_idx").on(table.userId, table.stripeChargeId),
+    index("stripe_transaction_refunds_user_occurred_idx").on(table.userId, table.occurredAt),
+    pgPolicy("stripe_transaction_refunds_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// AI output is an optional, auditable layer over the deterministic snapshot.
+// snapshot/signals contain aggregates and signal evidence only — never raw
+// Stripe credentials, payment methods, emails, or customer lists.
+export const stripeInsightRuns = pgTable(
+  "stripe_insight_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    snapshotVersion: text("snapshot_version").notNull().default("v1"),
+    periodStart: date("period_start", { mode: "string" }),
+    periodEnd: date("period_end", { mode: "string" }),
+    currency: text("currency").notNull(),
+    focusSignalType: text("focus_signal_type"),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+    signals: jsonb("signals").$type<Record<string, unknown>[]>().notNull(),
+    insightText: text("insight_text").notNull(),
+    keySource: text("key_source").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("stripe_insight_runs_user_created_idx").on(table.userId, table.createdAt),
+    pgPolicy("stripe_insight_runs_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
 
 // iClosed connection — the call-booking tool. Unlike Stripe Connect (OAuth),
 // iClosed authenticates with a static API key the client generates in their
@@ -448,9 +579,6 @@ export type NativeBookingAnswerSnapshot = {
 // delegated team member. The function is installed by the additive security
 // migration; keeping the policy expressions here makes Drizzle's schema an
 // accurate description of the RLS contract.
-const nativeBookingAccountAccess = (accountId: AnyPgColumn) =>
-  sql`public.native_booking_account_member(${accountId})`;
-
 const nativeBookingEventAccess = (eventId: AnyPgColumn) =>
   sql`exists (
     select 1 from public.native_booking_events as event

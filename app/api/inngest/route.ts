@@ -4,6 +4,7 @@ import { inngest } from "@/lib/inngest/client";
 import { continueInstagramBackfill } from "@/lib/inngest/functions/continue-instagram-backfill";
 import { continueYoutubeBackfill } from "@/lib/inngest/functions/continue-youtube-backfill";
 import { refreshInstagramInsights } from "@/lib/inngest/functions/refresh-instagram-insights";
+import { refreshStripeAccounts } from "@/lib/inngest/functions/refresh-stripe-accounts";
 import { refreshYoutubeInsights } from "@/lib/inngest/functions/refresh-youtube-insights";
 import { snapshotScaleScore } from "@/lib/inngest/functions/snapshot-scale-score";
 import { syncCalendlyAccount } from "@/lib/inngest/functions/sync-calendly-account";
@@ -40,6 +41,7 @@ export const { GET, POST, PUT } = serve({
     syncCalendlyAccount,
     syncInstagramAccount,
     refreshInstagramInsights,
+    refreshStripeAccounts,
     continueInstagramBackfill,
     syncYoutubeAccount,
     refreshYoutubeInsights,

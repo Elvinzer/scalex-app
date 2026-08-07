@@ -6,15 +6,16 @@ import { diagnostics, stripeConnections, users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { track } from "@/lib/analytics";
 import { decrypt } from "@/lib/crypto";
-import { inngest, stripeAccountConnected } from "@/lib/inngest/client";
+import { inngest, stripeAccountConnected, stripeSyncRequested } from "@/lib/inngest/client";
 import { syncStripeSales } from "@/lib/stripe/failed-payments";
 import { createReadOnlyStripeClient } from "@/lib/stripe/read-only-client";
 import { syncStripeMonthlyMetrics } from "@/lib/stripe/sync-write";
+import { syncStripeTransactions } from "@/lib/stripe/transaction-sync";
 
 const STRIPE_SYNC_MONTHS_BACK = 12;
 
 export const syncStripeAccount = inngest.createFunction(
-  { id: "sync-stripe-account", triggers: [stripeAccountConnected] },
+  { id: "sync-stripe-account", triggers: [stripeAccountConnected, stripeSyncRequested] },
   async ({ event, step }) => {
     const { userId } = event.data;
 
@@ -35,50 +36,65 @@ export const syncStripeAccount = inngest.createFunction(
       return Boolean(user && isAdminEmail(user.email));
     });
 
+    await step.run("mark-sync-started", async () => {
+      await db
+        .update(stripeConnections)
+        .set({
+          initialSyncStatus: "pending",
+          lastSyncStartedAt: new Date(),
+          lastSyncError: null,
+        })
+        .where(eq(stripeConnections.userId, userId));
+    });
+
     if (!connection.livemode && !isAdminBypass) {
       await step.run("mark-sync-skipped-test-mode", async () => {
         await db
           .update(stripeConnections)
-          .set({ initialSyncStatus: "failed", initialSyncCompletedAt: new Date() })
+          .set({
+            initialSyncStatus: "failed",
+            initialSyncCompletedAt: new Date(),
+            lastSyncError: "Le compte Stripe doit être en mode live pour être analysé.",
+          })
           .where(eq(stripeConnections.userId, userId));
       });
       await track("stripe_sync_failed", userId, { step: "test_mode_account" });
       return;
     }
 
-    const failedPaymentsCents = await step.run("scan-failed-payments", async () => {
-      const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
-
-      let total = 0;
-      const since = Math.floor(Date.now() / 1000) - STRIPE_SYNC_MONTHS_BACK * 31 * 24 * 60 * 60;
-      for await (const charge of stripe.charges.list({ created: { gte: since }, limit: 100 })) {
-        if (charge.status === "failed") {
-          total += charge.amount;
-        }
-      }
-      return total;
-    });
-
-    await step.run("write-diagnostic", async () => {
-      await db
-        .insert(diagnostics)
-        .values({
-          userId,
-          category: "failed_payments",
-          score: 0,
-          dollarsLost: failedPaymentsCents,
-        })
-        .onConflictDoUpdate({
-          target: [diagnostics.userId, diagnostics.category],
-          set: {
-            dollarsLost: failedPaymentsCents,
-            computedAt: new Date(),
-          },
-        });
-    });
-
     const startedAt = Date.now();
     try {
+      const failedPaymentsCents = await step.run("scan-failed-payments", async () => {
+        const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
+
+        let total = 0;
+        const since = Math.floor(Date.now() / 1000) - STRIPE_SYNC_MONTHS_BACK * 31 * 24 * 60 * 60;
+        for await (const charge of stripe.charges.list({ created: { gte: since }, limit: 100 })) {
+          if (charge.status === "failed") {
+            total += charge.amount;
+          }
+        }
+        return total;
+      });
+
+      await step.run("write-diagnostic", async () => {
+        await db
+          .insert(diagnostics)
+          .values({
+            userId,
+            category: "failed_payments",
+            score: 0,
+            dollarsLost: failedPaymentsCents,
+          })
+          .onConflictDoUpdate({
+            target: [diagnostics.userId, diagnostics.category],
+            set: {
+              dollarsLost: failedPaymentsCents,
+              computedAt: new Date(),
+            },
+          });
+      });
+
       const { monthsSynced } = await step.run("sync-monthly-metrics", async () => {
         const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
         return syncStripeMonthlyMetrics(userId, stripe, STRIPE_SYNC_MONTHS_BACK);
@@ -92,10 +108,20 @@ export const syncStripeAccount = inngest.createFunction(
         return syncStripeSales(userId, stripe, STRIPE_SYNC_MONTHS_BACK);
       });
 
+      const transactionProjection = await step.run("sync-transaction-projection", async () => {
+        const stripe = createReadOnlyStripeClient(decrypt(connection.accessTokenEncrypted));
+        return syncStripeTransactions(userId, connection.stripeAccountId, stripe, STRIPE_SYNC_MONTHS_BACK);
+      });
+
       await step.run("mark-sync-completed", async () => {
         await db
           .update(stripeConnections)
-          .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date() })
+          .set({
+            initialSyncStatus: "completed",
+            initialSyncCompletedAt: new Date(),
+            lastSyncCompletedAt: new Date(),
+            lastSyncError: null,
+          })
           .where(eq(stripeConnections.userId, userId));
       });
 
@@ -108,15 +134,23 @@ export const syncStripeAccount = inngest.createFunction(
         refunded: reconciliation.refunded,
         skipped: reconciliation.skipped,
         ambiguous: reconciliation.ambiguous,
+        transaction_rows: transactionProjection.transactionsUpserted,
+        refund_rows: transactionProjection.refundsUpserted,
+        invalid_transaction_rows: transactionProjection.invalidCharges,
+        invalid_refund_rows: transactionProjection.invalidRefunds,
       });
     } catch (error) {
       await step.run("mark-sync-failed", async () => {
         await db
           .update(stripeConnections)
-          .set({ initialSyncStatus: "failed", initialSyncCompletedAt: new Date() })
+          .set({
+            initialSyncStatus: "failed",
+            initialSyncCompletedAt: new Date(),
+            lastSyncError: "Stripe n'a pas pu actualiser les données. Réessaie plus tard.",
+          })
           .where(eq(stripeConnections.userId, userId));
       });
-      await track("stripe_sync_failed", userId, { step: "reconcile-sales" });
+      await track("stripe_sync_failed", userId, { step: "stripe_sync" });
       throw error;
     }
   }
