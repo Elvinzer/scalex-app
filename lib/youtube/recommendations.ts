@@ -7,6 +7,7 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import { contentRecommendations, users, winningPatterns } from "@/db/schema";
 import { requestFalcoJson, resolveFalcoProvider } from "@/lib/agent/falco-provider";
 import { describeBusinessContext } from "@/lib/improve-prompt-builder";
+import { materializeSourceInsight } from "@/lib/insight-execution/source-adapters";
 
 import { getVideoAttributionTotals } from "./attribution";
 import { conversionPerThousandViews } from "./attribution-rules";
@@ -621,7 +622,7 @@ export async function rebuildYoutubeContentRecommendations(
   if (recommendations.length === 0) return { state: "generation_failed", count: 0, analyzedVideoCount: performances.length };
 
   await db.delete(contentRecommendations).where(and(eq(contentRecommendations.userId, userId), eq(contentRecommendations.status, "new")));
-  await db.insert(contentRecommendations).values(
+  const insertedRecommendations = await db.insert(contentRecommendations).values(
     recommendations.map((recommendation) => ({
       userId,
       title: recommendation.title,
@@ -636,6 +637,22 @@ export async function rebuildYoutubeContentRecommendations(
       createdAt: new Date(),
       updatedAt: new Date(),
     }))
+  ).returning({ id: contentRecommendations.id });
+
+  // New recommendations are already actionable when generated. Persist their
+  // normalized history now; the later Journal launch remains idempotent.
+  await Promise.all(
+    insertedRecommendations.map(async (recommendation) => {
+      try {
+        await materializeSourceInsight(userId, {
+          sourceType: "content_recommendation",
+          sourceId: recommendation.id,
+        });
+      } catch {
+        // The content recommendation itself remains available; an explicit
+        // launch retries history materialization.
+      }
+    }),
   );
 
   return { state: "generated", count: recommendations.length, analyzedVideoCount: performances.length };

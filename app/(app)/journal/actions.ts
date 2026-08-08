@@ -9,6 +9,7 @@ import { improvementEvents, journalNotes, projects, todos, type ProjectMilestone
 import { track } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
+import { syncInitiativesForProject, syncInitiativesForTodo } from "@/lib/insight-execution/service";
 
 async function requireJournalAccess(): Promise<{ userId: string; accountId: string } | { error: string }> {
   const supabase = await createClient();
@@ -99,6 +100,8 @@ export async function toggleTodo(id: string, done: boolean): Promise<{ error: st
     });
   }
 
+  await syncInitiativesForTodo(access.accountId, id, done, before.label);
+
   await track("todo_completed", access.userId, { is_business_improvement: isBusinessEvent });
   revalidatePath("/journal");
   return { error: null };
@@ -182,6 +185,10 @@ export async function toggleMilestone(
       sourceId: `${projectId}:${order}`,
     });
     await track("project_milestone_completed", access.userId, {});
+  }
+
+  if (allDone || (!done && project.status === "done")) {
+    await syncInitiativesForProject(access.accountId, projectId, allDone, project.name);
   }
 
   revalidatePath("/journal");

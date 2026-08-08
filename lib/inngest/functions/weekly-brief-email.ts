@@ -19,6 +19,7 @@ import { getSales } from "@/lib/sales/queries";
 import { getScaleScoreDelta } from "@/lib/scale-score-history/queries";
 import { getAppUrl } from "@/lib/utils";
 import { signUnsubscribeToken } from "@/lib/unsubscribe-token";
+import { ensureWeeklyNudges, getActiveNudge } from "@/lib/insight-execution/follow-up";
 
 // Monday 8am, per-user timezone not modeled (single cron time for
 // everyone, per spec). This is now the SOLE generator of the Rapport Hebdo
@@ -67,6 +68,8 @@ export const weeklyBriefEmail = inngest.createFunction(
 
           const benchmarks = await getDiagnosticBenchmarks(user.sector ?? null);
           const points = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+          await ensureWeeklyNudges(user.id);
+          const activeNudge = await getActiveNudge(user.id);
           const topPoint = points[0];
           if (!topPoint || topPoint.monthlyGain === null) return; // nothing chiffrable to send
 
@@ -120,6 +123,12 @@ export const weeklyBriefEmail = inngest.createFunction(
 
           const firstName = user.email.split("@")[0] || "là";
           const clickUrl = `${appUrl}/api/weekly-email-click?u=${user.id}&utm_source=email&utm_campaign=weekly-brief`;
+          const initiativeUrl = activeNudge
+            ? `${appUrl}/api/weekly-email-click?u=${user.id}&initiative=${activeNudge.initiativeId}&utm_source=email&utm_campaign=weekly-brief-action`
+            : null;
+          const nudgeDueLine = activeNudge?.dueDate
+            ? ` Échéance : ${new Date(`${activeNudge.dueDate}T00:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}.`
+            : "";
           const unsubscribeUrl = `${appUrl}/api/unsubscribe?u=${user.id}&token=${signUnsubscribeToken(user.id)}`;
 
           const scoreLine =
@@ -141,6 +150,13 @@ export const weeklyBriefEmail = inngest.createFunction(
               "",
               `Ton point le plus faible cette semaine : ${topPoint.label} (${topPoint.currentRatePercent}% contre ${topPoint.benchmarkRatePercent}% pour ta niche).`,
               `Manque à gagner estimé : ${formatEur(topPoint.monthlyGain)}/mois.`,
+              ...(activeNudge
+                ? [
+                    "",
+                    `À relancer cette semaine : ${activeNudge.title}. ${activeNudge.reason}${nudgeDueLine}`,
+                    ...(initiativeUrl ? [`Reprendre cette action : ${initiativeUrl}`] : []),
+                  ]
+                : []),
               "",
               `Voir mon rapport complet : ${clickUrl}`,
               ...(checkInDoneThisWeek ? [] : ["", `Faire mon check-in (2 min) : ${clickUrl}`]),

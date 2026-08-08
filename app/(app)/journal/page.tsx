@@ -1,9 +1,10 @@
 import { after } from "next/server";
 
+import { ExecutionMomentumCard } from "@/components/insight-execution/execution-momentum-card";
 import { getCurrentUser } from "@/lib/current-user";
 import { track } from "@/lib/analytics";
 import { getJournalMonth, getJournalProjects, getJournalTodos } from "@/lib/journal/queries";
-import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { JournalCalendar } from "./journal-calendar";
 import { ProjectPanel } from "./project-panel";
@@ -16,6 +17,7 @@ export default async function JournalPage({
 }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
+  const accountContext = await getAccountContext(userId);
   after(() => track("journal_viewed", userId));
 
   const params = await searchParams;
@@ -40,6 +42,13 @@ export default async function JournalPage({
           Ce qui s&apos;est passé, ce qu&apos;il reste à faire, où en sont tes projets.
         </p>
       </div>
+
+      <ExecutionMomentumCard
+        accountId={accountId}
+        viewerUserId={userId}
+        compact
+        canOpenDiagnostic={accountContext?.isOwner || accountContext?.permissions.has("diagnostic")}
+      />
 
       <div className="grid gap-5 lg:grid-cols-[62%_1fr]">
         <JournalCalendar year={year} month={month} days={days} todayIso={todayIso} />

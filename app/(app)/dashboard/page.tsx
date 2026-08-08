@@ -5,6 +5,7 @@ import { CheckinTrigger } from "./checkin-trigger";
 import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-action-center";
 import { TechnicalAlertsSection } from "./technical-alerts-section";
 import { WeeklyReportDialog } from "./weekly-report-dialog";
+import { ExecutionMomentumCard } from "@/components/insight-execution/execution-momentum-card";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { MetricCard } from "@/components/metric-card";
@@ -230,6 +231,12 @@ export default async function DashboardPage({
       <Suspense fallback={<RevenueActionCenterSkeleton />}>
         <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
       </Suspense>
+
+  <ExecutionMomentumCard
+    accountId={accountId}
+    viewerUserId={userId}
+    canOpenDiagnostic={accountContext?.isOwner || accountContext?.permissions.has("diagnostic")}
+  />
 
       <div>
         <h2 className="text-base font-bold">Contexte du mois</h2>

@@ -1,0 +1,2 @@
+DROP INDEX "improvement_events_user_type_source_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "improvement_events_user_type_source_idx" ON "improvement_events" USING btree ("user_id","type","source_id") WHERE "improvement_events"."type" in ('initiative_launched', 'initiative_completed', 'initiative_measured');

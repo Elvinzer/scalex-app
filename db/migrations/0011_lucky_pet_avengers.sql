@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "improvement_events_user_type_source_idx" ON "improvement_events" USING btree ("user_id","type","source_id");

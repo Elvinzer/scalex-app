@@ -46,6 +46,8 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
+import { InsightHistorySection } from "@/components/insight-execution/insight-history-section";
+import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
 
 type DiagnosticTab = "overview" | "discovery";
 
@@ -143,6 +145,7 @@ export default async function DiagnosticPage({
     return (
       <div className="flex flex-col gap-8">
         {overviewHeader}
+        <InsightHistorySection accountId={accountId} viewerUserId={userId} canAssign={userId === accountId} />
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-6 text-center">
           <p className="max-w-md text-muted-foreground">
             Remplis au moins un mois dans Mes chiffres pour lancer ton diagnostic.
@@ -344,6 +347,10 @@ export default async function DiagnosticPage({
 
       {isThin && <BusinessNudgeBanner />}
 
+      <section aria-labelledby="insight-history-heading">
+        <InsightHistorySection accountId={accountId} viewerUserId={userId} canAssign={userId === accountId} />
+      </section>
+
       {/* ============================= SECTION 1 — OPTIMISER ============================= */}
       <div className="flex flex-col gap-8">
         <div>
@@ -472,6 +479,10 @@ export default async function DiagnosticPage({
                 <a href={href} className="self-start text-sm font-bold text-muted-foreground hover:underline">
                   Voir le détail
                 </a>
+                <QuickInsightLaunchButton
+                  sourceType={isLever ? "diagnostic_lever" : "diagnostic_metric"}
+                  sourceId={isLever ? `${watchItem!.leverKey}${watchItem!.statKey ? `:${watchItem!.statKey}` : ""}` : candidate.key}
+                />
               </div>
             );
           })}
@@ -519,6 +530,7 @@ export default async function DiagnosticPage({
                   >
                     Voir le détail
                   </a>
+                  <QuickInsightLaunchButton sourceType="diagnostic_metric" sourceId={summary.key} />
                 </div>
               );
             })}
@@ -585,6 +597,7 @@ export default async function DiagnosticPage({
                   warning={opportunity.warning}
                   ctaLabel="Découvrir →"
                   sourcePage="diagnostic_overview"
+                  insightSourceId={opportunity.leverKey}
                 />
               );
             })}

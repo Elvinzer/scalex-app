@@ -13,6 +13,7 @@ import { formatEur } from "@/lib/currency";
 import { recordDiagnosticAddClicked, recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { LEVER_BENCHMARK_INFO } from "@/lib/levers/benchmark-info";
 import { cn } from "@/lib/utils";
+import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
 
 const EFFORT_LABEL: Record<"faible" | "moyen" | "eleve", string> = { faible: "Effort faible", moyen: "Effort moyen", eleve: "Effort élevé" };
 const EFFORT_CLASS: Record<"faible" | "moyen" | "eleve", string> = {
@@ -47,6 +48,7 @@ export function DiscoveryOpportunityCard({
   ctaLabel,
   currentValue,
   sourcePage,
+  insightSourceId,
 }: {
   leverKey: string;
   label: string;
@@ -69,6 +71,10 @@ export function DiscoveryOpportunityCard({
   currentValue?: number | null;
   // Where this card is rendered — for improve_chat_opened's source_page.
   sourcePage: string;
+  // Optional execution entry point. The default remains the discovery/detail
+  // route so existing cards keep their original behavior when no source is
+  // provided.
+  insightSourceId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const info = LEVER_BENCHMARK_INFO[leverKey];
@@ -137,18 +143,21 @@ export function DiscoveryOpportunityCard({
         {/* Outline, not a filled accent — these cards are a grid of equivalent
             options, none is THE priority CTA, so filled accents (corail =
             priority, violet = IA) stay reserved for single, unique CTAs. */}
-        {currentValue === undefined ? (
-          // Absent lever → the guide page, not an inline drawer.
-          <Button size="sm" variant="outline" asChild className="self-start">
-            <Link href={`/demarrer/${leverKey}`} onClick={() => void recordDiagnosticAddClicked(leverKey)}>
+        <div className="flex flex-wrap items-start gap-2">
+          {currentValue === undefined ? (
+            // Absent lever → the guide page, not an inline drawer.
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/demarrer/${leverKey}`} onClick={() => void recordDiagnosticAddClicked(leverKey)}>
+                {ctaLabel}
+              </Link>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => handleOpenChange(true)}>
               {ctaLabel}
-            </Link>
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" onClick={() => handleOpenChange(true)} className="self-start">
-            {ctaLabel}
-          </Button>
-        )}
+            </Button>
+          )}
+          {insightSourceId && <QuickInsightLaunchButton sourceType="diagnostic_lever" sourceId={insightSourceId} />}
+        </div>
       </div>
 
       {currentValue !== undefined && (

@@ -6,15 +6,29 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { closingKpiEntries, funnelStageInsights, improvementEvents, settingKpiEntries, users } from "@/db/schema";
+import {
+  closingKpiEntries,
+  funnelStageInsights,
+  improvementEvents,
+  settingKpiEntries,
+  users,
+} from "@/db/schema";
 import { resolveAgentKey } from "@/lib/agent/client";
 import { generateStageInsight } from "@/lib/agent/insight";
-import { STAGE_KNOWLEDGE, STAGE_TITLES, type FunnelStageKey } from "@/lib/agent/knowledge";
-import { aggregateClosingEntries, computeClosingRates } from "@/lib/closing/metrics";
+import {
+  STAGE_KNOWLEDGE,
+  STAGE_TITLES,
+  type FunnelStageKey,
+} from "@/lib/agent/knowledge";
+import {
+  aggregateClosingEntries,
+  computeClosingRates,
+} from "@/lib/closing/metrics";
 import { requireUserId } from "@/lib/current-user";
 import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
 import { getAccountContext } from "@/lib/team/context";
 import type { PermissionKey } from "@/lib/team/permissions";
+import { materializeSourceInsight } from "@/lib/insight-execution/source-adapters";
 
 const stageSchema = z.enum([
   "outreachRate",
@@ -25,7 +39,12 @@ const stageSchema = z.enum([
   "closingRate",
 ]);
 
-const SETTING_STAGES = ["outreachRate", "responseRate", "proposalRate", "bookingRate"] as const;
+const SETTING_STAGES = [
+  "outreachRate",
+  "responseRate",
+  "proposalRate",
+  "bookingRate",
+] as const;
 type SettingStageKey = (typeof SETTING_STAGES)[number];
 
 function isSettingStage(stage: FunnelStageKey): stage is SettingStageKey {
@@ -34,7 +53,10 @@ function isSettingStage(stage: FunnelStageKey): stage is SettingStageKey {
 
 // Every answer must match a known question id + option id for that stage —
 // never forwards arbitrary client text into the prompt sent to the model.
-function validateAnswers(stage: FunnelStageKey, rawAnswers: unknown): Record<string, string> | null {
+function validateAnswers(
+  stage: FunnelStageKey,
+  rawAnswers: unknown,
+): Record<string, string> | null {
   if (typeof rawAnswers !== "object" || rawAnswers === null) return null;
   const knowledge = STAGE_KNOWLEDGE[stage];
   const validated: Record<string, string> = {};
@@ -51,8 +73,12 @@ function validateAnswers(stage: FunnelStageKey, rawAnswers: unknown): Record<str
 
 export async function generateFunnelStageInsight(
   stageInput: string,
-  rawAnswers: unknown
-): Promise<{ insightText: string | null; error: string | null }> {
+  rawAnswers: unknown,
+): Promise<{
+  insightText: string | null;
+  error: string | null;
+  insightId?: string;
+}> {
   const parsedStage = stageSchema.safeParse(stageInput);
   if (!parsedStage.success) {
     return { insightText: null, error: "Étape invalide" };
@@ -63,7 +89,10 @@ export async function generateFunnelStageInsight(
   try {
     userId = await requireUserId();
   } catch (error) {
-    return { insightText: null, error: error instanceof Error ? error.message : "Session expirée" };
+    return {
+      insightText: null,
+      error: error instanceof Error ? error.message : "Session expirée",
+    };
   }
 
   // Generating an insight is reachable from the Funnel tab on /diagnostic,
@@ -77,8 +106,12 @@ export async function generateFunnelStageInsight(
   // page's own gate (that's "acquisition:pipeline" / "ventes:appels" now
   // that Setting/Closing are folded into Pipeline/Appels), kept so a role
   // granted one before its merge still works.
-  const requiredKey: PermissionKey = isSettingStage(stage) ? "acquisition:pipeline" : "ventes:appels";
-  const legacyKey: PermissionKey = isSettingStage(stage) ? "acquisition:setting" : "ventes:closing";
+  const requiredKey: PermissionKey = isSettingStage(stage)
+    ? "acquisition:pipeline"
+    : "ventes:appels";
+  const legacyKey: PermissionKey = isSettingStage(stage)
+    ? "acquisition:setting"
+    : "ventes:closing";
   const context = await getAccountContext(userId);
   if (!context) {
     return { insightText: null, error: "Tu n'as pas accès à cette section." };
@@ -99,24 +132,42 @@ export async function generateFunnelStageInsight(
     return { insightText: null, error: "Réponses invalides" };
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, accountId))
+    .limit(1);
   if (!user) {
     return { insightText: null, error: "Utilisateur introuvable" };
   }
 
   // Recompute the real rate server-side — never trust a client-sent number.
   const [settingEntries, closingEntries] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)),
+    db
+      .select()
+      .from(settingKpiEntries)
+      .where(eq(settingKpiEntries.userId, accountId)),
+    db
+      .select()
+      .from(closingKpiEntries)
+      .where(eq(closingKpiEntries.userId, accountId)),
   ]);
   const settingTotals = aggregateEntries(settingEntries);
   const settingRates = computeFunnelRates(settingTotals);
   const closingTotals = aggregateClosingEntries(closingEntries);
-  const closingRates = computeClosingRates(closingTotals, settingTotals.callsBooked);
+  const closingRates = computeClosingRates(
+    closingTotals,
+    settingTotals.callsBooked,
+  );
 
-  const rate = isSettingStage(stage) ? settingRates[stage] : closingRates[stage];
+  const rate = isSettingStage(stage)
+    ? settingRates[stage]
+    : closingRates[stage];
   if (rate === null) {
-    return { insightText: null, error: "Pas assez de données pour calculer ce taux." };
+    return {
+      insightText: null,
+      error: "Pas assez de données pour calculer ce taux.",
+    };
   }
 
   let agentKey;
@@ -125,7 +176,8 @@ export async function generateFunnelStageInsight(
   } catch (error) {
     return {
       insightText: null,
-      error: error instanceof Error ? error.message : "Clé Anthropic indisponible",
+      error:
+        error instanceof Error ? error.message : "Clé Anthropic indisponible",
     };
   }
 
@@ -141,8 +193,14 @@ export async function generateFunnelStageInsight(
     // Only a confirmed 401 on the user's own key means the key is dead —
     // never flag the shared key, and never treat rate limits/network blips
     // as an invalid key.
-    if (agentKey.source === "byok" && error instanceof Anthropic.AuthenticationError) {
-      await db.update(users).set({ anthropicApiKeyInvalid: true }).where(eq(users.id, accountId));
+    if (
+      agentKey.source === "byok" &&
+      error instanceof Anthropic.AuthenticationError
+    ) {
+      await db
+        .update(users)
+        .set({ anthropicApiKeyInvalid: true })
+        .where(eq(users.id, accountId));
       revalidatePath("/settings");
       return {
         insightText: null,
@@ -150,23 +208,44 @@ export async function generateFunnelStageInsight(
           "Ta clé Anthropic ne fonctionne plus (révoquée ou expirée). Ajoute une nouvelle clé dans Réglages pour continuer.",
       };
     }
-    return { insightText: null, error: "La génération de l'insight a échoué, réessaie." };
+    return {
+      insightText: null,
+      error: "La génération de l'insight a échoué, réessaie.",
+    };
   }
 
-  await db.insert(funnelStageInsights).values({
-    userId: accountId,
-    stage,
-    answers,
-    insightText: result.text,
-    keySource: agentKey.source,
-    inputTokens: result.inputTokens,
-    outputTokens: result.outputTokens,
-  });
+  const [savedInsight] = await db
+    .insert(funnelStageInsights)
+    .values({
+      userId: accountId,
+      stage,
+      answers,
+      insightText: result.text,
+      keySource: agentKey.source,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+    })
+    .returning({ id: funnelStageInsights.id });
+  if (!savedInsight)
+    return { insightText: null, error: "Impossible d'enregistrer l'insight." };
+
+  // Keep the generated recommendation in the normalized execution history
+  // immediately. The adapter is idempotent, so launching it later reuses the
+  // same record instead of creating a second history entry.
+  try {
+    await materializeSourceInsight(accountId, {
+      sourceType: "funnel_stage",
+      sourceId: savedInsight.id,
+    });
+  } catch {
+    // The source insight remains usable even if the history projection is
+    // temporarily unavailable; the explicit launch path retries it.
+  }
 
   revalidatePath("/diagnostic");
   revalidatePath("/acquisition/pipeline/funnel");
   revalidatePath("/ventes/appels/funnel");
-  return { insightText: result.text, error: null };
+  return { insightText: result.text, insightId: savedInsight.id, error: null };
 }
 
 const implementedInputSchema = z.object({
@@ -176,7 +255,7 @@ const implementedInputSchema = z.object({
 
 export async function setInsightImplemented(
   insightId: string,
-  implemented: boolean
+  implemented: boolean,
 ): Promise<{ error: string | null }> {
   const parsed = implementedInputSchema.safeParse({ insightId, implemented });
   if (!parsed.success) {
@@ -187,10 +266,17 @@ export async function setInsightImplemented(
   try {
     userId = await requireUserId();
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Session expirée" };
+    return {
+      error: error instanceof Error ? error.message : "Session expirée",
+    };
   }
   const context = await getAccountContext(userId);
-  if (!context || (!context.isOwner && !context.permissions.has("funnel") && !context.permissions.has("diagnostic"))) {
+  if (
+    !context ||
+    (!context.isOwner &&
+      !context.permissions.has("funnel") &&
+      !context.permissions.has("diagnostic"))
+  ) {
     return { error: "Tu n'as pas accès à cette section." };
   }
   const accountId = context.accountId;
@@ -198,9 +284,17 @@ export async function setInsightImplemented(
   // Read the prior value first — the journal only logs the false/null → true
   // transition, never a re-toggle off or an already-true no-op.
   const [before] = await db
-    .select({ implemented: funnelStageInsights.implemented, stage: funnelStageInsights.stage })
+    .select({
+      implemented: funnelStageInsights.implemented,
+      stage: funnelStageInsights.stage,
+    })
     .from(funnelStageInsights)
-    .where(and(eq(funnelStageInsights.id, parsed.data.insightId), eq(funnelStageInsights.userId, accountId)))
+    .where(
+      and(
+        eq(funnelStageInsights.id, parsed.data.insightId),
+        eq(funnelStageInsights.userId, accountId),
+      ),
+    )
     .limit(1);
   if (!before) {
     return { error: "Insight introuvable" };
@@ -210,7 +304,10 @@ export async function setInsightImplemented(
     .update(funnelStageInsights)
     .set({ implemented: parsed.data.implemented, implementedAt: new Date() })
     .where(
-      and(eq(funnelStageInsights.id, parsed.data.insightId), eq(funnelStageInsights.userId, accountId))
+      and(
+        eq(funnelStageInsights.id, parsed.data.insightId),
+        eq(funnelStageInsights.userId, accountId),
+      ),
     )
     .returning({ id: funnelStageInsights.id });
 
@@ -220,13 +317,16 @@ export async function setInsightImplemented(
 
   if (!before.implemented && parsed.data.implemented) {
     const today = new Date().toISOString().slice(0, 10);
-    await db.insert(improvementEvents).values({
-      userId: accountId,
-      date: today,
-      type: "insight_implemented",
-      label: `Insight mis en place : ${STAGE_TITLES[before.stage]}`,
-      sourceId: parsed.data.insightId,
-    });
+    await db
+      .insert(improvementEvents)
+      .values({
+        userId: accountId,
+        date: today,
+        type: "insight_implemented",
+        label: `Insight mis en place : ${STAGE_TITLES[before.stage]}`,
+        sourceId: parsed.data.insightId,
+      })
+      .onConflictDoNothing();
   }
 
   revalidatePath("/diagnostic");

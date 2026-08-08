@@ -12,6 +12,9 @@ import { saveJournalNote } from "./actions";
 
 const EVENT_ICON: Record<string, string> = {
   insight_implemented: "💡",
+  initiative_launched: "→",
+  initiative_completed: "✓",
+  initiative_measured: "↗",
   project_milestone_completed: "🎯",
   todo_business_improvement: "✅",
   checkin_rate_improved: "📈",

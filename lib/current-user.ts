@@ -77,11 +77,26 @@ export async function ensureUserRow(
   email: string,
   options: { captureReferral?: boolean } = {}
 ): Promise<{ isNewUser: boolean }> {
-  const [inserted] = await db
-    .insert(users)
-    .values({ id: userId, email })
-    .onConflictDoNothing({ target: users.id })
-    .returning({ id: users.id });
+  let inserted: { id: string } | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      [inserted] = await db
+        .insert(users)
+        .values({ id: userId, email })
+        .onConflictDoNothing({ target: users.id })
+        .returning({ id: users.id });
+      break;
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toUpperCase() : "";
+      const transientConnectionError =
+        message.includes("ECONNRESET") ||
+        message.includes("CONNECTION RESET") ||
+        message.includes("ETIMEDOUT") ||
+        message.includes("EPIPE");
+      if (!transientConnectionError || attempt === 2) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+    }
+  }
 
   const isNewUser = Boolean(inserted);
   if (isNewUser) {

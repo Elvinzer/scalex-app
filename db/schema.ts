@@ -28,6 +28,11 @@ import type {
 import type { YoutubePatternGroup, YoutubePatternLabel } from "@/lib/youtube/recommendation-types";
 import type { SaleInstallment } from "@/lib/sales/types";
 import type { WeeklyReportBottleneck, WeeklyReportStatCard } from "@/lib/dashboard/weekly-report-types";
+import type {
+  BaselineSnapshot,
+  InsightImpactProjection,
+  InsightSnapshot,
+} from "@/lib/insight-execution/types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -2673,6 +2678,9 @@ export const improvementEventType = pgEnum("improvement_event_type", [
   "lever_activated",
   "copilote_started",
   "content_recommendation_accepted",
+  "initiative_launched",
+  "initiative_completed",
+  "initiative_measured",
 ]);
 
 // The Journal calendar's single read source (✦ marker + "Ce que tu as
@@ -2700,5 +2708,225 @@ export const improvementEvents = pgTable(
     sourceId: text("source_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("improvement_events_user_date_idx").on(table.userId, table.date)]
+  (table) => [
+    index("improvement_events_user_date_idx").on(table.userId, table.date),
+    uniqueIndex("improvement_events_user_type_source_idx")
+      .on(table.userId, table.type, table.sourceId)
+      .where(sql`${table.type} in ('initiative_launched', 'initiative_completed', 'initiative_measured')`),
+  ]
+).enableRLS();
+
+// --- Insight execution loop -------------------------------------------------
+// The source tables above remain the authority for their own domain. These
+// tables only retain the user's decision and the execution state that connects
+// an insight to the Journal, a responsible team member and a measurable result.
+
+export const insightSourceType = pgEnum("insight_source_type", [
+  "diagnostic_metric",
+  "diagnostic_lever",
+  "funnel_stage",
+  "content_recommendation",
+  "copilote",
+]);
+
+export const insightDecision = pgEnum("insight_decision", ["todo", "launched", "later", "dismissed", "completed"]);
+
+export const initiativeStatus = pgEnum("initiative_status", [
+  "planned",
+  "in_progress",
+  "paused",
+  "completed",
+  "awaiting_measurement",
+  "measured",
+  "cancelled",
+]);
+
+export const measurementEvidenceType = pgEnum("measurement_evidence_type", [
+  "observed",
+  "estimated",
+  "not_calculable",
+  "qualitative",
+]);
+
+export const baselineUnit = pgEnum("baseline_unit", ["fraction", "percent", "eur", "count"]);
+
+// One normalized row per actionnable recommendation snapshot. `fingerprint`
+// is generated server-side and is the deduplication boundary. A legacy
+// funnel insight is never deleted or rewritten while it is being adapted.
+export const insightRecords = pgTable(
+  "insight_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceType: insightSourceType("source_type").notNull(),
+    sourceId: text("source_id").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    title: text("title").notNull(),
+    insightText: text("insight_text").notNull(),
+    sourceLabel: text("source_label"),
+    metricKey: text("metric_key"),
+    periodStart: date("period_start", { mode: "string" }),
+    periodEnd: date("period_end", { mode: "string" }),
+    snapshot: jsonb("snapshot").notNull().$type<InsightSnapshot>(),
+    impactProjection: jsonb("impact_projection").$type<InsightImpactProjection | null>(),
+    decision: insightDecision("decision").notNull().default("todo"),
+    resumeAt: date("resume_at", { mode: "string" }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("insight_records_user_fingerprint_idx").on(table.userId, table.fingerprint),
+    index("insight_records_user_decision_idx").on(table.userId, table.decision, table.createdAt),
+    index("insight_records_user_source_idx").on(table.userId, table.sourceType, table.createdAt),
+    pgPolicy("insight_records_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// One execution object per normalized insight. The Journal ids are nullable
+// because deleting a task or project must not erase the insight history.
+export const improvementInitiatives = pgTable(
+  "improvement_initiatives",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    insightRecordId: uuid("insight_record_id")
+      .notNull()
+      .references(() => insightRecords.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    actionText: text("action_text").notNull(),
+    status: initiativeStatus("status").notNull().default("planned"),
+    dueDate: date("due_date", { mode: "string" }),
+    assignedTeamMemberId: uuid("assigned_team_member_id").references(() => teamMembers.id, { onDelete: "set null" }),
+    todoId: uuid("todo_id").references(() => todos.id, { onDelete: "set null" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+    baseline: jsonb("baseline").$type<BaselineSnapshot | null>(),
+    resultNote: text("result_note"),
+    snoozedUntil: date("snoozed_until", { mode: "string" }),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    measuredAt: timestamp("measured_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("improvement_initiatives_user_insight_idx").on(table.userId, table.insightRecordId),
+    index("improvement_initiatives_user_status_due_idx").on(table.userId, table.status, table.dueDate),
+    index("improvement_initiatives_assignee_idx").on(table.assignedTeamMemberId),
+    pgPolicy("improvement_initiatives_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Immutable measurement versions keep historical before/after values stable
+// when the underlying Stripe or KPI sources are resynchronized later.
+export const initiativeMeasurements = pgTable(
+  "initiative_measurements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    initiativeId: uuid("initiative_id")
+      .notNull()
+      .references(() => improvementInitiatives.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    evidence: measurementEvidenceType("evidence").notNull(),
+    metricKey: text("metric_key"),
+    unit: baselineUnit("unit"),
+    beforeValue: real("before_value"),
+    afterValue: real("after_value"),
+    deltaValue: real("delta_value"),
+    beforePeriodStart: date("before_period_start", { mode: "string" }),
+    beforePeriodEnd: date("before_period_end", { mode: "string" }),
+    afterPeriodStart: date("after_period_start", { mode: "string" }),
+    afterPeriodEnd: date("after_period_end", { mode: "string" }),
+    sampleSize: integer("sample_size"),
+    cashImpactEur: real("cash_impact_eur"),
+    cashCurrency: text("cash_currency"),
+    source: text("source"),
+    note: text("note"),
+    measuredAt: timestamp("measured_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("initiative_measurements_initiative_version_idx").on(table.initiativeId, table.version),
+    index("initiative_measurements_user_created_idx").on(table.userId, table.createdAt),
+    pgPolicy("initiative_measurements_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// One focus per account and ISO week. Replacing the row changes the focus,
+// never the initiative history.
+export const initiativeWeeklyFocus = pgTable(
+  "initiative_weekly_focus",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    weekStart: date("week_start", { mode: "string" }).notNull(),
+    initiativeId: uuid("initiative_id")
+      .notNull()
+      .references(() => improvementInitiatives.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("initiative_weekly_focus_user_week_idx").on(table.userId, table.weekStart),
+    uniqueIndex("initiative_weekly_focus_initiative_week_idx").on(table.initiativeId, table.weekStart),
+    pgPolicy("initiative_weekly_focus_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Nudge ledger for the bounded Falco follow-up. The unique week key makes a
+// retried Inngest job safe without relying on in-memory state.
+export const initiativeNudges = pgTable(
+  "initiative_nudges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    initiativeId: uuid("initiative_id")
+      .notNull()
+      .references(() => improvementInitiatives.id, { onDelete: "cascade" }),
+    weekStart: date("week_start", { mode: "string" }).notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("initiative_nudges_initiative_week_idx").on(table.initiativeId, table.weekStart),
+    index("initiative_nudges_user_week_idx").on(table.userId, table.weekStart),
+    pgPolicy("initiative_nudges_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
 ).enableRLS();

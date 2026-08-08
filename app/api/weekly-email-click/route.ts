@@ -1,4 +1,5 @@
 import { after, NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 
 import { track } from "@/lib/analytics";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
@@ -14,16 +15,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard?report=1", origin));
   }
 
-  const userId = request.nextUrl.searchParams.get("u");
+  const uuidSchema = z.string().uuid();
+  const userId = uuidSchema.safeParse(request.nextUrl.searchParams.get("u"));
+  const initiativeId = uuidSchema.safeParse(
+    request.nextUrl.searchParams.get("initiative"),
+  );
 
-  if (userId) {
+  if (userId.success) {
     after(() =>
-      track("weekly_brief_email_clicked", userId, {
+      track("weekly_brief_email_clicked", userId.data, {
         utm_source: request.nextUrl.searchParams.get("utm_source"),
         utm_campaign: request.nextUrl.searchParams.get("utm_campaign"),
       })
     );
   }
 
-  return NextResponse.redirect(new URL("/dashboard?report=1", origin));
+  const destination = initiativeId.success
+    ? `/diagnostic#insight-${initiativeId.data}`
+    : "/dashboard?report=1";
+  return NextResponse.redirect(new URL(destination, origin));
 }

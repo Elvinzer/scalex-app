@@ -11,18 +11,23 @@ import type { ExistingStageInsight } from "@/components/funnel-insights/stage-in
 // one, since funnelStageInsights is an append-only history (see
 // app/(app)/funnel/insights/page.tsx for the full history view).
 export async function getExistingStageInsights(
-  userId: string
+  userId: string,
 ): Promise<Partial<Record<FunnelStageKey, ExistingStageInsight>>> {
   const rows = await db
-    .select({ stage: funnelStageInsights.stage, insightText: funnelStageInsights.insightText })
+    .select({
+      id: funnelStageInsights.id,
+      stage: funnelStageInsights.stage,
+      insightText: funnelStageInsights.insightText,
+    })
     .from(funnelStageInsights)
     .where(eq(funnelStageInsights.userId, userId))
     .orderBy(desc(funnelStageInsights.generatedAt));
 
-  const latestByStage: Partial<Record<FunnelStageKey, ExistingStageInsight>> = {};
+  const latestByStage: Partial<Record<FunnelStageKey, ExistingStageInsight>> =
+    {};
   for (const row of rows) {
     if (!(row.stage in latestByStage)) {
-      latestByStage[row.stage] = { insightText: row.insightText };
+      latestByStage[row.stage] = { id: row.id, insightText: row.insightText };
     }
   }
   return latestByStage;

@@ -6,8 +6,8 @@ export type MonthWindow = { year: number; month: number; range: DateRange };
 // current in-progress month (unlike lib/dashboard/metrics.ts's private
 // monthBuckets, which deliberately includes it for the Dashboard's own
 // "this month so far" framing; different semantics, not shared).
-export function lastCompletedMonths(count: number): MonthWindow[] {
-  const today = todayUtc();
+export function lastCompletedMonths(count: number, referenceDate: Date = todayUtc()): MonthWindow[] {
+  const today = new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate()));
   const windows: MonthWindow[] = [];
 
   for (let i = count; i >= 1; i--) {

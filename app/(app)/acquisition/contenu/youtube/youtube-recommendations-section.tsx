@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { ImproveChat } from "@/components/improve-chat";
 import { InfoPopover } from "@/components/info-popover";
+import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
@@ -175,6 +176,9 @@ export function YoutubeRecommendationsSection({
                     <Button type="button" variant="outline" size="sm" onClick={() => accept(recommendation.id)} disabled={isPending}>
                       Je la tourne
                     </Button>
+                  )}
+                  {recommendation.status !== "published" && (
+                    <QuickInsightLaunchButton sourceType="content_recommendation" sourceId={recommendation.id} />
                   )}
                   {recommendation.status === "filming" && publishedVideos.length > 0 && (
                     <div className="flex w-full flex-wrap items-center gap-2 pt-1">
