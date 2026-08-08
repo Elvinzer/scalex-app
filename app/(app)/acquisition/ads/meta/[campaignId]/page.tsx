@@ -176,7 +176,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const maxSpend = Math.max(1, ...detail.daily.map((point) => point.spendCents ?? 0));
   const targets = detail.campaign.targets ?? { targetCpaCents: null, targetRoas: null, leadValueCents: null };
   const targetCpaEuros = targets.targetCpaCents === null ? null : targets.targetCpaCents / 100;
-  const cplTargetLabel = targetVarianceLabel(cpl, targetCpaEuros);
+  const cplApplicable = !instagramGrowth;
+  const cplTargetLabel = cplApplicable ? targetVarianceLabel(cpl, targetCpaEuros) : null;
   const roasTargetLabel = targetVarianceLabel(metaRoas, targets.targetRoas);
   const leadValueLabel = targets.leadValueCents === null ? null : `Valeur lead ${formatEur(targets.leadValueCents / 100)}`;
   const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain && offer.price !== null);
@@ -308,7 +309,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance="Meta · brute · directe" />
         <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance="Meta · dérivée · directe" />
-        <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, leadValueLabel, targetCpaEuros === null ? null : `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={trendLabel(cpl, comparisonCpl)} provenance="Meta · dérivée · directe" />
+        <Metric label="Coût / lead" value={!cplApplicable || cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, cplApplicable ? leadValueLabel : null, cplApplicable && targetCpaEuros !== null ? `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}` : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl) : "Non applicable"} provenance="Meta · dérivée · directe" />
         <Metric label="ROAS Meta" value={instagramGrowth ? "—" : metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={instagramGrowth ? "Non applicable pour une campagne de croissance Instagram · objectif profil" : [purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={instagramGrowth ? "Non applicable" : trendLabel(metaRoas, comparisonRoas)} provenance="Meta · dérivée · directe" />
         <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance="Stripe + Meta · dérivée · jointe" />
         <Metric label="Statut" value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? "Budget Meta non exposé" : `${formatEur(detail.campaign.dailyBudgetCents / 100)} / jour`} provenance="Meta · brute · directe" />

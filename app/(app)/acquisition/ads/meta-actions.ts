@@ -19,7 +19,9 @@ import { requireUserId } from "@/lib/current-user";
 import { decrypt } from "@/lib/crypto";
 import { createMetaTouchpoint } from "@/lib/meta-ads/attribution";
 import { getMetaObject, MetaApiError, parseMetaOptionalNumber, updateMetaObject } from "@/lib/meta-ads/client";
+import { materializeMetaAdsInsights } from "@/lib/meta-ads/insights";
 import { metaAdsManagerUrl, normalizeAdAccountId } from "@/lib/meta-ads/protocol";
+import { getMetaAdsDashboard } from "@/lib/meta-ads/queries";
 import { buildMetaTrackingUrl } from "@/lib/meta-ads/tracking";
 import { isMetaTokenExpiredError } from "@/lib/meta-ads/sync-state";
 import { META_CAMPAIGN_TYPES, type MetaEntityLevel } from "@/lib/meta-ads/types";
@@ -355,6 +357,16 @@ export async function setMetaCampaignType(input: unknown): Promise<{ error: stri
     .update(metaCampaigns)
     .set({ campaignType: parsed.data.campaignType, updatedAt: now })
     .where(and(eq(metaCampaigns.id, campaign.id), eq(metaCampaigns.userId, access.accountId)));
+
+  // Re-evaluate the current period immediately. The detail page filters out
+  // the old type, so a failed refresh can only leave the page without stale
+  // recommendations rather than showing rules for the previous module.
+  try {
+    const dashboard = await getMetaAdsDashboard(access.accountId);
+    if (dashboard) await materializeMetaAdsInsights(access.accountId, dashboard);
+  } catch (error) {
+    console.error("Meta Ads insight refresh after campaign type change failed", error instanceof Error ? error.message : "unknown");
+  }
 
   revalidatePath("/acquisition/ads");
   revalidatePath(`/acquisition/ads/meta/${campaign.id}`);

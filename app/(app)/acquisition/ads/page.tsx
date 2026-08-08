@@ -126,7 +126,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
 
   const stateText =
     metaDashboard
-      ? `Meta Ads : ${metricValue(metaDashboard.totals, "spendCents") === null ? "dépenses indisponibles" : `${formatEur((metricValue(metaDashboard.totals, "spendCents") ?? 0) / 100)} dépensés`}, ${metricValue(metaDashboard.totals, "leads") === null ? "leads indisponibles" : `${metricValue(metaDashboard.totals, "leads")} lead(s) mesuré(s)`} sur les 30 derniers jours.`
+      ? `Meta Ads : ${metricValue(metaDashboard.totals, "spendCents") === null ? "dépenses indisponibles" : `${formatEur((metricValue(metaDashboard.totals, "spendCents") ?? 0) / 100)} dépensés`}, ${metricValue(metaDashboard.totals, "leads") === null ? "leads indisponibles" : `${metricValue(metaDashboard.totals, "leads")} lead(s) mesuré(s)`} sur les ${metaDashboard.period.days} derniers jours.`
       : avgCtr !== null
       ? `CTR moyen de ${formatPercent(avgCtr)}, coût par lead moyen de ${avgCpl === null ? "—" : formatEur(avgCpl)}.`
       : "Aucune campagne suivie pour l'instant.";

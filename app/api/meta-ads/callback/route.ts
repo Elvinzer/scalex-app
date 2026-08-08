@@ -108,10 +108,17 @@ export async function GET(request: NextRequest) {
         ? new Date(Date.now() + token.expiresInSeconds * 1000)
         : null;
     const [existingConnection] = await db
-      .select({ selectedAdAccountId: metaAdsConnections.selectedAdAccountId })
+      .select({
+        selectedAdAccountId: metaAdsConnections.selectedAdAccountId,
+        initialSyncStatus: metaAdsConnections.initialSyncStatus,
+        initialSyncCompletedAt: metaAdsConnections.initialSyncCompletedAt,
+        lastSyncStartedAt: metaAdsConnections.lastSyncStartedAt,
+        lastSyncCompletedAt: metaAdsConnections.lastSyncCompletedAt,
+      })
       .from(metaAdsConnections)
       .where(eq(metaAdsConnections.userId, access.accountId))
       .limit(1);
+    const preserveSyncState = isWriteStepUp && existingConnection !== undefined;
     const values = {
       userId: access.accountId,
       metaUserId: metaUser.id,
@@ -119,10 +126,12 @@ export async function GET(request: NextRequest) {
       accessTokenEncrypted: encrypt(token.accessToken),
       tokenExpiresAt,
       grantedScopes: scopes,
-      selectedAdAccountId: isWriteStepUp ? existingConnection?.selectedAdAccountId ?? null : null,
+      selectedAdAccountId: preserveSyncState ? existingConnection.selectedAdAccountId ?? null : null,
       status: "connected",
-      initialSyncStatus: "pending",
-      initialSyncCompletedAt: null,
+      initialSyncStatus: preserveSyncState ? existingConnection.initialSyncStatus : "pending",
+      initialSyncCompletedAt: preserveSyncState ? existingConnection.initialSyncCompletedAt : null,
+      lastSyncStartedAt: preserveSyncState ? existingConnection.lastSyncStartedAt : null,
+      lastSyncCompletedAt: preserveSyncState ? existingConnection.lastSyncCompletedAt : null,
       lastSyncError: null,
       updatedAt: new Date(),
     };
@@ -138,10 +147,12 @@ export async function GET(request: NextRequest) {
       db.update(users).set({ metaAdsConnected: true }).where(eq(users.id, access.accountId)),
     ]);
 
-    try {
-      await inngest.send(metaAdsAccountConnected.create({ userId: access.accountId }));
-    } catch (error) {
-      console.error("inngest.send(metaAdsAccountConnected) failed, Meta connection saved anyway", error);
+    if (!preserveSyncState) {
+      try {
+        await inngest.send(metaAdsAccountConnected.create({ userId: access.accountId }));
+      } catch (error) {
+        console.error("inngest.send(metaAdsAccountConnected) failed, Meta connection saved anyway", error);
+      }
     }
 
     const writeStatus = isWriteStepUp ? (scopes.includes("ads_management") ? "write_ready" : "write_declined") : "connected";

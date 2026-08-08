@@ -931,7 +931,21 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
       };
     }),
     attributionQuality,
-    insights: insightRows,
+    // Insights are materialized per campaign type and period. A campaign can
+    // be manually reclassified after the last sync, so do not show a stale
+    // rule from the previous type or a different period while the next
+    // materialization is pending.
+    insights: insightRows.filter((row) => {
+      const snapshot = row.snapshot;
+      return (
+        typeof snapshot === "object" &&
+        snapshot !== null &&
+        !Array.isArray(snapshot) &&
+        snapshot.campaignType === selectedCampaign.campaignType &&
+        snapshot.periodStart === dashboard.period.start &&
+        snapshot.periodEnd === dashboard.period.end
+      );
+    }),
     actionLogs: actionLogRows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),
   };
 }
