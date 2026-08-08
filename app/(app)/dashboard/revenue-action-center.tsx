@@ -65,7 +65,7 @@ function RevenueActionCenterContent({ actions }: { actions: RevenueAction[] }) {
           <h2 id="revenue-actions-title" className="text-base font-bold">
             À faire maintenant
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">Les actions qui peuvent encore faire avancer ton chiffre.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Les actions qui peuvent faire avancer ton chiffre.</p>
         </div>
         <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent">
           {actions.length} {actions.length > 1 ? "actions" : "action"}
