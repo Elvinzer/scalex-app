@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
+import { z } from "zod";
 
 import { MetaAdsConnectionCard } from "@/components/meta-ads/meta-ads-connection-card";
 import { MetaAdsDashboard } from "@/components/meta-ads/meta-ads-dashboard";
 import type { MetaAdsDashboard as MetaAdsDashboardData, MetaCampaignDashboardRow, MetaMetricKey, MetaMetricTotals } from "@/lib/meta-ads/queries";
-import type { MetaCampaignType } from "@/lib/meta-ads/types";
+import { META_CAMPAIGN_TYPES, type MetaCampaignType } from "@/lib/meta-ads/types";
 
 const ALL_METRICS: MetaMetricKey[] = [
   "spendCents",
@@ -25,6 +26,7 @@ const ALL_METRICS: MetaMetricKey[] = [
 
 const FIXTURE_NOW = "2026-08-08";
 const FIXTURE_SYNCED_AT = "2026-08-08T08:00:00.000Z";
+const fixtureSearchParamsSchema = z.object({ module: z.enum(META_CAMPAIGN_TYPES).optional() });
 
 function metrics(overrides: Partial<Omit<MetaMetricTotals, "available">>): MetaMetricTotals {
   const values: Omit<MetaMetricTotals, "available"> = {
@@ -117,13 +119,14 @@ function campaign(
   };
 }
 
-function buildDashboard(): MetaAdsDashboardData {
-  const campaigns = [
+function buildDashboard(selectedType?: MetaCampaignType): MetaAdsDashboardData {
+  const allCampaigns = [
     campaign("11111111-1111-4111-8111-111111111111", "VSL — Angle douleur principale", "vsl", metrics({ spendCents: 186_000, impressions: 48_200, reach: 31_400, clicks: 2_100, linkClicks: 1_460, leads: 64, landingPageViews: 1_110, video3sViews: 18_500, videoThruplay: 7_100, purchases: 4, purchaseValueCents: 48_000 }), 3_500),
     campaign("22222222-2222-4222-8222-222222222222", "Webinaire — Session août", "webinar", metrics({ spendCents: 124_000, impressions: 32_800, reach: 23_200, clicks: 1_260, linkClicks: 920, leads: 48, registrations: 42, purchases: 2, purchaseValueCents: 24_000 }), 2_800),
     campaign("33333333-3333-4333-8333-333333333333", "Profil Instagram — Preuve sociale", "instagram_profile_growth", metrics({ spendCents: 72_000, impressions: 21_400, reach: 14_900, clicks: 860, linkClicks: 540, profileVisits: 390, follows: 0 }), null),
     campaign("44444444-4444-4444-8444-444444444444", "Retargeting — 30 jours", "retargeting", metrics({ spendCents: 98_000, impressions: 15_600, reach: 4_200, clicks: 740, linkClicks: 510, leads: 31, purchases: 3, purchaseValueCents: 36_000 }), 3_200),
   ];
+  const campaigns = selectedType ? allCampaigns.filter((row) => row.campaignType === selectedType) : allCampaigns;
 
   const totals = metrics({
     spendCents: campaigns.reduce((total, row) => total + row.metrics.spendCents, 0),
@@ -176,8 +179,10 @@ function buildDashboard(): MetaAdsDashboardData {
   };
 }
 
-export default function MetaAdsE2EFixturePage() {
+export default async function MetaAdsE2EFixturePage({ searchParams }: { searchParams: Promise<{ module?: string }> }) {
   if (process.env.NODE_ENV === "production") notFound();
+  const parsedSearchParams = fixtureSearchParamsSchema.safeParse(await searchParams);
+  const selectedType = parsedSearchParams.success ? parsedSearchParams.data.module : undefined;
 
   return (
     <main className="min-h-screen overflow-x-clip bg-panel px-4 py-8 md:px-16">
@@ -186,6 +191,12 @@ export default function MetaAdsE2EFixturePage() {
           <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Fixture locale uniquement · Meta Ads</p>
           <h1 className="mt-1 text-3xl font-bold">Meta Ads — fixture responsive</h1>
           <p className="mt-1 text-sm text-muted-foreground">Données synthétiques pour vérifier les états UI, les tableaux scrollables et les alternatives accessibles.</p>
+          <nav className="mt-3 flex flex-wrap gap-2 text-xs font-bold" aria-label="Modules de fixture Meta Ads">
+            <a href="/e2e/meta-ads" className="rounded-[var(--radius-control)] border border-border px-3 py-2 hover:bg-muted">Tous les modules</a>
+            {META_CAMPAIGN_TYPES.filter((type) => type !== "other").map((type) => (
+              <a key={type} href={`/e2e/meta-ads?module=${type}`} className="rounded-[var(--radius-control)] border border-border px-3 py-2 hover:bg-muted">{type}</a>
+            ))}
+          </nav>
         </div>
 
         <MetaAdsConnectionCard
@@ -202,7 +213,7 @@ export default function MetaAdsE2EFixturePage() {
           connectionNotice={null}
         />
 
-        <MetaAdsDashboard data={buildDashboard()} />
+        <MetaAdsDashboard data={buildDashboard(selectedType)} />
       </div>
     </main>
   );

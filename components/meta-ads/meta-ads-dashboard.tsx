@@ -2,6 +2,7 @@ import { ArrowUpRight, BarChart3, Eye, MousePointerClick, Play, UserPlus } from 
 
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
+import { safeRatio as ratio } from "@/lib/meta-ads/derived-metrics";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { META_PERIOD_OPTIONS } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
@@ -39,10 +40,6 @@ function correctionSummary(snapshot: Record<string, unknown>): string {
       return typeof value === "number" && Number.isFinite(value) ? [`${label} ${correctionValue(value, field)}`] : [];
     })
     .join(" · ") || "Valeurs détaillées indisponibles";
-}
-
-function ratio(numerator: number | null, denominator: number | null): number | null {
-  return numerator !== null && denominator !== null && denominator > 0 ? numerator / denominator : null;
 }
 
 function typeLabel(value: MetaCampaignDashboardRow["campaignType"]): string {

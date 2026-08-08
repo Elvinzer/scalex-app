@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { upsertMaterializedInsight, type MaterializedInsight } from "@/lib/insight-execution/source-adapters";
 
 import type { MetaCampaignType, MetaInsightSnapshot, MetaProvenance, MetaWebinarObservation } from "./types";
+import { safeRatio as ratio } from "./derived-metrics";
 import { metricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow } from "./queries";
 import { targetVarianceLabel } from "./targets";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
@@ -103,10 +104,6 @@ function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
     case "rt_fenetre_inefficace":
       return `Sur la prochaine période comparable, ramener le CPA de la fenêtre inefficace sous ${RT_WINDOW_CPA_RATIO.toFixed(1)}× celui de la meilleure fenêtre, ou la désactiver après contrôle du volume.`;
   }
-}
-
-function ratio(numerator: number | null, denominator: number | null): number | null {
-  return numerator !== null && denominator !== null && denominator > 0 ? numerator / denominator : null;
 }
 
 function webinarSourceLabel(source: MetaWebinarObservation["source"]): string {

@@ -16,16 +16,13 @@ import { META_INSIGHT_THRESHOLDS } from "@/lib/meta-ads/thresholds";
 import { buildMetaAudienceWarnings } from "@/lib/meta-ads/audience-warnings";
 import { buildMetaAdsInsights, materializeMetaAdsInsights } from "@/lib/meta-ads/insights";
 import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
+import { safeRatio as ratio } from "@/lib/meta-ads/derived-metrics";
 import { getMetaAdsDashboard, getMetaCampaignDetail, metricValue, rawMetaMetricValue } from "@/lib/meta-ads/queries";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
-
-function ratio(numerator: number | null, denominator: number | null): number | null {
-  return numerator !== null && denominator !== null && denominator > 0 ? numerator / denominator : null;
-}
 
 function typeLabel(value: string): string {
   if (value === "vsl") return "VSL";
@@ -84,6 +81,16 @@ function Metric({ label, value, detail, comparison, provenance }: { label: strin
   );
 }
 
+function TableMetric({ value, provenance, detail }: { value: string; provenance: string; detail?: string }) {
+  return (
+    <div>
+      <span>{value}</span>
+      <span className="mt-1 block text-[10px] font-normal leading-4 text-muted-foreground">{provenance}</span>
+      {detail && <span className="block text-[10px] font-normal leading-4 text-muted-foreground">{detail}</span>}
+    </div>
+  );
+}
+
 function metricProvenance(
   source: string,
   calculation: "brute" | "dérivée",
@@ -93,7 +100,7 @@ function metricProvenance(
   return `${source} · ${calculation} · ${available ? attribution : "indisponible"}`;
 }
 
-function ProgressRow({ label, numerator, denominator }: { label: string; numerator: number | null; denominator: number | null }) {
+function ProgressRow({ label, numerator, denominator, unavailableReason }: { label: string; numerator: number | null; denominator: number | null; unavailableReason?: string }) {
   const rate = ratio(numerator, denominator);
   const width = rate === null ? 0 : Math.min(100, Math.max(3, rate * 100));
   return (
@@ -102,7 +109,10 @@ function ProgressRow({ label, numerator, denominator }: { label: string; numerat
       <div className="h-2 flex-1 rounded-full bg-muted">
         {rate !== null && <div className="h-2 rounded-full bg-accent-2" style={{ width: `${width}%` }} />}
       </div>
-      <span className="w-16 text-right text-xs font-bold tabular-nums">{rate === null ? "—" : formatPercent(rate)}</span>
+      <span className="w-40 shrink-0 text-right text-xs font-bold tabular-nums">
+        <span>{rate === null ? "—" : formatPercent(rate)}</span>
+        {rate === null && <span className="mt-1 block text-[10px] font-normal leading-4 text-muted-foreground">{unavailableReason ?? "Indisponible sur la période"}</span>}
+      </span>
     </div>
   );
 }
@@ -497,13 +507,21 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                   const placementImpressions = metricValue(placement.metrics, "impressions");
                   const placementClicks = metricValue(placement.metrics, "linkClicks");
                   const placementReach = metricValue(placement.metrics, "reach");
+                  const placementCtr = ratio(placementClicks, placementImpressions);
+                  const placementFrequency = ratio(placementImpressions, placementReach);
                   return (
                     <tr key={`${placement.publisherPlatform}:${placement.platformPosition}`} className="border-b border-border last:border-0">
                       <td className="sticky left-0 z-10 bg-card px-4 py-3 font-bold">{placement.publisherPlatform}</td>
                       <td className="px-4 py-3">{placement.platformPosition}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{placementSpend === null ? "—" : formatEur(placementSpend / 100)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{placementImpressions === null || placementClicks === null ? "—" : formatPercent(ratio(placementClicks, placementImpressions) ?? 0)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{placementImpressions === null || placementReach === null ? "—" : ratio(placementImpressions, placementReach)?.toFixed(1) ?? "—"}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        <TableMetric value={placementSpend === null ? "—" : formatEur(placementSpend / 100)} provenance={metricProvenance("Meta", "brute", placementSpend !== null)} />
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        <TableMetric value={placementCtr === null ? "—" : formatPercent(placementCtr)} provenance={metricProvenance("Meta", "dérivée", placementCtr !== null)} />
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        <TableMetric value={placementFrequency === null ? "—" : placementFrequency.toFixed(1)} provenance={metricProvenance("Meta", "dérivée", placementFrequency !== null)} />
+                      </td>
                     </tr>
                   );
                 })}
@@ -580,7 +598,9 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                     <td className="px-4 py-3">{audience.included.length > 0 ? audience.included.join(", ") : audience.targetingAvailable ? "Ciblage détaillé non nommé" : "—"}</td>
                     <td className="px-4 py-3">{audience.excluded.length > 0 ? audience.excluded.join(", ") : audience.targetingAvailable ? "Aucune exclusion nommée" : "—"}</td>
                     <td className="px-4 py-3">{audience.windowDays === null ? "Fenêtre non déduite" : `${audience.windowDays} jours · déduite du libellé`} · {audience.active ? "active" : "inactive"}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{audience.cpaCents === null ? "—" : formatEur(audience.cpaCents / 100)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      <TableMetric value={audience.cpaCents === null ? "—" : formatEur(audience.cpaCents / 100)} provenance={metricProvenance("Meta", "dérivée", audience.cpaCents !== null)} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -627,10 +647,18 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 {detail.daily.map((point) => (
                   <tr key={`daily-row-${point.date}`} className="border-b border-border last:border-0">
                     <td className="sticky left-0 z-10 bg-card px-3 py-2 font-bold">{point.date}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{point.spendCents === null ? "—" : formatEur(point.spendCents / 100)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{point.impressions === null ? "—" : point.impressions.toLocaleString("fr-FR")}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{point.linkClicks === null ? "—" : point.linkClicks.toLocaleString("fr-FR")}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{point.leads === null ? "—" : point.leads.toLocaleString("fr-FR")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <TableMetric value={point.spendCents === null ? "—" : formatEur(point.spendCents / 100)} provenance={metricProvenance("Meta", "brute", point.spendCents !== null)} />
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <TableMetric value={point.impressions === null ? "—" : point.impressions.toLocaleString("fr-FR")} provenance={metricProvenance("Meta", "brute", point.impressions !== null)} />
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <TableMetric value={point.linkClicks === null ? "—" : point.linkClicks.toLocaleString("fr-FR")} provenance={metricProvenance("Meta", "brute", point.linkClicks !== null)} />
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <TableMetric value={point.leads === null ? "—" : point.leads.toLocaleString("fr-FR")} provenance={metricProvenance("Meta", "brute", point.leads !== null)} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -647,16 +675,16 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
             {detail.campaign.campaignType === "vsl" ? <Play className="size-5 text-accent-2" /> : detail.campaign.campaignType === "instagram_profile_growth" ? <UserPlus className="size-5 text-accent-2" /> : <MousePointerClick className="size-5 text-accent-2" />}
           </div>
           <div className="mt-5 space-y-4">
-            <ProgressRow label="Clic / impression" numerator={linkClicks} denominator={impressions} />
-            {detail.campaign.campaignType === "vsl" && <ProgressRow label="Vue 3 sec." numerator={video3sViews} denominator={impressions} />}
-            {detail.campaign.campaignType === "vsl" && <ProgressRow label="ThruPlay / vue" numerator={videoThruplay} denominator={video3sViews} />}
+            <ProgressRow label="Clic / impression" numerator={linkClicks} denominator={impressions} unavailableReason="Clics ou impressions Meta indisponibles sur la période" />
+            {detail.campaign.campaignType === "vsl" && <ProgressRow label="Vue 3 sec." numerator={video3sViews} denominator={impressions} unavailableReason="Source vidéo Meta indisponible sur la période" />}
+            {detail.campaign.campaignType === "vsl" && <ProgressRow label="ThruPlay / vue" numerator={videoThruplay} denominator={video3sViews} unavailableReason="Source vidéo Meta indisponible sur la période" />}
             {detail.campaign.campaignType === "vsl" && <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">Lecture VSL et watch depth : indisponibles · source manquante : événements de lecture de la page VSL.</p>}
-            {detail.campaign.campaignType === "instagram_profile_growth" && <ProgressRow label="Follow / visite" numerator={observedFollows} denominator={profileVisits} />}
+            {detail.campaign.campaignType === "instagram_profile_growth" && <ProgressRow label="Follow / visite" numerator={observedFollows} denominator={profileVisits} unavailableReason={detail.dashboard.instagramObservation.connected ? "Observation Instagram indisponible sur la période" : "Source manquante : connexion Instagram"} />}
             {detail.campaign.campaignType === "instagram_profile_growth" && <p className="text-xs text-muted-foreground">Coût / follower observé : {spendCents !== null && observedFollows !== null && observedFollows > 0 ? formatEur(spendCents / observedFollows / 100) : "—"} · Meta + Instagram · dérivée · estimée. {detail.dashboard.instagramObservation.connected ? "Les abonnements sont observés séparément, sans attribution directe." : "Étape indisponible · connecte Instagram pour observer les abonnements."}</p>}
             {detail.campaign.campaignType === "webinar" && (
               <>
-                <ProgressRow label="Inscriptions" numerator={registrations} denominator={linkClicks} />
-                <ProgressRow label="Présents" numerator={webinarParticipants} denominator={registrations} />
+                <ProgressRow label="Inscriptions" numerator={registrations} denominator={linkClicks} unavailableReason="Inscriptions Meta indisponibles sur la période" />
+                <ProgressRow label="Présents" numerator={webinarParticipants} denominator={registrations} unavailableReason="Source manquante : événement de présence du webinar" />
                 {webinarParticipants === null ? (
                   <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
                     Présence live et présence jusqu&apos;au pitch : indisponibles · source manquante : événement du webinar.
@@ -717,17 +745,34 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                   const rowLinkClicks = metricValue(row.metrics, "linkClicks");
                   const rowReach = metricValue(row.metrics, "reach");
                   const rowSpend = metricValue(row.metrics, "spendCents");
+                  const rowLeads = metricValue(row.metrics, "leads");
+                  const rowBudgetShare = ratio(rowSpend, spendCents);
+                  const rowCtr = ratio(rowLinkClicks, rowImpressions);
+                  const rowFrequency = ratio(rowImpressions, rowReach);
+                  const rowCpa = creativeCpaCents(row);
                   return (
                     <>
                 <td className="sticky left-0 z-10 bg-card px-5 py-3 text-xs font-bold text-muted-foreground">{index + 1}</td>
                 <td className="px-5 py-3 font-bold"><a href={row.deepLink} target="_blank" rel="noopener noreferrer" className="underline-offset-4 hover:underline">{row.name}</a></td>
                 <td className="px-5 py-3 text-muted-foreground">Ad set</td>
-                <td className="px-5 py-3 text-right tabular-nums">{metricValue(row.metrics, "spendCents") === null ? "—" : formatEur((metricValue(row.metrics, "spendCents") ?? 0) / 100)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{rowSpend === null || spendCents === null ? "—" : formatPercent(ratio(rowSpend, spendCents) ?? 0)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowLinkClicks === null ? "—" : formatPercent(ratio(rowLinkClicks, rowImpressions) ?? 0)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowReach === null ? "—" : (ratio(rowImpressions, rowReach)?.toFixed(1) ?? "—")}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{metricValue(row.metrics, "leads") === null ? "—" : metricValue(row.metrics, "leads")}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{creativeCpaCents(row) === null ? "—" : formatEur(creativeCpaCents(row)! / 100)}</td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowSpend === null ? "—" : formatEur(rowSpend / 100)} provenance={metricProvenance("Meta", "brute", rowSpend !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowBudgetShare === null ? "—" : formatPercent(rowBudgetShare)} provenance={metricProvenance("Meta", "dérivée", rowBudgetShare !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowCtr === null ? "—" : formatPercent(rowCtr)} provenance={metricProvenance("Meta", "dérivée", rowCtr !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowFrequency === null ? "—" : rowFrequency.toFixed(1)} provenance={metricProvenance("Meta", "dérivée", rowFrequency !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowLeads === null ? "—" : rowLeads.toLocaleString("fr-FR")} provenance={metricProvenance("Meta", "brute", rowLeads !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowCpa === null ? "—" : formatEur(rowCpa / 100)} provenance={metricProvenance("Meta", "dérivée", rowCpa !== null)} />
+                </td>
                 <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= detail.dashboard.frequencySaturationThreshold ? ` · fréquence ≥ ${detail.dashboard.frequencySaturationThreshold}×` : ""}</td>
                 <td className="px-5 py-3 text-right">
                   <MetaEntityAction entityType="adset" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} returnTo={`/acquisition/ads/meta/${detail.campaign.id}?meta_days=${periodDays}`} />
@@ -744,17 +789,34 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                   const rowLinkClicks = metricValue(row.metrics, "linkClicks");
                   const rowReach = metricValue(row.metrics, "reach");
                   const rowSpend = metricValue(row.metrics, "spendCents");
+                  const rowLeads = metricValue(row.metrics, "leads");
+                  const rowBudgetShare = ratio(rowSpend, spendCents);
+                  const rowCtr = ratio(rowLinkClicks, rowImpressions);
+                  const rowFrequency = ratio(rowImpressions, rowReach);
+                  const rowCpa = creativeCpaCents(row);
                   return (
                     <>
                 <td className="sticky left-0 z-10 bg-card px-5 py-3 text-xs font-bold text-muted-foreground">{index + 1}</td>
                 <td className="px-5 py-3"><a href={row.deepLink} target="_blank" rel="noopener noreferrer" className="font-bold underline-offset-4 hover:underline">{row.name}</a>{row.creativeName && <span className="ml-2 text-xs text-muted-foreground">· {row.creativeName}</span>}</td>
                 <td className="px-5 py-3 text-muted-foreground">Ad</td>
-                <td className="px-5 py-3 text-right tabular-nums">{metricValue(row.metrics, "spendCents") === null ? "—" : formatEur((metricValue(row.metrics, "spendCents") ?? 0) / 100)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{rowSpend === null || spendCents === null ? "—" : formatPercent(ratio(rowSpend, spendCents) ?? 0)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowLinkClicks === null ? "—" : formatPercent(ratio(rowLinkClicks, rowImpressions) ?? 0)}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowReach === null ? "—" : (ratio(rowImpressions, rowReach)?.toFixed(1) ?? "—")}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{metricValue(row.metrics, "leads") === null ? "—" : metricValue(row.metrics, "leads")}</td>
-                <td className="px-5 py-3 text-right tabular-nums">{creativeCpaCents(row) === null ? "—" : formatEur(creativeCpaCents(row)! / 100)}</td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowSpend === null ? "—" : formatEur(rowSpend / 100)} provenance={metricProvenance("Meta", "brute", rowSpend !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowBudgetShare === null ? "—" : formatPercent(rowBudgetShare)} provenance={metricProvenance("Meta", "dérivée", rowBudgetShare !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowCtr === null ? "—" : formatPercent(rowCtr)} provenance={metricProvenance("Meta", "dérivée", rowCtr !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowFrequency === null ? "—" : rowFrequency.toFixed(1)} provenance={metricProvenance("Meta", "dérivée", rowFrequency !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowLeads === null ? "—" : rowLeads.toLocaleString("fr-FR")} provenance={metricProvenance("Meta", "brute", rowLeads !== null)} />
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  <TableMetric value={rowCpa === null ? "—" : formatEur(rowCpa / 100)} provenance={metricProvenance("Meta", "dérivée", rowCpa !== null)} />
+                </td>
                 <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= detail.dashboard.frequencySaturationThreshold ? ` · fréquence ≥ ${detail.dashboard.frequencySaturationThreshold}× à vérifier` : ""}</td>
                 <td className="px-5 py-3 text-right">
                   <MetaEntityAction entityType="ad" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} returnTo={`/acquisition/ads/meta/${detail.campaign.id}?meta_days=${periodDays}`} />
