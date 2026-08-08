@@ -26,6 +26,7 @@ import {
 import { classifyMetaCampaign } from "./classification";
 import { materializeMetaAdsInsights } from "./insights";
 import { parseMetaInsightMetrics } from "./metric-parser";
+import { buildMetaMetricCorrectionSnapshot, metaMetricCorrectionSnapshotChanged } from "./metric-snapshot";
 import { metaConnectionFailureStatus, metaSyncErrorMessage } from "./sync-state";
 import { getMetaAdsDashboard } from "./queries";
 import {
@@ -330,40 +331,6 @@ async function upsertAds(
   return imported;
 }
 
-const correctionFields = [
-  "spendCents",
-  "impressions",
-  "reach",
-  "clicks",
-  "linkClicks",
-  "ctr",
-  "cpcCents",
-  "cpmCents",
-  "leads",
-  "landingPageViews",
-  "video3sViews",
-  "videoThruplay",
-  "videoP25",
-  "videoP50",
-  "videoP75",
-  "videoP95",
-  "videoP100",
-  "profileVisits",
-  "follows",
-  "registrations",
-  "purchases",
-  "purchaseValueCents",
-  "messages",
-] as const;
-
-function metricSnapshot(row: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(correctionFields.map((field) => [field, row[field] ?? null]));
-}
-
-function metricSnapshotChanged(before: Record<string, unknown>, after: Record<string, unknown>): boolean {
-  return correctionFields.some((field) => before[field] !== after[field]);
-}
-
 async function upsertMetrics(
   userId: string,
   adAccountId: string,
@@ -391,9 +358,9 @@ async function upsertMetrics(
         ),
       )
       .limit(1);
-    const beforeSnapshot = existing ? metricSnapshot(existing as unknown as Record<string, unknown>) : null;
-    const afterSnapshot = metricSnapshot(values as unknown as Record<string, unknown>);
-    if (existing?.consolidationUntil && existing.consolidationUntil <= new Date() && beforeSnapshot && metricSnapshotChanged(beforeSnapshot, afterSnapshot)) {
+    const beforeSnapshot = existing ? buildMetaMetricCorrectionSnapshot(existing as unknown as Record<string, unknown>) : null;
+    const afterSnapshot = buildMetaMetricCorrectionSnapshot(values as unknown as Record<string, unknown>);
+    if (existing?.consolidationUntil && existing.consolidationUntil <= new Date() && beforeSnapshot && metaMetricCorrectionSnapshotChanged(beforeSnapshot, afterSnapshot)) {
       await db.insert(metaAdMetricCorrections).values({
         userId,
         adAccountId,
