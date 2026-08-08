@@ -82,12 +82,57 @@ function dashboard(campaign: MetaAdsDashboard["campaigns"][number]): MetaAdsDash
 
 describe("Meta Ads insight catalogue", () => {
   it("fires the VSL retention rule with its evidence fields", () => {
-    const data = dashboard({ id: "campaign", externalId: "c1", name: "VSL test", objective: "VIDEO_VIEWS", effectiveStatus: "ACTIVE", campaignType: "vsl", typeSource: "manual", metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }), comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true }), latestDate: "2026-08-08" });
+    const data = dashboard({ id: "campaign", externalId: "c1", name: "VSL test", objective: "VIDEO_VIEWS", effectiveStatus: "ACTIVE", campaignType: "vsl", typeSource: "manual", metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }), comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true, videoThruplay: false }), latestDate: "2026-08-08" });
     const [insight] = buildMetaAdsInsights(data);
     expect(insight?.ruleKey).toBe("vsl_hook_ok_retention_faible");
     expect(insight?.evidence).toContain("30 %");
+    expect(insight?.comparisonValue).toBeNull();
     expect(insight?.recommendedAction).toContain("Tester");
     expect(insight?.successCriterion).toContain("hold rate");
+  });
+
+  it("keeps each VSL insight comparison on the same metric key", () => {
+    const data = dashboard({
+      id: "campaign",
+      externalId: "c1",
+      name: "VSL funnel",
+      objective: "LEAD_GENERATION",
+      effectiveStatus: "ACTIVE",
+      campaignType: "vsl",
+      typeSource: "manual",
+      metrics: totals({ impressions: 10_000, linkClicks: 500, landingPageViews: 500, leads: 20 }, { impressions: true, linkClicks: true, landingPageViews: true, leads: true }),
+      comparisonMetrics: totals({ impressions: 10_000, linkClicks: 400, landingPageViews: 400, leads: 40 }, { impressions: true, linkClicks: true, landingPageViews: true, leads: true }),
+      latestDate: "2026-08-08",
+    });
+    const insight = buildMetaAdsInsights(data).find((proposal) => proposal.ruleKey === "vsl_ctr_ok_landing_faible");
+    expect(insight?.metricKey).toBe("landing_to_lead_rate");
+    expect(insight?.currentValue).toBeCloseTo(0.04);
+    expect(insight?.comparisonValue).toBeCloseTo(0.1);
+    expect(insight?.insightText).toContain("10%");
+  });
+
+  it("keeps the Instagram follow-rate comparison aligned with the metric", () => {
+    const data = dashboard({
+      id: "campaign",
+      externalId: "c1",
+      name: "Instagram growth",
+      objective: "PROFILE_VISITS",
+      effectiveStatus: "ACTIVE",
+      campaignType: "instagram_profile_growth",
+      typeSource: "manual",
+      metrics: totals({ impressions: 10_000, spendCents: 8_000, profileVisits: 1_000 }, { impressions: true, spendCents: true, profileVisits: true }),
+      comparisonMetrics: totals({ impressions: 10_000, spendCents: 12_000, profileVisits: 1_000 }, { impressions: true, spendCents: true, profileVisits: true }),
+      instagramObservation: {
+        connected: true,
+        current: { follows: 50, interactions: 300, engagementPerFollower: 6 },
+        comparison: { follows: 100, interactions: 500, engagementPerFollower: 5 },
+      },
+      latestDate: "2026-08-08",
+    });
+    const insight = buildMetaAdsInsights(data).find((proposal) => proposal.ruleKey === "ig_visites_ok_follow_bas");
+    expect(insight?.metricKey).toBe("profile_to_follow_rate");
+    expect(insight?.currentValue).toBeCloseTo(0.05);
+    expect(insight?.comparisonValue).toBeCloseTo(0.1);
   });
 
   it("does not invent a webinar insight when attendance is unavailable", () => {

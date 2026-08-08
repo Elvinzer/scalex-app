@@ -189,21 +189,23 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
     const holdRate = ratio(metricValue(metrics, "videoThruplay"), metricValue(metrics, "video3sViews"));
     const comparison = campaign.comparisonMetrics;
     const comparisonImpressions = metricValue(comparison, "impressions");
-    const comparisonHookRate = ratio(metricValue(comparison, "video3sViews"), comparisonImpressions);
+    const comparisonVideo3sViews = metricValue(comparison, "video3sViews");
+    const comparisonHookRate = ratio(comparisonVideo3sViews, comparisonImpressions);
+    const comparisonHoldRate = ratio(metricValue(comparison, "videoThruplay"), comparisonVideo3sViews);
     if (comparisonCoverageReady && hookRate !== null && holdRate !== null && comparisonHookRate !== null && hookRate >= comparisonHookRate && holdRate < VSL_HOLD_RATE_THRESHOLD && metricValue(metrics, "video3sViews") !== null) {
       proposals.push(
         baseProposal(
           campaign,
           "vsl_hook_ok_retention_faible",
           "L’accroche VSL attire, mais la rétention décroche",
-          `La campagne « ${campaign.name} » a un hook rate de ${Math.round(hookRate * 100)}% contre ${Math.round(comparisonHookRate * 100)}% sur la période précédente, mais seulement ${Math.round(holdRate * 100)}% des vues de 3 secondes atteignent le ThruPlay. Le prochain test doit travailler la promesse et le rythme des premières secondes avant d’augmenter le budget.`,
+          `La campagne « ${campaign.name} » a un hook rate de ${Math.round(hookRate * 100)}% contre ${Math.round(comparisonHookRate * 100)}% sur la période précédente, mais son hold rate passe de ${comparisonHoldRate === null ? "—" : `${Math.round(comparisonHoldRate * 100)}%`} à ${Math.round(holdRate * 100)}%. Le prochain test doit travailler la promesse et le rythme des premières secondes avant d’augmenter le budget.`,
           "video_hold_rate",
           holdRate,
-          comparisonHookRate,
+          comparisonHoldRate,
           metricValue(metrics, "video3sViews") ?? 0,
           {
             priority: "high",
-            evidence: `Hook rate ${Math.round(comparisonHookRate * 100)} % → ${Math.round(hookRate * 100)} % · hold rate ${Math.round(holdRate * 100)} % · seuil de rétention ${Math.round(VSL_HOLD_RATE_THRESHOLD * 100)} % · ${metrics.video3sViews} vues de 3 secondes.`,
+            evidence: `Hook rate ${Math.round(comparisonHookRate * 100)} % → ${Math.round(hookRate * 100)} % · hold rate ${comparisonHoldRate === null ? "—" : `${Math.round(comparisonHoldRate * 100)} %`} → ${Math.round(holdRate * 100)} % · seuil de rétention ${Math.round(VSL_HOLD_RATE_THRESHOLD * 100)} % · ${metrics.video3sViews} vues de 3 secondes.`,
             diagnosis: "L’accroche obtient l’attention initiale, mais la promesse ou le rythme ne retient pas assez longtemps.",
             recommendedAction: "Tester une nouvelle promesse et un montage plus direct sur les premières secondes avant d’augmenter le budget.",
             expectedImpact: "Augmenter la rétention vidéo et la part de trafic qui poursuit le parcours VSL.",
@@ -218,20 +220,21 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
     const comparisonCtr = ratio(metricValue(campaign.comparisonMetrics, "linkClicks"), metricValue(campaign.comparisonMetrics, "impressions"));
     const landingToLeadRate = ratio(metricValue(metrics, "leads"), metricValue(metrics, "landingPageViews"));
     const landingPageViews = metricValue(metrics, "landingPageViews");
-    if (comparisonCoverageReady && ctr !== null && comparisonCtr !== null && landingToLeadRate !== null && ctr >= comparisonCtr && landingToLeadRate < VSL_LANDING_TO_LEAD_THRESHOLD && linkClicks !== null && linkClicks >= MIN_CLICKS && landingPageViews !== null && landingPageViews >= MIN_CLICKS) {
+    const comparisonLandingToLeadRate = ratio(metricValue(campaign.comparisonMetrics, "leads"), metricValue(campaign.comparisonMetrics, "landingPageViews"));
+    if (comparisonCoverageReady && ctr !== null && comparisonCtr !== null && landingToLeadRate !== null && comparisonLandingToLeadRate !== null && ctr >= comparisonCtr && landingToLeadRate < VSL_LANDING_TO_LEAD_THRESHOLD && linkClicks !== null && linkClicks >= MIN_CLICKS && landingPageViews !== null && landingPageViews >= MIN_CLICKS) {
       proposals.push(
         baseProposal(
           campaign,
           "vsl_ctr_ok_landing_faible",
-          "Le CTR est solide, mais la landing page perd une partie du trafic",
-          `Le CTR lien de « ${campaign.name} » passe de ${Math.round(comparisonCtr * 10000) / 100}% à ${Math.round(ctr * 10000) / 100}%, mais seulement ${Math.round(landingToLeadRate * 100)}% des vues de landing deviennent des leads. Vérifie le chargement, le formulaire et le tracking avant de modifier la créa.`,
+          "Le CTR tient, mais la landing page perd une partie du trafic",
+          `Le CTR lien de « ${campaign.name} » passe de ${Math.round(comparisonCtr * 10000) / 100}% à ${Math.round(ctr * 10000) / 100}%, tandis que le taux landing → lead passe de ${Math.round(comparisonLandingToLeadRate * 100)}% à ${Math.round(landingToLeadRate * 100)}%. Vérifie le chargement, le formulaire et le tracking avant de modifier la créa.`,
           "landing_to_lead_rate",
           landingToLeadRate,
-          comparisonCtr,
+          comparisonLandingToLeadRate,
           linkClicks,
           {
             priority: "high",
-            evidence: `CTR lien ${Math.round(comparisonCtr * 10000) / 100} % → ${Math.round(ctr * 10000) / 100} % · landing → lead ${Math.round(landingToLeadRate * 100)} % · seuil ${Math.round(VSL_LANDING_TO_LEAD_THRESHOLD * 100)} % · ${metrics.linkClicks} clics, ${landingPageViews} vues landing.`,
+            evidence: `CTR lien ${Math.round(comparisonCtr * 10000) / 100} % → ${Math.round(ctr * 10000) / 100} % · landing → lead ${Math.round(comparisonLandingToLeadRate * 100)} % → ${Math.round(landingToLeadRate * 100)} % · seuil ${Math.round(VSL_LANDING_TO_LEAD_THRESHOLD * 100)} % · ${metrics.linkClicks} clics, ${landingPageViews} vues landing.`,
             diagnosis: "Le trafic arrive sur la landing, mais la page ou le formulaire transforme peu de ces visites en leads.",
             recommendedAction: "Vérifier vitesse, redirections, friction du formulaire, consentement et présence du tracking sur la landing page.",
             expectedImpact: "Récupérer des leads à partir du trafic déjà acheté avant de modifier la créa.",
@@ -285,6 +288,8 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
     const currentSpend = metricValue(metrics, "spendCents");
     const comparisonSpend = metricValue(campaign.comparisonMetrics, "spendCents");
     const comparisonProfileVisits = metricValue(campaign.comparisonMetrics, "profileVisits");
+    const previousFollows = observation?.comparison.follows ?? null;
+    const comparisonFollowRate = ratio(previousFollows, comparisonProfileVisits);
     const currentCostPerVisit = currentSpend !== null && profileVisits !== null && profileVisits > 0 ? currentSpend / profileVisits : null;
     const comparisonCostPerVisit = comparisonSpend !== null && comparisonProfileVisits !== null && comparisonProfileVisits > 0 ? comparisonSpend / comparisonProfileVisits : null;
     if (comparisonCoverageReady && observation?.connected && followRate !== null && profileVisits !== null && follows !== null && profileVisits >= MIN_PROFILE_VISITS && currentCostPerVisit !== null && comparisonCostPerVisit !== null && currentCostPerVisit < comparisonCostPerVisit * (1 - IG_COST_PER_VISIT_IMPROVEMENT_THRESHOLD) && followRate < IG_FOLLOW_RATE_THRESHOLD) {
@@ -293,10 +298,10 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
           campaign,
           "ig_visites_ok_follow_bas",
           "Les visites de profil ne se transforment pas assez en abonnements",
-          `Le coût par visite du profil de « ${campaign.name} » baisse, mais ${follows} follow(s) seulement sont observés dans Instagram pour ${profileVisits} visite(s) Meta, soit ${Math.round(followRate * 100)}%. Teste une bio plus explicite, une preuve sociale visible et une créa qui préqualifie mieux la promesse.`,
+          `Le coût par visite du profil de « ${campaign.name} » baisse, mais le taux visite → follow observé passe de ${comparisonFollowRate === null ? "—" : `${Math.round(comparisonFollowRate * 100)}%`} à ${Math.round(followRate * 100)}% (${follows} follow(s) pour ${profileVisits} visite(s) Meta). Teste une bio plus explicite, une preuve sociale visible et une créa qui préqualifie mieux la promesse.`,
           "profile_to_follow_rate",
           followRate,
-          comparisonCostPerVisit,
+          comparisonFollowRate,
           profileVisits,
           {
             priority: "medium",
@@ -312,7 +317,6 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
       );
     }
 
-    const previousFollows = observation?.comparison.follows ?? null;
     const currentEngagement = observation?.current.engagementPerFollower ?? null;
     const previousEngagement = observation?.comparison.engagementPerFollower ?? null;
     if (comparisonCoverageReady && observation?.connected && follows !== null && previousFollows !== null && currentEngagement !== null && previousEngagement !== null && follows > previousFollows * (1 + IG_FOLLOWS_GROWTH_THRESHOLD) && currentEngagement < previousEngagement * (1 - IG_ENGAGEMENT_DECLINE_THRESHOLD)) {
