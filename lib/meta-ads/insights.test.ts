@@ -70,6 +70,7 @@ describe("Meta Ads insight catalogue", () => {
     expect(insight?.ruleKey).toBe("vsl_hook_ok_retention_faible");
     expect(insight?.evidence).toContain("30 %");
     expect(insight?.recommendedAction).toContain("Tester");
+    expect(insight?.successCriterion).toContain("hold rate");
   });
 
   it("does not invent a webinar insight when attendance is unavailable", () => {
@@ -83,6 +84,54 @@ describe("Meta Ads insight catalogue", () => {
     const data = dashboard({ id: "campaign", externalId: "c1", name: "Retargeting", objective: "CONVERSIONS", effectiveStatus: "ACTIVE", campaignType: "retargeting", typeSource: "manual", metrics: current, comparisonMetrics: previous, latestDate: "2026-08-08" });
     expect(buildMetaAdsInsights(data)).toHaveLength(1);
     expect(buildMetaAdsInsights(data)[0]?.ruleKey).toBe("rt_saturation");
+  });
+
+  it("flags a buyer exclusion gap and an inefficient named retargeting window only with targeting evidence", () => {
+    const data = dashboard({
+      id: "campaign",
+      externalId: "c1",
+      name: "Retargeting",
+      objective: "CONVERSIONS",
+      effectiveStatus: "ACTIVE",
+      campaignType: "retargeting",
+      typeSource: "manual",
+      metrics: totals({ impressions: 2_000 }, { impressions: true }),
+      comparisonMetrics: totals(),
+      retargetingAudiences: [
+        {
+          adSetId: "adset-buyers",
+          adSetName: "Acheteurs 30 jours",
+          active: true,
+          included: ["Acheteurs 30 jours"],
+          excluded: [],
+          buyerAudienceDetected: true,
+          buyerAudienceExcluded: false,
+          windowDays: 30,
+          spendCents: 5_000,
+          leads: 10,
+          cpaCents: 500,
+          targetingAvailable: true,
+        },
+        {
+          adSetId: "adset-prospects",
+          adSetName: "Prospects 7 jours",
+          active: true,
+          included: ["Prospects 7 jours"],
+          excluded: ["Acheteurs"],
+          buyerAudienceDetected: false,
+          buyerAudienceExcluded: true,
+          windowDays: 7,
+          spendCents: 1_000,
+          leads: 10,
+          cpaCents: 100,
+          targetingAvailable: true,
+        },
+      ],
+      latestDate: "2026-08-08",
+    });
+    const keys = buildMetaAdsInsights(data).map((insight) => insight.ruleKey);
+    expect(keys).toContain("rt_exclusion_manquante");
+    expect(keys).toContain("rt_fenetre_inefficace");
   });
 
   it("does not treat a missing Meta field as a zero", () => {

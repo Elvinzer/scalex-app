@@ -1,12 +1,10 @@
 "use client";
 
 import { CheckCircle2, CircleAlert } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
-import { launchInsight } from "@/lib/insight-execution/actions";
-import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/types";
-import { Button } from "@/components/ui/button";
+import { InsightLaunchDialog } from "@/components/insight-execution/insight-launch-dialog";
+import type { InsightDecision, InsightHistoryItem, InsightSnapshot } from "@/lib/insight-execution/types";
 
 type Props = {
   id: string;
@@ -17,9 +15,6 @@ type Props = {
 };
 
 export function MetaInsightCard({ id, title, insightText, decision, snapshot }: Props) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
   const [launched, setLaunched] = useState(decision === "launched" || decision === "completed");
   const provenance = snapshot.provenance;
   const snapshotText = (key: string): string | null => {
@@ -31,8 +26,24 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
   const diagnosis = snapshotText("diagnosis");
   const recommendedAction = snapshotText("recommendedAction");
   const expectedImpact = snapshotText("expectedImpact");
+  const successCriterion = snapshotText("successCriterion") ?? "Recontrôler cette métrique sur une période comparable après l’action.";
   const confidence = snapshotText("confidence");
   const sourceCoverage = snapshotText("sourceCoverage");
+  const metricKey = snapshotText("metricKey") ?? "métrique Meta";
+  const currentValue = snapshot.currentValue;
+  const metricValue = typeof currentValue === "number" && Number.isFinite(currentValue)
+    ? metricKey === "cash_per_lead" || metricKey === "retargeting_window_cpa"
+      ? `${(currentValue / 100).toFixed(2)} €`
+      : metricKey.endsWith("_rate") || metricKey === "profile_to_follow_rate" || metricKey === "instagram_engagement_per_follower"
+        ? `${(currentValue * 100).toFixed(1)} %`
+        : metricKey === "frequency"
+          ? `${currentValue.toFixed(1)}×`
+          : `${Math.round(currentValue)}`
+    : "—";
+  const metricPeriod = snapshotText("periodStart") && snapshotText("periodEnd")
+    ? `${snapshotText("periodStart")} → ${snapshotText("periodEnd")}`
+    : "période indisponible";
+  const sampleSize = typeof snapshot.sampleSize === "number" ? ` · ${Math.round(snapshot.sampleSize)} observation(s)` : "";
   const readableCalculation = (value: string): string => value === "derivee" ? "dérivée" : value === "brute" ? "brute" : value;
   const readableAttribution = (value: string): string => {
     if (value === "directe") return "directe";
@@ -51,23 +62,23 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
     return `Source ${source} · calcul ${readableCalculation(calculation)} · attribution ${readableAttribution(provenance.attribution)}`;
   })();
 
-  function adopt() {
-    setError(null);
-    startTransition(async () => {
-      const result = await launchInsight({
-        insightId: id,
-        targetType: "todo",
-        targetId: null,
-        dueDate: null,
-        makeWeeklyFocus: true,
-      });
-      if (result.error) setError(result.error);
-      else {
-        setLaunched(true);
-        router.refresh();
-      }
-    });
-  }
+  const historyInsight: InsightHistoryItem = {
+    id,
+    sourceType: "meta_ads",
+    sourceId: `${snapshotText("campaignId") ?? id}:${snapshotText("ruleKey") ?? id}`,
+    title,
+    insightText,
+    sourceLabel: snapshotText("campaignName") ? `Meta Ads · ${snapshotText("campaignName")}` : "Meta Ads",
+    decision,
+    generatedAt: new Date().toISOString(),
+    resumeAt: null,
+    periodStart: snapshotText("periodStart"),
+    periodEnd: snapshotText("periodEnd"),
+    snapshot,
+    impactProjection: null,
+    initiative: null,
+    legacy: false,
+  };
 
   return (
     <article className="sticker-card p-5">
@@ -83,8 +94,10 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
             {evidence && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Preuve</p><p className="mt-1">{evidence}</p></div>}
             {diagnosis && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Diagnostic probable</p><p className="mt-1">{diagnosis}</p></div>}
             {recommendedAction && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Action recommandée</p><p className="mt-1">{recommendedAction}</p></div>}
+            <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Critère de réussite</p><p className="mt-1">{successCriterion}</p></div>
             {expectedImpact && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Impact attendu</p><p className="mt-1">{expectedImpact}</p></div>}
           </div>
+          <p className="mt-3 text-xs font-bold text-muted-foreground">Métrique de départ : {metricKey.replaceAll("_", " ")} = {metricValue} · {metricPeriod}{sampleSize}. Elle sera figée dans le Journal à l’adoption.</p>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-muted-foreground">
             {priority && <span>Priorité : {priority === "high" ? "haute" : priority === "medium" ? "moyenne" : "basse"}</span>}
             {confidence && <span>Confiance : {confidence === "high" ? "haute" : confidence === "medium" ? "moyenne" : "basse"}</span>}
@@ -92,11 +105,17 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
           </div>
           <p className="mt-3 text-xs font-bold text-muted-foreground">{provenanceText}</p>
           {!launched && (
-            <Button type="button" variant="outline" size="sm" className="mt-4" onClick={adopt} disabled={isPending}>
-              {isPending ? "Ajout…" : "Ajouter au Journal"}
-            </Button>
+            <div className="mt-4">
+              <InsightLaunchDialog
+                insight={historyInsight}
+                members={[]}
+                projects={[]}
+                canAssign={false}
+                triggerLabel="Ajouter au Journal"
+                onLaunched={() => setLaunched(true)}
+              />
+            </div>
           )}
-          {error && <p className="mt-2 text-xs font-bold text-state-critical" role="alert">{error}</p>}
         </div>
       </div>
     </article>

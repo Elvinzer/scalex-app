@@ -265,6 +265,7 @@ export async function listMetaInsights(input: {
   since: string;
   until: string;
   attributionSettings?: MetaAttributionSettings;
+  breakdowns?: string[];
 }): Promise<MetaRawObject[]> {
   const attribution = input.attributionSettings ?? META_DEFAULT_ATTRIBUTION_SETTINGS;
   return fetchAllPages(metaInsightsEdge(input.adAccountId), input.accessToken, {
@@ -273,6 +274,7 @@ export async function listMetaInsights(input: {
     time_range: JSON.stringify({ since: input.since, until: input.until }),
     time_increment: 1,
     action_attribution_windows: JSON.stringify([attribution.clickWindow, attribution.viewWindow]),
+    breakdowns: input.breakdowns?.length ? input.breakdowns.join(",") : undefined,
     limit: 100,
   });
 }

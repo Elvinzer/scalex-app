@@ -83,6 +83,9 @@ export const META_INSIGHT_LEVELS: MetaEntityLevel[] = ["account", "campaign", "a
 export const META_SYNC_LOOKBACK_DAYS = 90;
 export const META_KNOWN_PROCESSING_DELAY_DAYS = 2;
 export const META_TOUCHPOINT_TTL_DAYS = 30;
+export const META_SYNC_TIME_BUDGET_MS = 240_000;
+export const META_SYNC_PHASES = ["catalog", "account", "campaign", "adset", "ad", "placement", "finalize"] as const;
+export type MetaAdsSyncPhase = (typeof META_SYNC_PHASES)[number];
 export const META_PERIOD_OPTIONS = [7, 30, 90] as const;
 const configuredCashCoveragePercent = Number(process.env.META_MIN_CASH_ATTRIBUTION_COVERAGE_PERCENT);
 export const META_MIN_CASH_ATTRIBUTION_COVERAGE = Number.isFinite(configuredCashCoveragePercent) && configuredCashCoveragePercent >= 0 && configuredCashCoveragePercent <= 100

@@ -89,6 +89,7 @@ export type MetaInsightSnapshot = {
   diagnosis?: string | null;
   recommendedAction?: string | null;
   expectedImpact?: string | null;
+  successCriterion?: string | null;
   confidence?: "high" | "medium" | "low" | null;
   sourceCoverage?: string | null;
   priority?: "high" | "medium" | "low" | null;

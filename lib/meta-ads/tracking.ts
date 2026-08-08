@@ -1,3 +1,5 @@
+import { META_TOUCHPOINT_TTL_DAYS } from "./protocol";
+
 export type MetaUtmFields = {
   utmSource: string | null;
   utmMedium: string | null;
@@ -155,4 +157,83 @@ export function readMetaTracking(...sources: unknown[]): MetaTrackingFields {
     metaAdSetExternalId: identifierFromRecords(records, ["adset_id", "ad_set_id", "adSetId"]),
     metaAdExternalId: identifierFromRecords(records, ["ad_id", "adId"]),
   };
+}
+
+export const META_BROWSER_TRACKING_STORAGE_KEY = "scale-x-meta-tracking";
+const META_BROWSER_TRACKING_MAX_AGE_MS = META_TOUCHPOINT_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+function emptyMetaTracking(): MetaTrackingFields {
+  return {
+    utmSource: null,
+    utmMedium: null,
+    utmCampaign: null,
+    utmContent: null,
+    utmTerm: null,
+    metaTouchpointToken: null,
+    metaCampaignExternalId: null,
+    metaAdSetExternalId: null,
+    metaAdExternalId: null,
+  };
+}
+
+function hasMetaTrackingSignal(fields: MetaTrackingFields): boolean {
+  const source = fields.utmSource?.toLowerCase();
+  return Boolean(
+    fields.metaTouchpointToken ||
+      fields.metaCampaignExternalId ||
+      fields.metaAdSetExternalId ||
+      fields.metaAdExternalId ||
+      (source && ["meta", "facebook", "instagram", "fb", "ig"].includes(source)),
+  );
+}
+
+export function mergeMetaTracking(primary: MetaTrackingFields, fallback: MetaTrackingFields): MetaTrackingFields {
+  return {
+    utmSource: primary.utmSource ?? fallback.utmSource,
+    utmMedium: primary.utmMedium ?? fallback.utmMedium,
+    utmCampaign: primary.utmCampaign ?? fallback.utmCampaign,
+    utmContent: primary.utmContent ?? fallback.utmContent,
+    utmTerm: primary.utmTerm ?? fallback.utmTerm,
+    metaTouchpointToken: primary.metaTouchpointToken ?? fallback.metaTouchpointToken,
+    metaCampaignExternalId: primary.metaCampaignExternalId ?? fallback.metaCampaignExternalId,
+    metaAdSetExternalId: primary.metaAdSetExternalId ?? fallback.metaAdSetExternalId,
+    metaAdExternalId: primary.metaAdExternalId ?? fallback.metaAdExternalId,
+  };
+}
+
+/**
+ * Stores only the bounded Meta/UTM fields in a first-party browser store.
+ * The opaque token is resolved server-side; no name, email, or session id is
+ * ever written here. The browser copy expires no later than the DB touchpoint.
+ */
+export function captureMetaTrackingInBrowser(searchParams: URLSearchParams): void {
+  if (typeof window === "undefined") return;
+  const fields = readMetaTracking(Object.fromEntries(searchParams.entries()));
+  if (!hasMetaTrackingSignal(fields)) return;
+  try {
+    window.localStorage.setItem(
+      META_BROWSER_TRACKING_STORAGE_KEY,
+      JSON.stringify({ ...fields, capturedAt: Date.now() }),
+    );
+  } catch {
+    // Tracking is additive; a blocked browser store must never block booking.
+  }
+}
+
+export function readStoredMetaTracking(): MetaTrackingFields {
+  if (typeof window === "undefined") return emptyMetaTracking();
+  try {
+    const raw = window.localStorage.getItem(META_BROWSER_TRACKING_STORAGE_KEY);
+    if (!raw) return emptyMetaTracking();
+    const parsed: unknown = JSON.parse(raw);
+    const record = asRecord(parsed);
+    const capturedAt = record?.capturedAt;
+    if (typeof capturedAt !== "number" || !Number.isFinite(capturedAt) || Date.now() - capturedAt > META_BROWSER_TRACKING_MAX_AGE_MS) {
+      window.localStorage.removeItem(META_BROWSER_TRACKING_STORAGE_KEY);
+      return emptyMetaTracking();
+    }
+    return readMetaTracking(parsed);
+  } catch {
+    return emptyMetaTracking();
+  }
 }

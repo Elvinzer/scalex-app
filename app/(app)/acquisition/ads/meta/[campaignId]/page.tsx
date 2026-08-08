@@ -53,6 +53,12 @@ function actionStateLabel(state: Record<string, unknown>): string {
   return status ?? (budget ? `${budget} cents/jour` : "—");
 }
 
+function creativeCpaCents(row: { metrics: Parameters<typeof metricValue>[0] }): number | null {
+  const spend = metricValue(row.metrics, "spendCents");
+  const leads = metricValue(row.metrics, "leads");
+  return spend !== null && leads !== null && leads > 0 ? spend / leads : null;
+}
+
 function Metric({ label, value, detail, provenance }: { label: string; value: string; detail: string; provenance?: string }) {
   return (
     <div className="sticker-card p-5">
@@ -111,6 +117,17 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const attribution = detail.attributionQuality;
   const attributionLabel = attribution.status === "verified" ? "Vérifiée" : attribution.status === "partial" ? "Partielle" : "Non calculable";
   const hasWriteAccess = detail.dashboard.connection.grantedScopes.includes("ads_management");
+  const rankedAds = [...detail.ads].sort((left, right) => {
+    const leftCpa = creativeCpaCents(left);
+    const rightCpa = creativeCpaCents(right);
+    if (leftCpa !== null && rightCpa !== null && leftCpa !== rightCpa) return leftCpa - rightCpa;
+    if (leftCpa !== null) return -1;
+    if (rightCpa !== null) return 1;
+    return (metricValue(right.metrics, "spendCents") ?? 0) - (metricValue(left.metrics, "spendCents") ?? 0);
+  });
+  const audienceLadder = [...detail.audiences]
+    .filter((audience) => audience.windowDays !== null)
+    .sort((left, right) => (left.windowDays ?? Number.POSITIVE_INFINITY) - (right.windowDays ?? Number.POSITIVE_INFINITY));
 
   return (
     <div className="flex flex-col gap-7">
@@ -127,6 +144,9 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
             {detail.dashboard.period.consolidatedThrough
               ? `Chiffres définitifs jusqu’au ${new Intl.DateTimeFormat("fr-FR").format(new Date(`${detail.dashboard.period.consolidatedThrough}T12:00:00Z`))}.`
               : "Fenêtre de consolidation en cours · les chiffres récents peuvent évoluer."}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Couverture de lecture Meta : {detail.campaign.metricCoverageRate === null || detail.campaign.metricCoverageRate === undefined ? "—" : formatPercent(detail.campaign.metricCoverageRate)} des jours de la période · les jours manquants restent indisponibles.
           </p>
         </div>
         <Button asChild variant="outline">
@@ -194,7 +214,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           <Metric label="CA attribué" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante ou aucune vente reliée" : "Ventes reliées uniquement"} provenance="Meta + Stripe · dérivée · jointe" />
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Niveau des touchpoints : {attribution.levels.ad} ad · {attribution.levels.adset} ensemble · {attribution.levels.campaign} campagne · {attribution.levels.utm_seul} UTM seul.
+          Niveau des touchpoints sur la période : {attribution.levels.ad} ad ({attribution.levelCoverage.ad === null ? "—" : formatPercent(attribution.levelCoverage.ad)}) · {attribution.levels.adset} ensemble ({attribution.levelCoverage.adset === null ? "—" : formatPercent(attribution.levelCoverage.adset)}) · {attribution.levels.campaign} campagne ({attribution.levelCoverage.campaign === null ? "—" : formatPercent(attribution.levelCoverage.campaign)}) · {attribution.levels.utm_seul} UTM seul ({attribution.levelCoverage.utm_seul === null ? "—" : formatPercent(attribution.levelCoverage.utm_seul)}).
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           Couverture des ventes du compte sur la période : {attribution.coverageRate === null ? "—" : formatPercent(attribution.coverageRate)} · {attribution.unattributedSalesInPeriod} vente(s) non rattachée(s) sur {attribution.salesInPeriod}.
@@ -246,6 +266,94 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       </section>
 
       <MetaTouchpointGenerator campaignId={detail.campaign.id} landingPageUrl={detail.campaign.landingPageUrl} />
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className="sticker-card overflow-x-auto" aria-labelledby="placements-title">
+          <div className="border-b border-border px-5 py-4">
+            <h2 id="placements-title" className="font-bold">Placements</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Dépenses et réponse par plateforme/position renvoyées par les Insights Meta.</p>
+          </div>
+          {detail.placements.length === 0 ? (
+            <p className="p-5 text-sm text-muted-foreground">Placements indisponibles pour cette campagne ou cette permission Meta. Ouvre Meta Ads pour consulter le détail.</p>
+          ) : (
+            <table className="w-full min-w-[34rem] text-xs">
+              <thead>
+                <tr className="border-b border-border text-left font-bold text-muted-foreground">
+                  <th className="px-4 py-3">Plateforme</th>
+                  <th className="px-4 py-3">Position</th>
+                  <th className="px-4 py-3 text-right">Dépenses</th>
+                  <th className="px-4 py-3 text-right">CTR</th>
+                  <th className="px-4 py-3 text-right">Fréquence</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.placements.map((placement) => {
+                  const placementSpend = metricValue(placement.metrics, "spendCents");
+                  const placementImpressions = metricValue(placement.metrics, "impressions");
+                  const placementClicks = metricValue(placement.metrics, "linkClicks");
+                  const placementReach = metricValue(placement.metrics, "reach");
+                  return (
+                    <tr key={`${placement.publisherPlatform}:${placement.platformPosition}`} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-bold">{placement.publisherPlatform}</td>
+                      <td className="px-4 py-3">{placement.platformPosition}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{placementSpend === null ? "—" : formatEur(placementSpend / 100)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{placementImpressions === null || placementClicks === null ? "—" : formatPercent(ratio(placementClicks, placementImpressions) ?? 0)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{placementImpressions === null || placementReach === null ? "—" : ratio(placementImpressions, placementReach)?.toFixed(1) ?? "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          <p className="border-t border-border px-5 py-3 text-[11px] text-muted-foreground">La fréquence est directionnelle quand le reach est additionné sur plusieurs jours ; vérifie le seuil de saturation 3× dans Meta.</p>
+        </section>
+
+        <section className="sticker-card overflow-x-auto" aria-labelledby="audiences-title">
+          <div className="border-b border-border px-5 py-4">
+            <h2 id="audiences-title" className="font-bold">Audiences et exclusions</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Résumé du ciblage synchronisé par ensemble de publicités, avec accès direct à Meta.</p>
+          </div>
+          {audienceLadder.length > 0 && (
+            <div className="border-b border-border px-5 py-4">
+              <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Échelle de fenêtres déduite</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {audienceLadder.map((audience) => (
+                  <span key={`ladder-${audience.adSetId}`} className="rounded-full bg-muted px-3 py-1.5 text-xs font-bold">
+                    {audience.windowDays} j · {audience.cpaCents === null ? "CPA —" : `CPA ${formatEur(audience.cpaCents / 100)}`}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {detail.audiences.length === 0 ? (
+            <p className="p-5 text-sm text-muted-foreground">Aucun ensemble synchronisé pour cette campagne.</p>
+          ) : (
+            <table className="w-full min-w-[52rem] text-xs">
+              <thead>
+                <tr className="border-b border-border text-left font-bold text-muted-foreground">
+                  <th className="px-4 py-3">Ensemble</th>
+                  <th className="px-4 py-3">Audiences incluses</th>
+                  <th className="px-4 py-3">Exclusions</th>
+                  <th className="px-4 py-3">Fenêtre / statut</th>
+                  <th className="px-4 py-3 text-right">CPA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.audiences.map((audience) => (
+                  <tr key={audience.adSetId} className="border-b border-border last:border-0 align-top">
+                    <td className="px-4 py-3 font-bold"><a href={audience.deepLink} target="_blank" rel="noopener noreferrer" className="underline-offset-4 hover:underline">{audience.adSetName}</a></td>
+                    <td className="px-4 py-3">{audience.included.length > 0 ? audience.included.join(", ") : audience.targetingAvailable ? "Ciblage détaillé non nommé" : "—"}</td>
+                    <td className="px-4 py-3">{audience.excluded.length > 0 ? audience.excluded.join(", ") : audience.targetingAvailable ? "Aucune exclusion nommée" : "—"}</td>
+                    <td className="px-4 py-3">{audience.windowDays === null ? "Fenêtre non déduite" : `${audience.windowDays} jours · déduite du libellé`} · {audience.active ? "active" : "inactive"}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{audience.cpaCents === null ? "—" : formatEur(audience.cpaCents / 100)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="border-t border-border px-5 py-3 text-[11px] text-muted-foreground">Les fenêtres affichées sont déduites des libellés d’audience et servent de repère, pas de vérité Meta. Taille d’audience et chevauchement ne sont pas exposés par cette lecture ; vérifie-les dans Meta Ads avant de conclure.</p>
+        </section>
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
         <section className="sticker-card p-6" aria-labelledby="daily-title">
@@ -340,8 +448,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
 
       <section className="sticker-card overflow-x-auto" aria-labelledby="ads-title">
         <div className="border-b border-border px-5 py-4">
-          <h2 id="ads-title" className="font-bold">Créatifs et ensembles</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Pour changer la créa ou le ciblage, ouvre la campagne dans Meta Ads.</p>
+          <h2 id="ads-title" className="font-bold">Matrice créative et ensembles</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Les créatifs sont classés par CPL lorsque des leads existent, puis par dépense. Pour changer la créa ou le ciblage, ouvre Meta Ads.</p>
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -354,7 +462,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
               <th className="px-5 py-3 text-right">CTR lien</th>
               <th className="px-5 py-3 text-right">Fréquence*</th>
               <th className="px-5 py-3 text-right">Leads</th>
-              <th className="px-5 py-3 text-right">Statut</th>
+              <th className="px-5 py-3 text-right">CPL</th>
+              <th className="px-5 py-3 text-right">Statut / signal</th>
               <th className="px-5 py-3 text-right">Action</th>
             </tr>
           </thead>
@@ -376,7 +485,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowLinkClicks === null ? "—" : formatPercent(ratio(rowLinkClicks, rowImpressions) ?? 0)}</td>
                 <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowReach === null ? "—" : (ratio(rowImpressions, rowReach)?.toFixed(1) ?? "—")}</td>
                 <td className="px-5 py-3 text-right tabular-nums">{metricValue(row.metrics, "leads") === null ? "—" : metricValue(row.metrics, "leads")}</td>
-                <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}</td>
+                <td className="px-5 py-3 text-right tabular-nums">{creativeCpaCents(row) === null ? "—" : formatEur(creativeCpaCents(row)! / 100)}</td>
+                <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= 3 ? " · fréquence ≥ 3×" : ""}</td>
                 <td className="px-5 py-3 text-right">
                   <MetaEntityAction entityType="adset" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} />
                 </td>
@@ -385,7 +495,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 })()}
               </tr>
             ))}
-            {detail.ads.map((row, index) => (
+            {rankedAds.map((row, index) => (
               <tr key={`ad-${row.id}`} className="border-b border-border last:border-0">
                 {(() => {
                   const rowImpressions = metricValue(row.metrics, "impressions");
@@ -402,7 +512,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowLinkClicks === null ? "—" : formatPercent(ratio(rowLinkClicks, rowImpressions) ?? 0)}</td>
                 <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowReach === null ? "—" : (ratio(rowImpressions, rowReach)?.toFixed(1) ?? "—")}</td>
                 <td className="px-5 py-3 text-right tabular-nums">{metricValue(row.metrics, "leads") === null ? "—" : metricValue(row.metrics, "leads")}</td>
-                <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}</td>
+                <td className="px-5 py-3 text-right tabular-nums">{creativeCpaCents(row) === null ? "—" : formatEur(creativeCpaCents(row)! / 100)}</td>
+                <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= 3 ? " · fréquence ≥ 3× à vérifier" : ""}</td>
                 <td className="px-5 py-3 text-right">
                   <MetaEntityAction entityType="ad" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} />
                 </td>

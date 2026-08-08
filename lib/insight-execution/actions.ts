@@ -49,6 +49,7 @@ import { fingerprintInsight } from "@/lib/insight-execution/fingerprint";
 import type { CopiloteInsightSnapshot } from "@/lib/insight-execution/types";
 
 import { getAssignableMembers, getInsightHistory } from "./queries";
+import { actionTextForInsight } from "./action-text";
 import type { InsightHistoryItem } from "./types";
 
 type Access = {
@@ -546,6 +547,7 @@ export async function launchInsight(
   const baseline = record.sourceType === "meta_ads"
     ? baselineFromMetaInsight({ metricKey: record.metricKey, periodStart: record.periodStart, periodEnd: record.periodEnd, snapshot: record.snapshot })
     : await calculateBaseline(access.accountId, record.metricKey);
+  const actionText = actionTextForInsight(record);
   const now = new Date();
   const weekStart = currentWeekStart();
   let result: {
@@ -573,7 +575,7 @@ export async function launchInsight(
             userId: access.accountId,
             insightRecordId: record.id,
             title: record.title,
-            actionText: record.insightText,
+            actionText,
             status: "in_progress",
             dueDate: parsed.data.dueDate ?? null,
             assignedTeamMemberId,

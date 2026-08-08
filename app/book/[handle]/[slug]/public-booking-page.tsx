@@ -4,6 +4,13 @@ import { getCountries, getCountryCallingCode, isValidPhoneNumber as isValidPhone
 import { LockKeyhole, MapPin, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
+import {
+  captureMetaTrackingInBrowser,
+  mergeMetaTracking,
+  readMetaTracking,
+  readStoredMetaTracking,
+} from "@/lib/meta-ads/tracking";
+
 type Question = {
   id: string;
   type: "radio" | "checkbox" | "text" | "textarea" | "select";
@@ -36,8 +43,6 @@ type AnswerValue = string | string[];
 type Contact = { firstName: string; lastName: string; email: string; phone: string };
 type Stage = 1 | 2 | 3 | 4;
 type ManagementMode = "unknown" | "loading" | "ready" | "invalid";
-
-const META_TOUCHPOINT_QUERY_KEY = "sx_mt";
 
 const EMPTY_CONTACT: Contact = { firstName: "", lastName: "", email: "", phone: "" };
 const COUNTRY_CODES = getCountries();
@@ -83,9 +88,22 @@ function slotDayKey(dateString: string, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(dateString));
 }
 
+function getBrowserMetaTracking() {
+  const direct = readMetaTracking(Object.fromEntries(new URLSearchParams(window.location.search).entries()));
+  return mergeMetaTracking(direct, readStoredMetaTracking());
+}
+
 function getUtmFromUrl(): Record<string, string> {
-  const entries = Array.from(new URLSearchParams(window.location.search).entries()).filter(([key, value]) => key.startsWith("utm_") && value.trim());
-  return Object.fromEntries(entries);
+  const tracking = getBrowserMetaTracking();
+  return Object.fromEntries(
+    [
+      ["utm_source", tracking.utmSource],
+      ["utm_medium", tracking.utmMedium],
+      ["utm_campaign", tracking.utmCampaign],
+      ["utm_content", tracking.utmContent],
+      ["utm_term", tracking.utmTerm],
+    ].filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== ""),
+  );
 }
 
 function phoneCandidate(value: string, countryCode: CountryCode): string {
@@ -111,12 +129,13 @@ function getDraftKey(slug: string) {
 
 function getUtmMetadata() {
   const params = new URLSearchParams(window.location.search);
+  const tracking = getBrowserMetaTracking();
   return {
     leadSessionKey: window.sessionStorage.getItem(`native-booking-session:${window.location.pathname}`) ?? crypto.randomUUID(),
     landingPage: window.location.href,
     referrer: document.referrer || null,
     linkId: params.get("link") ?? params.get("link_id"),
-    metaTouchpointToken: params.get(META_TOUCHPOINT_QUERY_KEY),
+    metaTouchpointToken: tracking.metaTouchpointToken,
     utm: getUtmFromUrl(),
   };
 }
@@ -171,9 +190,11 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       setDisplayTimeZone(event.timeZone);
     }
     const params = new URLSearchParams(window.location.search);
+    captureMetaTrackingInBrowser(params);
+    const tracking = getBrowserMetaTracking();
     setUtm(getUtmFromUrl());
     setLinkId(params.get("link") ?? params.get("link_id"));
-    setMetaTouchpointToken(params.get(META_TOUCHPOINT_QUERY_KEY));
+    setMetaTouchpointToken(tracking.metaTouchpointToken);
     setLandingPage(window.location.href);
     setReferrer(document.referrer || null);
     const displayNames = new Intl.DisplayNames(["fr-FR"], { type: "region" });
@@ -278,7 +299,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       landingPage,
       referrer,
       linkId,
-      metaTouchpointToken,
+      metaTouchpointToken: values.metaTouchpointToken ?? metaTouchpointToken,
       utm: { ...utm, ...getUtmFromUrl() },
     };
   }
@@ -305,7 +326,13 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   }
 
   function buildContactPayload() {
-    return { ...contact, phone: phoneCandidate(contact.phone, countryCode), email: contact.email.trim(), metaTouchpointToken };
+    const tracking = getBrowserMetaTracking();
+    return {
+      ...contact,
+      phone: phoneCandidate(contact.phone, countryCode),
+      email: contact.email.trim(),
+      metaTouchpointToken: tracking.metaTouchpointToken ?? metaTouchpointToken,
+    };
   }
 
   async function capturePhoneLead(phone: string) {
@@ -464,7 +491,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "hold", ...buildContactPayload(), answers, guestTimeZone, startAt: slot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId, metaTouchpointToken }),
+        body: JSON.stringify({ mode: "hold", ...buildContactPayload(), answers, guestTimeZone, startAt: slot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId, metaTouchpointToken: getUtmMetadata().metaTouchpointToken ?? metaTouchpointToken }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.hold) {
@@ -493,7 +520,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "book", ...buildContactPayload(), answers, guestTimeZone, startAt: selectedSlot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId, metaTouchpointToken }),
+        body: JSON.stringify({ mode: "book", ...buildContactPayload(), answers, guestTimeZone, startAt: selectedSlot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId, metaTouchpointToken: getUtmMetadata().metaTouchpointToken ?? metaTouchpointToken }),
       });
       const payload = await response.json();
       if (!response.ok) {

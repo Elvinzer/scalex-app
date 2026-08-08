@@ -1,5 +1,7 @@
 import { eventType, Inngest, staticSchema } from "inngest";
 
+import type { MetaAdsSyncPhase } from "@/lib/meta-ads/protocol";
+
 type StripeAccountConnected = {
   userId: string;
 };
@@ -65,6 +67,7 @@ export const metaAdsAccountConnected = eventType("meta-ads/account.connected", {
 
 type MetaAdsSyncRequested = {
   userId: string;
+  phase?: MetaAdsSyncPhase;
 };
 
 export const metaAdsSyncRequested = eventType("meta-ads/sync.requested", {

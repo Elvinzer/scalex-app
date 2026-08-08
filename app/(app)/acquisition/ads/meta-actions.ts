@@ -561,9 +561,44 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
   }
 
   if (!connection.accessTokenEncrypted) {
-    return { error: "Reconnecte Meta Ads avant d’appliquer une action.", status: "permission_insufficient", deepLink };
+    const message = "Reconnecte Meta Ads avant d’appliquer une action.";
+    const logId = await insertMetaActionLog({
+      accountId: access.accountId,
+      adAccountId: target.adAccountId,
+      entityType: target.entityType,
+      entityExternalId: target.externalId,
+      actionType: parsed.data.actionType,
+      idempotencyKey,
+      status: "permission_insufficient",
+      requestedState,
+      currentState: null,
+      errorMessage: message,
+      completedAt: new Date(),
+    });
+    await recordMetaActionInJournal({ accountId: access.accountId, logId, campaignName: target.name, actionType: parsed.data.actionType, status: "permission_insufficient" });
+    return { error: message, status: "permission_insufficient", deepLink };
   }
-  const accessToken = decrypt(connection.accessTokenEncrypted);
+  let accessToken: string;
+  try {
+    accessToken = decrypt(connection.accessTokenEncrypted);
+  } catch {
+    const message = "Le jeton Meta ne peut pas être relu. Reconnecte Meta Ads avant d’appliquer une action.";
+    const logId = await insertMetaActionLog({
+      accountId: access.accountId,
+      adAccountId: target.adAccountId,
+      entityType: target.entityType,
+      entityExternalId: target.externalId,
+      actionType: parsed.data.actionType,
+      idempotencyKey,
+      status: "failed",
+      requestedState,
+      currentState: null,
+      errorMessage: message,
+      completedAt: new Date(),
+    });
+    await recordMetaActionInJournal({ accountId: access.accountId, logId, campaignName: target.name, actionType: parsed.data.actionType, status: "failed" });
+    return { error: message, status: "failed", deepLink };
+  }
   let currentState: Record<string, unknown>;
   try {
     currentState = await getMetaObject(accessToken, target.externalId, "id,status,effective_status,daily_budget,lifetime_budget,account_id");

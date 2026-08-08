@@ -30,8 +30,10 @@ import { materializeMetaAdsInsights } from "./insights";
 import { getMetaAdsDashboard } from "./queries";
 import {
   META_DEFAULT_ATTRIBUTION_SETTINGS,
-  META_INSIGHT_LEVELS,
+  META_SYNC_PHASES,
   META_SYNC_LOOKBACK_DAYS,
+  META_SYNC_TIME_BUDGET_MS,
+  type MetaAdsSyncPhase,
   computeMetaConsolidationUntil,
   normalizeAdAccountId,
 } from "./protocol";
@@ -77,7 +79,15 @@ function accountExternalId(raw: MetaRawObject): string | null {
   return id ? normalizeAdAccountId(id) : null;
 }
 
-function entityIdForLevel(raw: MetaRawObject, level: MetaEntityLevel, adAccountId: string): string {
+type SyncMetricLevel = MetaEntityLevel | "placement";
+
+function entityIdForLevel(raw: MetaRawObject, level: SyncMetricLevel, adAccountId: string): string {
+  if (level === "placement") {
+    const campaignId = stringValue(raw, "campaign_id") ?? "unknown-campaign";
+    const publisherPlatform = stringValue(raw, "publisher_platform") ?? "unknown-publisher";
+    const platformPosition = stringValue(raw, "platform_position") ?? "unknown-position";
+    return `${campaignId}:${publisherPlatform}:${platformPosition}`;
+  }
   if (level === "campaign") return stringValue(raw, "campaign_id") ?? "unknown-campaign";
   if (level === "adset") return stringValue(raw, "adset_id") ?? "unknown-adset";
   if (level === "ad") return stringValue(raw, "ad_id") ?? "unknown-ad";
@@ -412,7 +422,7 @@ function metricSnapshotChanged(before: Record<string, unknown>, after: Record<st
 async function upsertMetrics(
   userId: string,
   adAccountId: string,
-  level: MetaEntityLevel,
+  level: SyncMetricLevel,
   raws: MetaRawObject[],
   attribution: MetaAttributionSettings,
   fallbackDate: string,
@@ -488,7 +498,9 @@ async function upsertMetrics(
 function lookbackRange(days: number): { since: string; until: string } {
   const until = new Date();
   const since = new Date(until);
-  since.setUTCDate(since.getUTCDate() - days);
+  // Meta's date filters are inclusive at both ends; keep the requested
+  // lookback length exact instead of fetching days + 1.
+  since.setUTCDate(since.getUTCDate() - (days - 1));
   const toDate = (value: Date) => value.toISOString().slice(0, 10);
   return { since: toDate(since), until: toDate(until) };
 }
@@ -496,7 +508,8 @@ function lookbackRange(days: number): { since: string; until: string } {
 export async function syncSelectedMetaAdAccount(
   userId: string,
   attributionSettings?: MetaAttributionSettings,
-): Promise<{ campaigns: number; adSets: number; ads: number; metrics: number }> {
+  requestedPhase: MetaAdsSyncPhase = "catalog",
+): Promise<{ campaigns: number; adSets: number; ads: number; metrics: number; completed: boolean; nextPhase: MetaAdsSyncPhase | null }> {
   const connection = await getConnection(userId);
   const selectedId = connection.selectedAdAccountId;
   if (!selectedId) throw new Error("Sélectionne un compte publicitaire Meta avant de synchroniser.");
@@ -517,27 +530,78 @@ export async function syncSelectedMetaAdAccount(
   try {
     const accessToken = decryptConnectionToken(connection);
     const range = lookbackRange(META_SYNC_LOOKBACK_DAYS);
-    const [campaignRaws, adSetRaws, adRaws] = await Promise.all([
-      listMetaCampaigns(accessToken, account.externalId),
-      listMetaAdSets(accessToken, account.externalId),
-      listMetaAds(accessToken, account.externalId),
-    ]);
-    const campaignIds = await upsertCampaigns(userId, account.id, campaignRaws);
-    const adSetIds = await upsertAdSets(userId, account.id, adSetRaws, campaignIds);
-    const importedAds = await upsertAds(userId, account.id, adRaws, adSetIds, campaignIds);
     const attribution = parseAttributionSettings(attributionSettings);
+    let phase: MetaAdsSyncPhase = META_SYNC_PHASES.includes(requestedPhase) ? requestedPhase : "catalog";
+    let campaignCount = 0;
+    let adSetCount = 0;
+    let importedAds = 0;
     let importedMetrics = 0;
-    for (const level of META_INSIGHT_LEVELS) {
-      const rows = await listMetaInsights({
-        accessToken,
-        adAccountId: account.externalId,
-        level,
-        since: range.since,
-        until: range.until,
-        attributionSettings: attribution,
-      });
-      importedMetrics += await upsertMetrics(userId, account.id, level, rows, attribution, range.since);
+    const deadline = Date.now() + META_SYNC_TIME_BUDGET_MS;
+    const hasBudget = () => Date.now() < deadline;
+    const partial = (nextPhase: MetaAdsSyncPhase) => ({
+      campaigns: campaignCount,
+      adSets: adSetCount,
+      ads: importedAds,
+      metrics: importedMetrics,
+      completed: false,
+      nextPhase,
+    });
+
+    // Each phase is idempotent and deliberately small enough to be replayed by
+    // Inngest. The caller chains `nextPhase` when a serverless invocation is
+    // close to its wall-clock ceiling, so a 90-day account never gets marked
+    // complete after only the first Insights level was imported.
+    while (phase !== "finalize") {
+      if (!hasBudget()) return partial(phase);
+
+      if (phase === "catalog") {
+        const [campaignRaws, adSetRaws, adRaws] = await Promise.all([
+          listMetaCampaigns(accessToken, account.externalId),
+          listMetaAdSets(accessToken, account.externalId),
+          listMetaAds(accessToken, account.externalId),
+        ]);
+        const campaignIds = await upsertCampaigns(userId, account.id, campaignRaws);
+        const adSetIds = await upsertAdSets(userId, account.id, adSetRaws, campaignIds);
+        campaignCount = campaignIds.size;
+        adSetCount = adSetIds.size;
+        importedAds = await upsertAds(userId, account.id, adRaws, adSetIds, campaignIds);
+      } else if (phase === "account" || phase === "campaign" || phase === "adset" || phase === "ad") {
+        const rows = await listMetaInsights({
+          accessToken,
+          adAccountId: account.externalId,
+          level: phase,
+          since: range.since,
+          until: range.until,
+          attributionSettings: attribution,
+        });
+        importedMetrics += await upsertMetrics(userId, account.id, phase, rows, attribution, range.since);
+      } else if (phase === "placement") {
+        try {
+          const placementRows = await listMetaInsights({
+            accessToken,
+            adAccountId: account.externalId,
+            level: "adset",
+            since: range.since,
+            until: range.until,
+            attributionSettings: attribution,
+            breakdowns: ["publisher_platform", "platform_position"],
+          });
+          importedMetrics += await upsertMetrics(userId, account.id, "placement", placementRows, attribution, range.since);
+        } catch (error) {
+          // Placement breakdowns are optional in Meta's response for some
+          // accounts/objectives. The core sync remains usable and the UI
+          // exposes the placement analysis as unavailable when no rows exist.
+          console.warn("Meta placement breakdown unavailable", error instanceof MetaApiError ? error.message : "unknown error");
+        }
+      }
+
+      const nextPhase = META_SYNC_PHASES[META_SYNC_PHASES.indexOf(phase) + 1];
+      if (!nextPhase) break;
+      phase = nextPhase;
+      if (!hasBudget()) return partial(phase);
     }
+
+    if (!hasBudget()) return partial("finalize");
     const dashboard = await getMetaAdsDashboard(userId);
     if (dashboard) await materializeMetaAdsInsights(userId, dashboard);
     const completedAt = new Date();
@@ -551,7 +615,7 @@ export async function syncSelectedMetaAdAccount(
         updatedAt: completedAt,
       })
       .where(eq(metaAdsConnections.userId, userId));
-    return { campaigns: campaignIds.size, adSets: adSetIds.size, ads: importedAds, metrics: importedMetrics };
+    return { campaigns: campaignCount, adSets: adSetCount, ads: importedAds, metrics: importedMetrics, completed: true, nextPhase: null };
   } catch (error) {
     const message = error instanceof MetaApiError ? error.message : "La synchronisation Meta a échoué.";
     const connectionStatus = error instanceof MetaApiError && error.code === 190

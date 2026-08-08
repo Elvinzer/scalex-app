@@ -63,6 +63,16 @@ Le rattachement n'est pas une heuristique. Il repose sur une chaîne explicite :
 3. Le lead créé conserve son touchpoint. Les liens de booking natifs, Calendly et iClosed le transportent en champ caché / query param.
 4. Stripe reçoit l'identifiant du lead ou de la session en `metadata`, ce qui referme la boucle jusqu'au cash.
 
+Contrainte d'implémentation Scale X : la connexion Stripe Connect existante est
+volontairement encapsulée dans un client `read-only` (`list` / `retrieve` uniquement).
+Cette version ne modifie donc jamais le Stripe du client et ne peut pas écrire de
+metadata après coup. La boucle cash est fermée uniquement lorsqu'un touchpoint est
+déjà porté par une vente Scale X ou lorsqu'un identifiant explicite existe dans les
+données importées ; sinon la vente reste `non_rattachee` et les lectures cash sont
+gelées par la couverture. Une future écriture Stripe nécessitera une décision
+sécurité/permission séparée, elle ne doit pas être introduite implicitement dans
+l'intégration Meta.
+
 Quatre niveaux de rattachement, du plus fort au plus faible : `ad` → `adset` → `campaign` → `utm_seul`. Le niveau atteint est affiché et compté dans la couverture. En l'absence de tout identifiant, la vente est `non_rattachee` : elle n'est jamais attribuée par défaut à la campagne la plus dépensière, ni répartie au prorata.
 
 ### 9. Instagram : attribué vs observé

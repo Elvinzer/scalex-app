@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 
 import { PostHogInit } from "@/components/posthog-init";
+import { MetaTouchpointCapture } from "@/components/meta-ads/meta-touchpoint-capture";
 
 // Design system "Hybride" — Inter everywhere (titles, body, numbers,
 // sidebar, buttons, inputs). Mapped in globals.css's @theme block onto
@@ -40,6 +41,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} overflow-x-clip`}>
       <body className="antialiased overflow-x-clip">
         <PostHogInit />
+        <MetaTouchpointCapture />
         {children}
       </body>
     </html>

@@ -181,6 +181,8 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
   const cpm = impressions !== null && impressions > 0 && spendCents !== null ? (spendCents / impressions) * 1000 / 100 : null;
   const campaignTypes = [...new Set(data.campaigns.map((campaign) => campaign.campaignType).filter((type) => type !== "other"))];
   const primaryType = campaignTypes.length === 1 ? campaignTypes[0]! : "other";
+  const coverageValues = data.campaigns.map((campaign) => campaign.metricCoverageRate).filter((value): value is number => value !== null && value !== undefined);
+  const minimumCoverage = coverageValues.length > 0 ? Math.min(...coverageValues) : null;
 
   return (
     <section className="flex flex-col gap-5" aria-labelledby="meta-ads-dashboard-title">
@@ -194,6 +196,9 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
             {data.period.consolidatedThrough
               ? `Chiffres définitifs jusqu’au ${new Intl.DateTimeFormat("fr-FR").format(new Date(`${data.period.consolidatedThrough}T12:00:00Z`))} · les jours suivants peuvent évoluer.`
               : "Fenêtre de consolidation en cours · les chiffres récents peuvent évoluer."}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Couverture minimale des campagnes : {minimumCoverage === null ? "—" : formatPercent(minimumCoverage)} · les périodes incomplètes ne sont pas complétées par des zéros.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

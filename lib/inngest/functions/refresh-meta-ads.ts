@@ -3,7 +3,7 @@ import { cron } from "inngest";
 
 import { db } from "@/db";
 import { metaAdsConnections } from "@/db/schema";
-import { inngest } from "@/lib/inngest/client";
+import { inngest, metaAdsSyncRequested } from "@/lib/inngest/client";
 import { syncSelectedMetaAdAccount } from "@/lib/meta-ads/sync";
 
 export const refreshMetaAds = inngest.createFunction(
@@ -29,6 +29,10 @@ export const refreshMetaAds = inngest.createFunction(
         }),
       ),
     );
+    for (const result of results) {
+      if (!("result" in result) || result.result.completed || !result.result.nextPhase) continue;
+      await step.sendEvent(`continue-meta-refresh-${result.userId}-${result.result.nextPhase}`, metaAdsSyncRequested.create({ userId: result.userId, phase: result.result.nextPhase }));
+    }
     return { total: connections.length, refreshed: results.filter((result) => result.refreshed).length };
   },
 );

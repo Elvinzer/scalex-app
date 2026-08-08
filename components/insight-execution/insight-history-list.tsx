@@ -57,6 +57,11 @@ function numberFromSnapshot(
   return typeof value === "number" ? value : null;
 }
 
+function textFromSnapshot(item: InsightHistoryItem, key: string): string | null {
+  const value = item.snapshot[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 function ResultLine({ initiative }: { initiative: InitiativeSummary }) {
   const measurement = initiative.latestMeasurement;
   if (!measurement) return null;
@@ -227,6 +232,9 @@ function HistoryCard({
 }) {
   const metricCurrent = numberFromSnapshot(insight, "currentRatePercent");
   const metricBenchmark = numberFromSnapshot(insight, "benchmarkRatePercent");
+  const metaAction = insight.sourceType === "meta_ads" ? textFromSnapshot(insight, "recommendedAction") : null;
+  const metaCriterion = insight.sourceType === "meta_ads" ? textFromSnapshot(insight, "successCriterion") : null;
+  const metaCampaignId = insight.sourceType === "meta_ads" ? textFromSnapshot(insight, "campaignId") : null;
   return (
     <article
       id={insight.initiative ? `insight-${insight.initiative.id}` : undefined}
@@ -273,6 +281,24 @@ function HistoryCard({
       </div>
 
       <p className="text-sm text-muted-foreground">{insight.insightText}</p>
+
+      {insight.sourceType === "meta_ads" && (
+        <div className="grid gap-3 rounded-[var(--radius-control)] border border-border bg-muted p-4 text-sm sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Action exacte</p>
+            <p className="mt-1">{metaAction ?? insight.insightText}</p>
+          </div>
+          <div>
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Critère de réussite</p>
+            <p className="mt-1">{metaCriterion ?? "Recontrôler la métrique sur une période comparable après l’action."}</p>
+          </div>
+          {metaCampaignId && (
+            <a href={`/acquisition/ads/meta/${encodeURIComponent(metaCampaignId)}`} className="font-bold underline-offset-4 hover:underline">
+              Ouvrir la campagne dans Meta Ads
+            </a>
+          )}
+        </div>
+      )}
 
       {(metricCurrent !== null ||
         (insight.impactProjection?.amountEur !== null &&

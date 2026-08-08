@@ -3,8 +3,8 @@ import { and, desc, eq, gte, inArray, like, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { insightRecords, instagramConnections, instagramPostInsights, metaAdAccounts, metaAdActionLogs, metaAdMetricsDaily, metaAdSets, metaAds, metaAdsConnections, metaAdTouchpoints, metaCampaignProfiles, metaCampaigns, nativeBookingLeads, sales, salesCalls } from "@/db/schema";
 import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/types";
-import { META_MIN_CASH_ATTRIBUTION_COVERAGE, metaAdsManagerUrl, normalizeMetaPeriodDays } from "./protocol";
-import { META_CAMPAIGN_TYPES, type MetaCampaignType } from "./types";
+import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, metaAdsManagerUrl, normalizeMetaPeriodDays } from "./protocol";
+import { META_CAMPAIGN_TYPES, type MetaCampaignType, type MetaRawObject } from "./types";
 
 export type MetaMetricTotals = {
   spendCents: number;
@@ -57,6 +57,9 @@ export type MetaCampaignDashboardRow = {
   };
   metrics: MetaMetricTotals;
   comparisonMetrics: MetaMetricTotals;
+  metricCoverageRate?: number | null;
+  comparisonMetricCoverageRate?: number | null;
+  retargetingAudiences?: MetaRetargetingAudienceSignal[];
   instagramObservation?: MetaInstagramObservation;
   cash?: {
     revenueCents: number | null;
@@ -83,6 +86,35 @@ export type MetaInstagramObservation = {
     interactions: number | null;
     engagementPerFollower: number | null;
   };
+};
+
+export type MetaAudienceSummary = {
+  adSetId: string;
+  adSetName: string;
+  deepLink: string;
+  active: boolean;
+  included: string[];
+  excluded: string[];
+  windowDays: number | null;
+  spendCents: number | null;
+  leads: number | null;
+  cpaCents: number | null;
+  targetingAvailable: boolean;
+};
+
+export type MetaRetargetingAudienceSignal = {
+  adSetId: string;
+  adSetName: string;
+  active: boolean;
+  included: string[];
+  excluded: string[];
+  buyerAudienceDetected: boolean;
+  buyerAudienceExcluded: boolean;
+  windowDays: number | null;
+  spendCents: number | null;
+  leads: number | null;
+  cpaCents: number | null;
+  targetingAvailable: boolean;
 };
 
 export type MetaAdsDashboard = {
@@ -126,11 +158,14 @@ export type MetaCampaignDetail = {
     videoThruplay: number | null;
   }>;
   adSets: Array<{ id: string; externalId: string; name: string; status: string | null; deepLink: string; metrics: MetaMetricTotals }>;
-  ads: Array<{ id: string; externalId: string; name: string; status: string | null; creativeName: string | null; deepLink: string; metrics: MetaMetricTotals }>;
+  ads: Array<{ id: string; externalId: string; name: string; status: string | null; creativeName: string | null; thumbnailUrl: string | null; deepLink: string; metrics: MetaMetricTotals }>;
+  placements: Array<{ publisherPlatform: string; platformPosition: string; deepLink: string; metrics: MetaMetricTotals }>;
+  audiences: MetaAudienceSummary[];
   attributionQuality: {
     status: "unavailable" | "partial" | "verified";
     touchpoints: number;
     levels: { ad: number; adset: number; campaign: number; utm_seul: number };
+    levelCoverage: { ad: number | null; adset: number | null; campaign: number | null; utm_seul: number | null };
     leads: number;
     bookedCalls: number;
     closedCalls: number;
@@ -195,6 +230,39 @@ const EMPTY_TOTALS: MetaMetricTotals = {
   },
 };
 
+function rawString(raw: MetaRawObject, key: string): string | null {
+  const value = raw[key];
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function targetingLabels(targeting: MetaRawObject | null, key: "custom_audiences" | "excluded_custom_audiences"): string[] {
+  const value = targeting?.[key];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item === "string" && item.trim() !== "") return [item.trim()];
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return [];
+    const record = Object.fromEntries(Object.entries(item));
+    const label = typeof record.name === "string" && record.name.trim() !== ""
+      ? record.name.trim()
+      : typeof record.id === "string" && record.id.trim() !== ""
+        ? `Audience ${record.id.trim()}`
+        : null;
+    return label ? [label] : [];
+  });
+}
+
+const BUYER_AUDIENCE_PATTERN = /(?:buyer|purchas|customer|client|acheteur|ancien[-_ ]client|paid)/i;
+const AUDIENCE_WINDOW_PATTERN = /(?:^|[^\d])([1-9]\d{0,2})\s*(?:d|day|days|jour|jours)(?:$|[^a-z])/i;
+
+function audienceWindowDays(labels: string[]): number | null {
+  const windows = labels
+    .map((label) => label.match(AUDIENCE_WINDOW_PATTERN)?.[1])
+    .filter((value): value is string => Boolean(value))
+    .map(Number)
+    .filter((value) => Number.isInteger(value) && value > 0 && value <= 365);
+  return new Set(windows).size === 1 ? windows[0] ?? null : null;
+}
+
 const availabilityFields: Record<MetaMetricKey, string[]> = {
   spendCents: ["spend"],
   impressions: ["impressions"],
@@ -251,7 +319,10 @@ function campaignType(value: string): MetaCampaignType {
 function period(days: number): { start: string; end: string; days: number } {
   const end = new Date();
   const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - days);
+  // Both bounds are inclusive in the SQL filters below. Subtract days - 1 so
+  // a "30 days" window contains exactly 30 calendar dates and coverage cannot
+  // look complete while one day is missing.
+  start.setUTCDate(start.getUTCDate() - (days - 1));
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10), days };
 }
 
@@ -260,7 +331,7 @@ function comparisonPeriod(current: { start: string; end: string; days: number })
   const comparisonEnd = new Date(start);
   comparisonEnd.setUTCDate(comparisonEnd.getUTCDate() - 1);
   const comparisonStart = new Date(comparisonEnd);
-  comparisonStart.setUTCDate(comparisonStart.getUTCDate() - current.days);
+  comparisonStart.setUTCDate(comparisonStart.getUTCDate() - (current.days - 1));
   return { start: comparisonStart.toISOString().slice(0, 10), end: comparisonEnd.toISOString().slice(0, 10) };
 }
 
@@ -297,7 +368,7 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
 
   const currentPeriod = period(normalizeMetaPeriodDays(requestedDays));
   const previousPeriod = comparisonPeriod(currentPeriod);
-  const [campaignRows, metricRows, comparisonRows, instagramConnectionRows, instagramRows, comparisonInstagramRows, touchpointRows, salesRows] = await Promise.all([
+  const [campaignRows, metricRows, comparisonRows, adSetRowsForAudience, adSetMetricRows, instagramConnectionRows, instagramRows, comparisonInstagramRows, touchpointRows, salesRows] = await Promise.all([
     db
       .select({ campaign: metaCampaigns, profile: metaCampaignProfiles })
       .from(metaCampaigns)
@@ -330,6 +401,22 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
         ),
       )
       .orderBy(desc(metaAdMetricsDaily.date)),
+    db
+      .select()
+      .from(metaAdSets)
+      .where(and(eq(metaAdSets.userId, accountId), eq(metaAdSets.adAccountId, account.id))),
+    db
+      .select()
+      .from(metaAdMetricsDaily)
+      .where(
+        and(
+          eq(metaAdMetricsDaily.userId, accountId),
+          eq(metaAdMetricsDaily.adAccountId, account.id),
+          eq(metaAdMetricsDaily.level, "adset"),
+          gte(metaAdMetricsDaily.date, currentPeriod.start),
+          lte(metaAdMetricsDaily.date, currentPeriod.end),
+        ),
+      ),
     db
       .select({ id: instagramConnections.id })
       .from(instagramConnections)
@@ -398,10 +485,49 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
   const currentInstagramObservation = aggregateInstagramObservation(instagramRows);
   const comparisonInstagramObservation = aggregateInstagramObservation(comparisonInstagramRows);
 
+  const campaignExternalById = new Map(campaignRows.map(({ campaign }) => [campaign.id, campaign.externalId]));
+  const currentAdSetMetrics = new Map<string, MetaMetricTotals>();
+  for (const row of adSetMetricRows) {
+    if (!row.adSetExternalId) continue;
+    const aggregate = currentAdSetMetrics.get(row.adSetExternalId) ?? emptyTotals();
+    addTotals(aggregate, row);
+    currentAdSetMetrics.set(row.adSetExternalId, aggregate);
+  }
+  const retargetingAudiencesByCampaign = new Map<string, MetaRetargetingAudienceSignal[]>();
+  for (const adSet of adSetRowsForAudience) {
+    const campaignExternalId = campaignExternalById.get(adSet.campaignId);
+    if (!campaignExternalId) continue;
+    const included = targetingLabels(adSet.targeting, "custom_audiences");
+    const excluded = targetingLabels(adSet.targeting, "excluded_custom_audiences");
+    const metrics = currentAdSetMetrics.get(adSet.externalId) ?? emptyTotals();
+    const spendCents = metricValue(metrics, "spendCents");
+    const leads = metricValue(metrics, "leads");
+    const cpaCents = spendCents !== null && leads !== null && leads > 0 ? spendCents / leads : null;
+    const signal: MetaRetargetingAudienceSignal = {
+      adSetId: adSet.id,
+      adSetName: adSet.name,
+      active: (adSet.effectiveStatus ?? adSet.status) === "ACTIVE",
+      included,
+      excluded,
+      buyerAudienceDetected: included.some((label) => BUYER_AUDIENCE_PATTERN.test(label)),
+      buyerAudienceExcluded: excluded.some((label) => BUYER_AUDIENCE_PATTERN.test(label)),
+      windowDays: audienceWindowDays(included),
+      spendCents,
+      leads,
+      cpaCents,
+      targetingAvailable: adSet.targeting !== null,
+    };
+    const campaignSignals = retargetingAudiencesByCampaign.get(campaignExternalId) ?? [];
+    campaignSignals.push(signal);
+    retargetingAudiencesByCampaign.set(campaignExternalId, campaignSignals);
+  }
+
   const byCampaign = new Map<string, MetaMetricTotals>();
   const latestByCampaign = new Map<string, string>();
+  const metricDaysByCampaign = new Map<string, Set<string>>();
   const totals = emptyTotals();
   const comparisonByCampaign = new Map<string, MetaMetricTotals>();
+  const comparisonMetricDaysByCampaign = new Map<string, Set<string>>();
   const comparisonTotals = emptyTotals();
   for (const row of metricRows) {
     const externalId = row.campaignExternalId;
@@ -409,6 +535,9 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
     const aggregate = byCampaign.get(externalId) ?? emptyTotals();
     addTotals(aggregate, row);
     byCampaign.set(externalId, aggregate);
+    const metricDays = metricDaysByCampaign.get(externalId) ?? new Set<string>();
+    metricDays.add(row.date);
+    metricDaysByCampaign.set(externalId, metricDays);
     if (!latestByCampaign.has(externalId)) latestByCampaign.set(externalId, row.date);
     addTotals(totals, row);
   }
@@ -418,6 +547,9 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
     const aggregate = comparisonByCampaign.get(externalId) ?? emptyTotals();
     addTotals(aggregate, row);
     comparisonByCampaign.set(externalId, aggregate);
+    const metricDays = comparisonMetricDaysByCampaign.get(externalId) ?? new Set<string>();
+    metricDays.add(row.date);
+    comparisonMetricDaysByCampaign.set(externalId, metricDays);
     addTotals(comparisonTotals, row);
   }
   const now = new Date();
@@ -466,6 +598,13 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
       },
       metrics: byCampaign.get(campaign.externalId) ?? emptyTotals(),
       comparisonMetrics: comparisonByCampaign.get(campaign.externalId) ?? emptyTotals(),
+      metricCoverageRate: metricDaysByCampaign.has(campaign.externalId)
+        ? Math.min(1, (metricDaysByCampaign.get(campaign.externalId)?.size ?? 0) / currentPeriod.days)
+        : null,
+      comparisonMetricCoverageRate: comparisonMetricDaysByCampaign.has(campaign.externalId)
+        ? Math.min(1, (comparisonMetricDaysByCampaign.get(campaign.externalId)?.size ?? 0) / currentPeriod.days)
+        : null,
+      retargetingAudiences: retargetingAudiencesByCampaign.get(campaign.externalId) ?? [],
       instagramObservation: {
         connected: instagramConnectionRows.length > 0,
         current: currentInstagramObservation,
@@ -505,7 +644,12 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
   const selectedCampaign = dashboard.campaigns.find((campaign) => campaign.id === campaignId);
   if (!selectedCampaign) return null;
 
-  const [metricRows, adSetRows, adRows, insightRows, touchpointRows] = await Promise.all([
+  const touchpointPeriodStart = new Date(`${dashboard.period.start}T00:00:00.000Z`);
+  touchpointPeriodStart.setUTCDate(touchpointPeriodStart.getUTCDate() - META_TOUCHPOINT_TTL_DAYS);
+  const touchpointPeriodEnd = new Date(`${dashboard.period.end}T23:59:59.999Z`);
+  const periodStartDate = new Date(`${dashboard.period.start}T00:00:00.000Z`);
+  const periodEndDate = new Date(`${dashboard.period.end}T23:59:59.999Z`);
+  const [metricRows, placementRows, adSetRows, adRows, insightRows, touchpointRows] = await Promise.all([
     db
       .select()
       .from(metaAdMetricsDaily)
@@ -513,6 +657,20 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
         and(
           eq(metaAdMetricsDaily.userId, accountId),
           eq(metaAdMetricsDaily.adAccountId, dashboard.account.id),
+          eq(metaAdMetricsDaily.campaignExternalId, campaignRow.campaign.externalId),
+          gte(metaAdMetricsDaily.date, dashboard.period.start),
+          lte(metaAdMetricsDaily.date, dashboard.period.end),
+        ),
+      )
+      .orderBy(metaAdMetricsDaily.date),
+    db
+      .select()
+      .from(metaAdMetricsDaily)
+      .where(
+        and(
+          eq(metaAdMetricsDaily.userId, accountId),
+          eq(metaAdMetricsDaily.adAccountId, dashboard.account.id),
+          eq(metaAdMetricsDaily.level, "placement"),
           eq(metaAdMetricsDaily.campaignExternalId, campaignRow.campaign.externalId),
           gte(metaAdMetricsDaily.date, dashboard.period.start),
           lte(metaAdMetricsDaily.date, dashboard.period.end),
@@ -534,7 +692,14 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
         campaignExternalId: metaAdTouchpoints.campaignExternalId,
       })
       .from(metaAdTouchpoints)
-      .where(and(eq(metaAdTouchpoints.userId, accountId), eq(metaAdTouchpoints.campaignExternalId, campaignRow.campaign.externalId))),
+      .where(
+        and(
+          eq(metaAdTouchpoints.userId, accountId),
+          eq(metaAdTouchpoints.campaignExternalId, campaignRow.campaign.externalId),
+          gte(metaAdTouchpoints.capturedAt, touchpointPeriodStart),
+          lte(metaAdTouchpoints.capturedAt, touchpointPeriodEnd),
+        ),
+      ),
   ]);
 
   const touchpointIds = touchpointRows.map((row) => row.id);
@@ -550,9 +715,18 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
   );
   const [leadRows, callRows, saleRows] = touchpointIds.length
     ? await Promise.all([
-        db.select({ id: nativeBookingLeads.id }).from(nativeBookingLeads).where(and(eq(nativeBookingLeads.userId, accountId), inArray(nativeBookingLeads.metaTouchpointId, touchpointIds))),
-        db.select({ id: salesCalls.id, attendance: salesCalls.attendance, outcome: salesCalls.outcome }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), inArray(salesCalls.metaTouchpointId, touchpointIds))),
-        db.select({ id: sales.id, totalPrice: sales.totalPrice }).from(sales).where(and(eq(sales.userId, accountId), inArray(sales.metaTouchpointId, touchpointIds))),
+        db
+          .select({ id: nativeBookingLeads.id })
+          .from(nativeBookingLeads)
+          .where(and(eq(nativeBookingLeads.userId, accountId), inArray(nativeBookingLeads.metaTouchpointId, touchpointIds), gte(nativeBookingLeads.createdAt, periodStartDate), lte(nativeBookingLeads.createdAt, periodEndDate))),
+        db
+          .select({ id: salesCalls.id, attendance: salesCalls.attendance, outcome: salesCalls.outcome })
+          .from(salesCalls)
+          .where(and(eq(salesCalls.userId, accountId), inArray(salesCalls.metaTouchpointId, touchpointIds), gte(salesCalls.scheduledAt, periodStartDate), lte(salesCalls.scheduledAt, periodEndDate))),
+        db
+          .select({ id: sales.id, totalPrice: sales.totalPrice })
+          .from(sales)
+          .where(and(eq(sales.userId, accountId), inArray(sales.metaTouchpointId, touchpointIds), gte(sales.saleDate, dashboard.period.start), lte(sales.saleDate, dashboard.period.end))),
       ])
     : [[], [], []] as const;
   const allSalesInPeriod = await db
@@ -563,10 +737,17 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
   const unattributedSalesInPeriod = allSalesInPeriod.filter((sale) => sale.metaTouchpointId === null).length;
   const coverageRate = allSalesInPeriod.length > 0 ? (allSalesInPeriod.length - unattributedSalesInPeriod) / allSalesInPeriod.length : null;
   const cashAttributionReady = saleRows.length > 0 && coverageRate !== null && coverageRate >= META_MIN_CASH_ATTRIBUTION_COVERAGE;
+  const levelCoverage = {
+    ad: touchpointIds.length > 0 ? levels.ad / touchpointIds.length : null,
+    adset: touchpointIds.length > 0 ? levels.adset / touchpointIds.length : null,
+    campaign: touchpointIds.length > 0 ? levels.campaign / touchpointIds.length : null,
+    utm_seul: touchpointIds.length > 0 ? levels.utm_seul / touchpointIds.length : null,
+  };
   const attributionQuality = {
     status: cashAttributionReady ? "verified" as const : touchpointIds.length > 0 && (leadRows.length > 0 || callRows.length > 0) ? "partial" as const : "unavailable" as const,
     touchpoints: touchpointIds.length,
     levels,
+    levelCoverage,
     leads: leadRows.length,
     bookedCalls: callRows.length,
     closedCalls: callRows.filter((call) => call.outcome === "closed").length,
@@ -612,6 +793,7 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
     }));
   const byAdSet = new Map<string, MetaMetricTotals>();
   const byAd = new Map<string, MetaMetricTotals>();
+  const byPlacement = new Map<string, { publisherPlatform: string; platformPosition: string; metrics: MetaMetricTotals }>();
   for (const row of metricRows) {
     if (row.level === "adset" && row.adSetExternalId) {
       const aggregate = byAdSet.get(row.adSetExternalId) ?? emptyTotals();
@@ -624,6 +806,14 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
       byAd.set(row.adExternalId, aggregate);
     }
   }
+  for (const row of placementRows) {
+    const publisherPlatform = rawString(row.raw, "publisher_platform") ?? "Inconnu";
+    const platformPosition = rawString(row.raw, "platform_position") ?? "Inconnu";
+    const key = `${publisherPlatform}:${platformPosition}`;
+    const aggregate = byPlacement.get(key) ?? { publisherPlatform, platformPosition, metrics: emptyTotals() };
+    addTotals(aggregate.metrics, row);
+    byPlacement.set(key, aggregate);
+  }
 
   return {
     dashboard,
@@ -635,7 +825,33 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
     },
     daily,
     adSets: adSetRows.map((row) => ({ id: row.id, externalId: row.externalId, name: row.name, status: row.effectiveStatus ?? row.status, deepLink: metaAdsManagerUrl(dashboard.account.externalId, campaignRow.campaign.externalId, row.externalId), metrics: byAdSet.get(row.externalId) ?? emptyTotals() })),
-    ads: adRows.map((row) => ({ id: row.id, externalId: row.externalId, name: row.name, status: row.effectiveStatus ?? row.status, creativeName: row.creativeName, deepLink: metaAdsManagerUrl(dashboard.account.externalId, campaignRow.campaign.externalId, adSetRows.find((adSet) => adSet.id === row.adSetId)?.externalId, row.externalId), metrics: byAd.get(row.externalId) ?? emptyTotals() })),
+    ads: adRows.map((row) => ({ id: row.id, externalId: row.externalId, name: row.name, status: row.effectiveStatus ?? row.status, creativeName: row.creativeName, thumbnailUrl: row.thumbnailUrl, deepLink: metaAdsManagerUrl(dashboard.account.externalId, campaignRow.campaign.externalId, adSetRows.find((adSet) => adSet.id === row.adSetId)?.externalId, row.externalId), metrics: byAd.get(row.externalId) ?? emptyTotals() })),
+    placements: Array.from(byPlacement.values()).map((row) => ({
+      publisherPlatform: row.publisherPlatform,
+      platformPosition: row.platformPosition,
+      deepLink: metaAdsManagerUrl(dashboard.account.externalId, campaignRow.campaign.externalId),
+      metrics: row.metrics,
+    })),
+    audiences: adSetRows.map((row) => {
+      const included = targetingLabels(row.targeting, "custom_audiences");
+      const excluded = targetingLabels(row.targeting, "excluded_custom_audiences");
+      const metrics = byAdSet.get(row.externalId) ?? emptyTotals();
+      const spendCents = metricValue(metrics, "spendCents");
+      const leads = metricValue(metrics, "leads");
+      return {
+        adSetId: row.id,
+        adSetName: row.name,
+        deepLink: metaAdsManagerUrl(dashboard.account.externalId, campaignRow.campaign.externalId, row.externalId),
+        active: (row.effectiveStatus ?? row.status) === "ACTIVE",
+        included,
+        excluded,
+        windowDays: audienceWindowDays(included),
+        spendCents,
+        leads,
+        cpaCents: spendCents !== null && leads !== null && leads > 0 ? spendCents / leads : null,
+        targetingAvailable: row.targeting !== null,
+      };
+    }),
     attributionQuality,
     insights: insightRows,
     actionLogs: actionLogRows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),

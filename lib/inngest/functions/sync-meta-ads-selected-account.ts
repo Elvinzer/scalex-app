@@ -20,6 +20,10 @@ export const syncMetaAdsSelectedAccount = inngest.createFunction(
       return row;
     });
 
-    return step.run("sync-selected-account", () => syncSelectedMetaAdAccount(event.data.userId));
+    const result = await step.run("sync-selected-account", () => syncSelectedMetaAdAccount(event.data.userId, undefined, event.data.phase));
+    if (!result.completed && result.nextPhase) {
+      await step.sendEvent(`continue-meta-sync-${event.data.userId}-${result.nextPhase}`, metaAdsSyncRequested.create({ userId: event.data.userId, phase: result.nextPhase }));
+    }
+    return result;
   },
 );

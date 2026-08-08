@@ -47,6 +47,7 @@ export type MetaInsightProposal = {
   diagnosis: string;
   recommendedAction: string;
   expectedImpact: string;
+  successCriterion: string;
   confidence: "high" | "medium" | "low";
   sourceCoverage: string;
 };
@@ -57,6 +58,33 @@ const MIN_PROFILE_VISITS = 50;
 const VSL_HOLD_RATE_THRESHOLD = 0.2;
 const VSL_LANDING_TO_LEAD_THRESHOLD = 0.1;
 const IG_FOLLOW_RATE_THRESHOLD = 0.1;
+const RT_WINDOW_CPA_RATIO = 1.5;
+const RT_MIN_WINDOW_LEADS = 5;
+
+function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
+  switch (ruleKey) {
+    case "vsl_hook_ok_retention_faible":
+      return `Sur la prochaine période comparable, remonter le hold rate au-dessus de ${Math.round(VSL_HOLD_RATE_THRESHOLD * 100)} % sans faire baisser le hook rate.`;
+    case "vsl_ctr_ok_landing_faible":
+      return `Sur la prochaine période comparable, remonter le taux landing → lead au-dessus de ${Math.round(VSL_LANDING_TO_LEAD_THRESHOLD * 100)} % avec un CTR lien au moins stable.`;
+    case "vsl_leads_ok_cash_baisse":
+      return "Sur la prochaine période comparable, stabiliser ou remonter le cash par lead sans augmenter le CPL de plus de 20 %.";
+    case "web_inscription_ok_showup_bas":
+      return "Sur la prochaine période comparable, stabiliser le coût par inscription et remonter le taux de présence live mesuré.";
+    case "web_trafic_qualifie":
+      return "Sur la prochaine période comparable, réduire le coût par participant sans dégrader la qualité post-webinar mesurée.";
+    case "ig_visites_ok_follow_bas":
+      return `Sur la prochaine période comparable, dépasser ${Math.round(IG_FOLLOW_RATE_THRESHOLD * 100)} % de conversion visite → follow sans dégrader le coût par visite.`;
+    case "ig_follows_moins_engages":
+      return "Sur la prochaine période comparable, conserver la progression des follows tout en stabilisant ou remontant l’engagement par follower.";
+    case "rt_saturation":
+      return "Sur la prochaine période comparable, réduire la fréquence et remonter le CTR sans augmenter le CPA.";
+    case "rt_exclusion_manquante":
+      return "Après vérification dans Meta Ads, aucune audience active ne doit inclure des acheteurs sans exclusion explicite.";
+    case "rt_fenetre_inefficace":
+      return `Sur la prochaine période comparable, ramener le CPA de la fenêtre inefficace sous ${RT_WINDOW_CPA_RATIO.toFixed(1)}× celui de la meilleure fenêtre, ou la désactiver après contrôle du volume.`;
+  }
+}
 
 function ratio(numerator: number | null, denominator: number | null): number | null {
   return numerator !== null && denominator !== null && denominator > 0 ? numerator / denominator : null;
@@ -97,6 +125,20 @@ function baseProposal(
     provenance?: MetaProvenance;
   },
 ): MetaInsightProposal {
+  const metaCoverage = campaign.metricCoverageRate == null
+    ? "Meta Ads : couverture métrique indisponible"
+    : `Meta Ads : ${Math.round(campaign.metricCoverageRate * 100)} % des jours de la période`;
+  const sourceNotes = [metaCoverage];
+  if (details.sourceCoverage.includes("Stripe")) {
+    sourceNotes.push(
+      campaign.cash?.coverageRate == null
+        ? "Stripe : couverture des ventes indisponible"
+        : `Stripe : ${Math.round(campaign.cash.coverageRate * 100)} % des ventes de la période rattachées`,
+    );
+  }
+  if (details.sourceCoverage.includes("Instagram")) {
+    sourceNotes.push(`Instagram : observation ${campaign.instagramObservation?.connected ? "connectée" : "indisponible"}, follows non attribués`);
+  }
   return {
     campaignId: campaign.id,
     campaignName: campaign.name,
@@ -110,6 +152,8 @@ function baseProposal(
     sampleSize,
     provenance: details.provenance ?? provenance(),
     ...details,
+    successCriterion: successCriterionFor(ruleKey),
+    sourceCoverage: `${details.sourceCoverage} · ${sourceNotes.join(" · ")}`,
   };
 }
 
@@ -291,6 +335,70 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const targetCpaNote = targetCpa !== null && targetCpa > 0 && currentCpa !== null
       ? ` · cible CPA ${(targetCpa / 100).toFixed(2)} € · écart ${(((currentCpa - targetCpa) / targetCpa) * 100).toFixed(0)} %`
       : "";
+    const audienceSignals = campaign.retargetingAudiences ?? [];
+    const metricCoverage = campaign.metricCoverageRate == null ? "indisponible" : `${Math.round(campaign.metricCoverageRate * 100)} % des jours de la période`;
+    const missingBuyerExclusion = audienceSignals.filter(
+      (audience) => audience.active && audience.targetingAvailable && audience.buyerAudienceDetected && !audience.buyerAudienceExcluded,
+    );
+    if (missingBuyerExclusion.length > 0) {
+      const names = missingBuyerExclusion.map((audience) => `« ${audience.adSetName} »`).join(", ");
+      proposals.push(
+        baseProposal(
+          campaign,
+          "rt_exclusion_manquante",
+          "Une audience acheteurs semble active sans exclusion explicite",
+          `Meta signale une audience nommée acheteurs/clients incluse dans ${names}. Vérifie dans Meta Ads que les acheteurs récents sont exclus avant de continuer à investir sur cette audience de retargeting.`,
+          "buyer_audience_exclusion",
+          missingBuyerExclusion.length,
+          0,
+          missingBuyerExclusion.length,
+          {
+            priority: "high",
+            evidence: `${missingBuyerExclusion.length} ensemble(s) actif(s) contiennent une audience acheteurs/clients sans audience acheteurs exclue · ciblage Meta disponible · couverture métrique ${metricCoverage}.`,
+            diagnosis: "Le ciblage actif peut réexposer des clients déjà convertis ; le nom de l’audience est un signal à confirmer dans Meta Ads, pas une preuve d’appartenance individuelle.",
+            recommendedAction: "Ouvrir l’ensemble dans Meta Ads et ajouter l’audience acheteurs/clients récente aux exclusions si elle n’y figure pas déjà.",
+            expectedImpact: "Réduire la dépense sur des acheteurs déjà convertis et préserver la taille utile de l’audience de retargeting.",
+            confidence: "low",
+            sourceCoverage: `Meta Ads · ciblage adset et statuts · ${metricCoverage} · détection heuristique par libellé d’audience, confirmation requise dans Meta`,
+            provenance: provenance("meta", "directe"),
+          },
+        ),
+      );
+    }
+
+    const windowSignals = audienceSignals.filter(
+      (audience) => audience.active && audience.targetingAvailable && audience.windowDays !== null && audience.cpaCents !== null && audience.leads !== null && audience.leads >= RT_MIN_WINDOW_LEADS,
+    );
+    if (windowSignals.length >= 2) {
+      const best = windowSignals.reduce((winner, audience) => (audience.cpaCents! < winner.cpaCents! ? audience : winner));
+      const inefficient = windowSignals
+        .filter((audience) => audience.adSetId !== best.adSetId && audience.cpaCents! > best.cpaCents! * RT_WINDOW_CPA_RATIO)
+        .sort((left, right) => (right.cpaCents ?? 0) - (left.cpaCents ?? 0))[0];
+      if (inefficient) {
+        proposals.push(
+          baseProposal(
+            campaign,
+            "rt_fenetre_inefficace",
+            "Une fenêtre de retargeting coûte nettement plus cher",
+            `La fenêtre ${inefficient.windowDays} jours affiche un CPA de ${(inefficient.cpaCents! / 100).toFixed(2)} €, contre ${(best.cpaCents! / 100).toFixed(2)} € pour la meilleure fenêtre (${best.windowDays} jours). Vérifie la taille, le chevauchement et l’exclusion des fenêtres dans Meta Ads.`,
+            "retargeting_window_cpa",
+            inefficient.cpaCents,
+            best.cpaCents,
+            inefficient.leads ?? 0,
+            {
+              priority: "medium",
+              evidence: `CPA fenêtre ${inefficient.windowDays} j ${(inefficient.cpaCents! / 100).toFixed(2)} € · meilleure fenêtre ${best.windowDays} j ${(best.cpaCents! / 100).toFixed(2)} € · seuil ${RT_WINDOW_CPA_RATIO.toFixed(1)}× · au moins ${RT_MIN_WINDOW_LEADS} leads par fenêtre.`,
+              diagnosis: "Une fenêtre identifiée dans le ciblage transforme moins efficacement que la meilleure fenêtre comparable sur la période.",
+              recommendedAction: "Comparer les fenêtres dans Meta Ads, vérifier les exclusions et déplacer progressivement le budget vers la fenêtre la plus efficace après contrôle du volume.",
+              expectedImpact: "Réduire le CPA du retargeting sans augmenter la pression publicitaire sur une audience déjà sollicitée.",
+              confidence: "low",
+              sourceCoverage: `Meta Ads · coûts et leads par ensemble · ${metricCoverage} · fenêtre déduite du libellé de l’audience, vérification Meta requise`,
+              provenance: provenance("meta", "directe"),
+            },
+          ),
+        );
+      }
+    }
     if (frequency !== null && comparisonFrequency !== null && ctr !== null && comparisonCtr !== null && currentCpa !== null && comparisonCpa !== null && frequency > comparisonFrequency * 1.1 && ctr < comparisonCtr * 0.9 && currentCpa > comparisonCpa * 1.1) {
       proposals.push(
         baseProposal(
@@ -347,6 +455,7 @@ function toMaterializedInsight(
     diagnosis: proposal.diagnosis,
     recommendedAction: proposal.recommendedAction,
     expectedImpact: proposal.expectedImpact,
+    successCriterion: proposal.successCriterion,
     confidence: proposal.confidence,
     sourceCoverage: proposal.sourceCoverage,
     priority: proposal.priority,

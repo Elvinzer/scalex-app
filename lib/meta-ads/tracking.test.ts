@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMetaTrackingUrl, readMetaTracking } from "./tracking";
+import { buildMetaTrackingUrl, mergeMetaTracking, readMetaTracking } from "./tracking";
 
 describe("Meta tracking extraction", () => {
+  it("prefers fresh landing-page fields while preserving missing first-party values", () => {
+    const primary = readMetaTracking({ utm_source: "meta", campaign_id: "campaign-live" });
+    const fallback = readMetaTracking({ utm_campaign: "stored-campaign", sx_mt: "a".repeat(64) });
+    expect(mergeMetaTracking(primary, fallback)).toEqual({
+      utmSource: "meta",
+      utmMedium: null,
+      utmCampaign: "stored-campaign",
+      utmContent: null,
+      utmTerm: null,
+      metaTouchpointToken: "a".repeat(64),
+      metaCampaignExternalId: "campaign-live",
+      metaAdSetExternalId: null,
+      metaAdExternalId: null,
+    });
+  });
+
   it("reads UTM fields and an opaque touchpoint from nested provider metadata", () => {
     const token = "a".repeat(64);
     expect(

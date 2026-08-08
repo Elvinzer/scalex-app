@@ -10,6 +10,50 @@ import type { InsightHistoryItem, InitiativeSummary } from "@/lib/insight-execut
 
 type Member = { id: string; name: string; roles: string[] };
 
+type AdoptionDetails = {
+  actionText: string;
+  successCriterion: string;
+  metricText: string;
+  sourceLabel: string;
+  sourceHref: string | null;
+};
+
+function snapshotText(insight: InsightHistoryItem, key: string): string | null {
+  const value = insight.snapshot[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function metaAdoptionDetails(insight: InsightHistoryItem): AdoptionDetails | null {
+  if (insight.sourceType !== "meta_ads") return null;
+
+  const metricKey = snapshotText(insight, "metricKey") ?? "métrique Meta";
+  const currentValue = insight.snapshot.currentValue;
+  const value = typeof currentValue === "number" && Number.isFinite(currentValue)
+    ? metricKey === "cash_per_lead" || metricKey === "retargeting_window_cpa"
+      ? `${(currentValue / 100).toFixed(2)} €`
+      : metricKey.endsWith("_rate") || metricKey === "profile_to_follow_rate" || metricKey === "instagram_engagement_per_follower"
+        ? `${(currentValue * 100).toFixed(1)} %`
+        : metricKey === "frequency"
+          ? `${currentValue.toFixed(1)}×`
+          : `${Math.round(currentValue)}`
+    : "—";
+  const sampleSize = typeof insight.snapshot.sampleSize === "number" ? Math.round(insight.snapshot.sampleSize) : null;
+  const period = insight.periodStart && insight.periodEnd ? `${insight.periodStart} → ${insight.periodEnd}` : "période indisponible";
+  const campaignId = snapshotText(insight, "campaignId");
+  const campaignName = snapshotText(insight, "campaignName") ?? "campagne";
+  const actionText = snapshotText(insight, "recommendedAction") ?? insight.insightText;
+  const successCriterion = snapshotText(insight, "successCriterion") ?? "Recontrôler cette métrique sur une période comparable après l’action.";
+  const metricLabel = metricKey.replaceAll("_", " ");
+
+  return {
+    actionText,
+    successCriterion,
+    metricText: `${metricLabel} : ${value} · ${period}${sampleSize === null ? "" : ` · ${sampleSize} observation(s)`}`,
+    sourceLabel: insight.sourceLabel ?? `Meta Ads · ${campaignName}`,
+    sourceHref: campaignId ? `/acquisition/ads/meta/${encodeURIComponent(campaignId)}` : null,
+  };
+}
+
 export function InsightLaunchDialog({
   insight,
   members,
@@ -18,6 +62,7 @@ export function InsightLaunchDialog({
   onLaunched,
   triggerLabel = "Je lance cette action",
   triggerPrimary = false,
+  adoptionDetails,
 }: {
   insight: InsightHistoryItem;
   members: Member[];
@@ -26,6 +71,7 @@ export function InsightLaunchDialog({
   onLaunched?: (insight: InsightHistoryItem) => void;
   triggerLabel?: string;
   triggerPrimary?: boolean;
+  adoptionDetails?: AdoptionDetails | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -39,6 +85,7 @@ export function InsightLaunchDialog({
   const [availableProjects, setAvailableProjects] = useState(projects);
   const [canAssignCurrent, setCanAssignCurrent] = useState(canAssign);
   const [isPending, startTransition] = useTransition();
+  const details = adoptionDetails ?? metaAdoptionDetails(insight);
 
   async function handleOpen(next: boolean) {
     setOpen(next);
@@ -93,7 +140,36 @@ export function InsightLaunchDialog({
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-1rem)] max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-[var(--radius-card)] max-sm:p-5 sm:max-h-[85vh]">
         <DialogTitle className="text-lg font-bold">Lancer cette action</DialogTitle>
-        <p className="mt-2 text-sm text-muted-foreground">Je crée un point de départ dans ton Journal. Tu pourras le modifier ensuite.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Je crée un point de départ dans ton Journal. La métrique de départ reste figée pour mesurer le résultat.</p>
+
+        {details && (
+          <div className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted p-4 text-sm">
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Contenu conservé dans le Journal</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-bold text-muted-foreground">Action exacte</p>
+                <p className="mt-1 leading-5">{details.actionText}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-muted-foreground">Critère de réussite</p>
+                <p className="mt-1 leading-5">{details.successCriterion}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-muted-foreground">Métrique de départ figée</p>
+                <p className="mt-1 leading-5">{details.metricText}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-muted-foreground">Source</p>
+                <p className="mt-1 leading-5">{details.sourceLabel}</p>
+                {details.sourceHref && (
+                  <a href={details.sourceHref} className="mt-1 inline-block font-bold underline-offset-4 hover:underline">
+                    Ouvrir la campagne
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-5 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
@@ -152,6 +228,10 @@ export function InsightLaunchDialog({
                 ))}
               </select>
             </label>
+          )}
+
+          {(!canAssignCurrent || availableMembers.length === 0) && (
+            <p className="text-sm text-muted-foreground"><span className="font-bold text-foreground">Responsable :</span> toi par défaut</p>
           )}
 
           <label className="flex min-h-11 items-start gap-2 text-sm">

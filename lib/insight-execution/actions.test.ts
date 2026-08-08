@@ -23,6 +23,7 @@ vi.mock("@/lib/team/context", () => ({ getAccountContext: mocks.getAccountContex
 vi.mock("./queries", () => ({ getInsightHistory: mocks.getInsightHistory, getAssignableMembers: vi.fn() }));
 
 import { captureCopiloteInsight } from "./actions";
+import { actionTextForInsight } from "./action-text";
 import type { InsightHistoryItem } from "./types";
 
 const conversationId = "00000000-0000-0000-0000-000000000001";
@@ -147,5 +148,23 @@ describe("captureCopiloteInsight", () => {
     const result = await captureCopiloteInsight(input);
 
     expect(result).toEqual({ error: "L'action n'a pas pu être enregistrée." });
+  });
+});
+
+describe("actionTextForInsight", () => {
+  it("uses the exact recommended action for a Meta insight", () => {
+    expect(actionTextForInsight({
+      sourceType: "meta_ads",
+      insightText: "Le diagnostic Meta.",
+      snapshot: { recommendedAction: "Ouvrir Meta et renouveler la créa." },
+    })).toBe("Ouvrir Meta et renouveler la créa.");
+  });
+
+  it("keeps the insight text as the action for other sources", () => {
+    expect(actionTextForInsight({
+      sourceType: "copilote",
+      insightText: "Tester le script.",
+      snapshot: { recommendedAction: "Ne pas utiliser ce texte." },
+    })).toBe("Tester le script.");
   });
 });
