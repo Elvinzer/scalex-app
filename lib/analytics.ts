@@ -82,7 +82,9 @@ export type AnalyticsEvent =
   | "content_reco_generated"
   | "content_reco_developed"
   | "content_reco_accepted"
-  | "content_reco_published";
+  | "content_reco_published"
+  // Journal/Dashboard — "C'est fait" sur l'action du jour.
+  | "insight_marked_done";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

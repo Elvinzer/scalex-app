@@ -1,6 +1,6 @@
 "use server";
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { saveMonthlyMetrics } from "@/app/(app)/datas/actions";
 import { db } from "@/db";
@@ -10,6 +10,8 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { buildRates, labelFor } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { requireUserIdOrError } from "@/lib/current-user";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -88,4 +90,48 @@ export async function submitWeeklyCheckin(
   }
 
   return { error: null, feedback };
+}
+
+// "C'est fait" on the Action du jour. Diagnostic cascade points have no
+// completion table of their own (unlike funnel_stage_insights, which
+// setInsightImplemented covers) — so rather than inventing one, this logs the
+// same improvement_events row the Journal calendar already reads, keyed by
+// the metric. That makes the click a real, visible fact instead of a button
+// that writes nowhere.
+export async function markTodayActionDone(metricKey: string, label: string): Promise<{ error: string | null }> {
+  const userId = await requireUserIdOrError();
+  if (typeof userId !== "string") return userId;
+  const access = await requirePermission(userId, "dashboard");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // One row per metric per day — clicking twice shouldn't stack the journal.
+  const [existing] = await db
+    .select({ id: improvementEvents.id })
+    .from(improvementEvents)
+    .where(
+      and(
+        eq(improvementEvents.userId, access.accountId),
+        eq(improvementEvents.date, today),
+        eq(improvementEvents.type, "insight_implemented"),
+        eq(improvementEvents.sourceId, metricKey)
+      )
+    )
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(improvementEvents).values({
+      userId: access.accountId,
+      date: today,
+      type: "insight_implemented",
+      label,
+      sourceId: metricKey,
+    });
+    await track("insight_marked_done", userId, { metric_key: metricKey });
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/journal");
+  return { error: null };
 }
