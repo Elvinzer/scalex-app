@@ -108,23 +108,11 @@ const topEntries: LinkEntry[] = [
       "ventes:videos",
     ],
   },
+  { type: "link", href: "/ventes/rdv", label: "Rendez-vous", icon: CalendarClock, permission: "ventes:rdv" },
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
   // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
   // même permission que le Copilote partout ailleurs dans l'app.
   { type: "link", href: "/copilote", label: "Copilote", icon: MessageCircle, permission: "diagnostic" },
-];
-
-// BARRE DU HAUT — pages promoted into the horizontal top bar, rendered at
-// the far left of the area immediately to the right of the sidebar.
-// Deliberately a separate list from topEntries: this strip holds occasional
-// destinations that don't earn a slot in the primary rail, not a second copy
-// of it.
-// Rendez-vous stays first (explicitly asked to sit far left).
-//
-// The bar is part of the fixed app chrome, so these entries stay reachable
-// beside the sidebar instead of being moved into a second drawer menu.
-const topBarEntries: LinkEntry[] = [
-  { type: "link", href: "/ventes/rdv", label: "Rendez-vous", icon: CalendarClock, permission: "ventes:rdv" },
 ];
 
 // COMPTE — account-level settings behind the avatar/profile dropdown
@@ -216,7 +204,9 @@ function PillarNavGroup({
   isOwner: boolean;
   permissions: readonly PermissionKey[];
 }) {
-  const subpages = (PILLAR_SUBPAGES[entry.href] ?? []).filter((sub) => isOwner || permissions.includes(sub.permission));
+  const subpages = (PILLAR_SUBPAGES[entry.href] ?? [])
+    .filter((sub) => isOwner || permissions.includes(sub.permission))
+    .filter((sub) => !topEntries.some((topEntry) => topEntry.href === sub.href));
   const insidePillar = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
   const [open, setOpen] = useState(insidePillar);
 
@@ -298,27 +288,27 @@ function ProfileMenu({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex min-h-11 w-full min-w-0 max-w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+            className="flex min-h-11 w-full min-w-0 max-w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 text-left text-mist transition-colors hover:bg-mist/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
           >
             {avatarUrl ? (
               <div className="relative size-8 shrink-0 overflow-hidden rounded-full">
                 <Image src={avatarUrl} alt="" fill sizes="32px" className="object-cover" />
               </div>
             ) : (
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-mist/15 text-xs font-bold text-mist">
                 {initial}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="whitespace-normal break-words text-[12.5px] font-bold tracking-[-0.005em] text-foreground">
+              <p className="whitespace-normal break-words text-[12.5px] font-bold tracking-[-0.005em] text-mist">
                 {displayName || businessName || "Mon compte"}
               </p>
-              <p className="whitespace-normal break-all text-[11px] tracking-[-0.005em] text-muted-foreground">{email}</p>
+              <p className="whitespace-normal break-all text-[11px] tracking-[-0.005em] text-mist/60">{email}</p>
             </div>
-            <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+            <ChevronsUpDown className="size-3.5 shrink-0 text-mist/60" />
           </button>
         </PopoverTrigger>
-        <PopoverContent side="bottom" align="end" sideOffset={10} className="w-56 p-1.5">
+        <PopoverContent side="top" align="start" sideOffset={10} className="w-56 p-1.5">
           {entries.length > 0 && <p className="px-2.5 pb-1 pt-2 text-[10px] font-bold tracking-[0.08em] text-muted-foreground uppercase">Configuration</p>}
           {entries.map((entry) => {
             const Icon = entry.icon;
@@ -412,7 +402,6 @@ export function AppSidebar({
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const visiblePrimaryEntries = visibleTopEntries.filter((entry) => entry.href !== "/copilote");
   const visibleCopiloteEntry = visibleTopEntries.find((entry) => entry.href === "/copilote");
-  const visibleTopBarEntries = topBarEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const mobileEntries = ([
     { type: "link", href: "/journal", label: "Journal de bord", mobileLabel: "Journal", icon: CalendarDays, permission: "dashboard" },
     { type: "link", href: "/dashboard", label: "Dashboard", mobileLabel: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
@@ -424,11 +413,10 @@ export function AppSidebar({
 
   return (
     <>
-      {/* Fixed app chrome: the header and sidebar are separate columns. The
-          explicit left edge keeps the header from ever sitting underneath
-          or pushing the sidebar out of view. */}
+      {/* Mobile-only app chrome. On desktop the sidebar owns the complete
+          navigation and there is no empty horizontal bar above the content. */}
       <header
-        className="fixed top-0 right-0 left-0 z-50 flex h-18 min-w-0 items-center gap-3 border-b border-border bg-card/95 px-3 text-foreground shadow-sm backdrop-blur-sm md:left-64 md:gap-4 md:px-4"
+        className="fixed top-0 right-0 left-0 z-50 flex h-18 min-w-0 items-center gap-3 border-b border-border bg-card/95 px-3 text-foreground shadow-sm backdrop-blur-sm md:hidden"
       >
         <button
           type="button"
@@ -436,7 +424,7 @@ export function AppSidebar({
           aria-expanded={mobileOpen}
           aria-label={mobileOpen ? "Fermer la navigation" : "Ouvrir la navigation"}
           onClick={() => setMobileOpen((open) => !open)}
-          className="hidden size-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-control)] text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 md:hidden"
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-control)] text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 md:hidden"
         >
           {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
@@ -446,44 +434,6 @@ export function AppSidebar({
           <span className="truncate text-sm font-bold">{mobilePageTitle}</span>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border md:block" />
-          <nav aria-label="Raccourcis" className="hidden min-w-0 items-center justify-start gap-1 overflow-x-auto md:flex">
-          {visibleTopBarEntries.map((entry) => {
-            const Icon = entry.icon;
-            const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
-            return (
-              <Link
-                key={entry.href}
-                href={entry.href}
-                className={cn(
-                  "flex min-h-11 max-w-full shrink-0 cursor-pointer items-center gap-2 whitespace-normal break-words rounded-[var(--radius-control)] border border-transparent px-3 text-[13.5px] font-bold tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 active:scale-[0.98]",
-                  active
-                    ? "border-accent-border bg-accent-soft text-foreground"
-                    : "text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
-                )}
-                aria-current={active ? "page" : undefined}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
-              </Link>
-            );
-          })}
-          </nav>
-        </div>
-
-        <div className="ml-auto min-w-0 max-w-[11rem] shrink-0 border-l border-border pl-2 md:max-w-[22rem] md:pl-3">
-          <ProfileMenu
-            businessName={businessName}
-            displayName={displayName}
-            avatarUrl={avatarUrl}
-            email={email}
-            isOwner={isOwner}
-            permissions={permissions}
-            onSignOut={handleSignOut}
-            businessCompletionCount={businessCompletionCount}
-          />
-        </div>
       </header>
 
       {mobileOpen && (
@@ -506,8 +456,8 @@ export function AppSidebar({
         )}
         style={{ background: "var(--gradient-dark)" }}
       >
-        {/* h-18 mirrors the top bar's own height, so the wordmark's vertical
-            center lands exactly on that bar's midline (36px). Keep the two
+        {/* h-18 mirrors the fixed app header, so the wordmark's vertical
+            center lands exactly on that header's midline (36px). Keep the two
             in sync if either height changes. */}
         <div className="flex h-18 shrink-0 items-center px-3">
           <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
@@ -560,6 +510,19 @@ export function AppSidebar({
               />
             </div>
           )}
+
+          <div className="mt-4 border-t border-sidebar-border pt-3">
+            <ProfileMenu
+              businessName={businessName}
+              displayName={displayName}
+              avatarUrl={avatarUrl}
+              email={email}
+              isOwner={isOwner}
+              permissions={permissions}
+              onSignOut={handleSignOut}
+              businessCompletionCount={businessCompletionCount}
+            />
+          </div>
         </div>
       </aside>
 

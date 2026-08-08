@@ -101,7 +101,7 @@ export function BusinessPageClient({
 
       <nav
         aria-label="Sections de Mon business"
-        className="sticky top-20 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-[var(--radius-control)] border border-border bg-background/95 p-1 backdrop-blur-sm"
+        className="sticky top-20 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-[var(--radius-control)] border border-border bg-background/95 p-1 backdrop-blur-sm md:top-6"
       >
         <a
           href="#identite"

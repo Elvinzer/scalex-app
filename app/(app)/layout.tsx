@@ -207,8 +207,9 @@ export default async function AppLayout({
             on desktop; mobile opens it as an overlay instead. */}
         <div aria-hidden="true" className="w-0 shrink-0 md:w-64" />
         <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-24 md:px-16 md:pb-10">
-          {/* Keep the first page content below the fixed top navigation. */}
-          <div aria-hidden="true" className="h-20 shrink-0" />
+          {/* Mobile keeps its compact header; desktop starts directly beside
+              the sidebar because the empty horizontal bar is gone. */}
+          <div aria-hidden="true" className="h-24 shrink-0 md:h-16" />
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
         <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
