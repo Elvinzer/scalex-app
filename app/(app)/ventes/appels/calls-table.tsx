@@ -4,6 +4,7 @@ import { MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { SalesCallRow } from "@/lib/iclosed/calls";
+import { CallContactActions } from "@/components/call-contact-actions";
 
 import { CallDetailDrawer } from "./call-detail-drawer";
 import { AmountInput, CallResultSelect, TONE_DOT, TONE_TEXT, decisionUrgency, useCallOutcome } from "./call-outcome";
@@ -138,6 +139,13 @@ function PendingDecisions({
                   <span className="ml-2 text-xs text-muted-foreground">{call.inviteeEmail}</span>
                 )}
               </span>
+              <CallContactActions
+                phone={call.inviteePhone}
+                name={call.inviteeName}
+                eventType={call.eventType}
+                compact
+                className="shrink-0"
+              />
               <button
                 type="button"
                 onClick={() => onOpen(call.id)}
@@ -180,9 +188,17 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
       <td className="p-3 align-top">
         <p className="font-bold">{call.inviteeName ?? "—"}</p>
         {call.inviteeEmail && <p className="text-xs text-muted-foreground">{call.inviteeEmail}</p>}
+        {call.inviteePhone && <p className="text-xs font-bold text-foreground">{call.inviteePhone}</p>}
         <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
           {sourceLabel(call.source)}
         </p>
+        <CallContactActions
+          phone={call.inviteePhone}
+          name={call.inviteeName}
+          eventType={call.eventType}
+          compact
+          className="mt-2"
+        />
         {call.source === "native" && (call.utmSource || call.utmCampaign || call.utmContent) && (
           <p className="mt-1 text-[10px] font-bold text-accent">
             {[call.utmSource, call.utmCampaign, call.utmContent].filter(Boolean).join(" · ")}

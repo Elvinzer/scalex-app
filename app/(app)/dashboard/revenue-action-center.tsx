@@ -1,6 +1,7 @@
 import { ArrowUpRight, CalendarClock, CalendarX2, PhoneCall, UserRound } from "lucide-react";
 import Link from "next/link";
 
+import { CallContactActions } from "@/components/call-contact-actions";
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import { getRevenueActions } from "@/lib/dashboard/revenue-action-queries";
@@ -34,10 +35,10 @@ function RevenueActionIcon({ action }: { action: RevenueAction }) {
 
 function SecondaryAction({ action }: { action: RevenueAction }) {
   return (
-    <li>
+    <li className="flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 transition-colors hover:bg-muted">
       <Link
         href={action.href}
-        className="group flex min-h-11 items-center gap-3 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
+        className="group flex min-w-0 flex-1 items-center gap-3 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
       >
         <RevenueActionIcon action={action} />
         <span className="min-w-0 flex-1">
@@ -47,6 +48,7 @@ function SecondaryAction({ action }: { action: RevenueAction }) {
         <span className="max-w-32 shrink-0 text-right text-xs font-bold text-muted-foreground">{action.urgencyLabel}</span>
         <ArrowUpRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
       </Link>
+      <CallContactActions phone={action.phone} name={action.title} compact className="shrink-0" />
     </li>
   );
 }
@@ -79,6 +81,7 @@ function RevenueActionCenterContent({ actions }: { actions: RevenueAction[] }) {
             <p className="mt-2 text-xs font-bold text-muted-foreground">Levier · {primary.reason}</p>
             <h3 className="mt-2 text-lg font-bold">{primary.title}</h3>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{primary.reason}. Cette action est en tête car elle porte la valeur la plus immédiate.</p>
+            <CallContactActions phone={primary.phone} name={primary.title} compact className="mt-3" />
           </div>
           <RevenueActionIcon action={primary} />
         </div>

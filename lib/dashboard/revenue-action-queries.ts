@@ -32,6 +32,7 @@ export async function getRevenueActions({
   const callInputs: RevenueCallInput[] = calls.map((call) => ({
     id: call.id,
     inviteeName: call.inviteeName,
+    inviteePhone: call.inviteePhone,
     outcome: call.outcome,
     decisionDueAt: call.decisionDueAt,
   }));

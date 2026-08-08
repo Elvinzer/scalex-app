@@ -25,6 +25,7 @@ function call(overrides: Partial<RevenueCallInput> = {}): RevenueCallInput {
   return {
     id: "call-1",
     inviteeName: "Grace Hopper",
+    inviteePhone: null,
     outcome: "awaiting_decision",
     decisionDueAt: "2026-08-05T10:00:00.000Z",
     ...overrides,
@@ -141,16 +142,16 @@ describe("buildRevenueActions", () => {
     expect(actions).toEqual([]);
   });
 
-  it("does not expose source contact details in the Dashboard projection", () => {
+  it("keeps a call phone in the Dashboard projection for contact actions", () => {
     const actions = buildRevenueActions({
-      calls: [],
+      calls: [call({ inviteePhone: "+15551234567" })],
       leads: [lead()],
       nativeBookingLeads: [],
       permissions: ALL_ACCESS,
       now: NOW,
     });
 
+    expect(actions[0]?.phone).toBe("+15551234567");
     expect(JSON.stringify(actions)).not.toContain("email");
-    expect(JSON.stringify(actions)).not.toContain("phone");
   });
 });

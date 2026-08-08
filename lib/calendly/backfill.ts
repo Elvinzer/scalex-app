@@ -1,3 +1,5 @@
+import { and, eq } from "drizzle-orm";
+
 import { db } from "@/db";
 import { salesCalls } from "@/db/schema";
 
@@ -21,6 +23,7 @@ export async function backfillCalendlyCalls(userId: string, token: string, userU
         iclosedCallId: c.externalId,
         inviteeName: c.inviteeName,
         inviteeEmail: c.inviteeEmail,
+        inviteePhone: c.inviteePhone,
         scheduledAt: c.scheduledAt,
         durationMinutes: c.durationMinutes,
         closer: c.closer,
@@ -30,6 +33,16 @@ export async function backfillCalendlyCalls(userId: string, token: string, userU
     )
     .onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] })
     .returning({ id: salesCalls.id });
+
+  // Keep contact enrichment current for calls imported before phone support was
+  // added, without touching the closer's manually entered outcome or amounts.
+  for (const c of calls) {
+    if (!c.inviteePhone) continue;
+    await db
+      .update(salesCalls)
+      .set({ inviteePhone: c.inviteePhone, updatedAt: new Date() })
+      .where(and(eq(salesCalls.userId, userId), eq(salesCalls.iclosedCallId, c.externalId)));
+  }
 
   return inserted.length;
 }

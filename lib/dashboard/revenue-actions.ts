@@ -22,6 +22,7 @@ export type RevenueLeadInput = {
 export type RevenueCallInput = {
   id: string;
   inviteeName: string | null;
+  inviteePhone: string | null;
   outcome: "pending" | "closed" | "not_closed" | "awaiting_decision";
   decisionDueAt: string | null;
 };
@@ -41,6 +42,7 @@ export type RevenueAction = {
   source: RevenueActionSource;
   sourceId: string;
   title: string;
+  phone: string | null;
   reason: string;
   urgencyLabel: string;
   referenceAt: string | null;
@@ -147,6 +149,7 @@ function toPublicAction(action: SortableRevenueAction): RevenueAction {
     source: action.source,
     sourceId: action.sourceId,
     title: action.title,
+    phone: action.phone,
     reason: action.reason,
     urgencyLabel: action.urgencyLabel,
     referenceAt: action.referenceAt,
@@ -193,6 +196,7 @@ export function buildRevenueActions({
         source: "call_decision",
         sourceId: call.id,
         title: call.inviteeName?.trim() || "Appel sans nom",
+        phone: call.inviteePhone,
         reason: "Décision de closing en attente",
         urgencyLabel: due.urgencyLabel,
         referenceAt: call.decisionDueAt,
@@ -211,6 +215,7 @@ export function buildRevenueActions({
           source: "lead_no_show",
           sourceId: lead.id,
           title: displayName(lead.firstName, lead.lastName, "Lead sans nom"),
+          phone: null,
           reason: "No-show à récupérer",
           urgencyLabel: "No-show à récupérer",
           referenceAt: lead.updatedAt,
@@ -236,6 +241,7 @@ export function buildRevenueActions({
         source: "lead_reminder",
         sourceId: lead.id,
         title: displayName(lead.firstName, lead.lastName, "Lead sans nom"),
+        phone: null,
         reason: lead.reminderNote?.trim() || "Relance à faire",
         urgencyLabel: due.urgencyLabel,
         referenceAt,
@@ -254,6 +260,7 @@ export function buildRevenueActions({
         source: "native_booking_lead",
         sourceId: lead.id,
         title: displayName(lead.firstName, lead.lastName, "Prospect sans nom"),
+        phone: null,
         reason: nativeLeadReason(lead.lastStep),
         urgencyLabel: "À relancer",
         referenceAt: lead.lastSeenAt,

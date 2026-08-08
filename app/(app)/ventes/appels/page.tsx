@@ -117,21 +117,39 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
-      {iclosedConnected && (
-        <IntegrationStatusRow
-          name="iClosed"
-          status={connectionStatus(iclosedConnection?.initialSyncStatus)}
-          detail={connectionDetail("iClosed", iclosedConnection?.initialSyncStatus)}
-          action={<Link href="/settings" className="text-sm font-bold text-muted-foreground hover:underline">Gérer</Link>}
-        />
-      )}
-      {calendlyConnected && (
-        <IntegrationStatusRow
-          name="Calendly"
-          status={connectionStatus(calendlyConnection?.initialSyncStatus)}
-          detail={connectionDetail("Calendly", calendlyConnection?.initialSyncStatus)}
-          action={<Link href="/settings" className="text-sm font-bold text-muted-foreground hover:underline">Gérer</Link>}
-        />
+      {anyConnected && (
+        <section aria-label="Intégrations d&apos;appels connectées" className="grid gap-3 sm:grid-cols-2">
+          {iclosedConnected && (
+            <IntegrationStatusRow
+              name="iClosed"
+              status={connectionStatus(iclosedConnection?.initialSyncStatus)}
+              detail={connectionDetail("iClosed", iclosedConnection?.initialSyncStatus)}
+              action={
+                <Link
+                  href="/integrations#iclosed"
+                  className="inline-flex min-h-11 cursor-pointer items-center rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
+                >
+                  Gérer
+                </Link>
+              }
+            />
+          )}
+          {calendlyConnected && (
+            <IntegrationStatusRow
+              name="Calendly"
+              status={connectionStatus(calendlyConnection?.initialSyncStatus)}
+              detail={connectionDetail("Calendly", calendlyConnection?.initialSyncStatus)}
+              action={
+                <Link
+                  href="/integrations#calendly"
+                  className="inline-flex min-h-11 cursor-pointer items-center rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
+                >
+                  Gérer
+                </Link>
+              }
+            />
+          )}
+        </section>
       )}
 
       {(anyConnected || calls.length > 0) && (

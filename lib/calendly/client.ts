@@ -127,6 +127,30 @@ async function fetchFirstInvitee(token: string, eventUri: string | null): Promis
   return asRecord(collection[0]);
 }
 
+// Webhook payloads only carry the invitee resource URI in some Calendly
+// configurations. Resolve that URI server-side so phone enrichment does not
+// depend on the payload containing the optional invitee fields.
+export async function fetchInvitee(token: string, inviteeUri: string): Promise<Record<string, unknown> | null> {
+  let url: URL;
+  try {
+    url = new URL(inviteeUri);
+  } catch {
+    return null;
+  }
+
+  // The URI comes from a third-party webhook payload: constrain the fetch to
+  // Calendly's API before combining it with our authenticated request helper.
+  if (url.origin !== CALENDLY_API_BASE || !url.pathname.startsWith("/invitees/")) return null;
+
+  try {
+    const { status, body } = await request(token, `${url.pathname}${url.search}`);
+    if (status < 200 || status >= 300) return null;
+    return asRecord(asRecord(body)?.resource);
+  } catch {
+    return null;
+  }
+}
+
 type RegisteredWebhook = { id: string | null; signingKey: string | null };
 
 export async function registerWebhook(

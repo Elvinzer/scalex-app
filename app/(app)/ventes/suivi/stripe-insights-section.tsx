@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle2, Clock3, Filter, RefreshCw, Sparkles } from "lucide-react";
 
@@ -247,8 +248,8 @@ export function StripeInsightsSection({
               Connecte le compte Stripe de ton activité pour calculer le CA net, les remboursements, les échecs et les signaux de fidélité.
             </p>
           </div>
-          <Button asChild variant="outline" className="min-h-9">
-            <a href="/settings">Connecter Stripe</a>
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href="/integrations#stripe">Connecter Stripe</Link>
           </Button>
         </div>
       </section>

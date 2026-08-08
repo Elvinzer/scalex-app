@@ -5,7 +5,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
 import { calendlyConnections, processedCalendlyEvents, salesCalls } from "@/db/schema";
-import { classifyCalendlyEvent, parseCalendlyWebhook } from "@/lib/calendly/events";
+import { fetchInvitee } from "@/lib/calendly/client";
+import { classifyCalendlyEvent, parseCalendlyWebhook, readCalendlyInviteePhone } from "@/lib/calendly/events";
 import { CALENDLY_SIGNATURE_HEADER } from "@/lib/calendly/protocol";
 import { decrypt } from "@/lib/crypto";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
@@ -84,8 +85,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ received: true });
   }
 
-  const call = parsed.call;
   const kind = classifyCalendlyEvent(parsed.eventType);
+  let call = parsed.call;
+  if (call && kind !== "other" && !call.inviteePhone && parsed.inviteeUri) {
+    const invitee = await fetchInvitee(decrypt(connection.accessTokenEncrypted), parsed.inviteeUri);
+    const inviteePhone = invitee ? readCalendlyInviteePhone(invitee) : null;
+    if (inviteePhone) call = { ...call, inviteePhone };
+  }
 
   if (call && kind === "created") {
     await db
@@ -96,6 +102,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         iclosedCallId: call.externalId,
         inviteeName: call.inviteeName,
         inviteeEmail: call.inviteeEmail,
+        inviteePhone: call.inviteePhone,
         scheduledAt: call.scheduledAt,
         durationMinutes: call.durationMinutes,
         closer: call.closer,
@@ -111,6 +118,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         iclosedCallId: call.externalId,
         inviteeName: call.inviteeName,
         inviteeEmail: call.inviteeEmail,
+        inviteePhone: call.inviteePhone,
         scheduledAt: call.scheduledAt,
         durationMinutes: call.durationMinutes,
         closer: call.closer,
@@ -119,7 +127,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       })
       .onConflictDoUpdate({
         target: [salesCalls.userId, salesCalls.iclosedCallId],
-        set: { attendance: "cancelled", updatedAt: new Date() },
+        set: {
+          attendance: "cancelled",
+          ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+          updatedAt: new Date(),
+        },
         // Never overwrite a disposition the closer already set (only cancel a
         // still-booked call).
         setWhere: eq(salesCalls.attendance, "booked"),

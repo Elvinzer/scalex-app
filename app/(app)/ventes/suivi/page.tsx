@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { Plus } from "lucide-react";
+import Link from "next/link";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { FailedPaymentsPanel, type FailedPaymentItem } from "@/components/failed-payments-panel";
@@ -127,8 +128,8 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
               status={stripeConnected ? "connected" : "not_connected"}
               detail={stripeConnected ? "Les paiements alimentent ce suivi automatiquement." : "Connecte Stripe pour synchroniser tes paiements."}
               action={
-                <Button asChild variant="outline" size="sm">
-                  <a href="/settings">{stripeConnected ? "Gérer" : "Connecter"}</a>
+                <Button asChild variant="outline" size="sm" className="min-h-11">
+                  <Link href="/integrations#stripe">{stripeConnected ? "Gérer" : "Connecter"}</Link>
                 </Button>
               }
             />

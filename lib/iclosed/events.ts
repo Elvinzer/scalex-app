@@ -15,6 +15,7 @@ export type NormalizedCall = {
   iclosedCallId: string;
   inviteeName: string | null;
   inviteeEmail: string | null;
+  inviteePhone: string | null;
   scheduledAt: Date;
   durationMinutes: number | null;
   closer: string | null;
@@ -78,6 +79,23 @@ function callBody(source: Rec): Rec {
   return asRecord(source.data) ?? asRecord(source.call) ?? asRecord(source.payload) ?? source;
 }
 
+function phoneFromAnswers(...collections: unknown[]): string | null {
+  for (const collection of collections) {
+    if (!Array.isArray(collection)) continue;
+    for (const rawAnswer of collection) {
+      const answer = asRecord(rawAnswer);
+      if (!answer) continue;
+      const type = firstString(answer.type)?.toUpperCase();
+      const question = firstString(answer.statement, answer.question, answer.label);
+      if (type === "PHONE_NO" || (question && /phone|telephone|téléphone|mobile|whatsapp/i.test(question))) {
+        const value = firstString(answer.answer);
+        if (value) return value;
+      }
+    }
+  }
+  return null;
+}
+
 // Turns a raw iClosed call/booking object into our NormalizedCall, or null if
 // it lacks the two fields we cannot invent (a stable id and a scheduled time).
 // ⚠️ The candidate field names below are best-effort — confirm & trim once the
@@ -98,9 +116,23 @@ export function readCall(source: Rec): NormalizedCall | null {
   const scheduledAt = scheduledRaw ? new Date(scheduledRaw) : null;
   if (!scheduledAt || Number.isNaN(scheduledAt.getTime())) return null;
 
-  const contact = asRecord(body.contact) ?? asRecord(body.invitee) ?? {};
-  const inviteeName = firstString(body.inviteeName, joinName(body.firstName, body.lastName), contact.name);
-  const inviteeEmail = firstString(body.inviteeEmail, contact.email, body.email);
+  const contact = asRecord(body.contact) ?? {};
+  const invitee = asRecord(body.invitee) ?? {};
+  const inviteeName = firstString(
+    body.inviteeName,
+    joinName(body.firstName, body.lastName),
+    contact.name,
+    invitee.name
+  );
+  const inviteeEmail = firstString(body.inviteeEmail, contact.email, invitee.email, body.email);
+  const inviteePhone = firstString(
+    body.phoneNumber,
+    contact.phoneNumber,
+    invitee.phoneNumber,
+    body.textReminderNumber,
+    body.phone,
+    phoneFromAnswers(body.questions, body.inviteeQuestionAnswers)
+  );
 
   // The assigned closer is the `user` object on eventCalls.
   const user = asRecord(body.user) ?? asRecord(body.closer) ?? asRecord(body.owner) ?? {};
@@ -117,6 +149,7 @@ export function readCall(source: Rec): NormalizedCall | null {
     iclosedCallId: id,
     inviteeName,
     inviteeEmail,
+    inviteePhone,
     scheduledAt,
     durationMinutes: durationMinutesFromCall(body, scheduledAt),
     closer,

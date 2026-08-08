@@ -39,6 +39,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
     const data = {
       inviteeName: String(formData.get("inviteeName") ?? ""),
       inviteeEmail: String(formData.get("inviteeEmail") ?? "") || null,
+      inviteePhone: String(formData.get("inviteePhone") ?? "") || null,
       scheduledAt: String(formData.get("scheduledAt") ?? today()),
       closer: String(formData.get("closer") ?? "") || null,
       setterId: String(formData.get("setterId") ?? "") || null,
@@ -87,6 +88,18 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
             <input
               type="email"
               name="inviteeEmail"
+              className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-muted-foreground">Téléphone (optionnel)</span>
+            <input
+              type="tel"
+              name="inviteePhone"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="+33 6 12 34 56 78"
               className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             />
           </label>

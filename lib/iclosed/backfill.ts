@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { salesCalls } from "@/db/schema";
@@ -28,6 +28,7 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
         iclosedCallId: c.iclosedCallId,
         inviteeName: c.inviteeName,
         inviteeEmail: c.inviteeEmail,
+        inviteePhone: c.inviteePhone,
         scheduledAt: c.scheduledAt,
         durationMinutes: c.durationMinutes,
         closer: c.closer,
@@ -39,6 +40,18 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
     )
     .onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] })
     .returning({ id: salesCalls.id, iclosedCallId: salesCalls.iclosedCallId });
+
+  // The original import intentionally ignores conflicts so it never overwrites
+  // a hand-set outcome or linked sale. Phone data is contact enrichment, so it
+  // is safe to refresh on existing rows as well (including rows imported before
+  // phone support was wired in).
+  for (const c of calls) {
+    if (!c.inviteePhone) continue;
+    await db
+      .update(salesCalls)
+      .set({ inviteePhone: c.inviteePhone, updatedAt: new Date() })
+      .where(and(eq(salesCalls.userId, userId), eq(salesCalls.iclosedCallId, c.iclosedCallId)));
+  }
 
   // For newly-inserted WON calls with a recorded deal amount, create the linked
   // sale so the amount flows into the existing CA (money lives only on the sale).

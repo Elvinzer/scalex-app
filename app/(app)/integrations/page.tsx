@@ -76,7 +76,7 @@ export default async function IntegrationsPage({
         </div>
       )}
 
-      <div className="sticker-card p-8">
+      <div id="stripe" className="scroll-mt-28 sticker-card p-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-bold">Stripe</p>
@@ -156,18 +156,22 @@ export default async function IntegrationsPage({
             ou Calendly, au choix (ou les deux).
           </p>
         </div>
-        <IclosedConnectionCard
-          connected={iclosedConnected}
-          initialSyncStatus={iclosedConnection?.initialSyncStatus}
-          initialSyncCompletedAt={iclosedConnection?.initialSyncCompletedAt}
-          subscriptionActive={subscriptionActive}
-        />
-        <CalendlyConnectionCard
-          connected={calendlyConnected}
-          initialSyncStatus={calendlyConnection?.initialSyncStatus}
-          initialSyncCompletedAt={calendlyConnection?.initialSyncCompletedAt}
-          subscriptionActive={subscriptionActive}
-        />
+        <div id="iclosed" className="scroll-mt-28">
+          <IclosedConnectionCard
+            connected={iclosedConnected}
+            initialSyncStatus={iclosedConnection?.initialSyncStatus}
+            initialSyncCompletedAt={iclosedConnection?.initialSyncCompletedAt}
+            subscriptionActive={subscriptionActive}
+          />
+        </div>
+        <div id="calendly" className="scroll-mt-28">
+          <CalendlyConnectionCard
+            connected={calendlyConnected}
+            initialSyncStatus={calendlyConnection?.initialSyncStatus}
+            initialSyncCompletedAt={calendlyConnection?.initialSyncCompletedAt}
+            subscriptionActive={subscriptionActive}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -177,20 +181,24 @@ export default async function IntegrationsPage({
             Connecte Instagram et/ou YouTube pour voir automatiquement quels posts et vidéos performent.
           </p>
         </div>
-        <InstagramConnectionCard
-          connected={instagramConnected}
-          username={instagramConnection?.username}
-          initialSyncStatus={instagramConnection?.initialSyncStatus}
-          initialSyncCompletedAt={instagramConnection?.initialSyncCompletedAt}
-          subscriptionActive={subscriptionActive}
-        />
-        <YoutubeConnectionCard
-          connected={youtubeConnected}
-          channelTitle={youtubeConnection?.channelTitle}
-          initialSyncStatus={youtubeConnection?.initialSyncStatus}
-          initialSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt}
-          subscriptionActive={subscriptionActive}
-        />
+        <div id="instagram" className="scroll-mt-28">
+          <InstagramConnectionCard
+            connected={instagramConnected}
+            username={instagramConnection?.username}
+            initialSyncStatus={instagramConnection?.initialSyncStatus}
+            initialSyncCompletedAt={instagramConnection?.initialSyncCompletedAt}
+            subscriptionActive={subscriptionActive}
+          />
+        </div>
+        <div id="youtube" className="scroll-mt-28">
+          <YoutubeConnectionCard
+            connected={youtubeConnected}
+            channelTitle={youtubeConnection?.channelTitle}
+            initialSyncStatus={youtubeConnection?.initialSyncStatus}
+            initialSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt}
+            subscriptionActive={subscriptionActive}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">

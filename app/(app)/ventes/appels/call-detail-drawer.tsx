@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { CallContactActions } from "@/components/call-contact-actions";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { SalesCallRow } from "@/lib/iclosed/calls";
 
@@ -121,7 +122,14 @@ export function CallDetailDrawer({
             <span className="text-[10px] font-bold tracking-wide uppercase">
               {sourceLabel(call.source)}
             </span>
-            {call.inviteePhone && <span>{call.inviteePhone}</span>}
+            {call.inviteePhone ? (
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <span className="font-bold text-foreground">{call.inviteePhone}</span>
+                <CallContactActions phone={call.inviteePhone} name={call.inviteeName} eventType={call.eventType} />
+              </div>
+            ) : (
+              <span>Téléphone non renseigné</span>
+            )}
             {call.source === "native" && (call.utmSource || call.utmMedium || call.utmCampaign || call.utmContent) && (
               <span className="text-accent">
                 Attribution : {[call.utmSource, call.utmMedium, call.utmCampaign, call.utmContent].filter(Boolean).join(" · ")}
@@ -187,7 +195,15 @@ export function CallDetailDrawer({
           </div>
 
           <div>
-            <p className="mb-2 text-sm font-bold">Commentaires</p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-bold">Commentaires</p>
+              <CallContactActions
+                phone={call.inviteePhone}
+                name={call.inviteeName}
+                eventType={call.eventType}
+                compact
+              />
+            </div>
 
             {loading ? (
               <p className="text-sm text-muted-foreground">Chargement…</p>

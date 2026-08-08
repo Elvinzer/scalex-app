@@ -29,13 +29,13 @@ export function IntegrationStatusRow({
   const Icon = copy.Icon;
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-3 rounded-[var(--radius-card)] border border-border bg-card px-4 py-3", className)}>
+    <div className={cn("flex min-w-0 items-center gap-3 rounded-[var(--radius-control)] border border-border bg-card px-3 py-2.5 sm:px-4", className)}>
       <Icon className={cn("size-4 shrink-0", copy.tone, status === "syncing" && "animate-spin motion-reduce:animate-none")} aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold">{name} · {copy.label}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+        <p className="truncate text-sm font-bold">{name} · {copy.label}</p>
+        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{detail}</p>
       </div>
-      {action}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }

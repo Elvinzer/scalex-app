@@ -101,6 +101,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           iclosedCallId: call.iclosedCallId,
           inviteeName: call.inviteeName,
           inviteeEmail: call.inviteeEmail,
+          inviteePhone: call.inviteePhone,
           scheduledAt: call.scheduledAt,
           durationMinutes: call.durationMinutes,
           closer: call.closer,
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           iclosedCallId: call.iclosedCallId,
           inviteeName: call.inviteeName,
           inviteeEmail: call.inviteeEmail,
+          inviteePhone: call.inviteePhone,
           scheduledAt: call.scheduledAt,
           durationMinutes: call.durationMinutes,
           closer: call.closer,
@@ -129,7 +131,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         })
         .onConflictDoUpdate({
           target: [salesCalls.userId, salesCalls.iclosedCallId],
-          set: { scheduledAt: call.scheduledAt, durationMinutes: call.durationMinutes, updatedAt: new Date() },
+          set: {
+            scheduledAt: call.scheduledAt,
+            durationMinutes: call.durationMinutes,
+            ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+            updatedAt: new Date(),
+          },
         });
       break;
     }
@@ -142,6 +149,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           iclosedCallId: call.iclosedCallId,
           inviteeName: call.inviteeName,
           inviteeEmail: call.inviteeEmail,
+          inviteePhone: call.inviteePhone,
           scheduledAt: call.scheduledAt,
           durationMinutes: call.durationMinutes,
           closer: call.closer,
@@ -150,7 +158,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         })
         .onConflictDoUpdate({
           target: [salesCalls.userId, salesCalls.iclosedCallId],
-          set: { attendance: "cancelled", updatedAt: new Date() },
+          set: {
+            attendance: "cancelled",
+            ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+            updatedAt: new Date(),
+          },
           // Only cancel a still-booked call — never overwrite an attendance/
           // outcome the closer already set by hand (a late cancel shouldn't
           // erase "showed + closed").

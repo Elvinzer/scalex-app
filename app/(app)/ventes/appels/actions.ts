@@ -43,6 +43,7 @@ async function loadCall(accountId: string, callId: string) {
 const manualCallSchema = z.object({
   inviteeName: z.string().min(1, "Le nom est requis"),
   inviteeEmail: z.string().email().nullable(),
+  inviteePhone: z.string().trim().min(7, "Numéro de téléphone invalide").max(40, "Numéro de téléphone invalide").nullable(),
   scheduledAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide"),
   closer: z.string().nullable(),
   setterId: z.string().uuid().nullable(),
@@ -65,6 +66,7 @@ export async function createManualCallAction(data: unknown): Promise<{ error: st
     source: "manual",
     inviteeName: parsed.data.inviteeName,
     inviteeEmail: parsed.data.inviteeEmail,
+    inviteePhone: parsed.data.inviteePhone,
     scheduledAt: new Date(`${parsed.data.scheduledAt}T12:00:00Z`),
     closer: parsed.data.closer,
     setterId: parsed.data.setterId,

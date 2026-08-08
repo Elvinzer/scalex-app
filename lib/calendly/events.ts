@@ -9,6 +9,7 @@ export type NormalizedCalendlyCall = {
   externalId: string; // the scheduled_event URI
   inviteeName: string | null;
   inviteeEmail: string | null;
+  inviteePhone: string | null;
   scheduledAt: Date;
   durationMinutes: number | null;
   closer: string | null;
@@ -37,6 +38,33 @@ function toDate(value: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function phoneFromQuestions(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  for (const rawAnswer of value) {
+    const answer = asRecord(rawAnswer);
+    if (!answer) continue;
+    const question = firstString(answer.question, answer.statement, answer.label);
+    if (question && /phone|telephone|téléphone|mobile|whatsapp/i.test(question)) {
+      const phone = firstString(answer.answer);
+      if (phone) return phone;
+    }
+  }
+  return null;
+}
+
+export function readCalendlyInviteePhone(invitee: Rec, event?: Rec): string | null {
+  const location = asRecord(event?.location) ?? {};
+  return firstString(
+    invitee.text_reminder_number,
+    invitee.phone_number,
+    invitee.phoneNumber,
+    invitee.phone,
+    location.phone_number,
+    location.phoneNumber,
+    phoneFromQuestions(invitee.questions_and_answers)
+  );
+}
+
 // Backfill: a scheduled_event (list item) + its first invitee (fetched separately).
 export function normalizeScheduledEvent(event: Rec, invitee: Rec | null): NormalizedCalendlyCall | null {
   const externalId = firstString(event.uri);
@@ -47,6 +75,7 @@ export function normalizeScheduledEvent(event: Rec, invitee: Rec | null): Normal
     externalId,
     inviteeName: firstString(inv.name, joinName(inv.first_name, inv.last_name)),
     inviteeEmail: firstString(inv.email),
+    inviteePhone: readCalendlyInviteePhone(inv, event),
     scheduledAt,
     durationMinutes: durationMinutesFromEvent(event, scheduledAt),
     closer: hostName(event),
@@ -82,6 +111,7 @@ export function parseCalendlyWebhook(
           externalId,
           inviteeName: firstString(payload.name, joinName(payload.first_name, payload.last_name)),
           inviteeEmail: firstString(payload.email),
+          inviteePhone: readCalendlyInviteePhone(payload, event),
           scheduledAt,
           durationMinutes: durationMinutesFromEvent(event, scheduledAt),
           closer: hostName(event),
