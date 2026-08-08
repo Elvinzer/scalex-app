@@ -5,6 +5,7 @@ import { formatEur } from "@/lib/currency";
 import { META_PERIOD_OPTIONS } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
 import { metricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaInstagramObservation, type MetaMetricTotals } from "@/lib/meta-ads/queries";
+import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 
 const numberFormatter = new Intl.NumberFormat("fr-FR");
 
@@ -279,6 +280,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
   const primaryType = campaignTypes.length === 1 ? campaignTypes[0]! : "other";
   const coverageValues = data.campaigns.map((campaign) => campaign.metricCoverageRate).filter((value): value is number => value !== null && value !== undefined);
   const minimumCoverage = coverageValues.length > 0 ? Math.min(...coverageValues) : null;
+  const cplTargetCount = data.campaigns.filter((campaign) => campaign.targets?.targetCpaCents !== null && campaign.targets?.targetCpaCents !== undefined).length;
 
   return (
     <section className="flex flex-col gap-5" aria-labelledby="meta-ads-dashboard-title">
@@ -319,7 +321,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : number(impressions)} impressions`} provenance="Meta · brute · directe" icon={<Eye className="size-4" />} />
         <Kpi label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : number(linkClicks)} clics lien`} provenance="Meta · dérivée · directe" icon={<MousePointerClick className="size-4" />} />
-        <Kpi label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={`${leads === null ? "—" : number(leads)} lead(s) mesuré(s)`} provenance="Meta · dérivée · directe" icon={<UserPlus className="size-4" />} />
+        <Kpi label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[`${leads === null ? "—" : number(leads)} lead(s) mesuré(s)`, cplTargetCount > 0 ? `${number(cplTargetCount)} cible(s) par campagne` : null].filter(Boolean).join(" · ")} provenance="Meta · dérivée · directe" icon={<UserPlus className="size-4" />} />
         <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" provenance="Meta · dérivée · directe" icon={<BarChart3 className="size-4" />} />
       </div>
 
@@ -373,7 +375,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
         {data.campaigns.length === 0 ? (
           <p className="p-5 text-sm text-muted-foreground">Aucune campagne synchronisée pour ce compte.</p>
         ) : (
-          <table className="w-full min-w-[46rem] text-sm">
+          <table className="w-full min-w-[64rem] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs font-bold text-muted-foreground">
                 <th className="sticky left-0 z-10 bg-card px-5 py-3">Campagne</th>
@@ -381,6 +383,8 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                 <th className="px-5 py-3 text-right">Dépenses</th>
                 <th className="px-5 py-3 text-right">CTR lien</th>
                 <th className="px-5 py-3 text-right">Leads</th>
+                <th className="px-5 py-3 text-right">CPL / cible</th>
+                <th className="px-5 py-3 text-right">ROAS / cible</th>
                 <th className="px-5 py-3 text-right">Statut</th>
               </tr>
             </thead>
@@ -389,6 +393,15 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                 const campaignImpressions = metricValue(campaign.metrics, "impressions");
                 const campaignLinkClicks = metricValue(campaign.metrics, "linkClicks");
                 const campaignCtr = campaignImpressions !== null && campaignLinkClicks !== null ? ratio(campaignLinkClicks, campaignImpressions) : null;
+                const campaignSpend = metricValue(campaign.metrics, "spendCents");
+                const campaignLeads = metricValue(campaign.metrics, "leads");
+                const campaignCpl = campaignSpend !== null && campaignLeads !== null && campaignLeads > 0 ? campaignSpend / campaignLeads / 100 : null;
+                const campaignPurchaseValue = metricValue(campaign.metrics, "purchaseValueCents");
+                const campaignRoas = campaignPurchaseValue !== null && campaignSpend !== null && campaignSpend > 0 ? campaignPurchaseValue / campaignSpend : null;
+                const targetCpaEuros = campaign.targets?.targetCpaCents === null || campaign.targets?.targetCpaCents === undefined ? null : campaign.targets.targetCpaCents / 100;
+                const targetCpaGap = targetVarianceLabel(campaignCpl, targetCpaEuros);
+                const targetRoas = campaign.targets?.targetRoas ?? null;
+                const targetRoasGap = targetVarianceLabel(campaignRoas, targetRoas);
                 return (
                   <tr key={campaign.id} className="border-b border-border last:border-0">
                     <td className="sticky left-0 z-10 bg-card px-5 py-4">
@@ -403,6 +416,14 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                     <td className="px-5 py-4 text-right tabular-nums">{metricValue(campaign.metrics, "spendCents") === null ? "—" : formatEur((metricValue(campaign.metrics, "spendCents") ?? 0) / 100)}</td>
                     <td className="px-5 py-4 text-right tabular-nums">{campaignCtr === null ? "—" : formatPercent(campaignCtr)}</td>
                     <td className="px-5 py-4 text-right tabular-nums">{metricValue(campaign.metrics, "leads") === null ? "—" : number(metricValue(campaign.metrics, "leads") ?? 0)}</td>
+                    <td className="px-5 py-4 text-right tabular-nums">
+                      {campaignCpl === null ? "—" : formatEur(campaignCpl)}
+                      {targetCpaEuros !== null && <span className="block text-xs text-muted-foreground">cible {formatEur(targetCpaEuros)} · {targetCpaGap ?? "écart non calculable"}</span>}
+                    </td>
+                    <td className="px-5 py-4 text-right tabular-nums">
+                      {campaignRoas === null ? "—" : `${campaignRoas.toFixed(2)}×`}
+                      {targetRoas !== null && <span className="block text-xs text-muted-foreground">cible {targetRoas.toFixed(2)}× · {targetRoasGap ?? "écart non calculable"}</span>}
+                    </td>
                     <td className="px-5 py-4 text-right text-xs font-bold text-muted-foreground">{statusLabel(campaign.effectiveStatus)}</td>
                   </tr>
                 );

@@ -122,7 +122,7 @@ export function MetaAdsConnectionCard({
             </p>
           )}
           {subscriptionActive ? (
-            <MetaAdsConsentDialog mode="read" href="/api/meta-ads/connect" triggerLabel="Reconnecter Meta Ads" />
+            <MetaAdsConsentDialog mode="read" href="/api/meta/connect" triggerLabel="Reconnecter Meta Ads" />
           ) : (
             <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
               Un abonnement actif est nécessaire pour connecter Meta Ads.
@@ -288,7 +288,7 @@ export function MetaAdsConnectionCard({
           )}
           <div className="mt-4 flex flex-wrap gap-2">
             {connectionStatus !== "connected" && (
-              <MetaAdsConsentDialog mode="read" href="/api/meta-ads/connect" triggerLabel="Reconnecter Meta Ads" triggerVariant="outline" />
+              <MetaAdsConsentDialog mode="read" href="/api/meta/connect" triggerLabel="Reconnecter Meta Ads" triggerVariant="outline" />
             )}
             <Button variant="outline" asChild>
               <a href="/acquisition/ads">

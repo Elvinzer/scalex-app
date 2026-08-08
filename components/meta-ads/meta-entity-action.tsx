@@ -45,7 +45,7 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
   const isPaused = status === "PAUSED";
   const isArchived = status === "ARCHIVED";
   const actionType = isPaused ? "resume" : "pause";
-  const writeAccessHref = `/api/meta-ads/write-access?return_to=${encodeURIComponent(`/acquisition/ads/meta/${campaignId}`)}`;
+  const writeAccessHref = `/api/meta/upgrade?return_to=${encodeURIComponent(`/acquisition/ads/meta/${campaignId}`)}`;
 
   function propose() {
     const nextIdempotencyKey = crypto.randomUUID();
