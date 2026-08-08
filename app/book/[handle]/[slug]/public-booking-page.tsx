@@ -37,6 +37,8 @@ type Contact = { firstName: string; lastName: string; email: string; phone: stri
 type Stage = 1 | 2 | 3 | 4;
 type ManagementMode = "unknown" | "loading" | "ready" | "invalid";
 
+const META_TOUCHPOINT_QUERY_KEY = "sx_mt";
+
 const EMPTY_CONTACT: Contact = { firstName: "", lastName: "", email: "", phone: "" };
 const COUNTRY_CODES = getCountries();
 const COUNTRY_NAMES: Record<string, string> = {
@@ -114,6 +116,7 @@ function getUtmMetadata() {
     landingPage: window.location.href,
     referrer: document.referrer || null,
     linkId: params.get("link") ?? params.get("link_id"),
+    metaTouchpointToken: params.get(META_TOUCHPOINT_QUERY_KEY),
     utm: getUtmFromUrl(),
   };
 }
@@ -128,6 +131,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   const [displayTimeZone, setDisplayTimeZone] = useState(event.timeZone);
   const [utm, setUtm] = useState<Record<string, string>>({});
   const [linkId, setLinkId] = useState<string | null>(null);
+  const [metaTouchpointToken, setMetaTouchpointToken] = useState<string | null>(null);
   const [landingPage, setLandingPage] = useState<string | null>(null);
   const [referrer, setReferrer] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -169,6 +173,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     const params = new URLSearchParams(window.location.search);
     setUtm(getUtmFromUrl());
     setLinkId(params.get("link") ?? params.get("link_id"));
+    setMetaTouchpointToken(params.get(META_TOUCHPOINT_QUERY_KEY));
     setLandingPage(window.location.href);
     setReferrer(document.referrer || null);
     const displayNames = new Intl.DisplayNames(["fr-FR"], { type: "region" });
@@ -273,6 +278,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       landingPage,
       referrer,
       linkId,
+      metaTouchpointToken,
       utm: { ...utm, ...getUtmFromUrl() },
     };
   }
@@ -299,7 +305,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   }
 
   function buildContactPayload() {
-    return { ...contact, phone: phoneCandidate(contact.phone, countryCode), email: contact.email.trim() };
+    return { ...contact, phone: phoneCandidate(contact.phone, countryCode), email: contact.email.trim(), metaTouchpointToken };
   }
 
   async function capturePhoneLead(phone: string) {
@@ -458,7 +464,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "hold", ...buildContactPayload(), answers, guestTimeZone, startAt: slot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId }),
+        body: JSON.stringify({ mode: "hold", ...buildContactPayload(), answers, guestTimeZone, startAt: slot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId, metaTouchpointToken }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.hold) {
@@ -487,7 +493,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "book", ...buildContactPayload(), answers, guestTimeZone, startAt: selectedSlot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId }),
+        body: JSON.stringify({ mode: "book", ...buildContactPayload(), answers, guestTimeZone, startAt: selectedSlot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId, metaTouchpointToken }),
       });
       const payload = await response.json();
       if (!response.ok) {

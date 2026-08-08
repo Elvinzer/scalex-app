@@ -2,6 +2,7 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { salesCalls } from "@/db/schema";
+import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 
 import { listScheduledCalls } from "./client";
 
@@ -35,10 +36,30 @@ export async function backfillCalendlyCalls(userId: string, token: string, userU
     return phone ? { ...call, inviteePhone: phone } : call;
   });
 
+  const attributedCalls = await Promise.all(
+    enrichedCalls.map(async (call) => {
+      const fromToken = await resolveMetaTouchpoint(userId, call.metaTouchpointToken);
+      const touchpoint =
+        fromToken ??
+        (await resolveMetaTouchpointFromIdentifiers({
+          userId,
+          campaignExternalId: call.metaCampaignExternalId,
+          adSetExternalId: call.metaAdSetExternalId,
+          adExternalId: call.metaAdExternalId,
+        })) ??
+        (await resolveMetaTouchpointFromUtm({
+          userId,
+          utmCampaign: call.utmCampaign,
+          utmContent: call.utmContent,
+        }));
+      return { ...call, metaTouchpointId: touchpoint?.touchpointId ?? null };
+    })
+  );
+
   const inserted = await db
     .insert(salesCalls)
     .values(
-      enrichedCalls.map((c) => ({
+      attributedCalls.map((c) => ({
         userId,
         source: "calendly",
         iclosedCallId: c.externalId,
@@ -49,6 +70,12 @@ export async function backfillCalendlyCalls(userId: string, token: string, userU
         durationMinutes: c.durationMinutes,
         closer: c.closer,
         eventType: c.eventType,
+        utmSource: c.utmSource,
+        utmMedium: c.utmMedium,
+        utmCampaign: c.utmCampaign,
+        utmContent: c.utmContent,
+        utmTerm: c.utmTerm,
+        metaTouchpointId: c.metaTouchpointId,
         attendance: c.attendance,
       }))
     )
@@ -57,12 +84,23 @@ export async function backfillCalendlyCalls(userId: string, token: string, userU
 
   // Keep contact enrichment current for calls imported before phone support was
   // added, without touching the closer's manually entered outcome or amounts.
-  for (const c of enrichedCalls) {
-    if (!c.inviteePhone) continue;
-    await db
-      .update(salesCalls)
-      .set({ inviteePhone: c.inviteePhone, updatedAt: new Date() })
-      .where(and(eq(salesCalls.userId, userId), eq(salesCalls.iclosedCallId, c.externalId)));
+  for (const c of attributedCalls) {
+    const enrichment = {
+      ...(c.inviteePhone ? { inviteePhone: c.inviteePhone } : {}),
+      ...(c.utmSource ? { utmSource: c.utmSource } : {}),
+      ...(c.utmMedium ? { utmMedium: c.utmMedium } : {}),
+      ...(c.utmCampaign ? { utmCampaign: c.utmCampaign } : {}),
+      ...(c.utmContent ? { utmContent: c.utmContent } : {}),
+      ...(c.utmTerm ? { utmTerm: c.utmTerm } : {}),
+      ...(c.metaTouchpointId ? { metaTouchpointId: c.metaTouchpointId } : {}),
+      updatedAt: new Date(),
+    };
+    if (Object.keys(enrichment).length > 1) {
+      await db
+        .update(salesCalls)
+        .set(enrichment)
+        .where(and(eq(salesCalls.userId, userId), eq(salesCalls.iclosedCallId, c.externalId)));
+    }
   }
 
   return inserted.length;

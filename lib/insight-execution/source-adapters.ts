@@ -51,6 +51,10 @@ export type MaterializedInsight = {
   snapshot: InsightSnapshot;
   impactProjection: InsightImpactProjection | null;
   decision?: InsightDecision;
+  // Optional stable identity for sources whose evidence changes on every
+  // sync. Legacy sources keep the historical fingerprint derived from their
+  // snapshot; Meta Ads supplies its campaign/rule/period identity explicitly.
+  fingerprint?: string;
 };
 
 function periodForCurrentDiagnostic(): { start: string; end: string } {
@@ -227,6 +231,7 @@ export async function resolveMaterializedInsight(accountId: string, input: unkno
   const parsed = materializeInsightSchema.safeParse(input);
   if (!parsed.success) return null;
   if (parsed.data.sourceType === "copilote") return null;
+  if (parsed.data.sourceType === "meta_ads") return null;
   if (parsed.data.sourceType === "diagnostic_metric") return diagnosticMetricInsight(accountId, parsed.data.sourceId);
   if (parsed.data.sourceType === "diagnostic_lever") return diagnosticLeverInsight(accountId, parsed.data.sourceId);
   if (parsed.data.sourceType === "funnel_stage") return funnelInsight(accountId, parsed.data.sourceId);
@@ -234,7 +239,7 @@ export async function resolveMaterializedInsight(accountId: string, input: unkno
 }
 
 export async function upsertMaterializedInsight(accountId: string, insight: MaterializedInsight) {
-  const fingerprint = fingerprintInsight(insight);
+  const fingerprint = insight.fingerprint ?? fingerprintInsight(insight);
   const [row] = await db
     .insert(insightRecords)
     .values({
@@ -256,7 +261,18 @@ export async function upsertMaterializedInsight(accountId: string, insight: Mate
     })
     .onConflictDoUpdate({
       target: [insightRecords.userId, insightRecords.fingerprint],
-      set: { lastSeenAt: new Date(), updatedAt: new Date() },
+      set: {
+        title: insight.title,
+        insightText: insight.insightText,
+        sourceLabel: insight.sourceLabel,
+        metricKey: insight.metricKey,
+        periodStart: insight.periodStart,
+        periodEnd: insight.periodEnd,
+        snapshot: insight.snapshot,
+        impactProjection: insight.impactProjection,
+        lastSeenAt: new Date(),
+        updatedAt: new Date(),
+      },
     })
     .returning();
   return row ?? null;

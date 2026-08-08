@@ -113,6 +113,41 @@
       "when": 1786189179880,
       "tag": "0015_low_terror",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786194252959,
+      "tag": "0016_public_changeling",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786196088155,
+      "tag": "0017_spotty_next_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786197429402,
+      "tag": "0018_wild_punisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786201684724,
+      "tag": "0019_narrow_brood",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786201931877,
+      "tag": "0020_mysterious_vermin",
+      "breakpoints": true
     }
   ]
 }

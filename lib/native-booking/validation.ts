@@ -8,6 +8,7 @@ const timeStringSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Heure in
 export const nativeBookingQuestionTypeSchema = z.enum(["radio", "checkbox", "text", "textarea", "select"]);
 
 const questionOptionSchema = z.string().trim().min(1, "L’option est requise").max(120);
+const metaTouchpointTokenSchema = z.string().trim().regex(/^[a-f0-9]{64}$/i, "Touchpoint invalide.").nullable().default(null);
 
 export const nativeBookingQuestionInputSchema = z
   .object({
@@ -155,6 +156,7 @@ export const publicContactSchema = z.object({
   landingPage: z.string().url().nullable().default(null),
   referrer: z.string().url().nullable().default(null),
   linkId: z.string().uuid().nullable().default(null),
+  metaTouchpointToken: metaTouchpointTokenSchema,
   utm: z.record(z.string().max(500)).default({}),
 });
 
@@ -168,6 +170,7 @@ export const publicLeadCaptureSchema = z
     landingPage: z.string().url().nullable().default(null),
     referrer: z.string().url().nullable().default(null),
     linkId: z.string().uuid().nullable().default(null),
+    metaTouchpointToken: metaTouchpointTokenSchema,
     utm: z.record(z.string().max(500)).default({}),
   });
 

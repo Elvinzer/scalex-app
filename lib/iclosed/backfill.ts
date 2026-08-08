@@ -1,7 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { salesCalls } from "@/db/schema";
+import { sales, salesCalls } from "@/db/schema";
+import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 import { createSale } from "@/lib/sales/queries";
 
 import { listCalls, listDeals } from "./client";
@@ -17,13 +18,33 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
   const [calls, dealsByCall] = await Promise.all([listCalls(apiKey), listDeals(apiKey)]);
   if (calls.length === 0) return 0;
 
+  const callsWithAttribution = await Promise.all(
+    calls.map(async (call) => {
+      const fromToken = await resolveMetaTouchpoint(userId, call.metaTouchpointToken);
+      const touchpoint =
+        fromToken ??
+        (await resolveMetaTouchpointFromIdentifiers({
+          userId,
+          campaignExternalId: call.metaCampaignExternalId,
+          adSetExternalId: call.metaAdSetExternalId,
+          adExternalId: call.metaAdExternalId,
+        })) ??
+        (await resolveMetaTouchpointFromUtm({
+          userId,
+          utmCampaign: call.utmCampaign,
+          utmContent: call.utmContent,
+        }));
+      return { ...call, metaTouchpointId: touchpoint?.touchpointId ?? null };
+    })
+  );
+
   // Insert call rows with iClosed's own disposition auto-mapped. Returning tells
   // us which rows are NEW, so a re-run never re-creates a sale or clobbers a
   // hand-set disposition.
   const insertedRows = await db
     .insert(salesCalls)
     .values(
-      calls.map((c) => ({
+      callsWithAttribution.map((c) => ({
         userId,
         iclosedCallId: c.iclosedCallId,
         inviteeName: c.inviteeName,
@@ -33,6 +54,12 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
         durationMinutes: c.durationMinutes,
         closer: c.closer,
         eventType: c.eventType,
+        utmSource: c.utmSource,
+        utmMedium: c.utmMedium,
+        utmCampaign: c.utmCampaign,
+        utmContent: c.utmContent,
+        utmTerm: c.utmTerm,
+        metaTouchpointId: c.metaTouchpointId,
         attendance: c.attendance ?? "booked",
         outcome: c.outcome ?? "pending",
         outcomeSetAt: c.attendance ? new Date() : null,
@@ -45,16 +72,27 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
   // a hand-set outcome or linked sale. Phone data is contact enrichment, so it
   // is safe to refresh on existing rows as well (including rows imported before
   // phone support was wired in).
-  for (const c of calls) {
-    if (!c.inviteePhone) continue;
-    await db
-      .update(salesCalls)
-      .set({ inviteePhone: c.inviteePhone, updatedAt: new Date() })
-      .where(and(eq(salesCalls.userId, userId), eq(salesCalls.iclosedCallId, c.iclosedCallId)));
+  for (const c of callsWithAttribution) {
+    const enrichment = {
+      ...(c.inviteePhone ? { inviteePhone: c.inviteePhone } : {}),
+      ...(c.utmSource ? { utmSource: c.utmSource } : {}),
+      ...(c.utmMedium ? { utmMedium: c.utmMedium } : {}),
+      ...(c.utmCampaign ? { utmCampaign: c.utmCampaign } : {}),
+      ...(c.utmContent ? { utmContent: c.utmContent } : {}),
+      ...(c.utmTerm ? { utmTerm: c.utmTerm } : {}),
+      ...(c.metaTouchpointId ? { metaTouchpointId: c.metaTouchpointId } : {}),
+      updatedAt: new Date(),
+    };
+    if (Object.keys(enrichment).length > 1) {
+      await db
+        .update(salesCalls)
+        .set(enrichment)
+        .where(and(eq(salesCalls.userId, userId), eq(salesCalls.iclosedCallId, c.iclosedCallId)));
+    }
 
     // Keep same-account calls from another scheduler connected to the same
     // contact enriched when that scheduler did not collect a phone itself.
-    if (c.inviteeEmail) {
+    if (c.inviteePhone && c.inviteeEmail) {
       await db
         .update(salesCalls)
         .set({ inviteePhone: c.inviteePhone, updatedAt: new Date() })
@@ -70,7 +108,7 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
 
   // For newly-inserted WON calls with a recorded deal amount, create the linked
   // sale so the amount flows into the existing CA (money lives only on the sale).
-  const byExternalId = new Map(calls.map((c) => [c.iclosedCallId, c]));
+  const byExternalId = new Map(callsWithAttribution.map((c) => [c.iclosedCallId, c]));
   for (const row of insertedRows) {
     const c = byExternalId.get(row.iclosedCallId);
     if (!c || c.outcome !== "closed") continue;
@@ -93,6 +131,12 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
         saleDate,
       })
     );
+    if (c.metaTouchpointId) {
+      await db
+        .update(sales)
+        .set({ metaTouchpointId: c.metaTouchpointId })
+        .where(and(eq(sales.id, sale.id), eq(sales.userId, userId)));
+    }
     await db.update(salesCalls).set({ saleId: sale.id }).where(eq(salesCalls.id, row.id));
   }
 

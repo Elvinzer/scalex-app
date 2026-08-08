@@ -19,6 +19,7 @@ import { requireUserId } from "@/lib/current-user";
 import {
   calculateBaseline,
   calculateComparableMeasurement,
+  baselineFromMetaInsight,
 } from "@/lib/insight-execution/metrics";
 import { materializeSourceInsight } from "@/lib/insight-execution/source-adapters";
 import {
@@ -542,7 +543,9 @@ export async function launchInsight(
     if (!member) return { error: "Membre d'équipe introuvable ou inactif." };
   }
 
-  const baseline = await calculateBaseline(access.accountId, record.metricKey);
+  const baseline = record.sourceType === "meta_ads"
+    ? baselineFromMetaInsight({ metricKey: record.metricKey, periodStart: record.periodStart, periodEnd: record.periodEnd, snapshot: record.snapshot })
+    : await calculateBaseline(access.accountId, record.metricKey);
   const now = new Date();
   const weekStart = currentWeekStart();
   let result: {

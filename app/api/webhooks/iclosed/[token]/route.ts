@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { iclosedConnections, processedIclosedEvents, salesCalls } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
 import { classifyEvent, parseEnvelope, readCall } from "@/lib/iclosed/events";
+import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
 // iClosed webhook receiver. Auth model (iClosed uses static API keys, not
@@ -90,6 +91,38 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const userId = connection.userId;
   const kind = classifyEvent(envelope.type);
   const call = readCall(envelope as unknown as Record<string, unknown>);
+  const touchpoint = call
+    ? (await resolveMetaTouchpoint(userId, call.metaTouchpointToken)) ??
+      (await resolveMetaTouchpointFromIdentifiers({
+        userId,
+        campaignExternalId: call.metaCampaignExternalId,
+        adSetExternalId: call.metaAdSetExternalId,
+        adExternalId: call.metaAdExternalId,
+      })) ??
+      (await resolveMetaTouchpointFromUtm({
+        userId,
+        utmCampaign: call.utmCampaign,
+        utmContent: call.utmContent,
+      }))
+    : null;
+  const attributionValues = call
+    ? {
+        utmSource: call.utmSource,
+        utmMedium: call.utmMedium,
+        utmCampaign: call.utmCampaign,
+        utmContent: call.utmContent,
+        utmTerm: call.utmTerm,
+        metaTouchpointId: touchpoint?.touchpointId ?? null,
+      }
+    : {};
+  const attributionUpdates = {
+    ...(call?.utmSource ? { utmSource: call.utmSource } : {}),
+    ...(call?.utmMedium ? { utmMedium: call.utmMedium } : {}),
+    ...(call?.utmCampaign ? { utmCampaign: call.utmCampaign } : {}),
+    ...(call?.utmContent ? { utmContent: call.utmContent } : {}),
+    ...(call?.utmTerm ? { utmTerm: call.utmTerm } : {}),
+    ...(touchpoint ? { metaTouchpointId: touchpoint.touchpointId } : {}),
+  };
 
   switch (kind) {
     case "booked": {
@@ -106,10 +139,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           durationMinutes: call.durationMinutes,
           closer: call.closer,
           eventType: call.eventType,
+          ...attributionValues,
         })
-        // Already booked (replay / backfill overlap) — never clobber a
-        // disposition the closer may have already set.
-        .onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] });
+        // Already booked (replay / backfill overlap) — only enrich tracking;
+        // never clobber a disposition the closer may have already set.
+        .onConflictDoUpdate({
+          target: [salesCalls.userId, salesCalls.iclosedCallId],
+          set: { ...attributionUpdates, updatedAt: new Date() },
+        });
       break;
     }
     case "rescheduled": {
@@ -128,6 +165,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           durationMinutes: call.durationMinutes,
           closer: call.closer,
           eventType: call.eventType,
+          ...attributionValues,
         })
         .onConflictDoUpdate({
           target: [salesCalls.userId, salesCalls.iclosedCallId],
@@ -135,6 +173,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             scheduledAt: call.scheduledAt,
             durationMinutes: call.durationMinutes,
             ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+            ...attributionUpdates,
             updatedAt: new Date(),
           },
         });
@@ -154,6 +193,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           durationMinutes: call.durationMinutes,
           closer: call.closer,
           eventType: call.eventType,
+          ...attributionValues,
           attendance: "cancelled",
         })
         .onConflictDoUpdate({
@@ -161,6 +201,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           set: {
             attendance: "cancelled",
             ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+            ...attributionUpdates,
             updatedAt: new Date(),
           },
           // Only cancel a still-booked call — never overwrite an attendance/

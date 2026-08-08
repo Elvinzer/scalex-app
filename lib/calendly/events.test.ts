@@ -38,4 +38,19 @@ describe("Calendly call normalization", () => {
 
     expect(parsed?.call?.inviteePhone).toBe("+15557654321");
   });
+
+  it("reads UTM values from the invitee tracking object", () => {
+    const call = normalizeScheduledEvent(
+      {
+        uri: "https://api.calendly.com/scheduled_events/event-3",
+        start_time: "2026-08-08T10:00:00.000Z",
+      },
+      {
+        tracking: { utm_campaign: "scale-x-webinar", utm_content: "creative-a" },
+      },
+    );
+
+    expect(call?.utmCampaign).toBe("scale-x-webinar");
+    expect(call?.utmContent).toBe("creative-a");
+  });
 });

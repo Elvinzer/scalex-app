@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { salesCalls } from "@/db/schema";
+import { sales, salesCalls } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { buildSaleInput } from "@/lib/iclosed/sale";
@@ -202,8 +202,20 @@ export async function setCallAmounts(
     });
     if (call.saleId) {
       await updateSale(accountId, call.saleId, saleInput);
+      if (call.metaTouchpointId) {
+        await db
+          .update(sales)
+          .set({ metaTouchpointId: call.metaTouchpointId })
+          .where(and(eq(sales.id, call.saleId), eq(sales.userId, accountId)));
+      }
     } else {
       const created = await createSale(accountId, saleInput);
+      if (call.metaTouchpointId) {
+        await db
+          .update(sales)
+          .set({ metaTouchpointId: call.metaTouchpointId })
+          .where(and(eq(sales.id, created.id), eq(sales.userId, accountId)));
+      }
       await db
         .update(salesCalls)
         .set({ saleId: created.id, updatedAt: new Date() })

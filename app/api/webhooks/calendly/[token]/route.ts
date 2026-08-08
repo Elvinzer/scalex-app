@@ -9,6 +9,8 @@ import { fetchInvitee } from "@/lib/calendly/client";
 import { classifyCalendlyEvent, parseCalendlyWebhook, readCalendlyInviteePhone } from "@/lib/calendly/events";
 import { CALENDLY_SIGNATURE_HEADER } from "@/lib/calendly/protocol";
 import { decrypt } from "@/lib/crypto";
+import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
+import { readMetaTracking } from "@/lib/meta-ads/tracking";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
 // Calendly webhook receiver. Auth: the [token] path segment resolves + authenticates
@@ -87,11 +89,59 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const kind = classifyCalendlyEvent(parsed.eventType);
   let call = parsed.call;
-  if (call && kind !== "other" && !call.inviteePhone && parsed.inviteeUri) {
+  if (call && kind !== "other" && parsed.inviteeUri) {
     const invitee = await fetchInvitee(decrypt(connection.accessTokenEncrypted), parsed.inviteeUri);
-    const inviteePhone = invitee ? readCalendlyInviteePhone(invitee) : null;
-    if (inviteePhone) call = { ...call, inviteePhone };
+    if (invitee) {
+      const inviteePhone = readCalendlyInviteePhone(invitee);
+      const tracking = readMetaTracking(invitee);
+      call = {
+        ...call,
+        ...(inviteePhone ? { inviteePhone } : {}),
+        utmSource: call.utmSource ?? tracking.utmSource,
+        utmMedium: call.utmMedium ?? tracking.utmMedium,
+        utmCampaign: call.utmCampaign ?? tracking.utmCampaign,
+        utmContent: call.utmContent ?? tracking.utmContent,
+        utmTerm: call.utmTerm ?? tracking.utmTerm,
+        metaTouchpointToken: call.metaTouchpointToken ?? tracking.metaTouchpointToken,
+        metaCampaignExternalId: call.metaCampaignExternalId ?? tracking.metaCampaignExternalId,
+        metaAdSetExternalId: call.metaAdSetExternalId ?? tracking.metaAdSetExternalId,
+        metaAdExternalId: call.metaAdExternalId ?? tracking.metaAdExternalId,
+      };
+    }
   }
+
+  const touchpoint = call
+    ? (await resolveMetaTouchpoint(connection.userId, call.metaTouchpointToken)) ??
+      (await resolveMetaTouchpointFromIdentifiers({
+        userId: connection.userId,
+        campaignExternalId: call.metaCampaignExternalId,
+        adSetExternalId: call.metaAdSetExternalId,
+        adExternalId: call.metaAdExternalId,
+      })) ??
+      (await resolveMetaTouchpointFromUtm({
+        userId: connection.userId,
+        utmCampaign: call.utmCampaign,
+        utmContent: call.utmContent,
+      }))
+    : null;
+  const attributionValues = call
+    ? {
+        utmSource: call.utmSource,
+        utmMedium: call.utmMedium,
+        utmCampaign: call.utmCampaign,
+        utmContent: call.utmContent,
+        utmTerm: call.utmTerm,
+        metaTouchpointId: touchpoint?.touchpointId ?? null,
+      }
+    : {};
+  const attributionUpdates = {
+    ...(call?.utmSource ? { utmSource: call.utmSource } : {}),
+    ...(call?.utmMedium ? { utmMedium: call.utmMedium } : {}),
+    ...(call?.utmCampaign ? { utmCampaign: call.utmCampaign } : {}),
+    ...(call?.utmContent ? { utmContent: call.utmContent } : {}),
+    ...(call?.utmTerm ? { utmTerm: call.utmTerm } : {}),
+    ...(touchpoint ? { metaTouchpointId: touchpoint.touchpointId } : {}),
+  };
 
   if (call && kind === "created") {
     await db
@@ -107,8 +157,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         durationMinutes: call.durationMinutes,
         closer: call.closer,
         eventType: call.eventType,
+        ...attributionValues,
       })
-      .onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] });
+      .onConflictDoUpdate({
+        target: [salesCalls.userId, salesCalls.iclosedCallId],
+        set: { ...attributionUpdates, updatedAt: new Date() },
+      });
   } else if (call && kind === "canceled") {
     await db
       .insert(salesCalls)
@@ -123,6 +177,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         durationMinutes: call.durationMinutes,
         closer: call.closer,
         eventType: call.eventType,
+        ...attributionValues,
         attendance: "cancelled",
       })
       .onConflictDoUpdate({
@@ -130,6 +185,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         set: {
           attendance: "cancelled",
           ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+          ...attributionUpdates,
           updatedAt: new Date(),
         },
         // Never overwrite a disposition the closer already set (only cancel a

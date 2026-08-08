@@ -4,6 +4,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingLeads, nativeBookingLinks, type NativeBookingAnswerSnapshot } from "@/db/schema";
+import { resolveMetaTouchpoint } from "@/lib/meta-ads/attribution";
 
 import { normalizeEmail, normalizePhone, sanitizeUtm, type PublicContactInput, type PublicLeadCaptureInput, type PublicQualificationInput } from "./validation";
 
@@ -19,6 +20,8 @@ type PublicLeadMetadata = {
   landingPage?: string | null;
   referrer?: string | null;
   linkId?: string | null;
+  metaTouchpointToken?: string | null;
+  metaTouchpointId?: string | null;
   utm?: Record<string, string>;
 };
 
@@ -57,6 +60,7 @@ function leadValues(
     landingPage: metadata.landingPage ?? null,
     referrer: metadata.referrer ?? null,
     linkId: link?.id ?? null,
+    metaTouchpointId: metadata.metaTouchpointId ?? null,
     utmSource: safeUtm.utm_source ?? link?.utmSource ?? null,
     utmMedium: safeUtm.utm_medium ?? link?.utmMedium ?? null,
     utmCampaign: safeUtm.utm_campaign ?? link?.utmCampaign ?? null,
@@ -88,11 +92,13 @@ export async function upsertPublicBookingLead(params: {
   answers?: NativeBookingAnswerSnapshot[];
 }) {
   const sessionKey = params.metadata.sessionKey ?? randomUUID();
+  const metaAttribution = await resolveMetaTouchpoint(params.event.userId, params.metadata.metaTouchpointToken);
+  const metadata = { ...params.metadata, metaTouchpointId: metaAttribution?.touchpointId ?? params.metadata.metaTouchpointId ?? null };
   const link = await findActiveLink(params.event.id, params.metadata.linkId);
   const values = leadValues(
     params.event,
     params.contact,
-    params.metadata,
+    metadata,
     link,
     sessionKey,
     params.step,
@@ -113,6 +119,7 @@ export async function upsertPublicBookingLead(params: {
         landingPage: nativeBookingLeads.landingPage,
         referrer: nativeBookingLeads.referrer,
         linkId: nativeBookingLeads.linkId,
+        metaTouchpointId: nativeBookingLeads.metaTouchpointId,
         utmSource: nativeBookingLeads.utmSource,
         utmMedium: nativeBookingLeads.utmMedium,
         utmCampaign: nativeBookingLeads.utmCampaign,
@@ -139,6 +146,7 @@ export async function upsertPublicBookingLead(params: {
           landingPage: existing.landingPage ?? values.landingPage,
           referrer: existing.referrer ?? values.referrer,
           linkId: existing.linkId ?? values.linkId,
+          metaTouchpointId: existing.metaTouchpointId ?? values.metaTouchpointId,
           utmSource: existing.utmSource ?? values.utmSource,
           utmMedium: existing.utmMedium ?? values.utmMedium,
           utmCampaign: existing.utmCampaign ?? values.utmCampaign,

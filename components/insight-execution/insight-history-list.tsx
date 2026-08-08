@@ -46,6 +46,7 @@ const SOURCE_LABELS: Record<string, string> = {
   funnel_stage: "Funnel",
   content_recommendation: "Contenu",
   copilote: "Copilote",
+  meta_ads: "Meta Ads",
 };
 
 function numberFromSnapshot(

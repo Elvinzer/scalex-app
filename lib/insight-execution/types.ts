@@ -4,6 +4,7 @@ export const INSIGHT_SOURCE_TYPES = [
   "funnel_stage",
   "content_recommendation",
   "copilote",
+  "meta_ads",
 ] as const;
 
 export type InsightSourceType = (typeof INSIGHT_SOURCE_TYPES)[number];

@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
 import { KpiTile } from "@/components/kpi-tile";
+import { MetaAdsDashboard } from "@/components/meta-ads/meta-ads-dashboard";
 import { Button } from "@/components/ui/button";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
@@ -18,6 +19,8 @@ import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
 import { getLeverStatus } from "@/lib/levers/status";
+import { getMetaAdsDashboard, metricValue } from "@/lib/meta-ads/queries";
+import { normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -31,17 +34,19 @@ const LEVER_KEY = "ads";
 // approach as every other benchmark in lib/levers/opportunities.ts.
 const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
 
-export default async function AdsPage() {
+export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
-  const [campaigns, profile, lever] = await Promise.all([
+  const periodDays = normalizeMetaPeriodDays((await searchParams).meta_days);
+  const [campaigns, profile, lever, metaDashboard] = await Promise.all([
     getAdCampaigns(accountId),
     getBusinessProfile(accountId),
     getLeverStatus(accountId, LEVER_KEY),
+    getMetaAdsDashboard(accountId, periodDays),
   ]);
 
   const mode: "optimiser" | "demarrer" =
-    campaigns.length > 0 || lever.status === "active" ? "optimiser" : "demarrer";
+    campaigns.length > 0 || metaDashboard !== null || lever.status === "active" ? "optimiser" : "demarrer";
 
   after(() => track("lever_page_viewed", userId, { lever: LEVER_KEY, mode }));
 
@@ -54,7 +59,7 @@ export default async function AdsPage() {
     const { cashContractedTotal } = aggregatePeriodTotals({ months, allMonthlyRows, allSettingEntries, allClosingEntries });
     const avgMonthlyRevenue = cashContractedTotal / months.length;
 
-    if (avgMonthlyRevenue < ADS_MIN_MONTHLY_REVENUE_EUR) {
+    if (avgMonthlyRevenue < ADS_MIN_MONTHLY_REVENUE_EUR && !metaDashboard) {
       return (
         <div className="flex flex-col gap-8">
           <AgentBanner
@@ -120,7 +125,9 @@ export default async function AdsPage() {
   const avgCpl = cplValues.length > 0 ? cplValues.reduce((sum, v) => sum + v, 0) / cplValues.length : null;
 
   const stateText =
-    avgCtr !== null
+    metaDashboard
+      ? `Meta Ads : ${metricValue(metaDashboard.totals, "spendCents") === null ? "dépenses indisponibles" : `${formatEur((metricValue(metaDashboard.totals, "spendCents") ?? 0) / 100)} dépensés`}, ${metricValue(metaDashboard.totals, "leads") === null ? "leads indisponibles" : `${metricValue(metaDashboard.totals, "leads")} lead(s) mesuré(s)`} sur les 30 derniers jours.`
+      : avgCtr !== null
       ? `CTR moyen de ${formatPercent(avgCtr)}, coût par lead moyen de ${avgCpl === null ? "—" : formatEur(avgCpl)}.`
       : "Aucune campagne suivie pour l'instant.";
 
@@ -153,6 +160,15 @@ export default async function AdsPage() {
           />
         </div>
       </div>
+
+      {metaDashboard && <MetaAdsDashboard data={metaDashboard} />}
+
+      {metaDashboard && (
+        <div>
+          <h2 className="text-xl font-bold">Suivi manuel complémentaire</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Tu peux conserver ici des campagnes ou plateformes qui ne sont pas reliées à Meta Ads.</p>
+        </div>
+      )}
 
       {profile.sales.offers.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">

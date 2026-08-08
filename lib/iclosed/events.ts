@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { readMetaTracking, type MetaTrackingFields } from "@/lib/meta-ads/tracking";
+
 import { ICLOSED_EVENT_MATCHERS } from "./protocol";
 
 // Parsing of iClosed calls into our own domain. `readCall` targets the real
@@ -28,7 +30,7 @@ export type NormalizedCall = {
   outcome: "pending" | "closed" | "not_closed" | null;
   contracted: number | null; // from the WON deal value
   collected: number | null;
-};
+} & MetaTrackingFields;
 
 // Only the envelope is strict. `.passthrough()` keeps unknown fields; the call
 // object may live under data/call/payload, or the envelope may itself BE the
@@ -142,6 +144,7 @@ export function readCall(source: Rec): NormalizedCall | null {
   // enum UPCOMING/PAST, NOT a label — don't use it as one.)
   const event = asRecord(body.event) ?? {};
   const eventType = firstString(event.name, body.eventTypeName);
+  const tracking = readMetaTracking(body, contact, invitee, event);
 
   const disposition = mapDisposition(body);
 
@@ -154,6 +157,7 @@ export function readCall(source: Rec): NormalizedCall | null {
     durationMinutes: durationMinutesFromCall(body, scheduledAt),
     closer,
     eventType,
+    ...tracking,
     ...disposition,
   };
 }

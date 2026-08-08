@@ -10,6 +10,7 @@ import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import type { MetricKey } from "@/lib/diagnostic/metric-keys";
 
 import type { BaselineSnapshot, MeasurementSnapshot } from "./types";
+import type { InsightSnapshot } from "./types";
 import { compareBaselineSnapshots } from "./measurement";
 
 export const SUPPORTED_RATE_METRICS = ["responseRate", "proposalRate", "bookingRate", "showUpRate", "closingRate"] as const;
@@ -126,6 +127,45 @@ export async function calculateCashSnapshot(accountId: string, months = lastComp
 export async function calculateBaseline(accountId: string, metricKey: string | null, months = lastCompletedMonths(MEASUREMENT_MONTHS)): Promise<BaselineSnapshot | null> {
   if (metricKey === "cashContracted") return calculateCashSnapshot(accountId, months);
   return calculateRateSnapshot(accountId, metricKey ?? "", months);
+}
+
+export function baselineFromMetaInsight(input: {
+  metricKey: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  snapshot: InsightSnapshot;
+}): BaselineSnapshot | null {
+  const currentValue = input.snapshot.currentValue;
+  const sampleSize = input.snapshot.sampleSize;
+  if (
+    typeof input.metricKey !== "string" ||
+    typeof input.periodStart !== "string" ||
+    typeof input.periodEnd !== "string" ||
+    typeof currentValue !== "number" ||
+    !Number.isFinite(currentValue) ||
+    typeof sampleSize !== "number" ||
+    !Number.isFinite(sampleSize) ||
+    sampleSize <= 0
+  ) {
+    return null;
+  }
+
+  const isFraction = input.metricKey.endsWith("_rate") || input.metricKey === "profile_to_follow_rate" || input.metricKey === "instagram_engagement_per_follower";
+  const isEuroValue = input.metricKey === "cash_per_lead";
+  const value = isEuroValue ? currentValue / 100 : currentValue;
+  const unit = isEuroValue ? "eur" : isFraction ? "fraction" : "count";
+  return {
+    metricKey: input.metricKey,
+    unit,
+    value,
+    periodStart: input.periodStart,
+    periodEnd: input.periodEnd,
+    sampleSize: Math.round(sampleSize),
+    source: "meta_ads",
+    freshness: new Date().toISOString(),
+    benchmarkValue: null,
+    cashValueEur: isEuroValue ? value : null,
+  };
 }
 
 export type MeasurementReadiness =

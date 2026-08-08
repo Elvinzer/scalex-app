@@ -33,6 +33,12 @@ import type {
   InsightImpactProjection,
   InsightSnapshot,
 } from "@/lib/insight-execution/types";
+import type {
+  MetaAttributionSettings,
+  MetaCampaignType,
+  MetaMetricSnapshot,
+  MetaRawObject,
+} from "@/lib/meta-ads/types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -106,6 +112,9 @@ export const users = pgTable("users", {
   // Same denormalized "is connected" flag for YouTube (channel analytics —
   // see youtube_connections/youtube_video_insights).
   youtubeConnected: boolean("youtube_connected").notNull().default(false),
+  // Same denormalized "is connected" flag for Meta Ads. The encrypted token
+  // and the selected account live in meta_ads_connections.
+  metaAdsConnected: boolean("meta_ads_connected").notNull().default(false),
   sector: prospectionSector("sector"),
   // Set once the 3-screen /onboarding wizard finishes (or is skipped) —
   // existing users are backfilled to true via migration default so they
@@ -413,6 +422,399 @@ export const instagramConnections = pgTable("instagram_connections", {
   initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
   lastInsightsSyncAt: timestamp("last_insights_sync_at", { withTimezone: true }),
 }).enableRLS();
+
+// Meta Ads connection — OAuth Facebook Login for Business. The access token
+// is always encrypted and only ever decrypted in a server-side Graph API
+// call. The first OAuth grant requests ads_read; ads_management is requested
+// separately only when the owner explicitly confirms the first write action.
+export const metaAdsConnections = pgTable(
+  "meta_ads_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    metaUserId: text("meta_user_id").notNull(),
+    metaUserName: text("meta_user_name"),
+    accessTokenEncrypted: text("access_token_encrypted"),
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+    grantedScopes: jsonb("granted_scopes").notNull().default([]).$type<string[]>(),
+    selectedAdAccountId: text("selected_ad_account_id"),
+    status: text("status").notNull().default("connected"),
+    initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
+    initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
+    lastSyncStartedAt: timestamp("last_sync_started_at", { withTimezone: true }),
+    lastSyncCompletedAt: timestamp("last_sync_completed_at", { withTimezone: true }),
+    lastSyncError: text("last_sync_error"),
+    connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    pgPolicy("meta_ads_connections_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Ad accounts visible to the connected Meta user. We keep the complete
+// selection list so the owner can choose the account explicitly instead of
+// silently operating on the first account returned by Meta.
+export const metaAdAccounts = pgTable(
+  "meta_ad_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => metaAdsConnections.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    name: text("name").notNull(),
+    currency: text("currency"),
+    timezone: text("timezone"),
+    accountStatus: integer("account_status"),
+    disableReason: text("disable_reason"),
+    canRead: boolean("can_read").notNull().default(true),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    raw: jsonb("raw").notNull().$type<MetaRawObject>(),
+  },
+  (table) => [
+    uniqueIndex("meta_ad_accounts_user_external_idx").on(table.userId, table.externalId),
+    index("meta_ad_accounts_user_name_idx").on(table.userId, table.name),
+    pgPolicy("meta_ad_accounts_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Normalized campaign hierarchy used by the Ads screens. Meta remains the
+// source of truth; these rows are a read cache and can safely be rebuilt by a
+// replayed sync.
+export const metaCampaigns = pgTable(
+  "meta_campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    adAccountId: uuid("ad_account_id")
+      .notNull()
+      .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    name: text("name").notNull(),
+    objective: text("objective"),
+    performanceGoal: text("performance_goal"),
+    status: text("status"),
+    effectiveStatus: text("effective_status"),
+    campaignType: text("campaign_type").notNull().default("other").$type<MetaCampaignType>(),
+    typeConfidence: real("type_confidence"),
+    landingPageUrl: text("landing_page_url"),
+    dailyBudgetCents: integer("daily_budget_cents"),
+    lifetimeBudgetCents: integer("lifetime_budget_cents"),
+    startTime: timestamp("start_time", { withTimezone: true }),
+    stopTime: timestamp("stop_time", { withTimezone: true }),
+    raw: jsonb("raw").notNull().$type<MetaRawObject>(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("meta_campaigns_user_account_external_idx").on(table.userId, table.adAccountId, table.externalId),
+    index("meta_campaigns_account_status_idx").on(table.adAccountId, table.effectiveStatus),
+    pgPolicy("meta_campaigns_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const metaAdSets = pgTable(
+  "meta_ad_sets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    adAccountId: uuid("ad_account_id")
+      .notNull()
+      .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => metaCampaigns.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    name: text("name").notNull(),
+    status: text("status"),
+    effectiveStatus: text("effective_status"),
+    targeting: jsonb("targeting").$type<MetaRawObject | null>(),
+    dailyBudgetCents: integer("daily_budget_cents"),
+    lifetimeBudgetCents: integer("lifetime_budget_cents"),
+    raw: jsonb("raw").notNull().$type<MetaRawObject>(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("meta_ad_sets_user_account_external_idx").on(table.userId, table.adAccountId, table.externalId),
+    index("meta_ad_sets_campaign_idx").on(table.campaignId),
+    pgPolicy("meta_ad_sets_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const metaAds = pgTable(
+  "meta_ads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    adAccountId: uuid("ad_account_id")
+      .notNull()
+      .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    adSetId: uuid("ad_set_id")
+      .notNull()
+      .references(() => metaAdSets.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => metaCampaigns.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    name: text("name").notNull(),
+    status: text("status"),
+    effectiveStatus: text("effective_status"),
+    creativeName: text("creative_name"),
+    thumbnailUrl: text("thumbnail_url"),
+    permalinkUrl: text("permalink_url"),
+    raw: jsonb("raw").notNull().$type<MetaRawObject>(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("meta_ads_user_account_external_idx").on(table.userId, table.adAccountId, table.externalId),
+    index("meta_ads_ad_set_idx").on(table.adSetId),
+    pgPolicy("meta_ads_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Daily Insights rows. `entityKey` is deliberately materialized because
+// nullable campaign/ad-set/ad columns cannot form a reliable unique key in
+// PostgreSQL. `availableMetrics` lets the UI distinguish a true zero from a
+// metric Meta did not return for this account/objective.
+export const metaAdMetricsDaily = pgTable(
+  "meta_ad_metrics_daily",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    adAccountId: uuid("ad_account_id")
+      .notNull()
+      .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    level: text("level").notNull(),
+    entityKey: text("entity_key").notNull(),
+    entityExternalId: text("entity_external_id"),
+    campaignExternalId: text("campaign_external_id"),
+    adSetExternalId: text("ad_set_external_id"),
+    adExternalId: text("ad_external_id"),
+    date: date("date", { mode: "string" }).notNull(),
+    dateEnd: date("date_end", { mode: "string" }).notNull(),
+    spendCents: integer("spend_cents").notNull().default(0),
+    impressions: integer("impressions").notNull().default(0),
+    reach: integer("reach").notNull().default(0),
+    clicks: integer("clicks").notNull().default(0),
+    linkClicks: integer("link_clicks").notNull().default(0),
+    ctr: real("ctr"),
+    cpcCents: real("cpc_cents"),
+    cpmCents: real("cpm_cents"),
+    leads: integer("leads").notNull().default(0),
+    landingPageViews: integer("landing_page_views").notNull().default(0),
+    video3sViews: integer("video_3s_views").notNull().default(0),
+    videoThruplay: integer("video_thruplay").notNull().default(0),
+    videoP25: integer("video_p25").notNull().default(0),
+    videoP50: integer("video_p50").notNull().default(0),
+    videoP75: integer("video_p75").notNull().default(0),
+    videoP95: integer("video_p95").notNull().default(0),
+    videoP100: integer("video_p100").notNull().default(0),
+    profileVisits: integer("profile_visits").notNull().default(0),
+    follows: integer("follows").notNull().default(0),
+    registrations: integer("registrations").notNull().default(0),
+    purchases: integer("purchases").notNull().default(0),
+    purchaseValueCents: integer("purchase_value_cents").notNull().default(0),
+    messages: integer("messages").notNull().default(0),
+    availableMetrics: jsonb("available_metrics").notNull().default([]).$type<string[]>(),
+    provenance: jsonb("provenance").notNull().$type<MetaMetricSnapshot["provenance"]>(),
+    attributionSettings: jsonb("attribution_settings").notNull().$type<MetaAttributionSettings>(),
+    calculationVersion: text("calculation_version").notNull().default("meta-ads-v1"),
+    raw: jsonb("raw").notNull().$type<MetaRawObject>(),
+    consolidationUntil: timestamp("consolidation_until", { withTimezone: true }),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("meta_ad_metrics_daily_account_entity_date_idx").on(table.userId, table.adAccountId, table.entityKey, table.date),
+    index("meta_ad_metrics_daily_campaign_date_idx").on(table.userId, table.campaignExternalId, table.date),
+    pgPolicy("meta_ad_metrics_daily_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// A correction is recorded when Meta revises a day that had already passed
+// its account-specific consolidation window. The daily projection remains the
+// current truth; this table preserves the before/after evidence so a refresh
+// never changes a consolidated number silently.
+export const metaAdMetricCorrections = pgTable(
+  "meta_ad_metric_corrections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    adAccountId: uuid("ad_account_id")
+      .notNull()
+      .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    metricRowId: uuid("metric_row_id").references(() => metaAdMetricsDaily.id, { onDelete: "set null" }),
+    level: text("level").notNull(),
+    entityKey: text("entity_key").notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    beforeSnapshot: jsonb("before_snapshot").notNull().$type<Record<string, unknown>>(),
+    afterSnapshot: jsonb("after_snapshot").notNull().$type<Record<string, unknown>>(),
+    reason: text("reason").notNull().default("meta_retroactive_update"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("meta_ad_metric_corrections_user_date_idx").on(table.userId, table.date),
+    pgPolicy("meta_ad_metric_corrections_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Optional per-campaign configuration. A heuristic can pre-fill campaignType,
+// but only an owner action changes the durable classification used by insight
+// rules. This preserves the difference between Meta's objective and the
+// business funnel the user actually wants to optimize.
+export const metaCampaignProfiles = pgTable(
+  "meta_campaign_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => metaCampaigns.id, { onDelete: "cascade" }),
+    campaignType: text("campaign_type").notNull().default("other").$type<MetaCampaignType>(),
+    typeSource: text("type_source").notNull().default("heuristic"),
+    targetCpaCents: integer("target_cpa_cents"),
+    targetRoas: real("target_roas"),
+    leadValueCents: integer("lead_value_cents"),
+    attributionNote: text("attribution_note"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("meta_campaign_profiles_user_campaign_idx").on(table.userId, table.campaignId),
+    pgPolicy("meta_campaign_profiles_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Opaque first-party touchpoints used when the user wants Meta -> landing page
+// -> booking/sale attribution. Raw Meta ids are never trusted from a browser
+// query string; the public token resolves to this server-side row.
+export const metaAdTouchpoints = pgTable(
+  "meta_ad_touchpoints",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    campaignExternalId: text("campaign_external_id"),
+    adSetExternalId: text("ad_set_external_id"),
+    adExternalId: text("ad_external_id"),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    utmTerm: text("utm_term"),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("meta_ad_touchpoints_user_captured_idx").on(table.userId, table.capturedAt),
+    pgPolicy("meta_ad_touchpoints_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Every bounded write is recorded with a user-scoped idempotency key. The
+// audit row is written before the Graph mutation and updated afterwards so a
+// retry can safely return the existing result without replaying the action.
+export const metaAdActionLogs = pgTable(
+  "meta_ad_action_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    adAccountId: uuid("ad_account_id")
+      .notNull()
+      .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
+    entityType: text("entity_type").notNull(),
+    entityExternalId: text("entity_external_id").notNull(),
+    actionType: text("action_type").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    status: text("status").notNull().default("requested"),
+    requestedState: jsonb("requested_state").notNull().$type<MetaRawObject>(),
+    currentState: jsonb("current_state").$type<MetaRawObject | null>(),
+    resultState: jsonb("result_state").$type<MetaRawObject | null>(),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("meta_ad_action_logs_user_idempotency_idx").on(table.userId, table.idempotencyKey),
+    index("meta_ad_action_logs_user_created_idx").on(table.userId, table.createdAt),
+    pgPolicy("meta_ad_action_logs_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
 
 // Full-fidelity raw cache — one row per Instagram media item, every metric
 // the Graph API returns. content_posts only ever gets a 6-column PROJECTION
@@ -901,6 +1303,7 @@ export const nativeBookingLeads = pgTable(
     landingPage: text("landing_page"),
     referrer: text("referrer"),
     linkId: uuid("link_id").references(() => nativeBookingLinks.id, { onDelete: "set null" }),
+    metaTouchpointId: uuid("meta_touchpoint_id").references(() => metaAdTouchpoints.id, { onDelete: "set null" }),
     utmSource: text("utm_source"),
     utmMedium: text("utm_medium"),
     utmCampaign: text("utm_campaign"),
@@ -965,6 +1368,7 @@ export const nativeBookings = pgTable(
     landingPage: text("landing_page"),
     referrer: text("referrer"),
     linkId: uuid("link_id").references(() => nativeBookingLinks.id, { onDelete: "set null" }),
+    metaTouchpointId: uuid("meta_touchpoint_id").references(() => metaAdTouchpoints.id, { onDelete: "set null" }),
     utmSource: text("utm_source"),
     utmMedium: text("utm_medium"),
     utmCampaign: text("utm_campaign"),
@@ -1673,6 +2077,7 @@ export const leads = pgTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     source: leadSourceEnum("source").notNull(),
+    metaTouchpointId: uuid("meta_touchpoint_id").references(() => metaAdTouchpoints.id, { onDelete: "set null" }),
     offerId: text("offer_id"),
     potentialValueEur: integer("potential_value_eur").notNull().default(0), // pre-filled from offer.price, editable
     setterId: uuid("setter_id").references(() => setters.id, { onDelete: "set null" }),
@@ -1761,6 +2166,7 @@ export const sales = pgTable(
     // Origin of the deal, distinct from sourceChannel (marketing attribution).
     // Existing rows are manual; Stripe reconciliation writes "stripe".
     source: text("source").notNull().default("manual"),
+    metaTouchpointId: uuid("meta_touchpoint_id").references(() => metaAdTouchpoints.id, { onDelete: "set null" }),
     // A Stripe payment with no safe single deal match stays visible until the
     // owner confirms it from the sales page.
     isOrphan: boolean("is_orphan").notNull().default(false),
@@ -1908,6 +2314,7 @@ export const salesCalls = pgTable(
     utmCampaign: text("utm_campaign"),
     utmContent: text("utm_content"),
     utmTerm: text("utm_term"),
+    metaTouchpointId: uuid("meta_touchpoint_id").references(() => metaAdTouchpoints.id, { onDelete: "set null" }),
     attendance: salesCallAttendance("attendance").notNull().default("booked"),
     outcome: salesCallOutcome("outcome").notNull().default("pending"),
     // Set once the call is marked "closed" — POINTS at the sale, never
@@ -2695,6 +3102,7 @@ export const improvementEventType = pgEnum("improvement_event_type", [
   "initiative_launched",
   "initiative_completed",
   "initiative_measured",
+  "meta_ads_action",
 ]);
 
 // The Journal calendar's single read source (✦ marker + "Ce que tu as
@@ -2741,6 +3149,7 @@ export const insightSourceType = pgEnum("insight_source_type", [
   "funnel_stage",
   "content_recommendation",
   "copilote",
+  "meta_ads",
 ]);
 
 export const insightDecision = pgEnum("insight_decision", ["todo", "launched", "later", "dismissed", "completed"]);

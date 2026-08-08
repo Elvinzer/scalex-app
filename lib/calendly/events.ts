@@ -3,6 +3,8 @@
 // "cancelled") with a "pending" outcome — the closer marks the result by hand
 // (setCallOutcome), unlike iClosed's auto-mapped dispositions.
 
+import { readMetaTracking, type MetaTrackingFields } from "@/lib/meta-ads/tracking";
+
 export type CalendlyAttendance = "booked" | "cancelled";
 
 export type NormalizedCalendlyCall = {
@@ -15,7 +17,7 @@ export type NormalizedCalendlyCall = {
   closer: string | null;
   eventType: string | null;
   attendance: CalendlyAttendance;
-};
+} & MetaTrackingFields;
 
 type Rec = Record<string, unknown>;
 
@@ -71,6 +73,7 @@ export function normalizeScheduledEvent(event: Rec, invitee: Rec | null): Normal
   const scheduledAt = toDate(event.start_time);
   if (!externalId || !scheduledAt) return null;
   const inv = invitee ?? {};
+  const tracking = readMetaTracking(event, inv);
   return {
     externalId,
     inviteeName: firstString(inv.name, joinName(inv.first_name, inv.last_name)),
@@ -81,6 +84,7 @@ export function normalizeScheduledEvent(event: Rec, invitee: Rec | null): Normal
     closer: hostName(event),
     eventType: firstString(event.name),
     attendance: firstString(event.status) === "canceled" ? "cancelled" : "booked",
+    ...tracking,
   };
 }
 
@@ -103,6 +107,7 @@ export function parseCalendlyWebhook(
   if (!eventType || !payload) return null;
 
   const event = asRecord(payload.scheduled_event) ?? {};
+  const tracking = readMetaTracking(payload, event);
   const externalId = firstString(event.uri);
   const scheduledAt = toDate(event.start_time);
   const call: NormalizedCalendlyCall | null =
@@ -117,6 +122,7 @@ export function parseCalendlyWebhook(
           closer: hostName(event),
           eventType: firstString(event.name),
           attendance: eventType === "invitee.canceled" ? "cancelled" : "booked",
+          ...tracking,
         }
       : null;
 

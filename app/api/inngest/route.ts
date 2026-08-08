@@ -13,6 +13,9 @@ import { syncNativeBookingCalendar } from "@/lib/inngest/functions/sync-native-b
 import { sendNativeBookingNotification } from "@/lib/inngest/functions/send-native-booking-notification";
 import { sendNativeBookingReminder } from "@/lib/inngest/functions/send-native-booking-reminder";
 import { syncInstagramAccount } from "@/lib/inngest/functions/sync-instagram-account";
+import { refreshMetaAds } from "@/lib/inngest/functions/refresh-meta-ads";
+import { syncMetaAdsAccount } from "@/lib/inngest/functions/sync-meta-ads-account";
+import { syncMetaAdsSelectedAccount } from "@/lib/inngest/functions/sync-meta-ads-selected-account";
 import { syncStripeAccount } from "@/lib/inngest/functions/sync-stripe-account";
 import { syncYoutubeAccount } from "@/lib/inngest/functions/sync-youtube-account";
 import { weeklyBriefEmail } from "@/lib/inngest/functions/weekly-brief-email";
@@ -40,6 +43,9 @@ export const { GET, POST, PUT } = serve({
     sendNativeBookingReminder,
     syncCalendlyAccount,
     syncInstagramAccount,
+    syncMetaAdsAccount,
+    syncMetaAdsSelectedAccount,
+    refreshMetaAds,
     refreshInstagramInsights,
     refreshStripeAccounts,
     continueInstagramBackfill,

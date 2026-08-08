@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { inngest, nativeBookingCalendarSyncRequested } from "@/lib/inngest/client";
 import { decrypt, encrypt } from "@/lib/crypto";
+import { resolveMetaTouchpoint } from "@/lib/meta-ads/attribution";
 
 import { generateBookingSlots } from "./slots";
 import {
@@ -124,6 +125,7 @@ async function createNativeBookingInternal(handle: string, slug: string, request
   const requestedStart = new Date(request.startAt);
   const requestedEnd = new Date(requestedStart.getTime() + eventRow.durationMinutes * 60_000);
   const safeUtm = sanitizeUtm(request.utm);
+  const metaAttribution = await resolveMetaTouchpoint(eventRow.userId, request.metaTouchpointToken);
 
   const calendarCandidates = await db
     .select({ closerUserId: nativeBookingEventClosers.closerUserId })
@@ -333,6 +335,7 @@ async function createNativeBookingInternal(handle: string, slug: string, request
         rescheduleTokenEncrypted: managementTokens ? encrypt(managementTokens.rescheduleToken) : null,
         syncError: null,
         linkId: link?.id ?? null,
+        metaTouchpointId: metaAttribution?.touchpointId ?? null,
         landingPage: request.landingPage,
         referrer: request.referrer,
         utmSource: safeUtm.utm_source ?? link?.utmSource ?? null,
@@ -373,6 +376,7 @@ async function createNativeBookingInternal(handle: string, slug: string, request
         utmCampaign: safeUtm.utm_campaign ?? link?.utmCampaign ?? null,
         utmContent: safeUtm.utm_content ?? link?.utmContent ?? null,
         utmTerm: safeUtm.utm_term ?? link?.utmTerm ?? null,
+        metaTouchpointId: metaAttribution?.touchpointId ?? null,
         })
         .returning({ id: salesCalls.id });
       if (!call) return { error: "invalid" };

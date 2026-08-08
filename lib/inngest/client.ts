@@ -55,6 +55,22 @@ export const instagramBackfillContinue = eventType("instagram/backfill.continue"
   schema: staticSchema<InstagramBackfillContinue>(),
 });
 
+type MetaAdsAccountConnected = {
+  userId: string;
+};
+
+export const metaAdsAccountConnected = eventType("meta-ads/account.connected", {
+  schema: staticSchema<MetaAdsAccountConnected>(),
+});
+
+type MetaAdsSyncRequested = {
+  userId: string;
+};
+
+export const metaAdsSyncRequested = eventType("meta-ads/sync.requested", {
+  schema: staticSchema<MetaAdsSyncRequested>(),
+});
+
 type YoutubeAccountConnected = {
   userId: string;
 };

@@ -1,0 +1,574 @@
+import { and, eq } from "drizzle-orm";
+
+import { db } from "@/db";
+import {
+  metaAdAccounts,
+  metaAdMetricCorrections,
+  metaAdMetricsDaily,
+  metaAdSets,
+  metaAds,
+  metaAdsConnections,
+  metaCampaignProfiles,
+  metaCampaigns,
+} from "@/db/schema";
+import { decrypt } from "@/lib/crypto";
+
+import {
+  actionValue,
+  listMetaAdSets,
+  listMetaAds,
+  listMetaAdAccounts,
+  listMetaCampaigns,
+  listMetaInsights,
+  MetaApiError,
+  normalizeMetaObject,
+  parseMetaNumber,
+  parseMetaOptionalNumber,
+} from "./client";
+import { classifyMetaCampaign } from "./classification";
+import { materializeMetaAdsInsights } from "./insights";
+import { getMetaAdsDashboard } from "./queries";
+import {
+  META_DEFAULT_ATTRIBUTION_SETTINGS,
+  META_INSIGHT_LEVELS,
+  META_SYNC_LOOKBACK_DAYS,
+  computeMetaConsolidationUntil,
+  normalizeAdAccountId,
+} from "./protocol";
+import type { MetaAttributionSettings, MetaEntityLevel, MetaRawObject } from "./types";
+
+function stringValue(raw: MetaRawObject, key: string): string | null {
+  const value = raw[key];
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function numberValue(raw: MetaRawObject, key: string): number | null {
+  return parseMetaOptionalNumber(raw[key]);
+}
+
+function integerValue(raw: MetaRawObject, key: string): number | null {
+  const value = numberValue(raw, key);
+  return value === null ? null : Math.max(0, Math.round(value));
+}
+
+function nestedRecord(raw: MetaRawObject, key: string): MetaRawObject | null {
+  return normalizeMetaObject(raw[key]);
+}
+
+function dateValue(raw: MetaRawObject, key: string): Date | null {
+  const value = stringValue(raw, key);
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isoDateValue(raw: MetaRawObject, key: string, fallback: string): string {
+  const value = stringValue(raw, key);
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : fallback;
+}
+
+function budgetCents(raw: MetaRawObject, key: string): number | null {
+  const value = numberValue(raw, key);
+  return value === null ? null : Math.max(0, Math.round(value));
+}
+
+function accountExternalId(raw: MetaRawObject): string | null {
+  const id = stringValue(raw, "id") ?? stringValue(raw, "account_id");
+  return id ? normalizeAdAccountId(id) : null;
+}
+
+function entityIdForLevel(raw: MetaRawObject, level: MetaEntityLevel, adAccountId: string): string {
+  if (level === "campaign") return stringValue(raw, "campaign_id") ?? "unknown-campaign";
+  if (level === "adset") return stringValue(raw, "adset_id") ?? "unknown-adset";
+  if (level === "ad") return stringValue(raw, "ad_id") ?? "unknown-ad";
+  return normalizeAdAccountId(stringValue(raw, "account_id") ?? adAccountId);
+}
+
+function actionCount(raw: MetaRawObject, ...types: string[]): number {
+  return Math.max(0, Math.round(actionValue(raw.actions, ...types)));
+}
+
+function hasAction(raw: MetaRawObject, ...types: string[]): boolean {
+  if (!Array.isArray(raw.actions)) return false;
+  return raw.actions.some((item) => {
+    const action = normalizeMetaObject(item);
+    const actionType = action.action_type;
+    return typeof actionType === "string" && types.includes(actionType);
+  });
+}
+
+function videoActionCount(raw: MetaRawObject, key: string): number {
+  return Math.max(0, Math.round(actionValue(raw[key])));
+}
+
+function readMetric(raw: MetaRawObject, key: string, fallback = 0): number {
+  return Math.max(0, Math.round(parseMetaNumber(raw[key]) || fallback));
+}
+
+function metricAvailable(raw: MetaRawObject, key: string): boolean {
+  return raw[key] !== undefined && raw[key] !== null;
+}
+
+function parseAttributionSettings(value?: MetaAttributionSettings): MetaAttributionSettings {
+  return value ?? META_DEFAULT_ATTRIBUTION_SETTINGS;
+}
+
+async function getConnection(userId: string) {
+  const [connection] = await db
+    .select()
+    .from(metaAdsConnections)
+    .where(eq(metaAdsConnections.userId, userId))
+    .limit(1);
+  if (!connection || connection.status === "disconnected" || !connection.accessTokenEncrypted) {
+    throw new MetaApiError("Meta Ads est déconnecté. Reconnecte Meta Ads pour reprendre la synchronisation.", { code: 190 });
+  }
+  if (connection.tokenExpiresAt && connection.tokenExpiresAt <= new Date()) {
+    await db
+      .update(metaAdsConnections)
+      .set({ status: "token_expired", lastSyncError: "Le jeton Meta a expiré. Reconnecte Meta Ads.", updatedAt: new Date() })
+      .where(eq(metaAdsConnections.userId, userId));
+    throw new MetaApiError("Le jeton Meta a expiré. Reconnecte Meta Ads.");
+  }
+  return connection;
+}
+
+function decryptConnectionToken(connection: typeof metaAdsConnections.$inferSelect): string {
+  if (!connection.accessTokenEncrypted) {
+    throw new MetaApiError("Le jeton Meta est indisponible. Reconnecte Meta Ads.", { code: 190 });
+  }
+  return decrypt(connection.accessTokenEncrypted);
+}
+
+export async function syncMetaAdAccounts(userId: string): Promise<{ imported: number }> {
+  const connection = await getConnection(userId);
+  const accessToken = decryptConnectionToken(connection);
+  const rows = await listMetaAdAccounts(accessToken);
+  let imported = 0;
+
+  for (const raw of rows) {
+    const externalId = accountExternalId(raw);
+    if (!externalId) continue;
+    const name = stringValue(raw, "name") ?? externalId;
+    const accountStatus = integerValue(raw, "account_status");
+    const values = {
+      userId,
+      connectionId: connection.id,
+      externalId,
+      name,
+      currency: stringValue(raw, "currency"),
+      timezone: stringValue(raw, "timezone_name"),
+      accountStatus,
+      disableReason: stringValue(raw, "disable_reason"),
+      canRead: accountStatus === null || accountStatus === 1,
+      lastSeenAt: new Date(),
+      raw,
+    };
+    await db
+      .insert(metaAdAccounts)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [metaAdAccounts.userId, metaAdAccounts.externalId],
+        set: values,
+      });
+    imported += 1;
+  }
+
+  await db
+    .update(metaAdsConnections)
+    .set({ initialSyncStatus: connection.selectedAdAccountId ? "pending" : "awaiting_account", lastSyncError: null, updatedAt: new Date() })
+    .where(eq(metaAdsConnections.userId, userId));
+  return { imported };
+}
+
+async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRawObject[]) {
+  const campaignIds = new Map<string, string>();
+  const now = new Date();
+  for (const raw of raws) {
+    const externalId = stringValue(raw, "id");
+    if (!externalId) continue;
+    const classification = classifyMetaCampaign(raw);
+    const values = {
+      userId,
+      adAccountId,
+      externalId,
+      name: stringValue(raw, "name") ?? externalId,
+      objective: stringValue(raw, "objective"),
+      performanceGoal: stringValue(raw, "optimization_goal"),
+      status: stringValue(raw, "status"),
+      effectiveStatus: stringValue(raw, "effective_status"),
+      campaignType: classification.type,
+      typeConfidence: classification.confidence,
+      landingPageUrl: stringValue(nestedRecord(raw, "promoted_object") ?? {}, "website_url"),
+      dailyBudgetCents: budgetCents(raw, "daily_budget"),
+      lifetimeBudgetCents: budgetCents(raw, "lifetime_budget"),
+      startTime: dateValue(raw, "start_time"),
+      stopTime: dateValue(raw, "stop_time"),
+      raw,
+      lastSeenAt: now,
+      updatedAt: now,
+    };
+    const [row] = await db
+      .insert(metaCampaigns)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [metaCampaigns.userId, metaCampaigns.adAccountId, metaCampaigns.externalId],
+        set: {
+          adAccountId,
+          name: values.name,
+          objective: values.objective,
+          performanceGoal: values.performanceGoal,
+          status: values.status,
+          effectiveStatus: values.effectiveStatus,
+          landingPageUrl: values.landingPageUrl,
+          dailyBudgetCents: values.dailyBudgetCents,
+          lifetimeBudgetCents: values.lifetimeBudgetCents,
+          startTime: values.startTime,
+          stopTime: values.stopTime,
+          raw,
+          lastSeenAt: now,
+          updatedAt: now,
+        },
+      })
+      .returning({ id: metaCampaigns.id, externalId: metaCampaigns.externalId });
+    if (row) campaignIds.set(row.externalId, row.id);
+    if (row) {
+      await db
+        .insert(metaCampaignProfiles)
+        .values({
+          userId,
+          campaignId: row.id,
+          campaignType: classification.type,
+          typeSource: "heuristic",
+        })
+        .onConflictDoNothing({ target: [metaCampaignProfiles.userId, metaCampaignProfiles.campaignId] });
+    }
+  }
+  return campaignIds;
+}
+
+async function upsertAdSets(userId: string, adAccountId: string, raws: MetaRawObject[], campaignIds: Map<string, string>) {
+  const adSetIds = new Map<string, { id: string; campaignId: string }>();
+  const now = new Date();
+  for (const raw of raws) {
+    const externalId = stringValue(raw, "id");
+    const externalCampaignId = stringValue(raw, "campaign_id");
+    const campaignId = externalCampaignId ? campaignIds.get(externalCampaignId) : null;
+    if (!externalId || !campaignId) continue;
+    const values = {
+      userId,
+      adAccountId,
+      campaignId,
+      externalId,
+      name: stringValue(raw, "name") ?? externalId,
+      status: stringValue(raw, "status"),
+      effectiveStatus: stringValue(raw, "effective_status"),
+      targeting: nestedRecord(raw, "targeting"),
+      dailyBudgetCents: budgetCents(raw, "daily_budget"),
+      lifetimeBudgetCents: budgetCents(raw, "lifetime_budget"),
+      raw,
+      lastSeenAt: now,
+    };
+    const [row] = await db
+      .insert(metaAdSets)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [metaAdSets.userId, metaAdSets.adAccountId, metaAdSets.externalId],
+        set: values,
+      })
+      .returning({ id: metaAdSets.id, externalId: metaAdSets.externalId });
+    if (row) adSetIds.set(row.externalId, { id: row.id, campaignId });
+  }
+  return adSetIds;
+}
+
+async function upsertAds(
+  userId: string,
+  adAccountId: string,
+  raws: MetaRawObject[],
+  adSetIds: Map<string, { id: string; campaignId: string }>,
+  campaignIds: Map<string, string>,
+) {
+  let imported = 0;
+  const now = new Date();
+  for (const raw of raws) {
+    const externalId = stringValue(raw, "id");
+    const externalAdSetId = stringValue(raw, "adset_id");
+    const adSet = externalAdSetId ? adSetIds.get(externalAdSetId) : null;
+    const externalCampaignId = stringValue(raw, "campaign_id");
+    const campaignId = externalCampaignId ? campaignIds.get(externalCampaignId) ?? adSet?.campaignId : adSet?.campaignId;
+    if (!externalId || !adSet || !campaignId) continue;
+    const creative = nestedRecord(raw, "creative") ?? {};
+    const values = {
+      userId,
+      adAccountId,
+      adSetId: adSet.id,
+      campaignId,
+      externalId,
+      name: stringValue(raw, "name") ?? externalId,
+      status: stringValue(raw, "status"),
+      effectiveStatus: stringValue(raw, "effective_status"),
+      creativeName: stringValue(creative, "name"),
+      thumbnailUrl: stringValue(creative, "thumbnail_url"),
+      permalinkUrl: stringValue(raw, "permalink_url"),
+      raw,
+      lastSeenAt: now,
+    };
+    await db
+      .insert(metaAds)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [metaAds.userId, metaAds.adAccountId, metaAds.externalId],
+        set: values,
+      });
+    imported += 1;
+  }
+  return imported;
+}
+
+function metricValues(raw: MetaRawObject) {
+  const ctr = parseMetaOptionalNumber(raw.ctr);
+  const cpc = parseMetaOptionalNumber(raw.cpc);
+  const cpm = parseMetaOptionalNumber(raw.cpm);
+  const actionValues = raw.action_values;
+  const availableMetrics = Object.keys(raw).filter((key) => metricAvailable(raw, key));
+  const markAction = (metric: string, ...types: string[]) => {
+    if (hasAction(raw, ...types)) availableMetrics.push(`meta_action:${metric}`);
+  };
+  markAction("leads", "lead", "onsite_conversion.lead", "offsite_conversion.fb_pixel_lead", "omni_lead");
+  markAction("landingPageViews", "landing_page_view");
+  markAction("profileVisits", "profile_visit", "ig_profile_visit");
+  markAction("follows", "follow", "ig_follow");
+  markAction("registrations", "complete_registration", "offsite_conversion.fb_pixel_complete_registration");
+  markAction("purchases", "purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase");
+  markAction("messages", "onsite_conversion.messaging_conversation_started_7d", "messaging_conversation_started_7d");
+  return {
+    spendCents: Math.max(0, Math.round(parseMetaNumber(raw.spend) * 100)),
+    impressions: readMetric(raw, "impressions"),
+    reach: readMetric(raw, "reach"),
+    clicks: readMetric(raw, "clicks"),
+    linkClicks: readMetric(raw, "inline_link_clicks"),
+    ctr: ctr === null ? null : ctr / 100,
+    cpcCents: cpc === null ? null : cpc * 100,
+    cpmCents: cpm === null ? null : cpm * 100,
+    leads: actionCount(raw, "lead", "onsite_conversion.lead", "offsite_conversion.fb_pixel_lead", "omni_lead"),
+    landingPageViews: actionCount(raw, "landing_page_view"),
+    video3sViews: videoActionCount(raw, "video_3_sec_watched_actions"),
+    videoThruplay: videoActionCount(raw, "video_thruplay_watched_actions"),
+    videoP25: videoActionCount(raw, "video_p25_watched_actions"),
+    videoP50: videoActionCount(raw, "video_p50_watched_actions"),
+    videoP75: videoActionCount(raw, "video_p75_watched_actions"),
+    videoP95: videoActionCount(raw, "video_p95_watched_actions"),
+    videoP100: videoActionCount(raw, "video_p100_watched_actions"),
+    profileVisits: actionCount(raw, "profile_visit", "ig_profile_visit"),
+    follows: actionCount(raw, "follow", "ig_follow"),
+    registrations: actionCount(raw, "complete_registration", "offsite_conversion.fb_pixel_complete_registration"),
+    purchases: actionCount(raw, "purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase"),
+    purchaseValueCents: Math.max(0, Math.round(actionValue(actionValues, "purchase", "omni_purchase") * 100)),
+    messages: actionCount(raw, "onsite_conversion.messaging_conversation_started_7d", "messaging_conversation_started_7d"),
+    availableMetrics,
+    provenance: {
+      source: "meta" as const,
+      calculation: "brute" as const,
+      attribution: "directe" as const,
+      freshness: new Date().toISOString(),
+    },
+  };
+}
+
+const correctionFields = [
+  "spendCents",
+  "impressions",
+  "reach",
+  "clicks",
+  "linkClicks",
+  "ctr",
+  "cpcCents",
+  "cpmCents",
+  "leads",
+  "landingPageViews",
+  "video3sViews",
+  "videoThruplay",
+  "videoP25",
+  "videoP50",
+  "videoP75",
+  "videoP95",
+  "videoP100",
+  "profileVisits",
+  "follows",
+  "registrations",
+  "purchases",
+  "purchaseValueCents",
+  "messages",
+] as const;
+
+function metricSnapshot(row: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(correctionFields.map((field) => [field, row[field] ?? null]));
+}
+
+function metricSnapshotChanged(before: Record<string, unknown>, after: Record<string, unknown>): boolean {
+  return correctionFields.some((field) => before[field] !== after[field]);
+}
+
+async function upsertMetrics(
+  userId: string,
+  adAccountId: string,
+  level: MetaEntityLevel,
+  raws: MetaRawObject[],
+  attribution: MetaAttributionSettings,
+  fallbackDate: string,
+) {
+  let imported = 0;
+  for (const raw of raws) {
+    const date = isoDateValue(raw, "date_start", fallbackDate);
+    const dateEnd = isoDateValue(raw, "date_stop", date);
+    const entityExternalId = entityIdForLevel(raw, level, adAccountId);
+    const values = metricValues(raw);
+    const entityKey = `${level}:${entityExternalId}`;
+    const [existing] = await db
+      .select()
+      .from(metaAdMetricsDaily)
+      .where(
+        and(
+          eq(metaAdMetricsDaily.userId, userId),
+          eq(metaAdMetricsDaily.adAccountId, adAccountId),
+          eq(metaAdMetricsDaily.entityKey, entityKey),
+          eq(metaAdMetricsDaily.date, date),
+        ),
+      )
+      .limit(1);
+    const beforeSnapshot = existing ? metricSnapshot(existing as unknown as Record<string, unknown>) : null;
+    const afterSnapshot = metricSnapshot(values as unknown as Record<string, unknown>);
+    if (existing?.consolidationUntil && existing.consolidationUntil <= new Date() && beforeSnapshot && metricSnapshotChanged(beforeSnapshot, afterSnapshot)) {
+      await db.insert(metaAdMetricCorrections).values({
+        userId,
+        adAccountId,
+        metricRowId: existing.id,
+        level,
+        entityKey,
+        date,
+        beforeSnapshot,
+        afterSnapshot,
+      });
+    }
+    await db
+      .insert(metaAdMetricsDaily)
+      .values({
+        userId,
+        adAccountId,
+        level,
+        entityKey,
+        entityExternalId,
+        campaignExternalId: stringValue(raw, "campaign_id"),
+        adSetExternalId: stringValue(raw, "adset_id"),
+        adExternalId: stringValue(raw, "ad_id"),
+        date,
+        dateEnd,
+        ...values,
+        attributionSettings: attribution,
+        raw,
+        consolidationUntil: computeMetaConsolidationUntil(date, attribution),
+        syncedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [metaAdMetricsDaily.userId, metaAdMetricsDaily.adAccountId, metaAdMetricsDaily.entityKey, metaAdMetricsDaily.date],
+        set: {
+          dateEnd,
+          ...values,
+          attributionSettings: attribution,
+          raw,
+          consolidationUntil: computeMetaConsolidationUntil(date, attribution),
+          syncedAt: new Date(),
+        },
+      });
+    imported += 1;
+  }
+  return imported;
+}
+
+function lookbackRange(days: number): { since: string; until: string } {
+  const until = new Date();
+  const since = new Date(until);
+  since.setUTCDate(since.getUTCDate() - days);
+  const toDate = (value: Date) => value.toISOString().slice(0, 10);
+  return { since: toDate(since), until: toDate(until) };
+}
+
+export async function syncSelectedMetaAdAccount(
+  userId: string,
+  attributionSettings?: MetaAttributionSettings,
+): Promise<{ campaigns: number; adSets: number; ads: number; metrics: number }> {
+  const connection = await getConnection(userId);
+  const selectedId = connection.selectedAdAccountId;
+  if (!selectedId) throw new Error("Sélectionne un compte publicitaire Meta avant de synchroniser.");
+  const [account] = await db
+    .select()
+    .from(metaAdAccounts)
+    .where(and(eq(metaAdAccounts.userId, userId), eq(metaAdAccounts.externalId, normalizeAdAccountId(selectedId))))
+    .limit(1);
+  if (!account) throw new Error("Le compte publicitaire Meta sélectionné est introuvable.");
+  if (!account.canRead) throw new Error("Le compte publicitaire Meta sélectionné n'est plus accessible en lecture.");
+
+  const startedAt = new Date();
+  await db
+    .update(metaAdsConnections)
+    .set({ lastSyncStartedAt: startedAt, lastSyncError: null, initialSyncStatus: "syncing", updatedAt: startedAt })
+    .where(eq(metaAdsConnections.userId, userId));
+
+  try {
+    const accessToken = decryptConnectionToken(connection);
+    const range = lookbackRange(META_SYNC_LOOKBACK_DAYS);
+    const [campaignRaws, adSetRaws, adRaws] = await Promise.all([
+      listMetaCampaigns(accessToken, account.externalId),
+      listMetaAdSets(accessToken, account.externalId),
+      listMetaAds(accessToken, account.externalId),
+    ]);
+    const campaignIds = await upsertCampaigns(userId, account.id, campaignRaws);
+    const adSetIds = await upsertAdSets(userId, account.id, adSetRaws, campaignIds);
+    const importedAds = await upsertAds(userId, account.id, adRaws, adSetIds, campaignIds);
+    const attribution = parseAttributionSettings(attributionSettings);
+    let importedMetrics = 0;
+    for (const level of META_INSIGHT_LEVELS) {
+      const rows = await listMetaInsights({
+        accessToken,
+        adAccountId: account.externalId,
+        level,
+        since: range.since,
+        until: range.until,
+        attributionSettings: attribution,
+      });
+      importedMetrics += await upsertMetrics(userId, account.id, level, rows, attribution, range.since);
+    }
+    const dashboard = await getMetaAdsDashboard(userId);
+    if (dashboard) await materializeMetaAdsInsights(userId, dashboard);
+    const completedAt = new Date();
+    await db
+      .update(metaAdsConnections)
+      .set({
+        initialSyncStatus: "completed",
+        initialSyncCompletedAt: connection.initialSyncCompletedAt ?? completedAt,
+        lastSyncCompletedAt: completedAt,
+        lastSyncError: null,
+        updatedAt: completedAt,
+      })
+      .where(eq(metaAdsConnections.userId, userId));
+    return { campaigns: campaignIds.size, adSets: adSetIds.size, ads: importedAds, metrics: importedMetrics };
+  } catch (error) {
+    const message = error instanceof MetaApiError ? error.message : "La synchronisation Meta a échoué.";
+    const connectionStatus = error instanceof MetaApiError && error.code === 190
+      ? "token_expired"
+      : error instanceof MetaApiError && (error.code === 10 || error.code === 200 || error.code === 2000)
+        ? "permission_revoked"
+        : error instanceof Error && error.message.includes("n'est plus accessible")
+          ? "account_inaccessible"
+        : "connected";
+    await db
+      .update(metaAdsConnections)
+      .set({ status: connectionStatus, initialSyncStatus: "failed", lastSyncError: message.slice(0, 500), updatedAt: new Date() })
+      .where(eq(metaAdsConnections.userId, userId));
+    throw error;
+  }
+}
+
+export function defaultMetaLookbackDays(): number {
+  return META_SYNC_LOOKBACK_DAYS;
+}

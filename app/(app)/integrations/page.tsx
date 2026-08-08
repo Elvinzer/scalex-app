@@ -3,10 +3,19 @@ import { eq } from "drizzle-orm";
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
 import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
+import { MetaAdsConnectionCard, type MetaAdAccountOption } from "@/components/meta-ads/meta-ads-connection-card";
 import { YoutubeConnectionCard } from "@/components/youtube/youtube-connection-card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { calendlyConnections, iclosedConnections, instagramConnections, stripeConnections, youtubeConnections } from "@/db/schema";
+import {
+  calendlyConnections,
+  iclosedConnections,
+  instagramConnections,
+  metaAdAccounts,
+  metaAdsConnections,
+  stripeConnections,
+  youtubeConnections,
+} from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
@@ -21,12 +30,14 @@ const UPCOMING_INTEGRATIONS = ["Kajabi", "Brevo"];
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ stripe_error?: string }>;
+  searchParams: Promise<{ stripe_error?: string; meta_ads_error?: string; meta_ads?: string }>;
 }) {
   const userId = await requireUserId();
   const { accountId } = await requireOwnerOrRedirect(userId);
   const { user } = await getCurrentUser();
   const stripeError = (await searchParams).stripe_error;
+  const metaAdsError = (await searchParams).meta_ads_error;
+  const metaAdsNotice = (await searchParams).meta_ads;
   const stripeErrorMessage =
     stripeError === "config"
       ? "La connexion Stripe est momentanément indisponible (configuration côté serveur). Réessaie plus tard ou contacte le support."
@@ -40,9 +51,19 @@ export default async function IntegrationsPage({
   const calendlyConnected = Boolean(user?.calendlyConnected);
   const instagramConnected = Boolean(user?.instagramConnected);
   const youtubeConnected = Boolean(user?.youtubeConnected);
+  const metaAdsConnected = Boolean(user?.metaAdsConnected);
 
-  // 6 independent reads — run together instead of as sequential round-trips.
-  const [[connection], [iclosedConnection], [calendlyConnection], [instagramConnection], [youtubeConnection], subscriptionActive] = await Promise.all([
+  // Independent reads — run together instead of as sequential round-trips.
+  const [
+    [connection],
+    [iclosedConnection],
+    [calendlyConnection],
+    [instagramConnection],
+    [youtubeConnection],
+    [metaAdsConnection],
+    metaAdAccountRows,
+    subscriptionActive,
+  ] = await Promise.all([
     stripeConnected
       ? db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -58,8 +79,14 @@ export default async function IntegrationsPage({
     youtubeConnected
       ? db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
+    db.select().from(metaAdsConnections).where(eq(metaAdsConnections.userId, accountId)).limit(1),
+    db
+      .select({ externalId: metaAdAccounts.externalId, name: metaAdAccounts.name, currency: metaAdAccounts.currency, timezone: metaAdAccounts.timezone, canRead: metaAdAccounts.canRead, disableReason: metaAdAccounts.disableReason })
+      .from(metaAdAccounts)
+      .where(eq(metaAdAccounts.userId, accountId)),
     hasActiveSubscription(accountId),
   ]);
+  const metaAccounts: MetaAdAccountOption[] = metaAdAccountRows;
 
   return (
     <div className="flex flex-col gap-8">
@@ -73,6 +100,16 @@ export default async function IntegrationsPage({
       {stripeErrorMessage && (
         <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-4 py-3 text-sm font-bold text-state-critical">
           {stripeErrorMessage}
+        </div>
+      )}
+
+      {metaAdsError && (
+        <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-4 py-3 text-sm font-bold text-state-critical">
+          {metaAdsError === "ads_read"
+            ? "Meta n’a pas accordé la permission de lecture des publicités. Reconnecte Meta Ads et accepte ads_read."
+            : metaAdsError === "state"
+              ? "La connexion Meta Ads a expiré. Relance la connexion depuis cette page."
+              : "La connexion Meta Ads n’a pas abouti. Réessaie depuis cette page."}
         </div>
       )}
 
@@ -146,6 +183,22 @@ export default async function IntegrationsPage({
             La synchronisation a échoué. Déconnecte puis reconnecte Stripe pour réessayer.
           </div>
         )}
+      </div>
+
+      <div id="meta-ads" className="scroll-mt-28">
+        <MetaAdsConnectionCard
+          connected={metaAdsConnected}
+          connectionStatus={metaAdsConnection?.status ?? null}
+          metaUserName={metaAdsConnection?.metaUserName ?? null}
+          selectedAdAccountId={metaAdsConnection?.selectedAdAccountId ?? null}
+          initialSyncStatus={metaAdsConnection?.initialSyncStatus ?? null}
+          initialSyncCompletedAt={metaAdsConnection?.initialSyncCompletedAt ?? null}
+          lastSyncCompletedAt={metaAdsConnection?.lastSyncCompletedAt ?? null}
+          grantedScopes={metaAdsConnection?.grantedScopes ?? []}
+          accounts={metaAccounts}
+          subscriptionActive={subscriptionActive}
+          connectionNotice={metaAdsNotice}
+        />
       </div>
 
       <div className="flex flex-col gap-3">
