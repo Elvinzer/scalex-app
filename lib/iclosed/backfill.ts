@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { salesCalls } from "@/db/schema";
@@ -51,6 +51,21 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
       .update(salesCalls)
       .set({ inviteePhone: c.inviteePhone, updatedAt: new Date() })
       .where(and(eq(salesCalls.userId, userId), eq(salesCalls.iclosedCallId, c.iclosedCallId)));
+
+    // Keep same-account calls from another scheduler connected to the same
+    // contact enriched when that scheduler did not collect a phone itself.
+    if (c.inviteeEmail) {
+      await db
+        .update(salesCalls)
+        .set({ inviteePhone: c.inviteePhone, updatedAt: new Date() })
+        .where(
+          and(
+            eq(salesCalls.userId, userId),
+            isNull(salesCalls.inviteePhone),
+            sql`lower(${salesCalls.inviteeEmail}) = lower(${c.inviteeEmail})`
+          )
+        );
+    }
   }
 
   // For newly-inserted WON calls with a recorded deal amount, create the linked
