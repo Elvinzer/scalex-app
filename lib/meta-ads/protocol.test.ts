@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { computeMetaConsolidationUntil, metaAdsManagerUrl, normalizeAdAccountId, normalizeMetaPeriodDays } from "./protocol";
+import { computeMetaConsolidationUntil, META_GRAPH_API_VERSION, metaAdsManagerUrl, normalizeAdAccountId, normalizeMetaPeriodDays } from "./protocol";
 
 describe("Meta Ads protocol", () => {
+  it("uses the supported Graph API fallback when no version is configured", () => {
+    expect(META_GRAPH_API_VERSION).toBe(process.env.META_GRAPH_API_VERSION ?? "v25.0");
+  });
+
   it("normalises ad account identifiers without duplicating act_", () => {
     expect(normalizeAdAccountId("123456789")).toBe("act_123456789");
     expect(normalizeAdAccountId("act_123456789")).toBe("act_123456789");

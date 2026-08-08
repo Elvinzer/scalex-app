@@ -33,7 +33,7 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
   const metricKey = snapshotText("metricKey") ?? "métrique Meta";
   const currentValue = snapshot.currentValue;
   const metricValue = typeof currentValue === "number" && Number.isFinite(currentValue)
-    ? metricKey === "cash_per_lead" || metricKey === "retargeting_window_cpa"
+    ? metricKey === "cash_per_lead" || metricKey === "retargeting_window_cpa" || metricKey === "webinar_cost_per_participant"
       ? `${(currentValue / 100).toFixed(2)} €`
       : metricKey.endsWith("_rate") || metricKey === "profile_to_follow_rate" || metricKey === "instagram_engagement_per_follower"
         ? `${(currentValue * 100).toFixed(1)} %`

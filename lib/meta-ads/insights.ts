@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { upsertMaterializedInsight, type MaterializedInsight } from "@/lib/insight-execution/source-adapters";
 
-import type { MetaCampaignType, MetaInsightSnapshot, MetaProvenance } from "./types";
+import type { MetaCampaignType, MetaInsightSnapshot, MetaProvenance, MetaWebinarObservation } from "./types";
 import { metricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow } from "./queries";
 import { targetVarianceLabel } from "./targets";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
@@ -64,6 +64,12 @@ const VSL_HOLD_RATE_THRESHOLD = META_INSIGHT_THRESHOLDS.vslHoldRate;
 const VSL_LANDING_TO_LEAD_THRESHOLD = META_INSIGHT_THRESHOLDS.vslLandingToLeadRate;
 const VSL_CPL_STABILITY_THRESHOLD = META_INSIGHT_THRESHOLDS.vslCplStability;
 const VSL_CASH_PER_LEAD_DECLINE_THRESHOLD = META_INSIGHT_THRESHOLDS.vslCashPerLeadDecline;
+const WEBINAR_COST_PER_REGISTRATION_STABILITY_THRESHOLD = META_INSIGHT_THRESHOLDS.webinarCostPerRegistrationStability;
+const WEBINAR_SHOWUP_DECLINE_THRESHOLD = META_INSIGHT_THRESHOLDS.webinarShowupDecline;
+const WEBINAR_COST_PER_PARTICIPANT_INCREASE_THRESHOLD = META_INSIGHT_THRESHOLDS.webinarCostPerParticipantIncrease;
+const WEBINAR_POST_QUALITY_STABILITY_THRESHOLD = META_INSIGHT_THRESHOLDS.webinarPostQualityStability;
+const WEBINAR_MIN_REGISTRATIONS = META_INSIGHT_THRESHOLDS.webinarMinRegistrations;
+const WEBINAR_MIN_PARTICIPANTS = META_INSIGHT_THRESHOLDS.webinarMinParticipants;
 const IG_FOLLOW_RATE_THRESHOLD = META_INSIGHT_THRESHOLDS.igFollowRate;
 const IG_COST_PER_VISIT_IMPROVEMENT_THRESHOLD = META_INSIGHT_THRESHOLDS.igCostPerVisitImprovement;
 const IG_FOLLOWS_GROWTH_THRESHOLD = META_INSIGHT_THRESHOLDS.igFollowsGrowth;
@@ -83,9 +89,9 @@ function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
     case "vsl_leads_ok_cash_baisse":
       return `Sur la prochaine période comparable, stabiliser ou remonter le cash par lead sans augmenter le CPL de plus de ${Math.round(VSL_CPL_STABILITY_THRESHOLD * 100)} %.`;
     case "web_inscription_ok_showup_bas":
-      return "Sur la prochaine période comparable, stabiliser le coût par inscription et remonter le taux de présence live mesuré.";
+      return `Sur la prochaine période comparable, maintenir la variation du coût par inscription sous ${Math.round(WEBINAR_COST_PER_REGISTRATION_STABILITY_THRESHOLD * 100)} % et réduire le recul du show-up sous ${Math.round(WEBINAR_SHOWUP_DECLINE_THRESHOLD * 100)} %.`;
     case "web_trafic_qualifie":
-      return "Sur la prochaine période comparable, réduire le coût par participant sans dégrader la qualité post-webinar mesurée.";
+      return `Sur la prochaine période comparable, réduire le coût par participant sans faire varier le cash par participant de plus de ${Math.round(WEBINAR_POST_QUALITY_STABILITY_THRESHOLD * 100)} %.`;
     case "ig_visites_ok_follow_bas":
       return `Sur la prochaine période comparable, dépasser ${Math.round(IG_FOLLOW_RATE_THRESHOLD * 100)} % de conversion visite → follow sans dégrader le coût par visite.`;
     case "ig_follows_moins_engages":
@@ -101,6 +107,31 @@ function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
 
 function ratio(numerator: number | null, denominator: number | null): number | null {
   return numerator !== null && denominator !== null && denominator > 0 ? numerator / denominator : null;
+}
+
+function webinarSourceLabel(source: MetaWebinarObservation["source"]): string {
+  if (source === "calendly") return "Calendly";
+  if (source === "iclosed") return "iClosed";
+  return "Scale X";
+}
+
+function webinarProvenanceSource(source: MetaWebinarObservation["source"], withStripe: boolean): MetaProvenance["source"] {
+  if (withStripe) {
+    if (source === "calendly") return "meta+calendly+stripe";
+    if (source === "iclosed") return "meta+iclosed+stripe";
+    return "meta+scalex+stripe";
+  }
+  if (source === "calendly") return "meta+calendly";
+  if (source === "iclosed") return "meta+iclosed";
+  return "meta+scalex";
+}
+
+function webinarSourceCoverageReady(observation: MetaWebinarObservation | undefined): boolean {
+  return observation?.connected === true
+    && observation.coverageRate !== null
+    && observation.coverageRate >= MIN_COVERAGE
+    && observation.comparisonCoverageRate !== null
+    && observation.comparisonCoverageRate >= MIN_COVERAGE;
 }
 
 function targetCpaContext(campaign: MetaCampaignDashboardRow, cpaCents: number | null): string {
@@ -157,6 +188,14 @@ function baseProposal(
   }
   if (details.sourceCoverage.includes("Instagram")) {
     sourceNotes.push(`Instagram : observation ${campaign.instagramObservation?.connected ? "connectée" : "indisponible"}, follows non attribués`);
+  }
+  if (details.sourceCoverage.includes("webinar")) {
+    const observation = campaign.webinarObservation;
+    sourceNotes.push(
+      observation?.connected
+        ? `${webinarSourceLabel(observation.source)} : ${observation.coverageRate === null ? "couverture indisponible" : `${Math.round(observation.coverageRate * 100)} %`} de la période · comparaison ${observation.comparisonCoverageRate === null ? "indisponible" : `${Math.round(observation.comparisonCoverageRate * 100)} %`}`
+        : "Webinar : source de présence indisponible",
+    );
   }
   return {
     campaignId: campaign.id,
@@ -274,6 +313,117 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
             confidence: "medium",
             sourceCoverage: "Meta Ads + Stripe · touchpoints Scale X · couverture suffisante sur les deux périodes",
             provenance: provenance("meta+stripe", "jointe"),
+          },
+        ),
+      );
+    }
+  }
+
+  if (campaign.campaignType === "webinar") {
+    const observation = campaign.webinarObservation;
+    const sourceCoverageReady = webinarSourceCoverageReady(observation);
+    const sourceLabel = observation ? webinarSourceLabel(observation.source) : "source webinar";
+    const registrations = metricValue(metrics, "registrations");
+    const comparisonRegistrations = metricValue(campaign.comparisonMetrics, "registrations");
+    const spendCents = metricValue(metrics, "spendCents");
+    const comparisonSpendCents = metricValue(campaign.comparisonMetrics, "spendCents");
+    const participants = observation?.current.participants ?? null;
+    const comparisonParticipants = observation?.comparison.participants ?? null;
+    const showupRate = ratio(participants, registrations);
+    const comparisonShowupRate = ratio(comparisonParticipants, comparisonRegistrations);
+    const costPerRegistration = registrations !== null && registrations > 0 && spendCents !== null ? spendCents / registrations : null;
+    const comparisonCostPerRegistration = comparisonRegistrations !== null && comparisonRegistrations > 0 && comparisonSpendCents !== null
+      ? comparisonSpendCents / comparisonRegistrations
+      : null;
+
+    if (
+      comparisonCoverageReady
+      && observation !== undefined
+      && sourceCoverageReady
+      && registrations !== null
+      && registrations >= WEBINAR_MIN_REGISTRATIONS
+      && comparisonRegistrations !== null
+      && comparisonRegistrations >= WEBINAR_MIN_REGISTRATIONS
+      && participants !== null
+      && participants >= WEBINAR_MIN_PARTICIPANTS
+      && comparisonParticipants !== null
+      && comparisonParticipants >= WEBINAR_MIN_PARTICIPANTS
+      && showupRate !== null
+      && comparisonShowupRate !== null
+      && costPerRegistration !== null
+      && comparisonCostPerRegistration !== null
+      && Math.abs(costPerRegistration - comparisonCostPerRegistration) / comparisonCostPerRegistration <= WEBINAR_COST_PER_REGISTRATION_STABILITY_THRESHOLD
+      && showupRate < comparisonShowupRate * (1 - WEBINAR_SHOWUP_DECLINE_THRESHOLD)
+    ) {
+      proposals.push(
+        baseProposal(
+          campaign,
+          "web_inscription_ok_showup_bas",
+          "Le coût d’inscription tient, mais le show-up recule",
+          `Le coût par inscription de « ${campaign.name} » reste proche de la période précédente (${(comparisonCostPerRegistration / 100).toFixed(2)} € → ${(costPerRegistration / 100).toFixed(2)} €), tandis que le show-up passe de ${Math.round(comparisonShowupRate * 100)} % à ${Math.round(showupRate * 100)} % (${participants} participant(s) pour ${registrations} inscription(s)).`,
+          "webinar_showup_rate",
+          showupRate,
+          comparisonShowupRate,
+          registrations,
+          {
+            priority: "high",
+            evidence: `Coût/inscription ${(comparisonCostPerRegistration / 100).toFixed(2)} € → ${(costPerRegistration / 100).toFixed(2)} € · variation ≤ ${Math.round(WEBINAR_COST_PER_REGISTRATION_STABILITY_THRESHOLD * 100)} % · show-up ${Math.round(comparisonShowupRate * 100)} % → ${Math.round(showupRate * 100)} % · recul détecté ≥ ${Math.round(WEBINAR_SHOWUP_DECLINE_THRESHOLD * 100)} % · seuils de volume ${WEBINAR_MIN_REGISTRATIONS} inscriptions / ${WEBINAR_MIN_PARTICIPANTS} participants · ${sourceLabel}.`,
+            diagnosis: "La campagne continue d’acheter des inscriptions à un coût comparable, mais une part plus faible des inscrits rejoint le live.",
+            recommendedAction: "Vérifier la promesse de confirmation, les rappels, le fuseau horaire et le délai entre inscription et live avant de modifier le budget Meta.",
+            expectedImpact: "Récupérer des participants à partir des inscriptions déjà achetées, sans confondre volume d’inscriptions et présence réelle.",
+            confidence: "medium",
+            sourceCoverage: `Meta Ads + webinar (${sourceLabel}) · inscriptions et participants · campagne · ${periodDays} derniers jours`,
+            provenance: provenance(webinarProvenanceSource(observation.source, false), "jointe"),
+          },
+        ),
+      );
+    }
+
+    const costPerParticipant = participants !== null && participants > 0 && spendCents !== null ? spendCents / participants : null;
+    const comparisonCostPerParticipant = comparisonParticipants !== null && comparisonParticipants > 0 && comparisonSpendCents !== null
+      ? comparisonSpendCents / comparisonParticipants
+      : null;
+    const cashPerParticipant = campaign.cash?.available && campaign.cash.revenueCents !== null && participants !== null && participants > 0
+      ? campaign.cash.revenueCents / participants
+      : null;
+    const comparisonCashPerParticipant = campaign.cash?.comparisonAvailable && campaign.cash.comparisonRevenueCents !== null && comparisonParticipants !== null && comparisonParticipants > 0
+      ? campaign.cash.comparisonRevenueCents / comparisonParticipants
+      : null;
+    if (
+      comparisonCoverageReady
+      && observation !== undefined
+      && sourceCoverageReady
+      && participants !== null
+      && participants >= WEBINAR_MIN_PARTICIPANTS
+      && comparisonParticipants !== null
+      && comparisonParticipants >= WEBINAR_MIN_PARTICIPANTS
+      && costPerParticipant !== null
+      && comparisonCostPerParticipant !== null
+      && cashPerParticipant !== null
+      && comparisonCashPerParticipant !== null
+      && comparisonCashPerParticipant > 0
+      && costPerParticipant > comparisonCostPerParticipant * (1 + WEBINAR_COST_PER_PARTICIPANT_INCREASE_THRESHOLD)
+      && Math.abs(cashPerParticipant - comparisonCashPerParticipant) / comparisonCashPerParticipant <= WEBINAR_POST_QUALITY_STABILITY_THRESHOLD
+    ) {
+      proposals.push(
+        baseProposal(
+          campaign,
+          "web_trafic_qualifie",
+          "Le coût par participant monte sans gain de qualité post-webinar",
+          `Le coût par participant de « ${campaign.name} » passe de ${(comparisonCostPerParticipant / 100).toFixed(2)} € à ${(costPerParticipant / 100).toFixed(2)} €, alors que le cash par participant reste proche (${(comparisonCashPerParticipant / 100).toFixed(2)} € → ${(cashPerParticipant / 100).toFixed(2)} €). Ici, la qualité post-webinar est mesurée par le cash rattaché par participant.`,
+          "webinar_cost_per_participant",
+          costPerParticipant,
+          comparisonCostPerParticipant,
+          participants,
+          {
+            priority: "high",
+            evidence: `Coût/participant ${(comparisonCostPerParticipant / 100).toFixed(2)} € → ${(costPerParticipant / 100).toFixed(2)} € · hausse détectée ≥ ${Math.round(WEBINAR_COST_PER_PARTICIPANT_INCREASE_THRESHOLD * 100)} % · cash/participant ${(comparisonCashPerParticipant / 100).toFixed(2)} € → ${(cashPerParticipant / 100).toFixed(2)} € · variation ≤ ${Math.round(WEBINAR_POST_QUALITY_STABILITY_THRESHOLD * 100)} % · ${sourceLabel} + Stripe.`,
+            diagnosis: "La campagne génère des participants plus chers sans amélioration mesurée du cash rattaché à chacun.",
+            recommendedAction: "Comparer les créas, les audiences et le rappel des inscrits dans Meta Ads, puis vérifier le rattachement des ventes avant de réallouer le budget.",
+            expectedImpact: "Réduire le coût d’accès au live sans sacrifier la qualité commerciale observée après le webinar.",
+            confidence: "medium",
+            sourceCoverage: `Meta Ads + webinar (${sourceLabel}) + Stripe · participants et cash rattaché · campagne · ${periodDays} derniers jours`,
+            provenance: provenance(webinarProvenanceSource(observation.source, true), "jointe"),
           },
         ),
       );

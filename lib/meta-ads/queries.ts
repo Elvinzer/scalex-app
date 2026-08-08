@@ -6,7 +6,7 @@ import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/t
 import { countUnattributedMetaSales, metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
 import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, metaAdsManagerUrl, normalizeMetaPeriodDays } from "./protocol";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
-import { META_CAMPAIGN_TYPES, type MetaCampaignType, type MetaRawObject } from "./types";
+import { META_CAMPAIGN_TYPES, type MetaCampaignType, type MetaRawObject, type MetaWebinarObservation } from "./types";
 
 export type MetaMetricTotals = {
   spendCents: number;
@@ -72,6 +72,7 @@ export type MetaCampaignDashboardRow = {
   comparisonMetricCoverageRate?: number | null;
   retargetingAudiences?: MetaRetargetingAudienceSignal[];
   instagramObservation?: MetaInstagramObservation;
+  webinarObservation?: MetaWebinarObservation;
   cash?: {
     revenueCents: number | null;
     sales: number;

@@ -1,6 +1,8 @@
 import type { MetaAttributionSettings, MetaEntityLevel } from "./types";
 
-export const META_GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION ?? "v26.0";
+// Keep the fallback on the currently supported version. Deployments may
+// override it explicitly when Meta releases a newer version.
+export const META_GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION ?? "v25.0";
 export const META_GRAPH_API_BASE = `https://graph.facebook.com/${META_GRAPH_API_VERSION}`;
 export const META_AUTHORIZE_URL = `https://www.facebook.com/${META_GRAPH_API_VERSION}/dialog/oauth`;
 

@@ -29,8 +29,40 @@ export const META_ACTION_STATUSES = [
 
 export type MetaActionStatus = (typeof META_ACTION_STATUSES)[number];
 
+export const META_WEBINAR_SOURCES = ["calendly", "iclosed", "scalex"] as const;
+
+export type MetaWebinarSource = (typeof META_WEBINAR_SOURCES)[number];
+
+/**
+ * Optional downstream observation for webinar campaigns. Meta does not expose
+ * attendance or pitch progression; until an adapter supplies this object the
+ * related funnel steps and insights must remain unavailable.
+ */
+export type MetaWebinarObservation = {
+  connected: boolean;
+  source: MetaWebinarSource;
+  current: { participants: number | null };
+  comparison: { participants: number | null };
+  coverageRate: number | null;
+  comparisonCoverageRate: number | null;
+};
+
 export type MetaProvenance = {
-  source: "meta" | "meta+stripe" | "meta+instagram" | "stripe" | "calendly" | "iclosed" | "instagram" | "scalex";
+  source:
+    | "meta"
+    | "meta+stripe"
+    | "meta+instagram"
+    | "meta+calendly"
+    | "meta+iclosed"
+    | "meta+scalex"
+    | "meta+calendly+stripe"
+    | "meta+iclosed+stripe"
+    | "meta+scalex+stripe"
+    | "stripe"
+    | "calendly"
+    | "iclosed"
+    | "instagram"
+    | "scalex";
   calculation: "brute" | "derivee";
   attribution: "directe" | "jointe" | "estimee" | "non_rattachee" | "indisponible";
   freshness: string;

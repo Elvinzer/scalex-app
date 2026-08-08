@@ -35,6 +35,12 @@ function typeLabel(value: string): string {
   return "Autre";
 }
 
+function webinarSourceLabel(value: string): string {
+  if (value === "calendly") return "Calendly";
+  if (value === "iclosed") return "iClosed";
+  return "Scale X";
+}
+
 function actionLabel(value: string): string {
   if (value === "pause") return "Pause";
   if (value === "resume") return "Reprise";
@@ -186,6 +192,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const profileVisits = metricValue(metrics, "profileVisits");
   const observedFollows = detail.dashboard.instagramObservation.current.follows;
   const registrations = metricValue(metrics, "registrations");
+  const webinarObservation = detail.campaign.webinarObservation;
+  const webinarParticipants = webinarObservation?.current.participants ?? null;
   const purchaseValueCents = metricValue(metrics, "purchaseValueCents");
   const rawCtr = rawMetaMetricValue(metrics, "ctr");
   const rawComparisonCtr = rawMetaMetricValue(comparisonMetrics, "ctr");
@@ -292,7 +300,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   if (detail.campaign.campaignType === "webinar") {
     funnelRows.push(
       { label: "Inscriptions", numerator: registrations, denominator: linkClicks },
-      { label: "Présence live", numerator: null, denominator: registrations, unavailableReason: "Source manquante : événement de présence du webinar" },
+      { label: "Présence live", numerator: webinarParticipants, denominator: registrations, unavailableReason: webinarParticipants === null ? "Source manquante : événement de présence du webinar" : undefined },
       { label: "Présence jusqu'au pitch", numerator: null, denominator: registrations, unavailableReason: "Source manquante : événement de progression du webinar" },
     );
   }
@@ -648,10 +656,16 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
             {detail.campaign.campaignType === "webinar" && (
               <>
                 <ProgressRow label="Inscriptions" numerator={registrations} denominator={linkClicks} />
-                <ProgressRow label="Présents" numerator={null} denominator={registrations} />
-                <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
-                  Présence live et présence jusqu&apos;au pitch : indisponibles · source manquante : événement du webinar.
-                </p>
+                <ProgressRow label="Présents" numerator={webinarParticipants} denominator={registrations} />
+                {webinarParticipants === null ? (
+                  <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
+                    Présence live et présence jusqu&apos;au pitch : indisponibles · source manquante : événement du webinar.
+                  </p>
+                ) : (
+                  <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+                    Présence live observée via {webinarObservation ? webinarSourceLabel(webinarObservation.source) : "la source webinar"} · la présence jusqu&apos;au pitch reste indisponible sans événement de progression.
+                  </p>
+                )}
               </>
             )}
             {detail.campaign.campaignType === "retargeting" && (

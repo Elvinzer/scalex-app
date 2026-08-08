@@ -140,6 +140,73 @@ describe("Meta Ads insight catalogue", () => {
     expect(buildMetaAdsInsights(data)).toHaveLength(0);
   });
 
+  it("fires the webinar show-up rule only with a covered attendance source", () => {
+    const data = dashboard({
+      id: "campaign",
+      externalId: "c1",
+      name: "Webinar show-up",
+      objective: "LEAD_GENERATION",
+      effectiveStatus: "ACTIVE",
+      campaignType: "webinar",
+      typeSource: "manual",
+      metrics: totals({ impressions: 10_000, spendCents: 10_000, registrations: 100 }, { impressions: true, spendCents: true, registrations: true }),
+      comparisonMetrics: totals({ impressions: 10_000, spendCents: 9_500, registrations: 100 }, { impressions: true, spendCents: true, registrations: true }),
+      webinarObservation: {
+        connected: true,
+        source: "scalex",
+        current: { participants: 20 },
+        comparison: { participants: 40 },
+        coverageRate: 1,
+        comparisonCoverageRate: 1,
+      },
+      latestDate: "2026-08-08",
+    });
+    const insight = buildMetaAdsInsights(data).find((proposal) => proposal.ruleKey === "web_inscription_ok_showup_bas");
+    expect(insight?.metricKey).toBe("webinar_showup_rate");
+    expect(insight?.currentValue).toBeCloseTo(0.2);
+    expect(insight?.comparisonValue).toBeCloseTo(0.4);
+    expect(insight?.sourceCoverage).toContain("Scale X");
+    expect(insight?.provenance.source).toBe("meta+scalex");
+  });
+
+  it("fires the webinar qualified-traffic rule when participant cost rises without cash quality improving", () => {
+    const data = dashboard({
+      id: "campaign",
+      externalId: "c1",
+      name: "Webinar qualified traffic",
+      objective: "LEAD_GENERATION",
+      effectiveStatus: "ACTIVE",
+      campaignType: "webinar",
+      typeSource: "manual",
+      metrics: totals({ impressions: 10_000, spendCents: 20_000 }, { impressions: true, spendCents: true }),
+      comparisonMetrics: totals({ impressions: 10_000, spendCents: 10_000 }, { impressions: true, spendCents: true }),
+      webinarObservation: {
+        connected: true,
+        source: "calendly",
+        current: { participants: 20 },
+        comparison: { participants: 20 },
+        coverageRate: 1,
+        comparisonCoverageRate: 1,
+      },
+      cash: {
+        revenueCents: 20_000,
+        sales: 2,
+        available: true,
+        comparisonRevenueCents: 20_000,
+        comparisonSales: 2,
+        comparisonAvailable: true,
+        coverageRate: 1,
+        comparisonCoverageRate: 1,
+      },
+      latestDate: "2026-08-08",
+    });
+    const insight = buildMetaAdsInsights(data).find((proposal) => proposal.ruleKey === "web_trafic_qualifie");
+    expect(insight?.metricKey).toBe("webinar_cost_per_participant");
+    expect(insight?.currentValue).toBe(1_000);
+    expect(insight?.comparisonValue).toBe(500);
+    expect(insight?.provenance.source).toBe("meta+calendly+stripe");
+  });
+
   it("shows a configured CPL target in the VSL cash insight", () => {
     const data = dashboard({
       id: "campaign",
