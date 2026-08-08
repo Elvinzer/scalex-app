@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink, Gauge, MousePointerClick, Play, UserPlus } from "lucide-react";
+import { ArrowLeft, CircleAlert, ExternalLink, Gauge, MousePointerClick, Play, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { META_INSIGHT_THRESHOLDS } from "@/lib/meta-ads/thresholds";
+import { buildMetaAudienceWarnings } from "@/lib/meta-ads/audience-warnings";
 import { getMetaCampaignDetail, metricValue } from "@/lib/meta-ads/queries";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
@@ -158,6 +160,15 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const comparisonCtr = ratio(comparisonLinkClicks, comparisonImpressions);
   const cpl = leads !== null && leads > 0 && spendCents !== null ? spendCents / leads / 100 : null;
   const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLeads / 100 : null;
+  const cplDetail = detail.campaign.campaignType === "instagram_profile_growth"
+    ? "Non applicable pour ce type · utilise le coût / follower observé"
+    : leads === null
+      ? "Leads Meta indisponibles sur la période"
+      : leads === 0
+        ? "Aucun lead mesuré sur la période"
+        : spendCents === null
+          ? `${leads.toLocaleString("fr-FR")} lead(s) · dépenses Meta indisponibles`
+          : `${leads.toLocaleString("fr-FR")} lead(s)`;
   const metaRoas = purchaseValueCents !== null && spendCents !== null && spendCents > 0 ? purchaseValueCents / spendCents : null;
   const comparisonPurchaseValueCents = metricValue(comparisonMetrics, "purchaseValueCents");
   const comparisonRoas = comparisonPurchaseValueCents !== null && comparisonSpendCents !== null && comparisonSpendCents > 0 ? comparisonPurchaseValueCents / comparisonSpendCents : null;
@@ -183,6 +194,31 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const audienceLadder = [...detail.audiences]
     .filter((audience) => audience.windowDays !== null)
     .sort((left, right) => (left.windowDays ?? Number.POSITIVE_INFINITY) - (right.windowDays ?? Number.POSITIVE_INFINITY));
+  const adSetsById = new Map(detail.adSets.map((adSet) => [adSet.id, adSet]));
+  const audienceWarnings = buildMetaAudienceWarnings(
+    detail.audiences.map((audience) => {
+      const adSetMetrics = adSetsById.get(audience.adSetId)?.metrics;
+      const impressions = adSetMetrics ? metricValue(adSetMetrics, "impressions") : null;
+      const linkClicks = adSetMetrics ? metricValue(adSetMetrics, "linkClicks") : null;
+      const reach = adSetMetrics ? metricValue(adSetMetrics, "reach") : null;
+      return {
+        id: audience.adSetId,
+        name: audience.adSetName,
+        active: audience.active,
+        included: audience.included,
+        excluded: audience.excluded,
+        targetingAvailable: audience.targetingAvailable,
+        impressions,
+        linkClicks,
+        frequency: ratio(impressions, reach),
+      };
+    }),
+    {
+      minImpressions: META_INSIGHT_THRESHOLDS.minImpressions,
+      minClicks: META_INSIGHT_THRESHOLDS.minClicks,
+      frequencySaturation: detail.dashboard.frequencySaturationThreshold,
+    },
+  );
   const funnelRows: FunnelTableRow[] = [
     { label: "Clic / impression", numerator: linkClicks, denominator: impressions },
   ];
@@ -271,7 +307,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance="Meta · brute · directe" />
         <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance="Meta · dérivée · directe" />
-        <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[`${leads === null ? "—" : leads.toLocaleString("fr-FR")} lead(s)`, leadValueLabel, targetCpaEuros === null ? null : `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={trendLabel(cpl, comparisonCpl)} provenance="Meta · dérivée · directe" />
+        <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, leadValueLabel, targetCpaEuros === null ? null : `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={trendLabel(cpl, comparisonCpl)} provenance="Meta · dérivée · directe" />
         <Metric label="ROAS Meta" value={metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={[purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={trendLabel(metaRoas, comparisonRoas)} provenance="Meta · dérivée · directe" />
         <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance="Stripe + Meta · dérivée · jointe" />
         <Metric label="Statut" value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? "Budget Meta non exposé" : `${formatEur(detail.campaign.dailyBudgetCents / 100)} / jour`} provenance="Meta · brute · directe" />
@@ -399,6 +435,36 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
             <h2 id="audiences-title" className="font-bold">Audiences et exclusions</h2>
             <p className="mt-1 text-xs text-muted-foreground">Résumé du ciblage synchronisé par ensemble de publicités, avec accès direct à Meta. Ciblage et compteurs · Meta · brute · directe ; CPA · Meta · dérivée · directe.</p>
           </div>
+          {audienceWarnings.length > 0 && (
+            <div role="status" aria-live="polite" className="border-b border-state-caution/40 bg-state-caution/10 px-5 py-4 text-sm">
+              <div className="flex items-start gap-3">
+                <CircleAlert className="mt-0.5 size-5 shrink-0 text-state-caution" aria-hidden="true" />
+                <div>
+                  <p className="font-bold text-state-caution">Points de vigilance sur les ensembles actifs</p>
+                  <ul className="mt-2 space-y-2 text-muted-foreground">
+                    {audienceWarnings.map((warning) => {
+                      const names = warning.audienceNames.join(" · ");
+                      if (warning.kind === "insufficient_volume") {
+                        const lowSignals = [
+                          warning.impressions !== null && warning.impressions < META_INSIGHT_THRESHOLDS.minImpressions
+                            ? `${warning.impressions.toLocaleString("fr-FR")} impressions (< ${META_INSIGHT_THRESHOLDS.minImpressions.toLocaleString("fr-FR")})`
+                            : null,
+                          warning.linkClicks !== null && warning.linkClicks < META_INSIGHT_THRESHOLDS.minClicks
+                            ? `${warning.linkClicks.toLocaleString("fr-FR")} clics (< ${META_INSIGHT_THRESHOLDS.minClicks.toLocaleString("fr-FR")})`
+                            : null,
+                        ].filter((signal): signal is string => signal !== null);
+                        return <li key={`audience-warning-${warning.kind}-${warning.audienceIds.join("-")}`}>Volume observé insuffisant pour {names} : {lowSignals.join(" et ")}. Ne conclus pas encore sur ce segment.</li>;
+                      }
+                      if (warning.kind === "frequency_saturation") {
+                        return <li key={`audience-warning-${warning.kind}-${warning.audienceIds.join("-")}`}>Fréquence directionnelle de {warning.frequency?.toFixed(1) ?? "—"}× pour {names} : seuil de saturation {warning.threshold}× atteint. Vérifie le reach dédupliqué et les exclusions dans Meta.</li>;
+                      }
+                      return <li key={`audience-warning-${warning.kind}-${warning.audienceIds.join("-")}`}>Chevauchement probable entre {names} : mêmes audiences incluses/exclues sur au moins {warning.threshold} ensembles. C&apos;est une heuristique de ciblage, à confirmer dans Meta.</li>;
+                    })}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
           {audienceLadder.length > 0 && (
             <div className="border-b border-border px-5 py-4">
               <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Échelle de fenêtres déduite</p>

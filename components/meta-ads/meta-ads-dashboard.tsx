@@ -290,6 +290,15 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
   const coverageValues = data.campaigns.map((campaign) => campaign.metricCoverageRate).filter((value): value is number => value !== null && value !== undefined);
   const minimumCoverage = coverageValues.length > 0 ? Math.min(...coverageValues) : null;
   const cplTargetCount = data.campaigns.filter((campaign) => campaign.targets?.targetCpaCents !== null && campaign.targets?.targetCpaCents !== undefined).length;
+  const cplDetail = primaryType === "instagram_profile_growth"
+    ? "Non applicable pour une campagne de croissance Instagram · voir coût / follower observé"
+    : leads === null
+      ? "Leads Meta indisponibles sur la période"
+      : leads === 0
+        ? "Aucun lead mesuré sur la période"
+        : spendCents === null
+          ? `${number(leads)} lead(s) · dépenses Meta indisponibles`
+          : `${number(leads)} lead(s) mesuré(s)`;
 
   return (
     <section className="flex flex-col gap-5" aria-labelledby="meta-ads-dashboard-title">
@@ -330,7 +339,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : number(impressions)} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance="Meta · brute · directe" icon={<Eye className="size-4" />} />
         <Kpi label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : number(linkClicks)} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance="Meta · dérivée · directe" icon={<MousePointerClick className="size-4" />} />
-        <Kpi label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[`${leads === null ? "—" : number(leads)} lead(s) mesuré(s)`, cplTargetCount > 0 ? `${number(cplTargetCount)} cible(s) par campagne` : null].filter(Boolean).join(" · ")} comparison={trendLabel(cpl, comparisonCpl)} provenance="Meta · dérivée · directe" icon={<UserPlus className="size-4" />} />
+        <Kpi label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, cplTargetCount > 0 ? `${number(cplTargetCount)} cible(s) par campagne` : null].filter(Boolean).join(" · ")} comparison={trendLabel(cpl, comparisonCpl)} provenance="Meta · dérivée · directe" icon={<UserPlus className="size-4" />} />
         <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" comparison={trendLabel(cpm, comparisonCpm)} provenance="Meta · dérivée · directe" icon={<BarChart3 className="size-4" />} />
       </div>
 
