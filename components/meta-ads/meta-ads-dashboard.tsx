@@ -96,7 +96,7 @@ type FunnelTableRow = {
 
 function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
   return (
-    <div className="mt-5 overflow-x-auto rounded-[var(--radius-control)] border border-border">
+    <div className="mt-5 overflow-x-auto rounded-[var(--radius-control)] border border-border" tabIndex={0} role="region" aria-label="Lecture tabulaire du funnel Meta Ads">
       <table className="w-full min-w-[34rem] text-xs">
         <caption className="sr-only">Lecture tabulaire du funnel</caption>
         <thead>
@@ -352,7 +352,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
       <FunnelCard totals={data.totals} campaignType={primaryType} instagramObservation={data.instagramObservation} frequencySaturationThreshold={data.frequencySaturationThreshold} />
 
       {data.corrections.length > 0 && (
-        <section className="sticker-card overflow-x-auto" aria-labelledby="meta-corrections-title">
+        <section className="sticker-card overflow-x-auto" aria-labelledby="meta-corrections-title" tabIndex={0} role="region">
           <div className="border-b border-border px-5 py-4">
             <h2 id="meta-corrections-title" className="font-bold">Corrections rétroactives Meta</h2>
             <p className="mt-1 text-xs text-muted-foreground">Meta a révisé des journées déjà consolidées. Les valeurs avant/après restent visibles pour éviter toute modification silencieuse.</p>
@@ -382,7 +382,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
         </section>
       )}
 
-      <div className="sticker-card overflow-x-auto">
+      <div className="sticker-card overflow-x-auto" tabIndex={0} role="region" aria-label="Tableau des campagnes Meta">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <p className="font-bold">Campagnes Meta</p>
@@ -415,7 +415,8 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                 const campaignLeads = metricValue(campaign.metrics, "leads");
                 const campaignCpl = campaignSpend !== null && campaignLeads !== null && campaignLeads > 0 ? campaignSpend / campaignLeads / 100 : null;
                 const campaignPurchaseValue = metricValue(campaign.metrics, "purchaseValueCents");
-                const campaignRoas = campaignPurchaseValue !== null && campaignSpend !== null && campaignSpend > 0 ? campaignPurchaseValue / campaignSpend : null;
+                const instagramGrowth = campaign.campaignType === "instagram_profile_growth";
+                const campaignRoas = !instagramGrowth && campaignPurchaseValue !== null && campaignSpend !== null && campaignSpend > 0 ? campaignPurchaseValue / campaignSpend : null;
                 const targetCpaEuros = campaign.targets?.targetCpaCents === null || campaign.targets?.targetCpaCents === undefined ? null : campaign.targets.targetCpaCents / 100;
                 const targetCpaGap = targetVarianceLabel(campaignCpl, targetCpaEuros);
                 const targetRoas = campaign.targets?.targetRoas ?? null;
@@ -436,11 +437,13 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                     <td className="px-5 py-4 text-right tabular-nums">{metricValue(campaign.metrics, "leads") === null ? "—" : number(metricValue(campaign.metrics, "leads") ?? 0)}</td>
                     <td className="px-5 py-4 text-right tabular-nums">
                       {campaignCpl === null ? "—" : formatEur(campaignCpl)}
+                      {instagramGrowth && <span className="block text-xs text-muted-foreground">non applicable · coût / follower observé</span>}
                       {targetCpaEuros !== null && <span className="block text-xs text-muted-foreground">cible {formatEur(targetCpaEuros)} · {targetCpaGap ?? "écart non calculable"}</span>}
                     </td>
                     <td className="px-5 py-4 text-right tabular-nums">
-                      {campaignRoas === null ? "—" : `${campaignRoas.toFixed(2)}×`}
-                      {targetRoas !== null && <span className="block text-xs text-muted-foreground">cible {targetRoas.toFixed(2)}× · {targetRoasGap ?? "écart non calculable"}</span>}
+                      {instagramGrowth ? "—" : campaignRoas === null ? "—" : `${campaignRoas.toFixed(2)}×`}
+                      {instagramGrowth && <span className="block text-xs text-muted-foreground">non applicable · objectif profil</span>}
+                      {!instagramGrowth && targetRoas !== null && <span className="block text-xs text-muted-foreground">cible {targetRoas.toFixed(2)}× · {targetRoasGap ?? "écart non calculable"}</span>}
                     </td>
                     <td className="px-5 py-4 text-right text-xs font-bold text-muted-foreground">{statusLabel(campaign.effectiveStatus)}</td>
                   </tr>

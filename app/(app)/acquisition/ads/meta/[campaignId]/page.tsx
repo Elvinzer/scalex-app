@@ -99,7 +99,7 @@ type FunnelTableRow = {
 
 function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
   return (
-    <div className="mt-5 overflow-x-auto rounded-[var(--radius-control)] border border-border">
+    <div className="mt-5 overflow-x-auto rounded-[var(--radius-control)] border border-border" tabIndex={0} role="region" aria-label="Lecture tabulaire du funnel de campagne">
       <table className="w-full min-w-[32rem] text-xs">
         <caption className="sr-only">Lecture tabulaire du funnel</caption>
         <thead>
@@ -169,7 +169,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         : spendCents === null
           ? `${leads.toLocaleString("fr-FR")} lead(s) · dépenses Meta indisponibles`
           : `${leads.toLocaleString("fr-FR")} lead(s)`;
-  const metaRoas = purchaseValueCents !== null && spendCents !== null && spendCents > 0 ? purchaseValueCents / spendCents : null;
+  const instagramGrowth = detail.campaign.campaignType === "instagram_profile_growth";
+  const metaRoas = !instagramGrowth && purchaseValueCents !== null && spendCents !== null && spendCents > 0 ? purchaseValueCents / spendCents : null;
   const comparisonPurchaseValueCents = metricValue(comparisonMetrics, "purchaseValueCents");
   const comparisonRoas = comparisonPurchaseValueCents !== null && comparisonSpendCents !== null && comparisonSpendCents > 0 ? comparisonPurchaseValueCents / comparisonSpendCents : null;
   const maxSpend = Math.max(1, ...detail.daily.map((point) => point.spendCents ?? 0));
@@ -308,7 +309,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance="Meta · brute · directe" />
         <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance="Meta · dérivée · directe" />
         <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, leadValueLabel, targetCpaEuros === null ? null : `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={trendLabel(cpl, comparisonCpl)} provenance="Meta · dérivée · directe" />
-        <Metric label="ROAS Meta" value={metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={[purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={trendLabel(metaRoas, comparisonRoas)} provenance="Meta · dérivée · directe" />
+        <Metric label="ROAS Meta" value={instagramGrowth ? "—" : metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={instagramGrowth ? "Non applicable pour une campagne de croissance Instagram · objectif profil" : [purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={instagramGrowth ? "Non applicable" : trendLabel(metaRoas, comparisonRoas)} provenance="Meta · dérivée · directe" />
         <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance="Stripe + Meta · dérivée · jointe" />
         <Metric label="Statut" value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? "Budget Meta non exposé" : `${formatEur(detail.campaign.dailyBudgetCents / 100)} / jour`} provenance="Meta · brute · directe" />
       </div>
@@ -351,7 +352,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         deepLink={managerUrl}
       />
 
-      <section className="sticker-card overflow-x-auto" aria-labelledby="meta-action-history-title">
+      <section className="sticker-card overflow-x-auto" aria-labelledby="meta-action-history-title" tabIndex={0} role="region">
         <div className="border-b border-border px-5 py-4">
           <h2 id="meta-action-history-title" className="font-bold">Historique des actions Meta</h2>
           <p className="mt-1 text-xs text-muted-foreground">Chaque tentative, y compris un refus ou une divergence, reste consultable ici et dans le Journal.</p>
@@ -390,7 +391,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       <MetaTouchpointGenerator campaignId={detail.campaign.id} landingPageUrl={detail.campaign.landingPageUrl} />
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="sticker-card overflow-x-auto" aria-labelledby="placements-title">
+        <section className="sticker-card overflow-x-auto" aria-labelledby="placements-title" tabIndex={0} role="region">
           <div className="border-b border-border px-5 py-4">
             <h2 id="placements-title" className="font-bold">Placements</h2>
             <p className="mt-1 text-xs text-muted-foreground">Dépenses et réponse par plateforme/position renvoyées par les Insights Meta. Compteurs Meta · brute · directe ; CTR et fréquence · Meta · dérivée · directe.</p>
@@ -430,7 +431,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           <p className="border-t border-border px-5 py-3 text-[11px] text-muted-foreground">La fréquence est directionnelle quand le reach est additionné sur plusieurs jours ; vérifie le seuil de saturation {detail.dashboard.frequencySaturationThreshold}× dans Meta.</p>
         </section>
 
-        <section className="sticker-card overflow-x-auto" aria-labelledby="audiences-title">
+        <section className="sticker-card overflow-x-auto" aria-labelledby="audiences-title" tabIndex={0} role="region">
           <div className="border-b border-border px-5 py-4">
             <h2 id="audiences-title" className="font-bold">Audiences et exclusions</h2>
             <p className="mt-1 text-xs text-muted-foreground">Résumé du ciblage synchronisé par ensemble de publicités, avec accès direct à Meta. Ciblage et compteurs · Meta · brute · directe ; CPA · Meta · dérivée · directe.</p>
@@ -516,7 +517,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
             </div>
             <Gauge className="size-5 text-accent-2" />
           </div>
-          <div className="mt-5 flex h-44 items-end gap-1 overflow-x-auto border-b border-border pb-2">
+          <div className="mt-5 flex h-44 items-end gap-1 overflow-x-auto border-b border-border pb-2" tabIndex={0} role="region" aria-label="Graphique des dépenses quotidiennes">
             {detail.daily.length === 0 ? (
               <p className="pb-3 text-sm text-muted-foreground">Pas encore de données quotidiennes.</p>
             ) : detail.daily.map((point) => (
@@ -529,7 +530,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
             <span>{detail.daily[0]?.date ?? "—"}</span>
             <span>{detail.daily.at(-1)?.date ?? "—"}</span>
           </div>
-          <div className="mt-5 overflow-x-auto rounded-[var(--radius-control)] border border-border">
+          <div className="mt-5 overflow-x-auto rounded-[var(--radius-control)] border border-border" tabIndex={0} role="region" aria-label="Tableau des dépenses quotidiennes">
             <table className="w-full min-w-[34rem] text-xs">
               <thead>
                 <tr className="border-b border-border text-left font-bold text-muted-foreground">
@@ -599,7 +600,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         ) : detail.insights.map((insight) => <MetaInsightCard key={insight.id} {...insight} />)}
       </section>
 
-      <section className="sticker-card overflow-x-auto" aria-labelledby="ads-title">
+      <section className="sticker-card overflow-x-auto" aria-labelledby="ads-title" tabIndex={0} role="region">
         <div className="border-b border-border px-5 py-4">
           <h2 id="ads-title" className="font-bold">Matrice créative et ensembles</h2>
           <p className="mt-1 text-xs text-muted-foreground">Les créatifs sont classés par CPL lorsque des leads existent, puis par dépense. Compteurs Meta · brute · directe ; part budget, CTR, fréquence et CPL · Meta · dérivée · directe. Pour changer la créa ou le ciblage, ouvre Meta Ads.</p>

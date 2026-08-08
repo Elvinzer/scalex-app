@@ -182,7 +182,7 @@ export function MetaAdsConnectionCard({
           )}
 
           {accounts.length > 0 && (
-            <div className="mt-4 overflow-x-auto rounded-[var(--radius-control)] border border-border">
+            <div className="mt-4 overflow-x-auto rounded-[var(--radius-control)] border border-border" tabIndex={0} role="region" aria-label="Comptes publicitaires Meta">
               <table className="w-full min-w-[38rem] text-xs">
                 <thead>
                   <tr className="border-b border-border text-left font-bold text-muted-foreground">
