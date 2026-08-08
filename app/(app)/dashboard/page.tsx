@@ -2,9 +2,7 @@ import { eq } from "drizzle-orm";
 import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
-import { NextActions, type NextAction } from "./next-actions";
 import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-action-center";
-import { TodayActionCard, type TodayAction } from "./today-action";
 import { TechnicalAlertsSection } from "./technical-alerts-section";
 import { WeeklyReportDialog } from "./weekly-report-dialog";
 import { ExecutionMomentumCard } from "@/components/insight-execution/execution-momentum-card";
@@ -150,47 +148,6 @@ export default async function DashboardPage({
     : (points.some((p) => p.monthlyGain === null) ? 0 : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0)) +
       topActiveLevers.reduce((sum, w) => sum + (w.impactAmountEur ?? 0), 0);
 
-  // Bloc 1/2 du brief — the day's action and what follows it, both derived
-  // from the diagnostic engine (cascade points first, then active-but-
-  // underperforming levers). Never free-form input: this page tells the user
-  // what to do, it isn't a task list.
-  const todayAction: TodayAction | null = points[0]
-    ? {
-        metricKey: points[0].key,
-        label: points[0].label,
-        originLabel: `Vient de ton goulot : ${points[0].label}`,
-        explanation: points[0].explanation,
-        monthlyGainEur: points[0].monthlyGain,
-        chatContext: {
-          topicType: "metric",
-          topicKey: points[0].key,
-          topicLabel: points[0].label,
-          sourcePage: "dashboard_today_action",
-        },
-      }
-    : null;
-
-  // Everything after the headline: the remaining cascade points, then the
-  // levers, ranked by the € they'd recover.
-  const nextActions: NextAction[] = [
-    ...allPoints.slice(1).map((point) => ({
-      key: point.key,
-      title: point.label,
-      originLabel: `Diagnostic · ${point.category}`,
-      effortLabel: "à évaluer",
-      monthlyGainEur: point.monthlyGain,
-      href: `/diagnostic?open=${point.key}`,
-    })),
-    ...topActiveLevers.map((lever) => ({
-      key: `lever-${lever.leverKey}`,
-      title: lever.label,
-      originLabel: `Levier · ${lever.category}`,
-      effortLabel: "à évaluer",
-      monthlyGainEur: lever.impactAmountEur,
-      href: `/diagnostic?openLever=${lever.leverKey}&openLeverLabel=${encodeURIComponent(lever.label)}`,
-    })),
-  ].sort((a, b) => (b.monthlyGainEur ?? 0) - (a.monthlyGainEur ?? 0));
-
   // The Dashboard's single content Falco (the floating chat bubble is the
   // one permitted exception). Pose + line reflect the same three states the
   // page already derives — Falco accompanies the figure, never repeats it.
@@ -240,32 +197,28 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* Bloc 1 — Action du jour. Replaces the old "manque à gagner" hero as
-          the page's single dark block: the brief wants one prioritised
-          ACTION at the top, not a figure. The figure itself moves into the
-          right column's context card below, so nothing is lost. */}
-      {todayAction ? (
-        <TodayActionCard action={todayAction} />
-      ) : (
-        <section className="sticker-spotlight animate-rise px-7 py-6" aria-labelledby="dashboard-gap-title">
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div className="min-w-0">
-              <p id="dashboard-gap-title" className="text-xs font-bold tracking-[0.08em] text-mist/60 uppercase">
-                {hasAnyMonthlyRow ? "Rien à corriger en priorité" : "Manque à gagner détecté · 30 derniers jours"}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <p className="figure-hero">{totalMonthlyLoss === null ? "—" : formatEur(totalMonthlyLoss)}</p>
-                <NatureBadge nature="Projection" />
-              </div>
-              <p className="mt-2 text-sm text-mist/60">{heroFalco.line}</p>
+      <section className="sticker-spotlight animate-rise px-7 py-6" aria-labelledby="dashboard-gap-title">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div className="min-w-0">
+            <p id="dashboard-gap-title" className="text-xs font-bold tracking-[0.08em] text-mist/60 uppercase">Manque à gagner détecté · 30 derniers jours</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <p className="figure-hero">{totalMonthlyLoss === null ? "—" : formatEur(totalMonthlyLoss)}</p>
+              <NatureBadge nature="Projection" />
             </div>
-            <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden lg:flex" />
+            <p className="mt-2 text-sm text-mist/60">Source Stripe + iClosed · calculé sur l&apos;écart au benchmark</p>
+          </div>
+          <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden lg:flex" />
+          <div className="flex flex-wrap gap-2">
             <Button size="lg" asChild>
               <a href="/diagnostic">Voir le diagnostic</a>
             </Button>
+            <Button size="lg" variant="outline" className="border-mist/20 bg-transparent text-text-on-dark hover:bg-mist/10 hover:text-text-on-dark" asChild>
+              <a href="/diagnostic#calcul">Comment c&apos;est calculé</a>
+            </Button>
           </div>
-        </section>
-      )}
+        </div>
+        <p className="sr-only">{heroFalco.line}</p>
+      </section>
 
       {params.bandeau === "incomplete_data" && (
         <FalcoEmptyState title="Complète tes chiffres pour ton diagnostic" showFalco={false}>
@@ -275,61 +228,25 @@ export default async function DashboardPage({
         </FalcoEmptyState>
       )}
 
-      {/* Two columns per the brief: what to DO on the left, the day's
-          follow-ups and the momentum on the right. Plain flex-wrap, no media
-          query — the right column drops under the left when the viewport is
-          too narrow. The existing RevenueActionCenter IS the brief's
-          "Relances à faire aujourd'hui" (lead reminders, no-shows, calls
-          awaiting a decision), and ExecutionMomentumCard IS its "momentum" —
-          both are reused here rather than rebuilt alongside. */}
-      <div className="flex flex-wrap items-start gap-6">
-        <div className="flex min-w-0 flex-[2_1_480px] flex-col gap-6">
-          <NextActions actions={nextActions} />
+      <Suspense fallback={<RevenueActionCenterSkeleton />}>
+        <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
+      </Suspense>
 
-          <div>
-            <h2 className="text-base font-bold">Contexte du mois</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Mois en cours, comparé au mois précédent.</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {metricCards.map((card, index) => (
-                <div key={card.key} className="animate-rise" style={{ animationDelay: `${index * 40}ms` }}>
-                  <MetricCard data={card} />
-                </div>
-              ))}
+  <ExecutionMomentumCard
+    accountId={accountId}
+    viewerUserId={userId}
+    canOpenDiagnostic={accountContext?.isOwner || accountContext?.permissions.has("diagnostic")}
+  />
+
+      <div>
+        <h2 className="text-base font-bold">Contexte du mois</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Mois en cours, comparé au mois précédent.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {metricCards.map((card, index) => (
+            <div key={card.key} className="animate-rise" style={{ animationDelay: `${index * 40}ms` }}>
+              <MetricCard data={card} />
             </div>
-          </div>
-        </div>
-
-        <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-6">
-          {/* Kept from the previous hero: the Dashboard's "où j'en suis"
-              figure. Demoted, not deleted — the top slot now belongs to the
-              action, but this number is still the page's reason to exist. */}
-          {todayAction && (
-            <section className="sticker-card p-5" aria-labelledby="dashboard-gap-title">
-              <div className="flex items-center gap-2">
-                <p id="dashboard-gap-title" className="text-sm font-bold text-muted-foreground">
-                  Manque à gagner détecté
-                </p>
-                <NatureBadge nature="Projection" />
-              </div>
-              <p className="mt-2 font-display text-3xl font-bold tabular-nums">
-                {totalMonthlyLoss === null ? "—" : formatEur(totalMonthlyLoss)}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">Écart au benchmark · Stripe + iClosed</p>
-              <Button variant="link" className="mt-2 px-0" asChild>
-                <a href="/diagnostic">Voir le diagnostic</a>
-              </Button>
-            </section>
-          )}
-
-          <Suspense fallback={<RevenueActionCenterSkeleton />}>
-            <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
-          </Suspense>
-
-          <ExecutionMomentumCard
-            accountId={accountId}
-            viewerUserId={userId}
-            canOpenDiagnostic={accountContext?.isOwner || accountContext?.permissions.has("diagnostic")}
-          />
+          ))}
         </div>
       </div>
 

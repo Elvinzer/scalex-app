@@ -4,20 +4,31 @@ import { ExecutionMomentumCard } from "@/components/insight-execution/execution-
 import { FalcoJournalActions } from "@/components/insight-execution/falco-journal-actions";
 import { getCurrentUser } from "@/lib/current-user";
 import { track } from "@/lib/analytics";
+import { getBusinessProfile } from "@/lib/business/queries";
+import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
+import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
+import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
+import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
+import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getJournalMonth, getJournalProjects, getJournalTodos } from "@/lib/journal/queries";
 import { getInsightHistory } from "@/lib/insight-execution/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { JournalCalendar } from "./journal-calendar";
+import { NextActions, type NextAction } from "./next-actions";
 import { ProjectPanel } from "./project-panel";
+import { TodayActionCard, type TodayAction } from "./today-action";
 import { TodoPanel } from "./todo-panel";
+
+const PERIOD_MONTHS = 3;
 
 export default async function JournalPage({
   searchParams,
 }: {
   searchParams: Promise<{ year?: string; month?: string }>;
 }) {
-  const { userId, accountId } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
   const accountContext = await getAccountContext(userId);
   after(() => track("journal_viewed", userId));
@@ -28,14 +39,80 @@ export default async function JournalPage({
   const month = Number(params.month) || now.getUTCMonth() + 1;
   const todayIso = now.toISOString().slice(0, 10);
 
-  const [daysMap, todos, projects, falcoInsights] = await Promise.all([
+  const [daysMap, todos, projects, falcoInsights, businessProfile, kpiRawData, benchmarks] = await Promise.all([
     getJournalMonth(accountId, year, month),
     getJournalTodos(accountId),
     getJournalProjects(accountId),
     getInsightHistory(accountId, { sourceType: "copilote" }, userId),
+    getBusinessProfile(accountId),
+    getDiagnosticKpiRawData(accountId),
+    getDiagnosticBenchmarks(user?.sector ?? null),
   ]);
 
   const days = Array.from(daysMap.values());
+
+  // What to do today, and what follows — both from the diagnostic engine,
+  // never from free-form input. This page tells the user what to work on;
+  // the personal to-do panel below stays deliberately secondary.
+  const months = lastCompletedMonths(PERIOD_MONTHS);
+  const { settingTotals, closingTotals, cashContractedTotal, hasAnyMonthlyRow } = aggregatePeriodTotals({
+    months,
+    allMonthlyRows: kpiRawData.allMonthlyRows,
+    allSettingEntries: kpiRawData.allSettingEntries,
+    allClosingEntries: kpiRawData.allClosingEntries,
+  });
+  const allPoints = hasAnyMonthlyRow
+    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })
+    : [];
+  const { toWatch } = hasAnyMonthlyRow
+    ? await computeLeverOpportunities({
+        accountId,
+        businessProfile,
+        settingTotals,
+        closingTotals,
+        cashContractedTotal,
+        periodMonths: PERIOD_MONTHS,
+        months,
+      })
+    : { toWatch: [] };
+
+  const todayAction: TodayAction | null = allPoints[0]
+    ? {
+        metricKey: allPoints[0].key,
+        label: allPoints[0].label,
+        originLabel: `Vient de ton goulot : ${allPoints[0].label}`,
+        explanation: allPoints[0].explanation,
+        monthlyGainEur: allPoints[0].monthlyGain,
+        chatContext: {
+          topicType: "metric",
+          topicKey: allPoints[0].key,
+          topicLabel: allPoints[0].label,
+          sourcePage: "journal_today_action",
+        },
+      }
+    : null;
+
+  const nextActions: NextAction[] = [
+    ...allPoints.slice(1).map((point) => ({
+      key: point.key,
+      title: point.label,
+      originLabel: `Diagnostic · ${point.category}`,
+      effortLabel: "à évaluer",
+      monthlyGainEur: point.monthlyGain,
+      href: `/diagnostic?open=${point.key}`,
+    })),
+    ...[...toWatch]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((lever) => ({
+        key: `lever-${lever.leverKey}`,
+        title: lever.label,
+        originLabel: `Levier · ${lever.category}`,
+        effortLabel: "à évaluer",
+        monthlyGainEur: lever.impactAmountEur,
+        href: `/diagnostic?openLever=${lever.leverKey}&openLeverLabel=${encodeURIComponent(lever.label)}`,
+      })),
+  ].sort((a, b) => (b.monthlyGainEur ?? 0) - (a.monthlyGainEur ?? 0));
 
   return (
     <div className="flex flex-col gap-5">
@@ -46,12 +123,20 @@ export default async function JournalPage({
         </p>
       </div>
 
+      {/* Bloc 1 du brief — l'action du jour, seul bloc sombre de l'écran et
+          seul bouton corail plein. Placée avant tout le reste : la page doit
+          se lire en trois minutes, une action prioritaire en tête. */}
+      {todayAction && <TodayActionCard action={todayAction} />}
+
       <ExecutionMomentumCard
         accountId={accountId}
         viewerUserId={userId}
         compact
         canOpenDiagnostic={accountContext?.isOwner || accountContext?.permissions.has("diagnostic")}
       />
+
+      {/* Bloc 2 — ce qui suit l'action du jour, volontairement plus discret. */}
+      <NextActions actions={nextActions} />
 
       <FalcoJournalActions
         items={falcoInsights.filter((item) => item.initiative !== null && ["launched", "completed"].includes(item.decision))}

@@ -217,3 +217,45 @@ export async function saveJournalNote(date: string, content: string): Promise<{ 
   revalidatePath("/journal");
   return { error: null };
 }
+
+// "C'est fait" on the Action du jour (see today-action.tsx). Diagnostic
+// cascade points have no completion table of their own — unlike
+// funnel_stage_insights, which setInsightImplemented covers — so rather than
+// inventing one, this logs the same improvement_events row this page's own
+// calendar already reads. The click becomes a visible fact on the calendar
+// instead of a button that writes nowhere.
+export async function markTodayActionDone(metricKey: string, label: string): Promise<{ error: string | null }> {
+  const access = await requireJournalAccess();
+  if ("error" in access) return access;
+  const { accountId, userId } = access;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // One row per metric per day — clicking twice must not stack the journal.
+  const [existing] = await db
+    .select({ id: improvementEvents.id })
+    .from(improvementEvents)
+    .where(
+      and(
+        eq(improvementEvents.userId, accountId),
+        eq(improvementEvents.date, today),
+        eq(improvementEvents.type, "insight_implemented"),
+        eq(improvementEvents.sourceId, metricKey)
+      )
+    )
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(improvementEvents).values({
+      userId: accountId,
+      date: today,
+      type: "insight_implemented",
+      label,
+      sourceId: metricKey,
+    });
+    await track("insight_marked_done", userId, { metric_key: metricKey });
+  }
+
+  revalidatePath("/journal");
+  return { error: null };
+}
