@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "insight_records_user_copilote_source_idx" ON "insight_records" USING btree ("user_id","source_type","source_id") WHERE source_type = 'copilote';

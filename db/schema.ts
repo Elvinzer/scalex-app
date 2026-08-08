@@ -2136,7 +2136,15 @@ export const conversations = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("conversations_user_updated_idx").on(table.userId, table.updatedAt)]
+  (table) => [
+    index("conversations_user_updated_idx").on(table.userId, table.updatedAt),
+    pgPolicy("conversations_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ]
 ).enableRLS();
 
 // Persisted per conversation — unlike the rest of the Copilote (metric
@@ -2165,6 +2173,12 @@ export const agentChatMessages = pgTable(
   (table) => [
     index("agent_chat_messages_user_agent_idx").on(table.userId, table.agentKey, table.createdAt),
     index("agent_chat_messages_conversation_idx").on(table.conversationId, table.createdAt),
+    pgPolicy("agent_chat_messages_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
   ]
 ).enableRLS();
 
@@ -2779,6 +2793,9 @@ export const insightRecords = pgTable(
   },
   (table) => [
     uniqueIndex("insight_records_user_fingerprint_idx").on(table.userId, table.fingerprint),
+    uniqueIndex("insight_records_user_copilote_source_idx")
+      .on(table.userId, table.sourceId)
+      .where(sql`source_type = 'copilote'`),
     index("insight_records_user_decision_idx").on(table.userId, table.decision, table.createdAt),
     index("insight_records_user_source_idx").on(table.userId, table.sourceType, table.createdAt),
     pgPolicy("insight_records_account_access", {

@@ -1,9 +1,11 @@
 import { after } from "next/server";
 
 import { ExecutionMomentumCard } from "@/components/insight-execution/execution-momentum-card";
+import { FalcoJournalActions } from "@/components/insight-execution/falco-journal-actions";
 import { getCurrentUser } from "@/lib/current-user";
 import { track } from "@/lib/analytics";
 import { getJournalMonth, getJournalProjects, getJournalTodos } from "@/lib/journal/queries";
+import { getInsightHistory } from "@/lib/insight-execution/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { JournalCalendar } from "./journal-calendar";
@@ -26,10 +28,11 @@ export default async function JournalPage({
   const month = Number(params.month) || now.getUTCMonth() + 1;
   const todayIso = now.toISOString().slice(0, 10);
 
-  const [daysMap, todos, projects] = await Promise.all([
+  const [daysMap, todos, projects, falcoInsights] = await Promise.all([
     getJournalMonth(accountId, year, month),
     getJournalTodos(accountId),
     getJournalProjects(accountId),
+    getInsightHistory(accountId, { sourceType: "copilote" }, userId),
   ]);
 
   const days = Array.from(daysMap.values());
@@ -48,6 +51,10 @@ export default async function JournalPage({
         viewerUserId={userId}
         compact
         canOpenDiagnostic={accountContext?.isOwner || accountContext?.permissions.has("diagnostic")}
+      />
+
+      <FalcoJournalActions
+        items={falcoInsights.filter((item) => item.initiative !== null && ["launched", "completed"].includes(item.decision))}
       />
 
       <div className="grid gap-5 lg:grid-cols-[62%_1fr]">

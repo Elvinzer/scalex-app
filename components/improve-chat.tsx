@@ -73,12 +73,12 @@ export function ImproveChat({
               onClick={() => threadRef.current?.reset()}
               aria-label="Nouvelle conversation"
               title="Nouvelle conversation"
-              className="flex size-7 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted disabled:opacity-50"
+              className="flex size-11 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted disabled:opacity-50"
             >
               <RotateCcw className="size-3.5" />
             </button>
           )}
-          <DrawerClose className="flex size-7 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted">
+          <DrawerClose className="flex size-11 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted">
             <X className="size-4" />
           </DrawerClose>
         </div>

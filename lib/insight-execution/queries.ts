@@ -290,6 +290,8 @@ export async function getInsightHistory(
     conditions.push(eq(insightRecords.decision, filter.decision));
   if (filter.sourceType)
     conditions.push(eq(insightRecords.sourceType, filter.sourceType));
+  if (filter.sourceId)
+    conditions.push(eq(insightRecords.sourceId, filter.sourceId));
   if (filter.from)
     conditions.push(
       gte(insightRecords.createdAt, new Date(`${filter.from}T00:00:00Z`)),

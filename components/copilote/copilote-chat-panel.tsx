@@ -10,21 +10,26 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { ConversationRow, ConversationTopicType } from "@/lib/agent/chat-history";
 import type { ChatContext } from "@/lib/chat-context";
 import { AGENT_KEY_TO_ROUTE, type FalcoSkinKey } from "@/lib/falco-skins";
+import type { InsightHistoryItem } from "@/lib/insight-execution/types";
 
 export function CopiloteChatPanel({
   conversationId,
+  conversationTitle,
   topicType,
   topicKey,
   topicLabel,
   skin,
   onConversationChange,
+  onInsightChange,
 }: {
   conversationId: string;
+  conversationTitle?: string;
   topicType: ConversationTopicType;
   topicKey: string | null;
   topicLabel: string | null;
   skin: FalcoSkinKey | null;
   onConversationChange: (conversation: ConversationRow) => void;
+  onInsightChange: (insight: InsightHistoryItem) => void;
 }) {
   const threadRef = useRef<AgentChatThreadHandle>(null);
   const route = topicKey ? AGENT_KEY_TO_ROUTE[topicKey] : undefined;
@@ -56,7 +61,7 @@ export function CopiloteChatPanel({
             <button
               type="button"
               aria-label="Options de la conversation"
-              className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
+              className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
             >
               <MoreHorizontal className="size-4" />
             </button>
@@ -65,12 +70,12 @@ export function CopiloteChatPanel({
             <button
               type="button"
               onClick={handleReset}
-              className="rounded-[var(--radius-control)] px-3 py-2 text-left text-sm font-bold hover:bg-muted"
+              className="min-h-11 rounded-[var(--radius-control)] px-3 py-2 text-left text-sm font-bold hover:bg-muted"
             >
               Recommencer à zéro
             </button>
             {route && (
-              <Link href={route} className="rounded-[var(--radius-control)] px-3 py-2 text-left text-sm font-bold hover:bg-muted">
+              <Link href={route} className="flex min-h-11 items-center rounded-[var(--radius-control)] px-3 py-2 text-left text-sm font-bold hover:bg-muted">
                 Voir la page du levier →
               </Link>
             )}
@@ -84,7 +89,9 @@ export function CopiloteChatPanel({
         period="3-months"
         falcoSkin={skin}
         conversationId={conversationId}
+        conversationTitle={conversationTitle}
         onConversationChange={onConversationChange}
+        onInsightChange={onInsightChange}
       />
     </div>
   );

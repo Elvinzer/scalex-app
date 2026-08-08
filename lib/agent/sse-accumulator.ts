@@ -3,10 +3,16 @@
 // accumulate the assembled assistant reply — same parsing logic as
 // components/improve-chat.tsx's client-side streamChat, duplicated here
 // because this runs server-side on the raw upstream Response body, which
-// the client never sees pre-parsed. Used only to persist lever-agent
-// conversations (app/api/improve-chat/route.ts); the metric/general path
-// stays a plain passthrough, untouched.
-export function createSseAccumulatorStream(onComplete: (fullText: string) => void | Promise<void>): TransformStream<Uint8Array, Uint8Array> {
+// the client never sees pre-parsed. Used only to persist persisted Falco
+// conversations (app/api/improve-chat/route.ts); the metric path stays a
+// plain passthrough. The completion hook may return a validated structured
+// event which is emitted after the upstream stream has completed.
+import type { FalcoInsightEvent } from "./falco-insight-proposal";
+
+export function createSseAccumulatorStream(
+  onComplete: (fullText: string) => void | FalcoInsightEvent | null | Promise<void | FalcoInsightEvent | null>,
+  eventContext?: { conversationId: string },
+): TransformStream<Uint8Array, Uint8Array> {
   const decoder = new TextDecoder();
   let buffer = "";
   let assistantText = "";
@@ -32,8 +38,15 @@ export function createSseAccumulatorStream(onComplete: (fullText: string) => voi
         }
       }
     },
-    async flush() {
-      await onComplete(assistantText);
+    async flush(controller) {
+      const event = await onComplete(assistantText);
+      if (event) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            `data: ${JSON.stringify({ falcoInsightEvent: event, conversationId: eventContext?.conversationId ?? null })}\n\n`,
+          ),
+        );
+      }
     },
   });
 }

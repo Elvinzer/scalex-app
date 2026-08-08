@@ -46,6 +46,14 @@ export type BaselineUnit = (typeof BASELINE_UNITS)[number];
 
 export type InsightSnapshot = Record<string, unknown>;
 
+export type CopiloteInsightSnapshot = {
+  kind: "copilote";
+  version: 1;
+  problem: string;
+  actionText: string;
+  successCriterion: string;
+};
+
 export type InsightImpactProjection = {
   amountEur: number | null;
   rangeEur?: { min: number; max: number } | null;
@@ -101,6 +109,11 @@ export type InsightHistoryItem = {
   impactProjection: InsightImpactProjection | null;
   initiative: InitiativeSummary | null;
   legacy: boolean;
+};
+
+export type ConversationInsightSummary = {
+  id: string;
+  decision: InsightDecision;
 };
 
 export type InitiativeSummary = {

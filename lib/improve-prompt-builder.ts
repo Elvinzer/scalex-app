@@ -10,6 +10,7 @@ import { formatEur } from "@/lib/currency";
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import type { YoutubeRecommendationRecord, YoutubeWinningPatternsSnapshot } from "@/lib/youtube/recommendation-types";
+import { falcoInsightProtocol } from "@/lib/agent/falco-insight-proposal";
 
 export type ImproveMetricKey = MetricKey | "followupRecovery" | "general";
 
@@ -287,6 +288,11 @@ export function buildImprovePrompt({
     "- Maximum 300 mots par réponse. Termine TOUJOURS par une seule question qui fait avancer.",
     "- Ne promets jamais un résultat chiffré (\"tu vas gagner X€\") : reste sur des estimations prudentes (\"de l'ordre de\", \"≈\").",
     "- Ne recommande jamais un outil concurrent de Scale X.",
+    "- Quand tu peux formuler une action testable avec un problème clair et un critère de réussite concret, ajoute à la toute fin de ta réponse le bloc machine ci-dessous. Il ne doit contenir aucun Markdown ni texte autour :",
+    `${falcoInsightProtocol.start}{\"kind\":\"proposal\",\"title\":\"...\",\"problem\":\"...\",\"actionText\":\"...\",\"successCriterion\":\"...\"}${falcoInsightProtocol.end}`,
+    "- Si l'action n'est pas encore assez précise, n'invente rien : ajoute à la fin un bloc machine vague avec la précision manquante et 2 à 4 réponses rapides :",
+    `${falcoInsightProtocol.start}{\"kind\":\"vague\",\"missing\":\"...\",\"quickReplies\":[\"...\",\"...\"]}${falcoInsightProtocol.end}`,
+    "- Le bloc machine doit être le dernier élément de la réponse, ne doit jamais être mentionné au lecteur et ne doit apparaître que si ses champs respectent réellement les règles ci-dessus.",
     ...(userName
       ? [
           `- L'utilisateur s'appelle ${userName} : appelle-le par son prénom de temps en temps, naturellement — dans ton message d'ouverture puis seulement quand ça sonne juste, jamais à chaque phrase.`,

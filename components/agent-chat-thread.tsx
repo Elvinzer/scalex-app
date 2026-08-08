@@ -6,13 +6,17 @@ import { z } from "zod";
 
 import { Falco } from "@/components/falco/falco";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
+import { InsightActionCard } from "@/components/insight-execution/insight-action-card";
 import { Button } from "@/components/ui/button";
 import { loadConversationMessages, resolveConversationForTopic, startNewConversation } from "@/lib/agent/chat-history-actions";
+import { parseFalcoInsightSseEnvelope, prepareFalcoQuickReply, removeFalcoInsightProtocol, type FalcoInsightEvent } from "@/lib/agent/falco-insight-proposal";
+import { getCopiloteInsightForConversation } from "@/lib/insight-execution/actions";
+import type { InsightHistoryItem } from "@/lib/insight-execution/types";
 import type { ConversationRow, ConversationTopicType } from "@/lib/agent/chat-history";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string; isError?: boolean };
+export type ChatMessage = { role: "user" | "assistant"; content: string; isError?: boolean; insightEvent?: FalcoInsightEvent; duplicateInsight?: boolean };
 type Period = "3-months" | "current-month" | "12-months";
 type LeverMode = "optimiser" | "demarrer" | "decouverte";
 type ChatUsage = { inputTokens: number; outputTokens: number };
@@ -114,10 +118,12 @@ async function streamChat(
     period: Period;
     mode?: LeverMode | null;
     conversationId?: string;
+    conversationTitle?: string;
     messages: ChatMessage[];
   },
   onToken: (token: string) => void,
-  onUsage: (usage: ChatUsage) => void
+  onUsage: (usage: ChatUsage) => void,
+  onInsightEvent: (event: FalcoInsightEvent) => void,
 ): Promise<{ error: string | null }> {
   const controller = new AbortController();
   const connectTimeoutId = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
@@ -172,6 +178,10 @@ async function streamChat(
             const parsedUsage = chatUsageSchema.safeParse(json.usage);
             if (parsedUsage.success) onUsage(parsedUsage.data);
           }
+          if (typeof json === "object" && json !== null && "falcoInsightEvent" in json) {
+            const parsedEvent = parseFalcoInsightSseEnvelope(json, body.conversationId ?? "");
+            if (parsedEvent) onInsightEvent(parsedEvent);
+          }
         } catch {
           // Ignore malformed/partial SSE chunks — the next read() call
           // usually completes them.
@@ -209,6 +219,7 @@ export const AgentChatThread = forwardRef<
     // right conversation for `context` itself on mount, same "one
     // continuous thread per topic" feel as before this chantier.
     conversationId?: string;
+    conversationTitle?: string;
     // Fired whenever the active conversation changes (first resolved on
     // mount, or a brand new one after "Nouvelle conversation") — the FULL
     // row, not just the id, so the Copilote hub can prepend it to its
@@ -216,6 +227,9 @@ export const AgentChatThread = forwardRef<
     // briefly unmounting because the new id isn't in its list yet). Unused
     // (and harmless) for every other caller.
     onConversationChange?: (conversation: ConversationRow) => void;
+    // Keeps the Copilote history indicator in sync after the card captures or
+    // changes the one insight attached to the active conversation.
+    onInsightChange?: (insight: InsightHistoryItem) => void;
     // A specific opening question to ask on top of whatever's already in the
     // thread (e.g. "pourquoi mon post X a un score de 62/100 ?") — used by
     // per-item score badges (posts-table.tsx/campaigns-table.tsx) that open
@@ -231,7 +245,7 @@ export const AgentChatThread = forwardRef<
     onEngaged?: () => void;
   }
 >(function AgentChatThread(
-  { context, followupKey, period, mode = null, falcoSkin, conversationId: explicitConversationId, onConversationChange, seedQuestion, onEngaged },
+  { context, followupKey, period, mode = null, falcoSkin, conversationId: explicitConversationId, conversationTitle: explicitConversationTitle, onConversationChange, onInsightChange, seedQuestion, onEngaged },
   ref
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -239,7 +253,10 @@ export const AgentChatThread = forwardRef<
   const [isStreaming, setIsStreaming] = useState(false);
   const [failedHistory, setFailedHistory] = useState<ChatMessage[] | null>(null);
   const [usage, setUsage] = useState<ChatUsage | null>(null);
+  const [persistedInsight, setPersistedInsight] = useState<InsightHistoryItem | null>(null);
+  const [conversationTitle, setConversationTitle] = useState(explicitConversationTitle ?? context.topicLabel ?? "Conversation");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const hasOpenedRef = useRef(false);
   // "metric" stays fully ephemeral (per-diagnostic-point drill-downs
   // elsewhere in the app) — "lever" and "general" both persist across opens
@@ -278,10 +295,13 @@ export const AgentChatThread = forwardRef<
         }
         id = resolved.id;
         conversationIdRef.current = id;
+        setConversationTitle(resolved.title);
         onConversationChange?.(resolved);
       }
 
       const history = await loadConversationMessages(id);
+      const savedInsight = await getCopiloteInsightForConversation(id);
+      if (!savedInsight.error) setPersistedInsight(savedInsight.insight ?? null);
       if (seedQuestion) {
         onEngaged?.();
         setMessages(history);
@@ -323,7 +343,14 @@ export const AgentChatThread = forwardRef<
 
     try {
       const result = await streamChat(
-        { context, followupKey, period, mode, conversationId: conversationIdRef.current ?? undefined, messages: history },
+        {
+          context,
+          followupKey,
+          period,
+          mode,
+          conversationId: conversationIdRef.current ?? undefined,
+          messages: history.map(({ role, content }) => ({ role, content })),
+        },
         (token) => {
           setMessages((prev) => {
             const next = [...prev];
@@ -334,7 +361,15 @@ export const AgentChatThread = forwardRef<
             return next;
           });
         },
-        setUsage
+        setUsage,
+        (event) => {
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.role === "assistant") next[next.length - 1] = { ...last, insightEvent: event, duplicateInsight: persistedInsight !== null };
+            return next;
+          });
+        },
       );
 
       if (result.error) {
@@ -379,6 +414,33 @@ export const AgentChatThread = forwardRef<
     void send(nextHistory);
   }
 
+  function focusComposer(value?: string) {
+    if (value !== undefined) setInput(value);
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      const end = inputRef.current?.value.length ?? 0;
+      inputRef.current?.setSelectionRange(end, end);
+    });
+  }
+
+  function sendQuickReply(value: string) {
+    if (isStreaming || value.trim().length === 0) return;
+    const quickReply = prepareFalcoQuickReply(value);
+    if (quickReply.mode === "compose") {
+      focusComposer(quickReply.text);
+      return;
+    }
+
+    const nextHistory: ChatMessage[] = [...messages, { role: "user", content: quickReply.text }];
+    onEngaged?.();
+    void send(nextHistory);
+  }
+
+  function handleInsightChange(updatedInsight: InsightHistoryItem) {
+    setPersistedInsight(updatedInsight);
+    onInsightChange?.(updatedInsight);
+  }
+
   // Starts a genuinely NEW conversation and switches to it — never clears
   // the current one in place, so nothing already in history is lost (also
   // fixes the old "20-message cap becomes permanent" bug, since a fresh
@@ -392,6 +454,8 @@ export const AgentChatThread = forwardRef<
         return;
       }
       conversationIdRef.current = created.id;
+      setConversationTitle(created.title);
+      setPersistedInsight(null);
       onConversationChange?.(created);
     }
     setMessages([]);
@@ -405,6 +469,10 @@ export const AgentChatThread = forwardRef<
   useImperativeHandle(ref, () => ({ reset: () => void handleNewConversation() }));
 
   const limitReached = messages.length >= MAX_MESSAGES;
+  const latestInsightEventIndex = messages.reduce(
+    (latestIndex, message, index) => (message.insightEvent ? index : latestIndex),
+    -1,
+  );
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -426,10 +494,22 @@ export const AgentChatThread = forwardRef<
                 )}
                 <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
                   <div className={`text-sm break-words ${message.isError ? "text-state-critical" : "text-foreground"}`}>
-                    {renderMarkdownLite(message.content)}
+                    {renderMarkdownLite(removeFalcoInsightProtocol(message.content))}
                   </div>
+                  {message.insightEvent && index === latestInsightEventIndex && (
+                    <InsightActionCard
+                      conversationId={conversationIdRef.current ?? ""}
+                      sourceLabel={`Falco · ${conversationTitle}`}
+                      event={message.insightEvent}
+                      duplicateInsight={message.duplicateInsight}
+                      insight={persistedInsight}
+                      onInsightChange={handleInsightChange}
+                      onContinue={focusComposer}
+                      onQuickReply={sendQuickReply}
+                    />
+                  )}
                   {message.isError && index === messages.length - 1 && !isStreaming && (
-                    <Button size="sm" variant="outline" onClick={retry}>
+                    <Button size="sm" variant="outline" className="min-h-11" onClick={retry}>
                       Réessayer
                     </Button>
                   )}
@@ -438,6 +518,16 @@ export const AgentChatThread = forwardRef<
             ) : isStreaming && index === messages.length - 1 ? (
               <FalcoPondering key={index} isLoading size="xs" />
             ) : null
+          )}
+          {persistedInsight && latestInsightEventIndex < 0 && (
+            <InsightActionCard
+              conversationId={conversationIdRef.current ?? ""}
+              sourceLabel={`Falco · ${conversationTitle}`}
+              insight={persistedInsight}
+              onInsightChange={handleInsightChange}
+              onContinue={focusComposer}
+              onQuickReply={sendQuickReply}
+            />
           )}
         </div>
       </div>
@@ -460,16 +550,19 @@ export const AgentChatThread = forwardRef<
       <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-border p-4">
         <input
           type="text"
+          ref={inputRef}
+          data-testid="falco-composer"
           value={input}
           onChange={(event) => setInput(event.target.value)}
           disabled={isStreaming || limitReached}
           placeholder={limitReached ? "Limite de messages atteinte" : "Écris ton message..."}
-          className="flex-1 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12 disabled:opacity-50"
+          className="min-h-11 flex-1 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12 disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={isStreaming || limitReached || input.trim().length === 0}
-          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-2 text-white transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-2-hover disabled:opacity-50"
+          className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-2 text-white transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-2-hover motion-reduce:transition-none disabled:opacity-50"
+          aria-label="Envoyer le message"
         >
           <Send className="size-4" />
         </button>

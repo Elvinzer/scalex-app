@@ -53,7 +53,9 @@ Falco SHALL NOT present an action card when the exchange does not provide a test
 #### Scenario: Réponse rapide
 
 - **WHEN** the user selects a quick reply
-- **THEN** the reply is sent as a normal user message in the same conversation
+- **THEN** a complete reply is sent as a normal user message in the same conversation
+- **AND** a reply containing `[à compléter]` is placed in the composer with the placeholder removed and the composer focused
+- **AND** the user message is not sent until the user has customized and explicitly submitted it
 - **AND** no local or server insight is created before Falco returns a valid proposal and the user confirms it
 
 ### Requirement: Validation éditable avant sauvegarde

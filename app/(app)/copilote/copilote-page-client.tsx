@@ -11,6 +11,7 @@ import type { ConversationRow, ConversationWithPreview } from "@/lib/agent/chat-
 import { resolveConversationForTopic, startNewConversation } from "@/lib/agent/chat-history-actions";
 import { recordCopiloteConversationOpened, recordCopiloteNewConversation, recordCopiloteTopic } from "@/lib/agent/copilote-tracking";
 import { AGENT_KEY_TO_SKIN, AGENT_KEY_TO_TOPIC_LABEL, type FalcoSkinKey } from "@/lib/falco-skins";
+import type { InsightHistoryItem } from "@/lib/insight-execution/types";
 
 function skinFor(topicKey: string | null, topicType: ConversationRow["topicType"]): FalcoSkinKey | null {
   if (topicType === "content_idea") return "contenu";
@@ -28,8 +29,15 @@ function upsertConversation(
   conversation: ConversationRow,
   preview: string | null = null
 ): ConversationWithPreview[] {
+  const previous = list.find((item) => item.id === conversation.id);
   const withoutExisting = list.filter((item) => item.id !== conversation.id);
-  return [{ ...conversation, preview }, ...withoutExisting].sort(
+  return [{
+    ...conversation,
+    preview,
+    messageCount: previous?.messageCount ?? 0,
+    insightId: previous?.insightId ?? null,
+    insightDecision: previous?.insightDecision ?? null,
+  }, ...withoutExisting].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
 }
@@ -37,19 +45,30 @@ function upsertConversation(
 export function CopilotePageClient({
   conversations: initialConversations,
   initialTopicKey,
+  initialConversationId,
 }: {
   conversations: ConversationWithPreview[];
   initialTopicKey: string | null;
+  initialConversationId: string | null;
 }) {
   const [conversations, setConversations] = useState(initialConversations);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(initialConversations[0]?.id ?? null);
-  const [resolvingDeepLink, setResolvingDeepLink] = useState(Boolean(initialTopicKey));
+  const linkedConversation = initialConversationId ? initialConversations.find((item) => item.id === initialConversationId) : null;
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(linkedConversation?.id ?? initialConversations[0]?.id ?? null);
+  const [resolvingDeepLink, setResolvingDeepLink] = useState(Boolean(initialTopicKey || initialConversationId));
 
   // Deep link from the floating bubble ("Ouvrir dans le Copilote →",
   // ?topic=X) finds-or-creates the matching conversation — same
   // "créent/rouvrent" semantics as every lever page's own inline chat.
   useEffect(() => {
-    if (!initialTopicKey) return;
+    if (initialConversationId) {
+      if (linkedConversation) setSelectedConversationId(linkedConversation.id);
+      setResolvingDeepLink(false);
+      return;
+    }
+    if (!initialTopicKey) {
+      setResolvingDeepLink(false);
+      return;
+    }
     void (async () => {
       void recordCopiloteTopic(initialTopicKey);
       const resolved = await resolveConversationForTopic("lever", initialTopicKey, AGENT_KEY_TO_TOPIC_LABEL[initialTopicKey] ?? null);
@@ -82,6 +101,12 @@ export function CopilotePageClient({
   function handleConversationChange(conversation: ConversationRow) {
     setSelectedConversationId(conversation.id);
     setConversations((prev) => upsertConversation(prev, conversation));
+  }
+
+  function handleInsightChange(insight: InsightHistoryItem) {
+    setConversations((prev) => prev.map((conversation) => conversation.id === insight.sourceId
+      ? { ...conversation, insightId: insight.id, insightDecision: insight.decision }
+      : conversation));
   }
 
   const selected = conversations.find((conversation) => conversation.id === selectedConversationId) ?? null;
@@ -119,11 +144,13 @@ export function CopilotePageClient({
             <ChatErrorBoundary key={selected.id}>
               <CopiloteChatPanel
                 conversationId={selected.id}
+                conversationTitle={selected.title}
                 topicType={selected.topicType}
                 topicKey={selected.topicKey}
                 topicLabel={selected.topicLabel}
                 skin={skinFor(selected.topicKey, selected.topicType)}
                 onConversationChange={handleConversationChange}
+                onInsightChange={handleInsightChange}
               />
             </ChatErrorBoundary>
           ) : resolvingDeepLink ? (

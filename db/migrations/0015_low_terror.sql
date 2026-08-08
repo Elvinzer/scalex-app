@@ -1,0 +1,2 @@
+CREATE POLICY "agent_chat_messages_account_access" ON "agent_chat_messages" AS PERMISSIVE FOR ALL TO "authenticated" USING (public.native_booking_account_member("agent_chat_messages"."user_id")) WITH CHECK (public.native_booking_account_member("agent_chat_messages"."user_id"));--> statement-breakpoint
+CREATE POLICY "conversations_account_access" ON "conversations" AS PERMISSIVE FOR ALL TO "authenticated" USING (public.native_booking_account_member("conversations"."user_id")) WITH CHECK (public.native_booking_account_member("conversations"."user_id"));

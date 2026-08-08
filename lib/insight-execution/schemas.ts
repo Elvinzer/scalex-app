@@ -19,6 +19,7 @@ export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date inval
 export const insightHistoryFilterSchema = z.object({
   decision: insightDecisionSchema.optional(),
   sourceType: insightSourceTypeSchema.optional(),
+  sourceId: z.string().trim().min(1).max(160).optional(),
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),
 });
@@ -26,6 +27,25 @@ export const insightHistoryFilterSchema = z.object({
 export const materializeInsightSchema = z.object({
   sourceType: insightSourceTypeSchema,
   sourceId: z.string().trim().min(1).max(160),
+});
+
+const boundedText = (max: number, message: string) =>
+  z.string().trim().min(1, message).max(max, `Limite de ${max} caractères dépassée.`);
+
+export const copiloteInsightSnapshotSchema = z.object({
+  kind: z.literal("copilote"),
+  version: z.literal(1),
+  problem: boundedText(800, "Le problème est requis."),
+  actionText: boundedText(2000, "L'action est requise."),
+  successCriterion: boundedText(1000, "Le critère de réussite est requis."),
+});
+
+export const captureCopiloteInsightSchema = z.object({
+  conversationId: z.string().uuid("Conversation invalide."),
+  title: boundedText(120, "Le titre de l'action est requis."),
+  problem: boundedText(800, "Le problème est requis."),
+  actionText: boundedText(2000, "L'action est requise."),
+  successCriterion: boundedText(1000, "Le critère de réussite est requis."),
 });
 
 export const launchInsightSchema = z

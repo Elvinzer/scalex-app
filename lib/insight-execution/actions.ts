@@ -10,6 +10,7 @@ import {
   initiativeNudges,
   initiativeWeeklyFocus,
   insightRecords,
+  conversations,
   projects,
   teamMembers,
   todos,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/insight-execution/state";
 import {
   assignmentInputSchema,
+  captureCopiloteInsightSchema,
   focusInputSchema,
   insightDecisionInputSchema,
   initiativeStatusInputSchema,
@@ -42,8 +44,10 @@ import {
 } from "@/lib/insight-execution/service";
 import { addDays, currentWeekStart } from "@/lib/insight-execution/week";
 import { getAccountContext } from "@/lib/team/context";
+import { fingerprintInsight } from "@/lib/insight-execution/fingerprint";
+import type { CopiloteInsightSnapshot } from "@/lib/insight-execution/types";
 
-import { getInsightHistory } from "./queries";
+import { getAssignableMembers, getInsightHistory } from "./queries";
 import type { InsightHistoryItem } from "./types";
 
 type Access = {
@@ -124,6 +128,200 @@ function revalidateExecutionSurfaces(): void {
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
   revalidatePath("/journal");
+  revalidatePath("/copilote");
+}
+
+function sourceLabelForConversation(title: string, topicLabel: string | null): string {
+  const subject = title.trim() && title !== "Nouvelle conversation" ? title.trim() : topicLabel?.trim() || "Conversation";
+  return `Falco · ${subject}`;
+}
+
+async function getCopiloteInsightProjection(accountId: string, conversationId: string): Promise<InsightHistoryItem | undefined> {
+  return (await getInsightHistory(accountId, { sourceType: "copilote", sourceId: conversationId }))[0];
+}
+
+export async function getInsightLaunchOptions(): Promise<{
+  error: string | null;
+  members?: { id: string; name: string; roles: string[] }[];
+  projects?: { id: string; name: string }[];
+  canAssign?: boolean;
+}> {
+  const access = await requireExecutionAccess();
+  if ("error" in access) return access;
+  const rows = await db
+    .select({ id: projects.id, name: projects.name })
+    .from(projects)
+    .where(eq(projects.userId, access.accountId));
+  return {
+    error: null,
+    members: access.isOwner ? await getAssignableMembers(access.accountId) : [],
+    projects: rows,
+    canAssign: access.isOwner,
+  };
+}
+
+export async function captureCopiloteInsight(
+  input: unknown,
+): Promise<{ error: string | null; insight?: InsightHistoryItem }> {
+  const access = await requireExecutionAccess();
+  if ("error" in access) return access;
+  const parsed = captureCopiloteInsightSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Insight invalide" };
+
+  const [conversation] = await db
+    .select({ id: conversations.id, title: conversations.title, topicLabel: conversations.topicLabel })
+    .from(conversations)
+    .where(and(eq(conversations.id, parsed.data.conversationId), eq(conversations.userId, access.accountId)))
+    .limit(1);
+  if (!conversation) return { error: "Conversation introuvable." };
+
+  const snapshot: CopiloteInsightSnapshot = {
+    kind: "copilote",
+    version: 1,
+    problem: parsed.data.problem,
+    actionText: parsed.data.actionText,
+    successCriterion: parsed.data.successCriterion,
+  };
+  const fingerprint = fingerprintInsight({
+    sourceType: "copilote",
+    sourceId: conversation.id,
+    metricKey: null,
+    periodStart: null,
+    periodEnd: null,
+    snapshot,
+  });
+  const now = new Date();
+  let inserted: typeof insightRecords.$inferSelect | undefined;
+  try {
+    [inserted] = await db
+      .insert(insightRecords)
+      .values({
+        userId: access.accountId,
+        sourceType: "copilote",
+        sourceId: conversation.id,
+        fingerprint,
+        title: parsed.data.title,
+        insightText: parsed.data.actionText,
+        sourceLabel: sourceLabelForConversation(conversation.title, conversation.topicLabel),
+        metricKey: null,
+        periodStart: null,
+        periodEnd: null,
+        snapshot,
+        impactProjection: null,
+        decision: "todo",
+        lastSeenAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+      .returning();
+  } catch {
+    return { error: "L'action n'a pas pu être enregistrée." };
+  }
+
+  // A conflict is the expected result of a retry or concurrent save. The
+  // unique Copilote source boundary makes the existing row authoritative.
+  if (!inserted) {
+    const [existing] = await db
+      .select({ id: insightRecords.id })
+      .from(insightRecords)
+      .where(
+        and(
+          eq(insightRecords.userId, access.accountId),
+          eq(insightRecords.sourceType, "copilote"),
+          eq(insightRecords.sourceId, conversation.id),
+        ),
+      )
+      .limit(1);
+    if (!existing) return { error: "L'action n'a pas pu être enregistrée." };
+  }
+
+  revalidateExecutionSurfaces();
+  const insight = await getCopiloteInsightProjection(access.accountId, conversation.id);
+  return insight ? { error: null, insight } : { error: "L'action a été enregistrée mais reste indisponible." };
+}
+
+export async function updateCopiloteInsight(
+  input: unknown,
+): Promise<{ error: string | null; insight?: InsightHistoryItem }> {
+  const access = await requireExecutionAccess();
+  if ("error" in access) return access;
+  const parsed = captureCopiloteInsightSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Insight invalide" };
+
+  const [record] = await db
+    .select()
+    .from(insightRecords)
+    .where(
+      and(
+        eq(insightRecords.userId, access.accountId),
+        eq(insightRecords.sourceType, "copilote"),
+        eq(insightRecords.sourceId, parsed.data.conversationId),
+      ),
+    )
+    .limit(1);
+  if (!record) return { error: "Insight introuvable." };
+  if (!["todo", "later", "dismissed"].includes(record.decision)) {
+    return { error: "Cette action ne peut plus être modifiée depuis son suivi." };
+  }
+
+  const [conversation] = await db
+    .select({ id: conversations.id, title: conversations.title, topicLabel: conversations.topicLabel })
+    .from(conversations)
+    .where(and(eq(conversations.id, parsed.data.conversationId), eq(conversations.userId, access.accountId)))
+    .limit(1);
+  if (!conversation) return { error: "Conversation introuvable." };
+
+  const snapshot: CopiloteInsightSnapshot = {
+    kind: "copilote",
+    version: 1,
+    problem: parsed.data.problem,
+    actionText: parsed.data.actionText,
+    successCriterion: parsed.data.successCriterion,
+  };
+  const fingerprint = fingerprintInsight({
+    sourceType: "copilote",
+    sourceId: conversation.id,
+    metricKey: null,
+    periodStart: null,
+    periodEnd: null,
+    snapshot,
+  });
+
+  try {
+    await db
+      .update(insightRecords)
+      .set({
+        title: parsed.data.title,
+        insightText: parsed.data.actionText,
+        sourceLabel: sourceLabelForConversation(conversation.title, conversation.topicLabel),
+        fingerprint,
+        snapshot,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(insightRecords.id, record.id), eq(insightRecords.userId, access.accountId)));
+  } catch {
+    return { error: "L'action n'a pas pu être modifiée." };
+  }
+
+  revalidateExecutionSurfaces();
+  const insight = await getCopiloteInsightProjection(access.accountId, conversation.id);
+  return insight ? { error: null, insight } : { error: "L'action modifiée reste indisponible." };
+}
+
+export async function getCopiloteInsightForConversation(
+  conversationId: string,
+): Promise<{ error: string | null; insight?: InsightHistoryItem }> {
+  const access = await requireExecutionAccess();
+  if ("error" in access) return access;
+  const parsedId = captureCopiloteInsightSchema.shape.conversationId.safeParse(conversationId);
+  if (!parsedId.success) return { error: "Conversation introuvable." };
+  const [conversation] = await db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(and(eq(conversations.id, parsedId.data), eq(conversations.userId, access.accountId)))
+    .limit(1);
+  if (!conversation) return { error: "Conversation introuvable." };
+  return { error: null, insight: await getCopiloteInsightProjection(access.accountId, conversation.id) };
 }
 
 export async function materializeInsight(

@@ -7,7 +7,7 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CopilotePageClient } from "./copilote-page-client";
 
-export default async function CopilotePage({ searchParams }: { searchParams: Promise<{ topic?: string }> }) {
+export default async function CopilotePage({ searchParams }: { searchParams: Promise<{ topic?: string; conversation?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "diagnostic");
   const params = await searchParams;
@@ -16,5 +16,5 @@ export default async function CopilotePage({ searchParams }: { searchParams: Pro
 
   const conversations = await getConversations(accountId);
 
-  return <CopilotePageClient conversations={conversations} initialTopicKey={params.topic ?? null} />;
+  return <CopilotePageClient conversations={conversations} initialTopicKey={params.topic ?? null} initialConversationId={params.conversation ?? null} />;
 }

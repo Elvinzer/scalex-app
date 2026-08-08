@@ -5,10 +5,19 @@ import { Plus } from "lucide-react";
 import { Falco } from "@/components/falco/falco";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ConversationWithPreview } from "@/lib/agent/chat-history";
+import type { InsightDecision } from "@/lib/insight-execution/types";
 import { cn } from "@/lib/utils";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" });
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const ACTION_LABELS: Record<InsightDecision, string> = {
+  todo: "Action à traiter",
+  launched: "Action lancée",
+  later: "Action à reprendre",
+  dismissed: "Action écartée",
+  completed: "Action terminée",
+};
 
 function truncate(text: string): string {
   const singleLine = text.replace(/\s+/g, " ").trim();
@@ -66,7 +75,7 @@ export function ConversationHistoryPanel({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-control)] border border-border px-3 py-2 text-left text-sm font-bold"
+            className="flex min-h-11 w-full items-center justify-between gap-2 rounded-[var(--radius-control)] border border-border px-3 py-2 text-left text-sm font-bold"
           >
             <span className="truncate">{selected?.title ?? "Choisis une conversation"}</span>
           </button>
@@ -115,7 +124,7 @@ function ConversationList({
       <button
         type="button"
         onClick={onNewConversation}
-        className="mb-2 flex items-center gap-2 rounded-[var(--radius-control)] border border-dashed border-border px-3 py-2 text-left text-sm font-bold hover:bg-muted"
+        className="mb-2 flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-dashed border-border px-3 py-2 text-left text-sm font-bold hover:bg-muted"
       >
         <Plus className="size-4" />
         Nouvelle conversation
@@ -173,8 +182,12 @@ function ConversationRow({
           <span className="truncate text-sm font-bold">{conversation.title}</span>
           <span className="shrink-0 text-[10px] text-muted-foreground">{DATE_FORMAT.format(new Date(conversation.updatedAt))}</span>
         </span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {conversation.preview ? truncate(conversation.preview) : "Nouvelle conversation"}
+        <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+          <span className="min-w-0 truncate">{conversation.preview ? truncate(conversation.preview) : "Nouvelle conversation"}</span>
+          <span className="shrink-0">· {conversation.messageCount} msg.</span>
+        </span>
+        <span className="block min-h-4 truncate text-[10px] font-bold text-accent-2-text">
+          {conversation.insightDecision ? ACTION_LABELS[conversation.insightDecision] : "\u00a0"}
         </span>
       </span>
     </button>

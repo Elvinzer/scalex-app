@@ -1,7 +1,8 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { agentChatMessages, conversations } from "@/db/schema";
+import { agentChatMessages, conversations, insightRecords } from "@/db/schema";
+import type { InsightDecision } from "@/lib/insight-execution/types";
 
 export const MAX_AGENT_MESSAGES = 20;
 
@@ -19,7 +20,12 @@ export type ConversationRow = {
   updatedAt: string;
 };
 
-export type ConversationWithPreview = ConversationRow & { preview: string | null };
+export type ConversationWithPreview = ConversationRow & {
+  preview: string | null;
+  messageCount: number;
+  insightId: string | null;
+  insightDecision: InsightDecision | null;
+};
 
 function toRow(row: typeof conversations.$inferSelect): ConversationRow {
   return {
@@ -63,18 +69,41 @@ export async function getConversations(accountId: string): Promise<ConversationW
 
   if (convRows.length === 0) return [];
 
+  const [messageRows, countRows, insightRows] = await Promise.all([
+    db
+      .select({ conversationId: agentChatMessages.conversationId, content: agentChatMessages.content })
+      .from(agentChatMessages)
+      .where(eq(agentChatMessages.userId, accountId))
+      .orderBy(desc(agentChatMessages.createdAt)),
+    db
+      .select({ conversationId: agentChatMessages.conversationId, messageCount: count() })
+      .from(agentChatMessages)
+      .where(eq(agentChatMessages.userId, accountId))
+      .groupBy(agentChatMessages.conversationId),
+    db
+      .select({ id: insightRecords.id, sourceId: insightRecords.sourceId, decision: insightRecords.decision })
+      .from(insightRecords)
+      .where(and(eq(insightRecords.userId, accountId), eq(insightRecords.sourceType, "copilote"))),
+  ]);
   const lastMessageByConversation = new Map<string, string>();
-  const messageRows = await db
-    .select({ conversationId: agentChatMessages.conversationId, content: agentChatMessages.content })
-    .from(agentChatMessages)
-    .where(eq(agentChatMessages.userId, accountId))
-    .orderBy(desc(agentChatMessages.createdAt));
   for (const row of messageRows) {
     if (lastMessageByConversation.has(row.conversationId)) continue;
     lastMessageByConversation.set(row.conversationId, row.content);
   }
 
-  return convRows.map((row) => ({ ...toRow(row), preview: lastMessageByConversation.get(row.id) ?? null }));
+  const countByConversation = new Map(countRows.map((row) => [row.conversationId, Number(row.messageCount)]));
+  const insightByConversation = new Map(insightRows.map((row) => [row.sourceId, { id: row.id, decision: row.decision }]));
+
+  return convRows.map((row) => {
+    const insight = insightByConversation.get(row.id);
+    return {
+      ...toRow(row),
+      preview: lastMessageByConversation.get(row.id) ?? null,
+      messageCount: countByConversation.get(row.id) ?? 0,
+      insightId: insight?.id ?? null,
+      insightDecision: insight?.decision ?? null,
+    };
+  });
 }
 
 export async function getConversation(accountId: string, id: string): Promise<ConversationRow | null> {

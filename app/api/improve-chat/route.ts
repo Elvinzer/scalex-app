@@ -10,6 +10,7 @@ import { resolveLeverAgentData } from "@/lib/agent/lever-agent-data";
 import { resolvePageAgentData } from "@/lib/agent/page-agent-data";
 import { getPageContextByKey } from "@/lib/agent/page-context";
 import { createSseAccumulatorStream } from "@/lib/agent/sse-accumulator";
+import { extractFalcoInsightEvent } from "@/lib/agent/falco-insight-proposal";
 import { track } from "@/lib/analytics";
 import { db } from "@/db";
 import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
@@ -361,12 +362,13 @@ export async function POST(request: NextRequest) {
   // the stream ends. The metric path passes the body straight through,
   // untouched.
   const body = conversation
-    ? normalizedBody.pipeThrough(
+      ? normalizedBody.pipeThrough(
         createSseAccumulatorStream(async (fullText) => {
-          if (fullText.trim().length > 0) {
-            await appendConversationMessage(accountId, conversation.id, "assistant", fullText);
-          }
-        })
+          const extracted = extractFalcoInsightEvent(fullText);
+          if (extracted.visibleText.trim().length > 0)
+            await appendConversationMessage(accountId, conversation.id, "assistant", extracted.visibleText);
+          return extracted.event;
+        }, { conversationId: conversation.id })
       )
     : normalizedBody;
 
