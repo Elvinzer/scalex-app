@@ -22,7 +22,7 @@ export default async function OnboardingPage() {
   // auth/confirm, this route itself) lands here first, so this single
   // check is enough.
   if (user?.onboardingCompleted) {
-    redirect("/dashboard");
+    redirect("/journal");
   }
 
   if (user) {

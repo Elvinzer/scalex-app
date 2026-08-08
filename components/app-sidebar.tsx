@@ -75,6 +75,7 @@ type LinkEntry = {
 // replaces the old "Avancé" nav entry.
 //
 const topEntries: LinkEntry[] = [
+  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { type: "link", href: "/datas", label: "Mes chiffres", icon: Database, permission: "datas" },
   {
@@ -124,7 +125,6 @@ const topEntries: LinkEntry[] = [
 // beside the sidebar instead of being moved into a second drawer menu.
 const topBarEntries: LinkEntry[] = [
   { type: "link", href: "/ventes/rdv", label: "Rendez-vous", icon: CalendarClock, permission: "ventes:rdv" },
-  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
 ];
 
 // COMPTE — account-level settings behind the avatar/profile dropdown
@@ -414,11 +414,11 @@ export function AppSidebar({
   const visibleCopiloteEntry = visibleTopEntries.find((entry) => entry.href === "/copilote");
   const visibleTopBarEntries = topBarEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const mobileEntries = ([
-    { type: "link", href: "/dashboard", label: "Dashboard", mobileLabel: "Accueil", icon: LayoutDashboard, permission: "dashboard" },
+    { type: "link", href: "/journal", label: "Journal de bord", mobileLabel: "Journal", icon: CalendarDays, permission: "dashboard" },
+    { type: "link", href: "/dashboard", label: "Dashboard", mobileLabel: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
     { type: "link", href: "/datas", label: "Mes chiffres", mobileLabel: "Chiffres", icon: Database, permission: "datas" },
     { type: "link", href: "/ventes", label: "Vente", mobileLabel: "Vente", icon: Handshake, anyOfPermissions: ["ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
     { type: "link", href: "/diagnostic", label: "Diagnostic", mobileLabel: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
-    { type: "link", href: "/copilote", label: "Copilote", mobileLabel: "Falco", icon: MessageCircle, permission: "diagnostic" },
   ] satisfies Array<LinkEntry & { mobileLabel: string }>).filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const mobilePageTitle = mobileEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`))?.mobileLabel ?? "Scale X";
 

@@ -183,7 +183,7 @@ export function OnboardingFlow({
     }
 
     if (res.result?.kind === "no_data") {
-      router.push("/dashboard?bandeau=incomplete_data");
+      router.push("/journal");
       return;
     }
 
@@ -206,7 +206,7 @@ export function OnboardingFlow({
       return;
     }
     if (res.result?.kind === "no_data") {
-      router.push("/dashboard?bandeau=incomplete_data");
+      router.push("/journal");
       return;
     }
     setResult(res.result ?? null);
@@ -224,9 +224,9 @@ export function OnboardingFlow({
           levers={discoveryLevers}
           initialTotal={discoveryTotal}
           initialAnswered={discoveryAnswered}
-          onComplete={() => router.push("/dashboard")}
+          onComplete={() => router.push("/journal")}
         />
-        <Button type="button" variant="ghost" className="self-center" onClick={() => router.push("/dashboard")}>
+        <Button type="button" variant="ghost" className="self-center" onClick={() => router.push("/journal")}>
           Finir plus tard →
         </Button>
       </div>
@@ -422,7 +422,7 @@ export function OnboardingFlow({
             niche. Continue à remplir tes chiffres pour affiner ton diagnostic.
           </Bubble>
           <Button size="lg" asChild className="w-full">
-            <a href="/dashboard">Aller sur mon dashboard →</a>
+            <a href="/journal">Ouvrir mon journal de bord →</a>
           </Button>
 
           <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />

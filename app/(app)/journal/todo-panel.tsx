@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal } from "lucide-react";
+import { Check, MoreHorizontal } from "lucide-react";
 import { useMemo, useState, useTransition, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ function TodoMenu({ todo, projects }: { todo: Todo; projects: { id: string; name
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted" aria-label="Options">
+        <button type="button" className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted" aria-label="Options">
           <MoreHorizontal className="size-4" />
         </button>
       </PopoverTrigger>
@@ -121,13 +121,13 @@ function TodoRow({ todo, projects }: { todo: Todo; projects: { id: string; name:
         disabled={isPending}
         aria-label={todo.done ? "Marquer comme à faire" : "Marquer comme terminée"}
         className={cn(
-          "flex size-5 shrink-0 items-center justify-center rounded-[5px] border-2 transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)]",
+          "flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)]",
           // Positive/"done" state, not coral — coral stays reserved for
           // actions, not a completion marker.
-          todo.done ? "border-positive bg-positive text-white" : "border-border"
+          todo.done ? "bg-positive text-text-on-dark" : "border-2 border-border"
         )}
       >
-        {todo.done && "✓"}
+        {todo.done && <Check className="size-4" aria-hidden="true" />}
       </button>
       <span className={cn("flex-1 truncate text-sm", todo.done && "text-muted-foreground line-through")}>{todo.label}</span>
       {todo.dueDate && !todo.done && (
@@ -169,7 +169,7 @@ export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: 
   return (
     <div className="sticker-card p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-bold">À faire</h2>
+        <h2 className="text-base font-bold">Mes tâches</h2>
         <span className="text-xs font-bold text-muted-foreground">
           {todos.filter((t) => t.done).length}/{todos.length}
         </span>
@@ -180,7 +180,7 @@ export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: 
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={handleAdd}
         disabled={isPending}
-        placeholder="+ Ajouter une tâche"
+        placeholder="+ Ajouter une tâche personnelle"
         className="mb-3 w-full rounded-[var(--radius-control)] border border-dashed border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent"
       />
 

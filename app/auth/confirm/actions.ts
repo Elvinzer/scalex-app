@@ -30,5 +30,5 @@ export async function resolvePostAuthDestination(): Promise<string> {
   const accountId = context?.accountId ?? userId;
   const [user] = await db.select({ onboardingCompleted: users.onboardingCompleted }).from(users).where(eq(users.id, accountId)).limit(1);
 
-  return user?.onboardingCompleted ? "/dashboard" : "/onboarding";
+  return user?.onboardingCompleted ? "/journal" : "/onboarding";
 }

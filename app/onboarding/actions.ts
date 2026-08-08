@@ -96,6 +96,7 @@ async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingG
 
   await db.update(users).set({ onboardingCompleted: true }).where(eq(users.id, userId));
   revalidatePath("/dashboard");
+  revalidatePath("/journal");
   revalidatePath("/diagnostic");
 
   return { result };
@@ -136,5 +137,6 @@ export async function skipOnboarding(): Promise<void> {
   if (typeof userId === "string") {
     await db.update(users).set({ onboardingCompleted: true }).where(eq(users.id, userId));
   }
-  redirect("/dashboard");
+  revalidatePath("/journal");
+  redirect("/journal");
 }

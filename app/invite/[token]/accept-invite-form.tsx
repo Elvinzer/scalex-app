@@ -20,7 +20,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
         setError(result.error);
         return;
       }
-      router.push("/dashboard");
+      router.push("/journal");
     });
   }
 
