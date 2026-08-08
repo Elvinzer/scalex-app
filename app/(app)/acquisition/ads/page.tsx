@@ -79,7 +79,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   const [metaConnection] = metaConnectionRows;
   const metaAccounts: MetaAdAccountOption[] = metaAdAccountRows;
   const metaAdsConnected = Boolean(metaConnection && metaConnection.status !== "disconnected");
-  const metaConnectionCard = ownerAccess && (!metaDashboard || metaConnection?.status !== "connected") ? (
+  const metaConnectionCard = ownerAccess ? (
     <MetaAdsConnectionCard
       connected={metaAdsConnected}
       connectionStatus={metaConnection?.status ?? null}

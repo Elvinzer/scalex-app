@@ -16,6 +16,7 @@ type Props = {
 
 export function MetaInsightCard({ id, title, insightText, decision, snapshot }: Props) {
   const [launched, setLaunched] = useState(decision === "launched" || decision === "completed");
+  const dismissed = decision === "dismissed";
   const provenance = snapshot.provenance;
   const snapshotText = (key: string): string | null => {
     const value = snapshot[key];
@@ -88,6 +89,7 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
           <div className="flex flex-wrap items-start justify-between gap-2">
             <h3 className="font-bold">{title}</h3>
             {launched && <span className="rounded-full bg-state-healthy-bg px-2.5 py-1 text-xs font-bold text-state-healthy">Dans le Journal</span>}
+            {dismissed && <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">Écarté</span>}
           </div>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">{insightText}</p>
           <div className="mt-4 grid gap-3 rounded-[var(--radius-control)] border border-border bg-muted p-4 text-sm sm:grid-cols-2">
@@ -104,7 +106,8 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
             {sourceCoverage && <span>Sources : {sourceCoverage}</span>}
           </div>
           <p className="mt-3 text-xs font-bold text-muted-foreground">{provenanceText}</p>
-          {!launched && (
+          {dismissed && <p className="mt-4 text-xs font-bold text-muted-foreground">Insight écarté. Réactive-le depuis le Journal si tu veux le traiter.</p>}
+          {!launched && !dismissed && (
             <div className="mt-4">
               <InsightLaunchDialog
                 insight={historyInsight}

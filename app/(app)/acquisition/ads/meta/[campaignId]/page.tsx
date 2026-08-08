@@ -14,7 +14,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { META_INSIGHT_THRESHOLDS } from "@/lib/meta-ads/thresholds";
 import { buildMetaAudienceWarnings } from "@/lib/meta-ads/audience-warnings";
-import { materializeMetaAdsInsights } from "@/lib/meta-ads/insights";
+import { buildMetaAdsInsights, materializeMetaAdsInsights } from "@/lib/meta-ads/insights";
 import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
 import { getMetaAdsDashboard, getMetaCampaignDetail, metricValue } from "@/lib/meta-ads/queries";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
@@ -160,6 +160,16 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   }
   const detail = await getMetaCampaignDetail(accountId, campaignId, periodDays, dashboard);
   if (!detail) notFound();
+
+  const activeInsightRuleKeys: Set<string> = new Set(
+    buildMetaAdsInsights(dashboard)
+      .filter((proposal) => proposal.campaignId === campaignId)
+      .map((proposal) => proposal.ruleKey),
+  );
+  const currentInsights = detail.insights.filter((insight) => {
+    const ruleKey = insight.snapshot.ruleKey;
+    return typeof ruleKey === "string" && activeInsightRuleKeys.has(ruleKey);
+  });
 
   const metrics = detail.campaign.metrics;
   const comparisonMetrics = detail.campaign.comparisonMetrics;
@@ -629,9 +639,9 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           <h2 id="insights-title" className="text-xl font-bold">Insights actionnables</h2>
           <p className="mt-1 text-sm text-muted-foreground">Une suggestion adoptée est ajoutée au Journal pour suivre sa mise en œuvre et son résultat.</p>
         </div>
-        {detail.insights.length === 0 ? (
+        {currentInsights.length === 0 ? (
           <div className="sticker-card-dashed p-5 text-sm text-muted-foreground">Aucun signal actionnable détecté sur cette période avec les données disponibles.</div>
-        ) : detail.insights.map((insight) => <MetaInsightCard key={insight.id} {...insight} />)}
+        ) : currentInsights.map((insight) => <MetaInsightCard key={insight.id} {...insight} />)}
       </section>
 
       <section className="sticker-card overflow-x-auto" aria-labelledby="ads-title" tabIndex={0} role="region">
