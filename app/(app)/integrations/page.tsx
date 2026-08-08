@@ -108,9 +108,11 @@ export default async function IntegrationsPage({
         <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-4 py-3 text-sm font-bold text-state-critical">
           {metaAdsError === "ads_read"
             ? "Meta n’a pas accordé la permission de lecture des publicités. Reconnecte Meta Ads et accepte ads_read."
-            : metaAdsError === "state"
-              ? "La connexion Meta Ads a expiré. Relance la connexion depuis cette page."
-              : "La connexion Meta Ads n’a pas abouti. Réessaie depuis cette page."}
+            : metaAdsError === "denied"
+              ? "Tu as refusé la connexion Meta Ads. La lecture reste inactive ; tu peux relancer la connexion quand tu veux."
+              : metaAdsError === "state"
+                ? "La connexion Meta Ads a expiré. Relance la connexion depuis cette page."
+                : "La connexion Meta Ads n’a pas abouti. Réessaie depuis cette page."}
         </div>
       )}
 

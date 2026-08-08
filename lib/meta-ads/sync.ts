@@ -123,7 +123,7 @@ function decryptConnectionToken(connection: typeof metaAdsConnections.$inferSele
   return decrypt(connection.accessTokenEncrypted);
 }
 
-export async function syncMetaAdAccounts(userId: string): Promise<{ imported: number }> {
+export async function syncMetaAdAccounts(userId: string): Promise<{ imported: number; selectedAdAccountId: string | null }> {
   const connection = await getConnection(userId);
   const accessToken = decryptConnectionToken(connection);
   const rows = await listMetaAdAccounts(accessToken);
@@ -161,7 +161,7 @@ export async function syncMetaAdAccounts(userId: string): Promise<{ imported: nu
     .update(metaAdsConnections)
     .set({ initialSyncStatus: connection.selectedAdAccountId ? "pending" : "awaiting_account", lastSyncError: null, updatedAt: new Date() })
     .where(eq(metaAdsConnections.userId, userId));
-  return { imported };
+  return { imported, selectedAdAccountId: connection.selectedAdAccountId };
 }
 
 async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRawObject[]) {

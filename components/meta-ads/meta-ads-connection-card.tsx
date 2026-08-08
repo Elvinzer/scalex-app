@@ -66,7 +66,7 @@ export function MetaAdsConnectionCard({
     startTransition(async () => {
       const result = await refreshMetaAdAccounts();
       if (result.error) setError(result.error);
-      else setNotice(`${result.imported ?? 0} compte(s) Meta récupéré(s).`);
+      else setNotice(`${result.imported ?? 0} compte(s) Meta récupéré(s).${result.syncTriggered ? " Synchronisation des campagnes relancée." : ""}`);
       router.refresh();
     });
   }

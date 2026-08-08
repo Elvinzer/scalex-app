@@ -39,13 +39,24 @@ function redirectWithError(origin: string, reason: string) {
   return response;
 }
 
+function redirectWriteDeclined(origin: string, returnTo: string | null): NextResponse {
+  const destination = new URL(returnTo ?? "/integrations", origin);
+  destination.searchParams.set("meta_ads", "write_declined");
+  const response = NextResponse.redirect(destination);
+  response.cookies.delete(STATE_COOKIE);
+  response.cookies.delete(MODE_COOKIE);
+  response.cookies.delete(RETURN_COOKIE);
+  return response;
+}
+
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
+  const oauthError = request.nextUrl.searchParams.get("error");
   const storedState = request.cookies.get(STATE_COOKIE)?.value;
   const isWriteStepUp = request.cookies.get(MODE_COOKIE)?.value === "write";
-  if (!code || !state || !storedState || state !== storedState) return redirectWithError(origin, "state");
+  if (!state || !storedState || state !== storedState) return redirectWithError(origin, "state");
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
@@ -60,6 +71,12 @@ export async function GET(request: NextRequest) {
   const appId = requireEnv("META_APP_ID");
   const appSecret = requireEnv("META_APP_SECRET");
   if (!verifyMetaOAuthState(state, access.accountId, appSecret)) return redirectWithError(origin, "state");
+
+  const returnTo = safeReturnPath(request.cookies.get(RETURN_COOKIE)?.value);
+  if (oauthError || !code) {
+    if (isWriteStepUp && oauthError === "access_denied") return redirectWriteDeclined(origin, returnTo);
+    return redirectWithError(origin, oauthError === "access_denied" ? "denied" : "oauth");
+  }
 
   const redirectUri = new URL("/api/meta-ads/callback", origin).toString();
   try {
@@ -127,7 +144,6 @@ export async function GET(request: NextRequest) {
       console.error("inngest.send(metaAdsAccountConnected) failed, Meta connection saved anyway", error);
     }
 
-    const returnTo = safeReturnPath(request.cookies.get(RETURN_COOKIE)?.value);
     const writeStatus = isWriteStepUp ? (scopes.includes("ads_management") ? "write_ready" : "write_declined") : "connected";
     const destination = new URL(returnTo ?? "/integrations", origin);
     destination.searchParams.set("meta_ads", writeStatus);

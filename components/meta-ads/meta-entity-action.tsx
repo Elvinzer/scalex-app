@@ -82,7 +82,16 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
         idempotencyKey: idempotencyKey ?? undefined,
       });
       setResultLink(result.deepLink ?? deepLink);
-      if (result.needsWriteAccess) setWriteAccessRequired(true);
+      if (result.needsWriteAccess) {
+        setWriteAccessRequired(true);
+        const retryKey = crypto.randomUUID();
+        setIdempotencyKey(retryKey);
+        try {
+          window.sessionStorage.setItem(storageKey, JSON.stringify({ idempotencyKey: retryKey }));
+        } catch {
+          // The retry remains usable when browser storage is unavailable.
+        }
+      }
       setMessage(result.error ?? "Action vérifiée dans Meta Ads.");
       if (!result.error) {
         setIdempotencyKey(null);

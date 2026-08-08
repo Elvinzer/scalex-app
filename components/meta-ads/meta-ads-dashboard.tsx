@@ -98,7 +98,7 @@ function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
         <caption className="sr-only">Lecture tabulaire du funnel</caption>
         <thead>
           <tr className="border-b border-border text-left font-bold text-muted-foreground">
-            <th className="px-3 py-2">Étape</th>
+            <th className="sticky left-0 z-10 bg-card px-3 py-2">Étape</th>
             <th className="px-3 py-2 text-right">Valeur</th>
             <th className="px-3 py-2 text-right">Taux vs étape précédente</th>
             <th className="px-3 py-2">Disponibilité</th>
@@ -109,7 +109,7 @@ function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
             const rate = ratio(row.value, row.base);
             return (
               <tr key={row.label} className="border-b border-border last:border-0">
-                <th scope="row" className="px-3 py-2 text-left font-bold">{row.label}</th>
+                <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-bold">{row.label}</th>
                 <td className="px-3 py-2 text-right tabular-nums">{row.value === null ? "—" : number(row.value)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{rate === null ? "—" : formatPercent(rate)}</td>
                 <td className="px-3 py-2 text-muted-foreground">{row.unavailableReason ?? (row.value === null ? "Indisponible sur la période" : "Mesurée")}</td>
@@ -156,6 +156,7 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
             { label: "Watch depth", value: null, base: null, unavailableReason: "Source manquante : événements de progression de la page VSL" },
             { label: "Leads", value: leads, base: videoThruplay ?? impressions },
           ]} />
+          <p className="text-[11px] text-muted-foreground">Provenance : compteurs Meta · brute · directe ; taux de funnel · Meta · dérivée · directe. Les événements de lecture VSL restent non connectés.</p>
         </div>
       </div>
     );
@@ -183,6 +184,7 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
             { label: "Présence jusqu'au pitch", value: null, base: registrations, unavailableReason: "Source manquante : événement de progression du webinar" },
             { label: "Ventes Meta", value: metricValue(totals, "purchases"), base: registrations },
           ]} />
+          <p className="text-[11px] text-muted-foreground">Provenance : compteurs Meta · brute · directe ; taux de funnel · Meta · dérivée · directe. Présence live et pitch restent indisponibles sans source webinar.</p>
         </div>
       </div>
     );
@@ -209,6 +211,7 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
             { label: "Visites profil", value: profileVisits, base: impressions },
             { label: "Abonnements observés", value: observedFollows, base: profileVisits, unavailableReason: instagramObservation.connected ? undefined : "Source manquante : connexion Instagram" },
           ]} />
+          <p className="text-[11px] text-muted-foreground">Provenance : impressions et visites · Meta · brute · directe ; abonnements observés · Instagram · brute · non attribuée ; coût/follower · Meta + Instagram · dérivée · estimée.</p>
         </div>
       </div>
     );
@@ -240,6 +243,7 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
             { label: "Clics lien", value: linkClicks, base: impressions },
             { label: "Leads", value: leads, base: linkClicks },
           ]} />
+          <p className="text-[11px] text-muted-foreground">Provenance : compteurs Meta · brute · directe ; CTR et fréquence · Meta · dérivée · directe. La fréquence repose sur un reach additionné par jour.</p>
         </div>
       </div>
     );
@@ -257,6 +261,7 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
           { label: "Clics", value: linkClicks, base: impressions },
           { label: "Leads", value: leads, base: linkClicks },
         ]} />
+        <p className="text-[11px] text-muted-foreground">Provenance : compteurs Meta · brute · directe ; taux de funnel · Meta · dérivée · directe.</p>
       </div>
     </div>
   );
@@ -335,7 +340,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
           <table className="w-full min-w-[48rem] text-xs">
             <thead>
               <tr className="border-b border-border text-left font-bold text-muted-foreground">
-                <th className="px-5 py-3">Journée</th>
+                <th className="sticky left-0 z-10 bg-card px-5 py-3">Journée</th>
                 <th className="px-5 py-3">Niveau</th>
                 <th className="px-5 py-3">Avant</th>
                 <th className="px-5 py-3">Après</th>
@@ -345,7 +350,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
             <tbody>
               {data.corrections.map((correction) => (
                 <tr key={correction.id} className="border-b border-border last:border-0">
-                  <td className="px-5 py-3 font-bold">{correction.date}</td>
+                  <td className="sticky left-0 z-10 bg-card px-5 py-3 font-bold">{correction.date}</td>
                   <td className="px-5 py-3 uppercase">{correction.level}</td>
                   <td className="px-5 py-3">{correctionSummary(correction.beforeSnapshot)}</td>
                   <td className="px-5 py-3">{correctionSummary(correction.afterSnapshot)}</td>
@@ -361,17 +366,17 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <p className="font-bold">Campagnes Meta</p>
-            <p className="mt-1 text-xs text-muted-foreground">Clique une campagne pour lire ses créas, son funnel et ses insights.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Clique une campagne pour lire ses créas, son funnel et ses insights. Dépenses, impressions et leads · Meta · brute · directe ; CTR · Meta · dérivée · directe.</p>
           </div>
           <span className="text-xs font-bold text-muted-foreground">{number(data.campaigns.length)} campagne(s)</span>
         </div>
         {data.campaigns.length === 0 ? (
           <p className="p-5 text-sm text-muted-foreground">Aucune campagne synchronisée pour ce compte.</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[46rem] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs font-bold text-muted-foreground">
-                <th className="px-5 py-3">Campagne</th>
+                <th className="sticky left-0 z-10 bg-card px-5 py-3">Campagne</th>
                 <th className="px-5 py-3">Type</th>
                 <th className="px-5 py-3 text-right">Dépenses</th>
                 <th className="px-5 py-3 text-right">CTR lien</th>
@@ -386,7 +391,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                 const campaignCtr = campaignImpressions !== null && campaignLinkClicks !== null ? ratio(campaignLinkClicks, campaignImpressions) : null;
                 return (
                   <tr key={campaign.id} className="border-b border-border last:border-0">
-                    <td className="px-5 py-4">
+                    <td className="sticky left-0 z-10 bg-card px-5 py-4">
                         <a href={`/acquisition/ads/meta/${campaign.id}?meta_days=${data.period.days}`} className="font-bold underline-offset-4 hover:underline">
                         {campaign.name}
                       </a>

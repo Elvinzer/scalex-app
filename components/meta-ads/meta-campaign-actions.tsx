@@ -110,7 +110,16 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
         idempotencyKey: action.idempotencyKey,
       });
       setDeepLink(result.deepLink ?? null);
-      if (result.needsWriteAccess) setWriteAccessRequired(true);
+      if (result.needsWriteAccess) {
+        setWriteAccessRequired(true);
+        const retryProposal = { ...action, idempotencyKey: crypto.randomUUID() };
+        setProposal(retryProposal);
+        try {
+          window.sessionStorage.setItem(storageKey, JSON.stringify(retryProposal));
+        } catch {
+          // The retry remains usable when browser storage is unavailable.
+        }
+      }
       if (result.needsWriteAccess) {
         setMessage("Permission d’écriture requise. Aucune modification n’a été tentée.");
       } else if (result.error) {

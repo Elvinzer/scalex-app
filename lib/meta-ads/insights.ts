@@ -169,9 +169,10 @@ function baseProposal(
   };
 }
 
-function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsightProposal[] {
+function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: number): MetaInsightProposal[] {
   const metrics = campaign.metrics;
   if (campaign.metricCoverageRate === null || campaign.metricCoverageRate === undefined || campaign.metricCoverageRate < MIN_COVERAGE) return [];
+  const comparisonCoverageReady = campaign.comparisonMetricCoverageRate !== null && campaign.comparisonMetricCoverageRate !== undefined && campaign.comparisonMetricCoverageRate >= MIN_COVERAGE;
   const impressions = metricValue(metrics, "impressions");
   if (impressions === null || impressions < MIN_IMPRESSIONS) return [];
   const proposals: MetaInsightProposal[] = [];
@@ -182,7 +183,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const comparison = campaign.comparisonMetrics;
     const comparisonImpressions = metricValue(comparison, "impressions");
     const comparisonHookRate = ratio(metricValue(comparison, "video3sViews"), comparisonImpressions);
-    if (hookRate !== null && holdRate !== null && comparisonHookRate !== null && hookRate >= comparisonHookRate && holdRate < VSL_HOLD_RATE_THRESHOLD && metricValue(metrics, "video3sViews") !== null) {
+    if (comparisonCoverageReady && hookRate !== null && holdRate !== null && comparisonHookRate !== null && hookRate >= comparisonHookRate && holdRate < VSL_HOLD_RATE_THRESHOLD && metricValue(metrics, "video3sViews") !== null) {
       proposals.push(
         baseProposal(
           campaign,
@@ -200,7 +201,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
             recommendedAction: "Tester une nouvelle promesse et un montage plus direct sur les premières secondes avant d’augmenter le budget.",
             expectedImpact: "Augmenter la rétention vidéo et la part de trafic qui poursuit le parcours VSL.",
             confidence: "medium",
-            sourceCoverage: "Meta Ads · Insights vidéo · campagne · 30 derniers jours",
+            sourceCoverage: `Meta Ads · Insights vidéo · campagne · ${periodDays} derniers jours`,
           },
         ),
       );
@@ -210,7 +211,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const comparisonCtr = ratio(metricValue(campaign.comparisonMetrics, "linkClicks"), metricValue(campaign.comparisonMetrics, "impressions"));
     const landingToLeadRate = ratio(metricValue(metrics, "leads"), metricValue(metrics, "landingPageViews"));
     const landingPageViews = metricValue(metrics, "landingPageViews");
-    if (ctr !== null && comparisonCtr !== null && landingToLeadRate !== null && ctr >= comparisonCtr && landingToLeadRate < VSL_LANDING_TO_LEAD_THRESHOLD && linkClicks !== null && linkClicks >= MIN_CLICKS && landingPageViews !== null && landingPageViews >= MIN_CLICKS) {
+    if (comparisonCoverageReady && ctr !== null && comparisonCtr !== null && landingToLeadRate !== null && ctr >= comparisonCtr && landingToLeadRate < VSL_LANDING_TO_LEAD_THRESHOLD && linkClicks !== null && linkClicks >= MIN_CLICKS && landingPageViews !== null && landingPageViews >= MIN_CLICKS) {
       proposals.push(
         baseProposal(
           campaign,
@@ -228,7 +229,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
             recommendedAction: "Vérifier vitesse, redirections, friction du formulaire, consentement et présence du tracking sur la landing page.",
             expectedImpact: "Récupérer des leads à partir du trafic déjà acheté avant de modifier la créa.",
             confidence: "medium",
-            sourceCoverage: "Meta Ads · clics, landing page views et leads · campagne · 30 derniers jours",
+            sourceCoverage: `Meta Ads · clics, landing page views et leads · campagne · ${periodDays} derniers jours`,
           },
         ),
       );
@@ -242,7 +243,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpend !== null ? comparisonSpend / comparisonLeads : null;
     const currentCashPerLead = campaign.cash?.available && campaign.cash.revenueCents !== null && currentLeads !== null && currentLeads > 0 ? campaign.cash.revenueCents / currentLeads : null;
     const comparisonCashPerLead = campaign.cash?.comparisonAvailable && campaign.cash.comparisonRevenueCents !== null && comparisonLeads !== null && comparisonLeads > 0 ? campaign.cash.comparisonRevenueCents / comparisonLeads : null;
-    if (currentCpl !== null && comparisonCpl !== null && currentCashPerLead !== null && comparisonCashPerLead !== null && Math.abs(currentCpl - comparisonCpl) / comparisonCpl <= VSL_CPL_STABILITY_THRESHOLD && currentCashPerLead < comparisonCashPerLead * (1 - VSL_CASH_PER_LEAD_DECLINE_THRESHOLD)) {
+    if (comparisonCoverageReady && currentCpl !== null && comparisonCpl !== null && currentCashPerLead !== null && comparisonCashPerLead !== null && Math.abs(currentCpl - comparisonCpl) / comparisonCpl <= VSL_CPL_STABILITY_THRESHOLD && currentCashPerLead < comparisonCashPerLead * (1 - VSL_CASH_PER_LEAD_DECLINE_THRESHOLD)) {
       proposals.push(
         baseProposal(
           campaign,
@@ -278,7 +279,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const comparisonProfileVisits = metricValue(campaign.comparisonMetrics, "profileVisits");
     const currentCostPerVisit = currentSpend !== null && profileVisits !== null && profileVisits > 0 ? currentSpend / profileVisits : null;
     const comparisonCostPerVisit = comparisonSpend !== null && comparisonProfileVisits !== null && comparisonProfileVisits > 0 ? comparisonSpend / comparisonProfileVisits : null;
-    if (observation?.connected && followRate !== null && profileVisits !== null && follows !== null && profileVisits >= MIN_PROFILE_VISITS && currentCostPerVisit !== null && comparisonCostPerVisit !== null && currentCostPerVisit < comparisonCostPerVisit * (1 - IG_COST_PER_VISIT_IMPROVEMENT_THRESHOLD) && followRate < IG_FOLLOW_RATE_THRESHOLD) {
+    if (comparisonCoverageReady && observation?.connected && followRate !== null && profileVisits !== null && follows !== null && profileVisits >= MIN_PROFILE_VISITS && currentCostPerVisit !== null && comparisonCostPerVisit !== null && currentCostPerVisit < comparisonCostPerVisit * (1 - IG_COST_PER_VISIT_IMPROVEMENT_THRESHOLD) && followRate < IG_FOLLOW_RATE_THRESHOLD) {
       proposals.push(
         baseProposal(
           campaign,
@@ -296,7 +297,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
             recommendedAction: "Tester une bio plus explicite, une preuve sociale visible et une créa qui préqualifie mieux la promesse.",
             expectedImpact: "Améliorer le taux visite → follow sans confondre les visites Meta avec les abonnements observés dans Instagram.",
             confidence: "low",
-            sourceCoverage: "Meta Ads + Instagram · visites profil attribuées, follows observés · campagne et période comparées",
+            sourceCoverage: `Meta Ads + Instagram · visites profil attribuées, follows observés · campagne et période comparées sur ${periodDays} jours`,
             provenance: provenance("meta+instagram", "estimee"),
           },
         ),
@@ -306,7 +307,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const previousFollows = observation?.comparison.follows ?? null;
     const currentEngagement = observation?.current.engagementPerFollower ?? null;
     const previousEngagement = observation?.comparison.engagementPerFollower ?? null;
-    if (observation?.connected && follows !== null && previousFollows !== null && currentEngagement !== null && previousEngagement !== null && follows > previousFollows * (1 + IG_FOLLOWS_GROWTH_THRESHOLD) && currentEngagement < previousEngagement * (1 - IG_ENGAGEMENT_DECLINE_THRESHOLD)) {
+    if (comparisonCoverageReady && observation?.connected && follows !== null && previousFollows !== null && currentEngagement !== null && previousEngagement !== null && follows > previousFollows * (1 + IG_FOLLOWS_GROWTH_THRESHOLD) && currentEngagement < previousEngagement * (1 - IG_ENGAGEMENT_DECLINE_THRESHOLD)) {
       proposals.push(
         baseProposal(
           campaign,
@@ -324,7 +325,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
             recommendedAction: "Resserrer la promesse de la créa et vérifier les contenus consommés par les nouveaux followers.",
             expectedImpact: "Améliorer la qualité de l’audience acquise, pas seulement le volume de followers.",
             confidence: "low",
-            sourceCoverage: "Instagram · follows et interactions observés · deux périodes comparées · non attribués à la campagne",
+            sourceCoverage: `Instagram · follows et interactions observés · deux périodes de ${periodDays} jours comparées · non attribués à la campagne`,
             provenance: provenance("meta+instagram", "estimee"),
           },
         ),
@@ -412,7 +413,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
         );
       }
     }
-    if (frequency !== null && comparisonFrequency !== null && ctr !== null && comparisonCtr !== null && currentCpa !== null && comparisonCpa !== null && frequency > comparisonFrequency * (1 + RETARGETING_FREQUENCY_INCREASE_THRESHOLD) && ctr < comparisonCtr * (1 - RETARGETING_CTR_DECLINE_THRESHOLD) && currentCpa > comparisonCpa * (1 + RETARGETING_CPA_INCREASE_THRESHOLD)) {
+    if (comparisonCoverageReady && frequency !== null && comparisonFrequency !== null && ctr !== null && comparisonCtr !== null && currentCpa !== null && comparisonCpa !== null && frequency > comparisonFrequency * (1 + RETARGETING_FREQUENCY_INCREASE_THRESHOLD) && ctr < comparisonCtr * (1 - RETARGETING_CTR_DECLINE_THRESHOLD) && currentCpa > comparisonCpa * (1 + RETARGETING_CPA_INCREASE_THRESHOLD)) {
       proposals.push(
         baseProposal(
           campaign,
@@ -430,7 +431,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
             recommendedAction: "Renouveler les créas et vérifier les exclusions d’acheteurs et de prospects déjà avancés dans Meta Ads.",
             expectedImpact: "Réduire la fatigue créative et éviter de payer plusieurs fois pour une audience déjà touchée.",
             confidence: "low",
-            sourceCoverage: "Meta Ads · deux périodes de 30 jours · reach directionnel, non dédupliqué par jour",
+            sourceCoverage: `Meta Ads · deux périodes de ${periodDays} jours · reach directionnel, non dédupliqué par jour`,
           },
         ),
       );
@@ -441,7 +442,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
 }
 
 export function buildMetaAdsInsights(data: MetaAdsDashboard): MetaInsightProposal[] {
-  return data.campaigns.flatMap(buildCampaignProposals);
+  return data.campaigns.flatMap((campaign) => buildCampaignProposals(campaign, data.period.days));
 }
 
 function toMaterializedInsight(

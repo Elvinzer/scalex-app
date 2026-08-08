@@ -91,6 +91,11 @@ describe("Meta Ads insight catalogue", () => {
     expect(buildMetaAdsInsights(data)).toHaveLength(0);
   });
 
+  it("freezes historical rules when the comparison period is incomplete", () => {
+    const data = dashboard({ id: "campaign", externalId: "c1", name: "VSL partial comparison", objective: "VIDEO_VIEWS", effectiveStatus: "ACTIVE", campaignType: "vsl", typeSource: "manual", comparisonMetricCoverageRate: 0.5, metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }), comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true }), latestDate: "2026-08-08" });
+    expect(buildMetaAdsInsights(data)).toHaveLength(0);
+  });
+
   it("requires all three trend signals before declaring retargeting saturation", () => {
     const current = totals({ spendCents: 20_000, impressions: 10_000, reach: 2_000, linkClicks: 100, leads: 10 }, { spendCents: true, impressions: true, reach: true, linkClicks: true, leads: true });
     const previous = totals({ spendCents: 10_000, impressions: 5_000, reach: 2_000, linkClicks: 100, leads: 10 }, { spendCents: true, impressions: true, reach: true, linkClicks: true, leads: true });

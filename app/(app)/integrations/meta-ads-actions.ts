@@ -56,7 +56,7 @@ export async function selectMetaAdAccount(externalId: string): Promise<{ error: 
   return { error: null };
 }
 
-export async function refreshMetaAdAccounts(): Promise<{ error: string | null; imported?: number }> {
+export async function refreshMetaAdAccounts(): Promise<{ error: string | null; imported?: number; syncTriggered?: boolean }> {
   let userId: string;
   try {
     userId = await requireUserId();
@@ -67,8 +67,17 @@ export async function refreshMetaAdAccounts(): Promise<{ error: string | null; i
   if (!access) return { error: "Seul le propriétaire peut actualiser Meta Ads." };
   try {
     const result = await syncMetaAdAccounts(access.accountId);
+    if (result.selectedAdAccountId) {
+      try {
+        await inngest.send(metaAdsSyncRequested.create({ userId: access.accountId }));
+      } catch (error) {
+        console.error("inngest.send(metaAdsSyncRequested) failed after Meta refresh", error);
+        return { error: "Les comptes Meta ont été actualisés, mais la synchronisation des campagnes n’a pas pu être relancée." };
+      }
+    }
     revalidatePath("/integrations");
-    return { error: null, imported: result.imported };
+    revalidatePath("/acquisition/ads");
+    return { error: null, imported: result.imported, syncTriggered: Boolean(result.selectedAdAccountId) };
   } catch {
     return { error: "Impossible de récupérer les comptes publicitaires Meta pour l'instant." };
   }
