@@ -1,6 +1,7 @@
 "use client";
 
 import { BarChart3, Check, ExternalLink, RefreshCw, Unplug } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -291,9 +292,9 @@ export function MetaAdsConnectionCard({
               <MetaAdsConsentDialog mode="read" href="/api/meta/connect" triggerLabel="Reconnecter Meta Ads" triggerVariant="outline" />
             )}
             <Button variant="outline" asChild>
-              <a href="/acquisition/ads">
+              <Link href="/acquisition/ads">
                 Voir les Ads <ExternalLink className="size-4" />
-              </a>
+              </Link>
             </Button>
             <Button variant="destructive" onClick={handleDisconnect} disabled={isPending}>
               <Unplug className="size-4" />

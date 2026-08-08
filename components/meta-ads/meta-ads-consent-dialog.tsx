@@ -93,7 +93,7 @@ export function MetaAdsConsentDialog({
           <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
             {isRead
               ? "Connexion chiffrée, révocable à tout moment. Aucun token Meta n’est envoyé au navigateur."
-              : "Le consentement est séparé de la lecture. Tu peux le refuser : la lecture reste active et le lien Meta reste disponible."}
+              : "Le consentement est séparé de la lecture. Tu peux le refuser : la lecture reste active et le lien Meta reste disponible. Pour le révoquer, utilise les paramètres Business Integrations de Meta ou déconnecte Meta Ads dans Scale X."}
           </p>
 
           <div className="flex flex-wrap justify-end gap-2">

@@ -1,4 +1,5 @@
 import { ArrowLeft, ExternalLink, Gauge, MousePointerClick, Play, UserPlus } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MetaCampaignActions } from "@/components/meta-ads/meta-campaign-actions";
@@ -12,6 +13,7 @@ import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getMetaCampaignDetail, metricValue } from "@/lib/meta-ads/queries";
+import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 import { formatPercent } from "@/lib/setting/funnel";
@@ -60,12 +62,13 @@ function creativeCpaCents(row: { metrics: Parameters<typeof metricValue>[0] }): 
   return spend !== null && leads !== null && leads > 0 ? spend / leads : null;
 }
 
-function Metric({ label, value, detail, provenance }: { label: string; value: string; detail: string; provenance?: string }) {
+function Metric({ label, value, detail, comparison, provenance }: { label: string; value: string; detail: string; comparison?: string; provenance?: string }) {
   return (
     <div className="sticker-card p-5">
       <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{label}</p>
       <p className="mt-3 text-2xl font-bold tabular-nums">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+      {comparison && <p className="mt-2 text-xs font-bold text-muted-foreground">{comparison}</p>}
       {provenance && <p className="mt-2 text-[11px] font-bold text-muted-foreground">{provenance}</p>}
     </div>
   );
@@ -136,10 +139,15 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   if (!detail) notFound();
 
   const metrics = detail.campaign.metrics;
+  const comparisonMetrics = detail.campaign.comparisonMetrics;
   const spendCents = metricValue(metrics, "spendCents");
+  const comparisonSpendCents = metricValue(comparisonMetrics, "spendCents");
   const impressions = metricValue(metrics, "impressions");
+  const comparisonImpressions = metricValue(comparisonMetrics, "impressions");
   const linkClicks = metricValue(metrics, "linkClicks");
+  const comparisonLinkClicks = metricValue(comparisonMetrics, "linkClicks");
   const leads = metricValue(metrics, "leads");
+  const comparisonLeads = metricValue(comparisonMetrics, "leads");
   const video3sViews = metricValue(metrics, "video3sViews");
   const videoThruplay = metricValue(metrics, "videoThruplay");
   const profileVisits = metricValue(metrics, "profileVisits");
@@ -147,8 +155,12 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const registrations = metricValue(metrics, "registrations");
   const purchaseValueCents = metricValue(metrics, "purchaseValueCents");
   const ctr = ratio(linkClicks, impressions);
+  const comparisonCtr = ratio(comparisonLinkClicks, comparisonImpressions);
   const cpl = leads !== null && leads > 0 && spendCents !== null ? spendCents / leads / 100 : null;
+  const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLeads / 100 : null;
   const metaRoas = purchaseValueCents !== null && spendCents !== null && spendCents > 0 ? purchaseValueCents / spendCents : null;
+  const comparisonPurchaseValueCents = metricValue(comparisonMetrics, "purchaseValueCents");
+  const comparisonRoas = comparisonPurchaseValueCents !== null && comparisonSpendCents !== null && comparisonSpendCents > 0 ? comparisonPurchaseValueCents / comparisonSpendCents : null;
   const maxSpend = Math.max(1, ...detail.daily.map((point) => point.spendCents ?? 0));
   const targets = detail.campaign.targets ?? { targetCpaCents: null, targetRoas: null, leadValueCents: null };
   const targetCpaEuros = targets.targetCpaCents === null ? null : targets.targetCpaCents / 100;
@@ -201,7 +213,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Button variant="ghost" asChild className="mb-3 -ml-2">
-            <a href="/acquisition/ads"><ArrowLeft className="size-4" />Retour aux Ads</a>
+            <Link href="/acquisition/ads"><ArrowLeft className="size-4" />Retour aux Ads</Link>
           </Button>
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Meta Ads · {typeLabel(detail.campaign.campaignType)}</p>
           <h1 className="mt-1 text-3xl font-bold">{detail.campaign.name}</h1>
@@ -257,10 +269,10 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-        <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} provenance="Meta · brute · directe" />
-        <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} provenance="Meta · dérivée · directe" />
-        <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[`${leads === null ? "—" : leads.toLocaleString("fr-FR")} lead(s)`, leadValueLabel, targetCpaEuros === null ? null : `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} provenance="Meta · dérivée · directe" />
-        <Metric label="ROAS Meta" value={metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={[purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} provenance="Meta · dérivée · directe" />
+        <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance="Meta · brute · directe" />
+        <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance="Meta · dérivée · directe" />
+        <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[`${leads === null ? "—" : leads.toLocaleString("fr-FR")} lead(s)`, leadValueLabel, targetCpaEuros === null ? null : `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={trendLabel(cpl, comparisonCpl)} provenance="Meta · dérivée · directe" />
+        <Metric label="ROAS Meta" value={metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={[purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={trendLabel(metaRoas, comparisonRoas)} provenance="Meta · dérivée · directe" />
         <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance="Stripe + Meta · dérivée · jointe" />
         <Metric label="Statut" value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? "Budget Meta non exposé" : `${formatEur(detail.campaign.dailyBudgetCents / 100)} / jour`} provenance="Meta · brute · directe" />
       </div>

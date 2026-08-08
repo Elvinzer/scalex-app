@@ -2,6 +2,7 @@ import { ArrowUpRight, BarChart3, Eye, MousePointerClick, Play, UserPlus } from 
 
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
+import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { META_PERIOD_OPTIONS } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
 import { metricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaInstagramObservation, type MetaMetricTotals } from "@/lib/meta-ads/queries";
@@ -55,7 +56,7 @@ function statusLabel(status: string | null): string {
   return status.toLowerCase().replaceAll("_", " ");
 }
 
-function Kpi({ label, value, detail, provenance, icon }: { label: string; value: string; detail: string; provenance: string; icon: React.ReactNode }) {
+function Kpi({ label, value, detail, comparison, provenance, icon }: { label: string; value: string; detail: string; comparison: string; provenance: string; icon: React.ReactNode }) {
   return (
     <div className="sticker-card p-5">
       <div className="flex items-center justify-between text-muted-foreground">
@@ -64,6 +65,7 @@ function Kpi({ label, value, detail, provenance, icon }: { label: string; value:
       </div>
       <p className="mt-3 text-2xl font-bold tabular-nums">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+      <p className="mt-2 text-xs font-bold text-muted-foreground">{comparison}</p>
       <p className="mt-2 text-[11px] font-bold text-muted-foreground">{provenance}</p>
     </div>
   );
@@ -270,12 +272,19 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
 
 export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
   const spendCents = metricValue(data.totals, "spendCents");
+  const comparisonSpendCents = metricValue(data.comparisonTotals, "spendCents");
   const impressions = metricValue(data.totals, "impressions");
+  const comparisonImpressions = metricValue(data.comparisonTotals, "impressions");
   const linkClicks = metricValue(data.totals, "linkClicks");
+  const comparisonLinkClicks = metricValue(data.comparisonTotals, "linkClicks");
   const leads = metricValue(data.totals, "leads");
+  const comparisonLeads = metricValue(data.comparisonTotals, "leads");
   const ctr = impressions !== null && linkClicks !== null ? ratio(linkClicks, impressions) : null;
+  const comparisonCtr = comparisonImpressions !== null && comparisonLinkClicks !== null ? ratio(comparisonLinkClicks, comparisonImpressions) : null;
   const cpl = leads !== null && leads > 0 && spendCents !== null ? spendCents / leads / 100 : null;
+  const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLeads / 100 : null;
   const cpm = impressions !== null && impressions > 0 && spendCents !== null ? (spendCents / impressions) * 1000 / 100 : null;
+  const comparisonCpm = comparisonImpressions !== null && comparisonImpressions > 0 && comparisonSpendCents !== null ? (comparisonSpendCents / comparisonImpressions) * 1000 / 100 : null;
   const campaignTypes = [...new Set(data.campaigns.map((campaign) => campaign.campaignType).filter((type) => type !== "other"))];
   const primaryType = campaignTypes.length === 1 ? campaignTypes[0]! : "other";
   const coverageValues = data.campaigns.map((campaign) => campaign.metricCoverageRate).filter((value): value is number => value !== null && value !== undefined);
@@ -319,10 +328,10 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : number(impressions)} impressions`} provenance="Meta · brute · directe" icon={<Eye className="size-4" />} />
-        <Kpi label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : number(linkClicks)} clics lien`} provenance="Meta · dérivée · directe" icon={<MousePointerClick className="size-4" />} />
-        <Kpi label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[`${leads === null ? "—" : number(leads)} lead(s) mesuré(s)`, cplTargetCount > 0 ? `${number(cplTargetCount)} cible(s) par campagne` : null].filter(Boolean).join(" · ")} provenance="Meta · dérivée · directe" icon={<UserPlus className="size-4" />} />
-        <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" provenance="Meta · dérivée · directe" icon={<BarChart3 className="size-4" />} />
+        <Kpi label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : number(impressions)} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance="Meta · brute · directe" icon={<Eye className="size-4" />} />
+        <Kpi label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : number(linkClicks)} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance="Meta · dérivée · directe" icon={<MousePointerClick className="size-4" />} />
+        <Kpi label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[`${leads === null ? "—" : number(leads)} lead(s) mesuré(s)`, cplTargetCount > 0 ? `${number(cplTargetCount)} cible(s) par campagne` : null].filter(Boolean).join(" · ")} comparison={trendLabel(cpl, comparisonCpl)} provenance="Meta · dérivée · directe" icon={<UserPlus className="size-4" />} />
+        <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" comparison={trendLabel(cpm, comparisonCpm)} provenance="Meta · dérivée · directe" icon={<BarChart3 className="size-4" />} />
       </div>
 
       {data.connection.initialSyncStatus !== "completed" && (
