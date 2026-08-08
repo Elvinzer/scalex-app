@@ -12,6 +12,12 @@ import { requireOwner } from "@/lib/team/context";
 import { requireEnv } from "@/lib/utils";
 
 const STATE_COOKIE = "meta_ads_oauth_state";
+const RETURN_COOKIE = "meta_ads_return_to";
+
+function safeReturnPath(value: string | null): string | null {
+  if (value === "/acquisition/ads" || value === "/integrations") return value;
+  return null;
+}
 
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
@@ -28,6 +34,7 @@ export async function GET(request: NextRequest) {
   if (!(await hasActiveSubscription(access.accountId))) {
     return NextResponse.redirect(new URL("/integrations", origin));
   }
+  const returnTo = safeReturnPath(request.nextUrl.searchParams.get("return_to"));
 
   const appId = requireEnv("META_APP_ID");
   const appSecret = requireEnv("META_APP_SECRET");
@@ -48,5 +55,16 @@ export async function GET(request: NextRequest) {
     maxAge: 600,
     path: "/",
   });
+  if (returnTo) {
+    response.cookies.set(RETURN_COOKIE, returnTo, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 600,
+      path: "/",
+    });
+  } else {
+    response.cookies.delete(RETURN_COOKIE);
+  }
   return response;
 }

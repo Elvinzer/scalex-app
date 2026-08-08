@@ -62,7 +62,7 @@
 - [x] 7.6 Implémenter l'analyse audiences et placements avec drill-down et avertissements seuillés
 - [x] 7.7 Implémenter `/acquisition/ads/[campaignId]` : header, résumé économique, ensembles, publicités, créatifs, historique
 - [x] 7.8 Implémenter le constructeur de deep-link serveur (ad → adset → campaign → compte) avec validation d'appartenance et ouverture externe sécurisée
-- [ ] 7.9 Vérifier responsive 1440 / tablette / 390, clavier, focus, reduced motion et CTA corail unique — contrôles statiques passés ; parcours authentifié à rejouer avec un compte de test.
+- [x] 7.9 Vérifier responsive 1440 / tablette / 390, clavier, focus, reduced motion et CTA corail unique — fixture Meta Ads locale vérifiée avec `agent-browser` à 1440 / 768 / 390 px : aucune largeur horizontale, axe sans violation, focus clavier et `prefers-reduced-motion` contrôlés ; le parcours authentifié relève de 11.4.
 
 ## 8. Insights
 

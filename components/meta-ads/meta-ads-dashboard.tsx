@@ -14,6 +14,10 @@ function number(value: number): string {
   return numberFormatter.format(value);
 }
 
+function metricProvenance(calculation: "brute" | "dérivée", available: boolean): string {
+  return `Meta · ${calculation} · ${available ? "directe" : "indisponible"}`;
+}
+
 const CORRECTION_FIELDS = [
   ["spendCents", "Dépenses"],
   ["impressions", "Impressions"],
@@ -281,6 +285,8 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
   const comparisonLeads = metricValue(data.comparisonTotals, "leads");
   const ctr = impressions !== null && linkClicks !== null ? ratio(linkClicks, impressions) : null;
   const comparisonCtr = comparisonImpressions !== null && comparisonLinkClicks !== null ? ratio(comparisonLinkClicks, comparisonImpressions) : null;
+  const cpc = linkClicks !== null && linkClicks > 0 && spendCents !== null ? spendCents / linkClicks / 100 : null;
+  const comparisonCpc = comparisonLinkClicks !== null && comparisonLinkClicks > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLinkClicks / 100 : null;
   const cpl = leads !== null && leads > 0 && spendCents !== null ? spendCents / leads / 100 : null;
   const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLeads / 100 : null;
   const cpm = impressions !== null && impressions > 0 && spendCents !== null ? (spendCents / impressions) * 1000 / 100 : null;
@@ -337,11 +343,12 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : number(impressions)} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance="Meta · brute · directe" icon={<Eye className="size-4" />} />
-        <Kpi label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : number(linkClicks)} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance="Meta · dérivée · directe" icon={<MousePointerClick className="size-4" />} />
-        <Kpi label="Coût / lead" value={!cplApplicable || cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, cplTargetCount > 0 ? `${number(cplTargetCount)} cible(s) par campagne` : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl) : "Non applicable"} provenance="Meta · dérivée · directe" icon={<UserPlus className="size-4" />} />
-        <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" comparison={trendLabel(cpm, comparisonCpm)} provenance="Meta · dérivée · directe" icon={<BarChart3 className="size-4" />} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Kpi label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : number(impressions)} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance={metricProvenance("brute", spendCents !== null)} icon={<Eye className="size-4" />} />
+        <Kpi label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : number(linkClicks)} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance={metricProvenance("dérivée", ctr !== null)} icon={<MousePointerClick className="size-4" />} />
+        <Kpi label="CPC lien" value={cpc === null ? "—" : formatEur(cpc)} detail="Coût par clic sortant" comparison={trendLabel(cpc, comparisonCpc)} provenance={metricProvenance("dérivée", cpc !== null)} icon={<MousePointerClick className="size-4" />} />
+        <Kpi label="Coût / lead" value={!cplApplicable || cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, cplTargetCount > 0 ? `${number(cplTargetCount)} cible(s) par campagne` : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl) : "Non applicable"} provenance={metricProvenance("dérivée", cplApplicable && cpl !== null)} icon={<UserPlus className="size-4" />} />
+        <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" comparison={trendLabel(cpm, comparisonCpm)} provenance={metricProvenance("dérivée", cpm !== null)} icon={<BarChart3 className="size-4" />} />
       </div>
 
       {data.connection.initialSyncStatus !== "completed" && (

@@ -77,6 +77,15 @@ function Metric({ label, value, detail, comparison, provenance }: { label: strin
   );
 }
 
+function metricProvenance(
+  source: string,
+  calculation: "brute" | "dérivée",
+  available: boolean,
+  attribution: "directe" | "jointe" = "directe",
+): string {
+  return `${source} · ${calculation} · ${available ? attribution : "indisponible"}`;
+}
+
 function ProgressRow({ label, numerator, denominator }: { label: string; numerator: number | null; denominator: number | null }) {
   const rate = ratio(numerator, denominator);
   const width = rate === null ? 0 : Math.min(100, Math.max(3, rate * 100));
@@ -168,6 +177,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const purchaseValueCents = metricValue(metrics, "purchaseValueCents");
   const ctr = ratio(linkClicks, impressions);
   const comparisonCtr = ratio(comparisonLinkClicks, comparisonImpressions);
+  const cpc = linkClicks !== null && linkClicks > 0 && spendCents !== null ? spendCents / linkClicks / 100 : null;
+  const comparisonCpc = comparisonLinkClicks !== null && comparisonLinkClicks > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLinkClicks / 100 : null;
   const cpl = leads !== null && leads > 0 && spendCents !== null ? spendCents / leads / 100 : null;
   const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLeads / 100 : null;
   const cplDetail = detail.campaign.campaignType === "instagram_profile_growth"
@@ -316,13 +327,14 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         suggestedLeadValueCents={mainOffer?.price === null || mainOffer?.price === undefined ? null : Math.round(mainOffer.price * 100)}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-        <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance="Meta · brute · directe" />
-        <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance="Meta · dérivée · directe" />
-        <Metric label="Coût / lead" value={!cplApplicable || cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, cplApplicable ? leadValueLabel : null, cplApplicable && targetCpaEuros !== null ? `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}` : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl) : "Non applicable"} provenance="Meta · dérivée · directe" />
-        <Metric label="ROAS Meta" value={instagramGrowth ? "—" : metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={instagramGrowth ? "Non applicable pour une campagne de croissance Instagram · objectif profil" : [purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={instagramGrowth ? "Non applicable" : trendLabel(metaRoas, comparisonRoas)} provenance="Meta · dérivée · directe" />
-        <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance="Stripe + Meta · dérivée · jointe" />
-        <Metric label="Statut" value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? "Budget Meta non exposé" : `${formatEur(detail.campaign.dailyBudgetCents / 100)} / jour`} provenance="Meta · brute · directe" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
+        <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance={metricProvenance("Meta", "brute", spendCents !== null)} />
+        <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance={metricProvenance("Meta", "dérivée", ctr !== null)} />
+        <Metric label="CPC lien" value={cpc === null ? "—" : formatEur(cpc)} detail="Coût par clic sortant" comparison={trendLabel(cpc, comparisonCpc)} provenance={metricProvenance("Meta", "dérivée", cpc !== null)} />
+        <Metric label="Coût / lead" value={!cplApplicable || cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, cplApplicable ? leadValueLabel : null, cplApplicable && targetCpaEuros !== null ? `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}` : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl) : "Non applicable"} provenance={metricProvenance("Meta", "dérivée", cplApplicable && cpl !== null)} />
+        <Metric label="ROAS Meta" value={instagramGrowth ? "—" : metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={instagramGrowth ? "Non applicable pour une campagne de croissance Instagram · objectif profil" : [purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={instagramGrowth ? "Non applicable" : trendLabel(metaRoas, comparisonRoas)} provenance={metricProvenance("Meta", "dérivée", !instagramGrowth && metaRoas !== null)} />
+        <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance={metricProvenance("Stripe + Meta", "dérivée", attribution.revenueCents !== null, "jointe")} />
+        <Metric label="Statut" value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? "Budget Meta non exposé" : `${formatEur(detail.campaign.dailyBudgetCents / 100)} / jour`} provenance={metricProvenance("Meta", "brute", detail.campaign.effectiveStatus !== null)} />
       </div>
 
       <section className="sticker-card p-6" aria-labelledby="attribution-quality-title">
@@ -344,13 +356,16 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           <Metric label="Leads reliés" value={attribution.leads.toLocaleString("fr-FR")} detail="Formulaires attribués" provenance="Scale X · brute · jointe" />
           <Metric label="Appels reliés" value={attribution.bookedCalls.toLocaleString("fr-FR")} detail={`${attribution.closedCalls.toLocaleString("fr-FR")} closé(s)`} provenance="Scale X · brute · jointe" />
           <Metric label="Ventes reliées" value={attribution.sales.toLocaleString("fr-FR")} detail="Ventes avec touchpoint" provenance="Scale X · brute · jointe" />
-          <Metric label="CA attribué" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante ou aucune vente reliée" : "Ventes reliées uniquement"} provenance="Meta + Stripe · dérivée · jointe" />
+          <Metric label="CA attribué" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante ou aucune vente reliée" : "Ventes reliées uniquement"} provenance={metricProvenance("Meta + Stripe", "dérivée", attribution.revenueCents !== null, "jointe")} />
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           Niveau des touchpoints sur la période : {attribution.levels.ad} ad ({attribution.levelCoverage.ad === null ? "—" : formatPercent(attribution.levelCoverage.ad)}) · {attribution.levels.adset} ensemble ({attribution.levelCoverage.adset === null ? "—" : formatPercent(attribution.levelCoverage.adset)}) · {attribution.levels.campaign} campagne ({attribution.levelCoverage.campaign === null ? "—" : formatPercent(attribution.levelCoverage.campaign)}) · {attribution.levels.utm_seul} UTM seul ({attribution.levelCoverage.utm_seul === null ? "—" : formatPercent(attribution.levelCoverage.utm_seul)}).
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           Couverture des ventes du compte sur la période : {attribution.coverageRate === null ? "—" : formatPercent(attribution.coverageRate)} · {attribution.unattributedSalesInPeriod} vente(s) non rattachée(s) sur {attribution.salesInPeriod}.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Stripe reste consulté en lecture seule : Scale X n&apos;écrit pas de metadata après paiement. Les ventes sans touchpoint explicite restent non rattachées.
         </p>
       </section>
 

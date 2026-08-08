@@ -25,7 +25,7 @@ const RETURN_COOKIE = "meta_ads_return_to";
 
 function safeReturnPath(value: string | undefined): string | null {
   if (!value || !value.startsWith("/")) return null;
-  if (value.startsWith("/acquisition/ads/meta/") || value === "/integrations") return value;
+  if (value === "/acquisition/ads" || value.startsWith("/acquisition/ads/meta/") || value === "/integrations") return value;
   return null;
 }
 

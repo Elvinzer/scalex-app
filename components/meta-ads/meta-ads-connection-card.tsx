@@ -34,6 +34,7 @@ type Props = {
   accounts: MetaAdAccountOption[];
   subscriptionActive: boolean;
   connectionNotice?: string | null;
+  returnTo?: string;
 };
 
 function maskedAccountId(externalId: string): string {
@@ -52,6 +53,7 @@ export function MetaAdsConnectionCard({
   accounts,
   subscriptionActive,
   connectionNotice,
+  returnTo,
 }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,7 @@ export function MetaAdsConnectionCard({
   const hasWriteAccess = grantedScopes.includes("ads_management");
   const readableAccounts = accounts.filter((account) => account.canRead);
   const selectedAccount = accounts.find((account) => account.externalId === selectedAdAccountId) ?? null;
+  const readConnectHref = returnTo ? `/api/meta/connect?return_to=${encodeURIComponent(returnTo)}` : "/api/meta/connect";
 
   function handleRefresh() {
     setError(null);
@@ -123,7 +126,11 @@ export function MetaAdsConnectionCard({
             </p>
           )}
           {subscriptionActive ? (
-            <MetaAdsConsentDialog mode="read" href="/api/meta/connect" triggerLabel="Reconnecter Meta Ads" />
+            <MetaAdsConsentDialog
+              mode="read"
+              href={readConnectHref}
+              triggerLabel={connectionStatus === "disconnected" ? "Reconnecter Meta Ads" : "Connecter Meta Ads"}
+            />
           ) : (
             <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
               Un abonnement actif est nécessaire pour connecter Meta Ads.
@@ -289,7 +296,7 @@ export function MetaAdsConnectionCard({
           )}
           <div className="mt-4 flex flex-wrap gap-2">
             {connectionStatus !== "connected" && (
-              <MetaAdsConsentDialog mode="read" href="/api/meta/connect" triggerLabel="Reconnecter Meta Ads" triggerVariant="outline" />
+              <MetaAdsConsentDialog mode="read" href={readConnectHref} triggerLabel="Reconnecter Meta Ads" triggerVariant="outline" />
             )}
             <Button variant="outline" asChild>
               <Link href="/acquisition/ads">

@@ -1,15 +1,20 @@
+import { and, eq } from "drizzle-orm";
 import { Plus } from "lucide-react";
 import { after } from "next/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
 import { KpiTile } from "@/components/kpi-tile";
+import { MetaAdsConnectionCard, type MetaAdAccountOption } from "@/components/meta-ads/meta-ads-connection-card";
 import { MetaAdsDashboard } from "@/components/meta-ads/meta-ads-dashboard";
 import { Button } from "@/components/ui/button";
+import { db } from "@/db";
+import { metaAdAccounts, metaAdsConnections } from "@/db/schema";
 import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
@@ -22,7 +27,7 @@ import { getLeverStatus } from "@/lib/levers/status";
 import { getMetaAdsDashboard, metricValue } from "@/lib/meta-ads/queries";
 import { normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
-import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { requireOwner, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { AdCopyTrigger } from "./ad-copy-trigger";
 import { CampaignFormDialog } from "./campaign-form-dialog";
@@ -34,16 +39,55 @@ const LEVER_KEY = "ads";
 // approach as every other benchmark in lib/levers/opportunities.ts.
 const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
 
-export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string }> }) {
+export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_ads?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
-  const periodDays = normalizeMetaPeriodDays((await searchParams).meta_days);
-  const [campaigns, profile, lever, metaDashboard] = await Promise.all([
+  const search = await searchParams;
+  const periodDays = normalizeMetaPeriodDays(search.meta_days);
+  const ownerAccess = await requireOwner(userId);
+  const [campaigns, profile, lever, metaDashboard, metaConnectionRows, metaAdAccountRows, subscriptionActive] = await Promise.all([
     getAdCampaigns(accountId),
     getBusinessProfile(accountId),
     getLeverStatus(accountId, LEVER_KEY),
     getMetaAdsDashboard(accountId, periodDays),
+    ownerAccess
+      ? db.select().from(metaAdsConnections).where(eq(metaAdsConnections.userId, accountId)).limit(1)
+      : Promise.resolve([]),
+    ownerAccess
+      ? db
+          .select({
+            externalId: metaAdAccounts.externalId,
+            name: metaAdAccounts.name,
+            currency: metaAdAccounts.currency,
+            timezone: metaAdAccounts.timezone,
+            canRead: metaAdAccounts.canRead,
+            disableReason: metaAdAccounts.disableReason,
+          })
+          .from(metaAdAccounts)
+          .innerJoin(metaAdsConnections, eq(metaAdsConnections.id, metaAdAccounts.connectionId))
+          .where(and(eq(metaAdAccounts.userId, accountId), eq(metaAdsConnections.userId, accountId)))
+      : Promise.resolve([]),
+    ownerAccess ? hasActiveSubscription(accountId) : Promise.resolve(false),
   ]);
+  const [metaConnection] = metaConnectionRows;
+  const metaAccounts: MetaAdAccountOption[] = metaAdAccountRows;
+  const metaAdsConnected = Boolean(metaConnection && metaConnection.status !== "disconnected");
+  const metaConnectionCard = ownerAccess && (!metaDashboard || metaConnection?.status !== "connected") ? (
+    <MetaAdsConnectionCard
+      connected={metaAdsConnected}
+      connectionStatus={metaConnection?.status ?? null}
+      metaUserName={metaConnection?.metaUserName ?? null}
+      selectedAdAccountId={metaConnection?.selectedAdAccountId ?? null}
+      initialSyncStatus={metaConnection?.initialSyncStatus ?? null}
+      initialSyncCompletedAt={metaConnection?.initialSyncCompletedAt ?? null}
+      lastSyncCompletedAt={metaConnection?.lastSyncCompletedAt ?? null}
+      grantedScopes={metaConnection?.grantedScopes ?? []}
+      accounts={metaAccounts}
+      subscriptionActive={subscriptionActive}
+      connectionNotice={search.meta_ads ?? null}
+      returnTo="/acquisition/ads"
+    />
+  ) : null;
 
   const mode: "optimiser" | "demarrer" =
     campaigns.length > 0 || metaDashboard !== null || lever.status === "active" ? "optimiser" : "demarrer";
@@ -73,6 +117,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
             <h1 className="text-3xl font-bold">Ads</h1>
             <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
           </div>
+          {metaConnectionCard}
           <div className="sticker-card-dashed p-6 text-center">
             <p className="text-sm font-bold">Pas prioritaire pour l&apos;instant</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -100,6 +145,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
           <h1 className="text-3xl font-bold">Ads</h1>
           <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
         </div>
+        {metaConnectionCard}
         {impact && (
           <LeverImpactEstimate
             amountEur={impact.amountEur}
@@ -161,6 +207,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
         </div>
       </div>
 
+      {metaConnectionCard}
       {metaDashboard && <MetaAdsDashboard data={metaDashboard} />}
 
       {metaDashboard && (
