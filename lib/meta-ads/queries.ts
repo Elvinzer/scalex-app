@@ -387,7 +387,7 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
   const [account] = await db
     .select()
     .from(metaAdAccounts)
-    .where(and(eq(metaAdAccounts.userId, accountId), eq(metaAdAccounts.externalId, connection.selectedAdAccountId)))
+    .where(and(eq(metaAdAccounts.userId, accountId), eq(metaAdAccounts.connectionId, connection.id), eq(metaAdAccounts.externalId, connection.selectedAdAccountId)))
     .limit(1);
   if (!account) return null;
 

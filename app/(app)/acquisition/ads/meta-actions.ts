@@ -150,6 +150,7 @@ async function markMetaWritePermissionMissing(accountId: string): Promise<void> 
 
 async function loadMetaActionTarget(params: {
   accountId: string;
+  connectionId: string;
   selectedAdAccountExternalId: string;
   entityType: MetaActionEntityType;
   entityId: string;
@@ -160,6 +161,7 @@ async function loadMetaActionTarget(params: {
     .where(
       and(
         eq(metaAdAccounts.userId, params.accountId),
+        eq(metaAdAccounts.connectionId, params.connectionId),
         eq(metaAdAccounts.externalId, params.selectedAdAccountExternalId),
       ),
     )
@@ -311,7 +313,7 @@ export async function setMetaCampaignType(input: unknown): Promise<{ error: stri
   const [selectedAccount] = await db
     .select({ id: metaAdAccounts.id, canRead: metaAdAccounts.canRead })
     .from(metaAdAccounts)
-    .where(and(eq(metaAdAccounts.userId, access.accountId), eq(metaAdAccounts.externalId, connection.selectedAdAccountId)))
+    .where(and(eq(metaAdAccounts.userId, access.accountId), eq(metaAdAccounts.connectionId, connection.id), eq(metaAdAccounts.externalId, connection.selectedAdAccountId)))
     .limit(1);
   if (!selectedAccount?.canRead) return { error: "Compte publicitaire Meta introuvable ou indisponible." };
 
@@ -368,7 +370,7 @@ export async function setMetaCampaignTargets(input: unknown): Promise<{ error: s
   const [selectedAccount] = await db
     .select({ id: metaAdAccounts.id, canRead: metaAdAccounts.canRead })
     .from(metaAdAccounts)
-    .where(and(eq(metaAdAccounts.userId, access.accountId), eq(metaAdAccounts.externalId, connection.selectedAdAccountId)))
+    .where(and(eq(metaAdAccounts.userId, access.accountId), eq(metaAdAccounts.connectionId, connection.id), eq(metaAdAccounts.externalId, connection.selectedAdAccountId)))
     .limit(1);
   if (!selectedAccount?.canRead) return { error: "Compte publicitaire Meta introuvable ou indisponible." };
 
@@ -445,7 +447,7 @@ export async function createMetaCampaignTrackingLink(input: unknown): Promise<Me
   const [selectedAccount] = await db
     .select({ id: metaAdAccounts.id, canRead: metaAdAccounts.canRead })
     .from(metaAdAccounts)
-    .where(and(eq(metaAdAccounts.userId, access.accountId), eq(metaAdAccounts.externalId, connection.selectedAdAccountId)))
+    .where(and(eq(metaAdAccounts.userId, access.accountId), eq(metaAdAccounts.connectionId, connection.id), eq(metaAdAccounts.externalId, connection.selectedAdAccountId)))
     .limit(1);
   if (!selectedAccount?.canRead) return { error: "Compte publicitaire Meta introuvable ou indisponible." };
 
@@ -498,6 +500,7 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
   if (!targetId) return { error: "La cible Meta est introuvable." };
   const target = await loadMetaActionTarget({
     accountId: access.accountId,
+    connectionId: connection.id,
     selectedAdAccountExternalId: connection.selectedAdAccountId,
     entityType: parsed.data.entityType,
     entityId: targetId,

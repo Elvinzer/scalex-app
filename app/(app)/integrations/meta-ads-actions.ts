@@ -28,17 +28,24 @@ export async function selectMetaAdAccount(externalId: string): Promise<{ error: 
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Compte invalide." };
 
   const normalized = parsed.data.startsWith("act_") ? parsed.data : `act_${parsed.data}`;
+  const [connection] = await db
+    .select({ id: metaAdsConnections.id, status: metaAdsConnections.status })
+    .from(metaAdsConnections)
+    .where(eq(metaAdsConnections.userId, access.accountId))
+    .limit(1);
+  if (!connection) return { error: "La connexion Meta Ads est introuvable. Reconnecte Meta Ads." };
+  if (connection.status === "disconnected") return { error: "Reconnecte Meta Ads avant de sélectionner un compte publicitaire." };
   const [account] = await db
     .select({ id: metaAdAccounts.id, canRead: metaAdAccounts.canRead })
     .from(metaAdAccounts)
-    .where(and(eq(metaAdAccounts.userId, access.accountId), eq(metaAdAccounts.externalId, normalized)))
+    .where(and(eq(metaAdAccounts.userId, access.accountId), eq(metaAdAccounts.connectionId, connection.id), eq(metaAdAccounts.externalId, normalized)))
     .limit(1);
   if (!account?.canRead) return { error: "Ce compte publicitaire n'est pas disponible dans ta connexion Meta." };
 
   await db
     .update(metaAdsConnections)
     .set({ selectedAdAccountId: normalized, initialSyncStatus: "pending", lastSyncError: null, updatedAt: new Date() })
-    .where(eq(metaAdsConnections.userId, access.accountId));
+    .where(eq(metaAdsConnections.id, connection.id));
   try {
     await inngest.send(metaAdsSyncRequested.create({ userId: access.accountId }));
   } catch (error) {

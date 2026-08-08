@@ -16,7 +16,16 @@ export const META_ACTION_TYPES = ["pause", "resume", "set_daily_budget"] as cons
 
 export type MetaActionType = (typeof META_ACTION_TYPES)[number];
 
-export const META_ACTION_STATUSES = ["requested", "succeeded", "failed", "blocked"] as const;
+export const META_ACTION_STATUSES = [
+  "requested",
+  "in_progress",
+  "succeeded",
+  "failed",
+  "permission_insufficient",
+  "changed_between_proposal",
+  "unknown",
+  "blocked",
+] as const;
 
 export type MetaActionStatus = (typeof META_ACTION_STATUSES)[number];
 

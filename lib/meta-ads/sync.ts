@@ -440,7 +440,7 @@ export async function syncSelectedMetaAdAccount(
   const [account] = await db
     .select()
     .from(metaAdAccounts)
-    .where(and(eq(metaAdAccounts.userId, userId), eq(metaAdAccounts.externalId, normalizeAdAccountId(selectedId))))
+    .where(and(eq(metaAdAccounts.userId, userId), eq(metaAdAccounts.connectionId, connection.id), eq(metaAdAccounts.externalId, normalizeAdAccountId(selectedId))))
     .limit(1);
   if (!account) throw new Error("Le compte publicitaire Meta sélectionné est introuvable.");
   if (!account.canRead) throw new Error("Le compte publicitaire Meta sélectionné n'est plus accessible en lecture.");

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
@@ -83,7 +83,8 @@ export default async function IntegrationsPage({
     db
       .select({ externalId: metaAdAccounts.externalId, name: metaAdAccounts.name, currency: metaAdAccounts.currency, timezone: metaAdAccounts.timezone, canRead: metaAdAccounts.canRead, disableReason: metaAdAccounts.disableReason })
       .from(metaAdAccounts)
-      .where(eq(metaAdAccounts.userId, accountId)),
+      .innerJoin(metaAdsConnections, eq(metaAdsConnections.id, metaAdAccounts.connectionId))
+      .where(and(eq(metaAdAccounts.userId, accountId), eq(metaAdsConnections.userId, accountId))),
     hasActiveSubscription(accountId),
   ]);
   const metaAccounts: MetaAdAccountOption[] = metaAdAccountRows;

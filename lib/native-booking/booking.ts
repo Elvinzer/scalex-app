@@ -17,7 +17,7 @@ import {
 } from "@/db/schema";
 import { inngest, nativeBookingCalendarSyncRequested } from "@/lib/inngest/client";
 import { decrypt, encrypt } from "@/lib/crypto";
-import { resolveMetaTouchpoint } from "@/lib/meta-ads/attribution";
+import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 
 import { generateBookingSlots } from "./slots";
 import {
@@ -125,7 +125,18 @@ async function createNativeBookingInternal(handle: string, slug: string, request
   const requestedStart = new Date(request.startAt);
   const requestedEnd = new Date(requestedStart.getTime() + eventRow.durationMinutes * 60_000);
   const safeUtm = sanitizeUtm(request.utm);
-  const metaAttribution = await resolveMetaTouchpoint(eventRow.userId, request.metaTouchpointToken);
+  const metaAttribution = await resolveMetaTouchpoint(eventRow.userId, request.metaTouchpointToken) ??
+    (await resolveMetaTouchpointFromIdentifiers({
+      userId: eventRow.userId,
+      campaignExternalId: request.metaCampaignExternalId,
+      adSetExternalId: request.metaAdSetExternalId,
+      adExternalId: request.metaAdExternalId,
+    })) ??
+    (await resolveMetaTouchpointFromUtm({
+      userId: eventRow.userId,
+      utmCampaign: safeUtm.utm_campaign,
+      utmContent: safeUtm.utm_content,
+    }));
 
   const calendarCandidates = await db
     .select({ closerUserId: nativeBookingEventClosers.closerUserId })

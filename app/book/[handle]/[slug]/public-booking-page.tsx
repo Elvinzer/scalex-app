@@ -136,6 +136,9 @@ function getUtmMetadata() {
     referrer: document.referrer || null,
     linkId: params.get("link") ?? params.get("link_id"),
     metaTouchpointToken: tracking.metaTouchpointToken,
+    metaCampaignExternalId: tracking.metaCampaignExternalId,
+    metaAdSetExternalId: tracking.metaAdSetExternalId,
+    metaAdExternalId: tracking.metaAdExternalId,
     utm: getUtmFromUrl(),
   };
 }
@@ -332,6 +335,9 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
       phone: phoneCandidate(contact.phone, countryCode),
       email: contact.email.trim(),
       metaTouchpointToken: tracking.metaTouchpointToken ?? metaTouchpointToken,
+      metaCampaignExternalId: tracking.metaCampaignExternalId,
+      metaAdSetExternalId: tracking.metaAdSetExternalId,
+      metaAdExternalId: tracking.metaAdExternalId,
     };
   }
 

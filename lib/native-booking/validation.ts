@@ -9,6 +9,7 @@ export const nativeBookingQuestionTypeSchema = z.enum(["radio", "checkbox", "tex
 
 const questionOptionSchema = z.string().trim().min(1, "L’option est requise").max(120);
 const metaTouchpointTokenSchema = z.string().trim().regex(/^[a-f0-9]{64}$/i, "Touchpoint invalide.").nullable().default(null);
+const metaIdentifierSchema = z.string().trim().regex(/^[a-zA-Z0-9_-]{1,128}$/, "Identifiant Meta invalide.").nullable().default(null);
 
 export const nativeBookingQuestionInputSchema = z
   .object({
@@ -157,6 +158,9 @@ export const publicContactSchema = z.object({
   referrer: z.string().url().nullable().default(null),
   linkId: z.string().uuid().nullable().default(null),
   metaTouchpointToken: metaTouchpointTokenSchema,
+  metaCampaignExternalId: metaIdentifierSchema,
+  metaAdSetExternalId: metaIdentifierSchema,
+  metaAdExternalId: metaIdentifierSchema,
   utm: z.record(z.string().max(500)).default({}),
 });
 
@@ -171,6 +175,9 @@ export const publicLeadCaptureSchema = z
     referrer: z.string().url().nullable().default(null),
     linkId: z.string().uuid().nullable().default(null),
     metaTouchpointToken: metaTouchpointTokenSchema,
+    metaCampaignExternalId: metaIdentifierSchema,
+    metaAdSetExternalId: metaIdentifierSchema,
+    metaAdExternalId: metaIdentifierSchema,
     utm: z.record(z.string().max(500)).default({}),
   });
 

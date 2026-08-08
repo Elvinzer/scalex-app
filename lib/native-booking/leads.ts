@@ -4,7 +4,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingLeads, nativeBookingLinks, type NativeBookingAnswerSnapshot } from "@/db/schema";
-import { resolveMetaTouchpoint } from "@/lib/meta-ads/attribution";
+import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 
 import { normalizeEmail, normalizePhone, sanitizeUtm, type PublicContactInput, type PublicLeadCaptureInput, type PublicQualificationInput } from "./validation";
 
@@ -21,6 +21,9 @@ type PublicLeadMetadata = {
   referrer?: string | null;
   linkId?: string | null;
   metaTouchpointToken?: string | null;
+  metaCampaignExternalId?: string | null;
+  metaAdSetExternalId?: string | null;
+  metaAdExternalId?: string | null;
   metaTouchpointId?: string | null;
   utm?: Record<string, string>;
 };
@@ -92,7 +95,19 @@ export async function upsertPublicBookingLead(params: {
   answers?: NativeBookingAnswerSnapshot[];
 }) {
   const sessionKey = params.metadata.sessionKey ?? randomUUID();
-  const metaAttribution = await resolveMetaTouchpoint(params.event.userId, params.metadata.metaTouchpointToken);
+  const safeUtm = sanitizeUtm(params.metadata.utm);
+  const metaAttribution = await resolveMetaTouchpoint(params.event.userId, params.metadata.metaTouchpointToken) ??
+    (await resolveMetaTouchpointFromIdentifiers({
+      userId: params.event.userId,
+      campaignExternalId: params.metadata.metaCampaignExternalId,
+      adSetExternalId: params.metadata.metaAdSetExternalId,
+      adExternalId: params.metadata.metaAdExternalId,
+    })) ??
+    (await resolveMetaTouchpointFromUtm({
+      userId: params.event.userId,
+      utmCampaign: safeUtm.utm_campaign,
+      utmContent: safeUtm.utm_content,
+    }));
   const metadata = { ...params.metadata, metaTouchpointId: metaAttribution?.touchpointId ?? params.metadata.metaTouchpointId ?? null };
   const link = await findActiveLink(params.event.id, params.metadata.linkId);
   const values = leadValues(

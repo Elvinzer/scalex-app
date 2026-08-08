@@ -138,19 +138,8 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
         <p className="font-bold">Actions contrôlées</p>
         <p className="mt-1 text-sm text-muted-foreground">Chaque action suit proposition → confirmation → relecture de l’état dans Meta. Les changements de ciblage et de créatif restent dans Meta Ads.</p>
       </div>
-      {writeAccessUnavailable && (
-        <div className="mt-4 flex flex-col gap-2 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-3 text-sm text-state-caution">
-          <p className="font-bold">Permission d’écriture absente</p>
-          <p>La lecture reste active. Autorise ads_management avant de confirmer une pause, une reprise ou un nouveau budget.</p>
-          <MetaAdsConsentDialog
-            mode="write"
-            href={writeAccessHref}
-            accountLabel={accountLabel ?? "compte publicitaire sélectionné"}
-            triggerLabel="Autoriser les actions Meta"
-            triggerVariant="accent2"
-            triggerClassName="self-start"
-          />
-        </div>
+      {!proposal && !hasWriteAccess && (
+        <p className="mt-4 text-sm text-muted-foreground">Les actions directes demanderont une autorisation séparée au moment de confirmer une proposition. La lecture Meta reste active.</p>
       )}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="outline" onClick={() => propose(isPaused ? "resume" : "pause")} disabled={isPending || isArchived}>
