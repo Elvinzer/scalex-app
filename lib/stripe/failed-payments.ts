@@ -9,9 +9,9 @@ import {
   resolveMetaTouchpointFromIdentifiers,
   resolveMetaTouchpointFromUtm,
 } from "@/lib/meta-ads/attribution";
-import { readMetaTracking } from "@/lib/meta-ads/tracking";
 
 import type { ReadOnlyStripeClient } from "./read-only-client";
+import { hasStripeMetaAttributionSignal, readStripeMetaTracking } from "./meta-attribution";
 import {
   appendStripeSubscriptionCharge,
   applyStripeChargeToSale,
@@ -154,17 +154,6 @@ async function updateInstallments(accountId: string, sale: ReconciliationSale): 
     .where(and(eq(sales.id, sale.id), eq(sales.userId, accountId)));
 }
 
-function hasMetaTrackingSignal(tracking: ReturnType<typeof readMetaTracking>): boolean {
-  return Boolean(
-    tracking.metaTouchpointToken ||
-      tracking.metaCampaignExternalId ||
-      tracking.metaAdSetExternalId ||
-      tracking.metaAdExternalId ||
-      tracking.utmCampaign ||
-      tracking.utmContent,
-  );
-}
-
 async function paymentIntentMetadata(
   stripe: ReadOnlyStripeClient,
   charge: Stripe.Charge,
@@ -199,11 +188,14 @@ async function resolveStripeChargeTouchpoint(
   stripe: ReadOnlyStripeClient,
   paymentIntentMetadataCache: Map<string, Record<string, string> | null>,
 ): Promise<string | null> {
-  const chargeTracking = readMetaTracking(charge.metadata);
-  const intentMetadata = hasMetaTrackingSignal(chargeTracking)
+  const chargeTracking = readStripeMetaTracking(charge.metadata, null);
+  const intentMetadata = hasStripeMetaAttributionSignal(chargeTracking)
     ? null
     : await paymentIntentMetadata(stripe, charge, paymentIntentMetadataCache);
-  const tracking = readMetaTracking(charge.metadata, intentMetadata);
+  const tracking = readStripeMetaTracking(
+    charge.metadata,
+    intentMetadata,
+  );
   const touchpoint = (tracking.metaTouchpointToken
     ? await resolveMetaTouchpoint(accountId, tracking.metaTouchpointToken)
     : null) ?? (await resolveMetaTouchpointFromIdentifiers({
