@@ -9,11 +9,16 @@ import { Button } from "@/components/ui/button";
 export function MetaTouchpointGenerator({
   campaignId,
   landingPageUrl,
+  adSetOptions = [],
+  adOptions = [],
 }: {
   campaignId: string;
   landingPageUrl: string | null;
+  adSetOptions?: Array<{ id: string; name: string }>;
+  adOptions?: Array<{ id: string; name: string }>;
 }) {
   const [destinationUrl, setDestinationUrl] = useState(landingPageUrl ?? "");
+  const [entityKey, setEntityKey] = useState(`campaign:${campaignId}`);
   const [trackingUrl, setTrackingUrl] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -21,7 +26,13 @@ export function MetaTouchpointGenerator({
   function generate() {
     setMessage(null);
     startTransition(async () => {
-      const result = await createMetaCampaignTrackingLink({ campaignId, destinationUrl });
+      const [entityType, entityId] = entityKey.split(":");
+      const result = await createMetaCampaignTrackingLink({
+        campaignId,
+        destinationUrl,
+        entityType: entityType === "adset" || entityType === "ad" ? entityType : "campaign",
+        entityId: entityId || campaignId,
+      });
       if (result.error || !result.url) {
         setTrackingUrl(null);
         setMessage(result.error ?? "Le lien n'a pas pu être créé.");
@@ -58,7 +69,28 @@ export function MetaTouchpointGenerator({
           </p>
         </div>
       </div>
+      <details className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted px-4 py-3 text-sm">
+        <summary className="cursor-pointer font-bold">Configurer le rattachement Meta</summary>
+        <div className="mt-3 space-y-2 text-muted-foreground">
+          <p>Le lien généré porte le niveau sélectionné : campagne, ensemble ou publicité. Colle-le dans l&apos;URL de destination de l&apos;objet Meta correspondant.</p>
+          <p>Scale X conserve les paramètres <code className="rounded bg-card px-1 py-0.5 text-xs text-foreground">campaign_id</code>, <code className="rounded bg-card px-1 py-0.5 text-xs text-foreground">adset_id</code> et <code className="rounded bg-card px-1 py-0.5 text-xs text-foreground">ad_id</code> reçus, puis affiche le niveau réellement rattaché.</p>
+          <p>N’ajoute jamais d’email, de nom ou d’identifiant personnel dans l’URL. Sans identifiant publicitaire exploitable, la lecture reste au niveau campagne/UTM et la couverture le signale.</p>
+        </div>
+      </details>
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
+          <label htmlFor="meta-tracking-entity" className="mb-1 block text-xs font-bold text-muted-foreground">Niveau de rattachement</label>
+          <select
+            id="meta-tracking-entity"
+            value={entityKey}
+            onChange={(event) => setEntityKey(event.target.value)}
+            className="h-10 w-full rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+          >
+            <option value={`campaign:${campaignId}`}>Campagne</option>
+            {adSetOptions.map((adSet) => <option key={`adset:${adSet.id}`} value={`adset:${adSet.id}`}>Ensemble · {adSet.name}</option>)}
+            {adOptions.map((ad) => <option key={`ad:${ad.id}`} value={`ad:${ad.id}`}>Publicité · {ad.name}</option>)}
+          </select>
+        </div>
         <div className="min-w-0 flex-1">
           <label htmlFor="meta-destination-url" className="mb-1 block text-xs font-bold text-muted-foreground">URL de destination</label>
           <input

@@ -457,7 +457,12 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         )}
       </section>
 
-      <MetaTouchpointGenerator campaignId={detail.campaign.id} landingPageUrl={detail.campaign.landingPageUrl} />
+      <MetaTouchpointGenerator
+        campaignId={detail.campaign.id}
+        landingPageUrl={detail.campaign.landingPageUrl}
+        adSetOptions={detail.adSets.map((adSet) => ({ id: adSet.id, name: adSet.name }))}
+        adOptions={detail.ads.map((ad) => ({ id: ad.id, name: ad.name }))}
+      />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="sticker-card overflow-x-auto" aria-labelledby="placements-title" tabIndex={0} role="region">

@@ -21,3 +21,10 @@ export function metaSalesCoverageRate(
   const attached = rows.filter((row) => row.metaTouchpointId !== null && knownTouchpointIds.has(row.metaTouchpointId)).length;
   return attached / rows.length;
 }
+
+export function countUnattributedMetaSales(
+  rows: ReadonlyArray<{ metaTouchpointId: string | null }>,
+  knownTouchpointIds: ReadonlySet<string>,
+): number {
+  return rows.filter((row) => row.metaTouchpointId === null || !knownTouchpointIds.has(row.metaTouchpointId)).length;
+}

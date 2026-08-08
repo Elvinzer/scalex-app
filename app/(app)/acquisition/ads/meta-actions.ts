@@ -440,6 +440,8 @@ export async function setMetaCampaignTargets(input: unknown): Promise<{ error: s
 
 const touchpointLinkSchema = z.object({
   campaignId: z.string().uuid(),
+  entityType: z.enum(["campaign", "adset", "ad"]).default("campaign"),
+  entityId: z.string().uuid().optional(),
   destinationUrl: z
     .string()
     .trim()
@@ -489,9 +491,43 @@ export async function createMetaCampaignTrackingLink(input: unknown): Promise<Me
     .limit(1);
   if (!campaign || campaign.adAccountId !== selectedAccount.id) return { error: "Campagne Meta introuvable." };
 
+  const entityId = parsed.data.entityId ?? campaign.id;
+  if (parsed.data.entityType === "campaign" && entityId !== campaign.id) {
+    return { error: "La campagne de rattachement est incohérente." };
+  }
+  let adSetExternalId: string | null = null;
+  let adExternalId: string | null = null;
+  if (parsed.data.entityType === "adset") {
+    const [adSet] = await db
+      .select({ externalId: metaAdSets.externalId })
+      .from(metaAdSets)
+      .where(and(eq(metaAdSets.id, entityId), eq(metaAdSets.userId, access.accountId), eq(metaAdSets.adAccountId, selectedAccount.id), eq(metaAdSets.campaignId, campaign.id)))
+      .limit(1);
+    if (!adSet) return { error: "Ensemble Meta introuvable dans cette campagne." };
+    adSetExternalId = adSet.externalId;
+  }
+  if (parsed.data.entityType === "ad") {
+    const [ad] = await db
+      .select({ externalId: metaAds.externalId, adSetId: metaAds.adSetId })
+      .from(metaAds)
+      .where(and(eq(metaAds.id, entityId), eq(metaAds.userId, access.accountId), eq(metaAds.adAccountId, selectedAccount.id), eq(metaAds.campaignId, campaign.id)))
+      .limit(1);
+    if (!ad) return { error: "Publicité Meta introuvable dans cette campagne." };
+    adExternalId = ad.externalId;
+    const [adSet] = await db
+      .select({ externalId: metaAdSets.externalId })
+      .from(metaAdSets)
+      .where(and(eq(metaAdSets.id, ad.adSetId), eq(metaAdSets.userId, access.accountId), eq(metaAdSets.adAccountId, selectedAccount.id)))
+      .limit(1);
+    if (!adSet) return { error: "Ensemble parent de la publicité introuvable." };
+    adSetExternalId = adSet.externalId;
+  }
+
   const touchpoint = await createMetaTouchpoint({
     userId: access.accountId,
     campaignExternalId: campaign.externalId,
+    adSetExternalId,
+    adExternalId,
     utmSource: "meta",
     utmMedium: "paid_social",
     utmCampaign: `scale-x-${campaign.id.slice(0, 8)}`,
@@ -499,6 +535,8 @@ export async function createMetaCampaignTrackingLink(input: unknown): Promise<Me
   const url = buildMetaTrackingUrl(parsed.data.destinationUrl, {
     touchpointToken: touchpoint.token,
     campaignExternalId: campaign.externalId,
+    adSetExternalId,
+    adExternalId,
     utmSource: "meta",
     utmMedium: "paid_social",
     utmCampaign: `scale-x-${campaign.id.slice(0, 8)}`,

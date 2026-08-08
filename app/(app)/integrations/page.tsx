@@ -53,7 +53,6 @@ export default async function IntegrationsPage({
   const calendlyConnected = Boolean(user?.calendlyConnected);
   const instagramConnected = Boolean(user?.instagramConnected);
   const youtubeConnected = Boolean(user?.youtubeConnected);
-  const metaAdsConnected = Boolean(user?.metaAdsConnected);
 
   // Independent reads — run together instead of as sequential round-trips.
   const [
@@ -89,6 +88,7 @@ export default async function IntegrationsPage({
       .where(and(eq(metaAdAccounts.userId, accountId), eq(metaAdsConnections.userId, accountId))),
     hasActiveSubscription(accountId),
   ]);
+  const metaAdsConnected = Boolean(metaAdsConnection && metaAdsConnection.status !== "disconnected");
   const metaAccounts: MetaAdAccountOption[] = metaAdAccountRows;
 
   return (

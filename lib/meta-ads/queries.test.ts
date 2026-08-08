@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
+import { countUnattributedMetaSales, metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
 
 const campaigns = new Set(["campaign-1", "campaign-2"]);
 const adSetCampaigns = new Map([
@@ -40,5 +40,14 @@ describe("Meta touchpoint campaign resolution", () => {
 
   it("returns no coverage when the period has no sales", () => {
     expect(metaSalesCoverageRate([], new Set())).toBeNull();
+  });
+
+  it("counts null and unknown touchpoint sales as unattributed", () => {
+    expect(
+      countUnattributedMetaSales(
+        [{ metaTouchpointId: "touchpoint-current" }, { metaTouchpointId: "touchpoint-other-account" }, { metaTouchpointId: null }],
+        new Set(["touchpoint-current"]),
+      ),
+    ).toBe(2);
   });
 });

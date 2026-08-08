@@ -3,7 +3,7 @@ import { and, desc, eq, gte, inArray, like, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { insightRecords, instagramConnections, instagramPostInsights, metaAdAccounts, metaAdActionLogs, metaAdMetricCorrections, metaAdMetricsDaily, metaAdSets, metaAds, metaAdsConnections, metaAdTouchpoints, metaCampaignProfiles, metaCampaigns, nativeBookingLeads, sales, salesCalls } from "@/db/schema";
 import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/types";
-import { metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
+import { countUnattributedMetaSales, metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
 import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, metaAdsManagerUrl, normalizeMetaPeriodDays } from "./protocol";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
 import { META_CAMPAIGN_TYPES, type MetaCampaignType, type MetaRawObject } from "./types";
@@ -772,16 +772,18 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
   const touchpointPeriodEnd = new Date(`${dashboard.period.end}T23:59:59.999Z`);
   const periodStartDate = new Date(`${dashboard.period.start}T00:00:00.000Z`);
   const periodEndDate = new Date(`${dashboard.period.end}T23:59:59.999Z`);
-  const [adSetRows, adRows] = await Promise.all([
-    db.select().from(metaAdSets).where(and(eq(metaAdSets.userId, accountId), eq(metaAdSets.campaignId, campaignId))).orderBy(metaAdSets.name),
-    db.select().from(metaAds).where(and(eq(metaAds.userId, accountId), eq(metaAds.campaignId, campaignId))).orderBy(metaAds.name),
+  const [allAdSetRows, allAdRows] = await Promise.all([
+    db.select().from(metaAdSets).where(and(eq(metaAdSets.userId, accountId), eq(metaAdSets.adAccountId, dashboard.account.id))).orderBy(metaAdSets.name),
+    db.select().from(metaAds).where(and(eq(metaAds.userId, accountId), eq(metaAds.adAccountId, dashboard.account.id))).orderBy(metaAds.name),
   ]);
+  const adSetRows = allAdSetRows.filter((row) => row.campaignId === campaignId);
+  const adRows = allAdRows.filter((row) => row.campaignId === campaignId);
   const touchpointEntityFilter = or(
     eq(metaAdTouchpoints.campaignExternalId, campaignRow.campaign.externalId),
     ...(adSetRows.length > 0 ? [inArray(metaAdTouchpoints.adSetExternalId, adSetRows.map((row) => row.externalId))] : []),
     ...(adRows.length > 0 ? [inArray(metaAdTouchpoints.adExternalId, adRows.map((row) => row.externalId))] : []),
   );
-  const [metricRows, placementRows, insightRows, touchpointRows] = await Promise.all([
+  const [metricRows, placementRows, insightRows, touchpointRows, knownTouchpointRows] = await Promise.all([
     db
       .select()
       .from(metaAdMetricsDaily)
@@ -830,9 +832,37 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
           lte(metaAdTouchpoints.capturedAt, touchpointPeriodEnd),
         ),
       ),
+    db
+      .select({
+        id: metaAdTouchpoints.id,
+        adExternalId: metaAdTouchpoints.adExternalId,
+        adSetExternalId: metaAdTouchpoints.adSetExternalId,
+        campaignExternalId: metaAdTouchpoints.campaignExternalId,
+      })
+      .from(metaAdTouchpoints)
+      .where(eq(metaAdTouchpoints.userId, accountId)),
   ]);
 
   const touchpointIds = touchpointRows.map((row) => row.id);
+  const campaignExternalIds = new Set(dashboard.campaigns.map((campaign) => campaign.externalId));
+  const campaignExternalById = new Map(dashboard.campaigns.map((campaign) => [campaign.id, campaign.externalId]));
+  const adSetCampaigns = new Map(
+    allAdSetRows.flatMap((row) => {
+      const campaignExternalId = campaignExternalById.get(row.campaignId);
+      return campaignExternalId ? [[row.externalId, campaignExternalId] as const] : [];
+    }),
+  );
+  const adCampaigns = new Map(
+    allAdRows.flatMap((row) => {
+      const campaignExternalId = campaignExternalById.get(row.campaignId);
+      return campaignExternalId ? [[row.externalId, campaignExternalId] as const] : [];
+    }),
+  );
+  const knownTouchpointIds = new Set(
+    knownTouchpointRows
+      .filter((row) => resolveMetaTouchpointCampaign(row, campaignExternalIds, adSetCampaigns, adCampaigns) !== null)
+      .map((row) => row.id),
+  );
   const levels = touchpointRows.reduce(
     (counts, row) => {
       if (row.adExternalId) counts.ad += 1;
@@ -865,9 +895,7 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
     .where(and(eq(sales.userId, accountId), gte(sales.saleDate, dashboard.period.start), lte(sales.saleDate, dashboard.period.end)));
   const revenueCentsRaw = saleRows.reduce((total, sale) => total + sale.totalPrice * 100, 0);
   const coverageRate = selectedCampaign.cash?.coverageRate ?? null;
-  const unattributedSalesInPeriod = coverageRate === null
-    ? allSalesInPeriod.filter((sale) => sale.metaTouchpointId === null).length
-    : Math.max(0, Math.round(allSalesInPeriod.length * (1 - coverageRate)));
+  const unattributedSalesInPeriod = countUnattributedMetaSales(allSalesInPeriod, knownTouchpointIds);
   const cashAttributionReady = saleRows.length > 0 && coverageRate !== null && coverageRate >= META_MIN_CASH_ATTRIBUTION_COVERAGE;
   const levelCoverage = {
     ad: touchpointIds.length > 0 ? levels.ad / touchpointIds.length : null,
