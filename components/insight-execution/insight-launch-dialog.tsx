@@ -15,11 +15,13 @@ export function InsightLaunchDialog({
   members,
   projects,
   canAssign,
+  onLaunched,
 }: {
   insight: InsightHistoryItem;
   members: Member[];
   projects: { id: string; name: string }[];
   canAssign: boolean;
+  onLaunched?: (insight: InsightHistoryItem) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -56,6 +58,7 @@ export function InsightLaunchDialog({
         setError(result.error);
         return;
       }
+      if (result.insight) onLaunched?.(result.insight);
       setOpen(false);
       router.refresh();
     });

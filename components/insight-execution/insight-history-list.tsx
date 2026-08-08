@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -216,11 +216,13 @@ function HistoryCard({
   members,
   projects,
   canAssign,
+  onLaunched,
 }: {
   insight: InsightHistoryItem;
   members: Member[];
   projects: Project[];
   canAssign: boolean;
+  onLaunched: (insight: InsightHistoryItem) => void;
 }) {
   const metricCurrent = numberFromSnapshot(insight, "currentRatePercent");
   const metricBenchmark = numberFromSnapshot(insight, "benchmarkRatePercent");
@@ -329,6 +331,7 @@ function HistoryCard({
               members={members}
               projects={projects}
               canAssign={canAssign}
+              onLaunched={onLaunched}
             />
           )}
           <DecisionButtons insight={insight} />
@@ -352,11 +355,43 @@ export function InsightHistoryList({
   const [decisionFilter, setDecisionFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [showAll, setShowAll] = useState(false);
+  const [localItems, setLocalItems] = useState(items);
+
+  useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
+
+  function handleLaunched(updatedInsight: InsightHistoryItem) {
+    setLocalItems((currentItems) => {
+      const exactIndex = currentItems.findIndex(
+        (item) => item.id === updatedInsight.id,
+      );
+      if (exactIndex >= 0) {
+        return currentItems.map((item, index) =>
+          index === exactIndex ? updatedInsight : item,
+        );
+      }
+
+      // Legacy funnel insights get a new normalized id during materialization.
+      // Replace the visible legacy card by its normalized server projection.
+      const legacyIndex = currentItems.findIndex(
+        (item) =>
+          item.legacy &&
+          item.sourceType === updatedInsight.sourceType &&
+          item.sourceId === updatedInsight.sourceId,
+      );
+      if (legacyIndex < 0) return currentItems;
+      return currentItems.map((item, index) =>
+        index === legacyIndex ? updatedInsight : item,
+      );
+    });
+  }
+
   const sources = useMemo(
-    () => [...new Set(items.map((item) => item.sourceType))],
-    [items],
+    () => [...new Set(localItems.map((item) => item.sourceType))],
+    [localItems],
   );
-  const filtered = items.filter(
+  const filtered = localItems.filter(
     (item) =>
       (decisionFilter === "all" || item.decision === decisionFilter) &&
       (sourceFilter === "all" || item.sourceType === sourceFilter),
@@ -424,6 +459,7 @@ export function InsightHistoryList({
               members={members}
               projects={projects}
               canAssign={canAssign}
+              onLaunched={handleLaunched}
             />
           ))}
         </div>

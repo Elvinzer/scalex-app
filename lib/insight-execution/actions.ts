@@ -1,7 +1,7 @@
 "use server";
 
 import { and, desc, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import {
@@ -42,6 +42,9 @@ import {
 } from "@/lib/insight-execution/service";
 import { addDays, currentWeekStart } from "@/lib/insight-execution/week";
 import { getAccountContext } from "@/lib/team/context";
+
+import { getInsightHistory } from "./queries";
+import type { InsightHistoryItem } from "./types";
 
 type Access = {
   userId: string;
@@ -113,6 +116,11 @@ async function getActionForAccess(access: Access, initiativeId: string) {
 }
 
 function revalidateExecutionSurfaces(): void {
+  // Re-render the current App Router tree as part of the Server Action
+  // response. `revalidatePath` invalidates the server cache, but by itself it
+  // does not guarantee that the client currently displaying the action gets
+  // the updated RSC payload in the same round trip.
+  refresh();
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
   revalidatePath("/journal");
@@ -253,7 +261,11 @@ export async function decideInsight(
 
 export async function launchInsight(
   input: unknown,
-): Promise<{ error: string | null; initiativeId?: string }> {
+): Promise<{
+  error: string | null;
+  initiativeId?: string;
+  insight?: InsightHistoryItem;
+}> {
   const access = await requireExecutionAccess();
   if ("error" in access) return access;
   const parsed = launchInsightSchema.safeParse(input);
@@ -511,8 +523,25 @@ export async function launchInsight(
       result.initiative.id,
       result.initiative.title,
     );
+
+  // Return the freshly joined history item so the client can replace the
+  // card immediately, including its new initiative status and weekly focus.
+  // The router refresh below remains useful for the other execution surfaces.
+  let updatedInsight: InsightHistoryItem | undefined;
+  try {
+    updatedInsight = (await getInsightHistory(access.accountId, {
+      sourceType: record.sourceType,
+    })).find((item) => item.id === record.id);
+  } catch {
+    // The mutation is already committed. The client can still reconcile via
+    // the App Router refresh when the optional response projection fails.
+  }
   revalidateExecutionSurfaces();
-  return { error: null, initiativeId: result.initiative.id };
+  return {
+    error: null,
+    initiativeId: result.initiative.id,
+    insight: updatedInsight,
+  };
 }
 
 export async function updateInitiativeStatus(
