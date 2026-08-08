@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/insight-execution/source-adapters", () => ({ upsertMaterializedInsight: vi.fn() }));
+const mocks = vi.hoisted(() => ({ upsertMaterializedInsight: vi.fn() }));
+
+vi.mock("@/lib/insight-execution/source-adapters", () => mocks);
 vi.mock("@/db", () => ({ db: {} }));
 
-import { buildMetaAdsInsights, metaInsightFingerprint } from "./insights";
+import { buildMetaAdsInsights, materializeMetaAdsInsights, metaInsightFingerprint } from "./insights";
 import type { MetaAdsDashboard, MetaMetricTotals } from "./queries";
 
 function totals(overrides: Partial<MetaMetricTotals> = {}, availableOverrides: Partial<MetaMetricTotals["available"]> = {}): MetaMetricTotals {
@@ -184,5 +186,32 @@ describe("Meta Ads insight catalogue", () => {
     const [insight] = buildMetaAdsInsights(data);
     expect(insight).toBeDefined();
     expect(metaInsightFingerprint("account", insight!, "2026-07-09", "2026-08-08")).not.toBe(metaInsightFingerprint("account", insight!, "2026-06-09", "2026-07-08"));
+  });
+
+  it("materializes only the requested campaign for an alternate period", async () => {
+    mocks.upsertMaterializedInsight.mockReset().mockResolvedValue(null);
+    const firstCampaign = {
+      id: "campaign-a",
+      externalId: "c-a",
+      name: "VSL A",
+      objective: "VIDEO_VIEWS",
+      effectiveStatus: "ACTIVE",
+      campaignType: "vsl" as const,
+      typeSource: "manual",
+      metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }),
+      comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true }),
+      latestDate: "2026-08-08",
+    };
+    const data = dashboard(firstCampaign);
+    const firstCampaignWithCoverage = data.campaigns[0]!;
+    data.campaigns = [firstCampaignWithCoverage, { ...firstCampaignWithCoverage, id: "campaign-b", externalId: "c-b", name: "VSL B" }];
+
+    await materializeMetaAdsInsights("account", data, "campaign-a");
+
+    expect(mocks.upsertMaterializedInsight).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertMaterializedInsight).toHaveBeenCalledWith(
+      "account",
+      expect.objectContaining({ sourceId: "campaign-a:vsl_hook_ok_retention_faible" }),
+    );
   });
 });

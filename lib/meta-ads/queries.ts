@@ -700,8 +700,8 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
   };
 }
 
-export async function getMetaCampaignDetail(accountId: string, campaignId: string, requestedDays: unknown = 30): Promise<MetaCampaignDetail | null> {
-  const dashboard = await getMetaAdsDashboard(accountId, requestedDays);
+export async function getMetaCampaignDetail(accountId: string, campaignId: string, requestedDays: unknown = 30, dashboardOverride?: MetaAdsDashboard): Promise<MetaCampaignDetail | null> {
+  const dashboard = dashboardOverride ?? await getMetaAdsDashboard(accountId, requestedDays);
   if (!dashboard) return null;
   const [campaignRow] = await db
     .select({ campaign: metaCampaigns, profile: metaCampaignProfiles })

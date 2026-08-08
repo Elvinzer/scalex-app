@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -225,6 +225,8 @@ async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRa
           performanceGoal: values.performanceGoal,
           status: values.status,
           effectiveStatus: values.effectiveStatus,
+          campaignType: values.campaignType,
+          typeConfidence: values.typeConfidence,
           landingPageUrl: values.landingPageUrl,
           dailyBudgetCents: values.dailyBudgetCents,
           lifetimeBudgetCents: values.lifetimeBudgetCents,
@@ -246,7 +248,15 @@ async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRa
           campaignType: classification.type,
           typeSource: "heuristic",
         })
-        .onConflictDoNothing({ target: [metaCampaignProfiles.userId, metaCampaignProfiles.campaignId] });
+        .onConflictDoUpdate({
+          target: [metaCampaignProfiles.userId, metaCampaignProfiles.campaignId],
+          set: {
+            campaignType: classification.type,
+            typeSource: "heuristic",
+            updatedAt: now,
+          },
+          setWhere: ne(metaCampaignProfiles.typeSource, "manual"),
+        });
     }
   }
   return campaignIds;

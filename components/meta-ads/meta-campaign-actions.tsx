@@ -29,6 +29,7 @@ type Props = {
   hasWriteAccess: boolean;
   accountLabel?: string | null;
   deepLink?: string | null;
+  returnTo?: string;
 };
 
 function actionLabel(actionType: ActionType): string {
@@ -44,7 +45,7 @@ function statusLabel(status: string | null): string {
   return status ?? "inconnu";
 }
 
-export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasWriteAccess, accountLabel, deepLink: campaignDeepLink }: Props) {
+export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasWriteAccess, accountLabel, deepLink: campaignDeepLink, returnTo }: Props) {
   const [budget, setBudget] = useState(dailyBudgetCents === null ? "" : String(Math.round(dailyBudgetCents / 100)));
   const storageKey = `scale-x-meta-action:${campaignId}`;
   const [proposal, setProposal] = useState<Proposal | null>(() => {
@@ -68,7 +69,7 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
 
   const isPaused = status === "PAUSED";
   const isArchived = status === "ARCHIVED";
-  const writeAccessHref = `/api/meta/upgrade?return_to=${encodeURIComponent(`/acquisition/ads/meta/${campaignId}`)}`;
+  const writeAccessHref = `/api/meta/upgrade?return_to=${encodeURIComponent(returnTo ?? `/acquisition/ads/meta/${campaignId}`)}`;
 
   function propose(actionType: ActionType, value?: number) {
     setMessage(null);

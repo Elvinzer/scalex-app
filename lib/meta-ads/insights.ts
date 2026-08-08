@@ -500,8 +500,8 @@ function toMaterializedInsight(
   };
 }
 
-export async function materializeMetaAdsInsights(accountId: string, data: MetaAdsDashboard): Promise<number> {
-  const proposals = buildMetaAdsInsights(data);
+export async function materializeMetaAdsInsights(accountId: string, data: MetaAdsDashboard, campaignId?: string): Promise<number> {
+  const proposals = buildMetaAdsInsights(data).filter((proposal) => campaignId === undefined || proposal.campaignId === campaignId);
   for (const proposal of proposals) {
     await upsertMaterializedInsight(accountId, toMaterializedInsight(accountId, proposal, data.period.start, data.period.end));
   }

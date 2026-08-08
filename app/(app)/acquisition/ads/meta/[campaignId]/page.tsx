@@ -14,7 +14,8 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { META_INSIGHT_THRESHOLDS } from "@/lib/meta-ads/thresholds";
 import { buildMetaAudienceWarnings } from "@/lib/meta-ads/audience-warnings";
-import { getMetaCampaignDetail, metricValue } from "@/lib/meta-ads/queries";
+import { materializeMetaAdsInsights } from "@/lib/meta-ads/insights";
+import { getMetaAdsDashboard, getMetaCampaignDetail, metricValue } from "@/lib/meta-ads/queries";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
@@ -134,10 +135,19 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const { campaignId } = await params;
   const search = await searchParams;
   const periodDays = normalizeMetaPeriodDays(search.meta_days);
-  const [detail, businessProfile] = await Promise.all([
-    getMetaCampaignDetail(accountId, campaignId, periodDays),
+  const [dashboard, businessProfile] = await Promise.all([
+    getMetaAdsDashboard(accountId, periodDays),
     getBusinessProfile(accountId),
   ]);
+  if (!dashboard) notFound();
+  if (periodDays !== 30) {
+    try {
+      await materializeMetaAdsInsights(accountId, dashboard, campaignId);
+    } catch (error) {
+      console.error("Meta Ads insight refresh for selected period failed", error instanceof Error ? error.message : "unknown");
+    }
+  }
+  const detail = await getMetaCampaignDetail(accountId, campaignId, periodDays, dashboard);
   if (!detail) notFound();
 
   const metrics = detail.campaign.metrics;
@@ -351,6 +361,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         hasWriteAccess={hasWriteAccess}
         accountLabel={detail.dashboard.account.name}
         deepLink={managerUrl}
+        returnTo={`/acquisition/ads/meta/${detail.campaign.id}?meta_days=${periodDays}`}
       />
 
       <section className="sticker-card overflow-x-auto" aria-labelledby="meta-action-history-title" tabIndex={0} role="region">
@@ -643,7 +654,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 <td className="px-5 py-3 text-right tabular-nums">{creativeCpaCents(row) === null ? "—" : formatEur(creativeCpaCents(row)! / 100)}</td>
                 <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= detail.dashboard.frequencySaturationThreshold ? ` · fréquence ≥ ${detail.dashboard.frequencySaturationThreshold}×` : ""}</td>
                 <td className="px-5 py-3 text-right">
-                  <MetaEntityAction entityType="adset" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} />
+                  <MetaEntityAction entityType="adset" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} returnTo={`/acquisition/ads/meta/${detail.campaign.id}?meta_days=${periodDays}`} />
                 </td>
                     </>
                   );
@@ -670,7 +681,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 <td className="px-5 py-3 text-right tabular-nums">{creativeCpaCents(row) === null ? "—" : formatEur(creativeCpaCents(row)! / 100)}</td>
                 <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= detail.dashboard.frequencySaturationThreshold ? ` · fréquence ≥ ${detail.dashboard.frequencySaturationThreshold}× à vérifier` : ""}</td>
                 <td className="px-5 py-3 text-right">
-                  <MetaEntityAction entityType="ad" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} />
+                  <MetaEntityAction entityType="ad" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} returnTo={`/acquisition/ads/meta/${detail.campaign.id}?meta_days=${periodDays}`} />
                 </td>
                     </>
                   );

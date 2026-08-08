@@ -44,7 +44,15 @@ export async function selectMetaAdAccount(externalId: string): Promise<{ error: 
 
   await db
     .update(metaAdsConnections)
-    .set({ selectedAdAccountId: normalized, initialSyncStatus: "pending", lastSyncError: null, updatedAt: new Date() })
+    .set({
+      selectedAdAccountId: normalized,
+      initialSyncStatus: "pending",
+      initialSyncCompletedAt: null,
+      lastSyncStartedAt: null,
+      lastSyncCompletedAt: null,
+      lastSyncError: null,
+      updatedAt: new Date(),
+    })
     .where(eq(metaAdsConnections.id, connection.id));
   try {
     await inngest.send(metaAdsSyncRequested.create({ userId: access.accountId }));

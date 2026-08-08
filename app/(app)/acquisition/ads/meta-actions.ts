@@ -306,6 +306,15 @@ const campaignTargetsSchema = z.object({
   leadValueCents: z.number().int().min(0).max(100_000_000).nullable(),
 });
 
+async function refreshCurrentMetaInsights(accountId: string): Promise<void> {
+  try {
+    const dashboard = await getMetaAdsDashboard(accountId);
+    if (dashboard) await materializeMetaAdsInsights(accountId, dashboard);
+  } catch (error) {
+    console.error("Meta Ads insight refresh after campaign settings change failed", error instanceof Error ? error.message : "unknown");
+  }
+}
+
 export async function setMetaCampaignType(input: unknown): Promise<{ error: string | null }> {
   const parsed = campaignProfileSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Type de campagne invalide." };
@@ -361,12 +370,7 @@ export async function setMetaCampaignType(input: unknown): Promise<{ error: stri
   // Re-evaluate the current period immediately. The detail page filters out
   // the old type, so a failed refresh can only leave the page without stale
   // recommendations rather than showing rules for the previous module.
-  try {
-    const dashboard = await getMetaAdsDashboard(access.accountId);
-    if (dashboard) await materializeMetaAdsInsights(access.accountId, dashboard);
-  } catch (error) {
-    console.error("Meta Ads insight refresh after campaign type change failed", error instanceof Error ? error.message : "unknown");
-  }
+  await refreshCurrentMetaInsights(access.accountId);
 
   revalidatePath("/acquisition/ads");
   revalidatePath(`/acquisition/ads/meta/${campaign.id}`);
@@ -426,6 +430,8 @@ export async function setMetaCampaignTargets(input: unknown): Promise<{ error: s
         updatedAt: now,
       },
     });
+
+  await refreshCurrentMetaInsights(access.accountId);
 
   revalidatePath(`/acquisition/ads/meta/${campaign.id}`);
   revalidatePath("/acquisition/ads");

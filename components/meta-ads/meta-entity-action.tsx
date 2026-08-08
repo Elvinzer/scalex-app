@@ -18,9 +18,10 @@ type Props = {
   deepLink: string;
   hasWriteAccess: boolean;
   accountLabel?: string | null;
+  returnTo?: string;
 };
 
-export function MetaEntityAction({ entityType, entityId, campaignId, status, deepLink, hasWriteAccess, accountLabel }: Props) {
+export function MetaEntityAction({ entityType, entityId, campaignId, status, deepLink, hasWriteAccess, accountLabel, returnTo }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [resultLink, setResultLink] = useState<string | null>(null);
   const [writeAccessRequired, setWriteAccessRequired] = useState(false);
@@ -45,7 +46,7 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
   const isPaused = status === "PAUSED";
   const isArchived = status === "ARCHIVED";
   const actionType = isPaused ? "resume" : "pause";
-  const writeAccessHref = `/api/meta/upgrade?return_to=${encodeURIComponent(`/acquisition/ads/meta/${campaignId}`)}`;
+  const writeAccessHref = `/api/meta/upgrade?return_to=${encodeURIComponent(returnTo ?? `/acquisition/ads/meta/${campaignId}`)}`;
 
   function propose() {
     const nextIdempotencyKey = crypto.randomUUID();
