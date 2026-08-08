@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ExternalLink, ShieldCheck } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -31,6 +32,7 @@ export function MetaAdsConsentDialog({
   triggerClassName,
 }: Props) {
   const isRead = mode === "read";
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   return (
     <Dialog>
@@ -101,8 +103,14 @@ export function MetaAdsConsentDialog({
               </Button>
             </DialogClose>
             <Button asChild variant={isRead ? "default" : "accent2"}>
-              <a href={href}>
-                {isRead ? "Continuer vers Meta" : "Autoriser puis reprendre"}
+              <a
+                href={href}
+                aria-disabled={isRedirecting}
+                aria-busy={isRedirecting}
+                onClick={() => setIsRedirecting(true)}
+                className={isRedirecting ? "pointer-events-none opacity-70" : undefined}
+              >
+                {isRedirecting ? "Redirection vers Meta…" : isRead ? "Continuer vers Meta" : "Autoriser puis reprendre"}
                 <ExternalLink className="size-4" />
               </a>
             </Button>

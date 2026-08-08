@@ -21,6 +21,7 @@ import { createMetaTouchpoint } from "@/lib/meta-ads/attribution";
 import { getMetaObject, MetaApiError, parseMetaOptionalNumber, updateMetaObject } from "@/lib/meta-ads/client";
 import { metaAdsManagerUrl, normalizeAdAccountId } from "@/lib/meta-ads/protocol";
 import { buildMetaTrackingUrl } from "@/lib/meta-ads/tracking";
+import { isMetaTokenExpiredError } from "@/lib/meta-ads/sync-state";
 import { META_CAMPAIGN_TYPES, type MetaEntityLevel } from "@/lib/meta-ads/types";
 import { metaActionSchema } from "@/lib/meta-ads/action-validation";
 import { requireOwner } from "@/lib/team/context";
@@ -146,6 +147,18 @@ async function markMetaWritePermissionMissing(accountId: string): Promise<void> 
       updatedAt: new Date(),
     })
     .where(eq(metaAdsConnections.userId, accountId));
+}
+
+async function markMetaTokenExpired(accountId: string): Promise<void> {
+  try {
+    await db
+      .update(metaAdsConnections)
+      .set({ status: "token_expired", lastSyncError: "Le jeton Meta a expiré. Reconnecte Meta Ads.", updatedAt: new Date() })
+      .where(eq(metaAdsConnections.userId, accountId));
+  } catch {
+    // Keep the action result honest even if the connection-health projection
+    // cannot be persisted during the same failed request.
+  }
 }
 
 async function loadMetaActionTarget(params: {
@@ -736,7 +749,9 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
   } catch (error) {
     const message = error instanceof MetaApiError ? error.message : "La modification Meta a échoué.";
     const permissionRevoked = isMetaWritePermissionError(error);
+    const tokenExpired = isMetaTokenExpiredError(error);
     if (permissionRevoked) await markMetaWritePermissionMissing(access.accountId);
+    if (tokenExpired) await markMetaTokenExpired(access.accountId);
     const status = permissionRevoked ? "permission_insufficient" : "failed";
     await db
       .update(metaAdActionLogs)
@@ -744,7 +759,11 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
       .where(and(eq(metaAdActionLogs.id, logId), eq(metaAdActionLogs.userId, access.accountId)));
     await recordMetaActionInJournal({ accountId: access.accountId, logId, campaignName: target.name, actionType: parsed.data.actionType, status });
     return {
-      error: permissionRevoked ? "Meta n’autorise plus cette écriture. La lecture reste active ; autorise à nouveau ads_management avant de confirmer." : message,
+      error: permissionRevoked
+        ? "Meta n’autorise plus cette écriture. La lecture reste active ; autorise à nouveau ads_management avant de confirmer."
+        : tokenExpired
+          ? "Le jeton Meta a expiré. Reconnecte Meta Ads avant de confirmer l’action."
+          : message,
       status,
       needsWriteAccess: permissionRevoked,
       deepLink,

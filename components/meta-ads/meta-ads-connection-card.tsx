@@ -133,7 +133,7 @@ export function MetaAdsConnectionCard({
         <>
           <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <label className="flex flex-col gap-2 text-sm font-bold" htmlFor="meta-ad-account">
-              Compte publicitaire à analyser
+              {selectedAccount ? "Changer de compte publicitaire" : "Compte publicitaire à analyser"}
               <select
                 id="meta-ad-account"
                 value={selectedAdAccountId ?? ""}
@@ -151,7 +151,7 @@ export function MetaAdsConnectionCard({
             </label>
             <Button variant="outline" onClick={handleRefresh} disabled={isPending}>
               <RefreshCw className={isPending ? "size-4 animate-spin motion-reduce:animate-none" : "size-4"} />
-              Actualiser les comptes
+              Rafraîchir maintenant
             </Button>
           </div>
 

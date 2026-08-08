@@ -86,6 +86,27 @@ describe("Meta Ads insight catalogue", () => {
     expect(buildMetaAdsInsights(data)).toHaveLength(0);
   });
 
+  it("shows a configured CPL target in the VSL cash insight", () => {
+    const data = dashboard({
+      id: "campaign",
+      externalId: "c1",
+      name: "VSL target",
+      objective: "LEAD_GENERATION",
+      effectiveStatus: "ACTIVE",
+      campaignType: "vsl",
+      typeSource: "manual",
+      targets: { targetCpaCents: 800, targetRoas: null, leadValueCents: null },
+      metrics: totals({ impressions: 10_000, spendCents: 10_000, leads: 10 }, { impressions: true, spendCents: true, leads: true }),
+      comparisonMetrics: totals({ impressions: 10_000, spendCents: 10_000, leads: 10 }, { impressions: true, spendCents: true, leads: true }),
+      cash: { revenueCents: 40_000, sales: 1, available: true, comparisonRevenueCents: 60_000, comparisonSales: 1, comparisonAvailable: true, coverageRate: 1, comparisonCoverageRate: 1 },
+      latestDate: "2026-08-08",
+    });
+    const [insight] = buildMetaAdsInsights(data);
+    expect(insight?.ruleKey).toBe("vsl_leads_ok_cash_baisse");
+    expect(insight?.evidence).toContain("cible CPL 8.00 €");
+    expect(insight?.evidence).toContain("écart +25%");
+  });
+
   it("freezes every rule when the synchronized day coverage is too low", () => {
     const data = dashboard({ id: "campaign", externalId: "c1", name: "VSL partial", objective: "VIDEO_VIEWS", effectiveStatus: "ACTIVE", campaignType: "vsl", typeSource: "manual", metricCoverageRate: 0.5, metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }), comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true }), latestDate: "2026-08-08" });
     expect(buildMetaAdsInsights(data)).toHaveLength(0);

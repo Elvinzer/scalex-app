@@ -26,6 +26,7 @@ import {
 import { classifyMetaCampaign } from "./classification";
 import { materializeMetaAdsInsights } from "./insights";
 import { parseMetaInsightMetrics } from "./metric-parser";
+import { metaConnectionFailureStatus, metaSyncErrorMessage } from "./sync-state";
 import { getMetaAdsDashboard } from "./queries";
 import {
   META_DEFAULT_ATTRIBUTION_SETTINGS,
@@ -97,6 +98,23 @@ function parseAttributionSettings(value?: MetaAttributionSettings): MetaAttribut
   return value ?? META_DEFAULT_ATTRIBUTION_SETTINGS;
 }
 
+async function persistMetaSyncFailure(userId: string, error: unknown): Promise<void> {
+  try {
+    await db
+      .update(metaAdsConnections)
+      .set({
+        status: metaConnectionFailureStatus(error),
+        initialSyncStatus: "failed",
+        lastSyncError: metaSyncErrorMessage(error).slice(0, 500),
+        updatedAt: new Date(),
+      })
+      .where(eq(metaAdsConnections.userId, userId));
+  } catch {
+    // Preserve the original Meta/database error for the caller. The next
+    // refresh can still retry even if this health projection itself fails.
+  }
+}
+
 async function getConnection(userId: string) {
   const [connection] = await db
     .select()
@@ -107,11 +125,9 @@ async function getConnection(userId: string) {
     throw new MetaApiError("Meta Ads est déconnecté. Reconnecte Meta Ads pour reprendre la synchronisation.", { code: 190 });
   }
   if (connection.tokenExpiresAt && connection.tokenExpiresAt <= new Date()) {
-    await db
-      .update(metaAdsConnections)
-      .set({ status: "token_expired", lastSyncError: "Le jeton Meta a expiré. Reconnecte Meta Ads.", updatedAt: new Date() })
-      .where(eq(metaAdsConnections.userId, userId));
-    throw new MetaApiError("Le jeton Meta a expiré. Reconnecte Meta Ads.");
+    const error = new MetaApiError("Le jeton Meta a expiré. Reconnecte Meta Ads.", { code: 190 });
+    await persistMetaSyncFailure(userId, error);
+    throw error;
   }
   return connection;
 }
@@ -125,43 +141,48 @@ function decryptConnectionToken(connection: typeof metaAdsConnections.$inferSele
 
 export async function syncMetaAdAccounts(userId: string): Promise<{ imported: number; selectedAdAccountId: string | null }> {
   const connection = await getConnection(userId);
-  const accessToken = decryptConnectionToken(connection);
-  const rows = await listMetaAdAccounts(accessToken);
-  let imported = 0;
+  try {
+    const accessToken = decryptConnectionToken(connection);
+    const rows = await listMetaAdAccounts(accessToken);
+    let imported = 0;
 
-  for (const raw of rows) {
-    const externalId = accountExternalId(raw);
-    if (!externalId) continue;
-    const name = stringValue(raw, "name") ?? externalId;
-    const accountStatus = integerValue(raw, "account_status");
-    const values = {
-      userId,
-      connectionId: connection.id,
-      externalId,
-      name,
-      currency: stringValue(raw, "currency"),
-      timezone: stringValue(raw, "timezone_name"),
-      accountStatus,
-      disableReason: stringValue(raw, "disable_reason"),
-      canRead: accountStatus === null || accountStatus === 1,
-      lastSeenAt: new Date(),
-      raw,
-    };
+    for (const raw of rows) {
+      const externalId = accountExternalId(raw);
+      if (!externalId) continue;
+      const name = stringValue(raw, "name") ?? externalId;
+      const accountStatus = integerValue(raw, "account_status");
+      const values = {
+        userId,
+        connectionId: connection.id,
+        externalId,
+        name,
+        currency: stringValue(raw, "currency"),
+        timezone: stringValue(raw, "timezone_name"),
+        accountStatus,
+        disableReason: stringValue(raw, "disable_reason"),
+        canRead: accountStatus === null || accountStatus === 1,
+        lastSeenAt: new Date(),
+        raw,
+      };
+      await db
+        .insert(metaAdAccounts)
+        .values(values)
+        .onConflictDoUpdate({
+          target: [metaAdAccounts.userId, metaAdAccounts.externalId],
+          set: values,
+        });
+      imported += 1;
+    }
+
     await db
-      .insert(metaAdAccounts)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [metaAdAccounts.userId, metaAdAccounts.externalId],
-        set: values,
-      });
-    imported += 1;
+      .update(metaAdsConnections)
+      .set({ initialSyncStatus: connection.selectedAdAccountId ? "pending" : "awaiting_account", lastSyncError: null, updatedAt: new Date() })
+      .where(eq(metaAdsConnections.userId, userId));
+    return { imported, selectedAdAccountId: connection.selectedAdAccountId };
+  } catch (error) {
+    await persistMetaSyncFailure(userId, error);
+    throw error;
   }
-
-  await db
-    .update(metaAdsConnections)
-    .set({ initialSyncStatus: connection.selectedAdAccountId ? "pending" : "awaiting_account", lastSyncError: null, updatedAt: new Date() })
-    .where(eq(metaAdsConnections.userId, userId));
-  return { imported, selectedAdAccountId: connection.selectedAdAccountId };
 }
 
 async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRawObject[]) {
@@ -541,18 +562,7 @@ export async function syncSelectedMetaAdAccount(
       .where(eq(metaAdsConnections.userId, userId));
     return { campaigns: campaignCount, adSets: adSetCount, ads: importedAds, metrics: importedMetrics, completed: true, nextPhase: null };
   } catch (error) {
-    const message = error instanceof MetaApiError ? error.message : "La synchronisation Meta a échoué.";
-    const connectionStatus = error instanceof MetaApiError && error.code === 190
-      ? "token_expired"
-      : error instanceof MetaApiError && (error.code === 10 || error.code === 200 || error.code === 2000)
-        ? "permission_revoked"
-        : error instanceof Error && error.message.includes("n'est plus accessible")
-          ? "account_inaccessible"
-        : "connected";
-    await db
-      .update(metaAdsConnections)
-      .set({ status: connectionStatus, initialSyncStatus: "failed", lastSyncError: message.slice(0, 500), updatedAt: new Date() })
-      .where(eq(metaAdsConnections.userId, userId));
+    await persistMetaSyncFailure(userId, error);
     throw error;
   }
 }

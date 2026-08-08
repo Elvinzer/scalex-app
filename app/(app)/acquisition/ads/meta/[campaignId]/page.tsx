@@ -13,6 +13,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getMetaCampaignDetail, metricValue } from "@/lib/meta-ads/queries";
 import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
+import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -150,6 +151,10 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const metaRoas = purchaseValueCents !== null && spendCents !== null && spendCents > 0 ? purchaseValueCents / spendCents : null;
   const maxSpend = Math.max(1, ...detail.daily.map((point) => point.spendCents ?? 0));
   const targets = detail.campaign.targets ?? { targetCpaCents: null, targetRoas: null, leadValueCents: null };
+  const targetCpaEuros = targets.targetCpaCents === null ? null : targets.targetCpaCents / 100;
+  const cplTargetLabel = targetVarianceLabel(cpl, targetCpaEuros);
+  const roasTargetLabel = targetVarianceLabel(metaRoas, targets.targetRoas);
+  const leadValueLabel = targets.leadValueCents === null ? null : `Valeur lead ${formatEur(targets.leadValueCents / 100)}`;
   const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain && offer.price !== null);
   const managerUrl = metaAdsManagerUrl(detail.dashboard.account.externalId, detail.campaign.externalId);
   const attribution = detail.attributionQuality;
@@ -254,8 +259,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} provenance="Meta · brute · directe" />
         <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} provenance="Meta · dérivée · directe" />
-        <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={`${leads === null ? "—" : leads.toLocaleString("fr-FR")} lead(s)`} provenance="Meta · dérivée · directe" />
-        <Metric label="ROAS Meta" value={metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`} provenance="Meta · dérivée · directe" />
+        <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={[`${leads === null ? "—" : leads.toLocaleString("fr-FR")} lead(s)`, leadValueLabel, targetCpaEuros === null ? null : `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} provenance="Meta · dérivée · directe" />
+        <Metric label="ROAS Meta" value={metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={[purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} provenance="Meta · dérivée · directe" />
         <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance="Stripe + Meta · dérivée · jointe" />
         <Metric label="Statut" value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? "Budget Meta non exposé" : `${formatEur(detail.campaign.dailyBudgetCents / 100)} / jour`} provenance="Meta · brute · directe" />
       </div>

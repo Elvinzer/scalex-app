@@ -4,6 +4,7 @@ import { upsertMaterializedInsight, type MaterializedInsight } from "@/lib/insig
 
 import type { MetaCampaignType, MetaInsightSnapshot, MetaProvenance } from "./types";
 import { metricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow } from "./queries";
+import { targetVarianceLabel } from "./targets";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
 
 export { META_INSIGHT_THRESHOLDS } from "./thresholds";
@@ -100,6 +101,12 @@ function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
 
 function ratio(numerator: number | null, denominator: number | null): number | null {
   return numerator !== null && denominator !== null && denominator > 0 ? numerator / denominator : null;
+}
+
+function targetCpaContext(campaign: MetaCampaignDashboardRow, cpaCents: number | null): string {
+  const targetCpaCents = campaign.targets?.targetCpaCents ?? null;
+  if (targetCpaCents === null) return "";
+  return ` · cible CPL ${(targetCpaCents / 100).toFixed(2)} € · ${targetVarianceLabel(cpaCents, targetCpaCents) ?? "écart non calculable"}`;
 }
 
 function provenance(source: MetaProvenance["source"] = "meta", attribution: MetaProvenance["attribution"] = "directe"): MetaProvenance {
@@ -241,6 +248,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
     const comparisonSpend = metricValue(campaign.comparisonMetrics, "spendCents");
     const currentCpl = currentLeads !== null && currentLeads > 0 && currentSpend !== null ? currentSpend / currentLeads : null;
     const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpend !== null ? comparisonSpend / comparisonLeads : null;
+    const currentCplTargetContext = targetCpaContext(campaign, currentCpl);
     const currentCashPerLead = campaign.cash?.available && campaign.cash.revenueCents !== null && currentLeads !== null && currentLeads > 0 ? campaign.cash.revenueCents / currentLeads : null;
     const comparisonCashPerLead = campaign.cash?.comparisonAvailable && campaign.cash.comparisonRevenueCents !== null && comparisonLeads !== null && comparisonLeads > 0 ? campaign.cash.comparisonRevenueCents / comparisonLeads : null;
     if (comparisonCoverageReady && currentCpl !== null && comparisonCpl !== null && currentCashPerLead !== null && comparisonCashPerLead !== null && Math.abs(currentCpl - comparisonCpl) / comparisonCpl <= VSL_CPL_STABILITY_THRESHOLD && currentCashPerLead < comparisonCashPerLead * (1 - VSL_CASH_PER_LEAD_DECLINE_THRESHOLD)) {
@@ -249,14 +257,14 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
           campaign,
           "vsl_leads_ok_cash_baisse",
           "Le volume de leads tient, mais le cash par lead baisse",
-          `Le CPL de « ${campaign.name} » reste proche de la période précédente (${(comparisonCpl / 100).toFixed(2)} € → ${(currentCpl / 100).toFixed(2)} €), alors que le cash par lead passe de ${(comparisonCashPerLead / 100).toFixed(2)} € à ${(currentCashPerLead / 100).toFixed(2)} €.`,
+          `Le CPL de « ${campaign.name} » reste proche de la période précédente (${(comparisonCpl / 100).toFixed(2)} € → ${(currentCpl / 100).toFixed(2)} €${currentCplTargetContext}), alors que le cash par lead passe de ${(comparisonCashPerLead / 100).toFixed(2)} € à ${(currentCashPerLead / 100).toFixed(2)} €.`,
           "cash_per_lead",
           currentCashPerLead,
           comparisonCashPerLead,
           currentLeads ?? 0,
           {
             priority: "high",
-            evidence: `CPL ${(comparisonCpl / 100).toFixed(2)} € → ${(currentCpl / 100).toFixed(2)} € · variation CPL ≤ ${Math.round(VSL_CPL_STABILITY_THRESHOLD * 100)} % · cash/lead ${(comparisonCashPerLead / 100).toFixed(2)} € → ${(currentCashPerLead / 100).toFixed(2)} € · baisse détectée ≥ ${Math.round(VSL_CASH_PER_LEAD_DECLINE_THRESHOLD * 100)} % · couverture cash ${(campaign.cash?.coverageRate === null || campaign.cash?.coverageRate === undefined ? "—" : `${Math.round(campaign.cash.coverageRate * 100)} %`)}.`,
+            evidence: `CPL ${(comparisonCpl / 100).toFixed(2)} € → ${(currentCpl / 100).toFixed(2)} € · variation CPL ≤ ${Math.round(VSL_CPL_STABILITY_THRESHOLD * 100)} %${currentCplTargetContext} · cash/lead ${(comparisonCashPerLead / 100).toFixed(2)} € → ${(currentCashPerLead / 100).toFixed(2)} € · baisse détectée ≥ ${Math.round(VSL_CASH_PER_LEAD_DECLINE_THRESHOLD * 100)} % · couverture cash ${(campaign.cash?.coverageRate === null || campaign.cash?.coverageRate === undefined ? "—" : `${Math.round(campaign.cash.coverageRate * 100)} %`)}.`,
             diagnosis: "Le coût d’acquisition ne bouge pas fortement, mais les leads issus de la campagne génèrent moins de cash rattaché.",
             recommendedAction: "Vérifier la qualité des leads, l’offre présentée après le VSL et la continuité du suivi jusqu’au closing.",
             expectedImpact: "Protéger le cash par lead sans couper une campagne uniquement sur son CPL.",
@@ -345,10 +353,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
     const comparisonSpend = metricValue(comparison, "spendCents");
     const currentCpa = currentLeads !== null && currentLeads > 0 && currentSpend !== null ? currentSpend / currentLeads : null;
     const comparisonCpa = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpend !== null ? comparisonSpend / comparisonLeads : null;
-    const targetCpa = campaign.targets?.targetCpaCents ?? null;
-    const targetCpaNote = targetCpa !== null && targetCpa > 0 && currentCpa !== null
-      ? ` · cible CPA ${(targetCpa / 100).toFixed(2)} € · écart ${(((currentCpa - targetCpa) / targetCpa) * 100).toFixed(0)} %`
-      : "";
+    const targetCpaNote = targetCpaContext(campaign, currentCpa);
     const audienceSignals = campaign.retargetingAudiences ?? [];
     const metricCoverage = campaign.metricCoverageRate == null ? "indisponible" : `${Math.round(campaign.metricCoverageRate * 100)} % des jours de la période`;
     const missingBuyerExclusion = audienceSignals.filter(
