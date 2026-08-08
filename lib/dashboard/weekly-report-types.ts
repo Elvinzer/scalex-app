@@ -16,5 +16,8 @@ export type WeeklyReportBottleneck = {
   label: string;
   currentRatePercent: number;
   benchmarkRatePercent: number;
+  // Aggregate monthly potential captured in this report. The label and rates
+  // still identify the primary bottleneck, while this amount also includes
+  // the other chiffrable improvements available at generation time.
   monthlyGain: number;
 };

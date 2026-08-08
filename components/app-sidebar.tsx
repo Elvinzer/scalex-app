@@ -75,8 +75,8 @@ type LinkEntry = {
 // replaces the old "Avancé" nav entry.
 //
 const topEntries: LinkEntry[] = [
-  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
+  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/datas", label: "Mes chiffres", icon: Database, permission: "datas" },
   {
     type: "link",
@@ -403,8 +403,8 @@ export function AppSidebar({
   const visiblePrimaryEntries = visibleTopEntries.filter((entry) => entry.href !== "/copilote");
   const visibleCopiloteEntry = visibleTopEntries.find((entry) => entry.href === "/copilote");
   const mobileEntries = ([
-    { type: "link", href: "/journal", label: "Journal de bord", mobileLabel: "Journal", icon: CalendarDays, permission: "dashboard" },
     { type: "link", href: "/dashboard", label: "Dashboard", mobileLabel: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
+    { type: "link", href: "/journal", label: "Journal de bord", mobileLabel: "Journal", icon: CalendarDays, permission: "dashboard" },
     { type: "link", href: "/datas", label: "Mes chiffres", mobileLabel: "Chiffres", icon: Database, permission: "datas" },
     { type: "link", href: "/ventes", label: "Vente", mobileLabel: "Vente", icon: Handshake, anyOfPermissions: ["ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
     { type: "link", href: "/diagnostic", label: "Diagnostic", mobileLabel: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },

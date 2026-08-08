@@ -8,11 +8,13 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { sumChiffrableMonthlyGains } from "@/lib/diagnostic/monthly-gap";
 import { computeScaleScore } from "@/lib/diagnostic/scale-score";
 import { formatEur } from "@/lib/currency";
 import { computeWeeklyStatCards, lastCompleteWeekRange, upsertWeeklyReport } from "@/lib/dashboard/weekly-report";
 import { currentIsoWeekRange, inRange } from "@/lib/dashboard/metrics";
 import { inngest } from "@/lib/inngest/client";
+import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { getResendClient } from "@/lib/resend-client";
 import { getSales } from "@/lib/sales/queries";
@@ -58,8 +60,9 @@ export const weeklyBriefEmail = inngest.createFunction(
             getSales(user.id),
           ]);
 
+          const months = lastCompletedMonths(3);
           const { settingTotals, closingTotals, cashContractedTotal, hasAnyMonthlyRow } = aggregatePeriodTotals({
-            months: lastCompletedMonths(3),
+            months,
             allMonthlyRows,
             allSettingEntries,
             allClosingEntries,
@@ -68,10 +71,24 @@ export const weeklyBriefEmail = inngest.createFunction(
 
           const benchmarks = await getDiagnosticBenchmarks(user.sector ?? null);
           const points = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+          const { toImplement, toWatch } = await computeLeverOpportunities({
+            accountId: user.id,
+            businessProfile,
+            settingTotals,
+            closingTotals,
+            cashContractedTotal,
+            periodMonths: months.length,
+            months,
+          });
+          const totalMonthlyGain = sumChiffrableMonthlyGains([
+            ...points.slice(0, 3).map((point) => point.monthlyGain),
+            ...[...toWatch].sort((a, b) => b.score - a.score).slice(0, 3).map((lever) => lever.impactAmountEur),
+            ...toImplement.map((lever) => lever.impactAmountEur),
+          ]);
           await ensureWeeklyNudges(user.id);
           const activeNudge = await getActiveNudge(user.id);
           const topPoint = points[0];
-          if (!topPoint || topPoint.monthlyGain === null) return; // nothing chiffrable to send
+          if (!topPoint || totalMonthlyGain <= 0) return; // nothing chiffrable to send
 
           // Scale Score — same 3-month rolling inputs as the sidebar badge,
           // never a "score for this week" (that model doesn't exist, see the
@@ -103,7 +120,7 @@ export const weeklyBriefEmail = inngest.createFunction(
               label: topPoint.label,
               currentRatePercent: topPoint.currentRatePercent,
               benchmarkRatePercent: topPoint.benchmarkRatePercent,
-              monthlyGain: topPoint.monthlyGain,
+              monthlyGain: totalMonthlyGain,
             },
             score: scaleScore.score,
             scoreDelta,
@@ -149,7 +166,7 @@ export const weeklyBriefEmail = inngest.createFunction(
               ...(scoreLine ? [scoreLine] : []),
               "",
               `Ton point le plus faible cette semaine : ${topPoint.label} (${topPoint.currentRatePercent}% contre ${topPoint.benchmarkRatePercent}% pour ta niche).`,
-              `Manque à gagner estimé : ${formatEur(topPoint.monthlyGain)}/mois.`,
+              `Manque à gagner estimé : ${formatEur(totalMonthlyGain)}/mois.`,
               ...(activeNudge
                 ? [
                     "",

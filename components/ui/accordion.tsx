@@ -16,7 +16,7 @@ export function AccordionTrigger({
   ...props
 }: React.ComponentProps<typeof RadixAccordion.Trigger>) {
   return (
-    <RadixAccordion.Header className="flex">
+    <RadixAccordion.Header className="flex min-w-0 flex-1">
       <RadixAccordion.Trigger
         className={cn(
           "group flex flex-1 items-center justify-between gap-2 py-3 text-left outline-none",

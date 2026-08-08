@@ -3,7 +3,6 @@
 import {
   ArrowRight,
   Check,
-  ChevronDown,
   CircleAlert,
   Clock3,
   MessageCircle,
@@ -18,6 +17,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Falco } from "@/components/falco/falco";
 import { ImproveChat } from "@/components/improve-chat";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
@@ -108,7 +108,7 @@ function ActionHero({
           <Falco pose={isInsufficient ? "thinking" : "happy"} size="md" className="shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold tracking-[0.12em] text-accent uppercase">{isInsufficient ? "On commence par là" : "Belle avancée"}</p>
-            <h2 className="mt-2 max-w-2xl text-[clamp(1.6rem,3vw,2.35rem)] leading-tight font-bold">
+            <h2 className="mt-2 max-w-2xl text-2xl leading-tight font-bold">
               {isInsufficient ? "J'ai besoin de tes chiffres pour te dire quoi faire." : "Tout est fait pour aujourd'hui."}
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-text-on-dark-muted">
@@ -143,7 +143,7 @@ function ActionHero({
                 </span>
               )}
             </div>
-            <h2 className="mt-3 max-w-2xl text-[clamp(1.65rem,3.7vw,2.75rem)] leading-[1.08] font-bold tracking-[-0.025em]">{action.title}</h2>
+            <h2 className="mt-3 max-w-2xl text-2xl leading-tight font-bold tracking-[-0.02em]">{action.title}</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-text-on-dark-muted">{action.sourceInsight}</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-accent/40 bg-accent/15 px-3 py-1 text-sm font-bold text-accent">{formatImpact(action.impact)}</span>
@@ -190,7 +190,7 @@ function CompactActionCard({
     <article className="sticker-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between" data-testid="journal-next-action">
       <div className="min-w-0 flex-1">
         {action.overdue && <p className="mb-1 text-xs font-bold text-state-caution">Tu avais prévu ça · il y a {action.overdueDays} jour{action.overdueDays > 1 ? "s" : ""}</p>}
-        <h3 className="text-base leading-snug font-bold">{action.title}</h3>
+        <h3 className="text-sm leading-snug font-bold">{action.title}</h3>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">{action.sourceInsight}</span>
           <span className="text-xs text-muted-foreground" aria-hidden="true">·</span>
@@ -224,36 +224,45 @@ function NextActionsSection({
   onSnooze: (action: JournalActionCandidate) => void;
   onDismiss: (action: JournalActionCandidate) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   if (actions.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="journal-next-actions-title" data-testid="journal-next-actions">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">Après ça</p>
-          <h2 id="journal-next-actions-title" className="mt-1 text-xl font-bold tracking-[-0.015em]">Les prochaines actions</h2>
-        </div>
-        {moreActionsCount > 0 && (
-          <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-            Voir tout ({allActions.length})
-            <ChevronDown className="size-3.5" aria-hidden="true" />
-          </button>
-        )}
-      </div>
-      <div className="flex flex-col gap-2">
-        {actions.map((action) => (
-          <CompactActionCard key={action.id} action={action} isPending={isPending} onMakeToday={onMakeToday} onSnooze={onSnooze} onDismiss={onDismiss} />
-        ))}
-      </div>
+      <Accordion type="single" collapsible value={expanded ? "next-actions" : ""} onValueChange={(value) => setExpanded(value === "next-actions")} className="w-full">
+        <AccordionItem value="next-actions" className="w-full border-0">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+            <AccordionTrigger className="min-h-11 min-w-0 flex-1 rounded-[var(--radius-control)] border border-border bg-card px-4 py-2 hover:bg-muted/60">
+              <div className="min-w-0 text-left">
+                <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">Après ça</p>
+                <h2 id="journal-next-actions-title" className="mt-1 text-lg font-bold tracking-[-0.01em]">Les prochaines actions</h2>
+              </div>
+              <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[11px] font-bold text-muted-foreground">{allActions.length} à prioriser</span>
+            </AccordionTrigger>
+            {moreActionsCount > 0 && (
+              <button type="button" onClick={() => setDialogOpen(true)} className="inline-flex min-h-11 shrink-0 items-center px-2 text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline sm:px-1">
+                Voir tout ({allActions.length})
+              </button>
+            )}
+          </div>
+          <AccordionContent className="pt-2">
+            <div className="flex flex-col gap-2">
+              {actions.map((action) => (
+                <CompactActionCard key={action.id} action={action} isPending={isPending} onMakeToday={onMakeToday} onSnooze={onSnooze} onDismiss={onDismiss} />
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogTitle className="text-xl font-bold">Toutes les actions à venir</DialogTitle>
+          <DialogTitle className="text-lg font-bold">Toutes les actions à venir</DialogTitle>
           <p className="mt-1 text-sm text-muted-foreground">La priorité reste unique. Choisis simplement celle que tu veux faire passer devant.</p>
           <div className="mt-5 flex flex-col gap-2">
             {allActions.map((action) => (
-              <CompactActionCard key={action.id} action={action} isPending={isPending} onMakeToday={(selected) => { onMakeToday(selected); setOpen(false); }} onSnooze={(selected) => { onSnooze(selected); setOpen(false); }} onDismiss={(selected) => { onDismiss(selected); setOpen(false); }} />
+              <CompactActionCard key={action.id} action={action} isPending={isPending} onMakeToday={(selected) => { onMakeToday(selected); setDialogOpen(false); }} onSnooze={(selected) => { onSnooze(selected); setDialogOpen(false); }} onDismiss={(selected) => { onDismiss(selected); setDialogOpen(false); }} />
             ))}
           </div>
         </DialogContent>
@@ -307,7 +316,7 @@ function ResultsSection({ results, onAdjust }: { results: JournalResult[]; onAdj
     <section className="flex flex-col gap-3" aria-labelledby="journal-results-title" data-testid="journal-results">
       <div>
         <p className="text-xs font-bold tracking-[0.12em] text-accent-2-text uppercase">La boucle se ferme ici</p>
-        <h2 id="journal-results-title" className="mt-1 text-xl font-bold tracking-[-0.015em]">Résultats de tes actions</h2>
+          <h2 id="journal-results-title" className="mt-1 text-lg font-bold tracking-[-0.01em]">Résultats de tes actions</h2>
         <p className="mt-1 text-sm text-muted-foreground">Falco revient sur ce qui a changé, sans jugement et avec le prochain réglage.</p>
       </div>
       <div className="grid gap-3">{results.map((result) => <ResultCard key={result.id} result={result} onAdjust={onAdjust} />)}</div>
@@ -338,7 +347,7 @@ function TimelineSection({ timeline }: { timeline: JournalTimeline }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">8 à 12 semaines</p>
-          <h2 id="journal-timeline-title" className="mt-1 text-xl font-bold tracking-[-0.015em]">La trace de tes actions</h2>
+          <h2 id="journal-timeline-title" className="mt-1 text-lg font-bold tracking-[-0.01em]">La trace de tes actions</h2>
           <p className="mt-1 text-sm text-muted-foreground">Les repères verticaux montrent quand tu as agi.</p>
         </div>
         {timeline.metrics.length > 1 && (
@@ -394,7 +403,7 @@ function RemindersSection({ reminders, isPending, onComplete }: { reminders: Jou
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">Pipeline</p>
-          <h2 id="journal-reminders-title" className="mt-1 text-xl font-bold tracking-[-0.015em]">Relances du jour</h2>
+          <h2 id="journal-reminders-title" className="mt-1 text-lg font-bold tracking-[-0.01em]">Relances du jour</h2>
           <p className="mt-1 text-sm text-muted-foreground">Les leads que tu avais choisi de reprendre aujourd&apos;hui.</p>
         </div>
         <Link href="/acquisition/pipeline" className="inline-flex min-h-11 items-center text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Ouvrir le pipeline <ArrowRight className="ml-1 size-3.5" aria-hidden="true" /></Link>
@@ -415,6 +424,23 @@ function RemindersSection({ reminders, isPending, onComplete }: { reminders: Jou
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+function JournalTasksIntro() {
+  return (
+    <div>
+      <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">À côté de la boucle</p>
+      <p className="mt-1 text-sm text-muted-foreground">Ta liste libre, séparée des actions générées par Falco.</p>
+    </div>
+  );
+}
+
+function JournalTasksSection({ todos, projects }: { todos: Todo[]; projects: Project[] }) {
+  return (
+    <section aria-label="Mes tâches">
+      <TodoPanel todos={todos} projects={projects} />
     </section>
   );
 }
@@ -456,6 +482,7 @@ export function JournalView({ data, todos, projects, fixtureMode = false }: { da
   const nextActions = queue.slice(1, 6);
   const allNextActions = queue.slice(1);
   const moreActionsCount = Math.max(0, allNextActions.length - nextActions.length);
+  const hasLoopHistory = data.results.length > 0 || data.timeline.visible;
 
   function dismissIntro() {
     window.localStorage.setItem("scalex:journal-intro-dismissed", "1");
@@ -569,7 +596,7 @@ export function JournalView({ data, todos, projects, fixtureMode = false }: { da
         <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">Ton point de départ</p>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-[clamp(1.9rem,3.5vw,2.8rem)] leading-tight font-bold tracking-[-0.03em]">Journal de bord</h1>
+            <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Journal de bord</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Une action utile maintenant, puis la preuve que tes chiffres bougent.</p>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs font-bold text-muted-foreground"><span className="size-2 rounded-full bg-state-healthy" aria-hidden="true" /> Boucle active</span>
@@ -590,44 +617,54 @@ export function JournalView({ data, todos, projects, fixtureMode = false }: { da
 
       <NextActionsSection actions={nextData.nextActions} allActions={nextData.allNextActions} moreActionsCount={nextData.moreActionsCount} isPending={isPending} onMakeToday={makeToday} onSnooze={snooze} onDismiss={dismiss} />
 
-      <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.62fr)] lg:items-start">
-        <div className="flex min-w-0 flex-col gap-7">
+      {hasLoopHistory && (
+        <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.62fr)] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-7">
           <ResultsSection results={data.results} onAdjust={openResultChat} />
           <TimelineSection timeline={data.timeline} />
-          <RemindersSection reminders={reminders} isPending={isPending && pendingId !== null} onComplete={(reminder) => complete({
-            id: `lead_reminder:${reminder.id}`,
-            type: "lead_reminder",
-            sourceType: "lead_reminder",
-            sourceId: reminder.id,
-            title: `Relance ${reminder.leadName}`,
-            sourceInsight: "Pipeline · relance prévue",
-            metricKey: "followupRecovery",
-            impact: null,
-            effort: "faible",
-            priorityScore: 96,
-            status: "pending",
-            dueDate: reminder.reminderDate,
-            createdAt: null,
-            doneAt: null,
-            resumeAt: null,
-            overdue: reminder.overdueDays > 0,
-            overdueDays: reminder.overdueDays,
-            chatContext: { topicType: "metric", topicKey: "followupRecovery", topicLabel: `Relance ${reminder.leadName}`, sourcePage: "journal_action" },
-            href: "/acquisition/pipeline",
-            isPersisted: true,
-          })} />
-        </div>
-        <aside className="flex min-w-0 flex-col gap-7 lg:sticky lg:top-6">
-          <section aria-label="Mes tâches">
-            <div className="mb-3">
-              <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">À côté de la boucle</p>
-              <p className="mt-1 text-sm text-muted-foreground">Ta liste libre, séparée des actions générées par Falco.</p>
+          </div>
+          <aside className="flex min-w-0 flex-col gap-7 lg:sticky lg:top-6">
+            <div className="flex flex-col gap-3">
+              <JournalTasksIntro />
+              <JournalTasksSection todos={todos} projects={projects} />
             </div>
-            <TodoPanel todos={todos} projects={projects} />
-          </section>
-          <MomentumStrip momentum={data.momentum} />
-        </aside>
-      </div>
+            <MomentumStrip momentum={data.momentum} />
+          </aside>
+        </div>
+      )}
+
+      <RemindersSection reminders={reminders} isPending={isPending && pendingId !== null} onComplete={(reminder) => complete({
+        id: `lead_reminder:${reminder.id}`,
+        type: "lead_reminder",
+        sourceType: "lead_reminder",
+        sourceId: reminder.id,
+        title: `Relance ${reminder.leadName}`,
+        sourceInsight: "Pipeline · relance prévue",
+        metricKey: "followupRecovery",
+        impact: null,
+        effort: "faible",
+        priorityScore: 96,
+        status: "pending",
+        dueDate: reminder.reminderDate,
+        createdAt: null,
+        doneAt: null,
+        resumeAt: null,
+        overdue: reminder.overdueDays > 0,
+        overdueDays: reminder.overdueDays,
+        chatContext: { topicType: "metric", topicKey: "followupRecovery", topicLabel: `Relance ${reminder.leadName}`, sourcePage: "journal_action" },
+        href: "/acquisition/pipeline",
+        isPersisted: true,
+      })} />
+
+      {!hasLoopHistory && (
+        <div className="flex flex-col gap-3">
+          <JournalTasksIntro />
+          <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+            <JournalTasksSection todos={todos} projects={projects} />
+            <MomentumStrip momentum={data.momentum} />
+          </div>
+        </div>
+      )}
 
       <Drawer open={chatContext !== null} onOpenChange={(open) => { if (!open) setChatContext(null); }}>
         <DrawerContent>

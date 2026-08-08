@@ -5,7 +5,6 @@ import { CheckinTrigger } from "./checkin-trigger";
 import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-action-center";
 import { TechnicalAlertsSection } from "./technical-alerts-section";
 import { WeeklyReportDialog } from "./weekly-report-dialog";
-import { ExecutionMomentumCard } from "@/components/insight-execution/execution-momentum-card";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { MetricCard } from "@/components/metric-card";
@@ -18,6 +17,7 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
+import { sumChiffrableMonthlyGains } from "@/lib/diagnostic/monthly-gap";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
@@ -122,11 +122,9 @@ export default async function DashboardPage({
     : [];
   const points = allPoints.slice(0, 3);
 
-  // Top 3 active-but-underperforming levers (toWatch, best-first) — feeds
-  // totalMonthlyLoss below (NOT toImplement/absent levers — the hero's
-  // "manque à gagner" only counts improvements to something already in
-  // place, never a "go set this up" suggestion, that's Découverte's job).
-  const { toWatch } = hasAnyMonthlyRow
+  // Active-but-underperforming levers and explicit improvements still to
+  // implement both contribute to the user's recoverable monthly potential.
+  const { toImplement, toWatch } = hasAnyMonthlyRow
     ? await computeLeverOpportunities({
         accountId,
         businessProfile,
@@ -136,17 +134,20 @@ export default async function DashboardPage({
         periodMonths: PERIOD_MONTHS,
         months,
       })
-    : { toWatch: [] };
+    : { toImplement: [], toWatch: [] };
   const topActiveLevers = [...toWatch].sort((a, b) => b.score - a.score).slice(0, 3);
 
-  // "Manque à gagner" = improvements possible on elements already in place
-  // (the cascade bottlenecks + active-but-underperforming levers) — NOT
-  // Découverte's absent-lever "possibilities", which never counted toward
-  // something concrete existing yet.
+  // "Manque à gagner" = all currently chiffrable opportunities: the three
+  // weakest cascade points, the three weakest active levers, and explicit
+  // improvements still to implement. Null amounts stay out until their
+  // missing inputs are available.
   const totalMonthlyLoss = !hasAnyMonthlyRow
     ? null
-    : (points.some((p) => p.monthlyGain === null) ? 0 : points.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0)) +
-      topActiveLevers.reduce((sum, w) => sum + (w.impactAmountEur ?? 0), 0);
+    : sumChiffrableMonthlyGains([
+        ...points.map((point) => point.monthlyGain),
+        ...topActiveLevers.map((lever) => lever.impactAmountEur),
+        ...toImplement.map((lever) => lever.impactAmountEur),
+      ]);
 
   // The Dashboard's single content Falco (the floating chat bubble is the
   // one permitted exception). Pose + line reflect the same three states the
@@ -231,12 +232,6 @@ export default async function DashboardPage({
       <Suspense fallback={<RevenueActionCenterSkeleton />}>
         <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
       </Suspense>
-
-  <ExecutionMomentumCard
-    accountId={accountId}
-    viewerUserId={userId}
-    canOpenDiagnostic={accountContext?.isOwner || accountContext?.permissions.has("diagnostic")}
-  />
 
       <div>
         <h2 className="text-base font-bold">Contexte du mois</h2>
