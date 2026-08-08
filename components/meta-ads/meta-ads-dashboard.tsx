@@ -75,7 +75,7 @@ function Kpi({ label, value, detail, comparison, provenance, icon }: { label: st
   );
 }
 
-function FunnelStep({ label, value, base, tone = "accent2" }: { label: string; value: number | null; base: number; tone?: "accent" | "accent2" }) {
+function FunnelStep({ label, value, base, tone = "accent2", unavailableReason }: { label: string; value: number | null; base: number; tone?: "accent" | "accent2"; unavailableReason?: string }) {
   const percentage = value === null ? null : ratio(value, base);
   const width = percentage === null ? 0 : Math.min(100, Math.max(3, percentage * 100));
   return (
@@ -84,8 +84,9 @@ function FunnelStep({ label, value, base, tone = "accent2" }: { label: string; v
       <div className="h-2 flex-1 rounded-full bg-muted">
         {percentage !== null && <div className={`h-2 rounded-full ${tone === "accent" ? "bg-accent" : "bg-accent-2"}`} style={{ width: `${width}%` }} />}
       </div>
-      <div className="w-20 text-right text-xs font-bold tabular-nums">
-        {value === null ? "—" : `${number(value)} · ${percentage === null ? "—" : formatPercent(percentage)}`}
+      <div className="w-36 shrink-0 text-right text-xs font-bold tabular-nums">
+        <span>{value === null ? "—" : `${number(value)} · ${percentage === null ? "—" : formatPercent(percentage)}`}</span>
+        {value === null && <span className="mt-1 block text-[10px] font-normal leading-4 text-muted-foreground">{unavailableReason ?? "Indisponible sur la période"}</span>}
       </div>
     </div>
   );
@@ -129,6 +130,16 @@ function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
   );
 }
 
+function TableMetric({ value, provenance, detail }: { value: string; provenance: string; detail?: string }) {
+  return (
+    <div>
+      <span>{value}</span>
+      <span className="mt-1 block text-[10px] font-normal leading-4 text-muted-foreground">{provenance}</span>
+      {detail && <span className="block text-[10px] font-normal leading-4 text-muted-foreground">{detail}</span>}
+    </div>
+  );
+}
+
 function FunnelCard({ totals, campaignType, instagramObservation, frequencySaturationThreshold }: { totals: MetaMetricTotals; campaignType: MetaCampaignDashboardRow["campaignType"]; instagramObservation: MetaInstagramObservation; frequencySaturationThreshold: number }) {
   const impressions = metricValue(totals, "impressions");
   const linkClicks = metricValue(totals, "linkClicks");
@@ -151,9 +162,9 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
         </div>
         <div className="mt-5 space-y-3">
           <FunnelStep label="Impressions" value={impressions} base={impressions ?? 0} tone="accent" />
-          <FunnelStep label="Vues 3 sec." value={video3sViews} base={impressions ?? 0} />
-          <FunnelStep label="ThruPlay" value={videoThruplay} base={video3sViews ?? 0} />
-          <FunnelStep label="Leads" value={leads} base={videoThruplay ?? impressions ?? 0} tone="accent" />
+          <FunnelStep label="Vues 3 sec." value={video3sViews} base={impressions ?? 0} unavailableReason="Source vidéo Meta indisponible sur la période" />
+          <FunnelStep label="ThruPlay" value={videoThruplay} base={video3sViews ?? 0} unavailableReason="Source vidéo Meta indisponible sur la période" />
+          <FunnelStep label="Leads" value={leads} base={videoThruplay ?? impressions ?? 0} tone="accent" unavailableReason="Leads Meta indisponibles sur la période" />
           <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-xs text-state-caution">Lecture VSL et watch depth : indisponibles · source manquante : événements de lecture de la page VSL.</p>
           <FunnelTable rows={[
             { label: "Impressions", value: impressions, base: impressions },
@@ -180,9 +191,9 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
         </div>
         <div className="mt-5 space-y-3">
           <FunnelStep label="Clics" value={linkClicks} base={impressions ?? 0} tone="accent" />
-          <FunnelStep label="Inscriptions" value={registrations} base={linkClicks ?? 0} />
-          <FunnelStep label="Présents" value={null} base={registrations ?? 0} />
-          <FunnelStep label="Ventes Meta" value={metricValue(totals, "purchases")} base={registrations ?? 0} tone="accent" />
+          <FunnelStep label="Inscriptions" value={registrations} base={linkClicks ?? 0} unavailableReason="Inscriptions Meta indisponibles sur la période" />
+          <FunnelStep label="Présents" value={null} base={registrations ?? 0} unavailableReason="Source manquante : événement de présence du webinar" />
+          <FunnelStep label="Ventes Meta" value={metricValue(totals, "purchases")} base={registrations ?? 0} tone="accent" unavailableReason="Achats Meta indisponibles sur la période" />
           <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-xs text-state-caution">Présence live et présence jusqu&apos;au pitch : indisponibles · source manquante : événement du webinar.</p>
           <FunnelTable rows={[
             { label: "Clics", value: linkClicks, base: impressions },
@@ -208,8 +219,8 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
         </div>
         <div className="mt-5 space-y-3">
           <FunnelStep label="Impressions" value={impressions} base={impressions ?? 0} tone="accent" />
-          <FunnelStep label="Visites profil" value={profileVisits} base={impressions ?? 0} />
-          <FunnelStep label="Abonnements observés" value={observedFollows} base={profileVisits ?? 0} tone="accent" />
+          <FunnelStep label="Visites profil" value={profileVisits} base={impressions ?? 0} unavailableReason="Visites de profil Meta indisponibles sur la période" />
+          <FunnelStep label="Abonnements observés" value={observedFollows} base={profileVisits ?? 0} tone="accent" unavailableReason={instagramObservation.connected ? "Observation Instagram indisponible sur la période" : "Source manquante : connexion Instagram"} />
           <p className="text-xs text-muted-foreground">
             Coût / follower observé : {spendCents !== null && observedFollows !== null && observedFollows > 0 ? formatEur(spendCents / observedFollows / 100) : "—"} · Meta + Instagram · dérivée · estimée. {instagramObservation.connected ? "Les follows sont observés sur la période, pas directement attribués à la publicité." : "Étape indisponible · connecte Instagram pour observer les follows."}
           </p>
@@ -238,8 +249,8 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
         </div>
         <div className="mt-5 space-y-3">
           <FunnelStep label="Impressions" value={impressions} base={impressions ?? 0} tone="accent" />
-          <FunnelStep label="Clics lien" value={linkClicks} base={impressions ?? 0} />
-          <FunnelStep label="Leads" value={leads} base={linkClicks ?? 0} tone="accent" />
+          <FunnelStep label="Clics lien" value={linkClicks} base={impressions ?? 0} unavailableReason="Clics lien Meta indisponibles sur la période" />
+          <FunnelStep label="Leads" value={leads} base={linkClicks ?? 0} tone="accent" unavailableReason="Leads Meta indisponibles sur la période" />
           <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
             Fréquence directionnelle : {frequency === null ? "—" : frequency.toFixed(1)} · seuil de saturation : {frequencySaturationThreshold}×. {frequency !== null && frequency > frequencySaturationThreshold ? "Signal de saturation à vérifier dans Meta Ads." : "Aucun franchissement du seuil sur cette lecture."} Le reach additionné par jour n&apos;est pas dédupliqué.
           </p>
@@ -261,8 +272,8 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
       <p className="mt-1 text-sm text-muted-foreground">Choisis un type VSL, Webinaire, Profil Instagram ou Retargeting pour débloquer les étapes adaptées dans les insights.</p>
       <div className="mt-5 space-y-3">
         <FunnelStep label="Impressions" value={impressions} base={impressions ?? 0} tone="accent" />
-        <FunnelStep label="Clics" value={linkClicks} base={impressions ?? 0} />
-        <FunnelStep label="Leads" value={leads} base={linkClicks ?? 0} tone="accent" />
+        <FunnelStep label="Clics" value={linkClicks} base={impressions ?? 0} unavailableReason="Clics Meta indisponibles sur la période" />
+        <FunnelStep label="Leads" value={leads} base={linkClicks ?? 0} tone="accent" unavailableReason="Leads Meta indisponibles sur la période" />
         <FunnelTable rows={[
           { label: "Impressions", value: impressions, base: impressions },
           { label: "Clics", value: linkClicks, base: impressions },
@@ -416,7 +427,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <p className="font-bold">Campagnes Meta</p>
-            <p className="mt-1 text-xs text-muted-foreground">Clique une campagne pour lire ses créas, son funnel et ses insights. Dépenses, impressions et leads · Meta · brute · directe ; CTR · Meta · dérivée · directe.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Clique une campagne pour lire ses créas, son funnel et ses insights. Chaque valeur affiche sa provenance ; une valeur non calculable reste à — avec le motif de son indisponibilité.</p>
           </div>
           <span className="text-xs font-bold text-muted-foreground">{number(data.campaigns.length)} campagne(s)</span>
         </div>
@@ -462,17 +473,29 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                     <td className="px-5 py-4">
                       <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold">{typeLabel(campaign.campaignType)}</span>
                     </td>
-                    <td className="px-5 py-4 text-right tabular-nums">{metricValue(campaign.metrics, "spendCents") === null ? "—" : formatEur((metricValue(campaign.metrics, "spendCents") ?? 0) / 100)}</td>
-                    <td className="px-5 py-4 text-right tabular-nums">{campaignCtr === null ? "—" : formatPercent(campaignCtr)}</td>
-                    <td className="px-5 py-4 text-right tabular-nums">{metricValue(campaign.metrics, "leads") === null ? "—" : number(metricValue(campaign.metrics, "leads") ?? 0)}</td>
                     <td className="px-5 py-4 text-right tabular-nums">
-                      {instagramGrowth || campaignCpl === null ? "—" : formatEur(campaignCpl)}
-                      {instagramGrowth && <span className="block text-xs text-muted-foreground">non applicable · coût / follower observé</span>}
+                      <TableMetric value={campaignSpend === null ? "—" : formatEur(campaignSpend / 100)} provenance={metricProvenance("brute", campaignSpend !== null)} />
+                    </td>
+                    <td className="px-5 py-4 text-right tabular-nums">
+                      <TableMetric value={campaignCtr === null ? "—" : formatPercent(campaignCtr)} provenance={metricProvenance("dérivée", campaignCtr !== null)} />
+                    </td>
+                    <td className="px-5 py-4 text-right tabular-nums">
+                      <TableMetric value={campaignLeads === null ? "—" : number(campaignLeads)} provenance={metricProvenance("brute", campaignLeads !== null)} />
+                    </td>
+                    <td className="px-5 py-4 text-right tabular-nums">
+                      <TableMetric
+                        value={instagramGrowth || campaignCpl === null ? "—" : formatEur(campaignCpl)}
+                        provenance={metricProvenance("dérivée", !instagramGrowth && campaignCpl !== null)}
+                        detail={instagramGrowth ? "Non applicable · coût / follower observé" : undefined}
+                      />
                       {!instagramGrowth && targetCpaEuros !== null && <span className="block text-xs text-muted-foreground">cible {formatEur(targetCpaEuros)} · {targetCpaGap ?? "écart non calculable"}</span>}
                     </td>
                     <td className="px-5 py-4 text-right tabular-nums">
-                      {instagramGrowth ? "—" : campaignRoas === null ? "—" : `${campaignRoas.toFixed(2)}×`}
-                      {instagramGrowth && <span className="block text-xs text-muted-foreground">non applicable · objectif profil</span>}
+                      <TableMetric
+                        value={instagramGrowth || campaignRoas === null ? "—" : campaignRoas.toFixed(2) + "×"}
+                        provenance={metricProvenance("dérivée", !instagramGrowth && campaignRoas !== null)}
+                        detail={instagramGrowth ? "Non applicable · objectif profil" : undefined}
+                      />
                       {!instagramGrowth && targetRoas !== null && <span className="block text-xs text-muted-foreground">cible {targetRoas.toFixed(2)}× · {targetRoasGap ?? "écart non calculable"}</span>}
                     </td>
                     <td className="px-5 py-4 text-right text-xs font-bold text-muted-foreground">{statusLabel(campaign.effectiveStatus)}</td>
