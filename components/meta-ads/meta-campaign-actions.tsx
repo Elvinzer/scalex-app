@@ -13,11 +13,13 @@ type ActionType = "pause" | "resume" | "set_daily_budget";
 type Proposal = {
   actionType: ActionType;
   dailyBudgetCents?: number;
+  idempotencyKey: string;
 };
 
 const storedProposalSchema = z.object({
   actionType: z.enum(["pause", "resume", "set_daily_budget"]),
   dailyBudgetCents: z.number().int().positive().optional(),
+  idempotencyKey: z.string().uuid().optional(),
 });
 
 type Props = {
@@ -26,6 +28,7 @@ type Props = {
   dailyBudgetCents: number | null;
   hasWriteAccess: boolean;
   accountLabel?: string | null;
+  deepLink?: string | null;
 };
 
 function actionLabel(actionType: ActionType): string {
@@ -41,7 +44,7 @@ function statusLabel(status: string | null): string {
   return status ?? "inconnu";
 }
 
-export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasWriteAccess, accountLabel }: Props) {
+export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasWriteAccess, accountLabel, deepLink: campaignDeepLink }: Props) {
   const [budget, setBudget] = useState(dailyBudgetCents === null ? "" : String(Math.round(dailyBudgetCents / 100)));
   const storageKey = `scale-x-meta-action:${campaignId}`;
   const [proposal, setProposal] = useState<Proposal | null>(() => {
@@ -50,13 +53,17 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
       const stored = window.sessionStorage.getItem(storageKey);
       if (!stored) return null;
       const parsed = storedProposalSchema.safeParse(JSON.parse(stored));
-      return parsed.success ? parsed.data : null;
+      if (!parsed.success) return null;
+      const idempotencyKey = parsed.data.idempotencyKey ?? crypto.randomUUID();
+      if (!parsed.data.idempotencyKey) window.sessionStorage.setItem(storageKey, JSON.stringify({ ...parsed.data, idempotencyKey }));
+      return { ...parsed.data, idempotencyKey };
     } catch {
       return null;
     }
   });
   const [message, setMessage] = useState<string | null>(null);
   const [deepLink, setDeepLink] = useState<string | null>(null);
+  const [writeAccessRequired, setWriteAccessRequired] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const isPaused = status === "PAUSED";
@@ -74,7 +81,7 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
       setMessage("Renseigne un budget quotidien supérieur à 0 €.");
       return;
     }
-    const nextProposal = { actionType, dailyBudgetCents: actionType === "set_daily_budget" && value ? Math.round(value * 100) : undefined };
+    const nextProposal = { actionType, dailyBudgetCents: actionType === "set_daily_budget" && value ? Math.round(value * 100) : undefined, idempotencyKey: crypto.randomUUID() };
     setProposal(nextProposal);
     try {
       window.sessionStorage.setItem(storageKey, JSON.stringify(nextProposal));
@@ -85,7 +92,7 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
 
   function confirmProposal() {
     if (!proposal) return;
-    if (!hasWriteAccess) {
+    if (!hasWriteAccess || writeAccessRequired) {
       setMessage("Autorise ads_management pour continuer. La proposition est conservée sur cet appareil.");
       return;
     }
@@ -100,9 +107,10 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
         dailyBudgetCents: action.dailyBudgetCents,
         expectedStatus: action.actionType === "pause" || action.actionType === "resume" ? status ?? undefined : undefined,
         expectedDailyBudgetCents: action.actionType === "set_daily_budget" ? dailyBudgetCents : undefined,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: action.idempotencyKey,
       });
       setDeepLink(result.deepLink ?? null);
+      if (result.needsWriteAccess) setWriteAccessRequired(true);
       if (result.needsWriteAccess) {
         setMessage("Permission d’écriture requise. Aucune modification n’a été tentée.");
       } else if (result.error) {
@@ -122,6 +130,7 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
   const variation = proposal?.actionType === "set_daily_budget" && proposal.dailyBudgetCents !== undefined && dailyBudgetCents !== null && dailyBudgetCents > 0
     ? ((proposal.dailyBudgetCents - dailyBudgetCents) / dailyBudgetCents) * 100
     : null;
+  const writeAccessUnavailable = !hasWriteAccess || writeAccessRequired;
 
   return (
     <div className="sticker-card p-6">
@@ -129,7 +138,7 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
         <p className="font-bold">Actions contrôlées</p>
         <p className="mt-1 text-sm text-muted-foreground">Chaque action suit proposition → confirmation → relecture de l’état dans Meta. Les changements de ciblage et de créatif restent dans Meta Ads.</p>
       </div>
-      {!hasWriteAccess && (
+      {writeAccessUnavailable && (
         <div className="mt-4 flex flex-col gap-2 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-3 text-sm text-state-caution">
           <p className="font-bold">Permission d’écriture absente</p>
           <p>La lecture reste active. Autorise ads_management avant de confirmer une pause, une reprise ou un nouveau budget.</p>
@@ -178,9 +187,17 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
                 <div><dt className="text-xs text-muted-foreground">Nouvelle valeur</dt><dd className="font-bold">{proposal.actionType === "pause" ? "PAUSED" : proposal.actionType === "resume" ? "ACTIVE" : `${Math.round((proposal.dailyBudgetCents ?? 0) / 100)} €/jour`}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Variation budget</dt><dd className="font-bold">{proposal.actionType === "set_daily_budget" ? (variation === null ? "Base inconnue" : `${variation >= 0 ? "+" : ""}${variation.toFixed(0)} %`) : "—"}</dd></div>
               </dl>
-              <p className="mt-3 text-xs text-muted-foreground">Scale X relira la valeur dans Meta juste avant l’écriture. Si elle a changé, l’action sera interrompue pour te laisser décider à nouveau.</p>
+              <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+                <div><dt className="font-bold text-muted-foreground">Justification</dt><dd>Demande explicite de pilotage depuis Scale X.</dd></div>
+                <div><dt className="font-bold text-muted-foreground">Impact potentiel</dt><dd>{proposal.actionType === "pause" ? "La diffusion et la dépense s’arrêtent après validation Meta." : proposal.actionType === "resume" ? "La campagne peut recommencer à diffuser selon les règles Meta." : "La cadence de dépense quotidienne est ajustée à la valeur demandée."}</dd></div>
+                <div><dt className="font-bold text-muted-foreground">Risque</dt><dd>{proposal.actionType === "pause" ? "Perdre du volume pendant l’interruption." : proposal.actionType === "resume" ? "Relancer une dépense avant une nouvelle lecture de performance." : "Dépenser plus ou moins chaque jour dans la limite Scale X."}</dd></div>
+              </dl>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+                <span className="text-muted-foreground">La valeur sera relue dans Meta juste avant l’écriture ; toute divergence arrête l’action.</span>
+                {campaignDeepLink && <a href={campaignDeepLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline">Ouvrir dans Meta Ads <ExternalLink className="size-3.5" /></a>}
+              </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                {!hasWriteAccess ? (
+                {writeAccessUnavailable ? (
                   <MetaAdsConsentDialog
                     mode="write"
                     href={writeAccessHref}

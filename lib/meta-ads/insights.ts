@@ -4,6 +4,9 @@ import { upsertMaterializedInsight, type MaterializedInsight } from "@/lib/insig
 
 import type { MetaCampaignType, MetaInsightSnapshot, MetaProvenance } from "./types";
 import { metricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow } from "./queries";
+import { META_INSIGHT_THRESHOLDS } from "./thresholds";
+
+export { META_INSIGHT_THRESHOLDS } from "./thresholds";
 
 export type MetaInsightRuleKey =
   | "vsl_hook_ok_retention_faible"
@@ -52,14 +55,23 @@ export type MetaInsightProposal = {
   sourceCoverage: string;
 };
 
-const MIN_IMPRESSIONS = 1_000;
-const MIN_CLICKS = 50;
-const MIN_PROFILE_VISITS = 50;
-const VSL_HOLD_RATE_THRESHOLD = 0.2;
-const VSL_LANDING_TO_LEAD_THRESHOLD = 0.1;
-const IG_FOLLOW_RATE_THRESHOLD = 0.1;
-const RT_WINDOW_CPA_RATIO = 1.5;
-const RT_MIN_WINDOW_LEADS = 5;
+const MIN_IMPRESSIONS = META_INSIGHT_THRESHOLDS.minImpressions;
+const MIN_CLICKS = META_INSIGHT_THRESHOLDS.minClicks;
+const MIN_PROFILE_VISITS = META_INSIGHT_THRESHOLDS.minProfileVisits;
+const MIN_COVERAGE = META_INSIGHT_THRESHOLDS.minCoverage;
+const VSL_HOLD_RATE_THRESHOLD = META_INSIGHT_THRESHOLDS.vslHoldRate;
+const VSL_LANDING_TO_LEAD_THRESHOLD = META_INSIGHT_THRESHOLDS.vslLandingToLeadRate;
+const VSL_CPL_STABILITY_THRESHOLD = META_INSIGHT_THRESHOLDS.vslCplStability;
+const VSL_CASH_PER_LEAD_DECLINE_THRESHOLD = META_INSIGHT_THRESHOLDS.vslCashPerLeadDecline;
+const IG_FOLLOW_RATE_THRESHOLD = META_INSIGHT_THRESHOLDS.igFollowRate;
+const IG_COST_PER_VISIT_IMPROVEMENT_THRESHOLD = META_INSIGHT_THRESHOLDS.igCostPerVisitImprovement;
+const IG_FOLLOWS_GROWTH_THRESHOLD = META_INSIGHT_THRESHOLDS.igFollowsGrowth;
+const IG_ENGAGEMENT_DECLINE_THRESHOLD = META_INSIGHT_THRESHOLDS.igEngagementDecline;
+const RETARGETING_FREQUENCY_INCREASE_THRESHOLD = META_INSIGHT_THRESHOLDS.retargetingFrequencyIncrease;
+const RETARGETING_CTR_DECLINE_THRESHOLD = META_INSIGHT_THRESHOLDS.retargetingCtrDecline;
+const RETARGETING_CPA_INCREASE_THRESHOLD = META_INSIGHT_THRESHOLDS.retargetingCpaIncrease;
+const RT_WINDOW_CPA_RATIO = META_INSIGHT_THRESHOLDS.retargetingWindowCpaRatio;
+const RT_MIN_WINDOW_LEADS = META_INSIGHT_THRESHOLDS.retargetingMinWindowLeads;
 
 function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
   switch (ruleKey) {
@@ -68,7 +80,7 @@ function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
     case "vsl_ctr_ok_landing_faible":
       return `Sur la prochaine période comparable, remonter le taux landing → lead au-dessus de ${Math.round(VSL_LANDING_TO_LEAD_THRESHOLD * 100)} % avec un CTR lien au moins stable.`;
     case "vsl_leads_ok_cash_baisse":
-      return "Sur la prochaine période comparable, stabiliser ou remonter le cash par lead sans augmenter le CPL de plus de 20 %.";
+      return `Sur la prochaine période comparable, stabiliser ou remonter le cash par lead sans augmenter le CPL de plus de ${Math.round(VSL_CPL_STABILITY_THRESHOLD * 100)} %.`;
     case "web_inscription_ok_showup_bas":
       return "Sur la prochaine période comparable, stabiliser le coût par inscription et remonter le taux de présence live mesuré.";
     case "web_trafic_qualifie":
@@ -76,9 +88,9 @@ function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
     case "ig_visites_ok_follow_bas":
       return `Sur la prochaine période comparable, dépasser ${Math.round(IG_FOLLOW_RATE_THRESHOLD * 100)} % de conversion visite → follow sans dégrader le coût par visite.`;
     case "ig_follows_moins_engages":
-      return "Sur la prochaine période comparable, conserver la progression des follows tout en stabilisant ou remontant l’engagement par follower.";
+      return `Sur la prochaine période comparable, conserver la progression des follows (au moins +${Math.round(IG_FOLLOWS_GROWTH_THRESHOLD * 100)} %) tout en stabilisant ou remontant l’engagement par follower.`;
     case "rt_saturation":
-      return "Sur la prochaine période comparable, réduire la fréquence et remonter le CTR sans augmenter le CPA.";
+      return `Sur la prochaine période comparable, réduire la fréquence d’au moins ${Math.round(RETARGETING_FREQUENCY_INCREASE_THRESHOLD * 100)} % et remonter le CTR sans augmenter le CPA.`;
     case "rt_exclusion_manquante":
       return "Après vérification dans Meta Ads, aucune audience active ne doit inclure des acheteurs sans exclusion explicite.";
     case "rt_fenetre_inefficace":
@@ -159,6 +171,7 @@ function baseProposal(
 
 function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsightProposal[] {
   const metrics = campaign.metrics;
+  if (campaign.metricCoverageRate === null || campaign.metricCoverageRate === undefined || campaign.metricCoverageRate < MIN_COVERAGE) return [];
   const impressions = metricValue(metrics, "impressions");
   if (impressions === null || impressions < MIN_IMPRESSIONS) return [];
   const proposals: MetaInsightProposal[] = [];
@@ -229,7 +242,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpend !== null ? comparisonSpend / comparisonLeads : null;
     const currentCashPerLead = campaign.cash?.available && campaign.cash.revenueCents !== null && currentLeads !== null && currentLeads > 0 ? campaign.cash.revenueCents / currentLeads : null;
     const comparisonCashPerLead = campaign.cash?.comparisonAvailable && campaign.cash.comparisonRevenueCents !== null && comparisonLeads !== null && comparisonLeads > 0 ? campaign.cash.comparisonRevenueCents / comparisonLeads : null;
-    if (currentCpl !== null && comparisonCpl !== null && currentCashPerLead !== null && comparisonCashPerLead !== null && Math.abs(currentCpl - comparisonCpl) / comparisonCpl <= 0.2 && currentCashPerLead < comparisonCashPerLead * 0.8) {
+    if (currentCpl !== null && comparisonCpl !== null && currentCashPerLead !== null && comparisonCashPerLead !== null && Math.abs(currentCpl - comparisonCpl) / comparisonCpl <= VSL_CPL_STABILITY_THRESHOLD && currentCashPerLead < comparisonCashPerLead * (1 - VSL_CASH_PER_LEAD_DECLINE_THRESHOLD)) {
       proposals.push(
         baseProposal(
           campaign,
@@ -242,7 +255,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
           currentLeads ?? 0,
           {
             priority: "high",
-            evidence: `CPL ${(comparisonCpl / 100).toFixed(2)} € → ${(currentCpl / 100).toFixed(2)} € · cash/lead ${(comparisonCashPerLead / 100).toFixed(2)} € → ${(currentCashPerLead / 100).toFixed(2)} € · couverture cash ${(campaign.cash?.coverageRate === null || campaign.cash?.coverageRate === undefined ? "—" : `${Math.round(campaign.cash.coverageRate * 100)} %`)}.`,
+            evidence: `CPL ${(comparisonCpl / 100).toFixed(2)} € → ${(currentCpl / 100).toFixed(2)} € · variation CPL ≤ ${Math.round(VSL_CPL_STABILITY_THRESHOLD * 100)} % · cash/lead ${(comparisonCashPerLead / 100).toFixed(2)} € → ${(currentCashPerLead / 100).toFixed(2)} € · baisse détectée ≥ ${Math.round(VSL_CASH_PER_LEAD_DECLINE_THRESHOLD * 100)} % · couverture cash ${(campaign.cash?.coverageRate === null || campaign.cash?.coverageRate === undefined ? "—" : `${Math.round(campaign.cash.coverageRate * 100)} %`)}.`,
             diagnosis: "Le coût d’acquisition ne bouge pas fortement, mais les leads issus de la campagne génèrent moins de cash rattaché.",
             recommendedAction: "Vérifier la qualité des leads, l’offre présentée après le VSL et la continuité du suivi jusqu’au closing.",
             expectedImpact: "Protéger le cash par lead sans couper une campagne uniquement sur son CPL.",
@@ -265,7 +278,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const comparisonProfileVisits = metricValue(campaign.comparisonMetrics, "profileVisits");
     const currentCostPerVisit = currentSpend !== null && profileVisits !== null && profileVisits > 0 ? currentSpend / profileVisits : null;
     const comparisonCostPerVisit = comparisonSpend !== null && comparisonProfileVisits !== null && comparisonProfileVisits > 0 ? comparisonSpend / comparisonProfileVisits : null;
-    if (observation?.connected && followRate !== null && profileVisits !== null && follows !== null && profileVisits >= MIN_PROFILE_VISITS && currentCostPerVisit !== null && comparisonCostPerVisit !== null && currentCostPerVisit < comparisonCostPerVisit * 0.9 && followRate < IG_FOLLOW_RATE_THRESHOLD) {
+    if (observation?.connected && followRate !== null && profileVisits !== null && follows !== null && profileVisits >= MIN_PROFILE_VISITS && currentCostPerVisit !== null && comparisonCostPerVisit !== null && currentCostPerVisit < comparisonCostPerVisit * (1 - IG_COST_PER_VISIT_IMPROVEMENT_THRESHOLD) && followRate < IG_FOLLOW_RATE_THRESHOLD) {
       proposals.push(
         baseProposal(
           campaign,
@@ -278,7 +291,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
           profileVisits,
           {
             priority: "medium",
-            evidence: `Coût/visite ${(comparisonCostPerVisit / 100).toFixed(2)} € → ${(currentCostPerVisit / 100).toFixed(2)} € · ${profileVisits} visite(s) Meta · ${follows} follow(s) observé(s) dans Instagram · taux ${Math.round(followRate * 100)} % · seuil ${Math.round(IG_FOLLOW_RATE_THRESHOLD * 100)} %.`,
+            evidence: `Coût/visite ${(comparisonCostPerVisit / 100).toFixed(2)} € → ${(currentCostPerVisit / 100).toFixed(2)} € · baisse requise ≥ ${Math.round(IG_COST_PER_VISIT_IMPROVEMENT_THRESHOLD * 100)} % · ${profileVisits} visite(s) Meta · ${follows} follow(s) observé(s) dans Instagram · taux ${Math.round(followRate * 100)} % · seuil ${Math.round(IG_FOLLOW_RATE_THRESHOLD * 100)} %.`,
             diagnosis: "La campagne attire des visites, mais le profil ne convertit pas suffisamment cette intention en abonnement observé.",
             recommendedAction: "Tester une bio plus explicite, une preuve sociale visible et une créa qui préqualifie mieux la promesse.",
             expectedImpact: "Améliorer le taux visite → follow sans confondre les visites Meta avec les abonnements observés dans Instagram.",
@@ -293,7 +306,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
     const previousFollows = observation?.comparison.follows ?? null;
     const currentEngagement = observation?.current.engagementPerFollower ?? null;
     const previousEngagement = observation?.comparison.engagementPerFollower ?? null;
-    if (observation?.connected && follows !== null && previousFollows !== null && currentEngagement !== null && previousEngagement !== null && follows > previousFollows * 1.1 && currentEngagement < previousEngagement * 0.9) {
+    if (observation?.connected && follows !== null && previousFollows !== null && currentEngagement !== null && previousEngagement !== null && follows > previousFollows * (1 + IG_FOLLOWS_GROWTH_THRESHOLD) && currentEngagement < previousEngagement * (1 - IG_ENGAGEMENT_DECLINE_THRESHOLD)) {
       proposals.push(
         baseProposal(
           campaign,
@@ -306,7 +319,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
           follows,
           {
             priority: "medium",
-            evidence: `Follows observés ${previousFollows} → ${follows} · interactions/follower ${previousEngagement.toFixed(1)} → ${currentEngagement.toFixed(1)} · observation Instagram.`,
+            evidence: `Follows observés ${previousFollows} → ${follows} · hausse requise ≥ ${Math.round(IG_FOLLOWS_GROWTH_THRESHOLD * 100)} % · interactions/follower ${previousEngagement.toFixed(1)} → ${currentEngagement.toFixed(1)} · baisse requise ≥ ${Math.round(IG_ENGAGEMENT_DECLINE_THRESHOLD * 100)} % · observation Instagram.`,
             diagnosis: "La croissance de l’audience ne s’accompagne pas du même niveau d’interaction avec le contenu.",
             recommendedAction: "Resserrer la promesse de la créa et vérifier les contenus consommés par les nouveaux followers.",
             expectedImpact: "Améliorer la qualité de l’audience acquise, pas seulement le volume de followers.",
@@ -399,7 +412,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
         );
       }
     }
-    if (frequency !== null && comparisonFrequency !== null && ctr !== null && comparisonCtr !== null && currentCpa !== null && comparisonCpa !== null && frequency > comparisonFrequency * 1.1 && ctr < comparisonCtr * 0.9 && currentCpa > comparisonCpa * 1.1) {
+    if (frequency !== null && comparisonFrequency !== null && ctr !== null && comparisonCtr !== null && currentCpa !== null && comparisonCpa !== null && frequency > comparisonFrequency * (1 + RETARGETING_FREQUENCY_INCREASE_THRESHOLD) && ctr < comparisonCtr * (1 - RETARGETING_CTR_DECLINE_THRESHOLD) && currentCpa > comparisonCpa * (1 + RETARGETING_CPA_INCREASE_THRESHOLD)) {
       proposals.push(
         baseProposal(
           campaign,
@@ -408,11 +421,11 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow): MetaInsight
           `La campagne « ${campaign.name} » voit sa fréquence passer de ${comparisonFrequency.toFixed(1)} à ${frequency.toFixed(1)}, son CTR de ${(comparisonCtr * 100).toFixed(2)}% à ${(ctr * 100).toFixed(2)}% et son CPA de ${(comparisonCpa / 100).toFixed(2)} € à ${(currentCpa / 100).toFixed(2)} €${targetCpaNote}.`,
           "frequency",
           frequency,
-          3,
+          comparisonFrequency,
           metricValue(metrics, "reach") ?? 0,
           {
             priority: "high",
-            evidence: `Fréquence ${comparisonFrequency.toFixed(1)} → ${frequency.toFixed(1)} · CTR ${(comparisonCtr * 100).toFixed(2)} % → ${(ctr * 100).toFixed(2)} % · CPA ${(comparisonCpa / 100).toFixed(2)} € → ${(currentCpa / 100).toFixed(2)} €${targetCpaNote}.`,
+            evidence: `Fréquence ${comparisonFrequency.toFixed(1)} → ${frequency.toFixed(1)} · hausse requise ≥ ${Math.round(RETARGETING_FREQUENCY_INCREASE_THRESHOLD * 100)} % · CTR ${(comparisonCtr * 100).toFixed(2)} % → ${(ctr * 100).toFixed(2)} % · baisse requise ≥ ${Math.round(RETARGETING_CTR_DECLINE_THRESHOLD * 100)} % · CPA ${(comparisonCpa / 100).toFixed(2)} € → ${(currentCpa / 100).toFixed(2)} € · hausse requise ≥ ${Math.round(RETARGETING_CPA_INCREASE_THRESHOLD * 100)} %${targetCpaNote}.`,
             diagnosis: "L’audience est davantage exposée alors que l’engagement et l’efficacité se dégradent.",
             recommendedAction: "Renouveler les créas et vérifier les exclusions d’acheteurs et de prospects déjà avancés dans Meta Ads.",
             expectedImpact: "Réduire la fatigue créative et éviter de payer plusieurs fois pour une audience déjà touchée.",
@@ -446,7 +459,13 @@ function toMaterializedInsight(
     metricKey: proposal.metricKey,
     currentValue: proposal.currentValue,
     comparisonValue: proposal.comparisonValue,
-    comparisonLabel: proposal.comparisonValue === null ? "non disponible" : "seuil de lecture Scale X",
+    comparisonLabel: proposal.comparisonValue === null
+      ? "non disponible"
+      : proposal.ruleKey === "rt_exclusion_manquante"
+        ? "aucune exclusion détectée"
+        : proposal.ruleKey === "rt_fenetre_inefficace"
+          ? "meilleure fenêtre"
+          : "période précédente",
     periodStart,
     periodEnd,
     sampleSize: proposal.sampleSize,

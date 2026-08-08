@@ -46,20 +46,28 @@ function totals(overrides: Partial<MetaMetricTotals> = {}, availableOverrides: P
 }
 
 function dashboard(campaign: MetaAdsDashboard["campaigns"][number]): MetaAdsDashboard {
+  const campaignWithCoverage = {
+    ...campaign,
+    metricCoverageRate: campaign.metricCoverageRate ?? 1,
+    comparisonMetricCoverageRate: campaign.comparisonMetricCoverageRate ?? 1,
+  };
   return {
     connected: true,
     account: { id: "account", externalId: "act_1", name: "Test", currency: "EUR", timezone: "Europe/Paris" },
     connection: { status: "connected", initialSyncStatus: "completed", lastSyncCompletedAt: "2026-08-08T00:00:00.000Z", lastSyncError: null, grantedScopes: ["ads_read"] },
     period: { start: "2026-07-09", end: "2026-08-08", days: 30, consolidatedThrough: "2026-08-01" },
     comparisonPeriod: { start: "2026-06-09", end: "2026-07-08" },
+    frequencySaturationThreshold: 3,
+    missingMetricDates: [],
     totals: totals(),
     comparisonTotals: totals(),
+    corrections: [],
     instagramObservation: {
       connected: false,
       current: { follows: null, interactions: null, engagementPerFollower: null },
       comparison: { follows: null, interactions: null, engagementPerFollower: null },
     },
-    campaigns: [campaign],
+    campaigns: [campaignWithCoverage],
   };
 }
 
@@ -78,12 +86,18 @@ describe("Meta Ads insight catalogue", () => {
     expect(buildMetaAdsInsights(data)).toHaveLength(0);
   });
 
+  it("freezes every rule when the synchronized day coverage is too low", () => {
+    const data = dashboard({ id: "campaign", externalId: "c1", name: "VSL partial", objective: "VIDEO_VIEWS", effectiveStatus: "ACTIVE", campaignType: "vsl", typeSource: "manual", metricCoverageRate: 0.5, metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }), comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true }), latestDate: "2026-08-08" });
+    expect(buildMetaAdsInsights(data)).toHaveLength(0);
+  });
+
   it("requires all three trend signals before declaring retargeting saturation", () => {
     const current = totals({ spendCents: 20_000, impressions: 10_000, reach: 2_000, linkClicks: 100, leads: 10 }, { spendCents: true, impressions: true, reach: true, linkClicks: true, leads: true });
     const previous = totals({ spendCents: 10_000, impressions: 5_000, reach: 2_000, linkClicks: 100, leads: 10 }, { spendCents: true, impressions: true, reach: true, linkClicks: true, leads: true });
     const data = dashboard({ id: "campaign", externalId: "c1", name: "Retargeting", objective: "CONVERSIONS", effectiveStatus: "ACTIVE", campaignType: "retargeting", typeSource: "manual", metrics: current, comparisonMetrics: previous, latestDate: "2026-08-08" });
     expect(buildMetaAdsInsights(data)).toHaveLength(1);
     expect(buildMetaAdsInsights(data)[0]?.ruleKey).toBe("rt_saturation");
+    expect(buildMetaAdsInsights(data)[0]?.comparisonValue).toBe(2.5);
   });
 
   it("flags a buyer exclusion gap and an inefficient named retargeting window only with targeting evidence", () => {

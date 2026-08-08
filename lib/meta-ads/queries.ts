@@ -1,9 +1,11 @@
-import { and, desc, eq, gte, inArray, like, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lte, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { insightRecords, instagramConnections, instagramPostInsights, metaAdAccounts, metaAdActionLogs, metaAdMetricsDaily, metaAdSets, metaAds, metaAdsConnections, metaAdTouchpoints, metaCampaignProfiles, metaCampaigns, nativeBookingLeads, sales, salesCalls } from "@/db/schema";
+import { insightRecords, instagramConnections, instagramPostInsights, metaAdAccounts, metaAdActionLogs, metaAdMetricCorrections, metaAdMetricsDaily, metaAdSets, metaAds, metaAdsConnections, metaAdTouchpoints, metaCampaignProfiles, metaCampaigns, nativeBookingLeads, sales, salesCalls } from "@/db/schema";
 import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/types";
+import { resolveMetaTouchpointCampaign } from "./attribution-resolution";
 import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, metaAdsManagerUrl, normalizeMetaPeriodDays } from "./protocol";
+import { META_INSIGHT_THRESHOLDS } from "./thresholds";
 import { META_CAMPAIGN_TYPES, type MetaCampaignType, type MetaRawObject } from "./types";
 
 export type MetaMetricTotals = {
@@ -135,8 +137,20 @@ export type MetaAdsDashboard = {
   };
   period: { start: string; end: string; days: number; consolidatedThrough: string | null };
   comparisonPeriod: { start: string; end: string };
+  frequencySaturationThreshold: number;
+  missingMetricDates: string[];
   totals: MetaMetricTotals;
   comparisonTotals: MetaMetricTotals;
+  corrections: Array<{
+    id: string;
+    date: string;
+    level: string;
+    entityKey: string;
+    reason: string;
+    beforeSnapshot: Record<string, unknown>;
+    afterSnapshot: Record<string, unknown>;
+    createdAt: string;
+  }>;
   instagramObservation: MetaInstagramObservation;
   campaigns: MetaCampaignDashboardRow[];
 };
@@ -277,7 +291,7 @@ const availabilityFields: Record<MetaMetricKey, string[]> = {
   follows: ["meta_action:follows"],
   registrations: ["meta_action:registrations"],
   purchases: ["meta_action:purchases"],
-  purchaseValueCents: ["meta_action:purchases"],
+  purchaseValueCents: ["meta_action_value:purchases"],
   messages: ["meta_action:messages"],
 };
 
@@ -335,6 +349,17 @@ function comparisonPeriod(current: { start: string; end: string; days: number })
   return { start: comparisonStart.toISOString().slice(0, 10), end: comparisonEnd.toISOString().slice(0, 10) };
 }
 
+function calendarDates(start: string, end: string): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(`${start}T00:00:00.000Z`);
+  const last = new Date(`${end}T00:00:00.000Z`);
+  while (cursor <= last) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
 function aggregateInstagramObservation(
   rows: Array<{ follows: number | null; totalInteractions: number | null }>,
 ): MetaInstagramObservation["current"] {
@@ -368,7 +393,7 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
 
   const currentPeriod = period(normalizeMetaPeriodDays(requestedDays));
   const previousPeriod = comparisonPeriod(currentPeriod);
-  const [campaignRows, metricRows, comparisonRows, adSetRowsForAudience, adSetMetricRows, instagramConnectionRows, instagramRows, comparisonInstagramRows, touchpointRows, salesRows] = await Promise.all([
+  const [campaignRows, metricRows, comparisonRows, adSetRowsForAudience, adRowsForTouchpoints, adSetMetricRows, correctionRows, instagramConnectionRows, instagramRows, comparisonInstagramRows, touchpointRows, salesRows] = await Promise.all([
     db
       .select({ campaign: metaCampaigns, profile: metaCampaignProfiles })
       .from(metaCampaigns)
@@ -406,6 +431,10 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
       .from(metaAdSets)
       .where(and(eq(metaAdSets.userId, accountId), eq(metaAdSets.adAccountId, account.id))),
     db
+      .select({ externalId: metaAds.externalId, campaignId: metaAds.campaignId })
+      .from(metaAds)
+      .where(and(eq(metaAds.userId, accountId), eq(metaAds.adAccountId, account.id))),
+    db
       .select()
       .from(metaAdMetricsDaily)
       .where(
@@ -417,6 +446,28 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
           lte(metaAdMetricsDaily.date, currentPeriod.end),
         ),
       ),
+    db
+      .select({
+        id: metaAdMetricCorrections.id,
+        date: metaAdMetricCorrections.date,
+        level: metaAdMetricCorrections.level,
+        entityKey: metaAdMetricCorrections.entityKey,
+        reason: metaAdMetricCorrections.reason,
+        beforeSnapshot: metaAdMetricCorrections.beforeSnapshot,
+        afterSnapshot: metaAdMetricCorrections.afterSnapshot,
+        createdAt: metaAdMetricCorrections.createdAt,
+      })
+      .from(metaAdMetricCorrections)
+      .where(
+        and(
+          eq(metaAdMetricCorrections.userId, accountId),
+          eq(metaAdMetricCorrections.adAccountId, account.id),
+          gte(metaAdMetricCorrections.date, currentPeriod.start),
+          lte(metaAdMetricCorrections.date, currentPeriod.end),
+        ),
+      )
+      .orderBy(desc(metaAdMetricCorrections.createdAt))
+      .limit(20),
     db
       .select({ id: instagramConnections.id })
       .from(instagramConnections)
@@ -443,7 +494,12 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
         ),
       ),
     db
-      .select({ id: metaAdTouchpoints.id, campaignExternalId: metaAdTouchpoints.campaignExternalId })
+      .select({
+        id: metaAdTouchpoints.id,
+        adExternalId: metaAdTouchpoints.adExternalId,
+        adSetExternalId: metaAdTouchpoints.adSetExternalId,
+        campaignExternalId: metaAdTouchpoints.campaignExternalId,
+      })
       .from(metaAdTouchpoints)
       .where(eq(metaAdTouchpoints.userId, accountId)),
     db
@@ -453,11 +509,23 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
   ]);
 
   const campaignExternalIds = new Set(campaignRows.map(({ campaign }) => campaign.externalId));
+  const campaignExternalById = new Map(campaignRows.map(({ campaign }) => [campaign.id, campaign.externalId]));
+  const adSetCampaigns = new Map(
+    adSetRowsForAudience.flatMap((row) => {
+      const campaignExternalId = campaignExternalById.get(row.campaignId);
+      return campaignExternalId ? [[row.externalId, campaignExternalId] as const] : [];
+    }),
+  );
+  const adCampaigns = new Map(
+    adRowsForTouchpoints.flatMap((row) => {
+      const campaignExternalId = campaignExternalById.get(row.campaignId);
+      return campaignExternalId ? [[row.externalId, campaignExternalId] as const] : [];
+    }),
+  );
   const touchpointCampaigns = new Map<string, string>();
   for (const row of touchpointRows) {
-    if (row.campaignExternalId && campaignExternalIds.has(row.campaignExternalId)) {
-      touchpointCampaigns.set(row.id, row.campaignExternalId);
-    }
+    const campaignExternalId = resolveMetaTouchpointCampaign(row, campaignExternalIds, adSetCampaigns, adCampaigns);
+    if (campaignExternalId) touchpointCampaigns.set(row.id, campaignExternalId);
   }
   const periodSales = (start: string, end: string) => salesRows.filter((sale) => sale.saleDate >= start && sale.saleDate <= end);
   const currentSales = periodSales(currentPeriod.start, currentPeriod.end);
@@ -485,7 +553,6 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
   const currentInstagramObservation = aggregateInstagramObservation(instagramRows);
   const comparisonInstagramObservation = aggregateInstagramObservation(comparisonInstagramRows);
 
-  const campaignExternalById = new Map(campaignRows.map(({ campaign }) => [campaign.id, campaign.externalId]));
   const currentAdSetMetrics = new Map<string, MetaMetricTotals>();
   for (const row of adSetMetricRows) {
     if (!row.adSetExternalId) continue;
@@ -553,6 +620,8 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
     addTotals(comparisonTotals, row);
   }
   const now = new Date();
+  const synchronizedDates = new Set(metricRows.map((row) => row.date));
+  const missingMetricDates = calendarDates(currentPeriod.start, currentPeriod.end).filter((date) => !synchronizedDates.has(date));
   const consolidatedThrough = metricRows.reduce<string | null>((latest, row) => {
     if (!row.consolidationUntil || row.consolidationUntil > now) return latest;
     return !latest || row.date > latest ? row.date : latest;
@@ -576,8 +645,11 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
     },
     period: { ...currentPeriod, consolidatedThrough },
     comparisonPeriod: previousPeriod,
+    frequencySaturationThreshold: META_INSIGHT_THRESHOLDS.retargetingFrequencySaturation,
+    missingMetricDates,
     totals,
     comparisonTotals,
+    corrections: correctionRows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),
     instagramObservation: {
       connected: instagramConnectionRows.length > 0,
       current: currentInstagramObservation,
@@ -649,7 +721,16 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
   const touchpointPeriodEnd = new Date(`${dashboard.period.end}T23:59:59.999Z`);
   const periodStartDate = new Date(`${dashboard.period.start}T00:00:00.000Z`);
   const periodEndDate = new Date(`${dashboard.period.end}T23:59:59.999Z`);
-  const [metricRows, placementRows, adSetRows, adRows, insightRows, touchpointRows] = await Promise.all([
+  const [adSetRows, adRows] = await Promise.all([
+    db.select().from(metaAdSets).where(and(eq(metaAdSets.userId, accountId), eq(metaAdSets.campaignId, campaignId))).orderBy(metaAdSets.name),
+    db.select().from(metaAds).where(and(eq(metaAds.userId, accountId), eq(metaAds.campaignId, campaignId))).orderBy(metaAds.name),
+  ]);
+  const touchpointEntityFilter = or(
+    eq(metaAdTouchpoints.campaignExternalId, campaignRow.campaign.externalId),
+    ...(adSetRows.length > 0 ? [inArray(metaAdTouchpoints.adSetExternalId, adSetRows.map((row) => row.externalId))] : []),
+    ...(adRows.length > 0 ? [inArray(metaAdTouchpoints.adExternalId, adRows.map((row) => row.externalId))] : []),
+  );
+  const [metricRows, placementRows, insightRows, touchpointRows] = await Promise.all([
     db
       .select()
       .from(metaAdMetricsDaily)
@@ -677,8 +758,6 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
         ),
       )
       .orderBy(metaAdMetricsDaily.date),
-    db.select().from(metaAdSets).where(and(eq(metaAdSets.userId, accountId), eq(metaAdSets.campaignId, campaignId))).orderBy(metaAdSets.name),
-    db.select().from(metaAds).where(and(eq(metaAds.userId, accountId), eq(metaAds.campaignId, campaignId))).orderBy(metaAds.name),
     db
       .select({ id: insightRecords.id, title: insightRecords.title, insightText: insightRecords.insightText, decision: insightRecords.decision, snapshot: insightRecords.snapshot })
       .from(insightRecords)
@@ -695,7 +774,7 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
       .where(
         and(
           eq(metaAdTouchpoints.userId, accountId),
-          eq(metaAdTouchpoints.campaignExternalId, campaignRow.campaign.externalId),
+          touchpointEntityFilter,
           gte(metaAdTouchpoints.capturedAt, touchpointPeriodStart),
           lte(metaAdTouchpoints.capturedAt, touchpointPeriodEnd),
         ),

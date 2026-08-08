@@ -12,6 +12,29 @@ function number(value: number): string {
   return numberFormatter.format(value);
 }
 
+const CORRECTION_FIELDS = [
+  ["spendCents", "Dépenses"],
+  ["impressions", "Impressions"],
+  ["linkClicks", "Clics lien"],
+  ["leads", "Leads"],
+  ["purchases", "Achats"],
+  ["purchaseValueCents", "Valeur achats"],
+] as const;
+
+function correctionValue(value: unknown, field: string): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return field === "spendCents" || field === "purchaseValueCents" ? formatEur(value / 100) : number(Math.round(value));
+}
+
+function correctionSummary(snapshot: Record<string, unknown>): string {
+  return CORRECTION_FIELDS
+    .flatMap(([field, label]) => {
+      const value = snapshot[field];
+      return typeof value === "number" && Number.isFinite(value) ? [`${label} ${correctionValue(value, field)}`] : [];
+    })
+    .join(" · ") || "Valeurs détaillées indisponibles";
+}
+
 function ratio(numerator: number | null, denominator: number | null): number | null {
   return numerator !== null && denominator !== null && denominator > 0 ? numerator / denominator : null;
 }
@@ -61,7 +84,45 @@ function FunnelStep({ label, value, base, tone = "accent2" }: { label: string; v
   );
 }
 
-function FunnelCard({ totals, campaignType, instagramObservation }: { totals: MetaMetricTotals; campaignType: MetaCampaignDashboardRow["campaignType"]; instagramObservation: MetaInstagramObservation }) {
+type FunnelTableRow = {
+  label: string;
+  value: number | null;
+  base: number | null;
+  unavailableReason?: string;
+};
+
+function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
+  return (
+    <div className="mt-5 overflow-x-auto rounded-[var(--radius-control)] border border-border">
+      <table className="w-full min-w-[34rem] text-xs">
+        <caption className="sr-only">Lecture tabulaire du funnel</caption>
+        <thead>
+          <tr className="border-b border-border text-left font-bold text-muted-foreground">
+            <th className="px-3 py-2">Étape</th>
+            <th className="px-3 py-2 text-right">Valeur</th>
+            <th className="px-3 py-2 text-right">Taux vs étape précédente</th>
+            <th className="px-3 py-2">Disponibilité</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const rate = ratio(row.value, row.base);
+            return (
+              <tr key={row.label} className="border-b border-border last:border-0">
+                <th scope="row" className="px-3 py-2 text-left font-bold">{row.label}</th>
+                <td className="px-3 py-2 text-right tabular-nums">{row.value === null ? "—" : number(row.value)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{rate === null ? "—" : formatPercent(rate)}</td>
+                <td className="px-3 py-2 text-muted-foreground">{row.unavailableReason ?? (row.value === null ? "Indisponible sur la période" : "Mesurée")}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FunnelCard({ totals, campaignType, instagramObservation, frequencySaturationThreshold }: { totals: MetaMetricTotals; campaignType: MetaCampaignDashboardRow["campaignType"]; instagramObservation: MetaInstagramObservation; frequencySaturationThreshold: number }) {
   const impressions = metricValue(totals, "impressions");
   const linkClicks = metricValue(totals, "linkClicks");
   const video3sViews = metricValue(totals, "video3sViews");
@@ -87,6 +148,14 @@ function FunnelCard({ totals, campaignType, instagramObservation }: { totals: Me
           <FunnelStep label="ThruPlay" value={videoThruplay} base={video3sViews ?? 0} />
           <FunnelStep label="Leads" value={leads} base={videoThruplay ?? impressions ?? 0} tone="accent" />
           <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-xs text-state-caution">Lecture VSL et watch depth : indisponibles · source manquante : événements de lecture de la page VSL.</p>
+          <FunnelTable rows={[
+            { label: "Impressions", value: impressions, base: impressions },
+            { label: "Vues 3 sec.", value: video3sViews, base: impressions },
+            { label: "ThruPlay", value: videoThruplay, base: video3sViews },
+            { label: "Lecture VSL", value: null, base: null, unavailableReason: "Source manquante : événements de lecture de la page VSL" },
+            { label: "Watch depth", value: null, base: null, unavailableReason: "Source manquante : événements de progression de la page VSL" },
+            { label: "Leads", value: leads, base: videoThruplay ?? impressions },
+          ]} />
         </div>
       </div>
     );
@@ -107,6 +176,13 @@ function FunnelCard({ totals, campaignType, instagramObservation }: { totals: Me
           <FunnelStep label="Présents" value={null} base={registrations ?? 0} />
           <FunnelStep label="Ventes Meta" value={metricValue(totals, "purchases")} base={registrations ?? 0} tone="accent" />
           <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-xs text-state-caution">Présence live et présence jusqu&apos;au pitch : indisponibles · source manquante : événement du webinar.</p>
+          <FunnelTable rows={[
+            { label: "Clics", value: linkClicks, base: impressions },
+            { label: "Inscriptions", value: registrations, base: linkClicks },
+            { label: "Présence live", value: null, base: registrations, unavailableReason: "Source manquante : événement de présence du webinar" },
+            { label: "Présence jusqu'au pitch", value: null, base: registrations, unavailableReason: "Source manquante : événement de progression du webinar" },
+            { label: "Ventes Meta", value: metricValue(totals, "purchases"), base: registrations },
+          ]} />
         </div>
       </div>
     );
@@ -128,6 +204,11 @@ function FunnelCard({ totals, campaignType, instagramObservation }: { totals: Me
           <p className="text-xs text-muted-foreground">
             Coût / follower observé : {spendCents !== null && observedFollows !== null && observedFollows > 0 ? formatEur(spendCents / observedFollows / 100) : "—"} · Meta + Instagram · dérivée · estimée. {instagramObservation.connected ? "Les follows sont observés sur la période, pas directement attribués à la publicité." : "Étape indisponible · connecte Instagram pour observer les follows."}
           </p>
+          <FunnelTable rows={[
+            { label: "Impressions", value: impressions, base: impressions },
+            { label: "Visites profil", value: profileVisits, base: impressions },
+            { label: "Abonnements observés", value: observedFollows, base: profileVisits, unavailableReason: instagramObservation.connected ? undefined : "Source manquante : connexion Instagram" },
+          ]} />
         </div>
       </div>
     );
@@ -150,10 +231,15 @@ function FunnelCard({ totals, campaignType, instagramObservation }: { totals: Me
           <FunnelStep label="Clics lien" value={linkClicks} base={impressions ?? 0} />
           <FunnelStep label="Leads" value={leads} base={linkClicks ?? 0} tone="accent" />
           <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-            Fréquence directionnelle : {frequency === null ? "—" : frequency.toFixed(1)} · seuil de saturation : 3. {frequency !== null && frequency > 3 ? "Signal de saturation à vérifier dans Meta Ads." : "Aucun franchissement du seuil sur cette lecture."} Le reach additionné par jour n&apos;est pas dédupliqué.
+            Fréquence directionnelle : {frequency === null ? "—" : frequency.toFixed(1)} · seuil de saturation : {frequencySaturationThreshold}×. {frequency !== null && frequency > frequencySaturationThreshold ? "Signal de saturation à vérifier dans Meta Ads." : "Aucun franchissement du seuil sur cette lecture."} Le reach additionné par jour n&apos;est pas dédupliqué.
           </p>
           <p className="text-xs text-muted-foreground">Segments, chevauchements et exclusions : indisponibles depuis cette lecture d&apos;Insights ; ouvre Meta Ads pour les vérifier.</p>
           <p className="text-xs font-bold text-muted-foreground">CTR actuel : {ctr === null ? "—" : formatPercent(ctr)} · source Meta · dérivée · directe</p>
+          <FunnelTable rows={[
+            { label: "Impressions", value: impressions, base: impressions },
+            { label: "Clics lien", value: linkClicks, base: impressions },
+            { label: "Leads", value: leads, base: linkClicks },
+          ]} />
         </div>
       </div>
     );
@@ -166,6 +252,11 @@ function FunnelCard({ totals, campaignType, instagramObservation }: { totals: Me
         <FunnelStep label="Impressions" value={impressions} base={impressions ?? 0} tone="accent" />
         <FunnelStep label="Clics" value={linkClicks} base={impressions ?? 0} />
         <FunnelStep label="Leads" value={leads} base={linkClicks ?? 0} tone="accent" />
+        <FunnelTable rows={[
+          { label: "Impressions", value: impressions, base: impressions },
+          { label: "Clics", value: linkClicks, base: impressions },
+          { label: "Leads", value: leads, base: linkClicks },
+        ]} />
       </div>
     </div>
   );
@@ -200,6 +291,11 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
           <p className="mt-1 text-xs text-muted-foreground">
             Couverture minimale des campagnes : {minimumCoverage === null ? "—" : formatPercent(minimumCoverage)} · les périodes incomplètes ne sont pas complétées par des zéros.
           </p>
+          {data.missingMetricDates.length > 0 && (
+            <p className="mt-1 text-xs font-bold text-state-caution" role="status">
+              Jours sans série Meta synchronisée : {data.missingMetricDates.slice(0, 8).join(", ")}{data.missingMetricDates.length > 8 ? ` · +${data.missingMetricDates.length - 8} autre(s)` : ""}. Ces dates restent indisponibles.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <nav className="flex items-center gap-1 rounded-[var(--radius-control)] border border-border bg-card p-1" aria-label="Période Meta Ads">
@@ -228,7 +324,38 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
         </div>
       )}
 
-      <FunnelCard totals={data.totals} campaignType={primaryType} instagramObservation={data.instagramObservation} />
+      <FunnelCard totals={data.totals} campaignType={primaryType} instagramObservation={data.instagramObservation} frequencySaturationThreshold={data.frequencySaturationThreshold} />
+
+      {data.corrections.length > 0 && (
+        <section className="sticker-card overflow-x-auto" aria-labelledby="meta-corrections-title">
+          <div className="border-b border-border px-5 py-4">
+            <h2 id="meta-corrections-title" className="font-bold">Corrections rétroactives Meta</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Meta a révisé des journées déjà consolidées. Les valeurs avant/après restent visibles pour éviter toute modification silencieuse.</p>
+          </div>
+          <table className="w-full min-w-[48rem] text-xs">
+            <thead>
+              <tr className="border-b border-border text-left font-bold text-muted-foreground">
+                <th className="px-5 py-3">Journée</th>
+                <th className="px-5 py-3">Niveau</th>
+                <th className="px-5 py-3">Avant</th>
+                <th className="px-5 py-3">Après</th>
+                <th className="px-5 py-3">Motif</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.corrections.map((correction) => (
+                <tr key={correction.id} className="border-b border-border last:border-0">
+                  <td className="px-5 py-3 font-bold">{correction.date}</td>
+                  <td className="px-5 py-3 uppercase">{correction.level}</td>
+                  <td className="px-5 py-3">{correctionSummary(correction.beforeSnapshot)}</td>
+                  <td className="px-5 py-3">{correctionSummary(correction.afterSnapshot)}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{correction.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <div className="sticker-card overflow-x-auto">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">

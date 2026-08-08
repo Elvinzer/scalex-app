@@ -1,7 +1,5 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
-
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -24,30 +22,8 @@ import { getMetaObject, MetaApiError, parseMetaOptionalNumber, updateMetaObject 
 import { metaAdsManagerUrl, normalizeAdAccountId } from "@/lib/meta-ads/protocol";
 import { buildMetaTrackingUrl } from "@/lib/meta-ads/tracking";
 import { META_CAMPAIGN_TYPES, type MetaEntityLevel } from "@/lib/meta-ads/types";
+import { metaActionSchema } from "@/lib/meta-ads/action-validation";
 import { requireOwner } from "@/lib/team/context";
-
-const metaActionSchema = z
-  .object({
-    campaignId: z.string().uuid().optional(),
-    entityId: z.string().uuid().optional(),
-    entityType: z.enum(["campaign", "adset", "ad"]).default("campaign"),
-    actionType: z.enum(["pause", "resume", "set_daily_budget"]),
-    dailyBudgetCents: z.number().int().min(100).max(10_000_000).optional(),
-    idempotencyKey: z.string().uuid().optional(),
-    expectedStatus: z.string().trim().max(40).optional(),
-    expectedDailyBudgetCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
-  })
-  .superRefine((value, context) => {
-    if (!value.entityId && !value.campaignId) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["entityId"], message: "La cible Meta est requise." });
-    }
-    if (value.actionType === "set_daily_budget" && value.dailyBudgetCents === undefined) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["dailyBudgetCents"], message: "Le budget quotidien est requis." });
-    }
-    if (value.entityType === "ad" && value.actionType === "set_daily_budget") {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["actionType"], message: "Le budget se pilote au niveau campagne ou ensemble de publicités." });
-    }
-  });
 
 export type MetaActionResult = {
   error: string | null;
@@ -150,6 +126,26 @@ async function finishMetaActionLog(params: {
     })
     .where(and(eq(metaAdActionLogs.id, params.logId), eq(metaAdActionLogs.userId, params.accountId)));
   await recordMetaActionInJournal({ ...params, status: params.status });
+}
+
+function isMetaWritePermissionError(error: unknown): boolean {
+  return error instanceof MetaApiError && (error.code === 10 || error.code === 200);
+}
+
+async function markMetaWritePermissionMissing(accountId: string): Promise<void> {
+  const [connection] = await db
+    .select({ grantedScopes: metaAdsConnections.grantedScopes })
+    .from(metaAdsConnections)
+    .where(eq(metaAdsConnections.userId, accountId))
+    .limit(1);
+  if (!connection) return;
+  await db
+    .update(metaAdsConnections)
+    .set({
+      grantedScopes: connection.grantedScopes.filter((scope) => scope !== "ads_management"),
+      updatedAt: new Date(),
+    })
+    .where(eq(metaAdsConnections.userId, accountId));
 }
 
 async function loadMetaActionTarget(params: {
@@ -508,7 +504,7 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
   });
   if (!target) return { error: "Cible Meta introuvable dans le compte publicitaire sélectionné." };
 
-  const idempotencyKey = parsed.data.idempotencyKey ?? randomUUID();
+  const idempotencyKey = parsed.data.idempotencyKey;
   const [existingLog] = await db
     .select({ status: metaAdActionLogs.status, errorMessage: metaAdActionLogs.errorMessage })
     .from(metaAdActionLogs)
@@ -656,6 +652,12 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
   }
 
   const requestedBudget = parsed.data.dailyBudgetCents ?? null;
+  if (requestedBudget !== null && currentDailyBudgetCents === null) {
+    const message = "Le budget quotidien actuel n’est pas exposé par Meta. Ouvre Meta Ads pour vérifier avant de modifier ce budget.";
+    const logId = await insertMetaActionLog({ accountId: access.accountId, adAccountId: target.adAccountId, entityType: target.entityType, entityExternalId: target.externalId, actionType: parsed.data.actionType, idempotencyKey, status: "blocked", requestedState, currentState, errorMessage: message, completedAt: new Date() });
+    await recordMetaActionInJournal({ accountId: access.accountId, logId, campaignName: target.name, actionType: parsed.data.actionType, status: "blocked" });
+    return { error: message, status: "blocked", deepLink };
+  }
   if (requestedBudget !== null && currentDailyBudgetCents !== null && currentDailyBudgetCents > 0) {
     const variation = Math.abs(requestedBudget - currentDailyBudgetCents) / currentDailyBudgetCents;
     if (variation > MAX_DAILY_BUDGET_CHANGE_FRACTION) {
@@ -730,11 +732,19 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
     return { error: null, status: "succeeded" };
   } catch (error) {
     const message = error instanceof MetaApiError ? error.message : "La modification Meta a échoué.";
+    const permissionRevoked = isMetaWritePermissionError(error);
+    if (permissionRevoked) await markMetaWritePermissionMissing(access.accountId);
+    const status = permissionRevoked ? "permission_insufficient" : "failed";
     await db
       .update(metaAdActionLogs)
-      .set({ status: "failed", errorCode: error instanceof MetaApiError && error.code !== null ? String(error.code) : "unknown", errorMessage: message.slice(0, 500), completedAt: new Date() })
+      .set({ status, errorCode: error instanceof MetaApiError && error.code !== null ? String(error.code) : "unknown", errorMessage: message.slice(0, 500), completedAt: new Date() })
       .where(and(eq(metaAdActionLogs.id, logId), eq(metaAdActionLogs.userId, access.accountId)));
-    await recordMetaActionInJournal({ accountId: access.accountId, logId, campaignName: target.name, actionType: parsed.data.actionType, status: "failed" });
-    return { error: message, status: "failed", deepLink };
+    await recordMetaActionInJournal({ accountId: access.accountId, logId, campaignName: target.name, actionType: parsed.data.actionType, status });
+    return {
+      error: permissionRevoked ? "Meta n’autorise plus cette écriture. La lecture reste active ; autorise à nouveau ads_management avant de confirmer." : message,
+      status,
+      needsWriteAccess: permissionRevoked,
+      deepLink,
+    };
   }
 }

@@ -84,7 +84,7 @@ export function MetaAdsConnectionCard({
   }
 
   function handleDisconnect() {
-    if (!window.confirm("Déconnecter Meta Ads et supprimer les données synchronisées ?")) return;
+    if (!window.confirm("Déconnecter Meta Ads ? Les données déjà synchronisées resteront consultables, mais ne seront plus actualisées.")) return;
     setError(null);
     startTransition(async () => {
       const result = await disconnectMetaAds();
@@ -150,13 +150,13 @@ export function MetaAdsConnectionCard({
               </select>
             </label>
             <Button variant="outline" onClick={handleRefresh} disabled={isPending}>
-              <RefreshCw className={isPending ? "size-4 animate-spin" : "size-4"} />
+              <RefreshCw className={isPending ? "size-4 animate-spin motion-reduce:animate-none" : "size-4"} />
               Actualiser les comptes
             </Button>
           </div>
 
           {selectedAccount && (
-            <dl className="mt-4 grid gap-3 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="mt-4 grid gap-3 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
               <div>
                 <dt className="text-xs text-muted-foreground">Compte sélectionné</dt>
                 <dd className="mt-1 font-bold">{selectedAccount.name}</dd>
@@ -172,6 +172,10 @@ export function MetaAdsConnectionCard({
               <div>
                 <dt className="text-xs text-muted-foreground">Fuseau horaire</dt>
                 <dd className="mt-1 font-bold">{selectedAccount.timezone ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Permissions accordées</dt>
+                <dd className="mt-1 font-bold">{grantedScopes.length > 0 ? grantedScopes.join(", ") : "—"}</dd>
               </div>
             </dl>
           )}
@@ -267,19 +271,11 @@ export function MetaAdsConnectionCard({
             </p>
           )}
           {!hasWriteAccess && (
-            <div className="mt-4 flex flex-col gap-2 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-3 text-sm">
+            <div className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-3 text-sm">
               <p className="font-bold">Actions directes désactivées</p>
-              <p className="text-muted-foreground">
-                Scale X reste en lecture seule. Si tu veux autoriser la pause/reprise ou le budget depuis Scale X, Meta demandera une permission séparée.
+              <p className="mt-1 text-muted-foreground">
+                Scale X reste en lecture seule. Une permission séparée sera proposée uniquement lorsque tu prépareras une pause, une reprise ou un nouveau budget.
               </p>
-              <MetaAdsConsentDialog
-                mode="write"
-                href="/api/meta-ads/write-access"
-                accountLabel={selectedAccount?.name ?? "compte publicitaire sélectionné"}
-                triggerLabel="Autoriser les actions Meta"
-                triggerVariant="accent2"
-                triggerClassName="self-start"
-              />
             </div>
           )}
           {hasWriteAccess && (
@@ -292,9 +288,7 @@ export function MetaAdsConnectionCard({
           )}
           <div className="mt-4 flex flex-wrap gap-2">
             {connectionStatus !== "connected" && (
-              <Button variant="outline" asChild>
-                <a href="/api/meta-ads/connect">Reconnecter Meta Ads</a>
-              </Button>
+              <MetaAdsConsentDialog mode="read" href="/api/meta-ads/connect" triggerLabel="Reconnecter Meta Ads" triggerVariant="outline" />
             )}
             <Button variant="outline" asChild>
               <a href="/acquisition/ads">

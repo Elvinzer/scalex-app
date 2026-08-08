@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { setMetaCampaignType } from "@/app/(app)/acquisition/ads/meta-actions";
 import { META_CAMPAIGN_TYPES, type MetaCampaignType } from "@/lib/meta-ads/types";
@@ -22,6 +23,7 @@ export function MetaCampaignProfileSelector({
   campaignType: MetaCampaignType;
   typeSource: string;
 }) {
+  const router = useRouter();
   const [value, setValue] = useState(campaignType);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -37,6 +39,7 @@ export function MetaCampaignProfileSelector({
         setMessage(result.error);
       } else {
         setMessage("Type enregistré.");
+        router.refresh();
       }
     });
   }

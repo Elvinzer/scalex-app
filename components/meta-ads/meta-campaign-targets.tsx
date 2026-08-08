@@ -1,6 +1,7 @@
 "use client";
 
 import { Save, Target } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { setMetaCampaignTargets } from "@/app/(app)/acquisition/ads/meta-actions";
@@ -19,6 +20,7 @@ function initialEuros(cents: number | null): string {
 }
 
 export function MetaCampaignTargets({ campaignId, targetCpaCents, targetRoas, leadValueCents, suggestedLeadValueCents }: Props) {
+  const router = useRouter();
   const [targetCpa, setTargetCpa] = useState(initialEuros(targetCpaCents));
   const [targetRoasValue, setTargetRoasValue] = useState(targetRoas === null ? "" : String(targetRoas));
   const [leadValue, setLeadValue] = useState(initialEuros(leadValueCents ?? suggestedLeadValueCents ?? null));
@@ -45,6 +47,7 @@ export function MetaCampaignTargets({ campaignId, targetCpaCents, targetRoas, le
         leadValueCents: leadEuros === null ? null : Math.round(leadEuros * 100),
       });
       setMessage(result.error ?? "Cibles enregistrées. Les prochains insights pourront les utiliser.");
+      if (!result.error) router.refresh();
     });
   }
 

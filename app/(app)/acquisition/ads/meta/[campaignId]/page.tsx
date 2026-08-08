@@ -84,6 +84,44 @@ function ProgressRow({ label, numerator, denominator }: { label: string; numerat
   );
 }
 
+type FunnelTableRow = {
+  label: string;
+  numerator: number | null;
+  denominator: number | null;
+  unavailableReason?: string;
+};
+
+function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
+  return (
+    <div className="mt-5 overflow-x-auto rounded-[var(--radius-control)] border border-border">
+      <table className="w-full min-w-[32rem] text-xs">
+        <caption className="sr-only">Lecture tabulaire du funnel</caption>
+        <thead>
+          <tr className="border-b border-border text-left font-bold text-muted-foreground">
+            <th className="px-3 py-2">Étape</th>
+            <th className="px-3 py-2 text-right">Valeur</th>
+            <th className="px-3 py-2 text-right">Taux</th>
+            <th className="px-3 py-2">Disponibilité</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const rate = ratio(row.numerator, row.denominator);
+            return (
+              <tr key={row.label} className="border-b border-border last:border-0">
+                <th scope="row" className="px-3 py-2 text-left font-bold">{row.label}</th>
+                <td className="px-3 py-2 text-right tabular-nums">{row.numerator === null ? "—" : row.numerator.toLocaleString("fr-FR")}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{rate === null ? "—" : formatPercent(rate)}</td>
+                <td className="px-3 py-2 text-muted-foreground">{row.unavailableReason ?? (row.numerator === null ? "Indisponible sur la période" : "Mesurée")}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default async function MetaCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ meta_days?: string; meta_ads?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
@@ -128,6 +166,30 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const audienceLadder = [...detail.audiences]
     .filter((audience) => audience.windowDays !== null)
     .sort((left, right) => (left.windowDays ?? Number.POSITIVE_INFINITY) - (right.windowDays ?? Number.POSITIVE_INFINITY));
+  const funnelRows: FunnelTableRow[] = [
+    { label: "Clic / impression", numerator: linkClicks, denominator: impressions },
+  ];
+  if (detail.campaign.campaignType === "vsl") {
+    funnelRows.push(
+      { label: "Vue 3 sec.", numerator: video3sViews, denominator: impressions },
+      { label: "ThruPlay / vue", numerator: videoThruplay, denominator: video3sViews },
+      { label: "Lecture VSL", numerator: null, denominator: null, unavailableReason: "Source manquante : événements de lecture de la page VSL" },
+      { label: "Watch depth", numerator: null, denominator: null, unavailableReason: "Source manquante : événements de progression de la page VSL" },
+    );
+  }
+  if (detail.campaign.campaignType === "webinar") {
+    funnelRows.push(
+      { label: "Inscriptions", numerator: registrations, denominator: linkClicks },
+      { label: "Présence live", numerator: null, denominator: registrations, unavailableReason: "Source manquante : événement de présence du webinar" },
+      { label: "Présence jusqu'au pitch", numerator: null, denominator: registrations, unavailableReason: "Source manquante : événement de progression du webinar" },
+    );
+  }
+  if (detail.campaign.campaignType === "instagram_profile_growth") {
+    funnelRows.push({ label: "Follow / visite", numerator: observedFollows, denominator: profileVisits, unavailableReason: detail.dashboard.instagramObservation.connected ? undefined : "Source manquante : connexion Instagram" });
+  }
+  if (detail.campaign.campaignType === "retargeting") {
+    funnelRows.push({ label: "Fréquence", numerator: impressions, denominator: metricValue(metrics, "reach") });
+  }
 
   return (
     <div className="flex flex-col gap-7">
@@ -148,6 +210,11 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           <p className="mt-1 text-xs text-muted-foreground">
             Couverture de lecture Meta : {detail.campaign.metricCoverageRate === null || detail.campaign.metricCoverageRate === undefined ? "—" : formatPercent(detail.campaign.metricCoverageRate)} des jours de la période · les jours manquants restent indisponibles.
           </p>
+          {detail.dashboard.missingMetricDates.length > 0 && (
+            <p className="mt-1 text-xs font-bold text-state-caution" role="status">
+              Jours sans série Meta synchronisée pour le compte : {detail.dashboard.missingMetricDates.slice(0, 8).join(", ")}{detail.dashboard.missingMetricDates.length > 8 ? ` · +${detail.dashboard.missingMetricDates.length - 8} autre(s)` : ""}.
+            </p>
+          )}
         </div>
         <Button asChild variant="outline">
           <a href={managerUrl} target="_blank" rel="noopener noreferrer">
@@ -184,11 +251,12 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         suggestedLeadValueCents={mainOffer?.price === null || mainOffer?.price === undefined ? null : Math.round(mainOffer.price * 100)}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} provenance="Meta · brute · directe" />
         <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} provenance="Meta · dérivée · directe" />
         <Metric label="Coût / lead" value={cpl === null ? "—" : formatEur(cpl)} detail={`${leads === null ? "—" : leads.toLocaleString("fr-FR")} lead(s)`} provenance="Meta · dérivée · directe" />
         <Metric label="ROAS Meta" value={metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`} provenance="Meta · dérivée · directe" />
+        <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance="Stripe + Meta · dérivée · jointe" />
         <Metric label="Statut" value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? "Budget Meta non exposé" : `${formatEur(detail.campaign.dailyBudgetCents / 100)} / jour`} />
       </div>
 
@@ -227,6 +295,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         dailyBudgetCents={detail.campaign.dailyBudgetCents}
         hasWriteAccess={hasWriteAccess}
         accountLabel={detail.dashboard.account.name}
+        deepLink={managerUrl}
       />
 
       <section className="sticker-card overflow-x-auto" aria-labelledby="meta-action-history-title">
@@ -305,7 +374,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
               </tbody>
             </table>
           )}
-          <p className="border-t border-border px-5 py-3 text-[11px] text-muted-foreground">La fréquence est directionnelle quand le reach est additionné sur plusieurs jours ; vérifie le seuil de saturation 3× dans Meta.</p>
+          <p className="border-t border-border px-5 py-3 text-[11px] text-muted-foreground">La fréquence est directionnelle quand le reach est additionné sur plusieurs jours ; vérifie le seuil de saturation {detail.dashboard.frequencySaturationThreshold}× dans Meta.</p>
         </section>
 
         <section className="sticker-card overflow-x-auto" aria-labelledby="audiences-title">
@@ -429,9 +498,10 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
             )}
             {detail.campaign.campaignType === "retargeting" && (
               <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
-                Fréquence directionnelle : {ratio(impressions, metricValue(metrics, "reach"))?.toFixed(1) ?? "—"} · seuil de saturation : 3. {ratio(impressions, metricValue(metrics, "reach")) !== null && (ratio(impressions, metricValue(metrics, "reach")) ?? 0) > 3 ? "Signal de saturation à vérifier dans Meta Ads." : "Aucun franchissement du seuil sur cette lecture."} Le reach additionné par jour n&apos;est pas dédupliqué ; confirme les exclusions d&apos;audience dans Meta.
+                Fréquence directionnelle : {ratio(impressions, metricValue(metrics, "reach"))?.toFixed(1) ?? "—"} · seuil de saturation : {detail.dashboard.frequencySaturationThreshold}. {ratio(impressions, metricValue(metrics, "reach")) !== null && (ratio(impressions, metricValue(metrics, "reach")) ?? 0) > detail.dashboard.frequencySaturationThreshold ? "Signal de saturation à vérifier dans Meta Ads." : "Aucun franchissement du seuil sur cette lecture."} Le reach additionné par jour n&apos;est pas dédupliqué ; confirme les exclusions d&apos;audience dans Meta.
               </p>
             )}
+            <FunnelTable rows={funnelRows} />
           </div>
         </section>
       </div>
@@ -486,7 +556,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowReach === null ? "—" : (ratio(rowImpressions, rowReach)?.toFixed(1) ?? "—")}</td>
                 <td className="px-5 py-3 text-right tabular-nums">{metricValue(row.metrics, "leads") === null ? "—" : metricValue(row.metrics, "leads")}</td>
                 <td className="px-5 py-3 text-right tabular-nums">{creativeCpaCents(row) === null ? "—" : formatEur(creativeCpaCents(row)! / 100)}</td>
-                <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= 3 ? " · fréquence ≥ 3×" : ""}</td>
+                <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= detail.dashboard.frequencySaturationThreshold ? ` · fréquence ≥ ${detail.dashboard.frequencySaturationThreshold}×` : ""}</td>
                 <td className="px-5 py-3 text-right">
                   <MetaEntityAction entityType="adset" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} />
                 </td>
@@ -513,7 +583,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 <td className="px-5 py-3 text-right tabular-nums">{rowImpressions === null || rowReach === null ? "—" : (ratio(rowImpressions, rowReach)?.toFixed(1) ?? "—")}</td>
                 <td className="px-5 py-3 text-right tabular-nums">{metricValue(row.metrics, "leads") === null ? "—" : metricValue(row.metrics, "leads")}</td>
                 <td className="px-5 py-3 text-right tabular-nums">{creativeCpaCents(row) === null ? "—" : formatEur(creativeCpaCents(row)! / 100)}</td>
-                <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= 3 ? " · fréquence ≥ 3× à vérifier" : ""}</td>
+                <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= detail.dashboard.frequencySaturationThreshold ? ` · fréquence ≥ ${detail.dashboard.frequencySaturationThreshold}× à vérifier` : ""}</td>
                 <td className="px-5 py-3 text-right">
                   <MetaEntityAction entityType="ad" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} />
                 </td>
