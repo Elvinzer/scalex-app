@@ -25,4 +25,20 @@ describe("Meta insight metric availability", () => {
     expect(metrics.purchaseValueCents).toBe(14990);
     expect(metrics.availableMetrics).toContain("meta_action_value:purchases");
   });
+
+  it("keeps Meta's raw CTR, CPC and CPM available for period-level provenance", () => {
+    const metrics = parseMetaInsightMetrics({
+      spend: "12.50",
+      impressions: "1000",
+      inline_link_clicks: "100",
+      ctr: "10",
+      cpc: "0.125",
+      cpm: "12.5",
+    });
+
+    expect(metrics.ctr).toBe(0.1);
+    expect(metrics.cpcCents).toBe(12.5);
+    expect(metrics.cpmCents).toBe(1250);
+    expect(metrics.availableMetrics).toEqual(expect.arrayContaining(["ctr", "cpc", "cpm"]));
+  });
 });

@@ -5,7 +5,7 @@ import { formatEur } from "@/lib/currency";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { META_PERIOD_OPTIONS } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
-import { metricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaInstagramObservation, type MetaMetricTotals } from "@/lib/meta-ads/queries";
+import { metricValue, rawMetaMetricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaInstagramObservation, type MetaMetricTotals } from "@/lib/meta-ads/queries";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 
 const numberFormatter = new Intl.NumberFormat("fr-FR");
@@ -283,14 +283,36 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
   const comparisonLinkClicks = metricValue(data.comparisonTotals, "linkClicks");
   const leads = metricValue(data.totals, "leads");
   const comparisonLeads = metricValue(data.comparisonTotals, "leads");
-  const ctr = impressions !== null && linkClicks !== null ? ratio(linkClicks, impressions) : null;
-  const comparisonCtr = comparisonImpressions !== null && comparisonLinkClicks !== null ? ratio(comparisonLinkClicks, comparisonImpressions) : null;
-  const cpc = linkClicks !== null && linkClicks > 0 && spendCents !== null ? spendCents / linkClicks / 100 : null;
-  const comparisonCpc = comparisonLinkClicks !== null && comparisonLinkClicks > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLinkClicks / 100 : null;
+  const rawCtr = rawMetaMetricValue(data.totals, "ctr");
+  const rawComparisonCtr = rawMetaMetricValue(data.comparisonTotals, "ctr");
+  const ctr = rawCtr ?? (impressions !== null && linkClicks !== null ? ratio(linkClicks, impressions) : null);
+  const comparisonCtr = rawComparisonCtr ?? (comparisonImpressions !== null && comparisonLinkClicks !== null ? ratio(comparisonLinkClicks, comparisonImpressions) : null);
+  const rawCpcCents = rawMetaMetricValue(data.totals, "cpcCents");
+  const rawComparisonCpcCents = rawMetaMetricValue(data.comparisonTotals, "cpcCents");
+  const cpc = rawCpcCents !== null
+    ? rawCpcCents / 100
+    : linkClicks !== null && linkClicks > 0 && spendCents !== null
+      ? spendCents / linkClicks / 100
+      : null;
+  const comparisonCpc = rawComparisonCpcCents !== null
+    ? rawComparisonCpcCents / 100
+    : comparisonLinkClicks !== null && comparisonLinkClicks > 0 && comparisonSpendCents !== null
+      ? comparisonSpendCents / comparisonLinkClicks / 100
+      : null;
   const cpl = leads !== null && leads > 0 && spendCents !== null ? spendCents / leads / 100 : null;
   const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLeads / 100 : null;
-  const cpm = impressions !== null && impressions > 0 && spendCents !== null ? (spendCents / impressions) * 1000 / 100 : null;
-  const comparisonCpm = comparisonImpressions !== null && comparisonImpressions > 0 && comparisonSpendCents !== null ? (comparisonSpendCents / comparisonImpressions) * 1000 / 100 : null;
+  const rawCpmCents = rawMetaMetricValue(data.totals, "cpmCents");
+  const rawComparisonCpmCents = rawMetaMetricValue(data.comparisonTotals, "cpmCents");
+  const cpm = rawCpmCents !== null
+    ? rawCpmCents / 100
+    : impressions !== null && impressions > 0 && spendCents !== null
+      ? (spendCents / impressions) * 1000 / 100
+      : null;
+  const comparisonCpm = rawComparisonCpmCents !== null
+    ? rawComparisonCpmCents / 100
+    : comparisonImpressions !== null && comparisonImpressions > 0 && comparisonSpendCents !== null
+      ? (comparisonSpendCents / comparisonImpressions) * 1000 / 100
+      : null;
   const campaignTypes = [...new Set(data.campaigns.map((campaign) => campaign.campaignType).filter((type) => type !== "other"))];
   const primaryType = campaignTypes.length === 1 ? campaignTypes[0]! : "other";
   const coverageValues = data.campaigns.map((campaign) => campaign.metricCoverageRate).filter((value): value is number => value !== null && value !== undefined);
@@ -345,10 +367,10 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Kpi label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : number(impressions)} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance={metricProvenance("brute", spendCents !== null)} icon={<Eye className="size-4" />} />
-        <Kpi label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : number(linkClicks)} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance={metricProvenance("dérivée", ctr !== null)} icon={<MousePointerClick className="size-4" />} />
-        <Kpi label="CPC lien" value={cpc === null ? "—" : formatEur(cpc)} detail="Coût par clic sortant" comparison={trendLabel(cpc, comparisonCpc)} provenance={metricProvenance("dérivée", cpc !== null)} icon={<MousePointerClick className="size-4" />} />
+        <Kpi label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : number(linkClicks)} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance={metricProvenance(rawCtr !== null ? "brute" : "dérivée", ctr !== null)} icon={<MousePointerClick className="size-4" />} />
+        <Kpi label="CPC lien" value={cpc === null ? "—" : formatEur(cpc)} detail="Coût par clic sortant" comparison={trendLabel(cpc, comparisonCpc)} provenance={metricProvenance(rawCpcCents !== null ? "brute" : "dérivée", cpc !== null)} icon={<MousePointerClick className="size-4" />} />
         <Kpi label="Coût / lead" value={!cplApplicable || cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, cplTargetCount > 0 ? `${number(cplTargetCount)} cible(s) par campagne` : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl) : "Non applicable"} provenance={metricProvenance("dérivée", cplApplicable && cpl !== null)} icon={<UserPlus className="size-4" />} />
-        <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" comparison={trendLabel(cpm, comparisonCpm)} provenance={metricProvenance("dérivée", cpm !== null)} icon={<BarChart3 className="size-4" />} />
+        <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" comparison={trendLabel(cpm, comparisonCpm)} provenance={metricProvenance(rawCpmCents !== null ? "brute" : "dérivée", cpm !== null)} icon={<BarChart3 className="size-4" />} />
       </div>
 
       {data.connection.initialSyncStatus !== "completed" && (

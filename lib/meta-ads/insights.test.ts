@@ -42,6 +42,13 @@ function totals(overrides: Partial<MetaMetricTotals> = {}, availableOverrides: P
     purchases: 0,
     purchaseValueCents: 0,
     messages: 0,
+    metaProvided: {
+      ctr: null,
+      cpcCents: null,
+      cpmCents: null,
+      rowCount: 0,
+      availableRows: { ctr: 0, cpcCents: 0, cpmCents: 0 },
+    },
     available: { ...available, ...availableOverrides },
     ...overrides,
   };

@@ -43,11 +43,27 @@ function metrics(overrides: Partial<Omit<MetaMetricTotals, "available">>): MetaM
     purchases: 0,
     purchaseValueCents: 0,
     messages: 0,
+    metaProvided: {
+      ctr: null,
+      cpcCents: null,
+      cpmCents: null,
+      rowCount: 0,
+      availableRows: { ctr: 0, cpcCents: 0, cpmCents: 0 },
+    },
     ...overrides,
+  };
+
+  const metaProvided = overrides.metaProvided ?? {
+    ctr: values.impressions > 0 ? values.linkClicks / values.impressions : null,
+    cpcCents: values.linkClicks > 0 ? values.spendCents / values.linkClicks : null,
+    cpmCents: values.impressions > 0 ? values.spendCents / values.impressions * 1000 : null,
+    rowCount: 1,
+    availableRows: { ctr: 1, cpcCents: 1, cpmCents: 1 },
   };
 
   return {
     ...values,
+    metaProvided,
     available: Object.fromEntries(ALL_METRICS.map((key) => [key, true])) as Record<MetaMetricKey, boolean>,
   };
 }

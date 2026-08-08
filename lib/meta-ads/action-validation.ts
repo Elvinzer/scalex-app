@@ -15,6 +15,9 @@ export const metaActionSchema = z
     if (!value.entityId && !value.campaignId) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["entityId"], message: "La cible Meta est requise." });
     }
+    if (value.entityType !== "campaign" && !value.campaignId) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["campaignId"], message: "La campagne parente est requise pour cette cible Meta." });
+    }
     if (value.actionType === "set_daily_budget" && value.dailyBudgetCents === undefined) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["dailyBudgetCents"], message: "Le budget quotidien est requis." });
     }

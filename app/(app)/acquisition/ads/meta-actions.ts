@@ -211,7 +211,7 @@ async function loadMetaActionTarget(params: {
     const [row] = await db
       .select({ adSet: metaAdSets, campaignExternalId: metaCampaigns.externalId })
       .from(metaAdSets)
-      .innerJoin(metaCampaigns, eq(metaCampaigns.id, metaAdSets.campaignId))
+      .innerJoin(metaCampaigns, and(eq(metaCampaigns.id, metaAdSets.campaignId), eq(metaCampaigns.userId, params.accountId), eq(metaCampaigns.adAccountId, account.id)))
       .where(and(eq(metaAdSets.id, params.entityId), eq(metaAdSets.userId, params.accountId), eq(metaAdSets.adAccountId, account.id)))
       .limit(1);
     if (!row) return null;
@@ -235,8 +235,8 @@ async function loadMetaActionTarget(params: {
   const [row] = await db
     .select({ ad: metaAds, adSetExternalId: metaAdSets.externalId, campaignExternalId: metaCampaigns.externalId })
     .from(metaAds)
-    .innerJoin(metaAdSets, eq(metaAdSets.id, metaAds.adSetId))
-    .innerJoin(metaCampaigns, eq(metaCampaigns.id, metaAds.campaignId))
+    .innerJoin(metaAdSets, and(eq(metaAdSets.id, metaAds.adSetId), eq(metaAdSets.userId, params.accountId), eq(metaAdSets.adAccountId, account.id)))
+    .innerJoin(metaCampaigns, and(eq(metaCampaigns.id, metaAds.campaignId), eq(metaCampaigns.userId, params.accountId), eq(metaCampaigns.adAccountId, account.id)))
     .where(and(eq(metaAds.id, params.entityId), eq(metaAds.userId, params.accountId), eq(metaAds.adAccountId, account.id)))
     .limit(1);
   if (!row) return null;
@@ -537,6 +537,9 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
     entityId: targetId,
   });
   if (!target) return { error: "Cible Meta introuvable dans le compte publicitaire sélectionné." };
+  if (parsed.data.entityType !== "campaign" && parsed.data.campaignId !== target.campaignId) {
+    return { error: "La cible Meta n’appartient pas à la campagne annoncée." };
+  }
 
   const idempotencyKey = parsed.data.idempotencyKey;
   const [existingLog] = await db
@@ -633,7 +636,13 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
   try {
     currentState = await getMetaObject(accessToken, target.externalId, "id,status,effective_status,daily_budget,lifetime_budget,account_id");
   } catch (error) {
-    const message = error instanceof MetaApiError ? error.message : "Impossible de relire la campagne dans Meta.";
+    const tokenExpired = isMetaTokenExpiredError(error);
+    if (tokenExpired) await markMetaTokenExpired(access.accountId);
+    const message = tokenExpired
+      ? "Le jeton Meta a expiré. Reconnecte Meta Ads avant de confirmer l’action."
+      : error instanceof MetaApiError
+        ? error.message
+        : "Impossible de relire la campagne dans Meta.";
     const logId = await insertMetaActionLog({
       accountId: access.accountId,
       adAccountId: target.adAccountId,

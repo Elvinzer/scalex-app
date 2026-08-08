@@ -24,8 +24,17 @@ export type MetaMetricTotals = {
   purchases: number;
   purchaseValueCents: number;
   messages: number;
+  metaProvided: {
+    ctr: number | null;
+    cpcCents: number | null;
+    cpmCents: number | null;
+    rowCount: number;
+    availableRows: Record<MetaRawMetricKey, number>;
+  };
   available: Record<MetaMetricKey, boolean>;
 };
+
+export type MetaRawMetricKey = "ctr" | "cpcCents" | "cpmCents";
 
 export type MetaMetricKey =
   | "spendCents"
@@ -225,6 +234,13 @@ const EMPTY_TOTALS: MetaMetricTotals = {
   purchases: 0,
   purchaseValueCents: 0,
   messages: 0,
+  metaProvided: {
+    ctr: null,
+    cpcCents: null,
+    cpmCents: null,
+    rowCount: 0,
+    availableRows: { ctr: 0, cpcCents: 0, cpmCents: 0 },
+  },
   available: {
     spendCents: false,
     impressions: false,
@@ -296,10 +312,19 @@ const availabilityFields: Record<MetaMetricKey, string[]> = {
 };
 
 function emptyTotals(): MetaMetricTotals {
-  return { ...EMPTY_TOTALS, available: { ...EMPTY_TOTALS.available } };
+  return {
+    ...EMPTY_TOTALS,
+    metaProvided: {
+      ...EMPTY_TOTALS.metaProvided,
+      availableRows: { ...EMPTY_TOTALS.metaProvided.availableRows },
+    },
+    available: { ...EMPTY_TOTALS.available },
+  };
 }
 
 function addTotals(target: MetaMetricTotals, row: typeof metaAdMetricsDaily.$inferSelect): void {
+  const previousImpressions = target.impressions;
+  const previousLinkClicks = target.linkClicks;
   target.spendCents += row.spendCents;
   target.impressions += row.impressions;
   // Reach is not additive across days. We expose the sum only as a
@@ -317,6 +342,25 @@ function addTotals(target: MetaMetricTotals, row: typeof metaAdMetricsDaily.$inf
   target.purchases += row.purchases;
   target.purchaseValueCents += row.purchaseValueCents;
   target.messages += row.messages;
+  target.metaProvided.rowCount += 1;
+  const rawMetrics: Array<{ key: MetaRawMetricKey; value: number | null; availableField: string; weight: number }> = [
+    { key: "ctr", value: row.ctr, availableField: "ctr", weight: row.impressions },
+    { key: "cpcCents", value: row.cpcCents, availableField: "cpc", weight: row.linkClicks },
+    { key: "cpmCents", value: row.cpmCents, availableField: "cpm", weight: row.impressions },
+  ];
+  for (const metric of rawMetrics) {
+    if (!row.availableMetrics.includes(metric.availableField) || metric.value === null || !Number.isFinite(metric.value)) continue;
+    target.metaProvided.availableRows[metric.key] += 1;
+    const previousWeight = metric.key === "cpcCents" ? previousLinkClicks : previousImpressions;
+    const totalWeight = previousWeight + metric.weight;
+    if (totalWeight <= 0) {
+      target.metaProvided[metric.key] = metric.value;
+      continue;
+    }
+    target.metaProvided[metric.key] = (
+      (target.metaProvided[metric.key] ?? 0) * previousWeight + metric.value * metric.weight
+    ) / totalWeight;
+  }
   for (const key of Object.keys(availabilityFields) as MetaMetricKey[]) {
     if (availabilityFields[key].some((field) => row.availableMetrics.includes(field))) target.available[key] = true;
   }
@@ -324,6 +368,16 @@ function addTotals(target: MetaMetricTotals, row: typeof metaAdMetricsDaily.$inf
 
 export function metricValue(metrics: MetaMetricTotals, key: MetaMetricKey): number | null {
   return metrics.available[key] ? metrics[key] : null;
+}
+
+/**
+ * Returns a period-level metric exactly as supplied by Meta only when every
+ * synchronized row in the aggregate supplied that raw field. Otherwise the
+ * caller must use its deterministic fallback and label it as derived.
+ */
+export function rawMetaMetricValue(metrics: MetaMetricTotals, key: MetaRawMetricKey): number | null {
+  if (metrics.metaProvided.rowCount === 0 || metrics.metaProvided.availableRows[key] !== metrics.metaProvided.rowCount) return null;
+  return metrics.metaProvided[key];
 }
 
 function campaignType(value: string): MetaCampaignType {

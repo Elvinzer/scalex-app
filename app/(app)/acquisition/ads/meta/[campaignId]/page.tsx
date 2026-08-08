@@ -16,7 +16,7 @@ import { META_INSIGHT_THRESHOLDS } from "@/lib/meta-ads/thresholds";
 import { buildMetaAudienceWarnings } from "@/lib/meta-ads/audience-warnings";
 import { buildMetaAdsInsights, materializeMetaAdsInsights } from "@/lib/meta-ads/insights";
 import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
-import { getMetaAdsDashboard, getMetaCampaignDetail, metricValue } from "@/lib/meta-ads/queries";
+import { getMetaAdsDashboard, getMetaCampaignDetail, metricValue, rawMetaMetricValue } from "@/lib/meta-ads/queries";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
@@ -187,10 +187,22 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const observedFollows = detail.dashboard.instagramObservation.current.follows;
   const registrations = metricValue(metrics, "registrations");
   const purchaseValueCents = metricValue(metrics, "purchaseValueCents");
-  const ctr = ratio(linkClicks, impressions);
-  const comparisonCtr = ratio(comparisonLinkClicks, comparisonImpressions);
-  const cpc = linkClicks !== null && linkClicks > 0 && spendCents !== null ? spendCents / linkClicks / 100 : null;
-  const comparisonCpc = comparisonLinkClicks !== null && comparisonLinkClicks > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLinkClicks / 100 : null;
+  const rawCtr = rawMetaMetricValue(metrics, "ctr");
+  const rawComparisonCtr = rawMetaMetricValue(comparisonMetrics, "ctr");
+  const ctr = rawCtr ?? ratio(linkClicks, impressions);
+  const comparisonCtr = rawComparisonCtr ?? ratio(comparisonLinkClicks, comparisonImpressions);
+  const rawCpcCents = rawMetaMetricValue(metrics, "cpcCents");
+  const rawComparisonCpcCents = rawMetaMetricValue(comparisonMetrics, "cpcCents");
+  const cpc = rawCpcCents !== null
+    ? rawCpcCents / 100
+    : linkClicks !== null && linkClicks > 0 && spendCents !== null
+      ? spendCents / linkClicks / 100
+      : null;
+  const comparisonCpc = rawComparisonCpcCents !== null
+    ? rawComparisonCpcCents / 100
+    : comparisonLinkClicks !== null && comparisonLinkClicks > 0 && comparisonSpendCents !== null
+      ? comparisonSpendCents / comparisonLinkClicks / 100
+      : null;
   const cpl = leads !== null && leads > 0 && spendCents !== null ? spendCents / leads / 100 : null;
   const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLeads / 100 : null;
   const cplDetail = detail.campaign.campaignType === "instagram_profile_growth"
@@ -206,6 +218,18 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const metaRoas = !instagramGrowth && purchaseValueCents !== null && spendCents !== null && spendCents > 0 ? purchaseValueCents / spendCents : null;
   const comparisonPurchaseValueCents = metricValue(comparisonMetrics, "purchaseValueCents");
   const comparisonRoas = comparisonPurchaseValueCents !== null && comparisonSpendCents !== null && comparisonSpendCents > 0 ? comparisonPurchaseValueCents / comparisonSpendCents : null;
+  const rawCpmCents = rawMetaMetricValue(metrics, "cpmCents");
+  const rawComparisonCpmCents = rawMetaMetricValue(comparisonMetrics, "cpmCents");
+  const cpm = rawCpmCents !== null
+    ? rawCpmCents / 100
+    : impressions !== null && impressions > 0 && spendCents !== null
+      ? (spendCents / impressions) * 1000 / 100
+      : null;
+  const comparisonCpm = rawComparisonCpmCents !== null
+    ? rawComparisonCpmCents / 100
+    : comparisonImpressions !== null && comparisonImpressions > 0 && comparisonSpendCents !== null
+      ? (comparisonSpendCents / comparisonImpressions) * 1000 / 100
+      : null;
   const maxSpend = Math.max(1, ...detail.daily.map((point) => point.spendCents ?? 0));
   const targets = detail.campaign.targets ?? { targetCpaCents: null, targetRoas: null, leadValueCents: null };
   const targetCpaEuros = targets.targetCpaCents === null ? null : targets.targetCpaCents / 100;
@@ -344,10 +368,11 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         suggestedLeadValueCents={mainOffer?.price === null || mainOffer?.price === undefined ? null : Math.round(mainOffer.price * 100)}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-8">
         <Metric label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : impressions.toLocaleString("fr-FR")} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance={metricProvenance("Meta", "brute", spendCents !== null)} />
-        <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance={metricProvenance("Meta", "dérivée", ctr !== null)} />
-        <Metric label="CPC lien" value={cpc === null ? "—" : formatEur(cpc)} detail="Coût par clic sortant" comparison={trendLabel(cpc, comparisonCpc)} provenance={metricProvenance("Meta", "dérivée", cpc !== null)} />
+        <Metric label="CTR lien" value={ctr === null ? "—" : formatPercent(ctr)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString("fr-FR")} clics lien`} comparison={trendLabel(ctr, comparisonCtr)} provenance={metricProvenance("Meta", rawCtr !== null ? "brute" : "dérivée", ctr !== null)} />
+        <Metric label="CPC lien" value={cpc === null ? "—" : formatEur(cpc)} detail="Coût par clic sortant" comparison={trendLabel(cpc, comparisonCpc)} provenance={metricProvenance("Meta", rawCpcCents !== null ? "brute" : "dérivée", cpc !== null)} />
+        <Metric label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" comparison={trendLabel(cpm, comparisonCpm)} provenance={metricProvenance("Meta", rawCpmCents !== null ? "brute" : "dérivée", cpm !== null)} />
         <Metric label="Coût / lead" value={!cplApplicable || cpl === null ? "—" : formatEur(cpl)} detail={[cplDetail, cplApplicable ? leadValueLabel : null, cplApplicable && targetCpaEuros !== null ? `Cible ${formatEur(targetCpaEuros)} · ${cplTargetLabel ?? "écart non calculable"}` : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl) : "Non applicable"} provenance={metricProvenance("Meta", "dérivée", cplApplicable && cpl !== null)} />
         <Metric label="ROAS Meta" value={instagramGrowth ? "—" : metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={instagramGrowth ? "Non applicable pour une campagne de croissance Instagram · objectif profil" : [purchaseValueCents === null ? "Valeur d’achat Meta indisponible" : `${formatEur(purchaseValueCents / 100)} de valeur d’achat`, targets.targetRoas === null ? null : `Cible ${targets.targetRoas.toFixed(2)}× · ${roasTargetLabel ?? "écart non calculable"}`].filter(Boolean).join(" · ")} comparison={instagramGrowth ? "Non applicable" : trendLabel(metaRoas, comparisonRoas)} provenance={metricProvenance("Meta", "dérivée", !instagramGrowth && metaRoas !== null)} />
         <Metric label="CA cash relié" value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100)} detail={attribution.revenueCents === null ? "Couverture insuffisante" : `${attribution.sales.toLocaleString("fr-FR")} vente(s) Scale X`} provenance={metricProvenance("Stripe + Meta", "dérivée", attribution.revenueCents !== null, "jointe")} />

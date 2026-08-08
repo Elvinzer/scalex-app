@@ -17,6 +17,8 @@ describe("Meta direct action validation", () => {
     expect(metaActionSchema.safeParse({ campaignId, actionType: "pause", idempotencyKey }).success).toBe(true);
     expect(metaActionSchema.safeParse({ campaignId, actionType: "pause" }).success).toBe(false);
     expect(metaActionSchema.safeParse({ campaignId, actionType: "set_daily_budget", idempotencyKey }).success).toBe(false);
+    expect(metaActionSchema.safeParse({ entityId: campaignId, entityType: "adset", actionType: "pause", idempotencyKey }).success).toBe(false);
+    expect(metaActionSchema.safeParse({ entityId: campaignId, entityType: "ad", campaignId, actionType: "pause", idempotencyKey }).success).toBe(true);
     expect(metaActionSchema.safeParse({ entityId: campaignId, entityType: "ad", actionType: "set_daily_budget", dailyBudgetCents: 12_000, idempotencyKey }).success).toBe(false);
   });
 });

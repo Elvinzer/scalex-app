@@ -78,6 +78,7 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
       const result = await applyMetaCampaignAction({
         entityType,
         entityId,
+        campaignId,
         actionType,
         expectedStatus: status ?? undefined,
         idempotencyKey: idempotencyKey ?? undefined,
