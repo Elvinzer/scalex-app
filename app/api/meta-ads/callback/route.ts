@@ -29,8 +29,8 @@ function safeReturnPath(value: string | undefined): string | null {
   return null;
 }
 
-function redirectWithError(origin: string, reason: string) {
-  const url = new URL("/integrations", origin);
+function redirectWithError(origin: string, reason: string, returnTo: string | null = null) {
+  const url = new URL(returnTo ?? "/integrations", origin);
   url.searchParams.set("meta_ads_error", reason);
   const response = NextResponse.redirect(url);
   response.cookies.delete(STATE_COOKIE);
@@ -56,26 +56,25 @@ export async function GET(request: NextRequest) {
   const oauthError = request.nextUrl.searchParams.get("error");
   const storedState = request.cookies.get(STATE_COOKIE)?.value;
   const isWriteStepUp = request.cookies.get(MODE_COOKIE)?.value === "write";
-  if (!state || !storedState || state !== storedState) return redirectWithError(origin, "state");
+  const returnTo = safeReturnPath(request.cookies.get(RETURN_COOKIE)?.value);
+  if (!state || !storedState || state !== storedState) return redirectWithError(origin, "state", returnTo);
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) return NextResponse.redirect(new URL("/sign-in", origin));
   const claimUserId = z.string().uuid().safeParse(data.claims.sub);
-  if (!claimUserId.success) return redirectWithError(origin, "access");
+  if (!claimUserId.success) return redirectWithError(origin, "access", returnTo);
   const access = await requireOwner(claimUserId.data);
   if (!access || isRateLimited(`meta-ads-callback:${access.accountId}`, 10)) {
-    return redirectWithError(origin, "access");
+    return redirectWithError(origin, "access", returnTo);
   }
 
   const appId = requireEnv("META_APP_ID");
   const appSecret = requireEnv("META_APP_SECRET");
-  if (!verifyMetaOAuthState(state, access.accountId, appSecret)) return redirectWithError(origin, "state");
-
-  const returnTo = safeReturnPath(request.cookies.get(RETURN_COOKIE)?.value);
+  if (!verifyMetaOAuthState(state, access.accountId, appSecret)) return redirectWithError(origin, "state", returnTo);
   if (oauthError || !code) {
     if (isWriteStepUp && oauthError === "access_denied") return redirectWriteDeclined(origin, returnTo);
-    return redirectWithError(origin, oauthError === "access_denied" ? "denied" : "oauth");
+    return redirectWithError(origin, oauthError === "access_denied" ? "denied" : "oauth", returnTo);
   }
 
   const redirectUri = new URL("/api/meta-ads/callback", origin).toString();
@@ -96,10 +95,10 @@ export async function GET(request: NextRequest) {
       debugMetaToken({ accessToken: token.accessToken, appId, appSecret }),
     ]);
     if (tokenInfo.is_valid === false || tokenInfo.user_id && tokenInfo.user_id !== metaUser.id) {
-      return redirectWithError(origin, "token");
+      return redirectWithError(origin, "token", returnTo);
     }
     const scopes = tokenInfo.scopes ?? [];
-    if (!scopes.includes("ads_read")) return redirectWithError(origin, "ads_read");
+    if (!scopes.includes("ads_read")) return redirectWithError(origin, "ads_read", returnTo);
 
     const expirySeconds = tokenInfo.expires_at ?? tokenInfo.data_access_expiration_time ?? null;
     const tokenExpiresAt = expirySeconds
@@ -165,6 +164,6 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Meta Ads OAuth callback failed", error instanceof Error ? error.message : "unknown");
-    return redirectWithError(origin, "oauth");
+    return redirectWithError(origin, "oauth", returnTo);
   }
 }

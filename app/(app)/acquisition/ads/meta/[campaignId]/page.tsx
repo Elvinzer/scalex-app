@@ -15,6 +15,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { META_INSIGHT_THRESHOLDS } from "@/lib/meta-ads/thresholds";
 import { buildMetaAudienceWarnings } from "@/lib/meta-ads/audience-warnings";
 import { materializeMetaAdsInsights } from "@/lib/meta-ads/insights";
+import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
 import { getMetaAdsDashboard, getMetaCampaignDetail, metricValue } from "@/lib/meta-ads/queries";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
@@ -138,11 +139,12 @@ function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
   );
 }
 
-export default async function MetaCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ meta_days?: string; meta_ads?: string }> }) {
+export default async function MetaCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ meta_days?: string; meta_ads?: string; meta_ads_error?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
   const { campaignId } = await params;
   const search = await searchParams;
+  const metaAdsErrorMessageText = metaAdsErrorMessage(search.meta_ads_error);
   const periodDays = normalizeMetaPeriodDays(search.meta_days);
   const [dashboard, businessProfile] = await Promise.all([
     getMetaAdsDashboard(accountId, periodDays),
@@ -305,6 +307,11 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         typeSource={detail.campaign.typeSource}
       />
 
+      {metaAdsErrorMessageText && (
+        <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-4 py-3 text-sm font-bold text-state-critical" role="alert">
+          {metaAdsErrorMessageText}
+        </div>
+      )}
       {search.meta_ads === "write_declined" && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-4 py-3 text-sm text-state-caution" role="status">
           <span>La permission d&apos;écriture n&apos;a pas été accordée. La lecture reste active.</span>

@@ -25,6 +25,7 @@ import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getLeverImpactEstimate } from "@/lib/levers/impact";
 import { getLeverStatus } from "@/lib/levers/status";
 import { getMetaAdsDashboard, metricValue } from "@/lib/meta-ads/queries";
+import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
 import { normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requireOwner, requirePermissionOrRedirect } from "@/lib/team/context";
@@ -39,11 +40,17 @@ const LEVER_KEY = "ads";
 // approach as every other benchmark in lib/levers/opportunities.ts.
 const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
 
-export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_ads?: string }> }) {
+export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_ads?: string; meta_ads_error?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
   const search = await searchParams;
   const periodDays = normalizeMetaPeriodDays(search.meta_days);
+  const metaAdsErrorMessageText = metaAdsErrorMessage(search.meta_ads_error);
+  const metaAdsErrorAlert = metaAdsErrorMessageText ? (
+    <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-4 py-3 text-sm font-bold text-state-critical" role="alert">
+      {metaAdsErrorMessageText}
+    </div>
+  ) : null;
   const ownerAccess = await requireOwner(userId);
   const [campaigns, profile, lever, metaDashboard, metaConnectionRows, metaAdAccountRows, subscriptionActive] = await Promise.all([
     getAdCampaigns(accountId),
@@ -117,6 +124,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
             <h1 className="text-3xl font-bold">Ads</h1>
             <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
           </div>
+          {metaAdsErrorAlert}
           {metaConnectionCard}
           <div className="sticker-card-dashed p-6 text-center">
             <p className="text-sm font-bold">Pas prioritaire pour l&apos;instant</p>
@@ -145,6 +153,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
           <h1 className="text-3xl font-bold">Ads</h1>
           <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
         </div>
+        {metaAdsErrorAlert}
         {metaConnectionCard}
         {impact && (
           <LeverImpactEstimate
@@ -207,6 +216,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
         </div>
       </div>
 
+      {metaAdsErrorAlert}
       {metaConnectionCard}
       {metaDashboard && <MetaAdsDashboard data={metaDashboard} />}
 
