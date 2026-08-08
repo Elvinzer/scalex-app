@@ -11,6 +11,8 @@ export type StripeChargeForReconciliation = {
   isSubscription: boolean;
   isRefunded: boolean;
   failureReason: string | null;
+  /** Resolved only from an explicit identifier already present in Stripe metadata. */
+  metaTouchpointId?: string | null;
 };
 
 export type ReconciliationSale = {
@@ -21,6 +23,7 @@ export type ReconciliationSale = {
   paymentMethod: PaymentMethod;
   installments: SaleInstallment[] | null;
   stripeCustomerId: string | null;
+  metaTouchpointId: string | null;
   isOrphan: boolean;
 };
 
@@ -133,7 +136,13 @@ export function applyStripeChargeToSale(
     };
   }
 
-  return { ...sale, installments };
+  return {
+    ...sale,
+    installments,
+    // Never replace an attribution already attached to the local sale. A
+    // second explicit identifier is not enough evidence to rewrite it.
+    metaTouchpointId: sale.metaTouchpointId ?? charge.metaTouchpointId ?? null,
+  };
 }
 
 export function appendStripeSubscriptionCharge(

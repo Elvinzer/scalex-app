@@ -4,6 +4,12 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { sales } from "@/db/schema";
+import {
+  resolveMetaTouchpoint,
+  resolveMetaTouchpointFromIdentifiers,
+  resolveMetaTouchpointFromUtm,
+} from "@/lib/meta-ads/attribution";
+import { readMetaTracking } from "@/lib/meta-ads/tracking";
 
 import type { ReadOnlyStripeClient } from "./read-only-client";
 import {
@@ -103,7 +109,8 @@ async function toReconciliationCharge(
   charge: Stripe.Charge,
   stripe: ReadOnlyStripeClient,
   refundedChargeIds: ReadonlySet<string>,
-  subscriptionCustomerCache: Map<string, boolean>
+  subscriptionCustomerCache: Map<string, boolean>,
+  metaTouchpointId: string | null,
 ): Promise<StripeChargeForReconciliation> {
   const customerId = resourceId(charge.customer);
   const invoiceSubscription = await hasSubscriptionInvoice(charge, stripe);
@@ -122,6 +129,7 @@ async function toReconciliationCharge(
     isSubscription: invoiceSubscription || customerSubscription,
     isRefunded: charge.refunded || charge.amount_refunded > 0 || refundedChargeIds.has(charge.id),
     failureReason: charge.status === "failed" ? declineReasonLabel(charge) : null,
+    metaTouchpointId,
   };
 }
 
@@ -134,6 +142,7 @@ function toReconciliationSale(row: typeof sales.$inferSelect): ReconciliationSal
     paymentMethod: row.paymentMethod,
     installments: row.installments,
     stripeCustomerId: row.stripeCustomerId,
+    metaTouchpointId: row.metaTouchpointId,
     isOrphan: row.isOrphan,
   };
 }
@@ -141,8 +150,25 @@ function toReconciliationSale(row: typeof sales.$inferSelect): ReconciliationSal
 async function updateInstallments(accountId: string, sale: ReconciliationSale): Promise<void> {
   await db
     .update(sales)
-    .set({ installments: sale.installments })
+    .set({ installments: sale.installments, metaTouchpointId: sale.metaTouchpointId })
     .where(and(eq(sales.id, sale.id), eq(sales.userId, accountId)));
+}
+
+async function resolveStripeChargeTouchpoint(accountId: string, charge: Stripe.Charge): Promise<string | null> {
+  const tracking = readMetaTracking(charge.metadata);
+  const touchpoint = (tracking.metaTouchpointToken
+    ? await resolveMetaTouchpoint(accountId, tracking.metaTouchpointToken)
+    : null) ?? (await resolveMetaTouchpointFromIdentifiers({
+      userId: accountId,
+      campaignExternalId: tracking.metaCampaignExternalId,
+      adSetExternalId: tracking.metaAdSetExternalId,
+      adExternalId: tracking.metaAdExternalId,
+    })) ?? (await resolveMetaTouchpointFromUtm({
+      userId: accountId,
+      utmCampaign: tracking.utmCampaign,
+      utmContent: tracking.utmContent,
+    }));
+  return touchpoint?.touchpointId ?? null;
 }
 
 function replaceLocalSale(salesRows: ReconciliationSale[], updated: ReconciliationSale): void {
@@ -164,6 +190,7 @@ function newStripeSaleValues(charge: StripeChargeForReconciliation): Omit<typeof
     installments: [buildStripeInstallment(charge)],
     saleDate: charge.createdAt,
     hasUpsell: false,
+    metaTouchpointId: charge.metaTouchpointId ?? null,
   };
 }
 
@@ -204,17 +231,18 @@ export async function syncStripeSales(
   const result: StripeSalesSyncResult = { matched: 0, created: 0, orphaned: 0, refunded: 0, skipped: 0, ambiguous: 0 };
 
   for (const stripeCharge of charges) {
-    const charge = await toReconciliationCharge(stripeCharge, stripe, refundedChargeIds, subscriptionCustomerCache);
+    const metaTouchpointId = await resolveStripeChargeTouchpoint(accountId, stripeCharge);
+    const charge = await toReconciliationCharge(stripeCharge, stripe, refundedChargeIds, subscriptionCustomerCache, metaTouchpointId);
     const match = matchStripeCharge(charge, localSales);
 
     if (match.kind === "already_recorded") {
       const sale = localSales.find((candidate) => candidate.id === match.saleId);
       const current = sale?.installments?.[match.installmentIndex];
-      if (sale && current && charge.isRefunded && current.status !== "refunded") {
+      if (sale && current && (charge.isRefunded && current.status !== "refunded" || sale.metaTouchpointId === null && charge.metaTouchpointId !== null)) {
         const updated = applyStripeChargeToSale(sale, charge, match.installmentIndex);
         await updateInstallments(accountId, updated);
         replaceLocalSale(localSales, updated);
-        result.refunded += 1;
+        if (charge.isRefunded && current.status !== "refunded") result.refunded += 1;
       } else {
         result.skipped += 1;
       }

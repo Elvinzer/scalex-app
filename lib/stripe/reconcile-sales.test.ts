@@ -27,6 +27,7 @@ function sale(overrides: Partial<ReconciliationSale> = {}): ReconciliationSale {
     paymentMethod: "stripe",
     installments: [{ ...baseInstallment }],
     stripeCustomerId: null,
+    metaTouchpointId: null,
     isOrphan: false,
     ...overrides,
   };
@@ -104,5 +105,25 @@ describe("matchStripeCharge", () => {
     });
 
     expect(matchStripeCharge(charge(), [paidSale])).toEqual({ kind: "already_recorded", saleId: "sale_1", installmentIndex: 0 });
+  });
+
+  it("keeps an explicit Meta touchpoint when a Stripe charge already has a known identifier", () => {
+    const updated = applyStripeChargeToSale(
+      sale(),
+      charge({ metaTouchpointId: "touchpoint-1" }),
+      0,
+    );
+
+    expect(updated.metaTouchpointId).toBe("touchpoint-1");
+  });
+
+  it("does not overwrite an existing Meta touchpoint with a second identifier", () => {
+    const updated = applyStripeChargeToSale(
+      sale({ metaTouchpointId: "touchpoint-original" }),
+      charge({ metaTouchpointId: "touchpoint-other" }),
+      0,
+    );
+
+    expect(updated.metaTouchpointId).toBe("touchpoint-original");
   });
 });
