@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveMetaTouchpointCampaign } from "./attribution-resolution";
+import { metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
 
 const campaigns = new Set(["campaign-1", "campaign-2"]);
 const adSetCampaigns = new Map([
@@ -27,5 +27,18 @@ describe("Meta touchpoint campaign resolution", () => {
 
   it("does not attribute an unknown or unidentifiable touchpoint", () => {
     expect(resolveMetaTouchpointCampaign({ campaignExternalId: "deleted-campaign", adSetExternalId: "unknown-adset", adExternalId: "unknown-ad" }, campaigns, adSetCampaigns, adCampaigns)).toBeNull();
+  });
+
+  it("counts coverage only for touchpoints belonging to the selected Meta account", () => {
+    expect(
+      metaSalesCoverageRate(
+        [{ metaTouchpointId: "touchpoint-current" }, { metaTouchpointId: "touchpoint-other-account" }, { metaTouchpointId: null }],
+        new Set(["touchpoint-current"]),
+      ),
+    ).toBeCloseTo(1 / 3);
+  });
+
+  it("returns no coverage when the period has no sales", () => {
+    expect(metaSalesCoverageRate([], new Set())).toBeNull();
   });
 });

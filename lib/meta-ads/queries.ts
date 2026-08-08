@@ -3,7 +3,7 @@ import { and, desc, eq, gte, inArray, like, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { insightRecords, instagramConnections, instagramPostInsights, metaAdAccounts, metaAdActionLogs, metaAdMetricCorrections, metaAdMetricsDaily, metaAdSets, metaAds, metaAdsConnections, metaAdTouchpoints, metaCampaignProfiles, metaCampaigns, nativeBookingLeads, sales, salesCalls } from "@/db/schema";
 import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/types";
-import { resolveMetaTouchpointCampaign } from "./attribution-resolution";
+import { metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
 import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, metaAdsManagerUrl, normalizeMetaPeriodDays } from "./protocol";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
 import { META_CAMPAIGN_TYPES, type MetaCampaignType, type MetaRawObject } from "./types";
@@ -530,12 +530,9 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
   const periodSales = (start: string, end: string) => salesRows.filter((sale) => sale.saleDate >= start && sale.saleDate <= end);
   const currentSales = periodSales(currentPeriod.start, currentPeriod.end);
   const previousSales = periodSales(previousPeriod.start, previousPeriod.end);
-  const coverage = (rows: typeof salesRows): number | null => {
-    if (rows.length === 0) return null;
-    return rows.filter((row) => row.metaTouchpointId !== null).length / rows.length;
-  };
-  const currentCoverageRate = coverage(currentSales);
-  const comparisonCoverageRate = coverage(previousSales);
+  const knownTouchpointIds = new Set(touchpointCampaigns.keys());
+  const currentCoverageRate = metaSalesCoverageRate(currentSales, knownTouchpointIds);
+  const comparisonCoverageRate = metaSalesCoverageRate(previousSales, knownTouchpointIds);
   const revenueByCampaign = (rows: typeof salesRows) => {
     const result = new Map<string, { revenueCents: number; sales: number }>();
     for (const sale of rows) {
@@ -813,8 +810,10 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
     .from(sales)
     .where(and(eq(sales.userId, accountId), gte(sales.saleDate, dashboard.period.start), lte(sales.saleDate, dashboard.period.end)));
   const revenueCentsRaw = saleRows.reduce((total, sale) => total + sale.totalPrice * 100, 0);
-  const unattributedSalesInPeriod = allSalesInPeriod.filter((sale) => sale.metaTouchpointId === null).length;
-  const coverageRate = allSalesInPeriod.length > 0 ? (allSalesInPeriod.length - unattributedSalesInPeriod) / allSalesInPeriod.length : null;
+  const coverageRate = selectedCampaign.cash?.coverageRate ?? null;
+  const unattributedSalesInPeriod = coverageRate === null
+    ? allSalesInPeriod.filter((sale) => sale.metaTouchpointId === null).length
+    : Math.max(0, Math.round(allSalesInPeriod.length * (1 - coverageRate)));
   const cashAttributionReady = saleRows.length > 0 && coverageRate !== null && coverageRate >= META_MIN_CASH_ATTRIBUTION_COVERAGE;
   const levelCoverage = {
     ad: touchpointIds.length > 0 ? levels.ad / touchpointIds.length : null,

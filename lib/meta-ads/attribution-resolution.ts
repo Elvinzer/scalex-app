@@ -12,3 +12,12 @@ export function resolveMetaTouchpointCampaign(
   if (row.adExternalId) return adCampaigns.get(row.adExternalId) ?? null;
   return null;
 }
+
+export function metaSalesCoverageRate(
+  rows: ReadonlyArray<{ metaTouchpointId: string | null }>,
+  knownTouchpointIds: ReadonlySet<string>,
+): number | null {
+  if (rows.length === 0) return null;
+  const attached = rows.filter((row) => row.metaTouchpointId !== null && knownTouchpointIds.has(row.metaTouchpointId)).length;
+  return attached / rows.length;
+}

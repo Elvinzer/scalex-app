@@ -7,6 +7,7 @@ export type ReadOnlyStripeClient = {
   invoices: ReadOnlyResource<Stripe["invoices"]>;
   refunds: ReadOnlyResource<Stripe["refunds"]>;
   subscriptions: ReadOnlyResource<Stripe["subscriptions"]>;
+  paymentIntents: ReadOnlyResource<Stripe["paymentIntents"]>;
   customers: ReadOnlyResource<Stripe["customers"]>;
   balanceTransactions: ReadOnlyResource<Stripe["balanceTransactions"]>;
 };
@@ -24,6 +25,7 @@ export function createReadOnlyStripeClient(accessToken: string): ReadOnlyStripeC
     invoices: stripe.invoices,
     refunds: stripe.refunds,
     subscriptions: stripe.subscriptions,
+    paymentIntents: stripe.paymentIntents,
     customers: stripe.customers,
     balanceTransactions: stripe.balanceTransactions,
   };

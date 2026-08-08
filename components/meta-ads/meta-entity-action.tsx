@@ -108,19 +108,20 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
 
   return (
     <div className="flex min-w-[10rem] flex-col items-end gap-1">
-      <Button variant="outline" size="sm" onClick={apply} disabled={isPending || isArchived}>
-        {isPaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
-        {isPending ? "Vérification…" : isProposed ? isPaused ? "Confirmer la reprise" : "Confirmer la pause" : isPaused ? "Proposer la reprise" : "Proposer la pause"}
-      </Button>
-      {isProposed && writeAccessUnavailable && (
+      {isProposed && writeAccessUnavailable ? (
         <MetaAdsConsentDialog
           mode="write"
           href={writeAccessHref}
           accountLabel={accountLabel ?? "compte publicitaire sélectionné"}
-          triggerLabel="Autoriser puis reprendre"
-          triggerVariant="link"
-          triggerClassName="h-auto min-h-0 p-0 text-right text-[11px] text-accent-2"
+          triggerLabel={writeAccessRequired ? "Autoriser à nouveau puis reprendre" : "Autoriser puis reprendre"}
+          triggerVariant="outline"
+          triggerClassName="w-full"
         />
+      ) : (
+        <Button variant="outline" size="sm" onClick={apply} disabled={isPending || isArchived}>
+          {isPaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+          {isPending ? "Vérification…" : isProposed ? isPaused ? "Confirmer la reprise" : "Confirmer la pause" : isPaused ? "Proposer la reprise" : "Proposer la pause"}
+        </Button>
       )}
       {isProposed && !hasWriteAccess && <span className="max-w-[13rem] text-right text-[11px] text-muted-foreground">La proposition est conservée sur cet appareil.</span>}
       {isProposed && (

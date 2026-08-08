@@ -154,8 +154,56 @@ async function updateInstallments(accountId: string, sale: ReconciliationSale): 
     .where(and(eq(sales.id, sale.id), eq(sales.userId, accountId)));
 }
 
-async function resolveStripeChargeTouchpoint(accountId: string, charge: Stripe.Charge): Promise<string | null> {
-  const tracking = readMetaTracking(charge.metadata);
+function hasMetaTrackingSignal(tracking: ReturnType<typeof readMetaTracking>): boolean {
+  return Boolean(
+    tracking.metaTouchpointToken ||
+      tracking.metaCampaignExternalId ||
+      tracking.metaAdSetExternalId ||
+      tracking.metaAdExternalId ||
+      tracking.utmCampaign ||
+      tracking.utmContent,
+  );
+}
+
+async function paymentIntentMetadata(
+  stripe: ReadOnlyStripeClient,
+  charge: Stripe.Charge,
+  cache: Map<string, Record<string, string> | null>,
+): Promise<Record<string, string> | null> {
+  const paymentIntentId = resourceId(charge.payment_intent);
+  if (!paymentIntentId) return null;
+  if (cache.has(paymentIntentId)) return cache.get(paymentIntentId) ?? null;
+
+  if (typeof charge.payment_intent === "object" && charge.payment_intent !== null) {
+    const metadata = charge.payment_intent.metadata ?? null;
+    cache.set(paymentIntentId, metadata);
+    return metadata;
+  }
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const metadata = paymentIntent.metadata ?? null;
+    cache.set(paymentIntentId, metadata);
+    return metadata;
+  } catch {
+    // Attribution is additive. A PaymentIntent that cannot be read must not
+    // prevent the rest of the Stripe reconciliation from completing.
+    cache.set(paymentIntentId, null);
+    return null;
+  }
+}
+
+async function resolveStripeChargeTouchpoint(
+  accountId: string,
+  charge: Stripe.Charge,
+  stripe: ReadOnlyStripeClient,
+  paymentIntentMetadataCache: Map<string, Record<string, string> | null>,
+): Promise<string | null> {
+  const chargeTracking = readMetaTracking(charge.metadata);
+  const intentMetadata = hasMetaTrackingSignal(chargeTracking)
+    ? null
+    : await paymentIntentMetadata(stripe, charge, paymentIntentMetadataCache);
+  const tracking = readMetaTracking(charge.metadata, intentMetadata);
   const touchpoint = (tracking.metaTouchpointToken
     ? await resolveMetaTouchpoint(accountId, tracking.metaTouchpointToken)
     : null) ?? (await resolveMetaTouchpointFromIdentifiers({
@@ -215,7 +263,7 @@ export async function syncStripeSales(
 ): Promise<StripeSalesSyncResult> {
   const since = lookbackUnixSeconds(monthsBack);
   const charges: Stripe.Charge[] = [];
-  for await (const charge of stripe.charges.list({ created: { gte: since }, limit: 100 })) {
+  for await (const charge of stripe.charges.list({ created: { gte: since }, expand: ["data.payment_intent"], limit: 100 })) {
     if (charge.status === "succeeded" || charge.status === "failed") charges.push(charge);
   }
 
@@ -228,10 +276,11 @@ export async function syncStripeSales(
   const existingRows = await db.select().from(sales).where(eq(sales.userId, accountId));
   const localSales = existingRows.map(toReconciliationSale);
   const subscriptionCustomerCache = new Map<string, boolean>();
+  const paymentIntentMetadataCache = new Map<string, Record<string, string> | null>();
   const result: StripeSalesSyncResult = { matched: 0, created: 0, orphaned: 0, refunded: 0, skipped: 0, ambiguous: 0 };
 
   for (const stripeCharge of charges) {
-    const metaTouchpointId = await resolveStripeChargeTouchpoint(accountId, stripeCharge);
+    const metaTouchpointId = await resolveStripeChargeTouchpoint(accountId, stripeCharge, stripe, paymentIntentMetadataCache);
     const charge = await toReconciliationCharge(stripeCharge, stripe, refundedChargeIds, subscriptionCustomerCache, metaTouchpointId);
     const match = matchStripeCharge(charge, localSales);
 
