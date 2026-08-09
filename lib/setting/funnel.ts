@@ -75,8 +75,17 @@ export const STAGE_TIPS: Record<FunnelStage, string> = {
     "Des appels sont proposés mais pas réservés : le lien de réservation ou le suivi post-proposition est probablement le point à corriger.",
 };
 
+// Integer percent, except below 1% where rounding would print every rate as
+// a flat "0%" — Meta ad CTRs and the views-denominated content rates
+// (lib/diagnostic/content-metrics.ts) both live down there, and "0% vs 0%"
+// on a card flagged critical reads as a broken widget rather than a small
+// number.
+const PERCENT_FORMAT = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
+
 export function formatPercent(value: number): string {
-  return `${Math.round(value * 100)}%`;
+  const percent = value * 100;
+  if (percent > 0 && percent < 1) return `${PERCENT_FORMAT.format(Math.round(percent * 100) / 100)}%`;
+  return `${Math.round(percent)}%`;
 }
 
 export type Bottleneck = { stage: FunnelStage; rate: number };

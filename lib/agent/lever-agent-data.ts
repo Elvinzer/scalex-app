@@ -9,8 +9,8 @@ import type { MonthWindow } from "@/lib/diagnostic/completed-months";
 import {
   aggregateContentTotals,
   computeContentMetricSummaries,
-  getContentDiagnosticBenchmarks,
 } from "@/lib/diagnostic/content-metrics";
+import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
 import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getEmailCampaigns } from "@/lib/email-campaigns/queries";

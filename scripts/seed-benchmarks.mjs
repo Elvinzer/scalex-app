@@ -39,7 +39,17 @@ const GLOBAL = {
   // reuses the same 0.3 as the sales cascade's own closingRate below — no
   // reason a content-sourced RDV should structurally close differently
   // once it's actually booked.
-  content_booking_rate: 0.005,
+  //
+  // Was 0.005, which the two rates above make impossible: 1.5% of views
+  // click and 30% of those become leads, so at most 0.45% of views ever
+  // reach lead status — a 0.5% booking rate claims more booked calls than
+  // leads generated. Now derived from those same two rows instead of set
+  // freehand: 0.015 × 0.3 = 0.45% of views become leads, of which ~30% book
+  // (the order of magnitude every other conversion step in this table
+  // uses) => ~0.135%, rounded to 0.0015. Still a placeholder, but a
+  // coherent one — it stops lib/diagnostic/content-gain.ts from valuing the
+  // gap at six figures on a channel that is merely under-annotated.
+  content_booking_rate: 0.0015,
   content_close_rate: 0.3,
   // Pipeline Kanban (leads travaillés -> closés, lib/diagnostic/pipeline-metrics.ts)
   // — a wider funnel than closingRate (which starts from calls attended,

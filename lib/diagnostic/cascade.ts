@@ -69,12 +69,22 @@ export function simulateSales(
   return volume;
 }
 
-export type DealPrice = { price: number | null; isFallback: boolean; offerName: string | null };
+export type DealPriceSource = "main_offer" | "average_basket" | "offer_average" | "none";
+export type DealPrice = { price: number | null; isFallback: boolean; offerName: string | null; source: DealPriceSource };
 
 // Main offer price wins; falls back to real average deal size (contracted
 // cash / sales closed) only when no main offer is set, per spec — flagged
 // so the UI can show the "panier moyen" tooltip instead of presenting it as
 // the offer price.
+//
+// Third rung (offer_average): the average of every priced offer, used only
+// when neither of the two above resolves. Without it, a user who filled in
+// their offers but flagged none as "principale" and closed nothing yet gets
+// price === null, which makes EVERY monthly gain in the app null — and a
+// null gain doesn't render as "—", it silently removes the point from
+// Diagnostic's "Points à améliorer" (see lib/diagnostic/priority.ts's
+// collectCandidates filter), hiding real bottlenecks behind a happy empty
+// state. Flagged isFallback so the UI never presents it as the offer price.
 export function resolveDealPrice(
   businessProfile: BusinessProfileData,
   closingTotals: ClosingTotals,
@@ -82,12 +92,19 @@ export function resolveDealPrice(
 ): DealPrice {
   const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain);
   if (mainOffer?.price) {
-    return { price: mainOffer.price, isFallback: false, offerName: mainOffer.name || null };
+    return { price: mainOffer.price, isFallback: false, offerName: mainOffer.name || null, source: "main_offer" };
   }
   if (closingTotals.salesClosed > 0 && cashContractedTotal > 0) {
-    return { price: cashContractedTotal / closingTotals.salesClosed, isFallback: true, offerName: null };
+    return { price: cashContractedTotal / closingTotals.salesClosed, isFallback: true, offerName: null, source: "average_basket" };
   }
-  return { price: null, isFallback: false, offerName: null };
+
+  const pricedOffers = businessProfile.sales.offers.filter((offer) => offer.price !== null && offer.price > 0);
+  if (pricedOffers.length > 0) {
+    const average = pricedOffers.reduce((sum, offer) => sum + (offer.price as number), 0) / pricedOffers.length;
+    return { price: average, isFallback: true, offerName: null, source: "offer_average" };
+  }
+
+  return { price: null, isFallback: false, offerName: null, source: "none" };
 }
 
 function round1(value: number): number {

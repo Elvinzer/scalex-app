@@ -28,15 +28,18 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import {
   aggregateContentTotals,
   computeContentMetricSummaries,
-  getContentDiagnosticBenchmarks,
 } from "@/lib/diagnostic/content-metrics";
+import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import {
+  buildRates,
   computeDiagnosticPoints,
   computeFullBenchmarkProjection,
   computeHealthScore,
   computeMetricSummaries,
+  resolveDealPrice,
 } from "@/lib/diagnostic/cascade";
+import { computeContentGain } from "@/lib/diagnostic/content-gain";
 import { adviceFor } from "@/lib/diagnostic/lever-advice";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
@@ -165,6 +168,10 @@ export default async function DiagnosticPage({
   ]);
 
   const contentTotals = aggregateContentTotals(months, allContentPosts);
+  // Same price the cascade points are valued with — one resolution, so a
+  // content gain and a funnel gain are never priced differently.
+  const contentDealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
+  const funnelRates = buildRates(settingTotals, closingTotals);
   const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
   const points = computeDiagnosticPoints({
     settingTotals,
@@ -224,10 +231,28 @@ export default async function DiagnosticPage({
   // so these are appended after the scored list instead of inventing a
   // number. Still real getHealthTier tiers via computeHealthScore, same as
   // every other card.
-  const contentPoints = contentSummaries.filter(
-    (s): s is typeof s & { status: "caution" | "critical"; currentRatePercent: number } =>
-      (s.status === "caution" || s.status === "critical") && s.currentRatePercent !== null
-  );
+  const contentPoints = contentSummaries
+    .filter(
+      (s): s is typeof s & { status: "caution" | "critical"; currentRatePercent: number } =>
+        (s.status === "caution" || s.status === "critical") && s.currentRatePercent !== null
+    )
+    // Every point now carries its own € — computed from the account's real
+    // rates where they exist, the niche benchmark only as a named stand-in
+    // (lib/diagnostic/content-gain.ts). Sorted by that gain rather than by
+    // raw benchmark gap: a 3-point gap on a metric worth 4k€ has to come
+    // before a 20-point gap worth 200€.
+    .map((summary) => ({
+      summary,
+      gain: computeContentGain({
+        metricKey: summary.key,
+        totals: contentTotals,
+        contentBenchmarks,
+        funnelRates,
+        funnelBenchmarks: benchmarks,
+        dealPrice: contentDealPrice,
+      }),
+    }))
+    .sort((a, b) => (b.gain.monthlyGain ?? 0) - (a.gain.monthlyGain ?? 0));
 
   // Section 2 — same formula, absent levers only (isActive: false), so the
   // existing pertinence rules (lever_revenue_gate/lever_requires_main_offer
@@ -249,6 +274,10 @@ export default async function DiagnosticPage({
     rules: priorityRules,
   });
   const addByKey = new Map(discoveryOpportunities.map((o) => [o.leverKey, o]));
+
+  // Under benchmark, but no € could be attached (no offer price, no sale
+  // closed) — see the empty state below.
+  const unpricedPoints = points.filter((point) => point.monthlyGain === null);
 
   const strongCount = summaries.filter((s) => s.status === "ok").length + strong.length;
 
@@ -274,7 +303,6 @@ export default async function DiagnosticPage({
   const totalMonthlyGain = topPoints.some((p) => p.monthlyGain === null)
     ? null
     : topPoints.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0);
-  const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain);
   const isThin = isBusinessProfileThin(businessProfile);
 
   // Falco's one-line verdict for the overview header (the single content
@@ -369,12 +397,19 @@ export default async function DiagnosticPage({
             +{totalExtraClients} clients/mois possibles en corrigeant tes {topPoints.length} points les plus faibles
           </p>
           <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-            {mainOffer?.price ? (
+            {contentDealPrice.source === "main_offer" ? (
               <span>
-                Calculé avec ton offre {mainOffer.name || "principale"} à {formatEur(mainOffer.price)}
+                Calculé avec ton offre {contentDealPrice.offerName || "principale"} à {formatEur(contentDealPrice.price as number)}
+              </span>
+            ) : contentDealPrice.source === "average_basket" ? (
+              <span>Calculé avec ton panier moyen réel (aucune offre principale définie)</span>
+            ) : contentDealPrice.source === "offer_average" ? (
+              <span>
+                Calculé avec la moyenne de tes offres ({formatEur(Math.round(contentDealPrice.price as number))}) — désigne une offre
+                principale pour un chiffrage exact
               </span>
             ) : (
-              <span>Calculé avec ton panier moyen réel (aucune offre principale définie)</span>
+              <span>Chiffrage indisponible : aucun prix d&apos;offre renseigné</span>
             )}
             <CalcPopover explanation="Pour chaque point sous benchmark, je simule ton funnel avec CE taux ramené au niveau du marché (les autres restent réels), puis je multiplie les ventes en plus par le prix de ton offre. Je ne cumule que les 3 premiers points pour rester crédible." />
           </div>
@@ -382,7 +417,33 @@ export default async function DiagnosticPage({
 
         <div id="points-a-ameliorer" className="flex flex-col gap-4">
           <h3 className="text-base font-bold">Points à améliorer</h3>
-          {optimizeList.length === 0 && contentPoints.length === 0 && (
+          {/* A point with no resolvable € is dropped by scoreCandidates
+              (it has nothing to normalise against), so without this the
+              section would congratulate the user while real metrics sit
+              under the benchmark. Naming them + the one field that unlocks
+              the figure beats both a silent drop and a fake number. */}
+          {optimizeList.length === 0 && contentPoints.length === 0 && unpricedPoints.length > 0 && (
+            <div className="sticker-card-dashed flex flex-col gap-3 p-6">
+              <p className="text-sm font-bold">
+                {unpricedPoints.length} point{unpricedPoints.length > 1 ? "s" : ""} sous le benchmark, pas encore chiffrable
+                {unpricedPoints.length > 1 ? "s" : ""}
+              </p>
+              <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
+                {unpricedPoints.map((point) => (
+                  <li key={point.key}>
+                    {point.label} — {point.currentRatePercent}% vs benchmark {point.benchmarkRatePercent}%
+                  </li>
+                ))}
+              </ul>
+              <p className="text-sm text-muted-foreground">
+                Renseigne le prix d&apos;une offre pour que je convertisse ces écarts en euros.
+              </p>
+              <Button asChild variant="outline" className="self-start">
+                <Link href="/business#offres">Ajouter le prix d&apos;une offre</Link>
+              </Button>
+            </div>
+          )}
+          {optimizeList.length === 0 && contentPoints.length === 0 && unpricedPoints.length === 0 && (
             <div className="sticker-card-dashed flex flex-col items-center gap-3 p-6 text-center">
               <Falco
                 pose="happy"
@@ -487,12 +548,13 @@ export default async function DiagnosticPage({
             );
           })}
 
-          {/* Contenu (vues→lead) — pas de € (design assumé, voir contentPoints
-              plus haut), donc jamais scoré/trié avec le reste : ajouté après,
-              dans son propre ordre (par écart au benchmark décroissant). */}
-          {[...contentPoints]
-            .sort((a, b) => b.benchmarkRatePercent - b.currentRatePercent - (a.benchmarkRatePercent - a.currentRatePercent))
-            .map((summary, contentIndex) => {
+          {/* Contenu — chiffré comme le reste depuis que content_posts porte
+              bookings/dealsClosed (lib/diagnostic/content-gain.ts). Toujours
+              rendu après la liste scorée : le score priorité mêle un facteur
+              faisabilité par métrique du funnel qui n'existe pas côté
+              contenu, donc ces cartes gardent leur propre tri (par € décroissant,
+              appliqué à la construction de contentPoints). */}
+          {contentPoints.map(({ summary, gain }, contentIndex) => {
               const score = computeHealthScore(summary.currentRatePercent / 100, summary.benchmarkRatePercent / 100, summary.status);
               const tier = getHealthTier(score);
               const advice = adviceFor(summary.key, undefined, summary.currentRatePercent, summary.benchmarkRatePercent, "Falco");
@@ -516,10 +578,25 @@ export default async function DiagnosticPage({
 
                   <RateVsBenchmarkBar currentRate={summary.currentRatePercent / 100} benchmarkRate={summary.benchmarkRatePercent / 100} />
 
-                  <div className="rounded-xl bg-muted p-3">
-                    <p className="text-xs font-bold text-muted-foreground">Gain</p>
-                    <p className="mt-1 font-display text-xl font-bold tabular-nums">—</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Pas de simulation € pour le contenu.</p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-xl bg-muted p-3">
+                      <p className="text-xs font-bold text-muted-foreground">Ventes en plus</p>
+                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{gain.extraSales}/mois</p>
+                    </div>
+                    <div className="flex items-start justify-between rounded-xl bg-muted p-3">
+                      <div>
+                        <p className="text-xs font-bold text-muted-foreground">Gain</p>
+                        <p className="mt-1 font-display text-xl font-bold tabular-nums">
+                          {gain.monthlyGain === null ? "—" : `+${formatEur(gain.monthlyGain)}/mois`}
+                        </p>
+                        {gain.usesBenchmark && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Estimation : une partie du parcours n&apos;est pas encore mesurée.
+                          </p>
+                        )}
+                      </div>
+                      <CalcPopover explanation={gain.chain} />
+                    </div>
                   </div>
 
                   <p className="text-sm text-muted-foreground">{advice}</p>

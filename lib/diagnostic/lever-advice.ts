@@ -11,8 +11,15 @@
 // Keyed by `${key}` or `${key}:${statKey}` (statKey only exists for a
 // lever with more than one stat checked — e.g. email_marketing's CTR
 // alongside its openRate, see lib/levers/opportunities.ts).
-export function adviceFor(key: string, statKey: string | undefined, currentPercent: number, benchmarkPercent: number, agentName: string): string {
+// Percents arrive already scaled (54, or 0.09 for the sub-1% content
+// rates) — formatted here so a decimal reads "0,09" and not JS's "0.09" in
+// French copy.
+const PERCENT_FORMAT = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
+
+export function adviceFor(key: string, statKey: string | undefined, rawCurrentPercent: number, rawBenchmarkPercent: number, agentName: string): string {
   const lookupKey = statKey ? `${key}:${statKey}` : key;
+  const currentPercent = PERCENT_FORMAT.format(rawCurrentPercent);
+  const benchmarkPercent = PERCENT_FORMAT.format(rawBenchmarkPercent);
 
   switch (lookupKey) {
     case "email_marketing":
