@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  CalendarClock,
   CalendarDays,
   ChevronDown,
   ChevronsUpDown,
@@ -108,7 +107,6 @@ const topEntries: LinkEntry[] = [
       "ventes:videos",
     ],
   },
-  { type: "link", href: "/ventes/rdv", label: "Rendez-vous", icon: CalendarClock, permission: "ventes:rdv" },
   { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
   // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
   // même permission que le Copilote partout ailleurs dans l'app.
@@ -400,8 +398,6 @@ export function AppSidebar({
   }
 
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
-  const visiblePrimaryEntries = visibleTopEntries.filter((entry) => entry.href !== "/copilote");
-  const visibleCopiloteEntry = visibleTopEntries.find((entry) => entry.href === "/copilote");
   const mobileEntries = ([
     { type: "link", href: "/dashboard", label: "Dashboard", mobileLabel: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
     { type: "link", href: "/journal", label: "Journal de bord", mobileLabel: "Journal", icon: CalendarDays, permission: "dashboard" },
@@ -466,22 +462,25 @@ export function AppSidebar({
         </div>
 
         <nav aria-label="Navigation principale" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain pt-6">
-          {visiblePrimaryEntries.map((entry) => (
+          {visibleTopEntries.map((entry) => (
             <Fragment key={entry.href}>
               {/* PillarNavGroup falls back to a plain NavLink for any entry
                   with no sub-pages, so every entry goes through it. */}
-              <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
+              {entry.href === "/copilote" ? (
+                // Kept behind a rule — Copilote is a mode, not a section of
+                // the product — but inside the scrollable nav, directly under
+                // Diagnostic, rather than pinned to the foot of the rail.
+                <div className="mt-2 border-t border-sidebar-border pt-3">
+                  <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
+                </div>
+              ) : (
+                <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
+              )}
             </Fragment>
           ))}
         </nav>
 
         <div className="shrink-0">
-          {visibleCopiloteEntry && (
-            <div className="border-t border-sidebar-border pt-3">
-              <PillarNavGroup entry={visibleCopiloteEntry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
-            </div>
-          )}
-
           {isAdmin && (
             <div className="px-3 pt-2">
               <Link
@@ -494,8 +493,8 @@ export function AppSidebar({
             </div>
           )}
 
-          {/* The score is a readout, not a destination, so it stays below the
-              pinned Copilote action and outside the scrollable nav. */}
+          {/* The score is a readout, not a destination, so it stays outside
+              the scrollable nav. */}
           {scaleScore && (
             <div className="px-3 pt-4">
               <ScaleScoreBadge

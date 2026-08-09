@@ -138,6 +138,28 @@ export function DatasPageClient({
         ))}
       </div>
 
+      <h2 className="text-base font-bold">Historique mensuel</h2>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
+          const isFuture = year > currentYear || (year === currentYear && month > currentMonth);
+          const isCurrent = year === currentYear && month === currentMonth;
+          return (
+            <MonthCard
+              key={month}
+              year={year}
+              monthIndex={month}
+              row={rowFor(month)}
+              isCurrent={isCurrent}
+              isFuture={isFuture}
+              allSettingEntries={allSettingEntries}
+              allClosingEntries={allClosingEntries}
+              onOpen={() => setOpen({ year, month })}
+            />
+          );
+        })}
+      </div>
+
       <section className="overflow-hidden rounded-[var(--radius-card)] border-2 border-border bg-card" aria-labelledby="raw-metrics-title">
         <div className="border-b border-border bg-muted/50 px-5 py-3">
           <h2 id="raw-metrics-title" className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Données brutes · {featuredLabel}</h2>
@@ -168,28 +190,6 @@ export function DatasPageClient({
         </div>
         <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setOpen({ year, month: featuredMonth })}>Saisir</Button><Button type="button" variant="outline" onClick={() => setImportOpen(true)}>Importer</Button></div>
       </section>
-
-      <h2 className="text-base font-bold">Historique mensuel</h2>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
-          const isFuture = year > currentYear || (year === currentYear && month > currentMonth);
-          const isCurrent = year === currentYear && month === currentMonth;
-          return (
-            <MonthCard
-              key={month}
-              year={year}
-              monthIndex={month}
-              row={rowFor(month)}
-              isCurrent={isCurrent}
-              isFuture={isFuture}
-              allSettingEntries={allSettingEntries}
-              allClosingEntries={allClosingEntries}
-              onOpen={() => setOpen({ year, month })}
-            />
-          );
-        })}
-      </div>
 
       {open && (
         <MonthModal
