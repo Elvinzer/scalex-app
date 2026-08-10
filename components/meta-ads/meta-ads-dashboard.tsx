@@ -1,5 +1,6 @@
 import { ArrowUpRight, BarChart3, Eye, MousePointerClick, Play, UserPlus } from "lucide-react";
 
+import { MetaCampaignsTable } from "@/components/meta-ads/meta-campaigns-table";
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import { safeRatio as ratio } from "@/lib/meta-ads/derived-metrics";
@@ -8,7 +9,6 @@ import { META_PERIOD_OPTIONS } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
 import { metricValue, rawMetaMetricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaInstagramObservation, type MetaMetricTotals } from "@/lib/meta-ads/queries";
 import { campaignTypeNeedsConversionGoal } from "@/lib/meta-ads/types";
-import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 
 const numberFormatter = new Intl.NumberFormat("fr-FR");
 
@@ -18,27 +18,6 @@ function number(value: number): string {
 
 function metricProvenance(calculation: "brute" | "dérivée", available: boolean): string {
   return `Meta · ${calculation} · ${available ? "directe" : "indisponible"}`;
-}
-
-function typeLabel(value: MetaCampaignDashboardRow["campaignType"]): string {
-  if (value === "vsl") return "VSL";
-  if (value === "webinar") return "Webinaire";
-  if (value === "instagram_profile_growth") return "Trafic Instagram";
-  if (value === "retargeting") return "Retargeting";
-  return "À définir";
-}
-
-function conversionGoalLabel(value: MetaCampaignDashboardRow["conversionGoal"]): string | null {
-  if (value === "call") return "Appel";
-  if (value === "sale") return "Vente";
-  return null;
-}
-
-function statusLabel(status: string | null): string {
-  if (!status) return "Statut inconnu";
-  if (status === "ACTIVE") return "Active";
-  if (status === "PAUSED") return "En pause";
-  return status.toLowerCase().replaceAll("_", " ");
 }
 
 function Kpi({ label, value, detail, comparison, provenance, icon }: { label: string; value: string; detail: string; comparison: string; provenance: string; icon: React.ReactNode }) {
@@ -107,16 +86,6 @@ function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
           })}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function TableMetric({ value, provenance, detail }: { value: string; provenance: string; detail?: string }) {
-  return (
-    <div>
-      <span>{value}</span>
-      <span className="mt-1 block text-[10px] font-normal leading-4 text-muted-foreground">{provenance}</span>
-      {detail && <span className="block text-[10px] font-normal leading-4 text-muted-foreground">{detail}</span>}
     </div>
   );
 }
@@ -274,7 +243,7 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
   );
 }
 
-export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
+export function MetaAdsDashboard({ data, canManageCampaigns = false }: { data: MetaAdsDashboard; canManageCampaigns?: boolean }) {
   const spendCents = metricValue(data.totals, "spendCents");
   const comparisonSpendCents = metricValue(data.comparisonTotals, "spendCents");
   const impressions = metricValue(data.totals, "impressions");
@@ -383,89 +352,13 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
       <FunnelCard totals={data.totals} campaignType={primaryType} instagramObservation={data.instagramObservation} frequencySaturationThreshold={data.frequencySaturationThreshold} />
 
       <div className="sticker-card overflow-x-auto" tabIndex={0} role="region" aria-label="Tableau des campagnes Meta">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div>
-            <p className="font-bold">Campagnes Meta</p>
-            <p className="mt-1 text-xs text-muted-foreground">Clique une campagne pour lire ses créas, son funnel et ses insights. Chaque valeur affiche sa provenance ; une valeur non calculable reste à — avec le motif de son indisponibilité.</p>
-          </div>
-          <span className="text-xs font-bold text-muted-foreground">{number(data.campaigns.length)} campagne(s)</span>
-        </div>
-        {data.campaigns.length === 0 ? (
-          <p className="p-5 text-sm text-muted-foreground">Aucune campagne synchronisée pour ce compte.</p>
-        ) : (
-          <table className="w-full min-w-[64rem] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs font-bold text-muted-foreground">
-                <th className="sticky left-0 z-10 bg-card px-5 py-3">Campagne</th>
-                <th className="px-5 py-3">Type</th>
-                <th className="px-5 py-3 text-right">Dépenses</th>
-                <th className="px-5 py-3 text-right">CTR lien</th>
-                <th className="px-5 py-3 text-right">Leads</th>
-                <th className="px-5 py-3 text-right">CPL / cible</th>
-                <th className="px-5 py-3 text-right">ROAS / cible</th>
-                <th className="px-5 py-3 text-right">Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.campaigns.map((campaign) => {
-                const campaignImpressions = metricValue(campaign.metrics, "impressions");
-                const campaignLinkClicks = metricValue(campaign.metrics, "linkClicks");
-                const campaignCtr = campaignImpressions !== null && campaignLinkClicks !== null ? ratio(campaignLinkClicks, campaignImpressions) : null;
-                const campaignSpend = metricValue(campaign.metrics, "spendCents");
-                const campaignLeads = metricValue(campaign.metrics, "leads");
-                const campaignCpl = campaignSpend !== null && campaignLeads !== null && campaignLeads > 0 ? campaignSpend / campaignLeads / 100 : null;
-                const campaignPurchaseValue = metricValue(campaign.metrics, "purchaseValueCents");
-                const instagramGrowth = campaign.campaignType === "instagram_profile_growth";
-                const campaignRoas = !instagramGrowth && campaignPurchaseValue !== null && campaignSpend !== null && campaignSpend > 0 ? campaignPurchaseValue / campaignSpend : null;
-                const targetCpaEuros = campaign.targets?.targetCpaCents === null || campaign.targets?.targetCpaCents === undefined ? null : campaign.targets.targetCpaCents / 100;
-                const targetCpaGap = targetVarianceLabel(campaignCpl, targetCpaEuros);
-                const targetRoas = campaign.targets?.targetRoas ?? null;
-                const targetRoasGap = targetVarianceLabel(campaignRoas, targetRoas);
-                const conversionGoal = conversionGoalLabel(campaign.conversionGoal);
-                return (
-                  <tr key={campaign.id} className="border-b border-border last:border-0">
-                    <td className="sticky left-0 z-10 bg-card px-5 py-4">
-                        <a href={`/acquisition/ads/meta/${campaign.id}?meta_days=${data.period.days}`} className="font-bold underline-offset-4 hover:underline">
-                        {campaign.name}
-                      </a>
-                      <p className="mt-1 text-xs text-muted-foreground">{campaign.latestDate ? `Dernier jour : ${campaign.latestDate}` : "Pas encore de métrique"}</p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold">{typeLabel(campaign.campaignType)}</span>
-                      {conversionGoal && (campaign.campaignType === "vsl" || campaign.campaignType === "webinar") && <span className="mt-1 block text-xs text-muted-foreground">Objectif : {conversionGoal}</span>}
-                    </td>
-                    <td className="px-5 py-4 text-right tabular-nums">
-                      <TableMetric value={campaignSpend === null ? "—" : formatEur(campaignSpend / 100)} provenance={metricProvenance("brute", campaignSpend !== null)} />
-                    </td>
-                    <td className="px-5 py-4 text-right tabular-nums">
-                      <TableMetric value={campaignCtr === null ? "—" : formatPercent(campaignCtr)} provenance={metricProvenance("dérivée", campaignCtr !== null)} />
-                    </td>
-                    <td className="px-5 py-4 text-right tabular-nums">
-                      <TableMetric value={campaignLeads === null ? "—" : number(campaignLeads)} provenance={metricProvenance("brute", campaignLeads !== null)} />
-                    </td>
-                    <td className="px-5 py-4 text-right tabular-nums">
-                      <TableMetric
-                        value={instagramGrowth || campaignCpl === null ? "—" : formatEur(campaignCpl)}
-                        provenance={metricProvenance("dérivée", !instagramGrowth && campaignCpl !== null)}
-                        detail={instagramGrowth ? "Non applicable · coût / follower observé" : undefined}
-                      />
-                      {!instagramGrowth && targetCpaEuros !== null && <span className="block text-xs text-muted-foreground">cible {formatEur(targetCpaEuros)} · {targetCpaGap ?? "écart non calculable"}</span>}
-                    </td>
-                    <td className="px-5 py-4 text-right tabular-nums">
-                      <TableMetric
-                        value={instagramGrowth || campaignRoas === null ? "—" : campaignRoas.toFixed(2) + "×"}
-                        provenance={metricProvenance("dérivée", !instagramGrowth && campaignRoas !== null)}
-                        detail={instagramGrowth ? "Non applicable · objectif profil" : undefined}
-                      />
-                      {!instagramGrowth && targetRoas !== null && <span className="block text-xs text-muted-foreground">cible {targetRoas.toFixed(2)}× · {targetRoasGap ?? "écart non calculable"}</span>}
-                    </td>
-                    <td className="px-5 py-4 text-right text-xs font-bold text-muted-foreground">{statusLabel(campaign.effectiveStatus)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+        <MetaCampaignsTable
+          campaigns={data.campaigns}
+          periodDays={data.period.days}
+          canManageCampaigns={canManageCampaigns}
+          instagramFollowerCount={data.instagramFollowerCount}
+          instagramFollowerCountUpdatedAt={data.instagramFollowerCountUpdatedAt}
+        />
       </div>
     </section>
   );

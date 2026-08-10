@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { instagramConnections, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
 import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagram/backfill";
-import { InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
+import { fetchProfile, InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS } from "@/lib/instagram/protocol";
 import { instagramBackfillContinue, inngest } from "@/lib/inngest/client";
 import { createClient } from "@/lib/supabase/server";
@@ -73,6 +73,13 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
 
   const accessToken = decrypt(connection.accessTokenEncrypted);
   try {
+    const profile = await fetchProfile(accessToken);
+    if (profile.followersCount !== null) {
+      await db
+        .update(instagramConnections)
+        .set({ followersCount: profile.followersCount, followersCountUpdatedAt: new Date() })
+        .where(eq(instagramConnections.userId, accountId));
+    }
     const result = await backfillInstagramPosts(accountId, accessToken, insightsRefreshSinceDate(INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS));
     await db
       .update(instagramConnections)

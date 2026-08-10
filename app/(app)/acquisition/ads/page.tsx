@@ -190,7 +190,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
 
       {metaAdsErrorAlert}
       {metaConnectionCard}
-      {metaDashboard && <MetaAdsDashboard data={metaDashboard} />}
+      {metaDashboard && <MetaAdsDashboard data={metaDashboard} canManageCampaigns={Boolean(ownerAccess)} />}
 
       {profile.sales.offers.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">

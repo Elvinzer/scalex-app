@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
       userId: access.accountId,
       igUserId: profile.igUserId,
       username: profile.username,
+      followersCount: profile.followersCount,
+      followersCountUpdatedAt: profile.followersCount === null ? null : new Date(),
       accessTokenEncrypted: encrypt(longLived.accessToken),
       tokenExpiresAt,
       // Reset on every (re)connect — the Inngest job flips this to

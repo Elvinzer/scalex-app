@@ -59,6 +59,10 @@ export type MetaCampaignDashboardRow = {
   name: string;
   objective: string | null;
   effectiveStatus: string | null;
+  // Populated only when Meta returned an actual campaign date in the raw
+  // object. The UI falls back to period spend when both are unavailable.
+  metaUpdatedAt?: string | null;
+  metaCreatedAt?: string | null;
   campaignType: MetaCampaignType | null;
   typeSource: string;
   conversionGoal: MetaConversionGoal | null;
@@ -152,6 +156,8 @@ export type MetaAdsDashboard = {
   missingMetricDates: string[];
   totals: MetaMetricTotals;
   comparisonTotals: MetaMetricTotals;
+  instagramFollowerCount?: number | null;
+  instagramFollowerCountUpdatedAt?: string | null;
   corrections: Array<{
     id: string;
     date: string;
@@ -428,6 +434,16 @@ function aggregateInstagramObservation(
   };
 }
 
+function rawIsoDate(raw: MetaRawObject, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value !== "string" || value.trim() === "") continue;
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  return null;
+}
+
 export async function getMetaAdsDashboard(accountId: string, requestedDays: unknown = 30): Promise<MetaAdsDashboard | null> {
   const [connection] = await db
     .select()
@@ -521,7 +537,7 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
       .orderBy(desc(metaAdMetricCorrections.createdAt))
       .limit(20),
     db
-      .select({ id: instagramConnections.id })
+      .select({ id: instagramConnections.id, followersCount: instagramConnections.followersCount, followersCountUpdatedAt: instagramConnections.followersCountUpdatedAt })
       .from(instagramConnections)
       .where(eq(instagramConnections.userId, accountId))
       .limit(1),
@@ -698,6 +714,8 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
     missingMetricDates,
     totals,
     comparisonTotals,
+    instagramFollowerCount: instagramConnectionRows[0]?.followersCount ?? null,
+    instagramFollowerCountUpdatedAt: instagramConnectionRows[0]?.followersCountUpdatedAt?.toISOString() ?? null,
     corrections: correctionRows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),
     instagramObservation: {
       connected: instagramConnectionRows.length > 0,
@@ -710,6 +728,8 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
       name: campaign.name,
       objective: campaign.objective,
       effectiveStatus: campaign.effectiveStatus,
+      metaUpdatedAt: rawIsoDate(campaign.raw, ["updated_time", "updatedAt"]),
+      metaCreatedAt: rawIsoDate(campaign.raw, ["created_time", "createdAt"]),
       campaignType: profile?.campaignType ?? null,
       typeSource: profile?.typeSource ?? "pending",
       conversionGoal: profile?.conversionGoal ?? null,

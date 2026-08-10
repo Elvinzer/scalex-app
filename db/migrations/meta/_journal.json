@@ -166,13 +166,22 @@
     {
       "idx": 23,
       "version": "7",
-<<<<<<< HEAD
       "when": 1786358468651,
       "tag": "0023_useful_stick",
-=======
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
       "when": 1786359753755,
-      "tag": "0023_sleepy_sunset_bain",
->>>>>>> 0ad611b (feat(i18n): implement multilingual support with French and English locales)
+      "tag": "0024_sleepy_sunset_bain",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786373042054,
+      "tag": "0025_careful_true_believers",
       "breakpoints": true
     }
   ]

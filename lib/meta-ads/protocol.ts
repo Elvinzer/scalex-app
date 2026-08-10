@@ -18,6 +18,8 @@ export const META_CAMPAIGN_FIELDS = [
   "optimization_goal",
   "status",
   "effective_status",
+  "created_time",
+  "updated_time",
   "daily_budget",
   "lifetime_budget",
   "start_time",

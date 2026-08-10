@@ -426,6 +426,11 @@ export const instagramConnections = pgTable("instagram_connections", {
     .references(() => users.id, { onDelete: "cascade" }),
   igUserId: text("ig_user_id").notNull(), // Instagram-scoped user id from the Graph API
   username: text("username"), // display only ("Connecté en tant que @handle")
+  // Optional profile snapshot. Instagram may omit this field depending on the
+  // API surface/scopes available to the connected account, so absence is
+  // meaningful and must not be rendered as zero followers.
+  followersCount: integer("followers_count"),
+  followersCountUpdatedAt: timestamp("followers_count_updated_at", { withTimezone: true }),
   accessTokenEncrypted: text("access_token_encrypted").notNull(), // long-lived token, encrypted
   tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }).notNull(),
   connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),

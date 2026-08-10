@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { instagramConnections } from "@/db/schema";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagram/backfill";
-import { InstagramNotProfessionalAccountError, refreshLongLivedToken } from "@/lib/instagram/client";
+import { fetchProfile, InstagramNotProfessionalAccountError, refreshLongLivedToken } from "@/lib/instagram/client";
 import { INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS, INSTAGRAM_TOKEN_REFRESH_MARGIN_DAYS } from "@/lib/instagram/protocol";
 import { instagramBackfillContinue, inngest } from "@/lib/inngest/client";
 
@@ -56,6 +56,13 @@ export const refreshInstagramInsights = inngest.createFunction(
           }
 
           try {
+            const profile = await fetchProfile(accessToken);
+            if (profile.followersCount !== null) {
+              await db
+                .update(instagramConnections)
+                .set({ followersCount: profile.followersCount, followersCountUpdatedAt: new Date() })
+                .where(eq(instagramConnections.userId, connection.userId));
+            }
             const result = await backfillInstagramPosts(
               connection.userId,
               accessToken,

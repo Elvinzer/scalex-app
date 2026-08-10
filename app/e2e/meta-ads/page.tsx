@@ -73,7 +73,7 @@ function metrics(overrides: Partial<Omit<MetaMetricTotals, "available">>): MetaM
 function campaign(
   id: string,
   name: string,
-  campaignType: MetaCampaignType,
+  campaignType: MetaCampaignType | null,
   campaignMetrics: MetaMetricTotals,
   targetCpaCents: number | null,
 ): MetaCampaignDashboardRow {
@@ -83,9 +83,11 @@ function campaign(
     name,
     objective: campaignType === "instagram_profile_growth" ? "OUTCOME_ENGAGEMENT" : "OUTCOME_LEADS",
     effectiveStatus: "ACTIVE",
+    metaUpdatedAt: id.startsWith("1") ? "2026-08-07T08:00:00.000Z" : null,
+    metaCreatedAt: id.startsWith("1") ? "2026-07-01T08:00:00.000Z" : null,
     campaignType,
     conversionGoal: campaignType === "vsl" || campaignType === "webinar" ? "sale" : null,
-    typeSource: "manual",
+    typeSource: campaignType ? "manual" : "pending",
     targets: { targetCpaCents, targetRoas: 3, leadValueCents: 12_000 },
     metrics: campaignMetrics,
     comparisonMetrics: metrics({
@@ -126,6 +128,7 @@ function buildDashboard(selectedType?: MetaCampaignType): MetaAdsDashboardData {
     campaign("22222222-2222-4222-8222-222222222222", "Webinaire — Session août", "webinar", metrics({ spendCents: 124_000, impressions: 32_800, reach: 23_200, clicks: 1_260, linkClicks: 920, leads: 48, registrations: 42, purchases: 2, purchaseValueCents: 24_000 }), 2_800),
     campaign("33333333-3333-4333-8333-333333333333", "Profil Instagram — Preuve sociale", "instagram_profile_growth", metrics({ spendCents: 72_000, impressions: 21_400, reach: 14_900, clicks: 860, linkClicks: 540, profileVisits: 390, follows: 0 }), null),
     campaign("44444444-4444-4444-8444-444444444444", "Retargeting — 30 jours", "retargeting", metrics({ spendCents: 98_000, impressions: 15_600, reach: 4_200, clicks: 740, linkClicks: 510, leads: 31, purchases: 3, purchaseValueCents: 36_000 }), 3_200),
+    campaign("55555555-5555-4555-8555-555555555555", "Campagne sans typage", null, metrics({ spendCents: 45_000, impressions: 8_500, reach: 5_400, clicks: 210, linkClicks: 160 }), null),
   ];
   const campaigns = selectedType ? allCampaigns.filter((row) => row.campaignType === selectedType) : allCampaigns;
 
@@ -153,6 +156,8 @@ function buildDashboard(selectedType?: MetaCampaignType): MetaAdsDashboardData {
     frequencySaturationThreshold: 3,
     missingMetricDates: ["2026-07-17"],
     totals,
+    instagramFollowerCount: 18_200,
+    instagramFollowerCountUpdatedAt: FIXTURE_SYNCED_AT,
     comparisonTotals: metrics({
       spendCents: Math.round(totals.spendCents * 0.84),
       impressions: Math.round(totals.impressions * 0.8),
@@ -214,7 +219,7 @@ export default async function MetaAdsE2EFixturePage({ searchParams }: { searchPa
           connectionNotice={null}
         />
 
-        <MetaAdsDashboard data={buildDashboard(selectedType)} />
+        <MetaAdsDashboard data={buildDashboard(selectedType)} canManageCampaigns />
       </div>
     </main>
   );

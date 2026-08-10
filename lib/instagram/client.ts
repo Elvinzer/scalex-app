@@ -134,7 +134,33 @@ export async function refreshLongLivedToken(currentToken: string): Promise<LongL
   return { accessToken, expiresInSeconds };
 }
 
-export type InstagramProfile = { igUserId: string; username: string | null; accountType: InstagramAccountType };
+export type InstagramProfile = {
+  igUserId: string;
+  username: string | null;
+  accountType: InstagramAccountType;
+  followersCount: number | null;
+};
+
+// The profile endpoint has not exposed the follower field consistently across
+// the Instagram Login API versions. Keep this probe isolated and optional so
+// a missing field never turns a successful Instagram connection into a failed
+// one. The singular spelling is accepted as a compatibility fallback for
+// responses coming from the older profile surface.
+async function fetchFollowerCount(accessToken: string): Promise<number | null> {
+  const url = new URL(`${INSTAGRAM_GRAPH_API_BASE}/me`);
+  url.searchParams.set("fields", "followers_count");
+  url.searchParams.set("access_token", accessToken);
+  try {
+    const { status, body } = await request(url);
+    if (status < 200 || status >= 300) return null;
+    const rec = asRecord(body) ?? {};
+    const value = num(rec.followers_count) ?? num(rec.follower_count);
+    if (value === null || value < 0) return null;
+    return Math.round(value);
+  } catch {
+    return null;
+  }
+}
 
 // GET /me — resolves the connected profile AND detects a PERSONAL account
 // (the one case this integration must refuse and explain clearly rather
@@ -153,7 +179,7 @@ export async function fetchProfile(accessToken: string): Promise<InstagramProfil
   if (accountType === "PERSONAL") {
     throw new InstagramNotProfessionalAccountError();
   }
-  return { igUserId, username: str(rec.username), accountType };
+  return { igUserId, username: str(rec.username), accountType, followersCount: await fetchFollowerCount(accessToken) };
 }
 
 export type RawInstagramMedia = {

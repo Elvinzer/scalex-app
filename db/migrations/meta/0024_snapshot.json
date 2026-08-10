@@ -1,6 +1,6 @@
 {
-  "id": "b41cf9fa-96aa-49ee-9d32-09b17f72ebfc",
-  "prevId": "f3be8741-83b9-4bb9-b78f-2bdea5c78d94",
+  "id": "51f5dc90-9681-4c8b-88d8-c4ee6ee86b7f",
+  "prevId": "b41cf9fa-96aa-49ee-9d32-09b17f72ebfc",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -12602,6 +12602,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "is_test_account": {
           "name": "is_test_account",
