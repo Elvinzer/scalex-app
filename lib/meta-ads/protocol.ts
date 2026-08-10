@@ -66,7 +66,9 @@ export const META_INSIGHT_FIELDS = [
   "cpm",
   "actions",
   "action_values",
-  "video_3_sec_watched_actions",
+  // Graph API v25.0 rejects the legacy video_3_sec_watched_actions field.
+  // The parser keeps the field for backwards-compatible historical rows, but
+  // new requests must leave it out so the complete Insights payload succeeds.
   "video_thruplay_watched_actions",
   "video_p25_watched_actions",
   "video_p50_watched_actions",
