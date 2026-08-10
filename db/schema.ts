@@ -1874,6 +1874,11 @@ export const monthlyMetrics = pgTable(
     newCustomers: integer("new_customers"),
     newCustomersSource: text("new_customers_source"), // "stripe" | "stripe_stale" | null
     newCustomersSyncedAt: timestamp("new_customers_synced_at", { withTimezone: true }),
+    // Explicit, per-section escape hatch for the monthly review. False keeps
+    // the daily Setting/Closing roll-up authoritative; true means the user
+    // deliberately chose to keep a monthly value instead.
+    settingManualOverride: boolean("setting_manual_override").notNull().default(false),
+    closingManualOverride: boolean("closing_manual_override").notNull().default(false),
     firstMessages: integer("first_messages"),
     conversations: integer("conversations"),
     callsProposed: integer("calls_proposed"),

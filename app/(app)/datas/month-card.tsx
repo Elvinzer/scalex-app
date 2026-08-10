@@ -36,7 +36,10 @@ export function MonthCard({
   // entries are shown there pre-filled (greyed, read-only) rather than from
   // the monthly row itself — the completion badge must count them too, or
   // it under-reports "X/9" for months filled via daily check-ins.
-  const overlay = resolveDailySourceOverlay(monthDateRange(year, monthIndex), allSettingEntries, allClosingEntries);
+  const overlay = resolveDailySourceOverlay(monthDateRange(year, monthIndex), allSettingEntries, allClosingEntries, {
+    settingManualOverride: row?.settingManualOverride,
+    closingManualOverride: row?.closingManualOverride,
+  });
   const data = { ...(row ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
   const completion = computeCompletion(data);
   const status = monthStatus(completion);

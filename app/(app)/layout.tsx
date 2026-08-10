@@ -146,7 +146,10 @@ export default async function AppLayout({
       // in, say so instead of leaving the placeholder unexplained.
       const currentMonth = currentMonthWindow();
       const currentMonthRow = allMonthlyRows.find((row) => row.year === currentMonth.year && row.month === currentMonth.month) ?? null;
-      const overlay = resolveDailySourceOverlay(currentMonth.range, allSettingEntries, allClosingEntries);
+      const overlay = resolveDailySourceOverlay(currentMonth.range, allSettingEntries, allClosingEntries, {
+        settingManualOverride: currentMonthRow?.settingManualOverride,
+        closingManualOverride: currentMonthRow?.closingManualOverride,
+      });
       const currentMonthData = { ...(currentMonthRow ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
       if (monthStatus(computeCompletion(currentMonthData)) !== "empty") {
         scaleScoreMonthNote = currentMonthNote(currentMonth);

@@ -40,7 +40,7 @@ export function resolveMonthSettingTotals(
   monthlyRow: MonthlyMetricsRow | null,
   dailyEntriesInMonth: SettingEntry[]
 ): FunnelTotals {
-  if (monthlyRow && SETTING_FIELDS.some((field) => monthlyRow[field] !== null)) {
+  if (monthlyRow?.settingManualOverride || (monthlyRow && SETTING_FIELDS.some((field) => monthlyRow[field] !== null))) {
     return toFunnelTotals(monthlyRow);
   }
   return aggregateEntries(dailyEntriesInMonth);
@@ -50,7 +50,7 @@ export function resolveMonthClosingTotals(
   monthlyRow: MonthlyMetricsRow | null,
   dailyEntriesInMonth: ClosingEntry[]
 ): ClosingTotals {
-  if (monthlyRow && CLOSING_FIELDS.some((field) => monthlyRow[field] !== null)) {
+  if (monthlyRow?.closingManualOverride || (monthlyRow && CLOSING_FIELDS.some((field) => monthlyRow[field] !== null))) {
     return toClosingTotals(monthlyRow);
   }
   return aggregateClosingEntries(dailyEntriesInMonth);
@@ -62,21 +62,26 @@ export type DailySourceOverlay = {
   overrides: Partial<MonthlyMetricsInput>;
 };
 
+export type MonthlySourceOverrides = {
+  settingManualOverride?: boolean;
+  closingManualOverride?: boolean;
+};
+
 // Every field the check-in/month form asks for that's already covered by a
-// daily Setting/Closing entry this month — the form should show these (not
-// the monthly row's own value) and disable editing, so there's only ever one
-// place to type each number. Whole-section, same granularity as
-// resolveMonthSettingTotals/resolveMonthClosingTotals above.
+// daily Setting/Closing entry this month — the default remains the daily
+// roll-up. An explicit monthly override is the one deliberate exception and
+// is persisted on the monthly row, so a user edit is never silently dropped.
 export function resolveDailySourceOverlay(
   monthRange: DateRange,
   dailySettingEntries: SettingEntry[],
-  dailyClosingEntries: ClosingEntry[]
+  dailyClosingEntries: ClosingEntry[],
+  monthlySourceOverrides: MonthlySourceOverrides = {}
 ): DailySourceOverlay {
   const settingThisMonth = dailySettingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
   const closingThisMonth = dailyClosingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
 
-  const settingSourced = settingThisMonth.length > 0;
-  const closingSourced = closingThisMonth.length > 0;
+  const settingSourced = settingThisMonth.length > 0 && !monthlySourceOverrides.settingManualOverride;
+  const closingSourced = closingThisMonth.length > 0 && !monthlySourceOverrides.closingManualOverride;
   const overrides: Partial<MonthlyMetricsInput> = {};
 
   if (settingSourced) {

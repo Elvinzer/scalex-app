@@ -71,6 +71,12 @@ async function commitMonthlyMetricsMonth(
       .limit(1),
   ]);
 
+  // An explicit monthly override is the user's opt-in to replace the daily
+  // roll-up for that section. Keep the generic import path aligned with the
+  // month modal instead of blocking a choice the user already made there.
+  if (existingRow?.settingManualOverride) for (const field of SETTING_FIELDS) protectedFields.delete(field);
+  if (existingRow?.closingManualOverride) for (const field of CLOSING_FIELDS) protectedFields.delete(field);
+
   const base: MonthlyMetricsInput = existingRow
     ? {
         cashCollected: existingRow.cashCollected,

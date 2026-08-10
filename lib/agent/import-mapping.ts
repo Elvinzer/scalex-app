@@ -39,6 +39,7 @@ Règles absolues, non négociables :
 - Ne JAMAIS inventer une valeur qui n'est pas explicitement dans le fichier.
 - confidence "high" seulement si le nom de colonne et les valeurs échantillon ne laissent aucun doute. Sinon "medium" ou "low", et ajoute une question dans "questions" (max 6 questions au total — au-delà, laisse la colonne en unmapped plutôt que de rajouter une question).
 - Chaque question doit citer 2-3 échantillons concrets de la colonne et proposer 2-3 champs cibles plausibles en options (jamais plus de 3, jamais "ignore" — "Ignorer cette colonne" est ajouté automatiquement, ne le liste jamais toi-même).
+- Si le contenu est vertical (une métrique par ligne, avec une valeur voisine, par exemple "CA encaissé | 3550"), traite chaque ligne comme une paire libellé-valeur : sourceColumn doit reprendre le libellé de la ligne et sampleValues doit contenir sa valeur. Ne rejette pas le tableau parce qu'il n'a pas de titres de colonnes horizontaux.
 - Pour une colonne dont tu ne connais pas le champ cible : N'INCLUS PAS le champ targetField du tout pour cette entrée de mappings (ne mets jamais une chaîne vide ou inventée).
 - dateColumnName : le nom EXACT (tel qu'il apparaît dans les colonnes) de la colonne qui contient une date par ligne, s'il y en a une — sert à regrouper les lignes par mois EN CODE (jamais toi qui comptes/additionnes). N'inclus PAS ce champ du tout si aucune colonne date n'est exploitable.
 - periodDetected : uniquement un repli quand dateColumnName est absent. N'inclus PAS ce champ du tout si tu ne peux pas déduire une période précise (ne devine jamais).
@@ -111,6 +112,11 @@ export type MappableUnit =
   | { kind: "sheet"; fileName: string; sheet: RawSheet }
   | { kind: "text"; fileName: string; text: string }
   | { kind: "image"; fileName: string; base64: string; mediaType: string };
+
+export type ImportMappingOptions = {
+  targetTableHint?: "monthly_metrics";
+  targetPeriod?: { year: number; month: number };
+};
 
 function unitLabel(unit: MappableUnit): string {
   return unit.kind === "sheet" ? unit.sheet.name : unit.fileName;
@@ -204,11 +210,29 @@ export type MapImportedFileResult = {
   outputTokens: number;
 };
 
+function buildSystemPrompt(options?: ImportMappingOptions): string {
+  if (options?.targetTableHint !== "monthly_metrics") return SYSTEM_PROMPT;
+
+  const period = options.targetPeriod ? ` La période ouverte dans la popup est ${String(options.targetPeriod.month).padStart(2, "0")}/${options.targetPeriod.year}.` : "";
+  return `${SYSTEM_PROMPT}
+
+Contexte supplémentaire : cet import vient de la popup « chiffres du mois ». La priorité est de remplir les 9 champs monthly_metrics avec toute donnée qui ressemble sémantiquement à un KPI de funnel, même si les titres sont personnalisés, abrégés, dans une autre langue, placés au milieu d'un tableau ou précédés d'un titre décoratif.${period}
+- Pour ce flux, choisis targetTable = "monthly_metrics" dès que tu peux relier une ou plusieurs colonnes à ces 9 KPI. N'utilise "ignore" que si le contenu ne contient réellement aucun chiffre de funnel.
+- Ne te limite pas au nom des colonnes : utilise les intitulés, les valeurs, la structure, les unités (€/%/comptes) et les lignes voisines pour comprendre l'intention.
+- Si aucune date exploitable n'est présente, utilise periodDetected uniquement si la période est explicite ; le code de la popup appliquera la période ouverte après revue.
+- Une colonne ambiguë peut rester sans targetField et apparaître dans la revue, mais ne rejette pas toute la feuille pour cela.`;
+}
+
 // The only AI call in the import feature — deterministic parsing
 // (lib/import/parse.ts) always runs first. `apiKey` comes from
 // resolveAgentKey (lib/agent/client.ts), same BYOK-first/shared-fallback
 // resolution as every other agent call.
-export async function mapImportedFile(unit: MappableUnit, businessContext: string, apiKey: string): Promise<MapImportedFileResult> {
+export async function mapImportedFile(
+  unit: MappableUnit,
+  businessContext: string,
+  apiKey: string,
+  options?: ImportMappingOptions
+): Promise<MapImportedFileResult> {
   const client = new Anthropic({ apiKey });
 
   let message: Anthropic.Message;
@@ -216,7 +240,7 @@ export async function mapImportedFile(unit: MappableUnit, businessContext: strin
     message = await client.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: `${SYSTEM_PROMPT}\n\nContexte business de l'utilisateur :\n${businessContext}`,
+      system: `${buildSystemPrompt(options)}\n\nContexte business de l'utilisateur :\n${businessContext}`,
       tools: [MAP_COLUMNS_TOOL],
       tool_choice: { type: "tool", name: "map_columns" },
       messages: [{ role: "user", content: buildFileContent(unit) }],

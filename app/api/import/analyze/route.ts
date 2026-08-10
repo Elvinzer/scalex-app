@@ -2,9 +2,10 @@ import { createHash } from "node:crypto";
 
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { resolveAgentKey } from "@/lib/agent/client";
-import { mapImportedFile, type MappableUnit } from "@/lib/agent/import-mapping";
+import { mapImportedFile, type ImportMappingOptions, type MappableUnit } from "@/lib/agent/import-mapping";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { db } from "@/db";
 import { monthlyMetrics, users } from "@/db/schema";
@@ -71,6 +72,21 @@ export async function POST(request: Request): Promise<Response> {
 
   const formData = await request.formData();
   const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
+  const targetTableHint = z.enum(["monthly_metrics"]).safeParse(formData.get("targetTableHint")).data;
+  const targetPeriodRaw = formData.get("targetPeriod");
+  let targetPeriod: ImportMappingOptions["targetPeriod"] = undefined;
+  if (typeof targetPeriodRaw === "string") {
+    let targetPeriodJson: unknown;
+    try {
+      targetPeriodJson = JSON.parse(targetPeriodRaw);
+    } catch {
+      targetPeriodJson = undefined;
+    }
+    const parsedTargetPeriod = z
+      .object({ year: z.number().int().min(2000).max(3000), month: z.number().int().min(1).max(12) })
+      .safeParse(targetPeriodJson);
+    targetPeriod = parsedTargetPeriod.success ? parsedTargetPeriod.data : undefined;
+  }
   // Set when the user already answered "which line is your header row?"
   // for a sheet on a prior call to this same route — re-parses with the
   // chosen row instead of re-running detectHeaderRow.
@@ -141,7 +157,10 @@ export async function POST(request: Request): Promise<Response> {
 
     for (const unit of unitsForFile(parsed)) {
       try {
-        const { result, inputTokens, outputTokens } = await mapImportedFile(unit, businessContext, apiKey);
+        const { result, inputTokens, outputTokens } = await mapImportedFile(unit, businessContext, apiKey, {
+          targetTableHint,
+          targetPeriod,
+        });
         totalInputTokens += inputTokens;
         totalOutputTokens += outputTokens;
 

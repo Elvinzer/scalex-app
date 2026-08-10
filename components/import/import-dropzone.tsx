@@ -49,7 +49,7 @@ export function ImportDropzone({
             }`}
           >
             <FileSpreadsheet className="size-4" aria-hidden="true" />
-            Fichier CSV
+            Fichier ou capture
           </button>
           <button
             type="button"
@@ -118,12 +118,12 @@ export function ImportDropzone({
         >
           <Upload className="size-6 text-accent-2" aria-hidden="true" />
           <p className="text-sm font-bold">Dépose ton fichier ici, ou clique pour parcourir</p>
-          <p className="text-xs text-muted-foreground">CSV ou TSV exporté depuis ton outil</p>
+          <p className="text-xs text-muted-foreground">CSV, Excel, PDF ou capture d&apos;écran</p>
           <input
             ref={inputRef}
             type="file"
             multiple
-            accept={allowPaste ? ".csv,.tsv" : ACCEPTED}
+            accept={ACCEPTED}
             disabled={disabled}
             className="hidden"
             onChange={(event) => handleFiles(event.target.files)}

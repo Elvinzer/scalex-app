@@ -78,7 +78,10 @@ export function aggregatePeriodTotals({
     // Same "empty" definition /datas shows (month-card.tsx's monthStatus) —
     // a monthly_metrics row that exists but was cleared back to all-null
     // still counts as empty, not just "no row at all".
-    const overlay = resolveDailySourceOverlay(range, allSettingEntries, allClosingEntries);
+    const overlay = resolveDailySourceOverlay(range, allSettingEntries, allClosingEntries, {
+      settingManualOverride: monthlyRow?.settingManualOverride,
+      closingManualOverride: monthlyRow?.closingManualOverride,
+    });
     const mergedData = { ...(monthlyRow ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
     if (monthStatus(computeCompletion(mergedData)) === "empty") {
       emptyMonths.push(monthWindow);

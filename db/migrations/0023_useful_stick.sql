@@ -1,0 +1,2 @@
+ALTER TABLE "monthly_metrics" ADD COLUMN "setting_manual_override" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "monthly_metrics" ADD COLUMN "closing_manual_override" boolean DEFAULT false NOT NULL;

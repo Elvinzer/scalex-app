@@ -22,6 +22,8 @@ export type MonthlyMetricsRow = MonthlyMetricsInput & {
   newCustomers: number | null;
   newCustomersSource: StripeFieldSource;
   newCustomersSyncedAt: Date | null;
+  settingManualOverride: boolean;
+  closingManualOverride: boolean;
 };
 
 function toRow(row: typeof monthlyMetrics.$inferSelect): MonthlyMetricsRow {
@@ -43,6 +45,8 @@ function toRow(row: typeof monthlyMetrics.$inferSelect): MonthlyMetricsRow {
     newCustomers: row.newCustomers,
     newCustomersSource: row.newCustomersSource as StripeFieldSource,
     newCustomersSyncedAt: row.newCustomersSyncedAt,
+    settingManualOverride: row.settingManualOverride,
+    closingManualOverride: row.closingManualOverride,
   };
 }
 
@@ -87,5 +91,7 @@ export function emptyMonthRow(year: number, month: number): MonthlyMetricsRow {
     newCustomers: null,
     newCustomersSource: null,
     newCustomersSyncedAt: null,
+    settingManualOverride: false,
+    closingManualOverride: false,
   };
 }

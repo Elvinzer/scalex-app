@@ -165,7 +165,11 @@ export default async function DashboardPage({
   const dailySourceOverlay = resolveDailySourceOverlay(
     monthDateRange(currentYear, currentMonth),
     allSettingEntries,
-    allClosingEntries
+    allClosingEntries,
+    {
+      settingManualOverride: currentMonthlyRow?.settingManualOverride,
+      closingManualOverride: currentMonthlyRow?.closingManualOverride,
+    }
   );
   const checkinInitialData = {
     ...(currentMonthlyRow ?? emptyMonthRow(currentYear, currentMonth)),
