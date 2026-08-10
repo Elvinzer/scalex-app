@@ -117,7 +117,6 @@ export function MonthModal({
   const router = useRouter();
   const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
   const settingSource: KpiFieldSource = { text: t("settingSource"), href: "/acquisition/pipeline/funnel", linkLabel: t("dailyTracking") };
-  const closingSource: KpiFieldSource = { text: t("closingSource"), href: "/ventes/appels/funnel", linkLabel: t("dailyTracking") };
   const persistedSettingManualOverride = initialData?.settingManualOverride ?? false;
   const persistedClosingManualOverride = initialData?.closingManualOverride ?? false;
   const persistedSourceOverrides = useMemo(
@@ -140,9 +139,7 @@ export function MonthModal({
   );
   const { settingSourced, callsBookedSourced, closingSourced } = dailySourceOverlay;
   const closingFieldSource = dailySourceOverlay.closingSource === "calls" && callSource ? callsSource(callSource) : CLOSING_SOURCE;
-  const closingSourceLabel = dailySourceOverlay.closingSource === "calls" ? "Suivi d'appel" : "ton suivi quotidien";
   const settingCallsBookedSource = callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE;
-  const settingSourceLabel = callsBookedSourced && settingSourced ? "tes sources connectées" : callsBookedSourced ? "Suivi d'appel" : "ton suivi quotidien";
   const initial = { ...toDraft(initialData), ...dailySourceOverlay.overrides };
   const cashCollectedSynced = initialData?.cashCollectedSource === "stripe";
   const cashCollectedStale = initialData?.cashCollectedSource === "stripe_stale";

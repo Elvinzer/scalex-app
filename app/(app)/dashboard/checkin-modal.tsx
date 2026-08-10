@@ -64,12 +64,6 @@ export function CheckinModal({
     href: "/acquisition/pipeline/funnel",
     linkLabel: t("checkin.goToPipeline"),
   };
-  const closingSource: KpiFieldSource = {
-    text: t("checkin.closingSource"),
-    href: "/ventes/appels/funnel",
-    linkLabel: t("checkin.goToCallTracking"),
-  };
-
   function update(patch: Partial<MonthlyMetricsInput>) {
     setDraft((prev) => ({ ...prev, ...patch }));
   }

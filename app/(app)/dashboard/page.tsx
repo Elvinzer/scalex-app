@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
+import { BottleneckFunnel } from "./bottleneck-funnel";
 import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-action-center";
 import { TechnicalAlertsSection } from "./technical-alerts-section";
 import { WeeklyReportDialog } from "./weekly-report-dialog";
@@ -15,11 +16,15 @@ import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
-import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
+import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
+import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
 import { sumChiffrableMonthlyGains } from "@/lib/diagnostic/monthly-gap";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
+import { getContentPosts } from "@/lib/content-posts/queries";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
+import { buildBottleneckFunnel } from "@/lib/dashboard/bottleneck";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
@@ -72,11 +77,13 @@ export default async function DashboardPage({
   // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
   // per request, so this is deduped against app/(app)/layout.tsx's own call
   // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth }, benchmarks, weeklyReports] =
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth }, benchmarks, contentBenchmarks, allContentPosts, weeklyReports] =
     await Promise.all([
       getBusinessProfile(accountId),
       getDiagnosticKpiRawData(accountId),
       getDiagnosticBenchmarks(user?.sector ?? null),
+      getContentDiagnosticBenchmarks(user?.sector ?? null),
+      getContentPosts(accountId),
       getRecentWeeklyReports(accountId),
     ]);
 
@@ -124,10 +131,76 @@ export default async function DashboardPage({
     allClosingEntries,
   });
 
+  // The visual handoff deliberately says “ce mois” and “/mois”. Keep the
+  // existing diagnostic hero on its stable three-completed-month window, but
+  // feed this visual with the current month so its labels and values describe
+  // the same period as the reference design.
+  const bottleneckMonth = currentMonthWindow();
+  const bottleneckMonths = [bottleneckMonth];
+  const {
+    settingTotals: bottleneckSettingTotals,
+    closingTotals: bottleneckClosingTotals,
+    cashContractedTotal: bottleneckCashContractedTotal,
+  } = aggregatePeriodTotals({
+    months: bottleneckMonths,
+    allMonthlyRows,
+    allSettingEntries,
+    allClosingEntries,
+  });
+  const bottleneckMonthlyRow = allMonthlyRows.find(
+    (row) => row.year === bottleneckMonth.year && row.month === bottleneckMonth.month
+  );
+  const bottleneckSettingEntries = allSettingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
+  const bottleneckClosingEntries = allClosingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
+  const bottleneckCallSource = allCallSourcesByMonth[monthKey(bottleneckMonth.year, bottleneckMonth.month)];
+  const bottleneckContentTotals = aggregateContentTotals(bottleneckMonths, allContentPosts);
+  const bottleneckPostsInPeriod = allContentPosts.filter((post) => inRange(post.publishedAt, bottleneckMonth.range)).length;
+  const hasBottleneckSettingData =
+    bottleneckSettingEntries.length > 0 ||
+    [
+      bottleneckMonthlyRow?.newFollowers,
+      bottleneckMonthlyRow?.firstMessages,
+      bottleneckMonthlyRow?.conversations,
+      bottleneckMonthlyRow?.callsProposed,
+      bottleneckMonthlyRow?.callsBooked,
+    ].some((value) => value !== null && value !== undefined) ||
+    bottleneckCallSource !== undefined;
+  const hasBottleneckClosingData =
+    bottleneckClosingEntries.length > 0 ||
+    [bottleneckMonthlyRow?.callsTaken, bottleneckMonthlyRow?.salesClosed].some(
+      (value) => value !== null && value !== undefined
+    ) ||
+    bottleneckCallSource !== undefined;
+  const hasBottleneckRevenueData = typeof bottleneckMonthlyRow?.cashContracted === "number";
+
   const allPoints = hasAnyMonthlyRow
     ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })
     : [];
   const points = allPoints.slice(0, 3);
+  const bottleneckPoints = hasBottleneckSettingData || hasBottleneckClosingData
+    ? computeDiagnosticPoints({
+        settingTotals: bottleneckSettingTotals,
+        closingTotals: bottleneckClosingTotals,
+        benchmarks,
+        businessProfile,
+        cashContractedTotal: bottleneckCashContractedTotal,
+      })
+    : [];
+  const bottleneckFunnel = buildBottleneckFunnel({
+    contentTotals: bottleneckContentTotals,
+    contentPostsCount: bottleneckPostsInPeriod,
+    contentBenchmarks,
+    settingTotals: bottleneckSettingTotals,
+    closingTotals: bottleneckClosingTotals,
+    funnelBenchmarks: benchmarks,
+    businessProfile,
+    cashContractedTotal: bottleneckCashContractedTotal,
+    diagnosticPoints: bottleneckPoints,
+    hasSettingData: hasBottleneckSettingData,
+    hasClosingData: hasBottleneckClosingData,
+    hasRevenueData: hasBottleneckRevenueData,
+    locale,
+  });
   const bottleneckLabel = points[0] ? tDiagnostic(`metrics.${points[0].key}`) : t("there");
 
   // Active-but-underperforming levers and explicit improvements still to
@@ -250,6 +323,8 @@ export default async function DashboardPage({
       <Suspense fallback={<RevenueActionCenterSkeleton />}>
         <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
       </Suspense>
+
+      <BottleneckFunnel data={bottleneckFunnel} />
 
       <div>
         <h2 className="text-base font-bold">{t("monthContext")}</h2>

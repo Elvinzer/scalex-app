@@ -381,7 +381,30 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           </Button>
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Meta Ads · {typeLabel(detail.campaign.campaignType, locale)}</p>
           <h1 className="mt-1 text-3xl font-bold">{detail.campaign.name}</h1>
+<<<<<<< HEAD
           <p className="mt-1 text-sm text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(detail.dashboard.period)}</p>
+=======
+          <p className="mt-1 text-sm text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(detail.dashboard.period)} · {detail.campaign.objective ?? t("objectiveMissing")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {campaignConfigured && conversionGoal
+              ? t("conversionGoal", { value: conversionGoal })
+              : t("conversionToDefine")}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("comparison", { start: detail.dashboard.comparisonPeriod.start, end: detail.dashboard.comparisonPeriod.end })}</p>
+          <p className="mt-2 text-xs font-bold text-muted-foreground">
+            {detail.dashboard.period.consolidatedThrough
+              ? t("consolidated", { date: new Intl.DateTimeFormat(locale).format(new Date(`${detail.dashboard.period.consolidatedThrough}T12:00:00Z`)) })
+              : t("consolidating")}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("coverage", { value: detail.campaign.metricCoverageRate === null || detail.campaign.metricCoverageRate === undefined ? "—" : formatPercent(detail.campaign.metricCoverageRate, locale) })}
+          </p>
+          {detail.dashboard.missingMetricDates.length > 0 && (
+            <p className="mt-1 text-xs font-bold text-state-caution" role="status">
+              {t("missingDates", { dates: detail.dashboard.missingMetricDates.slice(0, 8).join(", "), count: Math.max(0, detail.dashboard.missingMetricDates.length - 8) })}
+            </p>
+          )}
+>>>>>>> 1adedcc (feat: Implement bottleneck funnel feature in dashboard)
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <MetaPeriodFilter selection={periodSelection} period={detail.dashboard.period} />
