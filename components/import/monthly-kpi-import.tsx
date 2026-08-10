@@ -172,18 +172,26 @@ function confidenceLabel(confidence: MappedField["confidence"]): string {
 }
 
 function mergeField(fields: MappedField[], next: MappedField, notes: string[]) {
-  const existing = fields.find((field) => field.key === next.key);
+  const existingIndex = fields.findIndex((field) => field.key === next.key);
+  const existing = existingIndex >= 0 ? fields[existingIndex] : undefined;
   if (!existing) {
     fields.push(next);
     return;
   }
 
+  fields[existingIndex] = mergeFieldValues(existing, next);
+  notes.push(`Falco a trouvé plusieurs sources pour « ${fields[existingIndex]?.label ?? next.label} » : vérifie le total proposé.`);
+}
+
+function mergeFieldValues(existing: MappedField, next: MappedField): MappedField {
   const currentValue = parseNumber(existing.value) ?? 0;
   const nextValue = parseNumber(next.value) ?? 0;
-  existing.value = String(currentValue + nextValue);
-  existing.source = `${existing.source} + ${next.source}`;
-  existing.confidence = confidenceRank(existing.confidence) >= confidenceRank(next.confidence) ? existing.confidence : next.confidence;
-  notes.push(`Falco a trouvé plusieurs sources pour « ${existing.label} » : vérifie le total proposé.`);
+  return {
+    ...existing,
+    value: String(currentValue + nextValue),
+    source: `${existing.source} + ${next.source}`,
+    confidence: confidenceRank(existing.confidence) >= confidenceRank(next.confidence) ? existing.confidence : next.confidence,
+  };
 }
 
 function mapAnalysis(analysis: AnalyzeResponse, period: ImportPeriod): {
@@ -372,6 +380,21 @@ export function MonthlyKpiImport({
       if (linkedIndex >= 0) {
         const linked = next[linkedIndex];
         if (!linked) return current;
+
+        const conflictingIndex = next.findIndex((field, index) => index !== linkedIndex && field.key === key);
+        const conflicting = conflictingIndex >= 0 ? next[conflictingIndex] : undefined;
+        if (conflicting && conflictingIndex >= 0) {
+          next[conflictingIndex] = mergeFieldValues(conflicting, {
+            ...linked,
+            key,
+            label: FIELD_LABELS[key],
+            confidence: "high",
+            uncertaintyId: undefined,
+          });
+          next.splice(linkedIndex, 1);
+          return next;
+        }
+
         next[linkedIndex] = { ...linked, key, label: FIELD_LABELS[key], confidence: "high", uncertaintyId: undefined };
         return next;
       }
