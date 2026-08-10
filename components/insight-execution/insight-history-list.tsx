@@ -436,7 +436,7 @@ export function InsightHistoryList({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="insight-history-heading" className="text-lg font-bold">
-            {locale === "en" ? "Your tracked insights" : "Tes insights suivis"}
+            {locale === "en" ? "Insights you are tracking" : "Tes insights suivis"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {t("historyHelp")}

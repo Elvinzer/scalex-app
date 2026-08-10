@@ -88,7 +88,7 @@ export function MetaAdsConnectionCard({
     startTransition(async () => {
       const result = await refreshMetaAdAccounts();
       if (result.error) setError(result.error);
-      else setNotice(`${result.imported ?? 0} ${locale === "en" ? "Meta account(s) retrieved." : "compte(s) Meta récupéré(s)."}${result.syncTriggered ? ` ${locale === "en" ? "Campaign sync restarted." : "Synchronisation des campagnes relancée."}` : ""}`);
+      else setNotice(`${result.imported ?? 0} ${locale === "en" ? "Meta account(s) found." : "compte(s) Meta récupéré(s)."}${result.syncTriggered ? ` ${locale === "en" ? "Campaign sync restarted." : "Synchronisation des campagnes relancée."}` : ""}`);
       router.refresh();
     });
   }
@@ -100,7 +100,7 @@ export function MetaAdsConnectionCard({
     startTransition(async () => {
       const result = await selectMetaAdAccount(value);
       if (result.error) setError(result.error);
-      else setNotice(locale === "en" ? "Account selected. Sync will start." : "Compte sélectionné. La synchronisation va démarrer.");
+      else setNotice(locale === "en" ? "Account selected. Sync starts now." : "Compte sélectionné. La synchronisation va démarrer.");
       router.refresh();
     });
   }

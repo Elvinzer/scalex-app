@@ -52,6 +52,45 @@ Avant de dire qu'une tâche est terminée :
 - Validation (Zod) sur toute donnée qui traverse une frontière externe : payloads webhooks,
   inputs formulaire, réponses tool-use de l'agent. Jamais de `as` non validé sur du input externe.
 
+## Wording anglais
+- Pour tout nouveau wording anglais ou toute modification de copy anglaise (UI, emails,
+  metadata, messages d'erreur, textes de l'agent affichés à l'utilisateur), lire et appliquer
+  `.agents/skills/humanizer/SKILL.md` avant d'écrire.
+- Faire une vraie réécriture, pas une suppression : conserver le sens, les chiffres, les
+  contraintes produit et le ton direct de Scale X.
+- Relire le texte à voix haute et retirer les tournures gonflées ou vagues, le vocabulaire
+  promotionnel, les introductions méta, les négations en miroir, les groupes de trois forcés,
+  les fragments passifs et les conclusions génériques. Préférer des phrases concrètes avec
+  des sujets explicites et `is/are/has` quand c'est plus naturel.
+- La version anglaise finale ne contient pas de tiret cadratin ou demi-cadratin (`—`, `–`).
+  Ne pas réécrire les identifiants techniques, les noms de clés, les URLs ou les exemples
+  cités comme tels.
+- Cette passe s'applique aux locales anglaises et aux chaînes anglaises en dur, y compris les
+  sorties déterministes et les emails. Vérifier les deux surfaces avant de considérer le
+  wording terminé.
+
+## Internationalisation FR/EN (next-intl)
+- L'app est bilingue via `next-intl`. Chaque namespace a un fichier miroir dans
+  `locales/en/<namespace>.json` et `locales/fr/<namespace>.json` (ex: `app.json`, `common.json`,
+  `dashboard.json`, `settings.json`...). Jamais de string UI en dur dans un composant :
+  toujours une clé `useTranslations`/`getTranslations`, jamais un fallback qui masque une clé
+  manquante.
+- Pour tout nouveau wording ou toute modification de copy visible utilisateur (UI, emails,
+  metadata, messages d'erreur, textes de l'agent) : ajouter/mettre à jour la clé dans **les deux
+  fichiers** `locales/en/*.json` ET `locales/fr/*.json` dans le même tour de réponse, jamais l'un
+  sans l'autre. Une PR qui touche un des deux sans l'autre est incomplète.
+- Ordre de travail : écrire/valider l'anglais en appliquant `## Wording anglais` ci-dessus
+  (passe humanizer), puis traduire en français avec le même sens, les mêmes chiffres et
+  contraintes produit, et un ton direct équivalent (pas de traduction mot à mot qui sonnerait
+  robotique en français).
+- Garder les clés strictement synchronisées entre `en` et `fr` : mêmes noms de clés, même
+  structure d'imbrication, mêmes placeholders ICU (`{count}`, `{name}`...). Une clé présente
+  dans un fichier et absente de l'autre est un bug à corriger avant de considérer la tâche
+  terminée.
+- Ne jamais committer un JSON de locale invalide (vérifier qu'il parse) ni une clé dupliquée.
+- Avant de dire une tâche de wording terminée : `grep` la nouvelle clé dans les deux fichiers
+  `en` et `fr` du namespace concerné pour confirmer qu'elle existe des deux côtés.
+
 ## Design system (DA)
 - N'utiliser QUE les couleurs de la DA : tokens CSS (`--accent`, `--accent-2`, `--state-*`,
   `--muted`, etc.) et les `variant` du composant `Button`. Jamais de couleur hex/rgb en dur

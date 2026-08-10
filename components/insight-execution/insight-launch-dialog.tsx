@@ -39,11 +39,11 @@ function metaAdoptionDetails(insight: InsightHistoryItem, locale: string): Adopt
           : `${Math.round(currentValue)}`
     : "—";
   const sampleSize = typeof insight.snapshot.sampleSize === "number" ? Math.round(insight.snapshot.sampleSize) : null;
-  const period = insight.periodStart && insight.periodEnd ? `${insight.periodStart} → ${insight.periodEnd}` : locale === "en" ? "period unavailable" : "période indisponible";
+  const period = insight.periodStart && insight.periodEnd ? `${insight.periodStart} → ${insight.periodEnd}` : locale === "en" ? "Period unavailable" : "période indisponible";
   const campaignId = snapshotText(insight, "campaignId");
   const campaignName = snapshotText(insight, "campaignName") ?? (locale === "en" ? "campaign" : "campagne");
   const actionText = snapshotText(insight, "recommendedAction") ?? insight.insightText;
-  const successCriterion = snapshotText(insight, "successCriterion") ?? (locale === "en" ? "Re-check this metric over a comparable period after the action." : "Recontrôler cette métrique sur une période comparable après l’action.");
+  const successCriterion = snapshotText(insight, "successCriterion") ?? (locale === "en" ? "Check this metric again over a comparable period after the action." : "Recontrôler cette métrique sur une période comparable après l’action.");
   const metricLabel = metricKey.replaceAll("_", " ");
 
   return {

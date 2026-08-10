@@ -90,7 +90,7 @@ export default function ConfirmPage() {
   if (hasError) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-sm text-state-critical">This sign-in link is invalid or expired.</p>
+        <p className="text-sm text-state-critical">This sign-in link is invalid or has expired.</p>
         <a className="text-sm font-medium text-accent underline underline-offset-4" href="/sign-in">
           Back to sign in
         </a>
@@ -100,7 +100,7 @@ export default function ConfirmPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
-      <p className="text-sm text-muted-foreground">Signing you in...</p>
+      <p className="text-sm text-muted-foreground">Signing in...</p>
     </div>
   );
 }

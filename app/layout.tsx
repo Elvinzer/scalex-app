@@ -24,9 +24,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Scale X: Diagnose and fix your business bottleneck",
+  title: "Scale X: Find and fix your business bottleneck",
   description:
-    "Scale X diagnoses the #1 bottleneck holding back your info business and deploys an AI agent that fixes it.",
+    "Scale X finds the main bottleneck in your info business and deploys an AI agent to help fix it.",
 };
 
 export default async function RootLayout({

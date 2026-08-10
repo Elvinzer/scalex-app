@@ -1,12 +1,12 @@
 {
   "title": "Pipeline",
-  "subtitle": "Turn every lead into a clear next action, from first contact to sale.",
+  "subtitle": "Give every lead a clear next action, from first contact to sale.",
   "backDashboard": "Back to Dashboard",
   "dailyFunnel": "Daily funnel",
   "viewAria": "Pipeline view",
   "funnel": {
     "title": "Daily funnel",
-    "subtitle": "Your prospecting funnel, day by day: new subscribers, first messages, conversations, calls proposed and booked.",
+    "subtitle": "Your prospecting funnel, day by day: new subscribers, first messages, conversations, proposed calls and booked calls.",
     "back": "Back to pipeline",
     "noKpis": "No KPI recorded yet",
     "noKpisHelp": "Add your first day below or import a CSV history.",
@@ -42,7 +42,7 @@
     "line": "Line {line}: ",
     "saveDay": "Save this day",
     "saving": "Saving…",
-    "saved": "{date} saved; next up is {next}.",
+    "saved": "{date} saved. Next: {next}.",
     "countPlaceholder": "0",
     "editCell": "Double-click to edit",
     "invalidRange": "Integer between 0 and 100,000",
@@ -50,10 +50,10 @@
     "bottleneckState": "Your weakest funnel rate is {stage} at {rate}%.",
     "saveError": "Could not save this day."
     ,"notEnough": "Not enough data yet",
-    "notEnoughHelp": "Add a few consecutive days to reveal your priority friction point.",
+    "notEnoughHelp": "Add a few consecutive days to see where the pipeline is slowing down.",
     "priorityFriction": "Your biggest friction point",
     "priorityOne": "your number one priority",
-    "belowMarket": "This is also below the market floor ({value}). It is probably {priority}.",
+    "belowMarket": "This is also below the market floor ({value}). It is probably your {priority}.",
     "tips": {
       "outreachRate": "Some new subscribers never receive a first message: check your sending delay.",
       "responseRate": "Many first messages go unanswered: the opening message or send time probably needs review.",
@@ -111,7 +111,7 @@
     "autre": "Other"
   },
   "todayTitle": "Today’s actions",
-  "todayHelp": "The actions that unlock your pipeline fastest.",
+  "todayHelp": "Actions that keep your pipeline moving.",
   "actionCount": "{count} action{plural}",
   "nothingUrgent": "Nothing urgent today.",
   "nothingUrgentHelp": "Add a reminder or switch to Stage view to keep managing your leads.",
@@ -190,7 +190,7 @@
     "confirm": "Confirm"
   },
   "saleValidation": {
-    "title": "Validate sale — {name}",
+    "title": "Validate sale: {name}",
     "offer": "Offer",
     "negotiatedDeal": "Negotiated deal (outside offers)",
     "noOffer": "No offer entered in My business.",

@@ -5,7 +5,7 @@ export function relativeChange(current: number | null, previous: number | null):
 
 export function trendLabel(current: number | null, previous: number | null, locale = "fr"): string {
   const english = locale === "en";
-  if (current === null || previous === null) return english ? "Trend: — · comparison unavailable" : "Évolution : — · comparaison indisponible";
+  if (current === null || previous === null) return english ? "Trend unavailable for this period" : "Évolution : — · comparaison indisponible";
   if (previous === 0) {
     return current === 0
       ? english ? "Trend: stable · previous period was zero" : "Évolution : stable · période précédente nulle"
