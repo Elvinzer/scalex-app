@@ -77,7 +77,7 @@ export function CopiloteChatPanel({
               {t("restart")}
             </button>
             {route && (
-              <Link href={route} className="flex min-h-11 items-center rounded-[var(--radius-control)] px-3 py-2 text-left text-sm font-bold hover:bg-muted">
+              <Link href={route} prefetch={true} className="flex min-h-11 items-center rounded-[var(--radius-control)] px-3 py-2 text-left text-sm font-bold hover:bg-muted">
                 {t("viewLever")}
               </Link>
             )}

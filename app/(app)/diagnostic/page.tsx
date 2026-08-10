@@ -191,7 +191,7 @@ export default async function DiagnosticPage({
             {t("noData")}
           </p>
           <Button size="lg" asChild className="mt-2">
-            <a href="/datas">{t("fillData")}</a>
+            <Link href="/datas" prefetch={true}>{t("fillData")}</Link>
           </Button>
         </div>
       </div>
@@ -592,9 +592,9 @@ export default async function DiagnosticPage({
                   </div>
                 )}
 
-                <a href={href} className="self-start text-sm font-bold text-muted-foreground hover:underline">
+                <Link href={href} prefetch={true} className="self-start text-sm font-bold text-muted-foreground hover:underline">
                   {t("viewDetail")}
-                </a>
+                </Link>
                 <QuickInsightLaunchButton
                   sourceType={isLever ? "diagnostic_lever" : "diagnostic_metric"}
                   sourceId={isLever ? `${watchItem!.leverKey}${watchItem!.statKey ? `:${watchItem!.statKey}` : ""}` : candidate.key}
@@ -794,7 +794,7 @@ export default async function DiagnosticPage({
                       {t("followupHelp")}
                     </p>
                     <Button asChild size="sm" variant="outline" className="mt-3">
-                      <a href="/business">{t("goToBusiness")}</a>
+                      <Link href="/business" prefetch={true}>{t("goToBusiness")}</Link>
                     </Button>
                   </PopoverContent>
                 </Popover>

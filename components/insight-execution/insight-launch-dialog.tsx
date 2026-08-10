@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
@@ -165,9 +166,9 @@ export function InsightLaunchDialog({
                 <p className="text-xs font-bold text-muted-foreground">{t("source")}</p>
                 <p className="mt-1 leading-5">{details.sourceLabel}</p>
                 {details.sourceHref && (
-                  <a href={details.sourceHref} className="mt-1 inline-block font-bold underline-offset-4 hover:underline">
+                  <Link href={details.sourceHref} prefetch={true} className="mt-1 inline-block font-bold underline-offset-4 hover:underline">
                     {t("openCampaign")}
-                  </a>
+                  </Link>
                 )}
               </div>
             </div>
@@ -255,8 +256,8 @@ export function InsightLaunchDialog({
 export function ExistingInitiativeLink({ initiative }: { initiative: InitiativeSummary }) {
   const t = useTranslations("app.insights");
   return (
-    <a href={initiative.projectId || initiative.todoId ? "/journal" : "/diagnostic#insight-history"} className="text-xs font-bold text-muted-foreground hover:underline">
+    <Link href={initiative.projectId || initiative.todoId ? "/journal" : "/diagnostic#insight-history"} prefetch={true} className="text-xs font-bold text-muted-foreground hover:underline">
       {initiative.projectId || initiative.todoId ? t("openJournal") : t("viewAction")}
-    </a>
+    </Link>
   );
 }

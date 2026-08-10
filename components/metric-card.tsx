@@ -17,7 +17,7 @@ export function MetricCard({ data }: { data: MetricCardData }) {
   const translatedDelta = data.status === "ok" && data.deltaLabel ? translateDelta(data.deltaLabel, t) : data.status === "ok" ? data.deltaLabel : null;
   if (data.status === "missing") {
     return (
-      <Link href={data.href} className="sticker-card-dashed flex flex-col p-4">
+      <Link href={data.href} prefetch={true} className="sticker-card-dashed flex flex-col p-4">
         <p className="text-xs font-bold text-muted-foreground">{metricLabel}</p>
         <p className="mt-2 text-sm font-bold text-muted-foreground/80">{tStates("empty")}</p>
         <p className="mt-1 text-xs font-bold text-muted-foreground/70">{translatedReason}</p>
@@ -29,6 +29,7 @@ export function MetricCard({ data }: { data: MetricCardData }) {
   return (
     <Link
       href={data.href}
+      prefetch={true}
       className="sticker-card flex flex-col p-4 hover:border-border-hover"
       title={translatedSource}
     >

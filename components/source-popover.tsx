@@ -1,4 +1,5 @@
 import { Info } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,9 +24,9 @@ export function SourcePopover({ text, href, linkLabel }: { text: string; href?: 
       <PopoverContent>
         <p className="text-muted-foreground">{text}</p>
         {href && (
-          <a href={href} className="mt-1 inline-block font-bold text-signal hover:underline">
+          <Link href={href} prefetch={true} className="mt-1 inline-block font-bold text-signal hover:underline">
             {linkLabel} →
-          </a>
+          </Link>
         )}
       </PopoverContent>
     </Popover>

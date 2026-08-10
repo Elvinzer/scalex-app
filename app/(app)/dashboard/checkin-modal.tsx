@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -118,7 +119,7 @@ export function CheckinModal({
                   {t("stillAt", { after: feedback.afterPercent, label: feedback.label.toLowerCase() })}
                 </p>
                 <Button asChild size="sm" variant="outline" className="self-center">
-                  <a href={`/diagnostic?open=${feedback.key}`}>{t("resumeChat")}</a>
+                  <Link href={`/diagnostic?open=${feedback.key}`} prefetch={true}>{t("resumeChat")}</Link>
                 </Button>
               </>
             )}

@@ -1,4 +1,5 @@
 import { ArrowUpRight, BarChart3, Eye, MousePointerClick, Play, UserPlus } from "lucide-react";
+import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { MetaCampaignsTable } from "@/components/meta-ads/meta-campaigns-table";
@@ -351,7 +352,7 @@ export async function MetaAdsDashboard({
         <div className="flex flex-wrap items-center gap-2">
           <MetaPeriodFilter selection={periodSelection} period={data.period} />
           <Button variant="outline" asChild>
-            <a href="/integrations#meta-ads">{t("manageConnection")} <ArrowUpRight className="size-4" /></a>
+            <Link href="/integrations#meta-ads" prefetch={true}>{t("manageConnection")} <ArrowUpRight className="size-4" /></Link>
           </Button>
         </div>
       </div>

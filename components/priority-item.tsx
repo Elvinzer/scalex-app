@@ -1,6 +1,7 @@
 import { Falco } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { formatEur } from "@/lib/currency";
 import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
@@ -54,14 +55,14 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
             </span>
             {isTop ? (
               <Button asChild size="sm" variant="secondary">
-                <a href={`/diagnostic?openLever=${leverWinner.leverKey}&openLeverLabel=${encodeURIComponent(leverWinner.label)}`}>
+                <Link href={`/diagnostic?openLever=${leverWinner.leverKey}&openLeverLabel=${encodeURIComponent(leverWinner.label)}`} prefetch={true}>
                   {t("improve")}
-                </a>
+                </Link>
               </Button>
             ) : (
-              <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
+              <Link href="/diagnostic" prefetch={true} className="text-sm font-bold text-muted-foreground hover:underline">
                 {t("seeDetail")}
-              </a>
+              </Link>
             )}
           </div>
         </div>
@@ -118,12 +119,12 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
             // Secondary, not coral — the page's one coral CTA is the hero
             // banner's "Récupérer ce cash →", which already points here.
             <Button asChild size="sm" variant="secondary">
-              <a href={`/diagnostic?open=${point.key}`}>{t("improve")}</a>
+              <Link href={`/diagnostic?open=${point.key}`} prefetch={true}>{t("improve")}</Link>
             </Button>
           ) : (
-            <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
+            <Link href="/diagnostic" prefetch={true} className="text-sm font-bold text-muted-foreground hover:underline">
               {t("seeDetail")}
-            </a>
+            </Link>
           )}
         </div>
       </div>

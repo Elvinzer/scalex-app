@@ -38,6 +38,7 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={true}
               role="tab"
               aria-selected={isActive}
               aria-current={isActive ? "page" : undefined}

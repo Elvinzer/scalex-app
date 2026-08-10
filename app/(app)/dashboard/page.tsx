@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
@@ -302,10 +303,10 @@ export default async function DashboardPage({
           <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden lg:flex" />
           <div className="flex flex-wrap gap-2">
             <Button size="lg" asChild>
-              <a href="/diagnostic">{t("viewDiagnostic")}</a>
+              <Link href="/diagnostic" prefetch={true}>{t("viewDiagnostic")}</Link>
             </Button>
             <Button size="lg" variant="outline" className="border-mist/20 bg-transparent text-text-on-dark hover:bg-mist/10 hover:text-text-on-dark" asChild>
-              <a href="/diagnostic#calcul">{t("howCalculated")}</a>
+              <Link href="/diagnostic#calcul" prefetch={true}>{t("howCalculated")}</Link>
             </Button>
           </div>
         </div>
@@ -361,7 +362,7 @@ export default async function DashboardPage({
               />
             </Suspense>
             <Button type="button" variant="link" asChild>
-              <a href="/dashboard?report=1">{t("viewReport")}</a>
+              <Link href="/dashboard?report=1" prefetch={true}>{t("viewReport")}</Link>
             </Button>
           </div>
         </section>

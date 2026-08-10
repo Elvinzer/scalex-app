@@ -27,7 +27,7 @@ export function KeyRequiredModal({ onClose }: { onClose: () => void }) {
           {t("keyHelp")}
         </p>
         <Button asChild className="mt-5">
-          <Link href="/settings">{t("goSettings")}</Link>
+          <Link href="/settings" prefetch={true}>{t("goSettings")}</Link>
         </Button>
       </div>
     </div>

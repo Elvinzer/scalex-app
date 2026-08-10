@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { SaveIndicator } from "@/app/(app)/business/save-indicator";
@@ -76,9 +77,9 @@ export function DayDrawer({ day, onClose }: { day: JournalDay | null; onClose: (
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
                 {t("weeklyStats")} {" "}
-                <a href="/dashboard" className="font-bold text-foreground hover:underline">
+                <Link href="/dashboard" prefetch={true} className="font-bold text-foreground hover:underline">
                   {t("checkin")}
-                </a>
+                </Link>
                 .
               </p>
             )}

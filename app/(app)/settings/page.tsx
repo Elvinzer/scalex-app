@@ -1,5 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import { tryDecrypt } from "@/lib/crypto";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
@@ -75,7 +77,7 @@ export default async function SettingsPage() {
         <p className="text-sm font-bold text-muted-foreground">{tPage("business")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("businessHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
-          <a href="/business">{tPage("editBusiness")}</a>
+          <Link href="/business" prefetch={true}>{tPage("editBusiness")}</Link>
         </Button>
       </div>
 
@@ -144,7 +146,7 @@ export default async function SettingsPage() {
         <p className="text-sm font-bold text-muted-foreground">{tPage("billing")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("billingHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
-          <a href="/settings/facturation">{tPage("manageBilling")}</a>
+          <Link href="/settings/facturation" prefetch={true}>{tPage("manageBilling")}</Link>
         </Button>
       </div>
 
@@ -152,7 +154,7 @@ export default async function SettingsPage() {
         <p className="text-sm font-bold text-muted-foreground">{tPage("team")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("teamHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
-          <a href="/settings/equipe">{tPage("manageTeam")}</a>
+          <Link href="/settings/equipe" prefetch={true}>{tPage("manageTeam")}</Link>
         </Button>
       </div>
 
@@ -160,7 +162,7 @@ export default async function SettingsPage() {
         <p className="text-sm font-bold text-muted-foreground">{tPage("integrations")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("integrationsHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
-          <a href="/integrations">{tPage("viewIntegrations")}</a>
+          <Link href="/integrations" prefetch={true}>{tPage("viewIntegrations")}</Link>
         </Button>
       </div>
 

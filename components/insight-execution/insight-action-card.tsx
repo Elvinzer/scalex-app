@@ -109,6 +109,7 @@ export function ExistingActionBanner({
       <p className="text-sm font-bold">{t("alreadyAssociated")}</p>
       <Link
         href={`/copilote?conversation=${encodeURIComponent(conversationId)}`}
+        prefetch={true}
         onClick={onOpen}
         className="inline-flex min-h-11 shrink-0 items-center text-xs font-bold text-accent-2-text underline-offset-2 hover:underline"
       >
@@ -384,7 +385,7 @@ export function InsightActionCard({
 
           {isLaunched && !isCompleted && (
             <div className="flex flex-wrap gap-2">
-              <Link href="/journal" className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
+              <Link href="/journal" prefetch={true} className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
                 {t("openJournal")}
               </Link>
               <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={complete} disabled={isPending}>
@@ -396,10 +397,10 @@ export function InsightActionCard({
 
           {isCompleted && (
             <div className="flex flex-wrap gap-2">
-              <Link href={`/copilote?conversation=${encodeURIComponent(conversationId)}`} className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
+              <Link href={`/copilote?conversation=${encodeURIComponent(conversationId)}`} prefetch={true} className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
                 {t("viewConversation")}
               </Link>
-              <Link href="/journal" className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
+              <Link href="/journal" prefetch={true} className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
                 {t("openJournal")}
               </Link>
             </div>

@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ export default async function EquipePage() {
             {t("subscriptionHelp")}
           </p>
           <Button asChild variant="outline" className="mt-4">
-            <a href="/settings/facturation">{t("viewPlans")} →</a>
+            <Link href="/settings/facturation" prefetch={true}>{t("viewPlans")} →</Link>
           </Button>
         </div>
       )}

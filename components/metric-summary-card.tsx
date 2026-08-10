@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
@@ -60,7 +61,7 @@ export function MetricSummaryCard({
           <PopoverContent>
             <p className="text-muted-foreground">{measureHint}</p>
             <Button asChild size="sm" variant="outline" className="mt-3">
-              <a href={measureHintHref}>{measureHintLabel}</a>
+              <Link href={measureHintHref} prefetch={true}>{measureHintLabel}</Link>
             </Button>
           </PopoverContent>
         </Popover>

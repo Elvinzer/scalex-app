@@ -89,7 +89,7 @@ function FalcoJournalAction({ item, onCompleted }: { item: InsightHistoryItem; o
 
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-bold text-muted-foreground">
         {initiative?.dueDate && <span>{t("dueDate", { date: new Date(`${initiative.dueDate}T00:00:00Z`).toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" }) })}</span>}
-          <Link href={`/copilote?conversation=${encodeURIComponent(item.sourceId)}`} className="inline-flex min-h-11 items-center text-accent-2-text underline-offset-2 hover:underline">
+          <Link href={`/copilote?conversation=${encodeURIComponent(item.sourceId)}`} prefetch={true} className="inline-flex min-h-11 items-center text-accent-2-text underline-offset-2 hover:underline">
           {t("viewConversation")}
         </Link>
         {!isDone && initiative && (

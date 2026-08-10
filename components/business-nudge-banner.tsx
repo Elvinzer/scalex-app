@@ -1,4 +1,5 @@
 import { Store } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export function BusinessNudgeBanner() {
         </div>
       </div>
       <Button asChild size="sm" className="shrink-0">
-        <a href="/business">{t("complete")} →</a>
+        <Link href="/business" prefetch={true}>{t("complete")} →</Link>
       </Button>
     </div>
   );

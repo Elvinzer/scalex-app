@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -297,9 +298,9 @@ function HistoryCard({
             <p className="mt-1">{metaCriterion ?? t("recheckMetric")}</p>
           </div>
           {metaCampaignId && (
-            <a href={`/acquisition/ads/meta/${encodeURIComponent(metaCampaignId)}`} className="font-bold underline-offset-4 hover:underline">
+            <Link href={`/acquisition/ads/meta/${encodeURIComponent(metaCampaignId)}`} prefetch={true} className="font-bold underline-offset-4 hover:underline">
               {t("openCampaign")}
-            </a>
+            </Link>
           )}
         </div>
       )}

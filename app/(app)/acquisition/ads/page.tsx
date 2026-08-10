@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { after } from "next/server";
+import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { z } from "zod";
 
@@ -170,7 +171,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
           />
         )}
         <Button variant="outline" asChild className="self-start">
-          <a href={`/demarrer/${LEVER_KEY}`}>{t("fullGuide")} →</a>
+          <Link href={`/demarrer/${LEVER_KEY}`} prefetch={true}>{t("fullGuide")} →</Link>
         </Button>
       </div>
     );

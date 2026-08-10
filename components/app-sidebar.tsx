@@ -182,6 +182,7 @@ function NavLink({
   return (
     <Link
       href={entry.href}
+      prefetch={true}
       className={cn(
         "flex min-h-11 min-w-0 cursor-pointer items-center gap-3 whitespace-normal break-words rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2",
         indented ? "pl-7 text-[13px] tracking-[-0.005em]" : "pl-3 text-[13.5px] tracking-[-0.01em]",
@@ -260,6 +261,7 @@ function PillarNavGroup({
               <Link
                 key={sub.href}
                 href={sub.href}
+                prefetch={true}
                 className={cn(
                   // pl-10 lines the label up under the parent's own label
                   // (pl-3 + size-4 icon + gap-3 = 40px).
@@ -480,7 +482,7 @@ export function AppSidebar({
             center lands exactly on that header's midline (36px). Keep the two
             in sync if either height changes. */}
         <div className="flex h-18 shrink-0 items-center px-3">
-          <Link href="/dashboard" className="flex items-center transition-opacity hover:opacity-80">
+          <Link href="/dashboard" prefetch={true} className="flex items-center transition-opacity hover:opacity-80">
             <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
           </Link>
         </div>
@@ -509,6 +511,7 @@ export function AppSidebar({
             <div className="px-3 pt-2">
               <Link
                 href={adminEntry.href}
+                prefetch={true}
                 className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/35 uppercase transition-colors hover:bg-mist/10 hover:text-mist/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
               >
                 <ShieldCheck className="size-3.5" />
@@ -567,6 +570,7 @@ export function AppSidebar({
             <Link
               key={entry.href}
               href={entry.href}
+              prefetch={true}
               aria-current={active ? "page" : undefined}
               className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-[10px] font-bold transition-colors", active ? (entry.href === "/copilote" ? "text-accent-2" : "text-accent") : "text-muted-foreground")}
             >

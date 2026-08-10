@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import Link from "next/link";
 import { after } from "next/server";
 import { getLocale, getTranslations } from "next-intl/server";
 
@@ -93,7 +94,7 @@ export default async function MailPage() {
           />
         )}
         <Button variant="outline" asChild className="self-start">
-          <a href={`/demarrer/${LEVER_KEY}`}>{t("fullGuide")} →</a>
+          <Link href={`/demarrer/${LEVER_KEY}`} prefetch={true}>{t("fullGuide")} →</Link>
         </Button>
       </div>
     );

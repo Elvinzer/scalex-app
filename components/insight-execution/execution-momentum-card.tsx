@@ -95,6 +95,7 @@ export async function ExecutionMomentumCard({
           </p>
           <Link
             href={followUpHref(progress.focus.id)}
+            prefetch={true}
             className="mt-3 inline-flex text-xs font-bold text-accent-text hover:underline"
           >
             {t("openFollowUp")}
@@ -110,6 +111,7 @@ export async function ExecutionMomentumCard({
           </p>
           <Link
             href="/diagnostic#insight-history"
+            prefetch={true}
             className="mt-3 inline-flex text-xs font-bold text-accent-text hover:underline"
           >
             {t("viewInsights")}
@@ -170,6 +172,7 @@ export async function ExecutionMomentumCard({
           )}
           <Link
             href={followUpHref(nudge.initiativeId)}
+            prefetch={true}
             className="mt-2 inline-flex text-xs font-bold text-accent-text hover:underline"
           >
             {t("openFollowUp")}

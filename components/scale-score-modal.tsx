@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Falco } from "@/components/falco/falco";
@@ -75,7 +76,7 @@ export function ScaleScoreModal({
                 bubbleText={scaleScoreGapText ?? t("needNumbers")}
               />
               <Button asChild className="mt-2">
-                <a href="/datas">{t("fillNumbers")}</a>
+                <Link href="/datas" prefetch={true}>{t("fillNumbers")}</Link>
               </Button>
               {scaleScoreMonthNote && (
                 <p className="max-w-[280px] text-xs text-muted-foreground">{scaleScoreMonthNote}</p>
@@ -134,7 +135,7 @@ export function ScaleScoreModal({
 
               <div className="flex gap-2">
                 <Button asChild className="flex-1">
-                  <a href="/diagnostic">{t("improve")}</a>
+                  <Link href="/diagnostic" prefetch={true}>{t("improve")}</Link>
                 </Button>
                 <Button variant="secondary" onClick={handleShare} disabled={isExporting} className="flex-1">
                   {isExporting ? t("exporting") : t("share")}

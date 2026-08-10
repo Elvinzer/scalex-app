@@ -169,7 +169,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
         {open && (
           <div className="flex h-full flex-col">
             <div className="flex justify-end border-b border-border px-4 py-2">
-              <Link href={copiloteHref} className="text-xs font-bold text-muted-foreground hover:underline">
+              <Link href={copiloteHref} prefetch={true} className="text-xs font-bold text-muted-foreground hover:underline">
                 Ouvrir dans le Copilote →
               </Link>
             </div>

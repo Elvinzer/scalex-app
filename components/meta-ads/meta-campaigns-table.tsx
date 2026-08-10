@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { setMetaCampaignProfile } from "@/app/(app)/acquisition/ads/meta-actions";
@@ -419,7 +420,7 @@ export function MetaCampaignsTable({
               return (
                 <tr key={campaign.id} className="border-b border-border last:border-0">
                   <td className="sticky left-0 z-10 bg-card px-5 py-4 align-top">
-                    <a href={`/acquisition/ads/meta/${campaign.id}?${periodQuery}`} className="font-bold underline-offset-4 hover:underline">{campaign.name}</a>
+                    <Link href={`/acquisition/ads/meta/${campaign.id}?${periodQuery}`} prefetch={true} className="font-bold underline-offset-4 hover:underline">{campaign.name}</Link>
                     <p className="mt-1 text-xs text-muted-foreground">{campaign.latestDate ? `Dernier jour mesuré : ${campaign.latestDate}` : "Pas encore de métrique"}</p>
                   </td>
                   <td className="px-5 py-4 align-top"><CampaignTypePicker campaign={campaign} canManageCampaigns={canManageCampaigns} /></td>

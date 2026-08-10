@@ -389,7 +389,6 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Meta Ads · {typeLabel(detail.campaign.campaignType, locale)}</p>
           <h1 className="mt-1 text-3xl font-bold">{detail.campaign.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(detail.dashboard.period)} · {detail.campaign.objective ?? t("objectiveMissing")}</p>
-<<<<<<< HEAD
           {conversionGoalRequired && (
             <p className="mt-1 text-xs text-muted-foreground">
               {campaignConfigured && conversionGoal
@@ -397,13 +396,6 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 : t("conversionToDefine")}
             </p>
           )}
-=======
-          <p className="mt-1 text-xs text-muted-foreground">
-            {campaignConfigured && detail.campaign.conversionGoal
-              ? t("conversionGoal", { value: conversionMetricLabel })
-              : t("conversionToDefine")}
-          </p>
->>>>>>> bc54063 (feat: Enhance bottleneck funnel component with new styling and functionality)
           <p className="mt-1 text-xs text-muted-foreground">{t("comparison", { start: detail.dashboard.comparisonPeriod.start, end: detail.dashboard.comparisonPeriod.end })}</p>
           <p className="mt-2 text-xs font-bold text-muted-foreground">
             {detail.dashboard.period.consolidatedThrough
