@@ -72,18 +72,23 @@ export async function requireUserIdOrError(): Promise<string | { error: string }
   }
 }
 
-// Called from both app/(app)/layout.tsx and app/onboarding/layout.tsx — the
-// only two entry points a session can land on right after auth. No
-// dedicated post-login server route exists (the Supabase email template
-// establishes the session client-side, not through a route we control), so
-// this idempotent upsert-or-skip is how the users row actually gets
-// created. onConflictDoNothing + returning() is also how "signup" is
-// detected precisely once: an empty return means the row already existed.
+// Called from the post-auth callback/confirmation and onboarding entry
+// points. Normal app navigation only reads the row; it must not perform a
+// write on every page render because a transient pooler error would turn a
+// healthy existing session into a server error. The existence check also
+// avoids an unnecessary INSERT for returning users.
 export async function ensureUserRow(
   userId: string,
   email: string,
   options: { captureReferral?: boolean } = {}
 ): Promise<{ isNewUser: boolean }> {
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (existing) return { isNewUser: false };
+
   let inserted: { id: string } | undefined;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {

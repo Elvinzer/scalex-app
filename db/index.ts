@@ -13,6 +13,13 @@ if (!connectionString) {
 // and a reused pooler backend must resolve them consistently on every request.
 const client = postgres(connectionString, {
   prepare: false,
+  // Keep the serverless pool bounded for Supabase's transaction pooler. A
+  // short idle timeout also discards sockets that may have gone stale while a
+  // Vercel instance was asleep instead of reusing them on the next request.
+  max: 5,
+  idle_timeout: 60,
+  connect_timeout: 10,
+  max_lifetime: 60 * 30,
   connection: {
     search_path: "public, extensions",
   },

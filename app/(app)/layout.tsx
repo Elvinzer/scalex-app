@@ -13,7 +13,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { computeGlobalCompletion } from "@/lib/business/completion";
 import { getAuthIdentity } from "@/lib/auth/request";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
-import { ensureUserRow, getUserById } from "@/lib/current-user";
+import { getUserById } from "@/lib/current-user";
 import { getAccountContext } from "@/lib/team/context";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
 
@@ -73,10 +73,6 @@ export default async function AppLayout({
 
   const { email, userId } = identity;
   const messagesPromise = getMessages();
-
-  if (typeof email === "string") {
-    await ensureUserRow(userId, email);
-  }
 
   const [context, currentUserRow] = await Promise.all([
     getAccountContext(userId),
