@@ -12,6 +12,14 @@ const supabaseOrigin = (() => {
   }
 })();
 
+// React's development build uses eval() for debugging features (rebuilding
+// callstacks across environments), and Turbopack's HMR client opens a
+// websocket back to the dev server. Both are blocked by the production policy
+// below, which is correct — so they are relaxed HERE AND ONLY HERE, gated on
+// NODE_ENV. The header served by `next build` is unchanged: 'unsafe-eval'
+// never reaches production, where React does not use eval() at all.
+const isDev = process.env.NODE_ENV === "development";
+
 // No nonce-based script-src: that requires opting every route into dynamic
 // rendering (a per-request nonce defeats static rendering), which would
 // break app/(marketing)/'s static/ISR requirement. 'unsafe-inline' is the
@@ -19,7 +27,7 @@ const supabaseOrigin = (() => {
 // clickjacking, and MIME sniffing, which is what actually matters here.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   // Broad https: (not scoped to Supabase) on purpose: post thumbnails are
   // short-lived signed URLs straight from Instagram's CDN
@@ -30,7 +38,7 @@ const csp = [
   // unlike script-src/connect-src above which stay locked to 'self'.
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' https://*.posthog.com${supabaseOrigin ? ` ${supabaseOrigin}` : ""}`,
+  `connect-src 'self' https://*.posthog.com${supabaseOrigin ? ` ${supabaseOrigin}` : ""}${isDev ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
