@@ -203,33 +203,6 @@ export function MetaAdsConnectionCard({
             </dl>
           )}
 
-          {accounts.length > 0 && (
-            <div className="mt-4 overflow-x-auto rounded-[var(--radius-control)] border border-border" tabIndex={0} role="region" aria-label="Comptes publicitaires Meta">
-              <table className="w-full min-w-[38rem] text-xs">
-                <thead>
-                  <tr className="border-b border-border text-left font-bold text-muted-foreground">
-                    <th className="px-3 py-2">Compte</th>
-                    <th className="px-3 py-2">Identifiant</th>
-                    <th className="px-3 py-2">Devise</th>
-                    <th className="px-3 py-2">Fuseau</th>
-                    <th className="px-3 py-2">Accès</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounts.map((account) => (
-                    <tr key={`account-row-${account.externalId}`} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2 font-bold">{account.name}</td>
-                      <td className="px-3 py-2 font-mono">{maskedAccountId(account.externalId)}</td>
-                      <td className="px-3 py-2">{account.currency ?? "—"}</td>
-                      <td className="px-3 py-2">{account.timezone ?? "—"}</td>
-                      <td className="px-3 py-2 font-bold">{account.canRead ? "Lecture disponible" : account.disableReason ?? "Indisponible"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
           {connectionNotice === "connected" && (
             <p className="mt-4 text-sm font-bold text-state-healthy" role="status">
               Connexion Meta Ads réussie. Choisis maintenant le compte publicitaire à analyser.
