@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
@@ -56,7 +56,7 @@ export function ItemScoreButton({
       <Drawer open={open} onOpenChange={handleOpenChange}>
         <DrawerContent>
           {open && (
-            <ImproveChat
+            <LazyImproveChat
               context={chatContext}
               period="3-months"
               gapBadge={null}

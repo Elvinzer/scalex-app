@@ -1,44 +1,87 @@
-import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
 import { AppSidebarWithScaleScore } from "@/components/app-sidebar-with-scale-score";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
 import { FloatingChatBubble } from "@/components/floating-chat-bubble";
-import { db } from "@/db";
-import { users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { FALCO_SKIN_KEYS } from "@/lib/falco-skins";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { computeGlobalCompletion } from "@/lib/business/completion";
+import { getAuthIdentity } from "@/lib/auth/request";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
-import { ensureUserRow } from "@/lib/current-user";
-import { createClient } from "@/lib/supabase/server";
+import { ensureUserRow, getUserById } from "@/lib/current-user";
 import { getAccountContext } from "@/lib/team/context";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
+
+type SidebarBaseProps = Pick<AppSidebarProps, "email" | "isOwner" | "permissions" | "isAdmin"> & {
+  displayName: string | null;
+};
+
+async function AppChrome({
+  accountId,
+  canSeeScaleScore,
+  sidebarBaseProps,
+}: {
+  accountId: string;
+  canSeeScaleScore: boolean;
+  sidebarBaseProps: SidebarBaseProps;
+}) {
+  const [businessProfile, userRow] = await Promise.all([
+    getBusinessProfile(accountId),
+    getUserById(accountId),
+  ]);
+  const businessCompletion = computeGlobalCompletion(businessProfile);
+  const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
+  const sidebarProps = {
+    ...sidebarBaseProps,
+    businessName: businessProfile.identity.businessName,
+    displayName: userRow?.displayName ?? sidebarBaseProps.displayName,
+    avatarUrl: userRow?.avatarUrl ?? null,
+    businessCompletionCount,
+  };
+  const hasUnseenInsight = !isBusinessProfileThin(businessProfile) && !userRow?.lastImproveMetricKey;
+
+  return (
+    <>
+      <Suspense fallback={<AppSidebar {...sidebarProps} streak={null} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+        <AppSidebarWithScaleScore
+          {...sidebarProps}
+          accountId={accountId}
+          businessProfile={businessProfile}
+          sector={userRow?.sector ?? null}
+          canSeeScaleScore={canSeeScaleScore}
+        />
+      </Suspense>
+      <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
+    </>
+  );
+}
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-
-  if (!data?.claims) {
+  const identity = await getAuthIdentity();
+  if (!identity) {
     redirect("/sign-in");
   }
 
-  const email = data.claims.email;
-  const userId = data.claims.sub as string;
+  const { email, userId } = identity;
+  const messagesPromise = getMessages();
 
   if (typeof email === "string") {
     await ensureUserRow(userId, email);
   }
 
-  const context = await getAccountContext(userId);
+  const [context, currentUserRow] = await Promise.all([
+    getAccountContext(userId),
+    getUserById(userId),
+  ]);
   if (!context) {
     // A team member whose account's Scale X subscription lapsed — blocked
     // immediately, not just future invites (see lib/billing/plan-gate.ts).
@@ -64,41 +107,21 @@ export default async function AppLayout({
   // the same "dashboard" permission rather than always-visible.
   const canSeeScaleScore = isOwner || permissions.includes("dashboard");
 
-  // Runs on every navigation inside (app) — getBusinessProfile, the users
-  // row read, and (when visible) the Scale Score's own KPI queries are all
-  // independent, so awaiting them one after another was a pure, avoidable
-  // round-trip on literally every page change. All scoped by accountId (the
-  // business's owner), not userId (who's logged in) — a team member sees
-  // the account's business context, never their own empty one.
-  const [businessProfile, [userRow]] = await Promise.all([
-    getBusinessProfile(accountId),
-    db.select().from(users).where(eq(users.id, accountId)).limit(1),
-  ]);
-  const businessCompletion = computeGlobalCompletion(businessProfile);
-  const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
-
-  // Proactive "the AI has something to say" signal for the floating bubble
-  // — true when the user has real business data to diagnose (not thin/empty)
-  // but has never opened a conversation about any specific metric yet
-  // (lastImproveMetricKey is only ever set by lib/improve-chat-tracking.ts,
-  // when a metric-scoped chat is opened). A simple, no-new-schema proxy for
-  // "there's a real bottleneck you haven't discussed with the AI" rather
-  // than recomputing the full diagnostic cascade on every navigation.
-  const hasUnseenInsight = !isBusinessProfileThin(businessProfile) && !userRow?.lastImproveMetricKey;
-
-  const sidebarBaseProps = {
-    email: typeof email === "string" ? email : "",
-    businessName: businessProfile.identity.businessName,
-    displayName: userRow?.displayName ?? null,
-    avatarUrl: userRow?.avatarUrl ?? null,
+  // The page content no longer waits for the business profile and sidebar
+  // score. AppChrome loads those in its own Suspense boundary below while
+  // the requested page starts rendering immediately.
+  const sidebarBaseProps: SidebarBaseProps = {
+    email: email ?? "",
+    displayName: currentUserRow?.displayName ?? null,
     isOwner,
     permissions,
     isAdmin,
-    businessCompletionCount,
   };
+  const messages = await messagesPromise;
 
   return (
-    <FalcoPreferencesProvider reduceAnimations={userRow?.reduceFalcoAnimations ?? false}>
+    <NextIntlClientProvider messages={messages}>
+      <FalcoPreferencesProvider reduceAnimations={currentUserRow?.reduceFalcoAnimations ?? false}>
       {/* Portraits are tiny (<20 Ko each) — preloaded once globally so the
           floating chat bubble's crossfade never waits on a first fetch,
           wherever navigation lands first. */}
@@ -106,14 +129,8 @@ export default async function AppLayout({
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
       ))}
       <div className="flex min-h-screen bg-panel">
-        <Suspense fallback={<AppSidebar {...sidebarBaseProps} streak={null} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
-          <AppSidebarWithScaleScore
-            {...sidebarBaseProps}
-            accountId={accountId}
-            businessProfile={businessProfile}
-            sector={userRow?.sector ?? null}
-            canSeeScaleScore={canSeeScaleScore}
-          />
+        <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} streak={null} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+          <AppChrome accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} />
         </Suspense>
         {/* The sidebar is fixed, so reserve its width in normal document flow
             on desktop; mobile opens it as an overlay instead. */}
@@ -124,8 +141,8 @@ export default async function AppLayout({
           <div aria-hidden="true" className="h-24 shrink-0 md:h-16" />
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
-        <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
       </div>
-    </FalcoPreferencesProvider>
+      </FalcoPreferencesProvider>
+    </NextIntlClientProvider>
   );
 }

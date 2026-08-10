@@ -10,7 +10,7 @@ import type { BottleneckFunnelData, BottleneckStage, BottleneckStageId } from "@
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { formatPercent } from "@/lib/setting/funnel";
 import { Falco } from "@/components/falco/falco";
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
@@ -428,7 +428,7 @@ export function BottleneckFunnel({
       <Drawer open={chatStageId !== null} onOpenChange={(open) => !open && setChatStageId(null)}>
         <DrawerContent>
           {chatStage && (
-            <ImproveChat
+            <LazyImproveChat
               context={buildChatContext(chatStage, chatLabel)}
               period="3-months"
               gapBadge={

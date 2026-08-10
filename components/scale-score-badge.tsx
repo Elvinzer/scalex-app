@@ -1,14 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import { ScaleScoreModal } from "@/components/scale-score-modal";
 import { ScaleScoreRing } from "@/components/scale-score-ring";
 import { trackClient } from "@/lib/analytics-client";
 import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
+
+const ScaleScoreModal = dynamic(
+  () => import("@/components/scale-score-modal").then((module) => module.ScaleScoreModal),
+  { ssr: false },
+);
 
 // Sits in components/app-sidebar.tsx, above the profile block, outside the
 // scrollable <nav> — always rendered (never hidden), including the

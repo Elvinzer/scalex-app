@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { labelFor } from "@/lib/diagnostic/cascade";
@@ -55,7 +55,7 @@ export function AutoOpenImprove() {
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerContent>{open && <ImproveChat context={context} period="3-months" gapBadge={null} />}</DrawerContent>
+      <DrawerContent>{open && <LazyImproveChat context={context} period="3-months" gapBadge={null} />}</DrawerContent>
     </Drawer>
   );
 }

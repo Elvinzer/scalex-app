@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
@@ -102,7 +102,7 @@ export function TodayActionCard({ action }: { action: TodayAction }) {
 
       <Drawer open={chatOpen} onOpenChange={handleChatOpenChange}>
         <DrawerContent>
-          <ImproveChat context={action.chatContext} period="3-months" gapBadge={null} />
+          <LazyImproveChat context={action.chatContext} period="3-months" gapBadge={null} />
         </DrawerContent>
       </Drawer>
     </>

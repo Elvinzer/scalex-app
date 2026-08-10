@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Falco } from "@/components/falco/falco";
 import { StreakMomentum } from "@/components/streak/streak-momentum";
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -693,7 +693,7 @@ export function JournalView({ data, todos, projects, streak = null, fixtureMode 
 
       <Drawer open={chatContext !== null} onOpenChange={(open) => { if (!open) setChatContext(null); }}>
         <DrawerContent>
-          {chatContext && <ImproveChat context={chatContext} period="3-months" gapBadge={null} />}
+          {chatContext && <LazyImproveChat context={chatContext} period="3-months" gapBadge={null} />}
         </DrawerContent>
       </Drawer>
     </div>

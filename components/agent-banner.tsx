@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Falco, type FalcoPose } from "@/components/falco/falco";
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
@@ -67,7 +67,7 @@ export function AgentBanner({
       <Drawer open={open} onOpenChange={handleOpenChange}>
         <DrawerContent>
           {open && (
-            <ImproveChat
+            <LazyImproveChat
               context={chatContext}
               period={period}
               gapBadge={gapBadge}

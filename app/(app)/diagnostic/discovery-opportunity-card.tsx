@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { CalcPopover } from "@/components/calc-popover";
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { LeverBenchmarkBar } from "@/components/lever-benchmark-bar";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
@@ -162,7 +162,7 @@ export function DiscoveryOpportunityCard({
 
       {currentValue !== undefined && (
         <Drawer open={open} onOpenChange={handleOpenChange}>
-          <DrawerContent>{open && <ImproveChat context={chatContext} period="3-months" gapBadge={gapBadge} />}</DrawerContent>
+          <DrawerContent>{open && <LazyImproveChat context={chatContext} period="3-months" gapBadge={gapBadge} />}</DrawerContent>
         </Drawer>
       )}
     </>

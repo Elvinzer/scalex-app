@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
@@ -24,9 +25,104 @@ import { buildStripeInsightSignals, buildStripeInsightSnapshot, buildStripeTrend
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
+import type { ResolvedPeriod } from "@/lib/period";
 
 import { SaleFormDialog } from "./sale-form-dialog";
 import { SalesTable } from "./sales-table";
+
+type StripeConnectionPreview = {
+  initialSyncStatus: string;
+  lastSyncStartedAt: string | null;
+  lastSyncCompletedAt: string | null;
+  lastSyncError: string | null;
+};
+
+async function StripeInsightsLoader({
+  accountId,
+  connection,
+  period,
+  periodKey,
+  requestedCurrency,
+  pending,
+  locale,
+}: {
+  accountId: string;
+  connection: { stripeAccountId: string; preview: StripeConnectionPreview } | null;
+  period: ResolvedPeriod;
+  periodKey: string;
+  requestedCurrency: string | null | undefined;
+  pending: number;
+  locale: string;
+}) {
+  if (!connection) {
+    return (
+      <StripeInsightsSection
+        connected={false}
+        connection={null}
+        periodKey={periodKey}
+        availableCurrencies={[]}
+        activeCurrency={null}
+        snapshot={null}
+        signals={[]}
+        trend={[]}
+        visibleTransactions={[]}
+        initialInsightText={null}
+      />
+    );
+  }
+
+  let stripeInsight = await getStripeInsightData(accountId, connection.stripeAccountId, period, requestedCurrency);
+  if (stripeInsight.snapshot && stripeInsight.activeCurrency === "eur" && pending > 0) {
+    const snapshot = buildStripeInsightSnapshot(
+      stripeInsight.transactions,
+      stripeInsight.refunds,
+      period,
+      stripeInsight.activeCurrency,
+      pending * 100,
+    );
+    stripeInsight = {
+      ...stripeInsight,
+      snapshot,
+      signals: buildStripeInsightSignals(snapshot),
+      trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency),
+    };
+  }
+  if (stripeInsight.snapshot && stripeInsight.activeCurrency) {
+    stripeInsight = {
+      ...stripeInsight,
+      signals: buildStripeInsightSignals(stripeInsight.snapshot, locale),
+      trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency, locale),
+    };
+  }
+  const latestStripeInsight = stripeInsight.activeCurrency
+    ? await getLatestStripeInsightRun(accountId, stripeInsight.activeCurrency, period)
+    : null;
+
+  return (
+    <StripeInsightsSection
+      connected
+      connection={connection.preview}
+      periodKey={periodKey}
+      availableCurrencies={stripeInsight.availableCurrencies}
+      activeCurrency={stripeInsight.activeCurrency}
+      snapshot={stripeInsight.snapshot}
+      signals={stripeInsight.signals}
+      trend={stripeInsight.trend}
+      visibleTransactions={stripeInsight.visibleTransactions}
+      initialInsightText={latestStripeInsight?.insightText ?? null}
+    />
+  );
+}
+
+function StripeInsightsSkeleton() {
+  return (
+    <section className="sticker-card p-5 sm:p-6" aria-hidden="true">
+      <div className="h-3 w-28 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+      <div className="mt-3 h-6 w-64 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+      <div className="mt-5 h-28 animate-pulse rounded-[var(--radius-control)] bg-muted motion-reduce:animate-none" />
+    </section>
+  );
+}
 
 export default async function SuiviDesVentesPage({ searchParams }: { searchParams: Promise<{ period?: string; currency?: string }> }) {
   const t = await getTranslations("sales");
@@ -79,37 +175,6 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
   const cashCollected = summaries.reduce((sum, summary) => sum + summary.paidTotal, 0);
   const pending = summaries.reduce((sum, summary) => sum + summary.pendingTotal, 0);
   const failed = summaries.reduce((sum, summary) => sum + summary.failedTotal, 0);
-
-  let stripeInsight = connection
-    ? await getStripeInsightData(accountId, connection.stripeAccountId, period, query.currency)
-    : null;
-  // Manual sales use euros. They are included in the risk amount only when
-  // Stripe's active currency is EUR; no implicit FX conversion is allowed.
-  if (stripeInsight?.snapshot && stripeInsight.activeCurrency === "eur" && pending > 0) {
-    const snapshot = buildStripeInsightSnapshot(
-      stripeInsight.transactions,
-      stripeInsight.refunds,
-      period,
-      stripeInsight.activeCurrency,
-      pending * 100,
-    );
-    stripeInsight = {
-      ...stripeInsight,
-      snapshot,
-      signals: buildStripeInsightSignals(snapshot),
-      trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency),
-    };
-  }
-  if (stripeInsight?.snapshot && stripeInsight.activeCurrency) {
-    stripeInsight = {
-      ...stripeInsight,
-      signals: buildStripeInsightSignals(stripeInsight.snapshot, locale),
-      trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency, locale),
-    };
-  }
-  const latestStripeInsight = stripeInsight?.activeCurrency
-    ? await getLatestStripeInsightRun(accountId, stripeInsight.activeCurrency, period)
-    : null;
 
   const stateText =
     periodSales.length > 0
@@ -164,23 +229,25 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
         <KpiTile label={t("failedPayments")} value={`${new Intl.NumberFormat(locale).format(failed)} €`} detail={t("toProcess")} tone={failed > 0 ? "negative" : "default"} />
       </div>
 
-      <StripeInsightsSection
-        connected={stripeConnected}
-        connection={connection ? {
-          initialSyncStatus: connection.initialSyncStatus,
-          lastSyncStartedAt: connection.lastSyncStartedAt?.toISOString() ?? null,
-          lastSyncCompletedAt: connection.lastSyncCompletedAt?.toISOString() ?? null,
-          lastSyncError: connection.lastSyncError,
-        } : null}
-        periodKey={period.key}
-        availableCurrencies={stripeInsight?.availableCurrencies ?? []}
-        activeCurrency={stripeInsight?.activeCurrency ?? null}
-        snapshot={stripeInsight?.snapshot ?? null}
-        signals={stripeInsight?.signals ?? []}
-        trend={stripeInsight?.trend ?? []}
-        visibleTransactions={stripeInsight?.visibleTransactions ?? []}
-        initialInsightText={latestStripeInsight?.insightText ?? null}
-      />
+      <Suspense fallback={<StripeInsightsSkeleton />}>
+        <StripeInsightsLoader
+          accountId={accountId}
+          connection={connection ? {
+            stripeAccountId: connection.stripeAccountId,
+            preview: {
+              initialSyncStatus: connection.initialSyncStatus,
+              lastSyncStartedAt: connection.lastSyncStartedAt?.toISOString() ?? null,
+              lastSyncCompletedAt: connection.lastSyncCompletedAt?.toISOString() ?? null,
+              lastSyncError: connection.lastSyncError,
+            },
+          } : null}
+          period={period}
+          periodKey={period.key}
+          requestedCurrency={query.currency}
+          pending={pending}
+          locale={locale}
+        />
+      </Suspense>
 
       <SalesTable
         sales={periodSales}

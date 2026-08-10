@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
+import { NextIntlClientProvider } from "next-intl";
 
 import { ensureUserRow } from "@/lib/current-user";
+import { getRequestLocale } from "@/lib/i18n/locale";
+import { loadMessagesFor } from "@/lib/i18n/messages";
 import { createClient } from "@/lib/supabase/server";
 
 // Top-level route (sibling to (app)/(auth)/(marketing)), not inside (app) —
@@ -22,5 +25,11 @@ export default async function OnboardingLayout({ children }: { children: React.R
     await ensureUserRow(data.claims.sub as string, email);
   }
 
-  return <div className="min-h-screen bg-panel">{children}</div>;
+  const locale = await getRequestLocale();
+  const messages = await loadMessagesFor(locale, ["common", "onboarding", "diagnostic"]);
+  return (
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <div className="min-h-screen bg-panel">{children}</div>
+    </NextIntlClientProvider>
+  );
 }

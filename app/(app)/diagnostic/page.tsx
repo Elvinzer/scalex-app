@@ -140,9 +140,6 @@ export default async function DiagnosticPage({
     return t(`categories.${normalized === "contenu" ? "content" : normalized}`);
   };
   const localizedFollowupLabel = (key: string, fallback: string) => t(`followups.${key}`) || fallback;
-  const discoveryProgress = await getDiscoveryProgress(accountId);
-  const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
-
   const overviewHeader = (
     <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{t("title")}</h1>
   );
@@ -165,12 +162,13 @@ export default async function DiagnosticPage({
     );
   }
 
-  const businessProfile = await getBusinessProfile(accountId);
-
-  const [{ allSettingEntries, allClosingEntries, allMonthlyRows }, allContentPosts] = await Promise.all([
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, allContentPosts, discoveryProgress] = await Promise.all([
+    getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
     getContentPosts(accountId),
+    getDiscoveryProgress(accountId),
   ]);
+  const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
 

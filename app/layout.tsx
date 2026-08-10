@@ -5,6 +5,7 @@ import "./globals.css";
 
 import { LOCALE_HTML_LANG } from "@/lib/i18n/config";
 import { getRequestLocale } from "@/lib/i18n/locale";
+import { loadMessagesFor } from "@/lib/i18n/messages";
 
 import { PostHogInit } from "@/components/posthog-init";
 import { MetaTouchpointCapture } from "@/components/meta-ads/meta-touchpoint-capture";
@@ -37,9 +38,11 @@ export default async function RootLayout({
   // Resolved server-side, before the first byte: the page is rendered in the
   // right language from the start, so there is no flash of French to correct
   // in the browser (§A). Messages are provided by next-intl's request config
-  // (lib/i18n/request.ts) — the client provider inherits them, no prop
-  // drilling and no second fetch.
+  // (lib/i18n/request.ts). The root provider carries only shared chrome
+  // namespaces; authenticated and onboarding route groups add their own
+  // message payloads below, avoiding the full catalog on marketing pages.
   const locale = await getRequestLocale();
+  const messages = await loadMessagesFor(locale, ["common", "navigation"]);
 
   return (
     // inter.variable (which defines --font-inter) must live on <html>, not
@@ -51,7 +54,7 @@ export default async function RootLayout({
     // own explicit font utility class then inherited.
     <html lang={LOCALE_HTML_LANG[locale]} className={`${inter.variable} overflow-x-clip`}>
       <body className="antialiased overflow-x-clip">
-        <NextIntlClientProvider locale={locale}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
           <PostHogInit />
           <MetaTouchpointCapture />
           {children}

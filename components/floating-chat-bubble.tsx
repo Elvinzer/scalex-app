@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,7 +8,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Falco } from "@/components/falco/falco";
 import { useFalcoAnimationsEnabled } from "@/components/falco/falco-context";
 import { FalcoSkinImage } from "@/components/falco/falco-skin-image";
-import { ImproveChat } from "@/components/improve-chat";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { resolvePageContext } from "@/lib/agent/page-context";
 import type { ChatContext } from "@/lib/chat-context";
@@ -17,6 +17,13 @@ import { cn } from "@/lib/utils";
 
 const GENERAL_CONTEXT: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "global_bubble" };
 const PORTRAIT_SIZE_PX = 44; // circle is 56px (size-14), leaves a small ring of padding around the portrait
+
+// The chat thread pulls in history, insight actions and the streaming UI.
+// It is never needed for the first paint of an authenticated page: load it
+// only when the user opens Falco's drawer, keeping the global app shell small.
+const ImproveChat = dynamic(() => import("@/components/improve-chat").then((module) => module.ImproveChat), {
+  ssr: false,
+});
 
 // Crossfades between skin portraits as `skin` changes (navigation) — new
 // layer fades in over the previous one, which is then dropped once the

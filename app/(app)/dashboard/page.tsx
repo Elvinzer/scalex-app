@@ -4,13 +4,12 @@ import { Suspense } from "react";
 
 import { CheckinTrigger } from "./checkin-trigger";
 import { BottleneckFunnel } from "./bottleneck-funnel";
+import { DashboardLossHero, DashboardLossHeroSkeleton } from "./dashboard-loss-hero";
 import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-action-center";
 import { TechnicalAlertsSection } from "./technical-alerts-section";
 import { WeeklyReportDialog } from "./weekly-report-dialog";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
-import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { MetricCard } from "@/components/metric-card";
-import { NatureBadge } from "@/components/nature-badge";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
@@ -21,15 +20,12 @@ import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/comple
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
 import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
-import { sumChiffrableMonthlyGains } from "@/lib/diagnostic/monthly-gap";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { getContentPosts } from "@/lib/content-posts/queries";
-import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { buildBottleneckFunnel } from "@/lib/dashboard/bottleneck";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
-import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
@@ -204,42 +200,6 @@ export default async function DashboardPage({
   });
   const bottleneckLabel = points[0] ? tDiagnostic(`metrics.${points[0].key}`) : t("there");
 
-  // Active-but-underperforming levers and explicit improvements still to
-  // implement both contribute to the user's recoverable monthly potential.
-  const { toImplement, toWatch } = hasAnyMonthlyRow
-    ? await computeLeverOpportunities({
-        accountId,
-        businessProfile,
-        settingTotals,
-        closingTotals,
-        cashContractedTotal,
-        periodMonths: PERIOD_MONTHS,
-        months,
-      })
-    : { toImplement: [], toWatch: [] };
-  const topActiveLevers = [...toWatch].sort((a, b) => b.score - a.score).slice(0, 3);
-
-  // "Manque à gagner" = all currently chiffrable opportunities: the three
-  // weakest cascade points, the three weakest active levers, and explicit
-  // improvements still to implement. Null amounts stay out until their
-  // missing inputs are available.
-  const totalMonthlyLoss = !hasAnyMonthlyRow
-    ? null
-    : sumChiffrableMonthlyGains([
-        ...points.map((point) => point.monthlyGain),
-        ...topActiveLevers.map((lever) => lever.impactAmountEur),
-        ...toImplement.map((lever) => lever.impactAmountEur),
-      ]);
-
-  // The Dashboard's single content Falco (the floating chat bubble is the
-  // one permitted exception). Pose + line reflect the same three states the
-  // page already derives — Falco accompanies the figure, never repeats it.
-  const heroFalco = !hasAnyMonthlyRow
-    ? { pose: "sleeping" as const, line: t("completeNumbers") }
-    : points.length > 0
-      ? { pose: "alert" as const, line: t("bottleneck", { label: bottleneckLabel }) }
-      : { pose: "happy" as const, line: t("solidLevers") };
-
   const weekRange = currentIsoWeekRange();
   const currentYear = new Date().getUTCFullYear();
   const currentMonth = new Date().getUTCMonth() + 1;
@@ -290,28 +250,20 @@ export default async function DashboardPage({
         />
       </div>
 
-      <section className="sticker-spotlight animate-rise px-7 py-6" aria-labelledby="dashboard-gap-title">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div className="min-w-0">
-            <p id="dashboard-gap-title" className="text-xs font-bold tracking-[0.08em] text-mist/60 uppercase">{t("lossDetected")}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <p className="figure-hero">{totalMonthlyLoss === null ? "—" : formatEur(totalMonthlyLoss, locale)}</p>
-              <NatureBadge nature="Projection" />
-            </div>
-            <p className="mt-2 text-sm text-mist/60">{t("source")}</p>
-          </div>
-          <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden lg:flex" />
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" asChild>
-              <Link href="/diagnostic" prefetch={true}>{t("viewDiagnostic")}</Link>
-            </Button>
-            <Button size="lg" variant="outline" className="border-mist/20 bg-transparent text-text-on-dark hover:bg-mist/10 hover:text-text-on-dark" asChild>
-              <Link href="/diagnostic#calcul" prefetch={true}>{t("howCalculated")}</Link>
-            </Button>
-          </div>
-        </div>
-        <p className="sr-only">{heroFalco.line}</p>
-      </section>
+      <Suspense fallback={<DashboardLossHeroSkeleton />}>
+        <DashboardLossHero
+          accountId={accountId}
+          businessProfile={businessProfile}
+          settingTotals={settingTotals}
+          closingTotals={closingTotals}
+          cashContractedTotal={cashContractedTotal}
+          hasAnyMonthlyRow={hasAnyMonthlyRow}
+          months={months}
+          points={points}
+          locale={locale}
+          bottleneckLabel={bottleneckLabel}
+        />
+      </Suspense>
 
       {params.bandeau === "incomplete_data" && (
         <FalcoEmptyState title={t("completeNumbers")} showFalco={false}>

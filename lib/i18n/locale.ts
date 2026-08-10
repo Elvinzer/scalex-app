@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthIdentity } from "@/lib/auth/request";
 
 import {
   DEFAULT_LOCALE,
@@ -42,12 +42,10 @@ export const getRequestLocale = cache(async (): Promise<Locale> => {
 // that means rather than having a default silently baked in here.
 export const getStoredUserLocale = cache(async (): Promise<Locale | null> => {
   try {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getClaims();
-    const userId = data?.claims?.sub as string | undefined;
-    if (!userId) return null;
+    const identity = await getAuthIdentity();
+    if (!identity) return null;
 
-    const [row] = await db.select({ locale: users.locale }).from(users).where(eq(users.id, userId)).limit(1);
+    const [row] = await db.select({ locale: users.locale }).from(users).where(eq(users.id, identity.userId)).limit(1);
     return isLocale(row?.locale) ? row.locale : null;
   } catch {
     // A locale lookup must never be able to break a page render — an

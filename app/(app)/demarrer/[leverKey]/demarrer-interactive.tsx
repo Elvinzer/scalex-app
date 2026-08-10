@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
@@ -87,7 +87,7 @@ export function DemarrerInteractive({
       <Drawer open={chatOpen} onOpenChange={setChatOpen}>
         <DrawerContent>
           {chatOpen && (
-            <ImproveChat
+            <LazyImproveChat
               key={activeSeedQuestion ?? "default"}
               context={chatContext}
               period="3-months"

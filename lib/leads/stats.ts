@@ -80,10 +80,11 @@ export async function computeLeadPipelineStats(
   userId: string,
   range: DateRange,
   previousRange: DateRange | null,
-  sector: SectorKey | null
+  sector: SectorKey | null,
+  preloadedLeads?: LeadRow[],
 ): Promise<PipelineStats> {
   const [allLeads, workedIds, conversationIds, closedIds, lostIds, previousConversationIds, benchmarkValue] = await Promise.all([
-    getLeads(userId),
+    preloadedLeads ? Promise.resolve(preloadedLeads) : getLeads(userId),
     distinctLeadIdsWithTransition(userId, WORKED_STAGES, range),
     distinctLeadIdsWithTransition(userId, ["conversation"], range),
     distinctLeadIdsWithTransition(userId, ["close"], range),

@@ -1,13 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Flame } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-import { StreakModal } from "@/components/streak/streak-modal";
 import { trackClient } from "@/lib/analytics-client";
 import type { StreakSnapshot } from "@/lib/streak/service";
 import { cn } from "@/lib/utils";
+
+const StreakModal = dynamic(
+  () => import("@/components/streak/streak-modal").then((module) => module.StreakModal),
+  { ssr: false },
+);
 
 // Sits under ScaleScoreBadge in components/app-sidebar.tsx. Deliberately inert:
 // no loop animation, no pulsing (§D). The flame is a readout the user glances

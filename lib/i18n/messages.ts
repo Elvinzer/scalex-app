@@ -50,9 +50,9 @@ function isPlainObject(value: unknown): value is MessageTree {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export async function loadMessages(locale: Locale): Promise<MessageTree> {
+export async function loadMessagesFor(locale: Locale, namespacesToLoad: readonly Namespace[]): Promise<MessageTree> {
   const namespaces = await Promise.all(
-    NAMESPACES.map(async (namespace) => {
+    namespacesToLoad.map(async (namespace) => {
       // Relative, not the "@/" alias: the bundler builds a context module
       // from the literal prefix of a dynamic import, and an aliased path with
       // two interpolations resolves at build time but throws MODULE_NOT_FOUND
@@ -66,4 +66,8 @@ export async function loadMessages(locale: Locale): Promise<MessageTree> {
   );
 
   return Object.fromEntries(namespaces);
+}
+
+export async function loadMessages(locale: Locale): Promise<MessageTree> {
+  return loadMessagesFor(locale, NAMESPACES);
 }

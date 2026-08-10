@@ -50,7 +50,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
     getCommentCounts(accountId),
   ]);
 
-  const stats = await computeLeadPipelineStats(accountId, range, previousRange, user?.sector ?? null);
+  const stats = await computeLeadPipelineStats(accountId, range, previousRange, user?.sector ?? null, leads);
 
   const chatContext: ChatContext = { topicType: "lever", topicKey: "ceo_vision", topicLabel: t("vision"), sourcePage: "acquisition_pipeline" };
   const falcoSkin = resolveFalcoSkin("/acquisition/pipeline");

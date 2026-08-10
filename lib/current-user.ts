@@ -3,8 +3,8 @@ import { cache } from "react";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { getAuthIdentity } from "@/lib/auth/request";
 import { track } from "@/lib/analytics";
-import { createClient } from "@/lib/supabase/server";
 import { getAccountContext } from "@/lib/team/context";
 import { captureReferralAttribution } from "@/lib/referrals/attribution";
 
@@ -23,15 +23,23 @@ import { captureReferralAttribution } from "@/lib/referrals/attribution";
 // this already calls, itself memoized) — layout.tsx and the page it wraps
 // both call getCurrentUser() independently on every navigation; without
 // this, that's a redundant `users` row fetch every time, on every page.
+// Request-scoped row cache shared by the authenticated app chrome and the
+// page being opened. Both need the same account row before rendering useful
+// content, so keep one database read.
+export const getUserById = cache(async (userId: string) => {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return user;
+});
+
 export const getCurrentUser = cache(async () => {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const userId = data!.claims.sub as string;
+  const identity = await getAuthIdentity();
+  if (!identity) throw new Error("Session expirée, reconnecte-toi.");
+  const { userId } = identity;
 
   const context = await getAccountContext(userId);
   const accountId = context?.accountId ?? userId;
 
-  const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
+  const user = await getUserById(accountId);
 
   // `user` is the ACCOUNT owner's row (business data, integrations, BYOK key
   // — all account-scoped). `currentUser` is the logged-in person's own row,
@@ -39,7 +47,7 @@ export const getCurrentUser = cache(async () => {
   // updateProfile writes to claims.sub, not to accountId. For an owner the
   // two are the same row, so this costs no extra query in the common case.
   const currentUser =
-    userId === accountId ? user : (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
+    userId === accountId ? user : await getUserById(userId);
 
   return { userId, accountId, user, currentUser };
 });
@@ -49,12 +57,11 @@ export const getCurrentUser = cache(async () => {
 // (throw vs. error-object) match the two return shapes those call sites
 // already use, so migrating them is a pure import swap.
 export async function requireUserId(): Promise<string> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) {
+  const identity = await getAuthIdentity();
+  if (!identity) {
     throw new Error("Session expirée, reconnecte-toi.");
   }
-  return data.claims.sub as string;
+  return identity.userId;
 }
 
 export async function requireUserIdOrError(): Promise<string | { error: string }> {

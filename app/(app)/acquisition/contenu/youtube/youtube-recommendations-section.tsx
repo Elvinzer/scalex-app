@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { ImproveChat } from "@/components/improve-chat";
+import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { InfoPopover } from "@/components/info-popover";
 import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
 import { Button } from "@/components/ui/button";
@@ -215,7 +215,7 @@ export function YoutubeRecommendationsSection({
       <Drawer open={activeRecommendation !== null} onOpenChange={(open) => !open && setActiveRecommendation(null)}>
         <DrawerContent>
           {activeRecommendation && (
-            <ImproveChat
+            <LazyImproveChat
               context={{
                 topicType: "content_idea",
                 topicKey: activeRecommendation.id,
