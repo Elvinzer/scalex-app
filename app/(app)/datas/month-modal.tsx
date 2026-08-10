@@ -131,7 +131,6 @@ export function MonthModal({
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initial);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const [entryMode, setEntryMode] = useState<"import" | "manual">("import");
   const [importAppliedCount, setImportAppliedCount] = useState<number | null>(null);
   const [importUsage, setImportUsage] = useState<MonthlyKpiImportUsage | null>(null);
@@ -156,7 +155,6 @@ export function MonthModal({
     sourceOverrides.closingManualOverride !== persistedSourceOverrides.closingManualOverride;
 
   function update(patch: Partial<MonthlyMetricsInput>) {
-    setSaved(false);
     setDraft((prev) => ({ ...prev, ...patch }));
   }
 
@@ -242,11 +240,11 @@ export function MonthModal({
         return;
       }
       setSaveError(null);
-      setSaved(true);
       setImportAppliedCount(null);
       setImportUsage(null);
       router.refresh();
-      after?.();
+      if (after) after();
+      else onClose();
     });
   }
 
@@ -427,7 +425,7 @@ export function MonthModal({
                 <div className="flex items-start justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-3" role="status">
                   <div>
                     <p className="text-sm font-bold text-accent-2-text">{importAppliedCount} valeur{importAppliedCount > 1 ? "s" : ""} prête{importAppliedCount > 1 ? "s" : ""} à vérifier</p>
-                    <p className="mt-1 text-xs text-accent-2-text/80">Relis les champs puis clique sur Enregistrer pour confirmer.</p>
+                    <p className="mt-1 text-xs text-accent-2-text/80">Relis les champs puis clique sur « Valider et fermer » pour terminer.</p>
                   </div>
                   <button type="button" onClick={() => setEntryMode("import")} className="shrink-0 text-xs font-bold text-accent-2-text underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent-2">
                     Revoir
@@ -656,11 +654,8 @@ export function MonthModal({
 
               <div className="flex items-center justify-between gap-4">
                 <Button onClick={() => handleSave()} disabled={isPending}>
-                  {isPending ? "Enregistrement..." : "Enregistrer"}
+                  {isPending ? "Validation..." : "Valider et fermer"}
                 </Button>
-                {saved && !isDirty && (
-                  <span className="text-sm font-bold text-state-healthy">Enregistré ✓</span>
-                )}
               </div>
             </div>
             )}
