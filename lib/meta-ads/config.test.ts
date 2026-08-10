@@ -3,31 +3,46 @@ import { describe, expect, it } from "vitest";
 import { getMetaAppCredentials } from "./config";
 
 describe("Meta app configuration", () => {
-  it("returns null when OAuth credentials are incomplete", () => {
-    const previousId = process.env.META_APP_ID;
-    const previousSecret = process.env.META_APP_SECRET;
-    delete process.env.META_APP_ID;
-    delete process.env.META_APP_SECRET;
+  const names = ["META_APP_ID", "META_APP_SECRET", "INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET"] as const;
 
-    expect(getMetaAppCredentials()).toBeNull();
+  function withEnvironment(values: Partial<Record<(typeof names)[number], string | undefined>>, callback: () => void) {
+    const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+    try {
+      for (const name of names) {
+        if (values[name] === undefined) delete process.env[name];
+        else process.env[name] = values[name];
+      }
+      callback();
+    } finally {
+      for (const name of names) {
+        const value = previous[name];
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  }
 
-    if (previousId === undefined) delete process.env.META_APP_ID;
-    else process.env.META_APP_ID = previousId;
-    if (previousSecret === undefined) delete process.env.META_APP_SECRET;
-    else process.env.META_APP_SECRET = previousSecret;
+  it("returns null when neither credential pair is complete", () => {
+    withEnvironment({ META_APP_ID: undefined, META_APP_SECRET: undefined, INSTAGRAM_APP_ID: undefined, INSTAGRAM_APP_SECRET: undefined }, () => {
+      expect(getMetaAppCredentials()).toBeNull();
+    });
   });
 
-  it("trims and returns complete OAuth credentials", () => {
-    const previousId = process.env.META_APP_ID;
-    const previousSecret = process.env.META_APP_SECRET;
-    process.env.META_APP_ID = " app-id ";
-    process.env.META_APP_SECRET = " app-secret ";
+  it("prefers a complete explicit Meta pair", () => {
+    withEnvironment({ META_APP_ID: " meta-id ", META_APP_SECRET: " meta-secret ", INSTAGRAM_APP_ID: "ig-id", INSTAGRAM_APP_SECRET: "ig-secret" }, () => {
+      expect(getMetaAppCredentials()).toEqual({ appId: "meta-id", appSecret: "meta-secret" });
+    });
+  });
 
-    expect(getMetaAppCredentials()).toEqual({ appId: "app-id", appSecret: "app-secret" });
+  it("reuses a complete Instagram pair when the Meta pair is absent", () => {
+    withEnvironment({ META_APP_ID: undefined, META_APP_SECRET: undefined, INSTAGRAM_APP_ID: " ig-id ", INSTAGRAM_APP_SECRET: " ig-secret " }, () => {
+      expect(getMetaAppCredentials()).toEqual({ appId: "ig-id", appSecret: "ig-secret" });
+    });
+  });
 
-    if (previousId === undefined) delete process.env.META_APP_ID;
-    else process.env.META_APP_ID = previousId;
-    if (previousSecret === undefined) delete process.env.META_APP_SECRET;
-    else process.env.META_APP_SECRET = previousSecret;
+  it("does not mix a partial Meta pair with Instagram credentials", () => {
+    withEnvironment({ META_APP_ID: "meta-id", META_APP_SECRET: undefined, INSTAGRAM_APP_ID: "ig-id", INSTAGRAM_APP_SECRET: "ig-secret" }, () => {
+      expect(getMetaAppCredentials()).toBeNull();
+    });
   });
 });
