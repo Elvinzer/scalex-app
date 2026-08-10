@@ -1,10 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { after } from "next/server";
-<<<<<<< HEAD
-import { z } from "zod";
-=======
 import { getLocale, getTranslations } from "next-intl/server";
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
+import { z } from "zod";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
@@ -38,7 +35,6 @@ const LEVER_KEY = "ads";
 // approach as every other benchmark in lib/levers/opportunities.ts.
 const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
 
-<<<<<<< HEAD
 const adsSearchParamsSchema = z.object({
   meta_days: z.string().optional(),
   meta_range: z.enum(META_PERIOD_RANGE_OPTIONS).optional(),
@@ -49,11 +45,8 @@ const adsSearchParamsSchema = z.object({
 });
 
 export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string; meta_ads?: string; meta_ads_error?: string }> }) {
-=======
-export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_ads?: string; meta_ads_error?: string }> }) {
   const locale = await getLocale();
   const t = await getTranslations("app.ads");
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
   const parsedSearchParams = adsSearchParamsSchema.safeParse(await searchParams);

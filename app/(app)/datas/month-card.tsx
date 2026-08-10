@@ -36,11 +36,6 @@ export function MonthCard({
   callSourcesByMonth: Record<string, MonthlyCallSource>;
   onOpen: () => void;
 }) {
-<<<<<<< HEAD
-  // Same merge as MonthModal: fields sourced from Suivi d'appel or daily
-  // Setting/Closing entries are shown pre-filled rather than from the monthly
-  // row itself — the completion badge must count them too.
-=======
   const t = useTranslations("data");
   const locale = useLocale();
   const monthLabel = new Date(Date.UTC(year, monthIndex - 1, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
@@ -48,7 +43,6 @@ export function MonthCard({
   // entries are shown there pre-filled (greyed, read-only) rather than from
   // the monthly row itself — the completion badge must count them too, or
   // it under-reports "X/9" for months filled via daily check-ins.
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   const overlay = resolveDailySourceOverlay(monthDateRange(year, monthIndex), allSettingEntries, allClosingEntries, {
     settingManualOverride: row?.settingManualOverride,
     closingManualOverride: row?.closingManualOverride,

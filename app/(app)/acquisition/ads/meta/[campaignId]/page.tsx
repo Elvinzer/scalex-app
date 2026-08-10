@@ -1,11 +1,8 @@
 import { ArrowLeft, CircleAlert, ExternalLink, Gauge, MousePointerClick, Play, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-<<<<<<< HEAD
-import { z } from "zod";
-=======
 import { getLocale, getTranslations } from "next-intl/server";
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
+import { z } from "zod";
 
 import { MetaCampaignActions } from "@/components/meta-ads/meta-campaign-actions";
 import { MetaEntityAction } from "@/components/meta-ads/meta-entity-action";
@@ -40,7 +37,6 @@ function typeLabel(value: string | null, locale: string): string {
   return locale === "en" ? "Type to define" : "Type à définir";
 }
 
-<<<<<<< HEAD
 const campaignSearchParamsSchema = z.object({
   meta_days: z.string().optional(),
   meta_range: z.enum(META_PERIOD_RANGE_OPTIONS).optional(),
@@ -49,13 +45,12 @@ const campaignSearchParamsSchema = z.object({
   meta_ads: z.enum(["write_declined", "write_ready"]).optional(),
   meta_ads_error: z.string().optional(),
 });
-=======
+
 function conversionGoalLabel(value: string | null, locale: string): string | null {
   if (value === "call") return locale === "en" ? "Call" : "Appel";
   if (value === "sale") return locale === "en" ? "Sale" : "Vente";
   return null;
 }
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
 
 function webinarSourceLabel(value: string): string {
   if (value === "calendly") return "Calendly";
@@ -185,13 +180,9 @@ function FunnelTable({ rows, locale, labels }: { rows: FunnelTableRow[]; locale:
   );
 }
 
-<<<<<<< HEAD
 export default async function MetaCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string; meta_ads?: string; meta_ads_error?: string }> }) {
-=======
-export default async function MetaCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ meta_days?: string; meta_ads?: string; meta_ads_error?: string }> }) {
   const locale = await getLocale();
   const t = await getTranslations("app.ads.detail");
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
   const { campaignId } = await params;
@@ -296,12 +287,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain && offer.price !== null);
   const managerUrl = metaAdsManagerUrl(detail.dashboard.account.externalId, detail.campaign.externalId);
   const attribution = detail.attributionQuality;
-<<<<<<< HEAD
-  const attributionLabel = attribution.status === "verified" ? "Vérifiée" : attribution.status === "partial" ? "Partielle" : "Non calculable";
-=======
   const attributionLabel = attribution.status === "verified" ? (locale === "en" ? "Verified" : "Vérifiée") : attribution.status === "partial" ? (locale === "en" ? "Partial" : "Partielle") : (locale === "en" ? "Not calculable" : "Non calculable");
   const conversionGoal = conversionGoalLabel(detail.campaign.conversionGoal, locale);
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   const campaignConfigured = detail.campaign.campaignType !== null
     && (!campaignTypeNeedsConversionGoal(detail.campaign.campaignType) || detail.campaign.conversionGoal !== null);
   const conversionMetricLabel = detail.campaign.conversionGoal === "call" ? (locale === "en" ? "Booked calls" : "Appels réservés") : detail.campaign.conversionGoal === "sale" ? (locale === "en" ? "Linked sales" : "Ventes reliées") : (locale === "en" ? "Business conversion" : "Conversion business");

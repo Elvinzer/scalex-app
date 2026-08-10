@@ -67,22 +67,11 @@ export function MetaCampaignProfileSelector({
     <form className="sticker-card p-5" onSubmit={save}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-<<<<<<< HEAD
-          <p className="font-bold">Type de campagne</p>
-          <p className="mt-1 text-xs text-muted-foreground">Utilisé pour adapter le funnel et les insights Scale X.</p>
-          {metaObjective && (
-            <details className="mt-2 text-xs text-muted-foreground">
-              <summary className="cursor-pointer font-bold underline-offset-4 hover:underline">Voir l’objectif Meta</summary>
-              <span className="mt-1 block">{metaObjective}</span>
-            </details>
-          )}
-=======
           <p className="font-bold">{t("title")}</p>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             {t("description")}
           </p>
           {metaObjective && <p className="mt-2 text-xs text-muted-foreground">{t("technicalObjective")} <span className="font-bold">{metaObjective}</span></p>}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
         </div>
         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isComplete && !isDirty ? "bg-state-healthy-bg text-state-healthy" : "bg-state-caution/10 text-state-caution"}`}>
           {isComplete && !isDirty ? t("configured") : t("required")}
@@ -129,15 +118,6 @@ export function MetaCampaignProfileSelector({
         )}
       </div>
 
-<<<<<<< HEAD
-      {typeSource === "pending" && <p className="mt-4 text-xs font-bold text-state-caution">Enregistre un type pour activer le funnel adapté.</p>}
-      {error && <p className="mt-4 text-sm font-bold text-state-critical" role="alert">{error}</p>}
-      {message && <p className="mt-4 text-sm font-bold text-state-healthy" role="status">{message}</p>}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">Ce choix ne modifie rien dans Meta Ads.</p>
-        <Button type="submit" disabled={isPending || !isComplete || !isDirty}>
-          {isPending ? "Enregistrement…" : "Enregistrer"}
-=======
       {typeSource === "pending" && <p className="mt-4 text-xs font-bold text-state-caution">{t("pendingHelp")}</p>}
       {error && <p className="mt-4 text-sm font-bold text-state-critical" role="alert">{error}</p>}
       {message && <p className="mt-4 text-sm font-bold text-state-healthy" role="status">{message}</p>}
@@ -145,7 +125,6 @@ export function MetaCampaignProfileSelector({
         <p className="text-xs text-muted-foreground">{t("laterHelp")}</p>
         <Button type="submit" disabled={isPending || !isComplete || !isDirty}>
           {isPending ? t("saving") : t("save")}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
         </Button>
       </div>
     </form>

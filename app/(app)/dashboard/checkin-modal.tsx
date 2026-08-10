@@ -14,7 +14,6 @@ import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 
 import { submitWeeklyCheckin, type CheckinFeedback } from "./actions";
 
-<<<<<<< HEAD
 const SETTING_SOURCE: KpiFieldSource = {
   text: "Cette valeur vient de ta saisie journalière dans Pipeline. Modifie-la directement là-bas.",
   href: "/acquisition/pipeline/funnel",
@@ -33,9 +32,6 @@ function callsSource(source: MonthlyCallSource): KpiFieldSource {
     linkLabel: "Vérifier le suivi d'appel",
   };
 }
-
-=======
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
 export function CheckinModal({
   open,
   onClose,
@@ -172,31 +168,19 @@ export function CheckinModal({
                   label={t("checkin.callsBooked")}
                   value={draft.callsBooked}
                   onChange={(v) => update({ callsBooked: v })}
-<<<<<<< HEAD
                   disabledReason={settingSourced || callsBookedSourced ? (callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE) : undefined}
-=======
-                  disabledReason={settingSourced ? settingSource : undefined}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                 />
                 <KpiNumberField
                   label={t("checkin.callsTaken")}
                   value={draft.callsTaken}
                   onChange={(v) => update({ callsTaken: v })}
-<<<<<<< HEAD
                   disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined}
-=======
-                  disabledReason={closingSourced ? closingSource : undefined}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                 />
                 <KpiNumberField
                   label={t("checkin.salesClosed")}
                   value={draft.salesClosed}
                   onChange={(v) => update({ salesClosed: v })}
-<<<<<<< HEAD
                   disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined}
-=======
-                  disabledReason={closingSourced ? closingSource : undefined}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                 />
               </div>
 

@@ -13,12 +13,8 @@ import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { formatEur } from "@/lib/currency";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import { monthDateRange } from "@/lib/date-range";
-<<<<<<< HEAD
 import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
-import { MONTH_LABELS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
-=======
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import { revenuePerCall, toClosingTotals, toFunnelTotals } from "@/lib/monthly-metrics/rates";
@@ -26,7 +22,6 @@ import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 
 import { saveMonthlyMetrics } from "./actions";
 
-<<<<<<< HEAD
 const SETTING_SOURCE: KpiFieldSource = {
   text: "Calculé depuis ton suivi quotidien. Modifiable dans Pipeline → Funnel journalier.",
   href: "/acquisition/pipeline/funnel",
@@ -46,12 +41,7 @@ function callsSource(source: MonthlyCallSource): KpiFieldSource {
   };
 }
 
-const SYNC_DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
-
-function stripeSource(syncedAt: Date | null): KpiFieldSource {
-=======
 function stripeSource(syncedAt: Date | null, locale: string, text: string, linkLabel: string): KpiFieldSource {
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   return {
     text: syncedAt ? `${text} ${new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(syncedAt)}.` : `${text}.`,
     href: "/integrations",
@@ -464,13 +454,8 @@ export function MonthModal({
               {importAppliedCount !== null && (
                 <div className="flex items-start justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-3" role="status">
                   <div>
-<<<<<<< HEAD
-                    <p className="text-sm font-bold text-accent-2-text">{importAppliedCount} valeur{importAppliedCount > 1 ? "s" : ""} prête{importAppliedCount > 1 ? "s" : ""} à vérifier</p>
-                    <p className="mt-1 text-xs text-accent-2-text/80">Relis les champs puis clique sur « Valider et fermer » pour terminer.</p>
-=======
                     <p className="text-sm font-bold text-accent-2-text">{t("valuesReady", { count: importAppliedCount, plural: importAppliedCount > 1 ? "s" : "" })}</p>
                     <p className="mt-1 text-xs text-accent-2-text/80">{t("valuesReadyHelp")}</p>
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                   </div>
                   <button type="button" onClick={() => setEntryMode("import")} className="shrink-0 text-xs font-bold text-accent-2-text underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent-2">
                     {t("review")}
@@ -528,15 +513,9 @@ export function MonthModal({
                 </p>
                 {(settingSourced || callsBookedSourced) && !sourceEditMode.setting && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
-<<<<<<< HEAD
-                    <span>Les KPI disponibles sont calculés depuis {settingSourceLabel}.</span>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("setting", true)}>
-                      Modifier malgré la source
-=======
                     <span>{t("settingCalculated")}</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("setting", true)}>
                       {t("editMonth")}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                     </Button>
                   </div>
                 )}
@@ -546,15 +525,8 @@ export function MonthModal({
                   </p>
                 )}
                 {sourceOverrides.settingManualOverride && (
-<<<<<<< HEAD
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution-bg px-3 py-2 text-xs text-state-caution" role="status">
-                    <span>
-                      <strong>Attention :</strong> tes valeurs remplacent {callSource ? "les données connectées" : "le suivi quotidien"} pour ce mois. Vérifie la source avant de confirmer.
-                    </span>
-=======
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2 text-xs text-accent-2-text">
                     <span>{t("overrideActive")}</span>
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("setting", false)}>
                       {t("backToDaily")}
                     </Button>
@@ -589,11 +561,7 @@ export function MonthModal({
                     label={t("callsBooked")}
                     value={draft.callsBooked}
                     onChange={(v) => updateSourceField("setting", "callsBooked", v)}
-<<<<<<< HEAD
                     disabledReason={(settingSourced || callsBookedSourced) && !sourceEditMode.setting ? settingCallsBookedSource : undefined}
-=======
-                    disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -643,15 +611,9 @@ export function MonthModal({
                 </p>
                 {closingSourced && !sourceEditMode.closing && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
-<<<<<<< HEAD
-                    <span>Ces 2 KPI sont calculés depuis {closingSourceLabel}.</span>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", true)}>
-                      Modifier malgré la source
-=======
                     <span>{t("closingCalculated")}</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", true)}>
                       {t("editMonth")}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                     </Button>
                   </div>
                 )}
@@ -661,15 +623,8 @@ export function MonthModal({
                   </p>
                 )}
                 {sourceOverrides.closingManualOverride && (
-<<<<<<< HEAD
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution-bg px-3 py-2 text-xs text-state-caution" role="status">
-                    <span>
-                      <strong>Attention :</strong> tes valeurs remplacent {callSource ? "les données du Suivi d'appel" : "le suivi quotidien"} pour ce mois. Vérifie la source avant de confirmer.
-                    </span>
-=======
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2 text-xs text-accent-2-text">
                     <span>{t("overrideActive")}</span>
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", false)}>
                       {t("backToDaily")}
                     </Button>
@@ -681,22 +636,14 @@ export function MonthModal({
                     value={draft.callsTaken}
                     onChange={(v) => updateSourceField("closing", "callsTaken", v)}
                     warning={callsTakenWarning}
-<<<<<<< HEAD
                     disabledReason={closingSourced && !sourceEditMode.closing ? closingFieldSource : undefined}
-=======
-                    disabledReason={closingSourced && !sourceEditMode.closing ? closingSource : undefined}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                   />
                   <KpiNumberField
                     label={t("salesClosed")}
                     value={draft.salesClosed}
                     onChange={(v) => updateSourceField("closing", "salesClosed", v)}
                     warning={salesClosedWarning}
-<<<<<<< HEAD
                     disabledReason={closingSourced && !sourceEditMode.closing ? closingFieldSource : undefined}
-=======
-                    disabledReason={closingSourced && !sourceEditMode.closing ? closingSource : undefined}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -735,16 +682,8 @@ export function MonthModal({
 
               <div className="flex items-center justify-between gap-4">
                 <Button onClick={() => handleSave()} disabled={isPending}>
-<<<<<<< HEAD
-                  {isPending ? "Validation..." : "Valider et fermer"}
-                </Button>
-=======
                   {isPending ? t("saving") : t("save")}
                 </Button>
-                {saved && !isDirty && (
-                  <span className="text-sm font-bold text-state-healthy">{t("saved")} ✓</span>
-                )}
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
               </div>
             </div>
             )}

@@ -64,41 +64,26 @@ export function DatasPageClient({
   const featuredRow = historicalRows.slice(0, period === "90" ? 3 : period === "year" ? 12 : 1)[0] ?? null;
   const featuredYear = featuredRow?.year ?? currentYear;
   const featuredMonth = featuredRow?.month ?? currentMonth;
-<<<<<<< HEAD
-  const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
+  const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
   const featuredCallSource = featuredRow?.closingManualOverride
     ? null
     : callSourcesByMonth[monthKey(featuredYear, featuredMonth)] ?? null;
   const featuredCallsBooked = featuredCallSource?.callsBooked ?? featuredRow?.callsBooked ?? null;
   const featuredCallsTaken = featuredCallSource?.callsTaken ?? featuredRow?.callsTaken ?? null;
   const featuredSalesClosed = featuredCallSource?.salesClosed ?? featuredRow?.salesClosed ?? null;
-=======
-  const featuredLabel = new Date(Date.UTC(featuredRow?.year ?? year, featuredMonth - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   const metricSource = (source: MetricSource): MetricSource => source;
   const featuredClosingRate = featuredSalesClosed !== null && featuredCallsTaken !== null
     ? rate(featuredSalesClosed, featuredCallsTaken)
     : null;
   const metrics: Array<{ label: string; description: string; value: string; evolution: string; source: MetricSource }> = [
-<<<<<<< HEAD
-    { label: "CA encaissé", description: "Paiements réellement reçus", value: featuredRow?.cashCollected === null || featuredRow?.cashCollected === undefined ? "—" : formatEur(featuredRow.cashCollected), evolution: "À comparer", source: metricSource(featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
-    { label: "CA contracté", description: "Valeur des deals signés", value: featuredRow?.cashContracted === null || featuredRow?.cashContracted === undefined ? "—" : formatEur(featuredRow.cashContracted), evolution: "À comparer", source: "Saisie" },
-    { label: "Leads", description: "Nouveaux contacts entrants", value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: "À comparer", source: "Pipeline" },
-    { label: "Conversations", description: "Échanges engagés par un setter", value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: "À comparer", source: "Saisie" },
-    { label: "Appels réservés", description: "Rendez-vous pris", value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: "À comparer", source: metricSource(featuredCallSource ? "Suivi d'appel" : "Calendly") },
-    { label: "Appels honorés", description: "Hors no-show et annulations", value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: "À comparer", source: metricSource(featuredCallSource ? "Suivi d'appel" : "iClosed") },
-    { label: "Ventes conclues", description: "Deals signés sur la période", value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: "À comparer", source: metricSource(featuredCallSource ? "Suivi d'appel" : "Stripe + saisie") },
-    { label: "Taux de closing", description: "Ventes / appels honorés", value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate), evolution: "À comparer", source: "Calculé" },
-=======
     { label: t("metrics.cashCollected"), description: t("metrics.cashCollectedHelp"), value: featuredRow?.cashCollected === null || featuredRow?.cashCollected === undefined ? "—" : formatEur(featuredRow.cashCollected, locale), evolution: t("compare"), source: metricSource(featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
     { label: t("metrics.cashContracted"), description: t("metrics.cashContractedHelp"), value: featuredRow?.cashContracted === null || featuredRow?.cashContracted === undefined ? "—" : formatEur(featuredRow.cashContracted, locale), evolution: t("compare"), source: "Saisie" },
     { label: t("metrics.leads"), description: t("metrics.leadsHelp"), value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: t("compare"), source: "Pipeline" },
     { label: t("metrics.conversations"), description: t("metrics.conversationsHelp"), value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: t("compare"), source: "Saisie" },
-    { label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredRow?.callsBooked === null || featuredRow?.callsBooked === undefined ? "—" : String(featuredRow.callsBooked), evolution: t("compare"), source: "Calendly" },
-    { label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredRow?.callsTaken === null || featuredRow?.callsTaken === undefined ? "—" : String(featuredRow.callsTaken), evolution: t("compare"), source: "iClosed" },
-    { label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredRow?.salesClosed === null || featuredRow?.salesClosed === undefined ? "—" : String(featuredRow.salesClosed), evolution: t("compare"), source: "Stripe + saisie" },
+    { label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: t("compare"), source: metricSource(featuredCallSource ? "Suivi d'appel" : "Calendly") },
+    { label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: t("compare"), source: metricSource(featuredCallSource ? "Suivi d'appel" : "iClosed") },
+    { label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: t("compare"), source: metricSource(featuredCallSource ? "Suivi d'appel" : "Stripe + saisie") },
     { label: t("metrics.closingRate"), description: t("metrics.closingRateHelp"), value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate, locale), evolution: t("compare"), source: "Calculé" },
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   ];
 
   return (
