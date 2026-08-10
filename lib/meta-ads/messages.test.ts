@@ -9,6 +9,8 @@ describe("Meta Ads error messages", () => {
     expect(metaAdsErrorMessage("denied")).toContain("refusé");
     expect(metaAdsErrorMessage("state")).toContain("expiré");
     expect(metaAdsErrorMessage("token")).toContain("jeton");
+    expect(metaAdsErrorMessage("redirect_uri")).toContain("URL de retour");
+    expect(metaAdsErrorMessage("server")).toContain("enregistrer");
   });
 
   it("does not render an arbitrary query-string value", () => {

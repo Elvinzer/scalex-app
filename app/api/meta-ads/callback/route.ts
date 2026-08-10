@@ -13,6 +13,7 @@ import {
   getMetaUser,
   MetaApiError,
 } from "@/lib/meta-ads/client";
+import { classifyMetaOAuthError } from "@/lib/meta-ads/oauth-errors";
 import { verifyMetaOAuthState } from "@/lib/meta-ads/oauth-state";
 import { inngest, metaAdsAccountConnected } from "@/lib/inngest/client";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -54,6 +55,8 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
   const oauthError = request.nextUrl.searchParams.get("error");
+  const oauthErrorReason = request.nextUrl.searchParams.get("error_reason");
+  const oauthErrorDescription = request.nextUrl.searchParams.get("error_description");
   const storedState = request.cookies.get(STATE_COOKIE)?.value;
   const isWriteStepUp = request.cookies.get(MODE_COOKIE)?.value === "write";
   const returnTo = safeReturnPath(request.cookies.get(RETURN_COOKIE)?.value);
@@ -75,12 +78,20 @@ export async function GET(request: NextRequest) {
   if (!verifyMetaOAuthState(state, access.accountId, appSecret)) return redirectWithError(origin, "state", returnTo);
   if (oauthError || !code) {
     if (isWriteStepUp && oauthError === "access_denied") return redirectWriteDeclined(origin, returnTo);
-    return redirectWithError(origin, oauthError === "access_denied" ? "denied" : "oauth", returnTo);
+    const reason = classifyMetaOAuthError({ error: oauthError, reason: oauthErrorReason, description: oauthErrorDescription });
+    console.warn("Meta Ads OAuth provider returned an error", {
+      error: oauthError ?? "missing_code",
+      reason: oauthErrorReason?.slice(0, 120) ?? null,
+      mappedReason: reason,
+    });
+    return redirectWithError(origin, reason, returnTo);
   }
 
   const redirectUri = new URL("/api/meta-ads/callback", origin).toString();
+  let stage = "code_exchange";
   try {
     const shortLived = await exchangeMetaCode({ code, redirectUri, appId, appSecret });
+    stage = "long_lived_exchange";
     let token = shortLived;
     try {
       token = await exchangeForLongLivedMetaToken({ accessToken: shortLived.accessToken, appId, appSecret });
@@ -91,6 +102,7 @@ export async function GET(request: NextRequest) {
       if (!(error instanceof MetaApiError)) throw error;
     }
 
+    stage = "token_validation";
     const [metaUser, tokenInfo] = await Promise.all([
       getMetaUser(token.accessToken),
       debugMetaToken({ accessToken: token.accessToken, appId, appSecret }),
@@ -107,6 +119,7 @@ export async function GET(request: NextRequest) {
       : token.expiresInSeconds
         ? new Date(Date.now() + token.expiresInSeconds * 1000)
         : null;
+    stage = "connection_persist";
     const [existingConnection] = await db
       .select({
         selectedAdAccountId: metaAdsConnections.selectedAdAccountId,
@@ -164,7 +177,12 @@ export async function GET(request: NextRequest) {
     response.cookies.delete(RETURN_COOKIE);
     return response;
   } catch (error) {
-    console.error("Meta Ads OAuth callback failed", error instanceof Error ? error.message : "unknown");
-    return redirectWithError(origin, "oauth", returnTo);
+    const metaError = error instanceof MetaApiError ? { code: error.code, subcode: error.subcode } : null;
+    console.error("Meta Ads OAuth callback failed", {
+      stage,
+      ...metaError,
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    return redirectWithError(origin, stage === "token_validation" ? "token" : stage === "connection_persist" ? "server" : "oauth", returnTo);
   }
 }
