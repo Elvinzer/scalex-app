@@ -19,29 +19,6 @@ function metricProvenance(calculation: "brute" | "dérivée", available: boolean
   return `Meta · ${calculation} · ${available ? "directe" : "indisponible"}`;
 }
 
-const CORRECTION_FIELDS = [
-  ["spendCents", "Dépenses"],
-  ["impressions", "Impressions"],
-  ["linkClicks", "Clics lien"],
-  ["leads", "Leads"],
-  ["purchases", "Achats"],
-  ["purchaseValueCents", "Valeur achats"],
-] as const;
-
-function correctionValue(value: unknown, field: string): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-  return field === "spendCents" || field === "purchaseValueCents" ? formatEur(value / 100) : number(Math.round(value));
-}
-
-function correctionSummary(snapshot: Record<string, unknown>): string {
-  return CORRECTION_FIELDS
-    .flatMap(([field, label]) => {
-      const value = snapshot[field];
-      return typeof value === "number" && Number.isFinite(value) ? [`${label} ${correctionValue(value, field)}`] : [];
-    })
-    .join(" · ") || "Valeurs détaillées indisponibles";
-}
-
 function typeLabel(value: MetaCampaignDashboardRow["campaignType"]): string {
   if (value === "vsl") return "VSL";
   if (value === "webinar") return "Webinaire";
@@ -388,37 +365,6 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
       )}
 
       <FunnelCard totals={data.totals} campaignType={primaryType} instagramObservation={data.instagramObservation} frequencySaturationThreshold={data.frequencySaturationThreshold} />
-
-      {data.corrections.length > 0 && (
-        <section className="sticker-card overflow-x-auto" aria-labelledby="meta-corrections-title" tabIndex={0} role="region">
-          <div className="border-b border-border px-5 py-4">
-            <h2 id="meta-corrections-title" className="font-bold">Corrections rétroactives Meta</h2>
-            <p className="mt-1 text-xs text-muted-foreground">Meta a révisé des journées déjà consolidées. Les valeurs avant/après restent visibles pour éviter toute modification silencieuse.</p>
-          </div>
-          <table className="w-full min-w-[48rem] text-xs">
-            <thead>
-              <tr className="border-b border-border text-left font-bold text-muted-foreground">
-                <th className="sticky left-0 z-10 bg-card px-5 py-3">Journée</th>
-                <th className="px-5 py-3">Niveau</th>
-                <th className="px-5 py-3">Avant</th>
-                <th className="px-5 py-3">Après</th>
-                <th className="px-5 py-3">Motif</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.corrections.map((correction) => (
-                <tr key={correction.id} className="border-b border-border last:border-0">
-                  <td className="sticky left-0 z-10 bg-card px-5 py-3 font-bold">{correction.date}</td>
-                  <td className="px-5 py-3 uppercase">{correction.level}</td>
-                  <td className="px-5 py-3">{correctionSummary(correction.beforeSnapshot)}</td>
-                  <td className="px-5 py-3">{correctionSummary(correction.afterSnapshot)}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{correction.reason}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
 
       <div className="sticker-card overflow-x-auto" tabIndex={0} role="region" aria-label="Tableau des campagnes Meta">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
