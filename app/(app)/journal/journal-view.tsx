@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Falco } from "@/components/falco/falco";
+import { StreakMomentum } from "@/components/streak/streak-momentum";
 import { ImproveChat } from "@/components/improve-chat";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import type { JournalActionCandidate, JournalActionState, JournalEffort } from "@/lib/journal/action-generator";
 import type { JournalActionLoopData, JournalResult, JournalTimeline, JournalReminder } from "@/lib/journal/action-loop";
+import type { StreakSnapshot } from "@/lib/streak/service";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 
 import { completeJournalAction, dismissJournalAction, snoozeJournalAction, startJournalAction } from "./action-loop-actions";
@@ -464,7 +466,7 @@ function MomentumStrip({ momentum }: { momentum: JournalActionLoopData["momentum
   );
 }
 
-export function JournalView({ data, todos, projects, fixtureMode = false }: { data: JournalActionLoopData; todos: Todo[]; projects: Project[]; fixtureMode?: boolean }) {
+export function JournalView({ data, todos, projects, streak = null, fixtureMode = false }: { data: JournalActionLoopData; todos: Todo[]; projects: Project[]; streak?: StreakSnapshot | null; fixtureMode?: boolean }) {
   const router = useRouter();
   const [queue, setQueue] = useState<JournalActionCandidate[]>(() => [data.todayAction, ...data.allNextActions].filter((action): action is JournalActionCandidate => Boolean(action)));
   const [reminders, setReminders] = useState(data.reminders);
@@ -610,6 +612,10 @@ export function JournalView({ data, todos, projects, fixtureMode = false }: { da
           <button type="button" onClick={dismissIntro} aria-label="Masquer l'explication du Journal" className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-card"><X className="size-4" aria-hidden="true" /></button>
         </aside>
       )}
+
+      {/* Rythme avant contenu : la série se lit d'un coup d'œil, puis
+          l'action du jour prend le relais. */}
+      {streak && <StreakMomentum snapshot={streak} />}
 
       <ActionHero action={todayAction} emptyState={data.emptyState} isPending={isPending && pendingId === todayAction?.id} onStart={openFalco} onComplete={complete} />
 

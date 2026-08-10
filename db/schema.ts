@@ -3356,3 +3356,90 @@ export const initiativeNudges = pgTable(
     }),
   ],
 ).enableRLS();
+
+// --- Série d'activité (streak) ---------------------------------------------
+// A rhythm mechanic, not a new data domain: every source table below already
+// records the work. activity_log is a DERIVED cache (recomputed idempotently
+// by lib/streak/service.ts, never entered by the user — the spec's "zéro
+// saisie supplémentaire"), kept because walking six source tables on every
+// sidebar render would be absurd, and because `sources` — what validated the
+// day — has nowhere else to live.
+
+export const activitySource = pgEnum("activity_source", [
+  // Un post/Reel/Short/story/vidéo publié (content_posts, toutes plateformes
+  // confondues : la saisie manuelle et la sync YouTube/Instagram y atterrissent).
+  "content_published",
+  // Une campagne email envoyée (email_campaigns.sent_at).
+  "email_sent",
+  // improvement_events : action du Journal cochée, levier activé, todo
+  // business, insight implémenté… — la table qui enregistre déjà "ce que tu
+  // as amélioré" (voir son propre commentaire plus haut).
+  "business_progress",
+  // Check-in : une entrée KPI setting/closing saisie CE jour-là. Daté par
+  // created_at et non par `date` : `date` est le jour que la métrique décrit
+  // (on peut remplir lundi une semaine entière), created_at est le jour où
+  // l'utilisateur a réellement fait le geste.
+  "checkin_filled",
+  // Pipeline travaillé : commentaire sur un lead ou changement d'étape.
+  "lead_worked",
+]);
+
+export const activityLog = pgTable(
+  "activity_log",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    // Everything that validated the day, in source order. Never empty — a
+    // row only exists for an active day (an inactive day is the absence of a
+    // row, not a row with an empty array).
+    sources: activitySource("sources").array().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.date] }),
+    pgPolicy("activity_log_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ]
+).enableRLS();
+
+export const streaks = pgTable(
+  "streaks",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    current: integer("current").notNull().default(0),
+    best: integer("best").notNull().default(0),
+    // Grace days consumed, and the month they belong to ("YYYY-MM"). Without
+    // the month the "2 per month" allowance could never reset.
+    graceUsedMonth: integer("grace_used_month").notNull().default(0),
+    graceMonth: text("grace_month"),
+    weeklyGoal: integer("weekly_goal").notNull().default(3),
+    goalUpdatedAt: timestamp("goal_updated_at", { withTimezone: true }),
+    // Set once the user adjusts the goal by hand. The monthly recalculation
+    // then leaves it alone: §B requires lowering the goal to be frictionless,
+    // and an automatic recalc that pushes it back up next month is friction.
+    weeklyGoalIsManual: boolean("weekly_goal_is_manual").notNull().default(false),
+    lastAutoGoalMonth: text("last_auto_goal_month"),
+    // Highest milestone already celebrated, so the confetti fires once per
+    // threshold and not on every render at 7 days.
+    lastMilestoneCelebrated: integer("last_milestone_celebrated").notNull().default(0),
+    // §C: opt-in, OFF by default. Nothing is ever sent without this.
+    reminderOptIn: boolean("reminder_opt_in").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    pgPolicy("streaks_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ]
+).enableRLS();

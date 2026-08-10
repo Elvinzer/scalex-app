@@ -6,6 +6,7 @@ import { continueYoutubeBackfill } from "@/lib/inngest/functions/continue-youtub
 import { refreshInstagramInsights } from "@/lib/inngest/functions/refresh-instagram-insights";
 import { refreshStripeAccounts } from "@/lib/inngest/functions/refresh-stripe-accounts";
 import { refreshYoutubeInsights } from "@/lib/inngest/functions/refresh-youtube-insights";
+import { refreshStreaks } from "@/lib/inngest/functions/refresh-streaks";
 import { snapshotScaleScore } from "@/lib/inngest/functions/snapshot-scale-score";
 import { syncCalendlyAccount } from "@/lib/inngest/functions/sync-calendly-account";
 import { syncIclosedAccount } from "@/lib/inngest/functions/sync-iclosed-account";
@@ -54,5 +55,6 @@ export const { GET, POST, PUT } = serve({
     continueYoutubeBackfill,
     weeklyBriefEmail,
     snapshotScaleScore,
+    refreshStreaks,
   ],
 });

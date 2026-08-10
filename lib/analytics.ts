@@ -89,7 +89,14 @@ export type AnalyticsEvent =
   | "content_reco_accepted"
   | "content_reco_published"
   // Journal/Dashboard — "C'est fait" sur l'action du jour.
-  | "insight_marked_done";
+  | "insight_marked_done"
+  // Série d'activité — corréler la longueur de série avec la rétention est
+  // le seul moyen de savoir si la mécanique marche (voir lib/streak/).
+  | "streak_day_validated"
+  | "streak_milestone"
+  | "streak_broken"
+  | "weekly_goal_met"
+  | "weekly_goal_adjusted";
 
 // Never throws — a tracking failure must never break the caller's actual
 // work (saving data, sending an email, etc).

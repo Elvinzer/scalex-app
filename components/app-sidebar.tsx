@@ -26,6 +26,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
+import { StreakBadge } from "@/components/streak/streak-badge";
+import type { StreakSnapshot } from "@/lib/streak/service";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
@@ -364,6 +366,7 @@ export function AppSidebar({
   scaleScoreSparkline,
   currentMonthlyRevenue,
   potentialMonthlyRevenue,
+  streak,
 }: {
   email: string;
   businessName: string;
@@ -381,6 +384,7 @@ export function AppSidebar({
   scaleScoreSparkline: ScaleScoreSparklinePoint[];
   currentMonthlyRevenue: number | null;
   potentialMonthlyRevenue: number | null;
+  streak: StreakSnapshot | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -507,6 +511,16 @@ export function AppSidebar({
                 currentMonthlyRevenue={currentMonthlyRevenue}
                 potentialMonthlyRevenue={potentialMonthlyRevenue}
               />
+            </div>
+          )}
+
+          {/* Directly under the score, same "readout, not destination" slot.
+              Rendered even at zero — a grey flame is the invitation to start
+              one, and hiding it would make the mechanic invisible to exactly
+              the users it exists for. */}
+          {streak && (
+            <div className="px-3 pt-2">
+              <StreakBadge snapshot={streak} />
             </div>
           )}
 

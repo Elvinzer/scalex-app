@@ -23,6 +23,7 @@ import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
+import { getStreakSnapshot } from "@/lib/streak/queries";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountContext } from "@/lib/team/context";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
@@ -78,10 +79,13 @@ export default async function AppLayout({
   // round-trip on literally every page change. All scoped by accountId (the
   // business's owner), not userId (who's logged in) — a team member sees
   // the account's business context, never their own empty one.
-  const [businessProfile, [userRow], scaleScoreInputs] = await Promise.all([
+  const [businessProfile, [userRow], scaleScoreInputs, streak] = await Promise.all([
     getBusinessProfile(accountId),
     db.select().from(users).where(eq(users.id, accountId)).limit(1),
     canSeeScaleScore ? getDiagnosticKpiRawData(accountId) : Promise.resolve(null),
+    // Same gate as the Scale Score: the streak reflects the account's whole
+    // activity, so a member without dashboard access has no business seeing it.
+    canSeeScaleScore ? getStreakSnapshot(accountId) : Promise.resolve(null),
   ]);
   const businessCompletion = computeGlobalCompletion(businessProfile);
   const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
@@ -202,6 +206,7 @@ export default async function AppLayout({
           scaleScoreSparkline={scaleScoreSparkline}
           currentMonthlyRevenue={currentMonthlyRevenue}
           potentialMonthlyRevenue={potentialMonthlyRevenue}
+          streak={streak}
         />
         {/* The sidebar is fixed, so reserve its width in normal document flow
             on desktop; mobile opens it as an overlay instead. */}
