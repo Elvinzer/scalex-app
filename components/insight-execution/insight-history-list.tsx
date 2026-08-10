@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import {
   decideInsight,
   materializeInsight,
 } from "@/lib/insight-execution/actions";
-import { INITIATIVE_STATUS_LABELS } from "@/lib/insight-execution/state";
 import type {
   InsightHistoryItem,
   InitiativeSummary,
@@ -24,14 +24,6 @@ import { InitiativeControls } from "./initiative-controls";
 type Member = { id: string; name: string; roles: string[] };
 type Project = { id: string; name: string };
 
-const DECISION_LABELS: Record<InsightHistoryItem["decision"], string> = {
-  todo: "À traiter",
-  launched: "Lancé",
-  later: "Plus tard",
-  dismissed: "Écarté",
-  completed: "Terminé",
-};
-
 const DECISION_CLASS: Record<InsightHistoryItem["decision"], string> = {
   todo: "bg-state-caution-bg text-state-caution",
   launched: "bg-accent-soft text-accent-text",
@@ -40,14 +32,26 @@ const DECISION_CLASS: Record<InsightHistoryItem["decision"], string> = {
   completed: "bg-state-healthy-bg text-state-healthy",
 };
 
-const SOURCE_LABELS: Record<string, string> = {
-  diagnostic_metric: "Diagnostic · métrique",
-  diagnostic_lever: "Diagnostic · levier",
-  funnel_stage: "Funnel",
-  content_recommendation: "Contenu",
-  copilote: "Copilote",
-  meta_ads: "Meta Ads",
-};
+function decisionLabel(decision: InsightHistoryItem["decision"], locale: string): string {
+  if (locale === "en") {
+    return decision === "todo" ? "To do" : decision === "launched" ? "Launched" : decision === "later" ? "Later" : decision === "dismissed" ? "Dismissed" : "Completed";
+  }
+  return decision === "todo" ? "À traiter" : decision === "launched" ? "Lancé" : decision === "later" ? "Plus tard" : decision === "dismissed" ? "Écarté" : "Terminé";
+}
+
+function sourceLabel(source: string, locale: string): string {
+  const labels = locale === "en"
+    ? { diagnostic_metric: "Diagnostic · metric", diagnostic_lever: "Diagnostic · lever", funnel_stage: "Funnel", content_recommendation: "Content", copilote: "Copilot", meta_ads: "Meta Ads" }
+    : { diagnostic_metric: "Diagnostic · métrique", diagnostic_lever: "Diagnostic · levier", funnel_stage: "Funnel", content_recommendation: "Contenu", copilote: "Copilote", meta_ads: "Meta Ads" };
+  return labels[source as keyof typeof labels] ?? source.replaceAll("_", " ");
+}
+
+function initiativeStatusLabel(status: InitiativeSummary["status"], locale: string): string {
+  if (locale === "en") {
+    return status === "planned" ? "Planned" : status === "in_progress" ? "In progress" : status === "paused" ? "Paused" : status === "completed" ? "Completed" : status === "awaiting_measurement" ? "Awaiting measurement" : status === "measured" ? "Result measured" : "Dismissed";
+  }
+  return status === "planned" ? "Planifiée" : status === "in_progress" ? "En cours" : status === "paused" ? "En pause" : status === "completed" ? "Terminée" : status === "awaiting_measurement" ? "En attente de mesure" : status === "measured" ? "Résultat mesuré" : "Écartée";
+}
 
 function numberFromSnapshot(
   item: InsightHistoryItem,
@@ -63,10 +67,12 @@ function textFromSnapshot(item: InsightHistoryItem, key: string): string | null 
 }
 
 function ResultLine({ initiative }: { initiative: InitiativeSummary }) {
+  const locale = useLocale();
+  const t = useTranslations("app.insights");
   const measurement = initiative.latestMeasurement;
   if (!measurement) return null;
   const measuredAt = measurement.measuredAt
-    ? new Date(measurement.measuredAt).toLocaleDateString("fr-FR", {
+    ? new Date(measurement.measuredAt).toLocaleDateString(locale, {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -74,16 +80,16 @@ function ResultLine({ initiative }: { initiative: InitiativeSummary }) {
     : null;
   const versionLabel = measurement.version ? ` · v${measurement.version}` : "";
   const measurementMeta = measuredAt
-    ? ` · mesuré le ${measuredAt}${versionLabel}`
+      ? ` · ${t("measuredOn", { date: measuredAt })}${versionLabel}`
     : "";
   const cashVariation =
     measurement.cashImpactEur !== null
-      ? ` · variation de CA observée : ${measurement.cashImpactEur >= 0 ? "+" : ""}${formatEur(measurement.cashImpactEur)}`
+      ? ` · ${locale === "en" ? "observed revenue change" : "variation de CA observée"}: ${measurement.cashImpactEur >= 0 ? "+" : ""}${formatEur(measurement.cashImpactEur, locale)}`
       : "";
   if (measurement.evidence === "qualitative")
     return (
       <p className="text-xs text-muted-foreground">
-        {measurementEvidenceLabel(measurement.evidence)} : {measurement.note}
+        {measurementEvidenceLabel(measurement.evidence, locale)} : {measurement.note}
         {measurementMeta}
       </p>
     );
@@ -95,7 +101,7 @@ function ResultLine({ initiative }: { initiative: InitiativeSummary }) {
     const before = Math.round(measurement.beforeValue * 100);
     const after = Math.round(measurement.afterValue * 100);
     const delta = Math.round((measurement.deltaValue ?? 0) * 100);
-    const resultLabel = `${measurementEvidenceLabel(measurement.evidence)} · avant ${before}% · après ${after}% · ${delta >= 0 ? "+" : ""}${delta} point${Math.abs(delta) > 1 ? "s" : ""} · ${measurement.beforePeriodStart} → ${measurement.afterPeriodEnd}${cashVariation}${measurementMeta}`;
+    const resultLabel = `${measurementEvidenceLabel(measurement.evidence, locale)} · ${locale === "en" ? "before" : "avant"} ${before}% · ${locale === "en" ? "after" : "après"} ${after}% · ${delta >= 0 ? "+" : ""}${delta} ${locale === "en" ? "point(s)" : "point(s)"} · ${measurement.beforePeriodStart} → ${measurement.afterPeriodEnd}${cashVariation}${measurementMeta}`;
     return <p className="text-xs text-muted-foreground">{resultLabel}</p>;
   }
   if (
@@ -103,49 +109,51 @@ function ResultLine({ initiative }: { initiative: InitiativeSummary }) {
     measurement.afterValue !== null &&
     measurement.unit === "eur"
   ) {
-    const resultLabel = `${measurementEvidenceLabel(measurement.evidence)} · avant ${formatEur(measurement.beforeValue)} · après ${formatEur(measurement.afterValue)} · ${measurement.beforePeriodStart} → ${measurement.afterPeriodEnd}${cashVariation}${measurementMeta}`;
+    const resultLabel = `${measurementEvidenceLabel(measurement.evidence, locale)} · ${locale === "en" ? "before" : "avant"} ${formatEur(measurement.beforeValue, locale)} · ${locale === "en" ? "after" : "après"} ${formatEur(measurement.afterValue, locale)} · ${measurement.beforePeriodStart} → ${measurement.afterPeriodEnd}${cashVariation}${measurementMeta}`;
     return <p className="text-xs text-muted-foreground">{resultLabel}</p>;
   }
   if (measurement.cashImpactEur !== null) {
     return (
       <p className="text-xs text-muted-foreground">
-        {measurementEvidenceLabel(measurement.evidence)} :{" "}
+        {measurementEvidenceLabel(measurement.evidence, locale)} :{" "}
         {measurement.cashImpactEur >= 0 ? "+" : ""}
-        {formatEur(measurement.cashImpactEur)}
+        {formatEur(measurement.cashImpactEur, locale)}
         {measurementMeta}
       </p>
     );
   }
   return (
     <p className="text-xs text-muted-foreground">
-      {measurementEvidenceLabel(measurement.evidence)} · résultat sans montant
-      attribuable.
+      {measurementEvidenceLabel(measurement.evidence, locale)} · {t("noAmount")}
     </p>
   );
 }
 
 function BaselineLine({ initiative }: { initiative: InitiativeSummary }) {
+  const locale = useLocale();
+  const t = useTranslations("app.insights");
   const baseline = initiative.baseline;
   if (!baseline)
     return (
       <p className="text-xs text-muted-foreground">
-        Baseline : aucune métrique comparable au lancement.
+        {t("measurementUnavailable")}
       </p>
     );
   const value =
     baseline.unit === "fraction"
       ? `${Math.round(baseline.value * 100)}%`
       : baseline.unit === "eur"
-        ? formatEur(baseline.value)
+        ? formatEur(baseline.value, locale)
         : `${baseline.value}`;
   return (
     <p className="text-xs text-muted-foreground">
-      Baseline : {value} · {baseline.periodStart} → {baseline.periodEnd}
+      {t("baseline", { value, start: baseline.periodStart, end: baseline.periodEnd })}
     </p>
   );
 }
 
 function DecisionButtons({ insight }: { insight: InsightHistoryItem }) {
+  const t = useTranslations("app.insights");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -160,7 +168,7 @@ function DecisionButtons({ insight }: { insight: InsightHistoryItem }) {
         });
         if (materialized.error || !materialized.insightId) {
           setError(
-            materialized.error ?? "Impossible de retrouver cet insight.",
+            materialized.error ?? t("actionFailed"),
           );
           return;
         }
@@ -183,7 +191,7 @@ function DecisionButtons({ insight }: { insight: InsightHistoryItem }) {
           disabled={isPending}
           onClick={() => update("todo")}
         >
-          Réactiver
+          {t("reactivate")}
         </Button>
       )}
       {insight.decision !== "dismissed" && (
@@ -194,7 +202,7 @@ function DecisionButtons({ insight }: { insight: InsightHistoryItem }) {
           disabled={isPending}
           onClick={() => update("later")}
         >
-          Plus tard
+          {t("later")}
         </Button>
       )}
       {insight.decision !== "dismissed" && (
@@ -205,7 +213,7 @@ function DecisionButtons({ insight }: { insight: InsightHistoryItem }) {
           disabled={isPending}
           onClick={() => update("dismissed")}
         >
-          Écarter
+          {t("dismiss")}
         </Button>
       )}
       {error && (
@@ -230,6 +238,8 @@ function HistoryCard({
   canAssign: boolean;
   onLaunched: (insight: InsightHistoryItem) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("app.insights");
   const metricCurrent = numberFromSnapshot(insight, "currentRatePercent");
   const metricBenchmark = numberFromSnapshot(insight, "benchmarkRatePercent");
   const metaAction = insight.sourceType === "meta_ads" ? textFromSnapshot(insight, "recommendedAction") : null;
@@ -245,14 +255,12 @@ function HistoryCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-              {insight.sourceLabel ??
-                SOURCE_LABELS[insight.sourceType] ??
-                insight.sourceType}
+              {insight.sourceLabel ?? sourceLabel(insight.sourceType, locale)}
             </span>
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${DECISION_CLASS[insight.decision]}`}
             >
-              {DECISION_LABELS[insight.decision]}
+              {decisionLabel(insight.decision, locale)}
             </span>
           </div>
           <h3 className="mt-1 text-base font-bold">{insight.title}</h3>
@@ -262,7 +270,7 @@ function HistoryCard({
             className="text-xs text-muted-foreground"
             dateTime={insight.generatedAt}
           >
-            {new Date(insight.generatedAt).toLocaleDateString("fr-FR", {
+            {new Date(insight.generatedAt).toLocaleDateString(locale, {
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -270,11 +278,7 @@ function HistoryCard({
           </time>
           {insight.resumeAt && (
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Reprise le{" "}
-              {new Date(`${insight.resumeAt}T00:00:00Z`).toLocaleDateString(
-                "fr-FR",
-                { day: "numeric", month: "short", timeZone: "UTC" },
-              )}
+              {t("resumeOn", { date: new Date(`${insight.resumeAt}T00:00:00Z`).toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" }) })}
             </p>
           )}
         </div>
@@ -285,16 +289,16 @@ function HistoryCard({
       {insight.sourceType === "meta_ads" && (
         <div className="grid gap-3 rounded-[var(--radius-control)] border border-border bg-muted p-4 text-sm sm:grid-cols-2">
           <div>
-            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Action exacte</p>
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("exactAction")}</p>
             <p className="mt-1">{metaAction ?? insight.insightText}</p>
           </div>
           <div>
-            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Critère de réussite</p>
-            <p className="mt-1">{metaCriterion ?? "Recontrôler la métrique sur une période comparable après l’action."}</p>
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("successCriterion")}</p>
+            <p className="mt-1">{metaCriterion ?? t("recheckMetric")}</p>
           </div>
           {metaCampaignId && (
             <a href={`/acquisition/ads/meta/${encodeURIComponent(metaCampaignId)}`} className="font-bold underline-offset-4 hover:underline">
-              Ouvrir la campagne dans Meta Ads
+              {t("openCampaign")}
             </a>
           )}
         </div>
@@ -306,13 +310,13 @@ function HistoryCard({
         <div className="flex flex-wrap gap-2 text-xs font-bold text-muted-foreground">
           {metricCurrent !== null && metricBenchmark !== null && (
             <span className="rounded-full bg-muted px-2.5 py-1">
-              {metricCurrent}% actuellement · benchmark {metricBenchmark}%
+              {t("currentVsBenchmark", { current: metricCurrent, benchmark: metricBenchmark })}
             </span>
           )}
           {insight.impactProjection?.amountEur !== null &&
             insight.impactProjection?.amountEur !== undefined && (
               <span className="rounded-full bg-muted px-2.5 py-1">
-                Projection {formatEur(insight.impactProjection.amountEur)}
+                {t("takeover", { value: formatEur(insight.impactProjection.amountEur, locale) })}
               </span>
             )}
         </div>
@@ -322,20 +326,20 @@ function HistoryCard({
         <div className="rounded-[var(--radius-control)] border border-border bg-surface-sunken p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-bold">
-              {INITIATIVE_STATUS_LABELS[insight.initiative.status]}
+              {initiativeStatusLabel(insight.initiative.status, locale)}
             </p>
             {insight.initiative.isWeeklyFocus && (
               <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-text">
-                Priorité de la semaine
+                {t("weeklyPriority")}
               </span>
             )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {insight.initiative.assignedMember
-              ? `Responsable : ${insight.initiative.assignedMember.name}`
-              : "Responsable : toi"}
+              ? t("owner", { name: insight.initiative.assignedMember.name })
+              : t("you")}
             {insight.initiative.dueDate
-              ? ` · échéance ${new Date(`${insight.initiative.dueDate}T00:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" })}`
+              ? ` · ${t("dueDate", { date: new Date(`${insight.initiative.dueDate}T00:00:00Z`).toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" }) })}`
               : ""}
           </p>
           <ResultLine initiative={insight.initiative} />
@@ -379,6 +383,8 @@ export function InsightHistoryList({
   projects: Project[];
   canAssign: boolean;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("app.insights");
   const [decisionFilter, setDecisionFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [showAll, setShowAll] = useState(false);
@@ -430,16 +436,15 @@ export function InsightHistoryList({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="insight-history-heading" className="text-lg font-bold">
-            Tes insights suivis
+            {locale === "en" ? "Your tracked insights" : "Tes insights suivis"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Garde la mémoire de tes décisions et reprends une action sans
-            repartir de zéro.
+            {t("historyHelp")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <label className="sr-only" htmlFor="insight-decision-filter">
-            Filtrer par statut
+            {locale === "en" ? "Filter by status" : "Filtrer par statut"}
           </label>
           <select
             id="insight-decision-filter"
@@ -447,15 +452,15 @@ export function InsightHistoryList({
             onChange={(event) => setDecisionFilter(event.target.value)}
             className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-xs font-bold outline-none focus-visible:border-accent"
           >
-            <option value="all">Tous les statuts</option>
-            <option value="todo">À traiter</option>
-            <option value="launched">Lancé</option>
-            <option value="later">Plus tard</option>
-            <option value="completed">Terminé</option>
-            <option value="dismissed">Écarté</option>
+            <option value="all">{t("filterAll")}</option>
+            <option value="todo">{t("filterTodo")}</option>
+            <option value="launched">{t("filterLaunched")}</option>
+            <option value="later">{t("filterLater")}</option>
+            <option value="completed">{t("filterCompleted")}</option>
+            <option value="dismissed">{t("filterDismissed")}</option>
           </select>
           <label className="sr-only" htmlFor="insight-source-filter">
-            Filtrer par source
+            {locale === "en" ? "Filter by source" : "Filtrer par source"}
           </label>
           <select
             id="insight-source-filter"
@@ -463,10 +468,10 @@ export function InsightHistoryList({
             onChange={(event) => setSourceFilter(event.target.value)}
             className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-xs font-bold outline-none focus-visible:border-accent"
           >
-            <option value="all">Toutes les sources</option>
+            <option value="all">{locale === "en" ? "All sources" : "Toutes les sources"}</option>
             {sources.map((source) => (
               <option key={source} value={source}>
-                {SOURCE_LABELS[source] ?? source.replaceAll("_", " ")}
+                {sourceLabel(source, locale)}
               </option>
             ))}
           </select>
@@ -475,7 +480,7 @@ export function InsightHistoryList({
 
       {visible.length === 0 ? (
         <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
-          Aucun insight dans ce filtre pour l&apos;instant.
+          {t("noFilterMatches")}
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -500,9 +505,7 @@ export function InsightHistoryList({
           onClick={() => setShowAll((value) => !value)}
           className="self-start"
         >
-          {showAll
-            ? "Réduire"
-            : `Voir les ${filtered.length - 6} autres insights`}
+          {showAll ? t("showFewer") : t("otherInsights", { count: filtered.length - 6 })}
         </Button>
       )}
     </div>

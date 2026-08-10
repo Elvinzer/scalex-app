@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import { useTranslations } from "next-intl";
 
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion-tokens";
@@ -31,6 +32,7 @@ export function Sparkline({
   // "where on the full scale" the series actually sits.
   domain?: [number, number];
 }) {
+  const t = useTranslations("common.shared");
   const reducedMotion = useReducedMotion();
 
   if (values.length < 2) {
@@ -56,7 +58,7 @@ export function Sparkline({
       className="w-full overflow-visible"
       style={{ height }}
       role="img"
-      aria-label={`Évolution sur les ${values.length} derniers jours`}
+      aria-label={t("lastDaysTrend", { count: values.length })}
     >
       <motion.polyline
         points={linePath}

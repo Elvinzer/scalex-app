@@ -1,11 +1,13 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
 export function CopyReferralLinkButton({ href }: { href: string }) {
+  const t = useTranslations("referral");
   const [copied, setCopied] = useState(false);
 
   async function copyLink() {
@@ -19,9 +21,9 @@ export function CopyReferralLinkButton({ href }: { href: string }) {
   }
 
   return (
-    <Button type="button" variant="outline" size="sm" onClick={copyLink} aria-label="Copier le lien de parrainage">
+    <Button type="button" variant="outline" size="sm" onClick={copyLink} aria-label={t("copyAria")}>
       {copied ? <Check className="size-4 text-state-healthy" /> : <Copy className="size-4" />}
-      {copied ? "Copié" : "Copier le lien"}
+      {copied ? t("copied") : t("copyLink")}
     </Button>
   );
 }

@@ -30,6 +30,7 @@ import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
+import { getLocale, getTranslations } from "next-intl/server";
 
 const PERIOD_MONTHS = 3;
 // buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
@@ -50,6 +51,9 @@ export default async function DashboardPage({
   searchParams: Promise<{ checkin?: string; bandeau?: string }>;
 }) {
   const params = await searchParams;
+  const locale = await getLocale();
+  const t = await getTranslations("dashboard");
+  const tDiagnostic = await getTranslations("diagnostic");
   const { userId, accountId, user, currentUser } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
   const accountContext = await getAccountContext(userId);
@@ -79,7 +83,7 @@ export default async function DashboardPage({
   // The greeting is personal, so it reads the logged-in person's own row
   // (currentUser), not the account owner's — a team member should be
   // greeted by their own name. Falls back to the email local-part, as before.
-  const firstName = currentUser?.displayName?.trim() || currentUser?.email.split("@")[0] || "là";
+  const firstName = currentUser?.displayName?.trim() || currentUser?.email.split("@")[0] || t("there");
 
   // Technical-alert data — independent of the diagnostic engine above, so
   // fetched as its own batch rather than folded into it. Revenue actions are
@@ -107,6 +111,7 @@ export default async function DashboardPage({
     allMonthlyRows,
     callSourcesByMonth: allCallSourcesByMonth,
     isStripeConnected: Boolean(user?.stripeConnectId),
+    locale,
   }).filter((card) => DASHBOARD_METRIC_CARD_KEYS.includes(card.key));
 
   // Same engine and same default period as /diagnostic, so "the goulot
@@ -123,6 +128,7 @@ export default async function DashboardPage({
     ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })
     : [];
   const points = allPoints.slice(0, 3);
+  const bottleneckLabel = points[0] ? tDiagnostic(`metrics.${points[0].key}`) : t("there");
 
   // Active-but-underperforming levers and explicit improvements still to
   // implement both contribute to the user's recoverable monthly potential.
@@ -155,10 +161,10 @@ export default async function DashboardPage({
   // one permitted exception). Pose + line reflect the same three states the
   // page already derives — Falco accompanies the figure, never repeats it.
   const heroFalco = !hasAnyMonthlyRow
-    ? { pose: "sleeping" as const, line: "Remplis tes chiffres, je tourne à vide." }
+    ? { pose: "sleeping" as const, line: t("completeNumbers") }
     : points.length > 0
-      ? { pose: "alert" as const, line: "Ton goulot me coûte du sommeil. On le corrige ?" }
-      : { pose: "happy" as const, line: "Tout roule. On vise plus haut ?" };
+      ? { pose: "alert" as const, line: t("bottleneck", { label: bottleneckLabel }) }
+      : { pose: "happy" as const, line: t("solidLevers") };
 
   const weekRange = currentIsoWeekRange();
   const currentYear = new Date().getUTCFullYear();
@@ -190,11 +196,11 @@ export default async function DashboardPage({
     <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Bonjour {firstName}.</h1>
+          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{t("greeting", { name: firstName })}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {points.length > 0
-              ? `${points[0]?.label ?? "Ton closing"} est le poste qui coûte le plus cher aujourd'hui.`
-              : "Tes leviers mesurés sont solides. Voici où accélérer maintenant."}
+              ? t("bottleneck", { label: bottleneckLabel })
+              : t("solidLevers")}
           </p>
         </div>
         <WeeklyReportDialog
@@ -213,20 +219,20 @@ export default async function DashboardPage({
       <section className="sticker-spotlight animate-rise px-7 py-6" aria-labelledby="dashboard-gap-title">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="min-w-0">
-            <p id="dashboard-gap-title" className="text-xs font-bold tracking-[0.08em] text-mist/60 uppercase">Manque à gagner détecté · 30 derniers jours</p>
+            <p id="dashboard-gap-title" className="text-xs font-bold tracking-[0.08em] text-mist/60 uppercase">{t("lossDetected")}</p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <p className="figure-hero">{totalMonthlyLoss === null ? "—" : formatEur(totalMonthlyLoss)}</p>
+              <p className="figure-hero">{totalMonthlyLoss === null ? "—" : formatEur(totalMonthlyLoss, locale)}</p>
               <NatureBadge nature="Projection" />
             </div>
-            <p className="mt-2 text-sm text-mist/60">Source Stripe + iClosed · calculé sur l&apos;écart au benchmark</p>
+            <p className="mt-2 text-sm text-mist/60">{t("source")}</p>
           </div>
           <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden lg:flex" />
           <div className="flex flex-wrap gap-2">
             <Button size="lg" asChild>
-              <a href="/diagnostic">Voir le diagnostic</a>
+              <a href="/diagnostic">{t("viewDiagnostic")}</a>
             </Button>
             <Button size="lg" variant="outline" className="border-mist/20 bg-transparent text-text-on-dark hover:bg-mist/10 hover:text-text-on-dark" asChild>
-              <a href="/diagnostic#calcul">Comment c&apos;est calculé</a>
+              <a href="/diagnostic#calcul">{t("howCalculated")}</a>
             </Button>
           </div>
         </div>
@@ -234,9 +240,9 @@ export default async function DashboardPage({
       </section>
 
       {params.bandeau === "incomplete_data" && (
-        <FalcoEmptyState title="Complète tes chiffres pour ton diagnostic" showFalco={false}>
+        <FalcoEmptyState title={t("completeNumbers")} showFalco={false}>
           <p className="text-sm font-bold text-muted-foreground">
-            Pas encore assez de données pour calculer un goulot.
+            {t("notEnoughData")}
           </p>
         </FalcoEmptyState>
       )}
@@ -246,8 +252,8 @@ export default async function DashboardPage({
       </Suspense>
 
       <div>
-        <h2 className="text-base font-bold">Contexte du mois</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Mois en cours, comparé au mois précédent.</p>
+        <h2 className="text-base font-bold">{t("monthContext")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("monthContextHelp")}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {metricCards.map((card, index) => (
             <div key={card.key} className="animate-rise" style={{ animationDelay: `${index * 40}ms` }}>
@@ -262,12 +268,12 @@ export default async function DashboardPage({
         <section className="sticker-card p-4" aria-labelledby="checkin-title">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 id="checkin-title" className="text-sm font-bold">Check-in hebdomadaire</h2>
+              <h2 id="checkin-title" className="text-sm font-bold">{t("weeklyCheckin")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {checkInDoneThisWeek ? "Tes chiffres de la semaine sont déjà enregistrés." : "Deux minutes pour garder le diagnostic à jour."}
+                {checkInDoneThisWeek ? t("weekRecorded") : t("weekNotRecorded")}
               </p>
             </div>
-            <span className="rounded-full bg-muted px-2 py-1 text-xs font-bold text-muted-foreground">{checkInDoneThisWeek ? "À jour" : "À faire"}</span>
+            <span className="rounded-full bg-muted px-2 py-1 text-xs font-bold text-muted-foreground">{checkInDoneThisWeek ? t("upToDate") : t("toDo")}</span>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Suspense fallback={null}>
@@ -280,7 +286,7 @@ export default async function DashboardPage({
               />
             </Suspense>
             <Button type="button" variant="link" asChild>
-              <a href="/dashboard?report=1">Voir le rapport</a>
+              <a href="/dashboard?report=1">{t("viewReport")}</a>
             </Button>
           </div>
         </section>

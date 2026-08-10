@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { SaveIndicator } from "@/app/(app)/business/save-indicator";
 import { useDebouncedSave } from "@/app/(app)/business/use-debounced-save";
@@ -22,8 +23,8 @@ const EVENT_ICON: Record<string, string> = {
   copilote_started: "💬",
 };
 
-function formatFullDate(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("fr-FR", {
+function formatFullDate(iso: string, locale: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -31,11 +32,13 @@ function formatFullDate(iso: string): string {
   });
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+function formatTime(date: Date, locale: string): string {
+  return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
 }
 
 export function DayDrawer({ day, onClose }: { day: JournalDay | null; onClose: () => void }) {
+  const locale = useLocale();
+  const t = useTranslations("journal.dayDrawer");
   const [note, setNote] = useState(day?.note ?? "");
   const { schedule, status } = useDebouncedSave((content: string) => saveJournalNote(day?.date ?? "", content));
 
@@ -51,30 +54,30 @@ export function DayDrawer({ day, onClose }: { day: JournalDay | null; onClose: (
     <Drawer open={day !== null} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent>
         <div className="flex-1 overflow-y-auto p-6">
-          <DrawerTitle className="font-display text-lg font-bold capitalize">{formatFullDate(day.date)}</DrawerTitle>
+          <DrawerTitle className="font-display text-lg font-bold capitalize">{formatFullDate(day.date, locale)}</DrawerTitle>
 
           <div className="mt-6">
-            <p className="text-sm font-bold">Tes stats du jour</p>
+            <p className="text-sm font-bold">{t("stats")}</p>
             {day.hasActivity ? (
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div className="rounded-[10px] border border-border p-3">
-                  <p className="text-[11px] font-bold text-muted-foreground">Messages envoyés</p>
+                  <p className="text-[11px] font-bold text-muted-foreground">{t("messages")}</p>
                   <p className="mt-1 font-display text-lg font-bold tabular-nums">{day.totals.firstMessagesSent}</p>
                 </div>
                 <div className="rounded-[10px] border border-border p-3">
-                  <p className="text-[11px] font-bold text-muted-foreground">Appels pris</p>
+                  <p className="text-[11px] font-bold text-muted-foreground">{t("calls")}</p>
                   <p className="mt-1 font-display text-lg font-bold tabular-nums">{day.totals.callsAttended}</p>
                 </div>
                 <div className="rounded-[10px] border border-border p-3">
-                  <p className="text-[11px] font-bold text-muted-foreground">Ventes</p>
+                  <p className="text-[11px] font-bold text-muted-foreground">{t("sales")}</p>
                   <p className="mt-1 font-display text-lg font-bold tabular-nums">{day.totals.salesClosed}</p>
                 </div>
               </div>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
-                Stats hebdo dans ton{" "}
+                {t("weeklyStats")} {" "}
                 <a href="/dashboard" className="font-bold text-foreground hover:underline">
-                  check-in
+                  {t("checkin")}
                 </a>
                 .
               </p>
@@ -82,7 +85,7 @@ export function DayDrawer({ day, onClose }: { day: JournalDay | null; onClose: (
           </div>
 
           <div className="mt-6">
-            <p className="text-sm font-bold">Ce que tu as amélioré</p>
+            <p className="text-sm font-bold">{t("improvements")}</p>
             {hasImprovement ? (
               <div className="mt-3 flex flex-col gap-2.5">
                 {day.events.map((event) => (
@@ -90,19 +93,19 @@ export function DayDrawer({ day, onClose }: { day: JournalDay | null; onClose: (
                     <span aria-hidden>{EVENT_ICON[event.type] ?? "✦"}</span>
                     <div className="flex-1">
                       <p className="font-bold">{event.label}</p>
-                      <p className="text-[11px] text-muted-foreground">{formatTime(event.createdAt)}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatTime(event.createdAt, locale)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">Aucune amélioration ce jour-là.</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t("noImprovements")}</p>
             )}
           </div>
 
           <div className="mt-6">
             <div className="mb-1.5 flex items-center justify-between">
-              <p className="text-sm font-bold">Note du jour</p>
+              <p className="text-sm font-bold">{t("note")}</p>
               <SaveIndicator status={status} error={null} />
             </div>
             <textarea
@@ -112,7 +115,7 @@ export function DayDrawer({ day, onClose }: { day: JournalDay | null; onClose: (
                 schedule(event.target.value);
               }}
               rows={4}
-              placeholder="Une pensée, un rappel, un contexte pour plus tard..."
+              placeholder={t("placeholder")}
               className="w-full rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             />
           </div>
@@ -123,7 +126,7 @@ export function DayDrawer({ day, onClose }: { day: JournalDay | null; onClose: (
             pose={hasImprovement ? "happy" : "neutral"}
             size="sm"
             withBubble
-            bubbleText={hasImprovement ? "Journée utile." : "Rien noté ce jour-là."}
+            bubbleText={hasImprovement ? t("usefulDay") : t("nothingNoted")}
             bubbleSide="right"
           />
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Copy, Link2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { createMetaCampaignTrackingLink } from "@/app/(app)/acquisition/ads/meta-actions";
@@ -17,6 +18,7 @@ export function MetaTouchpointGenerator({
   adSetOptions?: Array<{ id: string; name: string }>;
   adOptions?: Array<{ id: string; name: string }>;
 }) {
+  const t = useTranslations("app.ads.touchpoint");
   const [destinationUrl, setDestinationUrl] = useState(landingPageUrl ?? "");
   const [entityKey, setEntityKey] = useState(`campaign:${campaignId}`);
   const [trackingUrl, setTrackingUrl] = useState<string | null>(null);
@@ -35,15 +37,15 @@ export function MetaTouchpointGenerator({
       });
       if (result.error || !result.url) {
         setTrackingUrl(null);
-        setMessage(result.error ?? "Le lien n'a pas pu être créé.");
+        setMessage(result.error ?? t("createError"));
         return;
       }
       setTrackingUrl(result.url);
       try {
         await navigator.clipboard.writeText(result.url);
-        setMessage("Lien copié. Colle-le dans l’URL de destination de la publicité Meta.");
+        setMessage(t("copiedHelp"));
       } catch {
-        setMessage("Lien créé. Copie-le depuis le champ ci-dessous.");
+        setMessage(t("created"));
       }
     });
   }
@@ -52,9 +54,9 @@ export function MetaTouchpointGenerator({
     if (!trackingUrl) return;
     try {
       await navigator.clipboard.writeText(trackingUrl);
-      setMessage("Lien copié.");
+      setMessage(t("copied"));
     } catch {
-      setMessage("Sélectionne le lien pour le copier.");
+      setMessage(t("copySelect"));
     }
   }
 
@@ -63,36 +65,36 @@ export function MetaTouchpointGenerator({
       <div className="flex items-start gap-3">
         <Link2 className="mt-0.5 size-5 shrink-0 text-accent-2" />
         <div>
-          <h2 id="meta-touchpoint-title" className="font-bold">Mesurer les leads et ventes de cette campagne</h2>
+          <h2 id="meta-touchpoint-title" className="font-bold">{t("title")}</h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Génère une URL à utiliser dans Meta Ads. Le jeton opaque relie la visite à la campagne, puis au formulaire, à l’appel et à la vente quand ces étapes sont renseignées dans Scale X.
+            {t("description")}
           </p>
         </div>
       </div>
       <details className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted px-4 py-3 text-sm">
-        <summary className="cursor-pointer font-bold">Configurer le rattachement Meta</summary>
+        <summary className="cursor-pointer font-bold">{t("summary")}</summary>
         <div className="mt-3 space-y-2 text-muted-foreground">
-          <p>Le lien généré porte le niveau sélectionné : campagne, ensemble ou publicité. Colle-le dans l&apos;URL de destination de l&apos;objet Meta correspondant.</p>
-          <p>Scale X conserve les paramètres <code className="rounded bg-card px-1 py-0.5 text-xs text-foreground">campaign_id</code>, <code className="rounded bg-card px-1 py-0.5 text-xs text-foreground">adset_id</code> et <code className="rounded bg-card px-1 py-0.5 text-xs text-foreground">ad_id</code> reçus, puis affiche le niveau réellement rattaché.</p>
-          <p>N’ajoute jamais d’email, de nom ou d’identifiant personnel dans l’URL. Sans identifiant publicitaire exploitable, la lecture reste au niveau campagne/UTM et la couverture le signale.</p>
+          <p>{t("help1")}</p>
+          <p>{t("help2")}</p>
+          <p>{t("help3")}</p>
         </div>
       </details>
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
-          <label htmlFor="meta-tracking-entity" className="mb-1 block text-xs font-bold text-muted-foreground">Niveau de rattachement</label>
+          <label htmlFor="meta-tracking-entity" className="mb-1 block text-xs font-bold text-muted-foreground">{t("level")}</label>
           <select
             id="meta-tracking-entity"
             value={entityKey}
             onChange={(event) => setEntityKey(event.target.value)}
             className="h-10 w-full rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           >
-            <option value={`campaign:${campaignId}`}>Campagne</option>
-            {adSetOptions.map((adSet) => <option key={`adset:${adSet.id}`} value={`adset:${adSet.id}`}>Ensemble · {adSet.name}</option>)}
-            {adOptions.map((ad) => <option key={`ad:${ad.id}`} value={`ad:${ad.id}`}>Publicité · {ad.name}</option>)}
+            <option value={`campaign:${campaignId}`}>{t("campaign")}</option>
+            {adSetOptions.map((adSet) => <option key={`adset:${adSet.id}`} value={`adset:${adSet.id}`}>{t("adset")} · {adSet.name}</option>)}
+            {adOptions.map((ad) => <option key={`ad:${ad.id}`} value={`ad:${ad.id}`}>{t("ad")} · {ad.name}</option>)}
           </select>
         </div>
         <div className="min-w-0 flex-1">
-          <label htmlFor="meta-destination-url" className="mb-1 block text-xs font-bold text-muted-foreground">URL de destination</label>
+          <label htmlFor="meta-destination-url" className="mb-1 block text-xs font-bold text-muted-foreground">{t("destination")}</label>
           <input
             id="meta-destination-url"
             type="url"
@@ -104,21 +106,21 @@ export function MetaTouchpointGenerator({
         </div>
         <Button variant="accent2" onClick={generate} disabled={isPending || !destinationUrl.trim()}>
           <Link2 className="size-4" />
-          {isPending ? "Création…" : "Créer le lien"}
+          {isPending ? t("creating") : t("create")}
         </Button>
       </div>
       {trackingUrl && (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
-            aria-label="Lien de suivi Meta créé"
+            aria-label={t("createdAria")}
             readOnly
             value={trackingUrl}
             onFocus={(event) => event.currentTarget.select()}
             className="min-w-0 flex-1 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs text-muted-foreground outline-none"
           />
           <Button variant="outline" onClick={copyLink}>
-            {message === "Lien copié." ? <Check className="size-4" /> : <Copy className="size-4" />}
-            Copier
+            {message === t("copied") ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {t("copy")}
           </Button>
         </div>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { ChatErrorBoundary } from "@/components/chat-error-boundary";
 import { ConversationHistoryPanel } from "@/components/copilote/conversation-history-panel";
@@ -51,6 +52,7 @@ export function CopilotePageClient({
   initialTopicKey: string | null;
   initialConversationId: string | null;
 }) {
+  const t = useTranslations("app.copilote");
   const [conversations, setConversations] = useState(initialConversations);
   const linkedConversation = initialConversationId ? initialConversations.find((item) => item.id === initialConversationId) : null;
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(linkedConversation?.id ?? initialConversations[0]?.id ?? null);
@@ -114,14 +116,14 @@ export function CopilotePageClient({
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
       <div>
-        <h1 className="text-3xl font-bold">Copilote</h1>
-        <p className="mt-1 text-muted-foreground">Falco, ton copilote de croissance. Il connaît déjà tes chiffres.</p>
+        <h1 className="text-3xl font-bold">{t("title")}</h1>
+        <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2" aria-label="Contexte utilisé par Falco">
-        <span className="rounded-full border border-accent-2-border bg-accent-2-soft px-3 py-1.5 text-xs font-bold text-accent-2-text">Contexte · {selected?.topicLabel ?? "Vue globale"}</span>
-        <span className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">Période · 3 derniers mois</span>
-        <span className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">Données · CA, funnel, offres</span>
+      <div className="flex flex-wrap items-center gap-2" aria-label={t("contextAria")}>
+        <span className="rounded-full border border-accent-2-border bg-accent-2-soft px-3 py-1.5 text-xs font-bold text-accent-2-text">{t("context")} · {selected?.topicLabel ?? t("globalView")}</span>
+        <span className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">{t("period")} · {t("lastThreeMonths")}</span>
+        <span className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">{t("data")} · {t("dataSummary")}</span>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-0">
@@ -160,7 +162,7 @@ export function CopilotePageClient({
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
               <Falco pose="neutral" size="md" />
-              <p className="max-w-sm text-sm text-muted-foreground">Choisis une conversation à droite, ou démarre-en une nouvelle.</p>
+              <p className="max-w-sm text-sm text-muted-foreground">{t("empty")}</p>
             </div>
           )}
         </div>

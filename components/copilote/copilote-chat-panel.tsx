@@ -2,6 +2,7 @@
 
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useRef } from "react";
 
 import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-chat-thread";
@@ -31,13 +32,14 @@ export function CopiloteChatPanel({
   onConversationChange: (conversation: ConversationRow) => void;
   onInsightChange: (insight: InsightHistoryItem) => void;
 }) {
+  const t = useTranslations("app.copilote.chat");
   const threadRef = useRef<AgentChatThreadHandle>(null);
   const route = topicKey ? AGENT_KEY_TO_ROUTE[topicKey] : undefined;
 
   const context: ChatContext = { topicType, topicKey, topicLabel, sourcePage: "copilote" };
 
   function handleReset() {
-    if (!window.confirm("Recommencer cette conversation à zéro ?")) return;
+    if (!window.confirm(t("conversationResetConfirm"))) return;
     threadRef.current?.reset();
   }
 
@@ -60,7 +62,7 @@ export function CopiloteChatPanel({
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label="Options de la conversation"
+              aria-label={t("optionsAria")}
               className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
             >
               <MoreHorizontal className="size-4" />
@@ -72,11 +74,11 @@ export function CopiloteChatPanel({
               onClick={handleReset}
               className="min-h-11 rounded-[var(--radius-control)] px-3 py-2 text-left text-sm font-bold hover:bg-muted"
             >
-              Recommencer à zéro
+              {t("restart")}
             </button>
             {route && (
               <Link href={route} className="flex min-h-11 items-center rounded-[var(--radius-control)] px-3 py-2 text-left text-sm font-bold hover:bg-muted">
-                Voir la page du levier →
+                {t("viewLever")}
               </Link>
             )}
           </PopoverContent>

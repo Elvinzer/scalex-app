@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { Falco } from "@/components/falco/falco";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
@@ -91,6 +92,7 @@ export function ImportFlow({
   allowPaste?: boolean;
   defaultPeriod?: ImportPeriod;
 }) {
+  const t = useTranslations("data.importFlow");
   const [step, setStep] = useState<Step>({ kind: "dropzone" });
   // Kept around so a "which line is your header row?" answer can
   // re-upload and re-analyze — the client only has 3 preview rows, not the
@@ -108,7 +110,7 @@ export function ImportFlow({
       const response = await fetch("/api/import/analyze", { method: "POST", body: formData });
       const body = (await response.json()) as AnalyzeResponse & { error?: string };
       if (!response.ok || body.error) {
-        setStep({ kind: "error", message: body.error ?? "Impossible d'analyser ce fichier." });
+        setStep({ kind: "error", message: body.error ?? t("analyzeError") });
         return;
       }
 
@@ -118,7 +120,7 @@ export function ImportFlow({
 
       setStep(hasPendingQuestions(analysis) ? { kind: "clarify", analysis } : { kind: "preview", analysis });
     } catch {
-      setStep({ kind: "error", message: "Erreur réseau pendant l'analyse du fichier." });
+      setStep({ kind: "error", message: t("networkError") });
     }
   }
 
@@ -146,7 +148,7 @@ export function ImportFlow({
       const result = await commitImport(payload);
 
       if (result.status === "duplicate_warning") {
-        const label = result.previousImport.targetMonth ? `${result.previousImport.targetMonth}/${result.previousImport.targetYear}` : "un mois précédent";
+        const label = result.previousImport.targetMonth ? `${result.previousImport.targetMonth}/${result.previousImport.targetYear}` : t("previousMonth");
         setStep({ kind: "duplicate_confirm", payloads, previousMonth: label });
         return;
       }
@@ -181,7 +183,7 @@ export function ImportFlow({
     case "analyzing":
       return (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <FalcoPondering isLoading pose="thinking" size="md" label="Falco trie ton fichier..." className="flex-col" />
+          <FalcoPondering isLoading pose="thinking" size="md" label={t("analyzing")} className="flex-col" />
         </div>
       );
 
@@ -210,7 +212,7 @@ export function ImportFlow({
     case "committing":
       return (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <FalcoPondering isLoading pose="thinking" size="md" label="Import en cours..." className="flex-col" />
+          <FalcoPondering isLoading pose="thinking" size="md" label={t("importing")} className="flex-col" />
         </div>
       );
 
@@ -219,12 +221,12 @@ export function ImportFlow({
         <div className="flex flex-col items-center gap-4 py-6 text-center">
           <Falco pose="neutral" size="md" animate="enter" />
           <p className="text-sm">
-            Tu as déjà importé ce fichier pour <span className="font-bold">{step.previousMonth}</span>. Importer quand même ?
+            {t("duplicate", { month: step.previousMonth })}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            <Button onClick={() => handleCommit(step.payloads.map((p) => ({ ...p, confirmDuplicate: true })))}>Importer quand même</Button>
+            <Button onClick={() => handleCommit(step.payloads.map((p) => ({ ...p, confirmDuplicate: true })))}>{t("importAnyway")}</Button>
             <Button variant="secondary" onClick={() => handleAbandon("duplicate_confirm")}>
-              Annuler
+              {t("cancel")}
             </Button>
           </div>
         </div>
@@ -235,8 +237,7 @@ export function ImportFlow({
         <div className="flex flex-col items-center gap-3 py-8 text-center">
           <Falco pose="happy" size="md" animate="enter" className={falcoReactionClassName("value_imported")} />
           <p className="text-sm font-bold">
-            C&apos;est rangé. {step.fieldsWritten} valeur{step.fieldsWritten > 1 ? "s" : ""} importée{step.fieldsWritten > 1 ? "s" : ""}, ton
-            diagnostic est à jour.
+            {t("done", { count: step.fieldsWritten, plural: step.fieldsWritten > 1 ? "s" : "" })}
           </p>
           {step.blockedFields.length > 0 && (
             <div className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -254,7 +255,7 @@ export function ImportFlow({
           <Falco pose="sleeping" size="md" animate="enter" className={falcoReactionClassName("benign_error_parsing")} />
           <p className="text-sm text-state-critical">{step.message}</p>
           <Button variant="secondary" onClick={() => setStep({ kind: "dropzone" })}>
-            Réessayer
+            {t("retry")}
           </Button>
         </div>
       );

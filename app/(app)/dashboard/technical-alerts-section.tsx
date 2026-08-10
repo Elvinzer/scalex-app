@@ -1,5 +1,6 @@
 import { KeyRound, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import type { TechnicalAlert, TechnicalAlertIcon } from "@/lib/dashboard/technical-alerts";
 
@@ -9,6 +10,7 @@ const ICONS: Record<TechnicalAlertIcon, typeof KeyRound> = {
 };
 
 export function TechnicalAlertsSection({ alerts }: { alerts: TechnicalAlert[] }) {
+  const t = useTranslations("dashboard");
   if (alerts.length === 0) return null;
 
   return (
@@ -16,9 +18,9 @@ export function TechnicalAlertsSection({ alerts }: { alerts: TechnicalAlert[] })
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 id="technical-alerts-title" className="text-sm font-bold">
-            Problèmes techniques
+            {t("technicalProblems")}
           </h2>
-          <p className="mt-1 text-xs text-muted-foreground">À traiter pour garder les données et l’agent à jour.</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("technicalHelp")}</p>
         </div>
         <span className="rounded-full bg-state-caution-bg px-2 py-0.5 text-xs font-bold text-state-caution">
           {alerts.length}
@@ -38,10 +40,10 @@ export function TechnicalAlertsSection({ alerts }: { alerts: TechnicalAlert[] })
                   <Icon className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold">{alert.title}</span>
-                  <span className="block text-xs text-muted-foreground">{alert.detail}</span>
+                  <span className="block truncate text-sm font-bold">{t(alert.titleKey, { tool: alert.tool ?? "" })}</span>
+                  <span className="block text-xs text-muted-foreground">{t(alert.detailKey)}</span>
                 </span>
-                <span className="shrink-0 text-xs font-bold text-muted-foreground">Ouvrir →</span>
+                <span className="shrink-0 text-xs font-bold text-muted-foreground">{t("openArrow")}</span>
               </Link>
             </li>
           );

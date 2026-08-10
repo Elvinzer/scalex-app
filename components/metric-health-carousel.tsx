@@ -3,6 +3,7 @@
 import { useRef, useState, type TouchEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toPng } from "html-to-image";
+import { useTranslations } from "next-intl";
 
 import { MetricHealthCard } from "@/components/metric-health-card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ const DISPLAY_HEIGHT_PX = DISPLAY_WIDTH_PX / 0.8; // matches the card's aspect-[
 const EXPORT_WIDTH_PX = 1080; // export target is 1080x1350 (4:5 portrait) — height follows from the card's own aspect-[4/5]
 
 export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthCardData[]; auditUrl: string }) {
+  const t = useTranslations("common.shared");
   const [activeIndex, setActiveIndex] = useState(0);
   const [hideAmounts, setHideAmounts] = useState(false);
   const [withFalco, setWithFalco] = useState(false);
@@ -82,7 +84,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
         <button
           type="button"
           onClick={goPrev}
-          aria-label="Métrique précédente"
+          aria-label={t("previousMetric")}
           className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted"
         >
           <ChevronLeft className="size-4" />
@@ -128,7 +130,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
         <button
           type="button"
           onClick={goNext}
-          aria-label="Métrique suivante"
+          aria-label={t("nextMetric")}
           className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted"
         >
           <ChevronRight className="size-4" />
@@ -141,7 +143,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
             key={card.key}
             type="button"
             onClick={() => goTo(index)}
-            aria-label={`Aller à ${card.label}`}
+            aria-label={t("goToMetric", { label: card.label })}
             className={cn("h-1.5 rounded-full transition-all", index === activeIndex ? "w-6 bg-accent" : "w-1.5 bg-border")}
           />
         ))}
@@ -149,7 +151,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
 
       <div className="flex flex-wrap items-center justify-center gap-4">
         <Button variant="secondary" onClick={handleShare} disabled={isExporting}>
-          {isExporting ? "Export en cours…" : "Partager cette carte"}
+          {isExporting ? t("exporting") : t("shareCard")}
         </Button>
         <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
           <input
@@ -158,7 +160,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
             onChange={(event) => setHideAmounts(event.target.checked)}
             className="size-4 rounded border-border"
           />
-          Masquer les montants
+          {t("hideAmounts")}
         </label>
         <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
           <input
@@ -167,7 +169,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
             onChange={(event) => setWithFalco(event.target.checked)}
             className="size-4 rounded border-border"
           />
-          Ajouter Falco
+          {t("addFalco")}
         </label>
       </div>
     </div>

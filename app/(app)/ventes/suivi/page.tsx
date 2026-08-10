@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { FailedPaymentsPanel, type FailedPaymentItem } from "@/components/failed-payments-panel";
@@ -27,9 +28,9 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { SaleFormDialog } from "./sale-form-dialog";
 import { SalesTable } from "./sales-table";
 
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
 export default async function SuiviDesVentesPage({ searchParams }: { searchParams: Promise<{ period?: string; currency?: string }> }) {
+  const t = await getTranslations("sales");
+  const locale = await getLocale();
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:suivi");
   const stripeConnected = Boolean(user?.stripeConnectId);
@@ -63,9 +64,9 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
       .filter(({ installment }) => installment.status === "failed" && Boolean(installment.stripeChargeId))
       .map(({ installment, index }) => ({
         id: `${sale.id}-${index}`,
-        client: sale.isOrphan ? "Paiement à rattacher" : sale.clientName,
+        client: sale.isOrphan ? t("paymentToAttach") : sale.clientName,
         amount: installment.amount,
-        reason: installment.failureReason ?? "Paiement Stripe refusé",
+        reason: installment.failureReason ?? t("stripePaymentDeclined"),
         dueDate: installment.dueDate,
         attempts: 1,
       }))
@@ -99,14 +100,21 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
       trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency),
     };
   }
+  if (stripeInsight?.snapshot && stripeInsight.activeCurrency) {
+    stripeInsight = {
+      ...stripeInsight,
+      signals: buildStripeInsightSignals(stripeInsight.snapshot, locale),
+      trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency, locale),
+    };
+  }
   const latestStripeInsight = stripeInsight?.activeCurrency
     ? await getLatestStripeInsightRun(accountId, stripeInsight.activeCurrency, period)
     : null;
 
   const stateText =
     periodSales.length > 0
-      ? `${periodSales.length} vente${periodSales.length > 1 ? "s" : ""} sur la période, ${NUMBER_FORMAT.format(cashCollected)} € encaissé.`
-      : "Aucune vente sur cette période.";
+      ? t("stateWithSales", { count: periodSales.length, amount: new Intl.NumberFormat(locale).format(cashCollected) })
+      : t("stateNoSales");
   // No MetricKey for Suivi des ventes in the Copilote pipeline — general topic.
   const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "ventes_suivi" };
 
@@ -114,22 +122,20 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
     <div className="flex flex-col gap-8">
       {stripeConnected && <FailedPaymentsPanel items={failedPaymentItems} />}
 
-      <AgentBanner stateText={stateText} ctaLabel="Améliorer →" chatContext={chatContext} />
+      <AgentBanner stateText={stateText} ctaLabel={t("improve")} chatContext={chatContext} />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Suivi des ventes</h1>
-          <p className="mt-1 text-muted-foreground">
-            Chaque vente, avec son échéancier et ses impayés, au-delà des seuls totaux du funnel.
-          </p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
           <div className="mt-3">
             <IntegrationStatusRow
-              name="Stripe"
+              name={t("stripe")}
               status={stripeConnected ? "connected" : "not_connected"}
-              detail={stripeConnected ? "Les paiements alimentent ce suivi automatiquement." : "Connecte Stripe pour synchroniser tes paiements."}
+              detail={stripeConnected ? t("stripeConnected") : t("stripeDisconnected")}
               action={
                 <Button asChild variant="outline" size="sm" className="min-h-11">
-                  <Link href="/integrations#stripe">{stripeConnected ? "Gérer" : "Connecter"}</Link>
+                  <Link href="/integrations#stripe">{stripeConnected ? t("manage") : t("connect")}</Link>
                 </Button>
               }
             />
@@ -144,7 +150,7 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
             trigger={
               <Button type="button">
                 <Plus className="size-4" />
-                Ajouter une vente
+                {t("addSale")}
               </Button>
             }
           />
@@ -152,10 +158,10 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiTile label="CA contracté" value={`${NUMBER_FORMAT.format(cashContracted)} €`} detail={`${periodSales.length} ventes`} />
-        <KpiTile label="CA encaissé" value={`${NUMBER_FORMAT.format(cashCollected)} €`} detail={`${periodSales.length} ventes`} tone="positive" />
-        <KpiTile label="Échéances à venir" value={`${NUMBER_FORMAT.format(pending)} €`} detail="À encaisser" tone="accent2" />
-        <KpiTile label="Impayés" value={`${NUMBER_FORMAT.format(failed)} €`} detail="À traiter" tone={failed > 0 ? "negative" : "default"} />
+        <KpiTile label={t("contractedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashContracted)} €`} detail={t("salesCount", { count: periodSales.length })} />
+        <KpiTile label={t("collectedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashCollected)} €`} detail={t("salesCount", { count: periodSales.length })} tone="positive" />
+        <KpiTile label={t("upcomingPayments")} value={`${new Intl.NumberFormat(locale).format(pending)} €`} detail={t("toCollect")} tone="accent2" />
+        <KpiTile label={t("failedPayments")} value={`${new Intl.NumberFormat(locale).format(failed)} €`} detail={t("toProcess")} tone={failed > 0 ? "negative" : "default"} />
       </div>
 
       <StripeInsightsSection

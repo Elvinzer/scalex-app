@@ -1,5 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import commonMessages from "@/locales/fr/common.json";
+import contentMessages from "@/locales/fr/content.json";
+import integrationsMessages from "@/locales/fr/integrations.json";
 
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
@@ -132,13 +137,24 @@ function baseProps() {
   };
 }
 
+function renderView(element: React.ReactElement) {
+  return renderToStaticMarkup(
+    <NextIntlClientProvider
+      locale="fr"
+      messages={{ common: commonMessages, content: contentMessages, integrations: integrationsMessages }}
+    >
+      {element}
+    </NextIntlClientProvider>
+  );
+}
+
 describe("ContenuView connected panels", () => {
   beforeEach(() => {
     navigationMock.replace.mockClear();
   });
 
   it("keeps the specialized Instagram panel and connection state", () => {
-    const html = renderToStaticMarkup(<ContenuView {...baseProps()} />);
+    const html = renderView(<ContenuView {...baseProps()} />);
 
     expect(html).toContain("Instagram connecté @clubvipfinance");
     expect(html).toContain("Vues sur la période");
@@ -153,7 +169,7 @@ describe("ContenuView connected panels", () => {
   });
 
   it("keeps the specialized YouTube panel and commercial metrics", () => {
-    const html = renderToStaticMarkup(
+    const html = renderView(
       <ContenuView
         {...baseProps()}
         initialPlatform="youtube"
@@ -177,7 +193,7 @@ describe("ContenuView connected panels", () => {
 
   it("selects the only connected platform by default", () => {
     const props = baseProps();
-    const html = renderToStaticMarkup(
+    const html = renderView(
       <ContenuView
         {...props}
         initialPlatform={null}

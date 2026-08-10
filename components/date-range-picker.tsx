@@ -1,13 +1,13 @@
 "use client";
 
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   formatRangeDates,
   formatTriggerLabel,
-  PRESET_LABELS,
   previousMonthOptions,
   resolveDateRange,
   todayUtc,
@@ -15,8 +15,6 @@ import {
 } from "@/lib/date-range";
 
 const PREVIOUS_MONTHS_COUNT = 6;
-const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-
 type ViewMonth = { year: number; month: number };
 
 function shiftMonth({ year, month }: ViewMonth, delta: number): ViewMonth {
@@ -29,6 +27,8 @@ function capitalize(value: string): string {
 }
 
 export function DateRangePicker() {
+  const locale = useLocale();
+  const t = useTranslations("common.dateRange");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -49,7 +49,7 @@ export function DateRangePicker() {
     return shiftMonth({ year: today.getUTCFullYear(), month: today.getUTCMonth() }, -1);
   });
 
-  const monthOptions = useMemo(() => previousMonthOptions(PREVIOUS_MONTHS_COUNT), []);
+  const monthOptions = useMemo(() => previousMonthOptions(PREVIOUS_MONTHS_COUNT, todayUtc(), locale), [locale]);
   const rightMonth = useMemo(() => shiftMonth(leftMonth, 1), [leftMonth]);
 
   useEffect(() => {
@@ -101,7 +101,11 @@ export function DateRangePicker() {
     }
   }
 
-  const triggerLabel = formatTriggerLabel(activePreset, activeRange, monthOptions);
+  const triggerLabel = formatTriggerLabel(activePreset, activeRange, monthOptions, locale, {
+    all: t("all"),
+    "current-month": t("currentMonth"),
+    "last-30-days": t("last30Days"),
+  });
 
   return (
     <div ref={containerRef} className="relative inline-block">
@@ -119,19 +123,19 @@ export function DateRangePicker() {
         <div className="elevated absolute right-0 z-50 mt-2 flex w-[min(90vw,640px)] flex-col rounded-[var(--radius-card)] border border-border bg-card transition-opacity duration-[var(--motion-fast)] ease-[var(--ease-out)] sm:flex-row">
           <div className="flex w-full flex-col gap-1 border-b border-border p-3 sm:w-44 sm:border-b-0 sm:border-r">
             <PresetButton active={activePreset === "all"} onClick={() => applyPreset("all")}>
-              {PRESET_LABELS.all}
+              {t("all")}
             </PresetButton>
             <PresetButton
               active={activePreset === "current-month"}
               onClick={() => applyPreset("current-month")}
             >
-              {PRESET_LABELS["current-month"]}
+              {t("currentMonth")}
             </PresetButton>
             <PresetButton
               active={activePreset === "last-30-days"}
               onClick={() => applyPreset("last-30-days")}
             >
-              {PRESET_LABELS["last-30-days"]}
+              {t("last30Days")}
             </PresetButton>
             <div className="my-1 border-t border-border" />
             {monthOptions.map((option) => (
@@ -150,7 +154,7 @@ export function DateRangePicker() {
               <button
                 type="button"
                 onClick={() => setLeftMonth((value) => shiftMonth(value, -1))}
-                aria-label="Mois précédent"
+                aria-label={t("previousMonth")}
                 className="rounded p-1 hover:bg-muted/50"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -158,7 +162,7 @@ export function DateRangePicker() {
               <button
                 type="button"
                 onClick={() => setLeftMonth((value) => shiftMonth(value, 1))}
-                aria-label="Mois suivant"
+                aria-label={t("nextMonth")}
                 className="rounded p-1 hover:bg-muted/50"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -183,8 +187,8 @@ export function DateRangePicker() {
             <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
               <p className="text-xs text-muted-foreground">
                 {draftStart
-                  ? formatRangeDates({ from: draftStart, to: draftEnd ?? draftStart })
-                  : "Choisis une plage"}
+                  ? formatRangeDates({ from: draftStart, to: draftEnd ?? draftStart }, locale)
+                  : t("chooseRange")}
               </p>
               <div className="flex gap-2">
                 <button
@@ -192,7 +196,7 @@ export function DateRangePicker() {
                   onClick={() => setOpen(false)}
                   className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted/50"
                 >
-                  Annuler
+                  {t("cancel")}
                 </button>
                 <button
                   type="button"
@@ -200,7 +204,7 @@ export function DateRangePicker() {
                   onClick={applyCustomRange}
                   className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground disabled:opacity-50"
                 >
-                  Mettre à jour
+                  {t("update")}
                 </button>
               </div>
             </div>
@@ -246,6 +250,7 @@ function MonthGrid({
   end: string | null;
   onSelect: (iso: string) => void;
 }) {
+  const locale = useLocale();
   const todayIso = toIsoDate(todayUtc());
   const firstWeekday = (new Date(Date.UTC(year, month, 1)).getUTCDay() + 6) % 7; // Monday = 0
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
@@ -258,7 +263,7 @@ function MonthGrid({
   ];
 
   const monthLabel = capitalize(
-    new Date(Date.UTC(year, month, 1)).toLocaleDateString("fr-FR", { month: "long" })
+    new Date(Date.UTC(year, month, 1)).toLocaleDateString(locale, { month: "long" })
   );
 
   return (
@@ -267,7 +272,7 @@ function MonthGrid({
         {monthLabel} {year}
       </p>
       <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
-        {WEEKDAY_LABELS.map((label) => (
+        {Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2024, 0, index + 1)))).map((label) => (
           <span key={label} className="text-muted-foreground">
             {label}
           </span>

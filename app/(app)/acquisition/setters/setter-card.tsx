@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ export function SetterCard({
   setter: SetterRow;
   summary: Pick<SetterCommissions, "validatedSalesCount" | "validatedRevenueEur" | "commissionPaidEur" | "commissionUpcomingEur">;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("app.setters");
   const [pctInput, setPctInput] = useState(String(Math.round(setter.defaultCommissionPct * 100)));
   const [isPending, startTransition] = useTransition();
 
@@ -48,25 +51,25 @@ export function SetterCard({
 
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div>
-          <p className="text-xs text-muted-foreground">Ventes settées</p>
+          <p className="text-xs text-muted-foreground">{t("salesSet")}</p>
           <p className="font-bold tabular-nums">{summary.validatedSalesCount}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">CA setté</p>
-          <p className="font-bold tabular-nums">{formatEur(summary.validatedRevenueEur)}</p>
+          <p className="text-xs text-muted-foreground">{t("revenueSet")}</p>
+          <p className="font-bold tabular-nums">{formatEur(summary.validatedRevenueEur, locale)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">Commission payée</p>
-          <p className="font-bold tabular-nums text-state-healthy">{formatEur(summary.commissionPaidEur)}</p>
+          <p className="text-xs text-muted-foreground">{t("paidCommission")}</p>
+          <p className="font-bold tabular-nums text-state-healthy">{formatEur(summary.commissionPaidEur, locale)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">Commission à venir</p>
-          <p className="font-bold tabular-nums text-state-caution">{formatEur(summary.commissionUpcomingEur)}</p>
+          <p className="text-xs text-muted-foreground">{t("upcomingCommission")}</p>
+          <p className="font-bold tabular-nums text-state-caution">{formatEur(summary.commissionUpcomingEur, locale)}</p>
         </div>
       </div>
 
       <Button type="button" variant="outline" size="sm" className="self-start" asChild>
-        <Link href={`/acquisition/setters/${setter.id}`}>Voir le détail</Link>
+        <Link href={`/acquisition/setters/${setter.id}`}>{t("viewDetail")}</Link>
       </Button>
     </div>
   );

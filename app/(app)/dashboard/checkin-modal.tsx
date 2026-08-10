@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { Falco } from "@/components/falco/falco";
 import { KpiNumberField, type KpiFieldSource } from "@/components/kpi-number-field";
@@ -13,6 +14,7 @@ import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 
 import { submitWeeklyCheckin, type CheckinFeedback } from "./actions";
 
+<<<<<<< HEAD
 const SETTING_SOURCE: KpiFieldSource = {
   text: "Cette valeur vient de ta saisie journalière dans Pipeline. Modifie-la directement là-bas.",
   href: "/acquisition/pipeline/funnel",
@@ -32,6 +34,8 @@ function callsSource(source: MonthlyCallSource): KpiFieldSource {
   };
 }
 
+=======
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
 export function CheckinModal({
   open,
   onClose,
@@ -53,11 +57,22 @@ export function CheckinModal({
   closingSourced: boolean;
   callSource?: MonthlyCallSource | null;
 }) {
+  const t = useTranslations("dashboard");
   const router = useRouter();
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initialData);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [feedback, setFeedback] = useState<CheckinFeedback | "none" | null>(null);
+  const settingSource: KpiFieldSource = {
+    text: t("checkin.settingSource"),
+    href: "/acquisition/pipeline/funnel",
+    linkLabel: t("checkin.goToPipeline"),
+  };
+  const closingSource: KpiFieldSource = {
+    text: t("checkin.closingSource"),
+    href: "/ventes/appels/funnel",
+    linkLabel: t("checkin.goToCallTracking"),
+  };
 
   function update(patch: Partial<MonthlyMetricsInput>) {
     setDraft((prev) => ({ ...prev, ...patch }));
@@ -93,7 +108,7 @@ export function CheckinModal({
             {feedback === "none" ? (
               <>
                 <p className="text-2xl">✅</p>
-                <p className="font-bold">Chiffres mis à jour</p>
+                <p className="font-bold">{t("checkinUpdated")}</p>
               </>
             ) : feedback.afterPercent > feedback.beforePercent ? (
               <>
@@ -102,7 +117,7 @@ export function CheckinModal({
                   size="md"
                   animate="enter"
                   withBubble
-                  bubbleText={`De ${feedback.beforePercent}% à ${feedback.afterPercent}% sur ton ${feedback.label.toLowerCase()} ! Je savais que tu l'avais.`}
+                  bubbleText={t("improved", { before: feedback.beforePercent, after: feedback.afterPercent, label: feedback.label.toLowerCase() })}
                   className="justify-center"
                 />
               </>
@@ -110,73 +125,85 @@ export function CheckinModal({
               <>
                 <p className="text-2xl">🤔</p>
                 <p className="font-bold">
-                  Toujours à {feedback.afterPercent}% sur ton {feedback.label.toLowerCase()}. On regarde pourquoi ?
+                  {t("stillAt", { after: feedback.afterPercent, label: feedback.label.toLowerCase() })}
                 </p>
                 <Button asChild size="sm" variant="outline" className="self-center">
-                  <a href={`/diagnostic?open=${feedback.key}`}>Reprendre le chat →</a>
+                  <a href={`/diagnostic?open=${feedback.key}`}>{t("resumeChat")}</a>
                 </Button>
               </>
             )}
             <Button onClick={handleClose} className="self-center">
-              Fermer
+              {t("close")}
             </Button>
           </div>
         ) : (
           <>
-            <DialogTitle className="font-display text-lg font-bold">Ton check-in de la semaine</DialogTitle>
+            <DialogTitle className="font-display text-lg font-bold">{t("checkinTitle")}</DialogTitle>
 
             <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-6">
               <div className="grid gap-3 sm:grid-cols-2">
-                <KpiNumberField label="CA collecté (€)" value={draft.cashCollected} onChange={(v) => update({ cashCollected: v })} />
-                <KpiNumberField label="CA contracté (€)" value={draft.cashContracted} onChange={(v) => update({ cashContracted: v })} />
+                <KpiNumberField label={t("checkin.cashCollected")} value={draft.cashCollected} onChange={(v) => update({ cashCollected: v })} />
+                <KpiNumberField label={t("checkin.cashContracted")} value={draft.cashContracted} onChange={(v) => update({ cashContracted: v })} />
                 <KpiNumberField
-                  label="Nouveaux abonnés"
+                  label={t("checkin.newFollowers")}
                   value={draft.newFollowers}
                   onChange={(v) => update({ newFollowers: v })}
-                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                  disabledReason={settingSourced ? settingSource : undefined}
                 />
                 <KpiNumberField
-                  label="Premiers messages envoyés"
+                  label={t("checkin.firstMessages")}
                   value={draft.firstMessages}
                   onChange={(v) => update({ firstMessages: v })}
-                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                  disabledReason={settingSourced ? settingSource : undefined}
                 />
                 <KpiNumberField
-                  label="Conversations démarrées"
+                  label={t("checkin.conversations")}
                   value={draft.conversations}
                   onChange={(v) => update({ conversations: v })}
-                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                  disabledReason={settingSourced ? settingSource : undefined}
                 />
                 <KpiNumberField
-                  label="Appels proposés"
+                  label={t("checkin.callsProposed")}
                   value={draft.callsProposed}
                   onChange={(v) => update({ callsProposed: v })}
-                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                  disabledReason={settingSourced ? settingSource : undefined}
                 />
                 <KpiNumberField
-                  label="Appels réservés"
+                  label={t("checkin.callsBooked")}
                   value={draft.callsBooked}
                   onChange={(v) => update({ callsBooked: v })}
+<<<<<<< HEAD
                   disabledReason={settingSourced || callsBookedSourced ? (callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE) : undefined}
+=======
+                  disabledReason={settingSourced ? settingSource : undefined}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                 />
                 <KpiNumberField
-                  label="Appels pris"
+                  label={t("checkin.callsTaken")}
                   value={draft.callsTaken}
                   onChange={(v) => update({ callsTaken: v })}
+<<<<<<< HEAD
                   disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined}
+=======
+                  disabledReason={closingSourced ? closingSource : undefined}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                 />
                 <KpiNumberField
-                  label="Ventes conclues"
+                  label={t("checkin.salesClosed")}
                   value={draft.salesClosed}
                   onChange={(v) => update({ salesClosed: v })}
+<<<<<<< HEAD
                   disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined}
+=======
+                  disabledReason={closingSourced ? closingSource : undefined}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                 />
               </div>
 
               {error && <p className="text-sm text-state-critical">{error}</p>}
 
               <Button type="submit" disabled={isPending} className="self-start">
-                {isPending ? "Enregistrement..." : "Valider mon check-in"}
+                {isPending ? t("saving") : t("validateCheckin")}
               </Button>
             </form>
           </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageSquare } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import type { SalesCallRow } from "@/lib/iclosed/calls";
@@ -8,20 +9,6 @@ import { CallContactActions } from "@/components/call-contact-actions";
 
 import { CallDetailDrawer } from "./call-detail-drawer";
 import { AmountInput, CallResultSelect, TONE_DOT, TONE_TEXT, decisionUrgency, useCallOutcome } from "./call-outcome";
-
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function sourceLabel(source: string): string {
-  if (source === "calendly") return "Calendly";
-  if (source === "manual") return "Manuel";
-  if (source === "native") return "Rendez-vous natif";
-  return "iClosed";
-}
 
 export function CallsTable({
   calls,
@@ -32,6 +19,7 @@ export function CallsTable({
   pendingDecisions: SalesCallRow[];
   initialCallId: string | null;
 }) {
+  const t = useTranslations("app.calls");
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   // A pending decision can sit outside the current period, so look it up across
   // both lists for the drawer.
@@ -53,9 +41,9 @@ export function CallsTable({
         <PendingDecisions decisions={pendingDecisions} onOpen={setSelectedCallId} initialCallId={initialCallId} />
         {calls.length === 0 ? (
           <div className="sticker-card-dashed p-6 text-center">
-            <p className="text-sm font-bold">Aucun appel sur cette période</p>
+            <p className="text-sm font-bold">{t("emptyTitle")}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Change de période, ou attends de nouvelles réservations.
+              {t("emptyHelp")}
             </p>
           </div>
         ) : (
@@ -63,12 +51,12 @@ export function CallsTable({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">Date</th>
-                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">Invité</th>
-                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">Closer</th>
-                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">Issue</th>
-                  <th className="p-3 text-right text-xs font-bold text-muted-foreground">Contracté</th>
-                  <th className="p-3 text-right text-xs font-bold text-muted-foreground">Collecté</th>
+                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("date")}</th>
+                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("invitee")}</th>
+                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("closer")}</th>
+                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("outcome")}</th>
+                  <th className="p-3 text-right text-xs font-bold text-muted-foreground">{t("contracted")}</th>
+                  <th className="p-3 text-right text-xs font-bold text-muted-foreground">{t("collected")}</th>
                   <th className="p-3" />
                 </tr>
               </thead>
@@ -103,6 +91,7 @@ function PendingDecisions({
   onOpen: (id: string) => void;
   initialCallId: string | null;
 }) {
+  const t = useTranslations("app.calls");
   if (decisions.length === 0) return null;
   const sorted = [...decisions].sort((a, b) => {
     if (!a.decisionDueAt) return 1;
@@ -113,7 +102,7 @@ function PendingDecisions({
   return (
     <div className="sticker-card p-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-bold">Décisions en attente</p>
+        <p className="text-sm font-bold">{t("pendingDecisions")}</p>
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
           {decisions.length}
         </span>
@@ -131,7 +120,7 @@ function PendingDecisions({
               <span
                 className={`w-32 shrink-0 text-xs font-bold ${urgency ? TONE_TEXT[urgency.tone] : "text-muted-foreground"}`}
               >
-                {urgency ? urgency.label : "Date à définir"}
+                {urgency ? (urgency.days < 0 ? t("lateBy", { days: -urgency.days }) : urgency.days === 0 ? t("today") : t("inDays", { days: urgency.days })) : t("dateToDefine")}
               </span>
               <span className="min-w-0 flex-1 truncate">
                 <span className="font-bold">{call.inviteeName ?? "—"}</span>
@@ -151,7 +140,7 @@ function PendingDecisions({
                 onClick={() => onOpen(call.id)}
                 className="flex min-h-11 shrink-0 items-center rounded-[var(--radius-control)] px-2 py-1 text-xs font-bold text-muted-foreground hover:bg-background focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
               >
-                voir
+                {t("view")}
               </button>
             </li>
           );
@@ -162,6 +151,8 @@ function PendingDecisions({
 }
 
 function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments: (callId: string) => void }) {
+  const locale = useLocale();
+  const t = useTranslations("app.calls");
   const {
     result,
     contracted,
@@ -183,14 +174,14 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
   return (
     <tr className="border-b border-border last:border-0">
       <td className="p-3 align-top whitespace-nowrap text-muted-foreground">
-        {DATE_FORMAT.format(new Date(call.scheduledAt))}
+        {new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(call.scheduledAt))}
       </td>
       <td className="p-3 align-top">
         <p className="font-bold">{call.inviteeName ?? "—"}</p>
         {call.inviteeEmail && <p className="text-xs text-muted-foreground">{call.inviteeEmail}</p>}
         {call.inviteePhone && <p className="text-xs font-bold text-foreground">{call.inviteePhone}</p>}
         <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-          {sourceLabel(call.source)}
+          {t(`source.${call.source}`)}
         </p>
         <CallContactActions
           phone={call.inviteePhone}
@@ -209,7 +200,7 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
       <td className="p-3 align-top">
         {cancelled ? (
           <span className="rounded-full bg-state-unknown-bg px-2 py-0.5 text-xs font-bold text-state-unknown">
-            Annulé
+            {t("cancelled")}
           </span>
         ) : (
           <div className="flex flex-col gap-1.5">
@@ -218,22 +209,24 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
               <div className="flex items-center gap-2">
                 <input
                   type="date"
-                  aria-label="Réponse attendue le"
+                  aria-label={t("expectedResponseDate")}
                   value={dueDate}
                   onChange={(e) => commitDueDate(e.target.value)}
                   className="rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-xs outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
                 />
                 {dueUrgency ? (
-                  <span className={`text-[10px] font-bold ${TONE_TEXT[dueUrgency.tone]}`}>{dueUrgency.label}</span>
+                  <span className={`text-[10px] font-bold ${TONE_TEXT[dueUrgency.tone]}`}>
+                    {dueUrgency.days < 0 ? t("lateBy", { days: -dueUrgency.days }) : dueUrgency.days === 0 ? t("today") : t("inDays", { days: dueUrgency.days })}
+                  </span>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground">réponse attendue ?</span>
+                  <span className="text-[10px] text-muted-foreground">{t("expectedResponse")}</span>
                 )}
               </div>
             )}
           </div>
         )}
         {!cancelled && result === null && isFuture && (
-          <p className="mt-1 text-[10px] text-muted-foreground">à venir</p>
+          <p className="mt-1 text-[10px] text-muted-foreground">{t("upcoming")}</p>
         )}
         {error && <p className="mt-1 text-xs text-state-critical">{error}</p>}
       </td>
@@ -255,7 +248,7 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
         <button
           type="button"
           onClick={() => onOpenComments(call.id)}
-          aria-label="Commentaires"
+          aria-label={t("comments")}
           className="inline-flex items-center gap-1 rounded-[var(--radius-control)] px-2 py-1 text-xs font-bold text-muted-foreground hover:bg-muted"
         >
           <MessageSquare className="size-3.5" />

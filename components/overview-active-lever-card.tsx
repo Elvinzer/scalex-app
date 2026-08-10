@@ -1,3 +1,5 @@
+import { useLocale, useTranslations } from "next-intl";
+
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { formatPercent } from "@/lib/setting/funnel";
 
@@ -20,6 +22,8 @@ export function OverviewActiveLeverCard({
   benchmarkValue: number;
   score: number;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("common.shared");
   const tier = getHealthTier(score);
 
   return (
@@ -28,14 +32,14 @@ export function OverviewActiveLeverCard({
         <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{category}</p>
         <p className="mt-0.5 font-bold">{label}</p>
         <p className="mt-1 text-xs font-bold text-muted-foreground">
-          {formatPercent(statValue)} · benchmark {formatPercent(benchmarkValue)}
+          {formatPercent(statValue, locale)} · {t("benchmark")} {formatPercent(benchmarkValue, locale)}
         </p>
       </div>
       <span
         className="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold"
         style={{ background: `${tier.colorBar}22`, color: tier.colorText }}
       >
-        {tier.tier === "vert" ? "Actif" : "À surveiller"}
+        {tier.tier === "vert" ? t("active") : t("watch")}
       </span>
     </div>
   );

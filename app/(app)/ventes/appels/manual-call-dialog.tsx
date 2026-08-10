@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,7 @@ import type { SetterRow } from "@/lib/setters/types";
 
 import { createManualCallAction } from "./actions";
 
-const ATTENDANCE_OPTIONS = [
-  { value: "showed", label: "Honoré" },
-  { value: "no_show", label: "No-show" },
-  { value: "booked", label: "Réservé (à venir)" },
-  { value: "cancelled", label: "Annulé" },
-] as const;
+const ATTENDANCE_OPTIONS = ["showed", "no_show", "booked", "cancelled"] as const;
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -26,6 +22,7 @@ function today(): string {
 // décision) and amounts are set afterwards through the exact same inline
 // controls as any synced call (calls-table.tsx), never duplicated here.
 export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
+  const t = useTranslations("app.calls");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -62,19 +59,18 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
       <DialogTrigger asChild>
         <Button type="button" variant="outline">
           <Plus className="size-4" />
-          Ajouter un appel manuellement
+          {t("addManually")}
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-bold">Ajouter un appel manuellement</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{t("addManually")}</DialogTitle>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pas d&apos;iClosed ou Calendly ? Enregistre l&apos;appel toi-même, tu pourras marquer son issue juste après,
-          comme pour un appel synchronisé.
+          {t("manualHelp")}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Nom du prospect</span>
+            <span className="text-muted-foreground">{t("prospectName")}</span>
             <input
               type="text"
               name="inviteeName"
@@ -84,7 +80,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Email (optionnel)</span>
+            <span className="text-muted-foreground">{t("emailOptional")}</span>
             <input
               type="email"
               name="inviteeEmail"
@@ -93,7 +89,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Téléphone (optionnel)</span>
+            <span className="text-muted-foreground">{t("phoneOptional")}</span>
             <input
               type="tel"
               name="inviteePhone"
@@ -106,7 +102,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Date de l&apos;appel</span>
+              <span className="text-muted-foreground">{t("callDate")}</span>
               <input
                 type="date"
                 name="scheduledAt"
@@ -117,15 +113,15 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Issue</span>
+              <span className="text-muted-foreground">{t("outcome")}</span>
               <select
                 name="attendance"
                 defaultValue="showed"
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
               >
                 {ATTENDANCE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                  <option key={option} value={option}>
+                    {t(`attendance.${option}`)}
                   </option>
                 ))}
               </select>
@@ -134,7 +130,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Closer (optionnel)</span>
+              <span className="text-muted-foreground">{t("closerOptional")}</span>
               <input
                 type="text"
                 name="closer"
@@ -142,7 +138,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Setter (optionnel)</span>
+              <span className="text-muted-foreground">{t("setterOptional")}</span>
               <select
                 name="setterId"
                 defaultValue=""
@@ -161,7 +157,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : "Ajouter l'appel"}
+            {isPending ? t("saving") : t("addCall")}
           </Button>
         </form>
       </DialogContent>

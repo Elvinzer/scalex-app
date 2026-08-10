@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
+
 import { computeSectionCompletion } from "@/lib/business/completion";
 import type { UpsellPerformance } from "@/lib/business/performance";
 import type { BusinessDelivery, Offer, SupportFormat } from "@/lib/business/types";
@@ -12,14 +14,25 @@ import { useDebouncedSave } from "./use-debounced-save";
 const inputClass =
   "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
-const SUPPORT_FORMATS: { value: SupportFormat; label: string }[] = [
-  { value: "communaute", label: "Communauté" },
-  { value: "calls_groupe", label: "Calls de groupe" },
-  { value: "un_to_un", label: "1-to-1" },
-  { value: "aucun", label: "Aucun" },
+const SUPPORT_FORMATS: { value: SupportFormat; labelKey: string }[] = [
+  { value: "communaute", labelKey: "community" },
+  { value: "calls_groupe", labelKey: "groupCalls" },
+  { value: "un_to_un", labelKey: "oneToOne" },
+  { value: "aucun", labelKey: "none" },
 ];
 
 const TESTIMONIAL_CHANNELS = ["Site web", "Réseaux sociaux", "Page de vente", "Communauté", "Autre"];
+
+function translateChannel(channel: string, t: (key: string) => string) {
+  const keyByChannel: Record<string, string> = {
+    "Site web": "website",
+    "Réseaux sociaux": "social",
+    "Page de vente": "salesPage",
+    Communauté: "community",
+    Autre: "other",
+  };
+  return t(keyByChannel[channel] ?? channel);
+}
 
 // Read-only reference to the sales offers list, lifted from the parent page
 // state — the reason delivery-section can't be fully self-contained: the
@@ -37,6 +50,8 @@ export function DeliverySection({
   upsellPerformance: UpsellPerformance;
   onChange: (next: BusinessDelivery) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("business.delivery");
   const { schedule, status, error } = useDebouncedSave<BusinessDelivery>((next) =>
     saveBusinessSection("delivery", next)
   );
@@ -68,10 +83,8 @@ export function DeliverySection({
     <div className="sticker-card p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold">Délivrabilité</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ce qui se passe une fois que quelqu&apos;un a acheté.
-          </p>
+          <h2 className="text-base font-bold">{t("title")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("help")}</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <CompletionBadge answered={completion.answered} total={completion.total} />
@@ -81,9 +94,9 @@ export function DeliverySection({
 
       <div className="mt-6 flex flex-col gap-5">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-bold">Onboarding client</span>
+          <span className="font-bold">{t("clientOnboarding")}</span>
           <span className="text-xs text-muted-foreground">
-            Décris le parcours des 7 premiers jours.
+            {t("onboardingHelp")}
           </span>
           <textarea
             value={value.onboardingDescription}
@@ -95,7 +108,7 @@ export function DeliverySection({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-bold">Suivi client — format</span>
+            <span className="font-bold">{t("supportFormat")}</span>
             <select
               value={value.support.format ?? ""}
               onChange={(event) =>
@@ -108,16 +121,16 @@ export function DeliverySection({
               }
               className={inputClass}
             >
-              <option value="">Choisir...</option>
+              <option value="">{t("choose")}</option>
               {SUPPORT_FORMATS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </option>
               ))}
             </select>
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-bold">Fréquence</span>
+            <span className="font-bold">{t("frequency")}</span>
             <input
               type="text"
               value={value.support.frequency}
@@ -129,9 +142,9 @@ export function DeliverySection({
         </div>
 
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-bold">Témoignages</p>
+          <p className="text-sm font-bold">{t("testimonials")}</p>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-xs font-bold text-muted-foreground">Combien collectés</span>
+            <span className="text-xs font-bold text-muted-foreground">{t("collected")}</span>
             <input
               type="number"
               min={0}
@@ -161,7 +174,7 @@ export function DeliverySection({
                       : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-positive/50"
                   }
                 >
-                  {channel}
+                  {translateChannel(channel, t)}
                 </button>
               );
             })}
@@ -171,10 +184,8 @@ export function DeliverySection({
         <div id="upsell" className="scroll-mt-28 rounded-xl border border-border p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-bold">Upsell &amp; ascension</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Configure ici tes offres complémentaires et suis leur performance.
-              </p>
+              <p className="text-sm font-bold">{t("upsell")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("upsellHelp")}</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -186,7 +197,7 @@ export function DeliverySection({
                     : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
                 }
               >
-                Oui
+                {t("yes")}
               </button>
               <button
                 type="button"
@@ -197,7 +208,7 @@ export function DeliverySection({
                     : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
                 }
               >
-                Non
+                {t("no")}
               </button>
             </div>
           </div>
@@ -205,25 +216,25 @@ export function DeliverySection({
           {showPerformance && (
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
-              <p className="text-xs font-bold text-muted-foreground">Take-rate ce mois</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("takeRate")}</p>
               <p className="mt-1 font-display text-xl font-bold">
                 {upsellPerformance.takeRate === null ? "—" : `${Math.round(upsellPerformance.takeRate * 100)} %`}
               </p>
             </div>
             <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
-              <p className="text-xs font-bold text-muted-foreground">CA upsell ce mois</p>
-              <p className="mt-1 font-display text-xl font-bold">{formatEur(upsellPerformance.revenue)}</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("upsellRevenue")}</p>
+              <p className="mt-1 font-display text-xl font-bold">{formatEur(upsellPerformance.revenue, locale)}</p>
             </div>
             <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
-              <p className="text-xs font-bold text-muted-foreground">Panier avec upsell</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("basketWithUpsell")}</p>
               <p className="mt-1 font-display text-xl font-bold">
-                {upsellPerformance.avgWithUpsell === null ? "—" : formatEur(Math.round(upsellPerformance.avgWithUpsell))}
+                {upsellPerformance.avgWithUpsell === null ? "—" : formatEur(Math.round(upsellPerformance.avgWithUpsell), locale)}
               </p>
             </div>
             <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
-              <p className="text-xs font-bold text-muted-foreground">Panier sans upsell</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("basketWithoutUpsell")}</p>
               <p className="mt-1 font-display text-xl font-bold">
-                {upsellPerformance.avgWithoutUpsell === null ? "—" : formatEur(Math.round(upsellPerformance.avgWithoutUpsell))}
+                {upsellPerformance.avgWithoutUpsell === null ? "—" : formatEur(Math.round(upsellPerformance.avgWithoutUpsell), locale)}
               </p>
             </div>
             </div>
@@ -231,7 +242,7 @@ export function DeliverySection({
 
           {showPerformance && upsellOffers.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-bold text-muted-foreground">Performance par offre ce mois</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("offerPerformance")}</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {upsellOffers.map((offer) => {
                   const stats = upsellStatsByOfferId.get(offer.id);
@@ -247,14 +258,14 @@ export function DeliverySection({
                   return (
                     <div key={offer.id} className="rounded-[var(--radius-control)] border border-border p-3">
                       <div className="flex items-start justify-between gap-3">
-                        <p className="font-bold">{offer.name || "Offre sans nom"}</p>
+                        <p className="font-bold">{offer.name || t("unnamedOffer")}</p>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${scoreClass}`}>
-                          {stats?.score === null || stats?.score === undefined ? "Pas encore de données" : `Score ${stats.score}`}
+                          {stats?.score === null || stats?.score === undefined ? t("noData") : t("score", { score: stats.score })}
                         </span>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <p className="text-xs text-muted-foreground">Take-rate</p>
+                          <p className="text-xs text-muted-foreground">{t("takeRateShort")}</p>
                           <p className="font-bold tabular-nums">
                             {stats?.takeRate === null || stats?.takeRate === undefined
                               ? "—"
@@ -262,8 +273,8 @@ export function DeliverySection({
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-muted-foreground">CA généré</p>
-                          <p className="font-bold tabular-nums">{formatEur(stats?.revenue ?? 0)}</p>
+                          <p className="text-xs text-muted-foreground">{t("generatedRevenue")}</p>
+                          <p className="font-bold tabular-nums">{formatEur(stats?.revenue ?? 0, locale)}</p>
                         </div>
                       </div>
                     </div>
@@ -275,10 +286,10 @@ export function DeliverySection({
 
           {hasUpsell && (
             <label className="mt-4 flex flex-col gap-1.5 text-sm">
-              <span className="font-bold">Offre concernée</span>
+              <span className="font-bold">{t("relatedOffer")}</span>
               {offers.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Ajoute d&apos;abord une offre dans la section Offres &amp; prix.
+                  {t("addOfferFirst")}
                 </p>
               ) : (
                 <select
@@ -288,7 +299,7 @@ export function DeliverySection({
                 >
                   {offers.map((offer) => (
                     <option key={offer.id} value={offer.id}>
-                      {offer.name || "Offre sans nom"}
+                      {offer.name || t("unnamedOffer")}
                     </option>
                   ))}
                 </select>

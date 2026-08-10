@@ -3,6 +3,7 @@
 import { FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 
 import { CheckinModal } from "./checkin-modal";
 import { Falco } from "@/components/falco/falco";
@@ -18,25 +19,25 @@ import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { cn } from "@/lib/utils";
 
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short" });
-
-function weekLabel(weekStart: string): string {
+function weekLabel(weekStart: string, locale: string, format: (from: string, to: string) => string): string {
   const from = new Date(`${weekStart}T00:00:00Z`);
   const to = new Date(from.getTime() + 6 * 24 * 60 * 60 * 1000);
-  return `Semaine du ${DATE_FORMAT.format(from)} au ${DATE_FORMAT.format(to)}`;
+  const dateFormat = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", timeZone: "UTC" });
+  return format(dateFormat.format(from), dateFormat.format(to));
 }
 
 // Deterministic, no AI call — same "reliability over cleverness" precedent
 // as lib/diagnostic/lever-advice.ts's advice templates.
-function synthesisSentence(report: WeeklyReportRow): string {
+function synthesisSentence(report: WeeklyReportRow, format: (key: string, values?: Record<string, string | number>) => string): string {
   if (report.scoreDelta !== null && report.scoreDelta > 0) {
-    return `Bonne semaine : ton Scale Score a progressé de ${report.scoreDelta} point${report.scoreDelta > 1 ? "s" : ""}.`;
+    return format("goodWeek", { count: report.scoreDelta, plural: report.scoreDelta > 1 ? "s" : "" });
   }
   if (report.scoreDelta !== null && report.scoreDelta < 0) {
-    return `Semaine plus dure : ton Scale Score a reculé de ${Math.abs(report.scoreDelta)} point${Math.abs(report.scoreDelta) > 1 ? "s" : ""}.`;
+    const count = Math.abs(report.scoreDelta);
+    return format("hardWeek", { count, plural: count > 1 ? "s" : "" });
   }
-  if (report.bottleneck) return `Ton point à travailler cette semaine : ${report.bottleneck.label}.`;
-  return "Voici où en est ton business cette semaine.";
+  if (report.bottleneck) return format("weeklyFocus", { label: report.bottleneck.label });
+  return format("weeklyOverview");
 }
 
 // Replaces the old Rapport Daily (a combined KPI-entry form with a streak) —
@@ -63,6 +64,8 @@ export function WeeklyReportDialog({
   checkinClosingSourced: boolean;
   checkinCallSource: MonthlyCallSource | null;
 }) {
+  const t = useTranslations("dashboard");
+  const locale = useLocale();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -93,7 +96,7 @@ export function WeeklyReportDialog({
         <DialogTrigger asChild>
           <Button type="button" variant="secondary" className="relative">
             <FileText className="size-4" />
-            Rapport Hebdo
+            {t("weeklyReport")}
             {!checkInDoneThisWeek && (
               <span aria-hidden className="absolute -top-1 -right-1 size-2.5 rounded-full bg-state-caution ring-2 ring-card" />
             )}
@@ -101,7 +104,7 @@ export function WeeklyReportDialog({
         </DialogTrigger>
         <DialogContent className="max-w-[720px]">
           <DialogClose
-            aria-label="Fermer"
+            aria-label={t("close")}
             className="absolute top-4 right-4 flex size-7 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
           >
             <X className="size-4" />
@@ -109,10 +112,10 @@ export function WeeklyReportDialog({
 
           {!selected ? (
             <>
-              <DialogTitle className="text-lg font-bold">Rapport Hebdo</DialogTitle>
+              <DialogTitle className="text-lg font-bold">{t("weeklyReport")}</DialogTitle>
               <div className="mt-6 flex flex-col items-center gap-3 py-6 text-center">
                 <Falco pose="neutral" size="md" />
-                <p className="text-sm text-muted-foreground">Ton premier rapport arrive lundi prochain.</p>
+                <p className="text-sm text-muted-foreground">{t("firstReport")}</p>
               </div>
             </>
           ) : (
@@ -120,8 +123,8 @@ export function WeeklyReportDialog({
               <div className="flex items-start gap-3">
                 <Falco pose="neutral" size="sm" />
                 <div>
-                  <DialogTitle className="text-lg font-bold">{weekLabel(selected.weekStart)}</DialogTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">{synthesisSentence(selected)}</p>
+                  <DialogTitle className="text-lg font-bold">{weekLabel(selected.weekStart, locale, (from, to) => t("weekOf", { from, to }))}</DialogTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">{synthesisSentence(selected, (key, values) => t(key, values))}</p>
                 </div>
               </div>
 
@@ -158,7 +161,7 @@ export function WeeklyReportDialog({
                         )}
                       >
                         {selected.scoreDelta > 0 ? "+" : ""}
-                        {selected.scoreDelta} vs il y a 7 jours
+                        {selected.scoreDelta} {t("vsSevenDays")}
                       </p>
                     )}
                   </div>
@@ -167,25 +170,25 @@ export function WeeklyReportDialog({
 
               {selected.bottleneck && (
                 <div className="sticker-card-dashed mt-4 flex flex-col gap-2 p-4">
-                  <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Ton goulot de la semaine</p>
+                  <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("weeklyBottleneck")}</p>
                   <p className="text-sm font-bold">
                     {selected.bottleneck.label} — {selected.bottleneck.currentRatePercent}% (benchmark{" "}
                     {selected.bottleneck.benchmarkRatePercent}%)
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Manque à gagner estimé : {formatEur(selected.bottleneck.monthlyGain)}/mois.
+                    {t("estimatedGap", { amount: formatEur(selected.bottleneck.monthlyGain, locale) })}
                   </p>
                   <Button size="sm" variant="outline" className="self-start" onClick={() => setChatOpen(true)}>
-                    Améliorer →
+                    {t("improve")}
                   </Button>
                 </div>
               )}
 
               {!checkInDoneThisWeek && (
                 <div className="mt-4 flex items-center justify-between gap-4 rounded-[var(--radius-card)] bg-accent-2-soft px-4 py-3">
-                  <p className="text-sm font-bold text-accent-2-text">Check-in de cette semaine pas encore fait.</p>
+                  <p className="text-sm font-bold text-accent-2-text">{t("checkinNotDone")}</p>
                   <Button size="sm" variant="outline" onClick={() => setCheckinOpen(true)}>
-                    Faire mon check-in
+                    {t("doCheckin")}
                   </Button>
                 </div>
               )}
@@ -197,7 +200,7 @@ export function WeeklyReportDialog({
                     onClick={() => setShowHistory((prev) => !prev)}
                     className="text-xs font-bold text-muted-foreground hover:underline"
                   >
-                    {showHistory ? "Masquer" : "Voir"} les semaines précédentes
+                    {showHistory ? t("hide") : t("viewPrevious")}
                   </button>
                   {showHistory && (
                     <ul className="mt-2 flex flex-col gap-1">
@@ -211,7 +214,7 @@ export function WeeklyReportDialog({
                               index === selectedIndex ? "bg-surface-sunken font-bold" : "hover:bg-muted"
                             )}
                           >
-                            <span>{weekLabel(report.weekStart)}</span>
+                            <span>{weekLabel(report.weekStart, locale, (from, to) => t("weekOf", { from, to }))}</span>
                             {report.score !== null && <span className="text-muted-foreground">{report.score}/100</span>}
                           </button>
                         </li>

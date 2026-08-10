@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import {
   getActiveNudge,
@@ -9,16 +10,16 @@ import type { ExecutionProgress } from "@/lib/insight-execution/types";
 
 import { FollowUpControls } from "./initiative-controls";
 
-function statusLabel(progress: ExecutionProgress): string {
-  if (!progress.focus) return "Aucune priorité choisie";
-  if (progress.focus.status === "measured") return "Résultat mesuré";
+function statusLabel(progress: ExecutionProgress, t: (key: string) => string): string {
+  if (!progress.focus) return t("statuses.none");
+  if (progress.focus.status === "measured") return t("statuses.measured");
   if (
     progress.focus.status === "completed" ||
     progress.focus.status === "awaiting_measurement"
   )
-    return "Action terminée";
-  if (progress.focus.status === "cancelled") return "Écartée";
-  return progress.focus.status === "paused" ? "En pause" : "En cours";
+    return t("statuses.completed");
+  if (progress.focus.status === "cancelled") return t("statuses.cancelled");
+  return progress.focus.status === "paused" ? t("statuses.paused") : t("statuses.inProgress");
 }
 
 export async function ExecutionMomentumCard({
@@ -32,6 +33,8 @@ export async function ExecutionMomentumCard({
   compact?: boolean;
   canOpenDiagnostic?: boolean;
 }) {
+  const locale = await getLocale();
+  const t = await getTranslations("app.insights");
   const [progress, activeNudge, candidate] = await Promise.all([
     getExecutionProgress(accountId, viewerUserId),
     getActiveNudge(accountId, viewerUserId),
@@ -49,11 +52,11 @@ export async function ExecutionMomentumCard({
   const previousWeekCompleted = progress.previousWeeks[0]?.completed ?? 0;
   const milestoneMessage =
     progress.milestone === "measured"
-      ? "Résultat mesuré. Tu as maintenant un repère pour la suite."
+      ? t("milestoneMeasured")
       : progress.milestone === "completed"
-        ? "Action terminée. Tu peux maintenant vérifier ce qui a changé."
+        ? t("milestoneCompleted")
         : progress.milestone === "launched"
-          ? "Action lancée. Elle est maintenant suivie dans ton Journal."
+          ? t("milestoneLaunched")
           : null;
 
   return (
@@ -65,52 +68,51 @@ export async function ExecutionMomentumCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-            Cette semaine
+            {t("thisWeek")}
           </p>
           <h2
             id="execution-momentum-title"
             className="mt-1 text-base font-bold"
           >
-            Élan de la semaine
+            {t("momentumTitle")}
           </h2>
         </div>
         <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent-text">
-          {progress.completedThisWeek} terminée
-          {progress.completedThisWeek > 1 ? "s" : ""}
+          {progress.completedThisWeek} {progress.completedThisWeek > 1 ? t("completedPlural") : t("completed")}
         </span>
       </div>
 
       {progress.focus ? (
         <div className="rounded-[var(--radius-control)] border border-accent-border bg-accent-soft/40 p-4">
           <p className="text-xs font-bold text-accent-text">
-            Priorité active · {statusLabel(progress)}
+            {t("activePriority", { status: statusLabel(progress, t) })}
           </p>
           <p className="mt-1 font-bold">{progress.focus.title}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {progress.focus.assignedMember
-              ? `Responsable : ${progress.focus.assignedMember.name}`
-              : "Responsable : toi"}
+              ? t("owner", { name: progress.focus.assignedMember.name })
+              : t("you")}
           </p>
           <Link
             href={followUpHref(progress.focus.id)}
             className="mt-3 inline-flex text-xs font-bold text-accent-text hover:underline"
           >
-            Ouvrir le suivi
+            {t("openFollowUp")}
           </Link>
         </div>
       ) : (
         <div className="rounded-[var(--radius-control)] border border-dashed border-border p-4">
           <p className="text-sm font-bold">
-            Choisis une action à faire avancer.
+            {t("chooseAction")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Une seule priorité active, le reste peut attendre.
+            {t("onePriority")}
           </p>
           <Link
             href="/diagnostic#insight-history"
             className="mt-3 inline-flex text-xs font-bold text-accent-text hover:underline"
           >
-            Voir tes insights
+            {t("viewInsights")}
           </Link>
         </div>
       )}
@@ -122,7 +124,7 @@ export async function ExecutionMomentumCard({
               {progress.launchedThisWeek}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              lancée{progress.launchedThisWeek > 1 ? "s" : ""}
+              {progress.launchedThisWeek > 1 ? t("launchedPlural") : t("launched")}
             </p>
           </div>
           <div>
@@ -130,7 +132,7 @@ export async function ExecutionMomentumCard({
               {progress.completedThisWeek}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              terminée{progress.completedThisWeek > 1 ? "s" : ""}
+              {progress.completedThisWeek > 1 ? t("completedPlural") : t("completed")}
             </p>
           </div>
           <div>
@@ -138,17 +140,14 @@ export async function ExecutionMomentumCard({
               {progress.measuredThisWeek}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              mesurée{progress.measuredThisWeek > 1 ? "s" : ""}
+              {progress.measuredThisWeek > 1 ? t("measuredPlural") : t("measured")}
             </p>
           </div>
         </div>
       )}
 
       <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-        Ton rythme : {completedPreviousWeeks} action
-        {completedPreviousWeeks > 1 ? "s" : ""} terminée
-        {completedPreviousWeeks > 1 ? "s" : ""} sur les 4 semaines précédentes,
-        contre {previousWeekCompleted} la semaine dernière.
+        {t("pace", { completed: completedPreviousWeeks, previous: previousWeekCompleted })}
       </p>
 
       {milestoneMessage && (
@@ -162,18 +161,18 @@ export async function ExecutionMomentumCard({
 
       {nudge && (
         <div className="border-t border-border pt-3">
-          <p className="text-sm font-bold">Falco te rappelle : {nudge.title}</p>
+          <p className="text-sm font-bold">{t("falcoReminder", { title: nudge.title })}</p>
           <p className="mt-1 text-xs text-muted-foreground">{nudge.reason}</p>
           {nudge.dueDate && (
             <p className="mt-1 text-xs text-muted-foreground">
-              Échéance : {new Date(`${nudge.dueDate}T00:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}
+              {t("dueDate", { date: new Date(`${nudge.dueDate}T00:00:00Z`).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) })}
             </p>
           )}
           <Link
             href={followUpHref(nudge.initiativeId)}
             className="mt-2 inline-flex text-xs font-bold text-accent-text hover:underline"
           >
-            Ouvrir le suivi
+            {t("openFollowUp")}
           </Link>
           <FollowUpControls
             initiativeId={nudge.initiativeId}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Send, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
@@ -62,7 +63,8 @@ function renderMarkdownLite(text: string) {
 async function streamChat(
   endpoint: string,
   body: Record<string, unknown>,
-  onToken: (token: string) => void
+  onToken: (token: string) => void,
+  fallbackError: string,
 ): Promise<{ error: string | null }> {
   const response = await fetch(endpoint, {
     method: "POST",
@@ -72,7 +74,7 @@ async function streamChat(
 
   if (!response.ok || !response.body) {
     const data = await response.json().catch(() => null);
-    return { error: data?.error ?? "L'IA n'a pas pu répondre. Réessaie dans un instant." };
+    return { error: data?.error ?? fallbackError };
   }
 
   const reader = response.body.getReader();
@@ -119,6 +121,7 @@ export function AiChatPanel({
   title: string;
   gapBadge: string | null;
 }) {
+  const t = useTranslations("common.shared");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -149,7 +152,7 @@ export function AiChatPanel({
         }
         return next;
       });
-    });
+    }, t("aiError"));
 
     if (result.error) {
       setMessages((prev) => {
@@ -214,7 +217,7 @@ export function AiChatPanel({
           value={input}
           onChange={(event) => setInput(event.target.value)}
           disabled={isStreaming || limitReached}
-          placeholder={limitReached ? "Limite de messages atteinte" : "Écris ton message..."}
+          placeholder={limitReached ? t("messageLimit") : t("writeMessage")}
           className="flex-1 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12 disabled:opacity-50"
         />
         <button

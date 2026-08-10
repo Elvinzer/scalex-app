@@ -1,5 +1,5 @@
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
-import { EMPTY_MONTHLY_METRICS, MONTH_LABELS } from "@/lib/monthly-metrics/types";
+import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
@@ -8,6 +8,7 @@ import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { formatEur } from "@/lib/currency";
 import { rate, formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
+import { useLocale, useTranslations } from "next-intl";
 
 const STATUS_BADGE: Record<string, string> = {
   complete: "bg-state-healthy-bg text-state-healthy",
@@ -35,9 +36,19 @@ export function MonthCard({
   callSourcesByMonth: Record<string, MonthlyCallSource>;
   onOpen: () => void;
 }) {
+<<<<<<< HEAD
   // Same merge as MonthModal: fields sourced from Suivi d'appel or daily
   // Setting/Closing entries are shown pre-filled rather than from the monthly
   // row itself — the completion badge must count them too.
+=======
+  const t = useTranslations("data");
+  const locale = useLocale();
+  const monthLabel = new Date(Date.UTC(year, monthIndex - 1, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
+  // Same merge as MonthModal: fields sourced from daily Setting/Closing
+  // entries are shown there pre-filled (greyed, read-only) rather than from
+  // the monthly row itself — the completion badge must count them too, or
+  // it under-reports "X/9" for months filled via daily check-ins.
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   const overlay = resolveDailySourceOverlay(monthDateRange(year, monthIndex), allSettingEntries, allClosingEntries, {
     settingManualOverride: row?.settingManualOverride,
     closingManualOverride: row?.closingManualOverride,
@@ -49,8 +60,8 @@ export function MonthCard({
   if (isFuture) {
     return (
       <div className="sticker-card-dashed flex flex-col p-5 opacity-40">
-        <p className="font-bold">{MONTH_LABELS[monthIndex - 1]}</p>
-        <p className="mt-2 text-sm text-muted-foreground">À venir</p>
+        <p className="font-bold">{monthLabel}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("comingSoon")}</p>
       </div>
     );
   }
@@ -67,38 +78,38 @@ export function MonthCard({
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="font-bold">{MONTH_LABELS[monthIndex - 1]}</p>
+        <p className="font-bold">{monthLabel}</p>
         {status === "complete" && (
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE.complete)}>
-            Complet
+            {t("complete")}
           </span>
         )}
         {status === "partial" && (
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE.partial)}>
-            {completion.count}/{completion.total} renseignés
+            {completion.count}/{completion.total} {t("entered")}
           </span>
         )}
       </div>
 
       {status === "empty" && (
         <>
-          <p className="mt-3 text-sm text-muted-foreground">Aucune donnée</p>
-          <span className="mt-auto pt-3 text-sm font-bold text-foreground">+ Remplir</span>
+          <p className="mt-3 text-sm text-muted-foreground">{t("noData")}</p>
+          <span className="mt-auto pt-3 text-sm font-bold text-foreground">{t("fill")}</span>
         </>
       )}
 
       {status !== "empty" && (
         <div className="mt-3 flex flex-col gap-1 text-sm text-muted-foreground">
           <p className="font-bold text-foreground tabular-nums">
-            {data.cashCollected !== null ? formatEur(data.cashCollected) : "—"} collectés
+            {data.cashCollected !== null ? formatEur(data.cashCollected, locale) : "—"} {t("collected")}
           </p>
-          <p className="tabular-nums">{data.salesClosed !== null ? data.salesClosed : "—"} ventes conclues</p>
+          <p className="tabular-nums">{data.salesClosed !== null ? data.salesClosed : "—"} {t("closedSales")}</p>
           <p className="tabular-nums">
             {(() => {
               const closingRate = rate(data.salesClosed ?? 0, data.callsTaken ?? 0);
-              return closingRate === null ? "—" : formatPercent(closingRate);
+              return closingRate === null ? "—" : formatPercent(closingRate, locale);
             })()}{" "}
-            de closing
+            {t("closing")}
           </p>
         </div>
       )}

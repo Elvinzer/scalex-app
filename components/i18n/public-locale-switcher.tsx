@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { LOCALES, LOCALE_SHORT_LABELS, type Locale } from "@/lib/i18n/config";
 import { setLocaleAction } from "@/lib/i18n/actions";
@@ -14,12 +15,14 @@ import { cn } from "@/lib/utils";
 // separator, no flags, no coral, no dropdown. It must read as metadata, not
 // as an action competing with "Se connecter".
 export function PublicLocaleSwitcher({ current }: { current: Locale }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   function choose(locale: Locale) {
     if (locale === current) return;
     startTransition(async () => {
       await setLocaleAction(locale);
+      router.refresh();
     });
   }
 

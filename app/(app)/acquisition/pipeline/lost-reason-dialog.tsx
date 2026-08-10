@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { LEAD_LOST_REASON_LABELS, LEAD_LOST_REASONS, type LeadLostReason } from "@/lib/leads/types";
+import { LEAD_LOST_REASONS, type LeadLostReason } from "@/lib/leads/types";
 
 import { changeStageAction } from "./lead-actions";
 
@@ -19,13 +20,14 @@ export function LostReasonDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations("pipeline");
   const [reason, setReason] = useState<LeadLostReason | "">("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleConfirm() {
     if (!reason) {
-      setError("Choisis un motif.");
+      setError(t("lost.chooseReason"));
       return;
     }
     setError(null);
@@ -42,7 +44,7 @@ export function LostReasonDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle className="text-lg font-bold">Pourquoi ce lead est perdu ?</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{t("lost.title")}</DialogTitle>
         <div className="mt-4 flex flex-col gap-2">
           {LEAD_LOST_REASONS.map((value) => (
             <button
@@ -55,13 +57,13 @@ export function LostReasonDialog({
                   : "rounded-[var(--radius-control)] border border-border px-3 py-2 text-left text-sm hover:bg-muted"
               }
             >
-              {LEAD_LOST_REASON_LABELS[value]}
+              {t(`lostReason.${value}`)}
             </button>
           ))}
         </div>
         {error && <p className="mt-2 text-sm text-state-critical">{error}</p>}
         <Button className="mt-4 self-start" disabled={isPending} onClick={handleConfirm}>
-          {isPending ? "Enregistrement..." : "Confirmer"}
+          {isPending ? t("lost.saving") : t("lost.confirm")}
         </Button>
       </DialogContent>
     </Dialog>

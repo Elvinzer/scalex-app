@@ -16,8 +16,11 @@ import { formatPercent } from "@/lib/setting/funnel";
 type SettingEntry = typeof settingKpiEntries.$inferSelect;
 type ClosingEntry = typeof closingKpiEntries.$inferSelect;
 
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 const MONTHS = 8;
+
+function formatNumber(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale).format(value);
+}
 
 export type MetricCard =
   | {
@@ -62,7 +65,7 @@ type MonthBucket = { year: number; month: number; range: DateRange; label: strin
 // (possibly still-in-progress) month — the merge unit shared with
 // lib/monthly-metrics/resolve.ts, since monthly_metrics can't be blended into
 // a rolling day-count window.
-function monthBuckets(count: number): MonthBucket[] {
+function monthBuckets(count: number, locale = "fr-FR"): MonthBucket[] {
   const today = todayUtc();
   const buckets: MonthBucket[] = [];
 
@@ -78,7 +81,7 @@ function monthBuckets(count: number): MonthBucket[] {
       year,
       month,
       range: { from: toIsoDate(first), to: toIsoDate(to) },
-      label: first.toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" }),
+      label: first.toLocaleDateString(locale, { month: "short", timeZone: "UTC" }),
     });
   }
 
@@ -93,24 +96,28 @@ function monthBuckets(count: number): MonthBucket[] {
 export function countDelta(
   current: number,
   previous: number,
-  unitLabel: string = "mois précédent"
+  unitLabel?: string,
+  locale = "fr-FR",
 ): { label: string; direction: "up" | "down" | null } {
+  const resolvedUnitLabel = unitLabel ?? (locale === "en" ? "previous month" : "mois précédent");
   const diff = current - previous;
-  if (diff === 0) return { label: `= vs ${unitLabel}`, direction: null };
+  if (diff === 0) return { label: `= vs ${resolvedUnitLabel}`, direction: null };
   const sign = diff > 0 ? "+" : "";
-  return { label: `${sign}${NUMBER_FORMAT.format(diff)} vs ${unitLabel}`, direction: diff > 0 ? "up" : "down" };
+  return { label: `${sign}${formatNumber(diff, locale)} vs ${resolvedUnitLabel}`, direction: diff > 0 ? "up" : "down" };
 }
 
 export function rateDelta(
   current: number | null,
   previous: number | null,
-  unitLabel: string = "mois précédent"
+  unitLabel?: string,
+  locale = "fr-FR",
 ): { label: string; direction: "up" | "down" | null } | null {
+  const resolvedUnitLabel = unitLabel ?? (locale === "en" ? "previous month" : "mois précédent");
   if (current === null || previous === null) return null;
   const diffPts = Math.round((current - previous) * 100);
-  if (diffPts === 0) return { label: `= vs ${unitLabel}`, direction: null };
+  if (diffPts === 0) return { label: `= vs ${resolvedUnitLabel}`, direction: null };
   const sign = diffPts > 0 ? "+" : "";
-  return { label: `${sign}${diffPts} pts vs ${unitLabel}`, direction: diffPts > 0 ? "up" : "down" };
+  return { label: `${sign}${formatNumber(diffPts, locale)} pts vs ${resolvedUnitLabel}`, direction: diffPts > 0 ? "up" : "down" };
 }
 
 export function buildMetricCards({
@@ -120,6 +127,7 @@ export function buildMetricCards({
   allMonthlyRows,
   callSourcesByMonth = {},
   isStripeConnected,
+  locale = "fr-FR",
 }: {
   businessProfile: BusinessProfileData;
   allSettingEntries: SettingEntry[];
@@ -131,8 +139,10 @@ export function buildMetricCards({
   // resolveMonthCashCollected/resolveMonthNewCustomers below), just gates the
   // "missing data" card copy (connected-but-not-yet-synced vs never connected).
   isStripeConnected: boolean;
+  locale?: string;
 }): MetricCard[] {
-  const buckets = monthBuckets(MONTHS);
+  const intlLocale = locale === "en" ? "en-GB" : "fr-FR";
+  const buckets = monthBuckets(MONTHS, intlLocale);
 
   const resolved = buckets.map((bucket) => {
     const monthlyRow = allMonthlyRows.find((row) => row.year === bucket.year && row.month === bucket.month) ?? null;
@@ -176,13 +186,13 @@ export function buildMetricCards({
     });
   } else {
     const previousAmount = previous.cash.amount ?? 0;
-    const delta = countDelta(Math.round(current.cash.amount), Math.round(previousAmount));
+    const delta = countDelta(Math.round(current.cash.amount), Math.round(previousAmount), undefined, intlLocale);
     cards.push({
       key: "revenue",
       label: "CA encaissé",
       href: "/datas",
       status: "ok",
-      valueLabel: formatEur(current.cash.amount),
+      valueLabel: formatEur(current.cash.amount, intlLocale),
       deltaLabel: delta.label,
       deltaDirection: delta.direction,
       sparklineValues: resolved.map((r) => r.cash.amount ?? 0),
@@ -204,13 +214,13 @@ export function buildMetricCards({
     });
   } else {
     const previousCount = previous.newCustomers.amount ?? 0;
-    const delta = countDelta(current.newCustomers.amount, previousCount);
+    const delta = countDelta(current.newCustomers.amount, previousCount, undefined, intlLocale);
     cards.push({
       key: "new-customers",
       label: "Nouveaux clients",
       href: "/integrations",
       status: "ok",
-      valueLabel: NUMBER_FORMAT.format(current.newCustomers.amount),
+      valueLabel: formatNumber(current.newCustomers.amount, intlLocale),
       deltaLabel: delta.label,
       deltaDirection: delta.direction,
       sparklineValues: resolved.map((r) => r.newCustomers.amount ?? 0),
@@ -231,13 +241,13 @@ export function buildMetricCards({
         ctaLabel: "Remplir dans Datas",
       });
     } else {
-      const delta = countDelta(current.settingTotals.newSubscribers, previous.settingTotals.newSubscribers);
+      const delta = countDelta(current.settingTotals.newSubscribers, previous.settingTotals.newSubscribers, undefined, intlLocale);
       cards.push({
         key: "leads",
         label: "Leads générés",
         href: "/datas",
         status: "ok",
-        valueLabel: NUMBER_FORMAT.format(current.settingTotals.newSubscribers),
+        valueLabel: formatNumber(current.settingTotals.newSubscribers, intlLocale),
         deltaLabel: delta.label,
         deltaDirection: delta.direction,
         sparklineValues: resolved.map((r) => r.settingTotals.newSubscribers),
@@ -256,13 +266,13 @@ export function buildMetricCards({
         ctaLabel: "Remplir dans Datas",
       });
     } else {
-      const delta = countDelta(current.settingTotals.callsBooked, previous.settingTotals.callsBooked);
+      const delta = countDelta(current.settingTotals.callsBooked, previous.settingTotals.callsBooked, undefined, intlLocale);
       cards.push({
         key: "bookings",
         label: "RDV réservés",
         href: "/datas",
         status: "ok",
-        valueLabel: NUMBER_FORMAT.format(current.settingTotals.callsBooked),
+        valueLabel: formatNumber(current.settingTotals.callsBooked, intlLocale),
         deltaLabel: delta.label,
         deltaDirection: delta.direction,
         sparklineValues: resolved.map((r) => r.settingTotals.callsBooked),
@@ -301,13 +311,13 @@ export function buildMetricCards({
       ctaLabel: "Remplir dans Datas",
     });
   } else {
-    const delta = rateDelta(current.closingRates.closingRate, previous.closingRates.closingRate);
+    const delta = rateDelta(current.closingRates.closingRate, previous.closingRates.closingRate, undefined, intlLocale);
     cards.push({
       key: "closing-rate",
       label: "Taux de closing",
       href: "/datas",
       status: "ok",
-      valueLabel: current.closingRates.closingRate === null ? "—" : formatPercent(current.closingRates.closingRate),
+      valueLabel: current.closingRates.closingRate === null ? "—" : formatPercent(current.closingRates.closingRate, intlLocale),
       deltaLabel: delta?.label ?? null,
       deltaDirection: delta?.direction ?? null,
       sparklineValues: resolved.map((r) => r.closingRates.closingRate ?? 0),
@@ -330,13 +340,13 @@ export function buildMetricCards({
       ctaLabel: "Remplir dans Datas",
     });
   } else {
-    const delta = rateDelta(current.closingRates.showUpRate, previous.closingRates.showUpRate);
+    const delta = rateDelta(current.closingRates.showUpRate, previous.closingRates.showUpRate, undefined, intlLocale);
     cards.push({
       key: "show-up-rate",
       label: "Taux de show up",
       href: "/datas",
       status: "ok",
-      valueLabel: current.closingRates.showUpRate === null ? "—" : formatPercent(current.closingRates.showUpRate),
+      valueLabel: current.closingRates.showUpRate === null ? "—" : formatPercent(current.closingRates.showUpRate, intlLocale),
       deltaLabel: delta?.label ?? null,
       deltaDirection: delta?.direction ?? null,
       sparklineValues: resolved.map((r) => r.closingRates.showUpRate ?? 0),
@@ -362,13 +372,13 @@ export function buildMetricCards({
       previous.cash.amount !== null && previous.closingTotals.salesClosed > 0
         ? previous.cash.amount / previous.closingTotals.salesClosed
         : null;
-    const delta = previousAvg === null ? null : countDelta(Math.round(currentAvg), Math.round(previousAvg));
+    const delta = previousAvg === null ? null : countDelta(Math.round(currentAvg), Math.round(previousAvg), undefined, intlLocale);
     cards.push({
       key: "average-sale",
       label: "Panier moyen",
       href: "/datas",
       status: "ok",
-      valueLabel: formatEur(currentAvg),
+      valueLabel: formatEur(currentAvg, intlLocale),
       deltaLabel: delta?.label ?? null,
       deltaDirection: delta?.direction ?? null,
       sparklineValues: resolved.map((r) =>

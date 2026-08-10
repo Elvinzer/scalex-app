@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -8,17 +9,12 @@ import type { ClosingVideoOutcome, ClosingVideoRow } from "@/lib/closing-videos/
 
 import { saveClosingVideo } from "./actions";
 
-const OUTCOME_LABELS: Record<ClosingVideoOutcome, string> = {
-  closed: "Vente conclue",
-  not_closed: "Vente non conclue",
-  pending: "En attente",
-};
-
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; trigger: React.ReactNode }) {
+  const t = useTranslations("sales.closingVideos");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -52,13 +48,13 @@ export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; t
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogTitle className="text-lg font-bold">
-          {video ? "Modifier l'appel" : "Ajouter un appel"}
+          {video ? t("editCall") : t("addCallTitle")}
         </DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Client</span>
+              <span className="text-muted-foreground">{t("client")}</span>
               <input
                 type="text"
                 name="clientName"
@@ -68,7 +64,7 @@ export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; t
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Date de l&apos;appel</span>
+              <span className="text-muted-foreground">{t("callDate")}</span>
               <input
                 type="date"
                 name="callDate"
@@ -82,22 +78,22 @@ export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; t
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Issue</span>
+              <span className="text-muted-foreground">{t("outcome")}</span>
               <select
                 name="outcome"
                 required
                 defaultValue={video?.outcome ?? "pending"}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
               >
-                {Object.entries(OUTCOME_LABELS).map(([value, label]) => (
+                {(["closed", "not_closed", "pending"] as ClosingVideoOutcome[]).map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t(`outcomes.${value}`)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Lien (enregistrement)</span>
+              <span className="text-muted-foreground">{t("link")}</span>
               <input
                 type="url"
                 name="url"
@@ -108,18 +104,18 @@ export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; t
           </div>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Transcription (optionnel, pour l&apos;analyse IA)</span>
+            <span className="text-muted-foreground">{t("transcript")}</span>
             <textarea
               name="transcript"
               rows={6}
               defaultValue={video?.transcript ?? ""}
-              placeholder="Colle la transcription de l'appel ici si tu en as une..."
+              placeholder={t("transcriptPlaceholder")}
               className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             />
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Notes (si pas de transcription)</span>
+            <span className="text-muted-foreground">{t("notes")}</span>
             <textarea
               name="notes"
               rows={3}
@@ -131,7 +127,7 @@ export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; t
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : video ? "Enregistrer" : "Ajouter l'appel"}
+            {isPending ? t("saving") : video ? t("save") : t("addCallAction")}
           </Button>
         </form>
       </DialogContent>

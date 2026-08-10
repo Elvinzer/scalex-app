@@ -115,21 +115,21 @@ function capitalize(value: string): string {
 
 // Previous full calendar months, most recent first, excluding the current month
 // (already covered by the "current-month" preset).
-export function previousMonthOptions(count: number, referenceDate = todayUtc()): MonthOption[] {
+export function previousMonthOptions(count: number, referenceDate = todayUtc(), locale = "fr-FR"): MonthOption[] {
   const options: MonthOption[] = [];
   for (let i = 1; i <= count; i++) {
     const date = new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth() - i, 1));
     const key = `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}`;
     const label = capitalize(
-      date.toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" })
+      date.toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" })
     );
     options.push({ preset: `month:${key}`, label });
   }
   return options;
 }
 
-export function formatDisplayDate(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("fr-FR", {
+export function formatDisplayDate(iso: string, locale = "fr-FR"): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -137,20 +137,22 @@ export function formatDisplayDate(iso: string): string {
   });
 }
 
-export function formatRangeDates(range: DateRange): string {
-  return `${formatDisplayDate(range.from)} – ${formatDisplayDate(range.to)}`;
+export function formatRangeDates(range: DateRange, locale = "fr-FR"): string {
+  return `${formatDisplayDate(range.from, locale)} – ${formatDisplayDate(range.to, locale)}`;
 }
 
 // Full label shown on the trigger button, e.g. "30 derniers jours : 17 juin 2026 – 16 juil. 2026".
 export function formatTriggerLabel(
   preset: string,
   range: DateRange | null,
-  monthOptions: MonthOption[]
+  monthOptions: MonthOption[],
+  locale = "fr-FR",
+  presetLabels: Record<string, string> = PRESET_LABELS
 ): string {
-  if (!range) return PRESET_LABELS.all;
-  if (preset === "custom") return formatRangeDates(range);
+  if (!range) return presetLabels.all;
+  if (preset === "custom") return formatRangeDates(range, locale);
 
   const knownLabel =
-    PRESET_LABELS[preset] ?? monthOptions.find((option) => option.preset === preset)?.label;
-  return knownLabel ? `${knownLabel} : ${formatRangeDates(range)}` : formatRangeDates(range);
+    presetLabels[preset] ?? monthOptions.find((option) => option.preset === preset)?.label;
+  return knownLabel ? `${knownLabel} : ${formatRangeDates(range, locale)}` : formatRangeDates(range, locale);
 }

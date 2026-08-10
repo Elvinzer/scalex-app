@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,14 +9,15 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 
 import { createProject } from "./actions";
 
-const CATEGORY_OPTIONS: { value: "acquisition" | "vente" | "delivrabilite" | "autre"; label: string }[] = [
-  { value: "acquisition", label: "Acquisition" },
-  { value: "vente", label: "Vente" },
-  { value: "delivrabilite", label: "Délivrabilité" },
-  { value: "autre", label: "Autre" },
+const CATEGORY_OPTIONS: { value: "acquisition" | "vente" | "delivrabilite" | "autre" }[] = [
+  { value: "acquisition" },
+  { value: "vente" },
+  { value: "delivrabilite" },
+  { value: "autre" },
 ];
 
 export function NewProjectDialog() {
+  const t = useTranslations("journal.newProject");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -59,7 +61,7 @@ export function NewProjectDialog() {
     setError(null);
     const milestoneTitles = milestones.map((m) => m.trim()).filter(Boolean);
     if (!name.trim() || milestoneTitles.length === 0) {
-      setError("Un nom et au moins un jalon sont requis.");
+      setError(t("validation"));
       return;
     }
     startTransition(async () => {
@@ -79,15 +81,15 @@ export function NewProjectDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="secondary" size="sm">
-          + Nouveau projet
+          {t("trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-bold">Nouveau projet</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{t("title")}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-bold">Nom</span>
+            <span className="font-bold">{t("name")}</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -97,7 +99,7 @@ export function NewProjectDialog() {
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-bold">Description courte</span>
+            <span className="font-bold">{t("description")}</span>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -107,7 +109,7 @@ export function NewProjectDialog() {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-bold">Catégorie</span>
+              <span className="font-bold">{t("category")}</span>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as typeof category)}
@@ -115,13 +117,13 @@ export function NewProjectDialog() {
               >
                 {CATEGORY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(`categories.${option.value}`)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-bold">Échéance (optionnel)</span>
+              <span className="font-bold">{t("deadline")}</span>
               <input
                 type="date"
                 value={deadline}
@@ -132,14 +134,14 @@ export function NewProjectDialog() {
           </div>
 
           <div>
-            <span className="text-sm font-bold">Jalons</span>
+            <span className="text-sm font-bold">{t("milestones")}</span>
             <div className="mt-2 flex flex-col gap-2">
               {milestones.map((milestone, index) => (
                 <div key={index} className="flex items-center gap-1.5">
                   <input
                     value={milestone}
                     onChange={(e) => updateMilestone(index, e.target.value)}
-                    placeholder={`Jalon ${index + 1}`}
+                    placeholder={t("milestonePlaceholder", { number: index + 1 })}
                     className="flex-1 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent"
                   />
                   <button type="button" onClick={() => moveMilestone(index, -1)} disabled={index === 0} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30">
@@ -155,14 +157,14 @@ export function NewProjectDialog() {
               ))}
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={addMilestone} className="mt-2">
-              + Ajouter un jalon
+              {t("addMilestone")}
             </Button>
           </div>
 
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Création..." : "Créer le projet"}
+            {isPending ? t("creating") : t("create")}
           </Button>
         </form>
       </DialogContent>

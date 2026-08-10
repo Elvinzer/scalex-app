@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { AdCopyChat } from "@/components/ad-copy-chat";
@@ -9,6 +10,7 @@ import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import type { Offer } from "@/lib/business/types";
 
 export function AdCopyTrigger({ offers }: { offers: Offer[] }) {
+  const t = useTranslations("app.ads");
   const [open, setOpen] = useState(false);
   const [offerId, setOfferId] = useState<string>(offers.find((o) => o.isMain)?.id ?? offers[0]?.id ?? "");
 
@@ -19,7 +21,7 @@ export function AdCopyTrigger({ offers }: { offers: Offer[] }) {
       <DrawerTrigger asChild>
         <Button type="button" variant="outline">
           <Sparkles className="size-4" />
-          Générer une accroche
+          {t("generateCopy")}
         </Button>
       </DrawerTrigger>
       <DrawerContent>
@@ -28,7 +30,7 @@ export function AdCopyTrigger({ offers }: { offers: Offer[] }) {
             {offers.length > 0 && (
               <div className="border-b border-border p-4">
                 <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="text-muted-foreground">Offre à promouvoir</span>
+                  <span className="text-muted-foreground">{t("offerToPromote")}</span>
                   <select
                     value={offerId}
                     onChange={(event) => setOfferId(event.target.value)}
@@ -36,7 +38,7 @@ export function AdCopyTrigger({ offers }: { offers: Offer[] }) {
                   >
                     {offers.map((offer) => (
                       <option key={offer.id} value={offer.id}>
-                        {offer.name || "Offre sans nom"}
+                        {offer.name || t("unnamedOffer")}
                       </option>
                     ))}
                   </select>

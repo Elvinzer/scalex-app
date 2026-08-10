@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
@@ -21,8 +22,6 @@ import { CallsTable } from "./calls-table";
 import { ManualCallDialog } from "./manual-call-dialog";
 import { RefreshCallsButton } from "./refresh-calls-button";
 
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
 function pct(numerator: number, denominator: number): string {
   if (denominator === 0) return "—";
   return `${Math.round((numerator / denominator) * 100)} %`;
@@ -35,14 +34,9 @@ function connectionStatus(status?: string | null): IntegrationStatus {
   return "connected";
 }
 
-function connectionDetail(tool: string, status?: string | null): string {
-  if (status === "pending") return `Récupération de tes appels ${tool} en cours.`;
-  if (status === "no_api_access") return `L'accès API ${tool} dépend de ton plan. Vérifie ton abonnement puis reconnecte l'outil.`;
-  if (status === "failed") return `La dernière synchronisation ${tool} a échoué. Reconnecte l'outil pour réessayer.`;
-  return `Tes appels ${tool} alimentent automatiquement ce suivi.`;
-}
-
 export default async function PriseDappelPage({ searchParams }: { searchParams: Promise<{ period?: string; call?: string; from?: string }> }) {
+  const locale = await getLocale();
+  const t = await getTranslations("app.calls");
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:appels");
 
@@ -91,24 +85,20 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
-          <p className="mt-1 text-muted-foreground">
-            Tes appels de closing, réservés automatiquement depuis ton outil de prise d&apos;appel (iClosed ou Calendly),
-            ou ajoutés à la main si tu n&apos;en as pas. Tu marques l&apos;issue (no-show, non closé, attente décision,
-            closé) et le montant ; un appel closé alimente ton CA dans le suivi des ventes.
-          </p>
+              <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {fromDashboard && (
             <Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-bold text-muted-foreground outline-none hover:underline focus-visible:ring-3 focus-visible:ring-accent/20">
-              ← Retour au Dashboard
+              ← {t("backDashboard")}
             </Link>
           )}
           <Link href="/ventes/appels/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
-            Funnel de closing →
+            {t("closingFunnel")} →
           </Link>
           {canSeeVideos && (
             <Link href="/ventes/appels/videos" className="text-sm font-bold text-muted-foreground hover:underline">
-              Vidéos de closing →
+              {t("closingVideos")} →
             </Link>
           )}
           {(anyConnected || calls.length > 0) && <PeriodFilter current={period.key} />}
@@ -118,18 +108,18 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
       </div>
 
       {anyConnected && (
-        <section aria-label="Intégrations d&apos;appels connectées" className="grid gap-3 sm:grid-cols-2">
+        <section aria-label={t("connectedIntegrations")} className="grid gap-3 sm:grid-cols-2">
           {iclosedConnected && (
             <IntegrationStatusRow
               name="iClosed"
               status={connectionStatus(iclosedConnection?.initialSyncStatus)}
-              detail={connectionDetail("iClosed", iclosedConnection?.initialSyncStatus)}
+              detail={t(`connection.${iclosedConnection?.initialSyncStatus === "pending" ? "pending" : iclosedConnection?.initialSyncStatus === "no_api_access" ? "limited" : iclosedConnection?.initialSyncStatus === "failed" ? "failed" : "ready"}`, { tool: "iClosed" })}
               action={
                 <Link
                   href="/integrations#iclosed"
                   className="inline-flex min-h-11 cursor-pointer items-center rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
                 >
-                  Gérer
+                  {t("manage")}
                 </Link>
               }
             />
@@ -138,13 +128,13 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
             <IntegrationStatusRow
               name="Calendly"
               status={connectionStatus(calendlyConnection?.initialSyncStatus)}
-              detail={connectionDetail("Calendly", calendlyConnection?.initialSyncStatus)}
+              detail={t(`connection.${calendlyConnection?.initialSyncStatus === "pending" ? "pending" : calendlyConnection?.initialSyncStatus === "no_api_access" ? "limited" : calendlyConnection?.initialSyncStatus === "failed" ? "failed" : "ready"}`, { tool: "Calendly" })}
               action={
                 <Link
                   href="/integrations#calendly"
                   className="inline-flex min-h-11 cursor-pointer items-center rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
                 >
-                  Gérer
+                  {t("manage")}
                 </Link>
               }
             />
@@ -154,10 +144,10 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
 
       {(anyConnected || calls.length > 0) && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiTile label="Appels réservés" value={NUMBER_FORMAT.format(reserved)} detail="Sur la période" />
-          <KpiTile label="Taux de présence" value={pct(shown, shown + noShow)} detail={`${shown} présents`} tone="positive" />
-          <KpiTile label="Taux de closing" value={pct(closed, closed + notClosed)} detail={`${closed} ventes conclues`} tone="accent2" />
-          <KpiTile label="Cash encaissé" value={`${NUMBER_FORMAT.format(cashCollected)} €`} detail="Sur la période" tone="positive" />
+          <KpiTile label={t("reservedCalls")} value={new Intl.NumberFormat(locale).format(reserved)} detail={t("periodDetail")} />
+          <KpiTile label={t("showRate")} value={pct(shown, shown + noShow)} detail={t("shownCount", { count: shown })} tone="positive" />
+          <KpiTile label={t("closingRate")} value={pct(closed, closed + notClosed)} detail={t("closedCount", { count: closed })} tone="accent2" />
+          <KpiTile label={t("cashCollected")} value={new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(cashCollected)} detail={t("periodDetail")} tone="positive" />
         </div>
       )}
 
@@ -169,8 +159,8 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
           <div className="flex flex-col gap-3">
             <p className="text-sm font-bold text-muted-foreground">
               {calls.length > 0
-                ? "Envie d'automatiser la réservation de tes appels ?"
-                : "Choisis ton outil de prise d'appel, ou ajoute tes appels manuellement ci-dessus"}
+                ? t("automatePrompt")
+                : t("chooseToolPrompt")}
             </p>
             <IclosedConnectionCard connected={false} subscriptionActive={subscriptionActive} />
             <CalendlyConnectionCard connected={false} subscriptionActive={subscriptionActive} />
@@ -178,10 +168,9 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
         ) : (
           calls.length === 0 && (
             <div className="sticker-card p-8">
-              <p className="font-bold">Aucun outil de prise d&apos;appel n&apos;est connecté</p>
+              <p className="font-bold">{t("noToolConnected")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Le propriétaire du compte peut lier iClosed ou Calendly dans les intégrations pour activer le suivi
-                automatique des appels, ou ajoute tes appels manuellement ci-dessus en attendant.
+                {t("noToolHelp")}
               </p>
             </div>
           )

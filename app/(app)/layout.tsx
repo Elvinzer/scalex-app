@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
@@ -51,13 +52,13 @@ export default async function AppLayout({
   if (!context) {
     // A team member whose account's Scale X subscription lapsed — blocked
     // immediately, not just future invites (see lib/billing/plan-gate.ts).
+    const t = await getTranslations("common.shared");
     return (
       <div className="flex min-h-screen items-center justify-center bg-panel px-4 sm:px-8">
         <div className="sticker-card max-w-md p-6 text-center sm:p-8">
-          <p className="text-lg font-bold">Accès suspendu</p>
+          <p className="text-lg font-bold">{t("accessSuspended")}</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            L&apos;abonnement Scale X du compte auquel tu es rattaché n&apos;est plus actif.
-            Contacte le propriétaire du compte pour rétablir l&apos;accès.
+            {t("subscriptionInactive")}
           </p>
         </div>
       </div>

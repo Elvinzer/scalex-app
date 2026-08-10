@@ -1,6 +1,7 @@
 "use client";
 
 import { Flame } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { StreakModal } from "@/components/streak/streak-modal";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 // no loop animation, no pulsing (§D). The flame is a readout the user glances
 // at, not something competing for attention on every screen.
 export function StreakBadge({ snapshot }: { snapshot: StreakSnapshot }) {
+  const t = useTranslations("common.streak");
   const [open, setOpen] = useState(false);
   const lit = snapshot.current > 0;
 
@@ -23,7 +25,7 @@ export function StreakBadge({ snapshot }: { snapshot: StreakSnapshot }) {
           setOpen(true);
           void trackClient("streak_modal_opened", { days: snapshot.current });
         }}
-        aria-label={`Ta série : ${snapshot.current} jour${snapshot.current > 1 ? "s" : ""}. Ouvrir le détail.`}
+        aria-label={t("ariaLabel", { count: snapshot.current })}
         className="flex w-full min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-2 text-left transition-colors hover:bg-mist/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <Flame className={cn("size-4 shrink-0", lit ? "text-accent" : "text-mist/35")} aria-hidden="true" />

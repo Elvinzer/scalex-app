@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Celebration } from "@/components/celebration";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -12,15 +13,8 @@ type Milestone = { order: number; title: string; done: boolean; doneAt: string |
 type Project = { id: string; name: string; category: string; milestones: Milestone[]; status: string };
 type Todo = { id: string; label: string; done: boolean };
 
-const CATEGORY_LABEL: Record<string, string> = {
-  acquisition: "Acquisition",
-  vente: "Vente",
-  delivrabilite: "Délivrabilité",
-  autre: "Autre",
-};
-
-function formatDate(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
+function formatDate(iso: string, locale: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 export function ProjectDrawer({
@@ -32,6 +26,8 @@ export function ProjectDrawer({
   linkedTodos: Todo[];
   onClose: () => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("journal");
   const [isPending, startTransition] = useTransition();
   const [celebrate, setCelebrate] = useState(false);
 
@@ -51,11 +47,11 @@ export function ProjectDrawer({
       <DrawerContent>
         <Celebration trigger={celebrate} />
         <div className="flex-1 overflow-y-auto p-6">
-          <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{CATEGORY_LABEL[project.category] ?? project.category}</p>
+          <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t(`newProject.categories.${project.category}`)}</p>
           <DrawerTitle className="mt-1 font-display text-lg font-bold">{project.name}</DrawerTitle>
 
           <div className="mt-6">
-            <p className="text-sm font-bold">Jalons</p>
+            <p className="text-sm font-bold">{t("projectDrawer.milestones")}</p>
             <div className="mt-3 flex flex-col gap-2">
               {project.milestones
                 .sort((a, b) => a.order - b.order)
@@ -76,7 +72,7 @@ export function ProjectDrawer({
 
           {linkedTodos.length > 0 && (
             <div className="mt-6">
-              <p className="text-sm font-bold">Tâches liées</p>
+              <p className="text-sm font-bold">{t("projectDrawer.linkedTasks")}</p>
               <div className="mt-3 flex flex-col gap-1.5">
                 {linkedTodos.map((todo) => (
                   <p key={todo.id} className={cn("text-sm", todo.done && "text-muted-foreground line-through")}>
@@ -89,12 +85,12 @@ export function ProjectDrawer({
 
           {completedMilestones.length > 0 && (
             <div className="mt-6">
-              <p className="text-sm font-bold">Historique</p>
+              <p className="text-sm font-bold">{t("projectDrawer.history")}</p>
               <div className="mt-3 flex flex-col gap-1.5">
                 {completedMilestones.map((milestone) => (
                   <div key={milestone.order} className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>{milestone.title}</span>
-                    <span>{formatDate(milestone.doneAt!)}</span>
+                    <span>{formatDate(milestone.doneAt!, locale)}</span>
                   </div>
                 ))}
               </div>

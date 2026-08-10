@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, CircleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { InsightLaunchDialog } from "@/components/insight-execution/insight-launch-dialog";
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export function MetaInsightCard({ id, title, insightText, decision, snapshot }: Props) {
+  const t = useTranslations("app.ads.detail");
   const [launched, setLaunched] = useState(decision === "launched" || decision === "completed");
   const dismissed = decision === "dismissed";
   const provenance = snapshot.provenance;
@@ -27,10 +29,10 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
   const diagnosis = snapshotText("diagnosis");
   const recommendedAction = snapshotText("recommendedAction");
   const expectedImpact = snapshotText("expectedImpact");
-  const successCriterion = snapshotText("successCriterion") ?? "Recontrôler cette métrique sur une période comparable après l’action.";
+  const successCriterion = snapshotText("successCriterion") ?? t("successCriterionDefault");
   const confidence = snapshotText("confidence");
   const sourceCoverage = snapshotText("sourceCoverage");
-  const metricKey = snapshotText("metricKey") ?? "métrique Meta";
+  const metricKey = snapshotText("metricKey") ?? t("metaMetric");
   const currentValue = snapshot.currentValue;
   const metricValue = typeof currentValue === "number" && Number.isFinite(currentValue)
     ? metricKey === "cash_per_lead" || metricKey === "retargeting_window_cpa" || metricKey === "webinar_cost_per_participant"
@@ -43,24 +45,24 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
     : "—";
   const metricPeriod = snapshotText("periodStart") && snapshotText("periodEnd")
     ? `${snapshotText("periodStart")} → ${snapshotText("periodEnd")}`
-    : "période indisponible";
-  const sampleSize = typeof snapshot.sampleSize === "number" ? ` · ${Math.round(snapshot.sampleSize)} observation(s)` : "";
-  const readableCalculation = (value: string): string => value === "derivee" ? "dérivée" : value === "brute" ? "brute" : value;
+    : t("periodUnavailable");
+  const sampleSize = typeof snapshot.sampleSize === "number" ? ` · ${t("observations", { count: Math.round(snapshot.sampleSize) })}` : "";
+  const readableCalculation = (value: string): string => value === "derivee" ? t("derived") : value === "brute" ? t("raw") : value;
   const readableAttribution = (value: string): string => {
-    if (value === "directe") return "directe";
-    if (value === "jointe") return "jointe";
-    if (value === "estimee") return "estimée";
-    if (value === "non_rattachee") return "non rattachée";
-    if (value === "indisponible") return "indisponible";
+    if (value === "directe") return t("direct");
+    if (value === "jointe") return t("joined");
+    if (value === "estimee") return t("estimated");
+    if (value === "non_rattachee") return t("unattached");
+    if (value === "indisponible") return t("unavailable");
     return value;
   };
   const provenanceText = (() => {
     if (typeof provenance !== "object" || provenance === null || !("attribution" in provenance) || typeof provenance.attribution !== "string") {
-      return "Meta Ads · insight dérivé";
+      return t("derivedInsight");
     }
     const source = "source" in provenance && typeof provenance.source === "string" ? provenance.source : "meta";
     const calculation = "calculation" in provenance && typeof provenance.calculation === "string" ? provenance.calculation : "derivee";
-    return `Source ${source} · calcul ${readableCalculation(calculation)} · attribution ${readableAttribution(provenance.attribution)}`;
+    return t("provenance", { source, calculation: readableCalculation(calculation), attribution: readableAttribution(provenance.attribution) });
   })();
 
   const historyInsight: InsightHistoryItem = {
@@ -88,25 +90,25 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <h3 className="font-bold">{title}</h3>
-            {launched && <span className="rounded-full bg-state-healthy-bg px-2.5 py-1 text-xs font-bold text-state-healthy">Dans le Journal</span>}
-            {dismissed && <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">Écarté</span>}
+            {launched && <span className="rounded-full bg-state-healthy-bg px-2.5 py-1 text-xs font-bold text-state-healthy">{t("inJournal")}</span>}
+            {dismissed && <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">{t("dismissed")}</span>}
           </div>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">{insightText}</p>
           <div className="mt-4 grid gap-3 rounded-[var(--radius-control)] border border-border bg-muted p-4 text-sm sm:grid-cols-2">
-            {evidence && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Preuve</p><p className="mt-1">{evidence}</p></div>}
-            {diagnosis && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Diagnostic probable</p><p className="mt-1">{diagnosis}</p></div>}
-            {recommendedAction && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Action recommandée</p><p className="mt-1">{recommendedAction}</p></div>}
-            <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Critère de réussite</p><p className="mt-1">{successCriterion}</p></div>
-            {expectedImpact && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Impact attendu</p><p className="mt-1">{expectedImpact}</p></div>}
+            {evidence && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("evidence")}</p><p className="mt-1">{evidence}</p></div>}
+            {diagnosis && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("diagnosis")}</p><p className="mt-1">{diagnosis}</p></div>}
+            {recommendedAction && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("recommendedAction")}</p><p className="mt-1">{recommendedAction}</p></div>}
+            <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("successCriterion")}</p><p className="mt-1">{successCriterion}</p></div>
+            {expectedImpact && <div><p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("expectedImpact")}</p><p className="mt-1">{expectedImpact}</p></div>}
           </div>
-          <p className="mt-3 text-xs font-bold text-muted-foreground">Métrique de départ : {metricKey.replaceAll("_", " ")} = {metricValue} · {metricPeriod}{sampleSize}. Elle sera figée dans le Journal à l’adoption.</p>
+          <p className="mt-3 text-xs font-bold text-muted-foreground">{t("baselineMetric", { metric: metricKey.replaceAll("_", " "), value: metricValue, period: metricPeriod, sample: sampleSize })}</p>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-muted-foreground">
-            {priority && <span>Priorité : {priority === "high" ? "haute" : priority === "medium" ? "moyenne" : "basse"}</span>}
-            {confidence && <span>Confiance : {confidence === "high" ? "haute" : confidence === "medium" ? "moyenne" : "basse"}</span>}
-            {sourceCoverage && <span>Sources : {sourceCoverage}</span>}
+            {priority && <span>{t("priority")}: {priority === "high" ? t("high") : priority === "medium" ? t("medium") : t("low")}</span>}
+            {confidence && <span>{t("confidence")}: {confidence === "high" ? t("high") : confidence === "medium" ? t("medium") : t("low")}</span>}
+            {sourceCoverage && <span>{t("sources")}: {sourceCoverage}</span>}
           </div>
           <p className="mt-3 text-xs font-bold text-muted-foreground">{provenanceText}</p>
-          {dismissed && <p className="mt-4 text-xs font-bold text-muted-foreground">Insight écarté. Réactive-le depuis le Journal si tu veux le traiter.</p>}
+          {dismissed && <p className="mt-4 text-xs font-bold text-muted-foreground">{t("dismissedHelp")}</p>}
           {!launched && !dismissed && (
             <div className="mt-4">
               <InsightLaunchDialog
@@ -114,7 +116,7 @@ export function MetaInsightCard({ id, title, insightText, decision, snapshot }: 
                 members={[]}
                 projects={[]}
                 canAssign={false}
-                triggerLabel="Ajouter au Journal"
+                triggerLabel={t("addToJournal")}
                 onLaunched={() => setLaunched(true)}
               />
             </div>

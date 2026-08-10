@@ -1,4 +1,5 @@
 import { Info } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -7,12 +8,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 // section (Setting/Closing daily entries) and disabled here to avoid
 // double entry.
 export function SourcePopover({ text, href, linkLabel }: { text: string; href?: string; linkLabel?: string }) {
+  const t = useTranslations("common.shared");
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="D'où vient cette donnée"
+          aria-label={t("dataSource")}
           className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground hover:text-signal"
         >
           <Info className="size-3.5" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -8,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 type Status = "idle" | "sending" | "sent" | "error";
 
 export function SignInForm({ authCallbackError = false }: { authCallbackError?: boolean }) {
+  const t = useTranslations("auth.signIn");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
 
@@ -44,9 +46,9 @@ export function SignInForm({ authCallbackError = false }: { authCallbackError?: 
   if (status === "sent") {
     return (
       <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-bold">Check your email</h1>
+        <h1 className="text-2xl font-bold">{t("checkEmail")}</h1>
         <p className="text-sm text-muted-foreground">
-          We sent a sign-in link to {email}.
+          {t("linkSent", { email })}
         </p>
       </div>
     );
@@ -54,11 +56,11 @@ export function SignInForm({ authCallbackError = false }: { authCallbackError?: 
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">Sign in to Scale X</h1>
+      <h1 className="text-2xl font-bold">{t("title")}</h1>
 
       {authCallbackError && status === "idle" && (
         <p className="rounded-lg border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm text-state-critical">
-          That sign-in link is invalid or expired. Request a new one below.
+          {t("invalidLink")}
         </p>
       )}
 
@@ -88,36 +90,36 @@ export function SignInForm({ authCallbackError = false }: { authCallbackError?: 
             d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.6 5.6C41.6 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z"
           />
         </svg>
-        Continue with Google
+        {t("continueWithGoogle")}
       </Button>
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <div className="h-px flex-1 bg-border" />
-        or
+        {t("or")}
         <div className="h-px flex-1 bg-border" />
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted-foreground">Work email</span>
+          <span className="text-muted-foreground">{t("workEmail")}</span>
           <input
             type="email"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@yourbusiness.com"
+            placeholder={t("emailPlaceholder")}
             className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           />
         </label>
 
         {status === "error" && (
           <p className="rounded-lg border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm text-state-critical">
-            We couldn&apos;t send the link. Try again.
+            {t("sendError")}
           </p>
         )}
 
         <Button size="lg" type="submit" disabled={status === "sending"}>
-          {status === "sending" ? "Sending..." : "Send magic link"}
+          {status === "sending" ? t("sending") : t("sendMagicLink")}
         </Button>
       </form>
     </div>

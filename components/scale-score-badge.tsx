@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { ScaleScoreModal } from "@/components/scale-score-modal";
@@ -33,6 +34,7 @@ export function ScaleScoreBadge({
   currentMonthlyRevenue: number | null;
   potentialMonthlyRevenue: number | null;
 }) {
+  const t = useTranslations("common.shared");
   const [open, setOpen] = useState(false);
   const { score, potentialScore } = scaleScore;
   const tier = score !== null ? getHealthTier(score) : null;
@@ -48,7 +50,7 @@ export function ScaleScoreBadge({
       <button
         type="button"
         role="button"
-        aria-label={score === null ? "Scale Score : pas encore calculé, voir le détail" : `Scale Score : ${score} sur 100, potentiel ${potentialScore}, voir le détail`}
+        aria-label={score === null ? t("shareScaleScore") : t("scaleScoreAria", { score, potential: potentialScore ?? "—" })}
         onClick={() => handleOpenChange(true)}
         className="flex w-full items-center gap-3 rounded-[var(--radius-control)] border-2 border-accent/50 bg-[#211F18] px-3 py-2.5 text-left transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-[#2A2820]"
       >
@@ -67,7 +69,7 @@ export function ScaleScoreBadge({
           </div>
 
           {score === null ? (
-            <span className="text-xs text-on-dark-muted">À calculer</span>
+            <span className="text-xs text-on-dark-muted">{t("toCalculate")}</span>
           ) : (
             <>
               <span className="flex items-baseline gap-0.5">
@@ -78,7 +80,7 @@ export function ScaleScoreBadge({
                 {showsUpArrow && <span className="text-[11px] text-positive">↑</span>}
               </span>
               {potentialScore !== null && potentialScore > score && (
-                <p className="truncate text-[11px] text-accent">Potentiel : {potentialScore}/100</p>
+                <p className="truncate text-[11px] text-accent">{t("potential")}: {potentialScore}/100</p>
               )}
             </>
           )}

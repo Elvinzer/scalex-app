@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Camera, ChevronsUpDown } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -19,20 +20,6 @@ import { Pager } from "./pager";
 type SortKey = "publishedAt" | "views" | "interactionRate";
 
 const PAGE_SIZE = 10;
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" });
-
-const EXPLANATIONS = {
-  topPosts:
-    "Classement de tes posts, reels et carrousels par interactions totales (likes + commentaires + partages + enregistrements), depuis la connexion de ton compte Instagram. Les Stories ne sont pas incluses : leur seule mesure comparable, la portée, n'est pas sur la même échelle.",
-  interactionRate:
-    "Interactions (likes + commentaires + partages + enregistrements) divisées par la portée du post — le vrai indicateur de performance, indépendant du nombre de personnes touchées. La couleur compare ce post à la médiane de tes autres posts du même type (feed ou story) : vert au-dessus, gris dans la moyenne, rouge en dessous. Vide pour les Stories, qui n'ont pas de métrique d'interactions.",
-  partages: "Partages divisés par la portée du post — Instagram donne 3 à 5 fois plus de poids algorithmique à un partage qu'à un like.",
-  watchTime:
-    "Temps de visionnage moyen par vue, pour les Reels/vidéos uniquement. Instagram ne fournit pas la durée totale de la vidéo via son API, donc un vrai taux de rétention (temps regardé / durée totale) n'est pas calculable — ce chiffre est le temps brut, pas un pourcentage.",
-  abonnes: "Nombre de nouveaux abonnés générés directement par ce post, remonté par Instagram.",
-} as const;
-
 // Colors the number itself (not a pill) for a fast column-wide scan of
 // "what's working" — same principle already used for the big percentage in
 // app/(app)/acquisition/pipeline/pipeline-stats-banner.tsx's
@@ -105,16 +92,16 @@ function computeTopPosts(
 // consistent visual language for "this one stands out" across the page.
 // #2/#3 stay on neutral muted tokens so #1 reads as the standout, per the
 // DA rule against repeating an accent treatment across equivalent items.
-function TopPostsPanel({ entries }: { entries: { post: ContentPostRow; insight: InstagramPostInsightRow }[] }) {
+function TopPostsPanel({ entries, locale, t }: { entries: { post: ContentPostRow; insight: InstagramPostInsightRow }[]; locale: string; t: ReturnType<typeof useTranslations> }) {
   if (entries.length === 0) return null;
 
   return (
     <div className="sticker-card p-6">
       <div className="flex items-center gap-1.5">
-        <h2 className="text-base font-bold">Tes 3 meilleurs posts</h2>
-        <InfoPopover text={EXPLANATIONS.topPosts} />
+        <h2 className="text-base font-bold">{t("table.topPosts")}</h2>
+        <InfoPopover text={t("table.topPostsHelp")} />
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">Classés par interactions, tous posts confondus depuis ta connexion.</p>
+      <p className="mt-1 text-sm text-muted-foreground">{t("table.topPostsSubtitle")}</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {entries.map(({ post, insight }, index) => (
           <a
@@ -139,12 +126,12 @@ function TopPostsPanel({ entries }: { entries: { post: ContentPostRow; insight: 
               <PostThumbnail insight={insight} />
               <div className="min-w-0">
                 <p className={cn("truncate text-sm font-bold", index === 0 && "text-accent-text")}>{post.title}</p>
-                <p className="text-xs text-muted-foreground">{DATE_FORMAT.format(new Date(post.publishedAt))}</p>
+                <p className="text-xs text-muted-foreground">{new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(post.publishedAt))}</p>
               </div>
             </div>
             <p className="font-display text-2xl font-bold tabular-nums">
-              {NUMBER_FORMAT.format(insight.totalInteractions!)}
-              <span className="ml-1.5 font-sans text-xs font-bold text-muted-foreground">interactions</span>
+              {new Intl.NumberFormat(locale).format(insight.totalInteractions!)}
+              <span className="ml-1.5 font-sans text-xs font-bold text-muted-foreground">{t("table.interactions")}</span>
             </p>
           </a>
         ))}
@@ -162,6 +149,8 @@ export function PostsTable({
   period: DateFilterKey;
   instagramInsights?: Map<string, InstagramPostInsightRow>;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("content");
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
   const [sortDesc, setSortDesc] = useState(true);
   const [page, setPage] = useState(1);
@@ -239,57 +228,57 @@ export function PostsTable({
   if (posts.length === 0) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-bold">Aucun post synchronisé pour l&apos;instant</p>
-        <p className="mt-1 text-sm text-muted-foreground">Connecte ton compte Instagram ci-dessus pour voir tes posts.</p>
+        <p className="text-sm font-bold">{t("table.noPosts")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("table.noPostsHelp")}</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <TopPostsPanel entries={topPosts} />
+      <TopPostsPanel entries={topPosts} locale={locale} t={t} />
 
       <div className="flex items-baseline justify-between">
-        <h2 className="text-base font-bold">Tous les posts</h2>
-        <p className="text-sm text-muted-foreground">{sorted.length} post{sorted.length > 1 ? "s" : ""} sur la période sélectionnée</p>
+        <h2 className="text-base font-bold">{t("table.allPosts")}</h2>
+        <p className="text-sm text-muted-foreground">{t("table.postsCount", { count: sorted.length, plural: sorted.length > 1 ? "s" : "" })}</p>
       </div>
 
       {sorted.length === 0 ? (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucun post sur cette période</p>
-          <p className="mt-1 text-sm text-muted-foreground">Choisis &laquo;&nbsp;Tout&nbsp;&raquo; pour voir l&apos;historique complet.</p>
+          <p className="text-sm font-bold">{t("table.noPostsPeriod")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("table.noPostsPeriodHelp")}</p>
         </div>
       ) : (
         <div className="sticker-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="p-3 text-left"><SortHeader label="Date" sortKeyValue="publishedAt" /></th>
-                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Titre</th>
-                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Plateforme</th>
-                <th className="p-3 text-right"><SortHeader label="Vues" sortKeyValue="views" /></th>
+                <th className="p-3 text-left"><SortHeader label={t("table.date")} sortKeyValue="publishedAt" /></th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("table.title")}</th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("table.platform")}</th>
+                <th className="p-3 text-right"><SortHeader label={t("table.views")} sortKeyValue="views" /></th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <SortHeader label="Taux d'interaction" sortKeyValue="interactionRate" />
-                    <InfoPopover text={EXPLANATIONS.interactionRate} />
+                    <SortHeader label={t("table.interactionRate")} sortKeyValue="interactionRate" />
+                    <InfoPopover text={t("table.interactionRateHelp")} />
                   </div>
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">Partages</span>
-                    <InfoPopover text={EXPLANATIONS.partages} />
+                    <span className="text-xs font-bold text-muted-foreground">{t("table.shares")}</span>
+                    <InfoPopover text={t("table.sharesHelp")} />
                   </div>
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">Visionnage</span>
-                    <InfoPopover text={EXPLANATIONS.watchTime} />
+                    <span className="text-xs font-bold text-muted-foreground">{t("table.watchTime")}</span>
+                    <InfoPopover text={t("table.watchTimeHelp")} />
                   </div>
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">Abonnés</span>
-                    <InfoPopover text={EXPLANATIONS.abonnes} />
+                    <span className="text-xs font-bold text-muted-foreground">{t("table.followers")}</span>
+                    <InfoPopover text={t("table.followersHelp")} />
                   </div>
                 </th>
                 <th className="p-3" scope="col">
@@ -329,11 +318,11 @@ export function PostsTable({
                     </td>
                     <td className="p-3 text-muted-foreground">
                       <span className="flex items-center gap-1.5">
-                        {post.source === "instagram" && <Camera className="size-3.5 shrink-0" aria-label="Synchronisé depuis Instagram" />}
+                        {post.source === "instagram" && <Camera className="size-3.5 shrink-0" aria-label={t("table.syncedInstagram")} />}
                         {post.platform}
                       </span>
                     </td>
-                    <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(post.views)}</td>
+                    <td className="p-3 text-right tabular-nums">{new Intl.NumberFormat(locale).format(post.views)}</td>
                     <td className="p-3 text-right">
                       {rate === null ? (
                         <span className="tabular-nums text-muted-foreground">—</span>
@@ -343,26 +332,26 @@ export function PostsTable({
                             className={cn("font-bold tabular-nums", tier ? TIER_TEXT_CLASS[tier] : "text-foreground")}
                             title={
                               tier
-                                ? `${tier === "above" ? "Au-dessus" : tier === "below" ? "En dessous" : "Dans la moyenne"} de tes ${comparisons.get(insight!.mediaId)?.cohortSize} posts comparables`
+                                ? `${tier === "above" ? t("table.above") : tier === "below" ? t("table.below") : t("table.average")} ${t("table.comparablePosts", { count: comparisons.get(insight!.mediaId)?.cohortSize ?? 0 })}`
                                 : undefined
                             }
                           >
-                            {formatPercent(rate)}
+                            {formatPercent(rate, locale)}
                           </span>
                           <span className="text-[10px] tabular-nums text-muted-foreground">
-                            {NUMBER_FORMAT.format(insight!.totalInteractions!)} interactions
+                            {new Intl.NumberFormat(locale).format(insight!.totalInteractions!)} {t("table.interactions")}
                           </span>
                         </div>
                       )}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", sharesRate === null && "text-muted-foreground")}>
-                      {sharesRate === null ? "—" : formatPercent(sharesRate)}
+                      {sharesRate === null ? "—" : formatPercent(sharesRate, locale)}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", insight?.avgWatchTimeMs == null && "text-muted-foreground")}>
                       {formatWatchTime(insight?.avgWatchTimeMs ?? null)}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", insight?.follows == null && "text-muted-foreground")}>
-                      {insight?.follows == null ? "—" : `+${NUMBER_FORMAT.format(insight.follows)}`}
+                      {insight?.follows == null ? "—" : `+${new Intl.NumberFormat(locale).format(insight.follows)}`}
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">
@@ -370,7 +359,7 @@ export function PostsTable({
                           <InstagramPostDetailDialog
                             insight={insight}
                             trigger={
-                              <Button type="button" variant="ghost" size="icon-sm" aria-label="Voir le détail">
+                              <Button type="button" variant="ghost" size="icon-sm" aria-label={t("table.viewDetail")}>
                                 <Camera className="size-3.5" />
                               </Button>
                             }

@@ -135,3 +135,29 @@ export const LEVER_BENCHMARK_INFO: Record<string, LeverBenchmarkInfo> = {
     whatIsThis: "Une séquence automatique qui relance les prospects qui n'ont pas acheté après un appel ou une page de vente.",
   },
 };
+
+// The benchmark thresholds are language-neutral, but the explanatory copy is
+// shown directly in the Discovery cards. Keep the English copy beside the
+// stable benchmark data so a locale switch never leaks French catalog text.
+export const LEVER_BENCHMARK_INFO_EN: Record<string, LeverBenchmarkInfo> = {
+  lead_magnet: { whatIsThis: "A free resource (PDF, video, training…) exchanged for a visitor’s email on a dedicated page.", centralLabel: "6–12 %", badMax: 0.05, okMax: 0.09, excellentAt: 0.15 },
+  email_marketing: { whatIsThis: "Regular emails sent to your list to sell and retain customers.", centralLabel: "35–43% open rate", badMax: 0.25, okMax: 0.35, excellentAt: 0.43 },
+  newsletter: { whatIsThis: "Regular content emails sent to your list, separate from automated sales sequences.", centralLabel: "2–3% click rate", badMax: 0.02, okMax: 0.03, excellentAt: 0.05 },
+  seo_blog: { whatIsThis: "Organic content (blog, SEO) that attracts visitors without paid advertising.", centralLabel: "2–5% visitor → lead", badMax: 0.02, okMax: 0.05, excellentAt: 0.1 },
+  podcast: { whatIsThis: "A podcast you host to build an audience and generate leads." },
+  retargeting: { whatIsThis: "Ads that retarget visitors who have not bought yet.", centralLabel: "0.7–1.2% click rate", badMax: 0.005, okMax: 0.007, excellentAt: 0.012 },
+  referral: { whatIsThis: "A program that encourages customers to recommend your offer to people they know.", centralLabel: "3–5% referred visit → purchase", badMax: 0.02, okMax: 0.03, excellentAt: 0.08 },
+  ads: { whatIsThis: "Paid advertising (Meta, Google, TikTok, LinkedIn) to generate leads or sales quickly." },
+  webinar: { whatIsThis: "A live online event to present your offer and sell at the end.", centralLabel: "45–60% live attendance", badMax: 0.35, okMax: 0.5, excellentAt: 0.6 },
+  order_bump: { whatIsThis: "A low-priced complementary offer shown just before payment.", centralLabel: "10–30% (provisional estimate, low confidence)", badMax: 0.1, okMax: 0.2, excellentAt: 0.3 },
+  downsell: { whatIsThis: "A lower-priced alternative offered when a customer declines your main offer." },
+  garantie: { whatIsThis: "A formal commitment (refund, guaranteed result…) that reduces perceived prospect risk." },
+  preuve_sociale_page: { whatIsThis: "Customer testimonials shown on your sales page to reassure prospects before purchase." },
+  upsell_ascension: { whatIsThis: "A higher-priced offer presented just after purchase to increase customer value.", centralLabel: "2–12% acceptance", badMax: 0.02, okMax: 0.06, excellentAt: 0.12 },
+  onboarding_structure: { whatIsThis: "A structured journey that helps a new customer get started and succeed with your product." },
+  collecte_temoignages_systematique: { whatIsThis: "A systematic process for asking every satisfied customer for a testimonial.", centralLabel: "≈10% request → response", badMax: 0.05, okMax: 0.1, excellentAt: 0.2 },
+  communaute_clients: { whatIsThis: "A space (Discord, private group…) where customers interact with each other and with you." },
+  reactivation_anciens_clients: { whatIsThis: "A targeted follow-up to inactive past customers to bring them back.", centralLabel: "≈2.8% win-back click rate", badMax: 0.015, okMax: 0.028, excellentAt: 0.04 },
+  vsl: { whatIsThis: "A long-form sales video that explains and sells your offer before the call or purchase." },
+  sequence_relance_non_acheteurs: { whatIsThis: "An automated sequence that follows up with prospects who did not buy after a call or sales page." },
+};

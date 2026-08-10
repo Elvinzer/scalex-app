@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { CalendlyConnectionCard } from "@/components/calendly/calendly-connection-card";
 import { IclosedConnectionCard } from "@/components/iclosed/iclosed-connection-card";
@@ -33,6 +34,8 @@ export default async function IntegrationsPage({
 }: {
   searchParams: Promise<{ stripe_error?: string; meta_ads_error?: string; meta_ads?: string }>;
 }) {
+  const t = await getTranslations("app.integrations");
+  const locale = await getLocale();
   const userId = await requireUserId();
   const { accountId } = await requireOwnerOrRedirect(userId);
   const { user } = await getCurrentUser();
@@ -42,9 +45,9 @@ export default async function IntegrationsPage({
   const metaAdsErrorMessageText = metaAdsErrorMessage(metaAdsError);
   const stripeErrorMessage =
     stripeError === "config"
-      ? "La connexion Stripe est momentanément indisponible (configuration côté serveur). Réessaie plus tard ou contacte le support."
+      ? t("stripeConfigError")
       : stripeError === "oauth"
-        ? "La connexion Stripe n’a pas abouti. Réessaie, et si le problème persiste vérifie que tu autorises bien le bon compte."
+        ? t("stripeOauthError")
         : null;
   const stripeConnected = Boolean(user?.stripeConnectId);
   const isAdmin = Boolean(user && isAdminEmail(user.email));
@@ -94,10 +97,8 @@ export default async function IntegrationsPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Intégrations</h1>
-        <p className="mt-1 text-muted-foreground">
-          Les sources de données que Scale X utilise pour ton diagnostic.
-        </p>
+        <h1 className="text-3xl font-bold">{t("title")}</h1>
+        <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       {stripeErrorMessage && (
@@ -117,18 +118,17 @@ export default async function IntegrationsPage({
           <div>
             <p className="font-bold">Stripe</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Accès en lecture seule à tes paiements. C&apos;est la source principale du
-              diagnostic.
+              {t("stripeReadOnly")}
             </p>
           </div>
           {stripeConnected ? (
             <span className="flex shrink-0 items-center gap-2 rounded-full bg-state-healthy-bg px-3 py-1 text-sm font-bold whitespace-nowrap text-state-healthy">
               <span className="size-2 rounded-full bg-state-healthy" />
-              Connecté
+              {t("connected")}
             </span>
           ) : (
             <Button asChild className="shrink-0">
-              <a href="/api/stripe/connect">Connecter Stripe</a>
+              <a href="/api/stripe/connect">{t("connectStripe")}</a>
             </Button>
           )}
         </div>
@@ -138,7 +138,7 @@ export default async function IntegrationsPage({
             <div className="min-w-0">
               <p className="truncate font-mono text-sm font-bold">{user?.stripeConnectId}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Pour changer de compte Stripe, déconnecte-toi puis reconnecte-toi avec l&apos;autre compte.
+                {t("changeStripe")}
               </p>
             </div>
             <StripeDisconnectButton />
@@ -147,8 +147,7 @@ export default async function IntegrationsPage({
 
         {stripeConnected && connection && !connection.livemode && !isAdmin && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
-            Ce compte Stripe est en mode test : aucune synchronisation ne sera effectuée pour éviter de mélanger des
-            données test et réelles. Reconnecte un compte en mode live.
+            {t("testMode")}
           </div>
         )}
 
@@ -158,28 +157,27 @@ export default async function IntegrationsPage({
             shown to regular users, who stay on the blocking warning above. */}
         {stripeConnected && connection && !connection.livemode && isAdmin && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
-            Compte Stripe en mode test — synchronisé quand même (accès admin). Les données ci-dessous sont des
-            données de test, pas des données réelles.
+            {t("testModeAdmin")}
           </div>
         )}
 
         {stripeConnected && (connection?.livemode || isAdmin) && connection?.initialSyncStatus === "pending" && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm font-bold text-muted-foreground">
-            Synchronisation de tes 12 derniers mois en cours…
+            {t("syncing")}
           </div>
         )}
 
         {stripeConnected && (connection?.livemode || isAdmin) && connection?.initialSyncStatus === "completed" && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm font-bold text-state-healthy">
-            12 mois synchronisés
-            {connection.initialSyncCompletedAt && ` le ${new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(connection.initialSyncCompletedAt)}`}
+            {t("synced")}
+            {connection.initialSyncCompletedAt && ` ${t("onDate")} ${new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(connection.initialSyncCompletedAt)}`}
             .
           </div>
         )}
 
         {stripeConnected && (connection?.livemode || isAdmin) && connection?.initialSyncStatus === "failed" && (
           <div className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
-            La synchronisation a échoué. Déconnecte puis reconnecte Stripe pour réessayer.
+            {t("syncFailed")}
           </div>
         )}
       </div>
@@ -202,11 +200,8 @@ export default async function IntegrationsPage({
 
       <div className="flex flex-col gap-3">
         <div>
-          <p className="text-sm font-bold text-muted-foreground">Logiciel de prise d&apos;appel</p>
-          <p className="text-sm text-muted-foreground">
-            Connecte ton outil de réservation d&apos;appels pour suivre tes prises d&apos;appel automatiquement. iClosed
-            ou Calendly, au choix (ou les deux).
-          </p>
+          <p className="text-sm font-bold text-muted-foreground">{t("callSoftware")}</p>
+          <p className="text-sm text-muted-foreground">{t("callSoftwareHelp")}</p>
         </div>
         <div id="iclosed" className="scroll-mt-28">
           <IclosedConnectionCard
@@ -228,10 +223,8 @@ export default async function IntegrationsPage({
 
       <div className="flex flex-col gap-3">
         <div>
-          <p className="text-sm font-bold text-muted-foreground">Contenu</p>
-          <p className="text-sm text-muted-foreground">
-            Connecte Instagram et/ou YouTube pour voir automatiquement quels posts et vidéos performent.
-          </p>
+          <p className="text-sm font-bold text-muted-foreground">{t("content")}</p>
+          <p className="text-sm text-muted-foreground">{t("contentHelp")}</p>
         </div>
         <div id="instagram" className="scroll-mt-28">
           <InstagramConnectionCard
@@ -254,12 +247,12 @@ export default async function IntegrationsPage({
       </div>
 
       <div className="flex flex-col gap-3">
-        <p className="text-sm font-bold text-muted-foreground">À venir</p>
+        <p className="text-sm font-bold text-muted-foreground">{t("upcoming")}</p>
         {UPCOMING_INTEGRATIONS.map((name) => (
           <div key={name} className="sticker-card-dashed flex items-center justify-between p-6">
             <p className="font-bold text-muted-foreground">{name}</p>
             <span className="rounded-full bg-state-unknown-bg px-2.5 py-1 text-xs font-bold tracking-wide text-state-unknown uppercase">
-              Bientôt
+              {t("soon")}
             </span>
           </div>
         ))}

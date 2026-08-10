@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Falco } from "@/components/falco/falco";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
@@ -16,17 +17,19 @@ export const MetricHealthCard = forwardRef<
     className?: string;
   }
 >(function MetricHealthCard({ card, auditUrl, hideAmounts, withFalco = false, className }, ref) {
+  const locale = useLocale();
+  const t = useTranslations("common");
   const tier = getHealthTier(card.score);
   const barWidth = Math.min(100, Math.max(0, card.score));
 
   const impactLine =
     tier.tier === "vert"
-      ? "Au-dessus du standard ✓"
+      ? t("health.aboveStandard")
       : hideAmounts
-        ? "Sous le benchmark"
+        ? t("health.belowBenchmark")
         : card.monthlyGain !== null
-          ? `≈ ${formatEur(card.monthlyGain)} / mois à récupérer`
-          : `≈ ${card.extraClients} client${card.extraClients > 1 ? "s" : ""}/mois à récupérer`;
+          ? t("health.monthlyRecovery", { amount: formatEur(card.monthlyGain, locale) })
+          : t("health.clientsRecovery", { count: card.extraClients });
 
   return (
     <div
@@ -60,7 +63,7 @@ export const MetricHealthCard = forwardRef<
       </p>
 
       <p className="relative mt-1 text-[13px] text-[var(--text-on-dark-muted)]">
-        Benchmark de ta niche : {card.benchmarkPercent} %
+        {t("health.benchmarkNiche", { value: card.benchmarkPercent })}
       </p>
 
       <div className="relative mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "#2A2820" }}>
@@ -75,7 +78,7 @@ export const MetricHealthCard = forwardRef<
       </p>
 
       <p className="relative mt-auto pt-6 text-center text-[11px] text-[var(--text-on-dark-muted)]">
-        Fais ton audit gratuit sur {auditUrl}
+        {t("health.freeAudit", { url: auditUrl })}
       </p>
 
       {withFalco && <Falco pose="neutral" size="sm" className="absolute right-4 bottom-4 z-10" />}

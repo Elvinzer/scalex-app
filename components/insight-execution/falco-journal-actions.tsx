@@ -2,11 +2,11 @@
 
 import { Check, CircleAlert } from "lucide-react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { updateInitiativeStatus } from "@/lib/insight-execution/actions";
-import { INITIATIVE_STATUS_LABELS } from "@/lib/insight-execution/state";
 import type { InsightHistoryItem } from "@/lib/insight-execution/types";
 
 function snapshotText(item: InsightHistoryItem, key: "problem" | "successCriterion"): string | null {
@@ -15,6 +15,7 @@ function snapshotText(item: InsightHistoryItem, key: "problem" | "successCriteri
 }
 
 export function FalcoJournalActions({ items }: { items: InsightHistoryItem[] }) {
+  const t = useTranslations("app.insights");
   const [localItems, setLocalItems] = useState(items);
   if (localItems.length === 0) return null;
 
@@ -22,8 +23,8 @@ export function FalcoJournalActions({ items }: { items: InsightHistoryItem[] }) 
     <section className="flex flex-col gap-3" aria-labelledby="falco-journal-actions-title">
       <div>
         <p className="text-xs font-bold tracking-wide text-accent-2-text uppercase">Falco</p>
-        <h2 id="falco-journal-actions-title" className="mt-1 text-lg font-bold">Actions issues de tes conversations</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Retrouve le problème, l&apos;action exacte et le critère qui te permettra de vérifier.</p>
+        <h2 id="falco-journal-actions-title" className="mt-1 text-lg font-bold">{t("journalActionsTitle")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("journalActionsHelp")}</p>
       </div>
       {localItems.map((item) => (
         <FalcoJournalAction
@@ -43,6 +44,8 @@ export function FalcoJournalActions({ items }: { items: InsightHistoryItem[] }) 
 }
 
 function FalcoJournalAction({ item, onCompleted }: { item: InsightHistoryItem; onCompleted: () => void }) {
+  const locale = useLocale();
+  const t = useTranslations("app.insights");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const initiative = item.initiative;
@@ -71,28 +74,28 @@ function FalcoJournalAction({ item, onCompleted }: { item: InsightHistoryItem; o
           <h3 className="mt-1 text-base font-bold break-words">{item.title}</h3>
         </div>
         <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-bold">
-          {initiative ? INITIATIVE_STATUS_LABELS[initiative.status] : item.decision === "launched" ? "Lancé" : "À traiter"}
+          {initiative ? initiative.status : item.decision === "launched" ? t("launchedStatus") : t("todoStatus")}
         </span>
       </div>
 
       {initiative?.isWeeklyFocus && (
-        <p className="mt-3 inline-flex rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent-text">Priorité de la semaine</p>
+        <p className="mt-3 inline-flex rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent-text">{t("weeklyPriority")}</p>
       )}
       <div className="mt-4 flex flex-col gap-3 text-sm leading-6">
-        {problem && <p><span className="font-bold">Le problème : </span>{problem}</p>}
-        <p className="whitespace-pre-wrap break-words"><span className="font-bold">L&apos;action : </span>{item.insightText}</p>
-        {criterion && <p className="whitespace-pre-wrap break-words"><span className="font-bold">Critère de réussite : </span>{criterion}</p>}
+        {problem && <p><span className="font-bold">{t("problem")} </span>{problem}</p>}
+        <p className="whitespace-pre-wrap break-words"><span className="font-bold">{t("action")} </span>{item.insightText}</p>
+        {criterion && <p className="whitespace-pre-wrap break-words"><span className="font-bold">{t("successCriterion")} </span>{criterion}</p>}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-bold text-muted-foreground">
-        {initiative?.dueDate && <span>Échéance {new Date(`${initiative.dueDate}T00:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" })}</span>}
+        {initiative?.dueDate && <span>{t("dueDate", { date: new Date(`${initiative.dueDate}T00:00:00Z`).toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" }) })}</span>}
           <Link href={`/copilote?conversation=${encodeURIComponent(item.sourceId)}`} className="inline-flex min-h-11 items-center text-accent-2-text underline-offset-2 hover:underline">
-          Voir la conversation
+          {t("viewConversation")}
         </Link>
         {!isDone && initiative && (
           <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={complete} disabled={isPending}>
             <Check className="size-3.5" aria-hidden="true" />
-            {isPending ? "Enregistrement..." : "Marquer terminée"}
+            {isPending ? t("saving") : t("markCompleted")}
           </Button>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Sparkline } from "@/components/sparkline";
 import { TileBenchmarkStrip } from "@/components/tile-benchmark-strip";
@@ -13,11 +14,11 @@ import type { ExistingStageInsight } from "@/components/funnel-insights/stage-in
 
 type SettingKpiEntry = typeof settingKpiEntries.$inferSelect;
 
-type CountTile = { type: "count"; key: keyof FunnelTotals; label: string };
+type CountTile = { type: "count"; key: keyof FunnelTotals; labelKey: string };
 type RateTile = {
   type: "rate";
   key: string;
-  label: string;
+  labelKey: string;
   numeratorKey: keyof FunnelTotals;
   denominatorKey: keyof FunnelTotals;
   // Set only when this exact ratio matches a stage covered by the
@@ -38,54 +39,53 @@ type RateTile = {
 // It's also why that tile gets neither `stage` nor `benchmarkKey`: it isn't
 // the same ratio as any stage the insight/benchmark systems know about.
 const TILES: (CountTile | RateTile)[] = [
-  { type: "count", key: "newSubscribers", label: "Nouveaux abonnés" },
-  { type: "count", key: "firstMessagesSent", label: "Premiers messages envoyés" },
+  { type: "count", key: "newSubscribers", labelKey: "newSubscribers" },
+  { type: "count", key: "firstMessagesSent", labelKey: "firstMessages" },
   {
     type: "rate",
     key: "responseRate",
-    label: "Taux de réponse au 1er message",
+    labelKey: "responseRate",
     numeratorKey: "conversationsStarted",
     denominatorKey: "firstMessagesSent",
     stage: "responseRate",
     benchmarkKey: "responseRate",
   },
-  { type: "count", key: "conversationsStarted", label: "Conversations en cours" },
-  { type: "count", key: "callsProposed", label: "Appels proposés" },
+  { type: "count", key: "conversationsStarted", labelKey: "conversationsOngoing" },
+  { type: "count", key: "callsProposed", labelKey: "callsProposed" },
   {
     type: "rate",
     key: "proposalRate",
-    label: "Taux d'appels proposés",
+    labelKey: "proposalRate",
     numeratorKey: "callsProposed",
     denominatorKey: "conversationsStarted",
     stage: "proposalRate",
   },
-  { type: "count", key: "callsBooked", label: "Appels réservés" },
+  { type: "count", key: "callsBooked", labelKey: "callsBooked" },
   {
     type: "rate",
     key: "bookingRate",
-    label: "Taux d'appels réservés",
+    labelKey: "bookingRate",
     numeratorKey: "callsBooked",
     denominatorKey: "firstMessagesSent",
   },
 ];
 
 const SPARKLINE_DAYS = 30;
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
-function shortDate(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("fr-FR", {
+function shortDate(date: string, locale: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(locale, {
     day: "numeric",
     month: "short",
     timeZone: "UTC",
   });
 }
 
-function CountDelta({ current, previous }: { current: number; previous: number | null }) {
+function CountDelta({ current, previous, locale }: { current: number; previous: number | null; locale: string }) {
+  const t = useTranslations("pipeline.funnel");
   if (previous === null) return null;
   const diff = current - previous;
 
   if (diff === 0) {
-    return <p className="text-xs text-muted-foreground">= vs période précédente</p>;
+    return <p className="text-xs text-muted-foreground">{t("noChange")}</p>;
   }
 
   const isUp = diff > 0;
@@ -98,17 +98,18 @@ function CountDelta({ current, previous }: { current: number; previous: number |
     >
       {isUp ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
       {isUp ? "+" : ""}
-      {NUMBER_FORMAT.format(diff)} vs période précédente
+      {new Intl.NumberFormat(locale).format(diff)} {t("vsPrevious")}
     </p>
   );
 }
 
 function RateDelta({ current, previous }: { current: number | null; previous: number | null }) {
+  const t = useTranslations("pipeline.funnel");
   if (current === null || previous === null) return null;
   const diffPts = Math.round((current - previous) * 100);
 
   if (diffPts === 0) {
-    return <p className="text-xs text-muted-foreground">= vs période précédente</p>;
+    return <p className="text-xs text-muted-foreground">{t("noChange")}</p>;
   }
 
   const isUp = diffPts > 0;
@@ -121,7 +122,7 @@ function RateDelta({ current, previous }: { current: number | null; previous: nu
     >
       {isUp ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
       {isUp ? "+" : ""}
-      {diffPts} pts vs période précédente
+      {diffPts} {t("points")} {t("vsPrevious")}
     </p>
   );
 }
@@ -144,8 +145,10 @@ export function StatTiles({
   existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>>;
   hasWorkingKey: boolean;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("pipeline.funnel");
   const recent = entriesAscending.slice(-SPARKLINE_DAYS);
-  const labels = recent.map((entry) => shortDate(entry.date));
+  const labels = recent.map((entry) => shortDate(entry.date, locale));
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
@@ -153,12 +156,12 @@ export function StatTiles({
         if (tile.type === "count") {
           return (
             <div key={tile.key} className="sticker-card flex flex-col p-5">
-              <p className="text-sm font-bold text-muted-foreground">{tile.label}</p>
+              <p className="text-sm font-bold text-muted-foreground">{t(tile.labelKey)}</p>
               <p className="mt-2 font-display text-3xl font-bold">
-                {NUMBER_FORMAT.format(totals[tile.key])}
+                {new Intl.NumberFormat(locale).format(totals[tile.key])}
               </p>
               <div className="mt-1 min-h-4">
-                <CountDelta current={totals[tile.key]} previous={previousTotals?.[tile.key] ?? null} />
+                <CountDelta current={totals[tile.key]} previous={previousTotals?.[tile.key] ?? null} locale={locale} />
               </div>
               <div className="mt-auto pt-3">
                 <Sparkline values={recent.map((entry) => entry[tile.key])} labels={labels} />
@@ -181,25 +184,25 @@ export function StatTiles({
             className="sticker-card flex flex-col border-violet/40 bg-paper-alt/60 p-5"
           >
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-bold text-muted-foreground">{tile.label}</p>
+              <p className="text-sm font-bold text-muted-foreground">{t(tile.labelKey)}</p>
               {tile.stage && (
                 <InsightTrigger
                   stage={tile.stage}
-                  label={tile.label}
+                  label={t(tile.labelKey)}
                   existingInsight={existingInsights[tile.stage] ?? null}
                   hasWorkingKey={hasWorkingKey}
                 />
               )}
             </div>
             <p className="mt-2 font-display text-3xl font-bold text-violet">
-              {rateValue === null ? "—" : formatPercent(rateValue)}
+              {rateValue === null ? "—" : formatPercent(rateValue, locale)}
             </p>
             <div className="mt-1 min-h-4">
               <RateDelta current={rateValue} previous={previousRateValue} />
             </div>
             <div className="mt-auto pt-3">
               <p className="text-xs text-muted-foreground">
-                {NUMBER_FORMAT.format(numerator)} / {NUMBER_FORMAT.format(denominator)}
+                {new Intl.NumberFormat(locale).format(numerator)} / {new Intl.NumberFormat(locale).format(denominator)}
               </p>
               <TileBenchmarkStrip value={rateValue} band={band} />
             </div>

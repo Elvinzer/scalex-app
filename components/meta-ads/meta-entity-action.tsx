@@ -1,6 +1,7 @@
 "use client";
 
 import { ExternalLink, Pause, Play } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { z } from "zod";
 
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export function MetaEntityAction({ entityType, entityId, campaignId, status, deepLink, hasWriteAccess, accountLabel, returnTo }: Props) {
+  const t = useTranslations("app.ads.entityAction");
   const [message, setMessage] = useState<string | null>(null);
   const [resultLink, setResultLink] = useState<string | null>(null);
   const [writeAccessRequired, setWriteAccessRequired] = useState(false);
@@ -60,7 +62,7 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
 
   function apply() {
     if (isArchived) {
-      setMessage("Cette publicité est archivée dans Meta Ads.");
+      setMessage(t("archived"));
       return;
     }
     if (!isProposed) {
@@ -68,10 +70,10 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
       return;
     }
     if (!hasWriteAccess || writeAccessRequired) {
-      setMessage("Autorise ads_management avant toute modification.");
+      setMessage(t("permission"));
       return;
     }
-    if (actionType === "pause" && !window.confirm("Cette action va interrompre cette diffusion dans Meta Ads. Confirmer ?")) return;
+    if (actionType === "pause" && !window.confirm(t("pauseConfirm"))) return;
     setMessage(null);
     setResultLink(null);
     startTransition(async () => {
@@ -94,7 +96,7 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
           // The retry remains usable when browser storage is unavailable.
         }
       }
-      setMessage(result.error ?? "Action vérifiée dans Meta Ads.");
+      setMessage(result.error ?? t("verified"));
       if (!result.error) {
         setIdempotencyKey(null);
         try {
@@ -114,29 +116,29 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
         <MetaAdsConsentDialog
           mode="write"
           href={writeAccessHref}
-          accountLabel={accountLabel ?? "compte publicitaire sélectionné"}
-          triggerLabel={writeAccessRequired ? "Autoriser à nouveau puis reprendre" : "Autoriser puis reprendre"}
+          accountLabel={accountLabel ?? t("account")}
+          triggerLabel={writeAccessRequired ? t("authorizeAgain") : t("authorize")}
           triggerVariant="outline"
           triggerClassName="w-full"
         />
       ) : (
         <Button variant="outline" size="sm" onClick={apply} disabled={isPending || isArchived}>
           {isPaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
-          {isPending ? "Vérification…" : isProposed ? isPaused ? "Confirmer la reprise" : "Confirmer la pause" : isPaused ? "Proposer la reprise" : "Proposer la pause"}
+          {isPending ? t("checking") : isProposed ? isPaused ? t("confirmResume") : t("confirmPause") : isPaused ? t("proposeResume") : t("proposePause")}
         </Button>
       )}
-      {isProposed && !hasWriteAccess && <span className="max-w-[13rem] text-right text-[11px] text-muted-foreground">La proposition est conservée sur cet appareil.</span>}
+      {isProposed && !hasWriteAccess && <span className="max-w-[13rem] text-right text-[11px] text-muted-foreground">{t("stored")}</span>}
       {isProposed && (
         <div className="max-w-[18rem] rounded-[var(--radius-control)] border border-accent-2/30 bg-accent-2/5 p-3 text-left text-[11px]">
-          <p className="font-bold">Proposition : {isPaused ? "réactiver" : "mettre en pause"} {entityType === "adset" ? "cet ensemble" : "cette publicité"}</p>
+          <p className="font-bold">{t("proposal", { action: isPaused ? t("reactivate") : t("pause"), entity: entityType === "adset" ? t("adset") : t("ad") })}</p>
           <dl className="mt-2 space-y-1 text-muted-foreground">
-            <div><dt className="inline font-bold">État actuel : </dt><dd className="inline">{status ?? "inconnu"}</dd></div>
-            <div><dt className="inline font-bold">Nouvelle valeur : </dt><dd className="inline">{isPaused ? "ACTIVE" : "PAUSED"}</dd></div>
-            <div><dt className="inline font-bold">Justification : </dt><dd className="inline">Demande explicite de pilotage depuis Scale X.</dd></div>
-            <div><dt className="inline font-bold">Impact / risque : </dt><dd className="inline">{isPaused ? "Reprise possible de dépense ; relire le volume après diffusion." : "Interruption de diffusion ; risque de perdre du volume pendant la pause."}</dd></div>
+            <div><dt className="inline font-bold">{t("currentState")} </dt><dd className="inline">{status ?? "unknown"}</dd></div>
+            <div><dt className="inline font-bold">{t("newValue")} </dt><dd className="inline">{isPaused ? "ACTIVE" : "PAUSED"}</dd></div>
+            <div><dt className="inline font-bold">{t("justification")} </dt><dd className="inline">{t("justificationText")}</dd></div>
+            <div><dt className="inline font-bold">{t("impactRisk")} </dt><dd className="inline">{isPaused ? t("resumeImpact") : t("pauseImpact")}</dd></div>
           </dl>
-          <a href={deepLink} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline">Ouvrir dans Meta Ads <ExternalLink className="size-3" /></a>
-          <p className="mt-2 text-muted-foreground">La valeur sera relue avant l’écriture ; toute divergence arrête l’action.</p>
+          <a href={deepLink} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline">{t("openMeta")} <ExternalLink className="size-3" /></a>
+          <p className="mt-2 text-muted-foreground">{t("reread")}</p>
         </div>
       )}
       {message && <span className="max-w-[13rem] text-right text-[11px] text-muted-foreground">{message}</span>}

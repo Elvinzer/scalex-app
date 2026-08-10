@@ -1,6 +1,7 @@
 import { Falco } from "@/components/falco/falco";
 import { FalcoBubble } from "@/components/falco/falco-bubble";
 import { Button } from "@/components/ui/button";
+import { useLocale, useTranslations } from "next-intl";
 import { formatEur } from "@/lib/currency";
 import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,8 @@ type PriorityItemProps =
 // stays the one canonical priority row for both, instead of forking a
 // near-duplicate for the lever case.
 export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
+  const locale = useLocale();
+  const t = useTranslations("diagnostic.priority");
   if (leverWinner) {
     const isTop = rank === 1;
     return (
@@ -40,24 +43,24 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
               <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{leverWinner.category}</p>
               <p className="mt-0.5 font-bold">{leverWinner.label}</p>
               <p className="mt-1 text-sm font-bold text-muted-foreground">
-                {leverWinner.isActive ? "En place, mais sous le benchmark." : "Pas encore en place."}
+                {leverWinner.isActive ? t("activeBelow") : t("notActive")}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
             <span className="rounded-full bg-positive-soft px-3 py-1 text-sm font-bold whitespace-nowrap text-positive tabular-nums">
-              ≈{formatEur(leverWinner.monthlyGainEur)}/mois
+              ≈{formatEur(leverWinner.monthlyGainEur, locale)}{t("perMonth")}
             </span>
             {isTop ? (
               <Button asChild size="sm" variant="secondary">
                 <a href={`/diagnostic?openLever=${leverWinner.leverKey}&openLeverLabel=${encodeURIComponent(leverWinner.label)}`}>
-                  Améliorer ça →
+                  {t("improve")}
                 </a>
               </Button>
             ) : (
               <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
-                Voir le détail
+                {t("seeDetail")}
               </a>
             )}
           </div>
@@ -67,7 +70,7 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
           <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
             <Falco pose="alert" size="xs" animate="enter" />
             <FalcoBubble arrow="left" className="max-w-none flex-1">
-              Je recommande de commencer par ça : c&apos;est ton point le plus rentable à corriger cette semaine.
+              {t("recommend")}
             </FalcoBubble>
           </div>
         )}
@@ -109,17 +112,17 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
             className="rounded-full bg-positive-soft px-3 py-1 text-sm font-bold whitespace-nowrap text-positive tabular-nums"
             title={point.tooltip}
           >
-            {point.monthlyGain === null ? "+" + point.extraClients + " clients/mois" : `+${formatEur(point.monthlyGain)}/mois`}
+            {point.monthlyGain === null ? "+" + point.extraClients + ` ${t("clientsPerMonth")}` : `+${formatEur(point.monthlyGain, locale)}${t("perMonth")}`}
           </span>
           {isTop ? (
             // Secondary, not coral — the page's one coral CTA is the hero
             // banner's "Récupérer ce cash →", which already points here.
             <Button asChild size="sm" variant="secondary">
-              <a href={`/diagnostic?open=${point.key}`}>Améliorer ça →</a>
+              <a href={`/diagnostic?open=${point.key}`}>{t("improve")}</a>
             </Button>
           ) : (
             <a href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
-              Voir le détail
+              {t("seeDetail")}
             </a>
           )}
         </div>
@@ -129,7 +132,7 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
         <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
           <Falco pose="alert" size="xs" animate="enter" />
           <FalcoBubble arrow="left" className="max-w-none flex-1">
-            Je recommande de commencer par ça : c&apos;est ton point le plus rentable à corriger cette semaine.
+            {t("recommend")}
           </FalcoBubble>
         </div>
       )}

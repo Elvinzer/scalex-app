@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 
 import { createReferralCode } from "./actions";
 
 export function ReferralCodeForm() {
+  const t = useTranslations("referral");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -30,9 +32,9 @@ export function ReferralCodeForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-bold">Ton code</span>
+        <span className="font-bold">{t("codeLabel")}</span>
         <span className="text-xs text-muted-foreground">
-          4 à 32 caractères. Il sera transformé en majuscules dans ton lien.
+          {t("codeHelp")}
         </span>
         <input
           name="code"
@@ -51,7 +53,7 @@ export function ReferralCodeForm() {
         </p>
       )}
       <Button type="submit" disabled={isPending} className="self-start">
-        {isPending ? "Création..." : "Créer mon code"}
+        {isPending ? t("creating") : t("createCode")}
       </Button>
     </form>
   );

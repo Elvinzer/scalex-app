@@ -1,16 +1,15 @@
 "use client";
 
 import { Camera } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
-function formatStat(value: number | null): string {
-  return value === null ? "—" : NUMBER_FORMAT.format(value);
+function formatStat(value: number | null, locale: string): string {
+  return value === null ? "—" : new Intl.NumberFormat(locale).format(value);
 }
 
 export function formatWatchTime(ms: number | null): string {
@@ -22,6 +21,8 @@ export function formatWatchTime(ms: number | null): string {
 }
 
 export function InstagramPostDetailDialog({ insight, trigger }: { insight: InstagramPostInsightRow; trigger: React.ReactNode }) {
+  const locale = useLocale();
+  const t = useTranslations("content.detail");
   const [open, setOpen] = useState(false);
   const isStory = insight.mediaType === "STORY";
   // Reels are normalized as media_type "VIDEO" (see lib/instagram/client.ts's
@@ -31,27 +32,27 @@ export function InstagramPostDetailDialog({ insight, trigger }: { insight: Insta
 
   const stats: { label: string; value: string }[] = isStory
     ? [
-        { label: "Portée", value: formatStat(insight.reach) },
-        { label: "Taps suivant", value: formatStat(insight.storyTapsForward) },
-        { label: "Taps précédent", value: formatStat(insight.storyTapsBack) },
-        { label: "Sorties", value: formatStat(insight.storyExits) },
-        { label: "Réponses", value: formatStat(insight.storyReplies) },
+        { label: t("reach"), value: formatStat(insight.reach, locale) },
+        { label: t("nextTaps"), value: formatStat(insight.storyTapsForward, locale) },
+        { label: t("backTaps"), value: formatStat(insight.storyTapsBack, locale) },
+        { label: t("exits"), value: formatStat(insight.storyExits, locale) },
+        { label: t("replies"), value: formatStat(insight.storyReplies, locale) },
       ]
     : [
-        { label: "Portée", value: formatStat(insight.reach) },
-        { label: "Impressions", value: formatStat(insight.impressions) },
-        { label: "Likes", value: formatStat(insight.likeCount) },
-        { label: "Commentaires", value: formatStat(insight.commentsCount) },
-        { label: "Enregistrements", value: formatStat(insight.savedCount) },
-        { label: "Partages", value: formatStat(insight.sharesCount) },
+        { label: t("reach"), value: formatStat(insight.reach, locale) },
+        { label: t("impressions"), value: formatStat(insight.impressions, locale) },
+        { label: t("likes"), value: formatStat(insight.likeCount, locale) },
+        { label: t("comments"), value: formatStat(insight.commentsCount, locale) },
+        { label: t("saves"), value: formatStat(insight.savedCount, locale) },
+        { label: t("shares"), value: formatStat(insight.sharesCount, locale) },
         ...(isVideo
           ? [
-              { label: "Vues vidéo", value: formatStat(insight.videoViews) },
-              { label: "Temps de visionnage moyen", value: formatWatchTime(insight.avgWatchTimeMs) },
+              { label: t("videoViews"), value: formatStat(insight.videoViews, locale) },
+              { label: t("avgWatchTime"), value: formatWatchTime(insight.avgWatchTimeMs) },
             ]
           : []),
-        { label: "Visites de profil", value: formatStat(insight.profileVisits) },
-        { label: "Abonnements générés", value: formatStat(insight.follows) },
+        { label: t("profileVisits"), value: formatStat(insight.profileVisits, locale) },
+        { label: t("follows"), value: formatStat(insight.follows, locale) },
       ];
 
   return (
@@ -60,7 +61,7 @@ export function InstagramPostDetailDialog({ insight, trigger }: { insight: Insta
       <DialogContent className="max-w-md">
         <div className="flex items-center gap-2">
           <Camera className="size-4 text-muted-foreground" />
-          <DialogTitle>Détail du post Instagram</DialogTitle>
+          <DialogTitle>{t("instagramTitle")}</DialogTitle>
         </div>
 
         {insight.caption && <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{insight.caption}</p>}
@@ -75,14 +76,13 @@ export function InstagramPostDetailDialog({ insight, trigger }: { insight: Insta
         </div>
 
         <p className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-          Les clics sortants sur un post organique ne sont pas mesurables via l&apos;API Instagram — c&apos;est pour
-          ça qu&apos;ils n&apos;apparaissent pas ici.
+          {t("instagramNotice")}
         </p>
 
         {insight.permalink && (
           <Button asChild variant="outline" className="mt-4">
             <a href={insight.permalink} target="_blank" rel="noreferrer">
-              Voir sur Instagram
+              {t("viewInstagram")}
             </a>
           </Button>
         )}

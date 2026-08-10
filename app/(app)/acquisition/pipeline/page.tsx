@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { getBusinessProfile } from "@/lib/business/queries";
@@ -25,6 +26,7 @@ function monthsAgoRange(monthsBack: number): DateRange {
 }
 
 export default async function PipelinePage({ searchParams }: { searchParams: Promise<{ period?: string; lead?: string; from?: string; view?: string }> }) {
+  const t = await getTranslations("pipeline");
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:pipeline");
   const params = await searchParams;
@@ -50,7 +52,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
 
   const stats = await computeLeadPipelineStats(accountId, range, previousRange, user?.sector ?? null);
 
-  const chatContext: ChatContext = { topicType: "lever", topicKey: "ceo_vision", topicLabel: "Vision", sourcePage: "acquisition_pipeline" };
+  const chatContext: ChatContext = { topicType: "lever", topicKey: "ceo_vision", topicLabel: t("vision"), sourcePage: "acquisition_pipeline" };
   const falcoSkin = resolveFalcoSkin("/acquisition/pipeline");
   const offers = businessProfile.sales.offers;
 
@@ -58,36 +60,36 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Pipeline</h1>
-          <p className="mt-1 max-w-2xl text-muted-foreground">Transforme chaque lead en prochaine action claire, de la prise de contact à la vente.</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 max-w-2xl text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-4">
           {fromDashboard && (
             <Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-bold text-muted-foreground outline-none hover:underline focus-visible:ring-3 focus-visible:ring-accent/20">
-              ← Retour au Dashboard
+              ← {t("backDashboard")}
             </Link>
           )}
           <Link href="/acquisition/pipeline/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
-            Funnel journalier →
+            {t("dailyFunnel")} →
           </Link>
           <NewLeadDialog offers={offers} setters={setters} />
         </div>
       </div>
 
-      <div className="flex w-fit items-center gap-1 rounded-[var(--radius-control)] border border-border bg-muted p-1" role="group" aria-label="Vue du pipeline">
+      <div className="flex w-fit items-center gap-1 rounded-[var(--radius-control)] border border-border bg-muted p-1" role="group" aria-label={t("viewAria")}>
         <Link
           href="/acquisition/pipeline?view=today"
           aria-current={view === "today" ? "page" : undefined}
           className={`min-h-11 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold ${view === "today" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
-          À faire aujourd&apos;hui
+          {t("todayView")}
         </Link>
         <Link
           href="/acquisition/pipeline?view=stage"
           aria-current={view === "stage" ? "page" : undefined}
           className={`min-h-11 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold ${view === "stage" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
-          Vue Stage
+          {t("stageView")}
         </Link>
       </div>
 
@@ -96,8 +98,8 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
       ) : (
         <>
           <AgentBanner
-            stateText="Ton pipeline de leads, de bout en bout."
-            ctaLabel="Améliorer →"
+            stateText={t("agentState")}
+            ctaLabel={t("improve")}
             chatContext={chatContext}
             mode="optimiser"
             falcoSkin={falcoSkin}

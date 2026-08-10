@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { computeSectionCompletion } from "@/lib/business/completion";
@@ -15,24 +16,24 @@ import { useDebouncedSave } from "./use-debounced-save";
 const inputClass =
   "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
-const OFFER_TYPES: { value: OfferType; label: string }[] = [
-  { value: "formation", label: "Formation" },
-  { value: "coaching", label: "Coaching" },
-  { value: "accompagnement", label: "Accompagnement" },
-  { value: "saas", label: "SaaS" },
-  { value: "autre", label: "Autre" },
+const OFFER_TYPES: { value: OfferType; labelKey: string }[] = [
+  { value: "formation", labelKey: "formation" },
+  { value: "coaching", labelKey: "coaching" },
+  { value: "accompagnement", labelKey: "support" },
+  { value: "saas", labelKey: "saas" },
+  { value: "autre", labelKey: "other" },
 ];
 
-const SALE_MODES: { value: SaleMode; label: string }[] = [
-  { value: "appel_closing", label: "Appel de closing" },
-  { value: "page_vente", label: "Page de vente directe" },
-  { value: "dm", label: "DM" },
+const SALE_MODES: { value: SaleMode; labelKey: string }[] = [
+  { value: "appel_closing", labelKey: "closingCall" },
+  { value: "page_vente", labelKey: "salesPage" },
+  { value: "dm", labelKey: "dm" },
 ];
 
-const RECURRENCES: { value: Recurrence; label: string }[] = [
-  { value: "one_shot", label: "One-shot" },
-  { value: "mensuel", label: "Mensuel" },
-  { value: "annuel", label: "Annuel" },
+const RECURRENCES: { value: Recurrence; labelKey: string }[] = [
+  { value: "one_shot", labelKey: "oneShot" },
+  { value: "mensuel", labelKey: "monthly" },
+  { value: "annuel", labelKey: "yearly" },
 ];
 
 function emptyOffer(): Offer {
@@ -60,6 +61,8 @@ export function SalesSection({
   offerPerformance: OfferPerformance[];
   onChange: (next: BusinessSales) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("business.sales");
   const { schedule, status, error } = useDebouncedSave<BusinessSales>((next) =>
     saveBusinessSection("sales", next)
   );
@@ -102,8 +105,8 @@ export function SalesSection({
     <div className="sticker-card p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold">Offres &amp; prix</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Ce que tu vends, à quel prix et comment c&apos;est vendu.</p>
+          <h2 className="text-base font-bold">{t("title")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("help")}</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <CompletionBadge answered={completion.answered} total={completion.total} />
@@ -113,20 +116,20 @@ export function SalesSection({
 
       <div className="mt-6 flex flex-col gap-6">
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-bold">Offres</p>
+          <p className="text-sm font-bold">{t("offers")}</p>
 
           <Accordion type="multiple" value={openOfferIds} onValueChange={setOpenOfferIds} className="flex flex-col gap-3">
           {value.offers.map((offer) => (
             <AccordionItem key={offer.id} value={offer.id} className="rounded-xl border border-border px-4">
               <AccordionTrigger>
                 <div className="flex flex-1 flex-wrap items-center gap-2">
-                  <span className="font-bold">{offer.name || "Offre sans nom"}</span>
+                  <span className="font-bold">{offer.name || t("unnamedOffer")}</span>
                   <span className="text-sm text-muted-foreground">
-                    {offer.price === null ? "Prix non renseigné" : formatEur(offer.price)}
+                    {offer.price === null ? t("priceMissing") : formatEur(offer.price, locale)}
                   </span>
                   {offer.isMain && (
                     <span className="rounded-full bg-state-healthy-bg px-2 py-0.5 text-xs font-bold text-state-healthy">
-                      Principale
+                      {t("main")}
                     </span>
                   )}
                   {offer.isUpsell && (
@@ -136,7 +139,7 @@ export function SalesSection({
                   )}
                   {offer.commissionSetterPct != null && (
                     <span className="rounded-full bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
-                      Commission setter : {Math.round(offer.commissionSetterPct * 100)} %
+                      {t("setterCommission", { percent: Math.round(offer.commissionSetterPct * 100) })}
                     </span>
                   )}
                 </div>
@@ -146,22 +149,22 @@ export function SalesSection({
                 const stats = performanceByOfferId.get(offer.id);
                 return (
                   <div className="rounded-[var(--radius-control)] bg-muted/50 p-3">
-                    <p className="text-xs font-bold text-muted-foreground">Performance ce mois</p>
+                    <p className="text-xs font-bold text-muted-foreground">{t("performance")}</p>
                     <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
                       <div>
-                        <p className="text-xs text-muted-foreground">CA</p>
-                        <p className="font-bold tabular-nums">{formatEur(stats?.revenue ?? 0)}</p>
+                        <p className="text-xs text-muted-foreground">{t("revenue")}</p>
+                        <p className="font-bold tabular-nums">{formatEur(stats?.revenue ?? 0, locale)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Ventes</p>
+                        <p className="text-xs text-muted-foreground">{t("sales")}</p>
                         <p className="font-bold tabular-nums">{stats?.salesCount ?? 0}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Panier moyen</p>
+                        <p className="text-xs text-muted-foreground">{t("averageBasket")}</p>
                         <p className="font-bold tabular-nums">
                           {stats?.avgBasket === null || stats?.avgBasket === undefined
                             ? "—"
-                            : formatEur(Math.round(stats.avgBasket))}
+                            : formatEur(Math.round(stats.avgBasket), locale)}
                         </p>
                       </div>
                     </div>
@@ -170,7 +173,7 @@ export function SalesSection({
               })()}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Nom</span>
+                  <span className="font-bold text-muted-foreground">{t("name")}</span>
                   <input
                     type="text"
                     value={offer.name}
@@ -179,7 +182,7 @@ export function SalesSection({
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Prix (€)</span>
+                  <span className="font-bold text-muted-foreground">{t("price")}</span>
                   <input
                     type="number"
                     min={0}
@@ -196,7 +199,7 @@ export function SalesSection({
                   (lib/setters/queries.ts's computeSetterCommissions) when set,
                   never stored/computed elsewhere. */}
               <label className="flex flex-col gap-1 text-xs sm:w-1/2 sm:pr-1.5">
-                <span className="font-bold text-muted-foreground">Commission setter (%, optionnel)</span>
+                <span className="font-bold text-muted-foreground">{t("optionalCommission")}</span>
                 <input
                   type="number"
                   min={0}
@@ -213,7 +216,7 @@ export function SalesSection({
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Type</span>
+                  <span className="font-bold text-muted-foreground">{t("type")}</span>
                   <select
                     value={offer.type ?? ""}
                     onChange={(event) =>
@@ -221,16 +224,16 @@ export function SalesSection({
                     }
                     className={inputClass}
                   >
-                    <option value="">Choisir...</option>
+                    <option value="">{t("choose")}</option>
                     {OFFER_TYPES.map((option) => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {t(option.labelKey)}
                       </option>
                     ))}
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Mode de vente</span>
+                  <span className="font-bold text-muted-foreground">{t("salesMode")}</span>
                   <select
                     value={offer.saleMode ?? ""}
                     onChange={(event) =>
@@ -240,16 +243,16 @@ export function SalesSection({
                     }
                     className={inputClass}
                   >
-                    <option value="">Choisir...</option>
+                    <option value="">{t("choose")}</option>
                     {SALE_MODES.map((option) => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {t(option.labelKey)}
                       </option>
                     ))}
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-xs">
-                  <span className="font-bold text-muted-foreground">Récurrence</span>
+                  <span className="font-bold text-muted-foreground">{t("recurrence")}</span>
                   <select
                     value={offer.recurrence ?? ""}
                     onChange={(event) =>
@@ -259,10 +262,10 @@ export function SalesSection({
                     }
                     className={inputClass}
                   >
-                    <option value="">Choisir...</option>
+                    <option value="">{t("choose")}</option>
                     {RECURRENCES.map((option) => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {t(option.labelKey)}
                       </option>
                     ))}
                   </select>
@@ -280,7 +283,7 @@ export function SalesSection({
                         : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
                     }
                   >
-                    {offer.isMain ? "Offre principale ✓" : "Définir comme offre principale"}
+                    {offer.isMain ? `${t("main")} ✓` : t("setMain")}
                   </button>
                   {/* Non-exclusive (unlike isMain) — several offers can be
                       upsells at once. The performance breakdown stays beside
@@ -294,7 +297,7 @@ export function SalesSection({
                         : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
                     }
                   >
-                    {offer.isUpsell ? "Upsell ✓" : "Marquer comme upsell"}
+                    {offer.isUpsell ? `${t("upsell")} ✓` : t("markUpsell")}
                   </button>
                 </div>
                 <button
@@ -302,7 +305,7 @@ export function SalesSection({
                   onClick={() => removeOffer(offer.id)}
                   className="text-xs font-bold text-state-critical hover:underline"
                 >
-                  Supprimer
+                  {t("remove")}
                 </button>
               </div>
               </AccordionContent>
@@ -315,15 +318,15 @@ export function SalesSection({
             onClick={addOffer}
             className="self-start rounded-full border border-dashed border-border px-4 py-2 text-sm font-bold text-muted-foreground hover:border-signal hover:text-signal"
           >
-            + Ajouter une offre
+            + {t("addOffer")}
           </button>
         </div>
 
         <div className="rounded-xl border border-border p-4">
-          <p className="text-sm font-bold">Process de closing</p>
+          <p className="text-sm font-bold">{t("closingProcess")}</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs">
-              <span className="font-bold text-muted-foreground">Qui close</span>
+              <span className="font-bold text-muted-foreground">{t("whoCloses")}</span>
               <select
                 value={value.closing.closer ?? ""}
                 onChange={(event) =>
@@ -336,13 +339,13 @@ export function SalesSection({
                 }
                 className={inputClass}
               >
-                <option value="">Non renseigné</option>
-                <option value="moi">Moi</option>
+                <option value="">{t("notEntered")}</option>
+                <option value="moi">{t("me")}</option>
                 <option value="closer">Closer</option>
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs">
-              <span className="font-bold text-muted-foreground">Durée moyenne (min)</span>
+              <span className="font-bold text-muted-foreground">{t("averageDuration")}</span>
               <input
                 type="number"
                 min={0}
@@ -359,7 +362,7 @@ export function SalesSection({
               />
             </label>
             <label className="flex flex-col gap-1 text-xs">
-              <span className="font-bold text-muted-foreground">Script utilisé ?</span>
+              <span className="font-bold text-muted-foreground">{t("scriptUsed")}</span>
               <select
                 value={value.closing.hasScript === null ? "" : value.closing.hasScript ? "yes" : "no"}
                 onChange={(event) =>
@@ -372,29 +375,29 @@ export function SalesSection({
                 }
                 className={inputClass}
               >
-                <option value="">Non renseigné</option>
-                <option value="yes">Oui</option>
-                <option value="no">Non</option>
+                <option value="">{t("notEntered")}</option>
+                <option value="yes">{t("yes")}</option>
+                <option value="no">{t("no")}</option>
               </select>
             </label>
           </div>
         </div>
 
         <div className="rounded-xl border border-border p-4">
-          <p className="text-sm font-bold">Relances</p>
+          <p className="text-sm font-bold">{t("followups")}</p>
           <div className="mt-3 flex flex-col gap-3">
             <FollowupToggle
-              label="Séquence de relance non-acheteurs"
+              label={t("followupNonBuyers")}
               value={value.followups.nonBuyers}
               onChange={(next) => update({ followups: { ...value.followups, nonBuyers: next } })}
             />
             <FollowupToggle
-              label="Relance no-show"
+              label={t("followupNoShow")}
               value={value.followups.noShow}
               onChange={(next) => update({ followups: { ...value.followups, noShow: next } })}
             />
             <FollowupToggle
-              label="Relance paiements échoués"
+              label={t("followupFailedPayments")}
               value={value.followups.failedPayments}
               onChange={(next) => update({ followups: { ...value.followups, failedPayments: next } })}
             />
@@ -414,6 +417,7 @@ function FollowupToggle({
   value: boolean | null;
   onChange: (next: boolean) => void;
 }) {
+  const t = useTranslations("business.sales");
   return (
     <div className="flex items-center justify-between gap-4">
       <p className="text-sm">{label}</p>
@@ -427,7 +431,7 @@ function FollowupToggle({
               : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
           }
         >
-          Oui
+          {t("yes")}
         </button>
         <button
           type="button"
@@ -438,7 +442,7 @@ function FollowupToggle({
               : "rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground"
           }
         >
-          Non
+          {t("no")}
         </button>
       </div>
     </div>

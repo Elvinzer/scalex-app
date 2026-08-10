@@ -6,7 +6,43 @@
     "continue": "Continuer",
     "back": "Retour",
     "retry": "Réessayer",
-    "seeDetail": "Voir le détail"
+    "seeDetail": "Voir le détail",
+    "previousPage": "Page précédente",
+    "nextPage": "Page suivante",
+    "disconnect": "Déconnecter",
+    "disconnecting": "Déconnexion…"
+  },
+  "period": {
+    "this_month": "Ce mois",
+    "last_month": "Mois dernier",
+    "last_30d": "30 j",
+    "last_90d": "90 j",
+    "this_year": "Cette année",
+    "all": "Tout"
+  },
+  "dateRange": {
+    "all": "Tout l'historique",
+    "currentMonth": "Mois en cours",
+    "last30Days": "30 derniers jours",
+    "previousMonth": "Mois précédent",
+    "nextMonth": "Mois suivant",
+    "chooseRange": "Choisis une plage",
+    "cancel": "Annuler",
+    "update": "Mettre à jour"
+  },
+  "businessNudge": {
+    "message": "Renseigne tes offres dans Mon business pour chiffrer ton manque à gagner",
+    "complete": "Compléter"
+  },
+  "contact": {
+    "prospect": "ce prospect",
+    "contact": "Contacter {name}",
+    "call": "Appeler",
+    "callAria": "Appeler {name}",
+    "whatsapp": "WhatsApp",
+    "whatsappAria": "Envoyer un message WhatsApp à {name}",
+    "callSubject": "notre appel",
+    "followUp": "Bonjour{firstName}, je reviens vers toi au sujet de {subject}."
   },
   "states": {
     "loading": "Chargement…",
@@ -19,5 +55,153 @@
     "label": "Langue de l'interface",
     "fr": "Français",
     "en": "English"
+  },
+  "nature": {
+    "observed": "Observé",
+    "calculated": "Calculé",
+    "benchmark": "Benchmark",
+    "projection": "Projection"
+  },
+  "sources": {
+    "stripe": "Stripe",
+    "calendly": "Calendly",
+    "iclosed": "iClosed",
+    "pipeline": "Pipeline",
+    "manual": "Saisie",
+    "calculated": "Calculé",
+    "stripeManual": "Stripe + saisie"
+  },
+  "streak": {
+    "openDetails": "Ouvrir le détail de ta série",
+    "ariaLabel": "Ta série : {count} jour(s). Ouvrir le détail.",
+    "days": "{count} jour(s)",
+    "currentStreak": "Série en cours",
+    "weeklyGoal": "Objectif de la semaine",
+    "goalMet": "Atteint — ta série est protégée jusqu’à dimanche.",
+    "todayValidated": "Journée validée.",
+    "oneAction": "Une seule action suffit à valider aujourd’hui."
+  },
+  "scaleScore": {
+    "needNumbers": "Il me faut tes chiffres pour te noter.",
+    "fillNumbers": "Remplir mes chiffres",
+    "title": "Ton Scale Score",
+    "lastCalculated": "Dernier calcul :",
+    "over30Days": "sur 30 jours",
+    "evolution": "Évolution (8 dernières semaines)",
+    "improve": "Améliorer mon score",
+    "exporting": "Export…",
+    "share": "Partager",
+    "tier": {
+      "rouge": "Santé fragile",
+      "ambre": "Santé correcte",
+      "vert": "Santé excellente"
+    }
+  },
+  "shared": {
+    "yourSector": "Ton secteur",
+    "sectorNotSet": "Non renseigné (repère global)",
+    "previousMetric": "Métrique précédente",
+    "nextMetric": "Métrique suivante",
+    "goToMetric": "Aller à {label}",
+    "exporting": "Export en cours…",
+    "shareCard": "Partager cette carte",
+    "hideAmounts": "Masquer les montants",
+    "addFalco": "Ajouter Falco",
+    "benchmark": "Benchmark",
+    "marketBenchmark": "Repère marché",
+    "marketStandard": "Standard du marché : {value}",
+    "excellentFrom": "excellent à partir de {value}%",
+    "notEnoughVolume": "Pas assez de volume pour être fiable",
+    "noMarketBenchmark": "Pas encore de repère marché pour cette métrique",
+    "you": "Toi",
+    "aboveMarket": "Au-dessus du marché",
+    "belowMarket": "En dessous du marché",
+    "withinMarket": "Dans la moyenne du secteur",
+    "calculatedHow": "Comment c’est calculé",
+    "dataSource": "D’où vient cette donnée",
+    "lastDaysTrend": "Évolution sur les {count} derniers jours",
+    "active": "Actif",
+    "watch": "À surveiller",
+    "impactToAssess": "Impact : à évaluer",
+    "calculatedFromData": "Calculé à partir de tes données, des taux de ton funnel et du prix de ton offre.",
+    "scaleWarning": "Vérifie que ton closing est stable avant d’augmenter le volume.",
+    "leverContext": "Cette estimation combine ta performance actuelle avec le benchmark du levier.",
+    "perMonth": "/mois",
+    "launchPlan": "Plan de lancement",
+    "helpFromFalco": "Falco m’aide →",
+    "markLaunched": "Marquer comme lancé",
+    "yourRevenueIfOptimized": "Mon CA si j’optimise tout",
+    "perMonthLabel": "par mois",
+    "freeProjection": "Fais ta projection gratuite sur scalex.app",
+    "shareScaleScore": "Scale Score : pas encore calculé, voir le détail",
+    "scaleScoreAria": "Scale Score : {score} sur 100, potentiel {potential}, voir le détail",
+    "toCalculate": "À calculer",
+    "potential": "Potentiel",
+    "accessSuspended": "Accès suspendu",
+    "subscriptionInactive": "L’abonnement Scale X du compte auquel tu es rattaché n’est plus actif. Contacte le propriétaire du compte pour rétablir l’accès.",
+    "low": "Bas",
+    "medium": "Moyen",
+    "good": "Bon",
+    "marketGoodReference": "Repère « bon » du marché : {value}",
+    "falcoThinking": "Falco réfléchit…",
+    "chatError": "Cette conversation a rencontré une erreur.",
+    "retry": "Réessayer",
+    "aiError": "L’IA n’a pas pu répondre. Réessaie dans un instant.",
+    "messageLimit": "Limite de messages atteinte",
+    "writeMessage": "Écris ton message…"
+    ,"writeHook": "Rédiger une accroche"
+    ,"writeHookFor": "Rédiger une accroche : {offer}"
+  },
+  "integration": {
+    "connected": "Connecté",
+    "syncing": "Synchronisation en cours",
+    "plan_limited": "Accès limité par le plan",
+    "error": "Synchronisation échouée",
+    "not_connected": "Non lié"
+  },
+  "sector": {
+    "coaching_b2b_high_ticket": "Coaching / consulting B2B haut ticket (2000-5000€)",
+    "low_ticket_infoproduct": "Low-ticket / infoproduit grand public (<100€)",
+    "ecommerce_dtc": "E-commerce / DTC",
+    "real_estate_finance": "Immobilier / patrimoine / finance personnelle avec appel"
+  },
+  "health": {
+    "aboveStandard": "Au-dessus du standard ✓",
+    "belowBenchmark": "Sous le benchmark",
+    "monthlyRecovery": "≈ {amount} / mois à récupérer",
+    "clientsRecovery": "≈ {count} client(s)/mois à récupérer",
+    "benchmarkNiche": "Benchmark de ta niche : {value} %",
+    "freeAudit": "Fais ton audit gratuit sur {url}"
+  },
+  "streakDetails": {
+    "new": "Nouvelle série, on repart. Une seule action aujourd’hui suffit à la lancer.",
+    "goalMet": "Objectif de la semaine atteint. Ta série tient, même si tu lèves le pied d’ici dimanche.",
+    "long": "{count} jours d’affilée. C’est devenu une habitude, plus un effort.",
+    "week": "{count} jours d’affilée. C’est exactement le rythme qui construit un business.",
+    "regularity": "{count} jour(s) d’affilée. Continue, c’est la régularité qui paie.",
+    "title": "Ta série",
+    "record": "Record personnel : {count} jour(s)",
+    "weeklyGoal": "Objectif de la semaine",
+    "goalHelp": "Calé sur ton rythme réel des 4 dernières semaines. Baisse-le si la période est chargée — atteindre ton objectif protège ta série même avec des jours vides.",
+    "last30Days": "Tes 30 derniers jours",
+    "activeDay": "Jour actif",
+    "graceDay": "Jour de grâce",
+    "protectedDay": "Couvert par ton objectif",
+    "emptyDay": "Sans activité",
+    "protectedByGoal": "Couvert par ton objectif hebdo",
+    "graceRemaining": "{count} jour(s) de grâce restant(s) ce mois-ci. Ils se consomment tout seuls, tu n’as rien à faire.",
+    "validatesDay": "Ce qui valide une journée",
+    "validatesHelp": "Une seule de ces actions suffit. Tout est détecté automatiquement.",
+    "reminderTitle": "Rappel en fin de journée",
+    "reminderHelp": "Un email discret à 19 h les jours sans activité. Désactivé par défaut, et jamais de relance culpabilisante.",
+    "reminderAria": "Rappel en fin de journée",
+    "close": "Fermer",
+    "sources": {
+      "content_published": { "label": "Publier du contenu", "detail": "Un post, un Reel, un Short, une story ou une vidéo YouTube — détecté automatiquement à la synchronisation." },
+      "email_sent": { "label": "Envoyer une campagne email", "detail": "Une campagne envoyée depuis ton module Mail." },
+      "business_progress": { "label": "Faire avancer ton business", "detail": "Une action du Journal cochée, un levier démarré, une amélioration marquée comme faite." },
+      "checkin_filled": { "label": "Remplir tes chiffres", "detail": "Une saisie de tes chiffres setting ou closing." },
+      "lead_worked": { "label": "Travailler ton pipeline", "detail": "Un commentaire sur un lead ou un lead déplacé dans ton pipeline." }
+    }
   }
 }

@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 
 import { DiscoveryConversation } from "@/app/(app)/diagnostic/discovery-conversation";
 import { Falco, type FalcoPose } from "@/components/falco/falco";
@@ -27,7 +28,7 @@ import { LanguageStep } from "./language-step";
 // flow's initial JS unconditionally.
 const ImportFlow = dynamic(() => import("@/components/import/import-flow").then((m) => m.ImportFlow), {
   ssr: false,
-  loading: () => <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">Chargement…</div>,
+  loading: () => <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">Loading…</div>,
 });
 
 const inputClass =
@@ -61,6 +62,7 @@ function Bubble({ index, children }: { index: number; children: React.ReactNode 
 }
 
 function ProgressBar({ step }: { step: 1 | 2 | 3 }) {
+  const t = useTranslations("onboarding");
   return (
     <div className="flex items-center gap-1.5">
       {[1, 2, 3].map((i) => (
@@ -70,7 +72,7 @@ function ProgressBar({ step }: { step: 1 | 2 | 3 }) {
           className={cn("h-1.5 flex-1 rounded-full transition-colors", i <= step ? "bg-accent" : "bg-border")}
         />
       ))}
-      <span className="sr-only">Étape {step} sur 3</span>
+      <span className="sr-only">{t("stepProgress", { step })}</span>
     </div>
   );
 }
@@ -102,15 +104,15 @@ function NumberField({
 // Secondary to the primary CTA and clearly skippable — the questionnaire is
 // facultatif per the brief.
 function DiscoveryInvite({ count, onStart }: { count: number; onStart: () => void }) {
+  const t = useTranslations("onboarding");
   if (count <= 0) return null;
   return (
     <div className="mt-2 flex flex-col gap-3 border-t border-border pt-4">
       <Bubble index={0}>
-        Tu veux que je creuse encore ? J&apos;ai {count} question{count > 1 ? "s" : ""} rapide
-        {count > 1 ? "s" : ""} sur tes leviers. Facultatif, tu pourras le faire plus tard depuis ton diagnostic.
+        {t("discoveryInvite", { count })}
       </Bubble>
       <Button type="button" variant="outline" onClick={onStart} className="w-full">
-        Répondre au questionnaire (2 min)
+        {t("answerQuestionnaire")}
       </Button>
     </div>
   );
@@ -136,6 +138,9 @@ export function OnboardingFlow({
   suggestedLocale: Locale;
 }) {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations("onboarding");
+  const tDiagnostic = useTranslations("diagnostic");
   // Step 0 (§B): shown only to accounts that have never chosen. An existing
   // user reaching the wizard again never sees it — `needsLanguageChoice` is
   // false as soon as users.locale holds a value.
@@ -237,7 +242,7 @@ export function OnboardingFlow({
           onComplete={() => router.push("/journal")}
         />
         <Button type="button" variant="ghost" className="self-center" onClick={() => router.push("/journal")}>
-          Finir plus tard →
+          {t("finishLater")} →
         </Button>
       </div>
     );
@@ -251,6 +256,30 @@ export function OnboardingFlow({
         : step === 2 && isPending
           ? "thinking"
           : "neutral";
+
+  const localizedPointLabel =
+    result?.kind === "point" && locale === "en"
+      ? tDiagnostic(`metrics.${result.point.key}`)
+      : result?.kind === "point"
+        ? result.point.label
+        : null;
+  const localizedPointCategory =
+    result?.kind === "point" && locale === "en"
+      ? tDiagnostic(`categories.${result.point.category.toLowerCase()}`)
+      : result?.kind === "point"
+        ? result.point.category
+        : null;
+  const localizedPointExplanation =
+    result?.kind === "point" && locale === "en"
+      ? tDiagnostic(`metricExplanations.${result.point.key}`, {
+          current: result.point.currentRatePercent,
+          benchmark: result.point.benchmarkRatePercent,
+          gain: result.point.extraClients,
+          noShow: 100 - result.point.currentRatePercent,
+        })
+      : result?.kind === "point"
+        ? result.point.explanation
+        : null;
 
   if (!languageChosen) {
     return (
@@ -278,35 +307,34 @@ export function OnboardingFlow({
       {step === 1 && (
         <form onSubmit={handleScreen1Submit} className="flex flex-col gap-4">
           <Bubble index={0}>
-            Salut, moi c&apos;est Falco 👋 Je vais t&apos;aider à trouver où ton business perd de l&apos;argent.
-            D&apos;abord : tu vends quoi ?
+            {t("welcome")}
           </Bubble>
           <input
             type="text"
             required
             value={offerName}
             onChange={(event) => setOfferName(event.target.value)}
-            placeholder="Nom de ton offre principale"
+            placeholder={t("offerPlaceholder")}
             className={inputClass}
           />
 
-          <Bubble index={1}>Et à quel prix ?</Bubble>
+          <Bubble index={1}>{t("priceQuestion")}</Bubble>
           <input
             type="number"
             required
             min={0}
             value={price ?? ""}
             onChange={(event) => setPrice(event.target.value === "" ? null : Number(event.target.value))}
-            placeholder="Prix (€)"
+            placeholder={t("pricePlaceholder")}
             className={inputClass}
           />
 
-          <Bubble index={2}>Tu la vends comment ?</Bubble>
+          <Bubble index={2}>{t("salesModeQuestion")}</Bubble>
           <div className="flex flex-col gap-2">
             {(
               [
-                { value: "appel_closing", label: "En appel de closing" },
-                { value: "page_vente", label: "Page de vente" },
+                { value: "appel_closing", label: t("closingCall") },
+                { value: "page_vente", label: t("salesPage") },
               ] as const
             ).map((option) => (
               <label
@@ -328,13 +356,13 @@ export function OnboardingFlow({
             ))}
           </div>
 
-          <Bubble index={3}>Dernière chose : ta niche ?</Bubble>
+          <Bubble index={3}>{t("nicheQuestion")}</Bubble>
           <input
             type="text"
             required
             value={niche}
             onChange={(event) => setNiche(event.target.value)}
-            placeholder="Ex : coaching business pour thérapeutes"
+            placeholder={t("nichePlaceholder")}
             className={inputClass}
           />
 
@@ -342,10 +370,10 @@ export function OnboardingFlow({
 
           <div className="mt-2 flex flex-col items-center gap-3">
             <Button type="submit" size="lg" disabled={isPending || !niche.trim() || !offerName.trim() || price === null} className="w-full">
-              {isPending ? "..." : "Continuer →"}
+              {isPending ? t("loading") : t("continue")}
             </Button>
             <Button type="button" variant="ghost" onClick={() => void skipOnboarding()}>
-              Passer pour l&apos;instant
+              {t("skip")}
             </Button>
           </div>
         </form>
@@ -354,14 +382,13 @@ export function OnboardingFlow({
       {step === 2 && step2Mode === "choice" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
-            Tes chiffres : tu as un export ou une capture ? Glisse-le ici, je m&apos;occupe du tri, même si ça couvre
-            plusieurs mois. Sinon on les remplit ensemble pour {previousMonthLabel}.
+            {t("numbersQuestion", { month: previousMonthLabel })}
           </Bubble>
           <ImportFlow source="onboarding" onCommitted={() => void handleImportCommitted()} />
-          {isPending && <FalcoPondering isLoading pose="thinking" size="xs" label="Je calcule…" className="self-start" />}
+              {isPending && <FalcoPondering isLoading pose="thinking" size="xs" label={t("calculating")} className="self-start" />}
           {error && <p className="text-sm text-state-critical">{error}</p>}
           <Button type="button" variant="ghost" className="self-center" onClick={() => setStep2Mode("manual")}>
-            Saisir à la main
+            {t("enterManually")}
           </Button>
         </div>
       )}
@@ -369,32 +396,31 @@ export function OnboardingFlow({
       {step === 2 && step2Mode === "manual" && (
         <form onSubmit={handleScreen2Submit} className="flex flex-col gap-4">
           <Bubble index={0}>
-            Maintenant tes chiffres de {previousMonthLabel}. Des valeurs approx suffisent, je préfère un vrai
-            « à peu près » qu&apos;un faux précis.
+            {t("manualNumbersQuestion", { month: previousMonthLabel })}
           </Bubble>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <NumberField label="CA collecté (€)" value={monthDraft.cashCollected} onChange={(v) => updateMonth({ cashCollected: v })} />
-            <NumberField label="CA contracté (€)" value={monthDraft.cashContracted} onChange={(v) => updateMonth({ cashContracted: v })} />
-            <NumberField label="Nouveaux abonnés" value={monthDraft.newFollowers} onChange={(v) => updateMonth({ newFollowers: v })} />
+            <NumberField label={t("cashCollected")} value={monthDraft.cashCollected} onChange={(v) => updateMonth({ cashCollected: v })} />
+            <NumberField label={t("cashContracted")} value={monthDraft.cashContracted} onChange={(v) => updateMonth({ cashContracted: v })} />
+            <NumberField label={t("newFollowers")} value={monthDraft.newFollowers} onChange={(v) => updateMonth({ newFollowers: v })} />
           </div>
 
           {saleMode === "appel_closing" && (
             <>
-              <Bubble index={1}>Ok. Et côté prospection et appels ?</Bubble>
+              <Bubble index={1}>{t("prospectingQuestion")}</Bubble>
               <div className="grid gap-3 sm:grid-cols-2">
-                <NumberField label="Premiers messages envoyés" value={monthDraft.firstMessages} onChange={(v) => updateMonth({ firstMessages: v })} />
-                <NumberField label="Conversations démarrées" value={monthDraft.conversations} onChange={(v) => updateMonth({ conversations: v })} />
-                <NumberField label="Appels proposés" value={monthDraft.callsProposed} onChange={(v) => updateMonth({ callsProposed: v })} />
-                <NumberField label="Appels réservés" value={monthDraft.callsBooked} onChange={(v) => updateMonth({ callsBooked: v })} />
-                <NumberField label="Appels pris" value={monthDraft.callsTaken} onChange={(v) => updateMonth({ callsTaken: v })} />
+                <NumberField label={t("firstMessages")} value={monthDraft.firstMessages} onChange={(v) => updateMonth({ firstMessages: v })} />
+                <NumberField label={t("conversations")} value={monthDraft.conversations} onChange={(v) => updateMonth({ conversations: v })} />
+                <NumberField label={t("callsProposed")} value={monthDraft.callsProposed} onChange={(v) => updateMonth({ callsProposed: v })} />
+                <NumberField label={t("callsBooked")} value={monthDraft.callsBooked} onChange={(v) => updateMonth({ callsBooked: v })} />
+                <NumberField label={t("callsTaken")} value={monthDraft.callsTaken} onChange={(v) => updateMonth({ callsTaken: v })} />
               </div>
             </>
           )}
 
-          <Bubble index={2}>Et pour finir :</Bubble>
+          <Bubble index={2}>{t("lastQuestion")}</Bubble>
           <div className="grid gap-3 sm:grid-cols-2">
-            <NumberField label="Ventes conclues" value={monthDraft.salesClosed} onChange={(v) => updateMonth({ salesClosed: v })} />
+            <NumberField label={t("salesClosed")} value={monthDraft.salesClosed} onChange={(v) => updateMonth({ salesClosed: v })} />
           </div>
 
           {isPending && <FalcoPondering isLoading pose="thinking" size="xs" label="Je calcule…" className="self-start" />}
@@ -402,10 +428,10 @@ export function OnboardingFlow({
 
           <div className="mt-2 flex flex-col items-center gap-3">
             <Button type="submit" size="lg" disabled={isPending} className="w-full">
-              {isPending ? "Calcul en cours..." : "Voir mon diagnostic →"}
+              {isPending ? t("calculating") : t("seeDiagnostic")}
             </Button>
             <Button type="button" variant="ghost" onClick={() => void skipOnboarding()}>
-              Passer pour l&apos;instant
+              {t("skip")}
             </Button>
           </div>
         </form>
@@ -414,27 +440,27 @@ export function OnboardingFlow({
       {step === 3 && result?.kind === "point" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
-            Trouvé. Ton goulot, c&apos;est <strong>{result.point.label.toLowerCase()}</strong>.
+            {t("bottleneckFound")} <strong>{localizedPointLabel?.toLowerCase()}</strong>.
           </Bubble>
 
           <div className="sticker-spotlight px-7 py-6">
             <p className="text-xs text-mist/70">
-              {result.point.category} · {result.point.label}
+              {localizedPointCategory} · {localizedPointLabel}
             </p>
             <p className="mt-2 text-[38px] leading-[1.1] font-bold tracking-[-0.02em] tabular-nums">
-              {result.point.monthlyGain === null ? "—" : `≈ ${formatEur(result.point.monthlyGain)}/mois perdus`}
+              {result.point.monthlyGain === null ? "—" : `≈ ${formatEur(result.point.monthlyGain, locale)}${t("lostPerMonth")}`}
             </p>
-            <p className="mt-2 text-sm text-mist/70">sur ce point</p>
+            <p className="mt-2 text-sm text-mist/70">{t("onThisPoint")}</p>
             <div className="mt-4">
               <RateVsBenchmarkBar currentRate={result.point.currentRatePercent / 100} benchmarkRate={result.point.benchmarkRatePercent / 100} />
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground">{result.point.explanation}</p>
+          <p className="text-sm text-muted-foreground">{localizedPointExplanation}</p>
 
-          <Bubble index={1}>On s&apos;en occupe ensemble ?</Bubble>
+          <Bubble index={1}>{t("improveTogether")}</Bubble>
           <Button size="lg" asChild className="w-full">
-            <a href={`/diagnostic?open=${result.point.key}`}>Améliorer ça maintenant →</a>
+            <a href={`/diagnostic?open=${result.point.key}`}>{t("improveNow")} →</a>
           </Button>
 
           <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />
@@ -444,11 +470,10 @@ export function OnboardingFlow({
       {step === 3 && result?.kind === "no_gap" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
-            Tes chiffres sont déjà solides 🎉 Sur ce que tu as pu mesurer, rien n&apos;est sous les standards de ta
-            niche. Continue à remplir tes chiffres pour affiner ton diagnostic.
+            {t("noGapFound")}
           </Bubble>
           <Button size="lg" asChild className="w-full">
-            <a href="/journal">Ouvrir mon journal de bord →</a>
+            <a href="/journal">{t("openJournal")} →</a>
           </Button>
 
           <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />

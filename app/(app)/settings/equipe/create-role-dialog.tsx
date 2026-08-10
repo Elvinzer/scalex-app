@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,9 +13,10 @@ export function CreateRoleDialog({
   permissionOptions,
   trigger,
 }: {
-  permissionOptions: { key: PermissionKey; label: string }[];
+  permissionOptions: { key: PermissionKey }[];
   trigger: React.ReactNode;
 }) {
+  const t = useTranslations("settings.team");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<PermissionKey[]>([]);
@@ -46,22 +48,22 @@ export function CreateRoleDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-bold">Nouveau rôle</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{t("newRole")}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Nom du rôle</span>
+            <span className="text-muted-foreground">{t("roleName")}</span>
             <input
               type="text"
               name="name"
               required
-              placeholder="Assistant"
+              placeholder={t("rolePlaceholder")}
               className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             />
           </label>
 
           <div className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Accès</span>
+            <span className="text-muted-foreground">{t("access")}</span>
             <div className="flex flex-wrap gap-2">
               {permissionOptions.map((option) => {
                 const active = selected.includes(option.key);
@@ -76,7 +78,7 @@ export function CreateRoleDialog({
                         : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-signal/50"
                     }
                   >
-                    {option.label}
+                    {t(`permission.${permissionKey(option.key)}`)}
                   </button>
                 );
               })}
@@ -86,10 +88,14 @@ export function CreateRoleDialog({
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Création..." : "Créer le rôle"}
+            {isPending ? t("creating") : t("createRole")}
           </Button>
         </form>
       </DialogContent>
     </Dialog>
   );
+}
+
+function permissionKey(key: PermissionKey): string {
+  return key.replace(":", "_");
 }

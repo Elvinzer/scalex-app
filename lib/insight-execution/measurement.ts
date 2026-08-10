@@ -26,15 +26,16 @@ export function compareBaselineSnapshots(baseline: BaselineSnapshot, after: Base
   };
 }
 
-export function measurementEvidenceLabel(evidence: MeasurementEvidenceType): string {
+export function measurementEvidenceLabel(evidence: MeasurementEvidenceType, locale = "fr"): string {
+  const english = locale === "en";
   switch (evidence) {
     case "observed":
-      return "Impact observé";
+      return english ? "Observed impact" : "Impact observé";
     case "estimated":
-      return "Gain estimé post-action";
+      return english ? "Estimated post-action gain" : "Gain estimé post-action";
     case "not_calculable":
-      return "Non calculable";
+      return english ? "Not calculable" : "Non calculable";
     case "qualitative":
-      return "Observation utilisateur";
+      return english ? "User observation" : "Observation utilisateur";
   }
 }

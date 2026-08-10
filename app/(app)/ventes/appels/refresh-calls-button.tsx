@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { refreshCalendlyCalls } from "@/app/(app)/integrations/calendly-actions";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 // webhook on iClosed, and dev Inngest isn't always running) — the reliable way
 // to bring data in / refresh outcomes.
 export function RefreshCallsButton({ iclosed = false, calendly = false }: { iclosed?: boolean; calendly?: boolean }) {
+  const t = useTranslations("app.calls");
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -36,7 +38,7 @@ export function RefreshCallsButton({ iclosed = false, calendly = false }: { iclo
       } else {
         setIsError(false);
         setMessage(
-          imported > 0 ? `${imported} nouvel${imported > 1 ? "s" : ""} appel${imported > 1 ? "s" : ""} importé${imported > 1 ? "s" : ""}.` : "Déjà à jour."
+          imported > 0 ? t("imported", { count: imported, plural: imported > 1 ? "s" : "" }) : t("upToDate")
         );
       }
     });
@@ -47,7 +49,7 @@ export function RefreshCallsButton({ iclosed = false, calendly = false }: { iclo
       {message && <span className={`text-sm ${isError ? "text-state-critical" : "text-muted-foreground"}`}>{message}</span>}
       <Button variant="outline" onClick={handleRefresh} disabled={isPending}>
         <RefreshCw className={`size-4 ${isPending ? "animate-spin" : ""}`} />
-        {isPending ? "Synchronisation…" : "Rafraîchir mes appels"}
+        {isPending ? t("syncing") : t("refresh")}
       </Button>
     </div>
   );

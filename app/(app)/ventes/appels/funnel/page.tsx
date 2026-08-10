@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
@@ -10,7 +11,6 @@ import type { ChatContext } from "@/lib/chat-context";
 import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
-import { labelFor } from "@/lib/diagnostic/cascade";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
@@ -38,6 +38,8 @@ export default async function VentesFunnelPage({
 }: {
   searchParams: Promise<{ range?: string | string[]; from?: string | string[]; to?: string | string[] }>;
 }) {
+  const locale = await getLocale();
+  const t = await getTranslations("sales.closingFunnel");
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:appels");
   const params = await searchParams;
@@ -99,8 +101,8 @@ export default async function VentesFunnelPage({
 
   const stateText =
     hasEntriesInRange && bottleneck
-      ? `Ton taux le plus faible du closing : ${labelFor(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
-      : "Tu n'as pas encore de données de closing sur cette période.";
+      ? t("agentState", { stage: t(`stages.${bottleneck.stage}`).toLowerCase(), rate: Math.round(bottleneck.rate * 100) })
+      : t("noDataState");
   const chatContext: ChatContext = { topicType: "lever", topicKey: "closing", topicLabel: "Closing", sourcePage: "ventes_appels_funnel" };
   const falcoSkin = resolveFalcoSkin("/ventes/appels");
 
@@ -108,7 +110,7 @@ export default async function VentesFunnelPage({
     <div className="flex flex-col gap-8">
       <AgentBanner
         stateText={stateText}
-        ctaLabel="Améliorer →"
+        ctaLabel={t("improve")}
         chatContext={chatContext}
         mode="optimiser"
         falcoSkin={falcoSkin}
@@ -116,23 +118,18 @@ export default async function VentesFunnelPage({
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Funnel de closing</h1>
-          <p className="mt-1 text-muted-foreground">
-            Ce qui se passe une fois l&apos;appel réservé : présence à l&apos;appel, et
-            conversion en vente.
-          </p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Link href="/ventes/appels" className="text-sm font-bold text-muted-foreground hover:underline">
-          ← Retour au suivi d&apos;appel
+          {t("back")}
         </Link>
       </div>
 
       {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune donnée de closing enregistrée pour l&apos;instant</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ajoute ta première journée ci-dessous, ou importe un historique en CSV.
-          </p>
+          <p className="text-sm font-bold">{t("noData")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("noDataHelp")}</p>
         </div>
       )}
 
@@ -144,16 +141,15 @@ export default async function VentesFunnelPage({
 
       {hasAnyEntries && !hasEntriesInRange && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune donnée sur cette période</p>
-          <p className="mt-1 text-sm text-muted-foreground">Choisis une autre plage ci-dessus.</p>
+          <p className="text-sm font-bold">{t("noRange")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("chooseRange")}</p>
         </div>
       )}
 
       {hasEntriesInRange && (
         <div>
           <p className="mb-4 text-sm text-muted-foreground">
-            Cumul sur {entries.length} jour{entries.length > 1 ? "s" : ""}
-            {range ? ` — ${formatRangeDates(range)}` : " enregistrés"}.
+            {t("cumulative", { count: entries.length, plural: entries.length > 1 ? "s" : "", suffix: range ? ` — ${formatRangeDates(range, locale)}` : t("recorded") })}
           </p>
           <ClosingTiles
             entriesAscending={[...entries].reverse()}
@@ -173,15 +169,15 @@ export default async function VentesFunnelPage({
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold">Ajouter un jour</p>
-          <p className="mt-1 text-sm text-muted-foreground">Ressaisir une date déjà enregistrée la met à jour.</p>
+          <p className="text-sm font-bold">{t("addDay")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("updateHelp")}</p>
           <div className="mt-6">
             <EntryForm />
           </div>
         </div>
 
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold">Importer un CSV</p>
+          <p className="text-sm font-bold">{t("importCsv")}</p>
           <div className="mt-6">
             <CsvImport />
           </div>
@@ -190,7 +186,7 @@ export default async function VentesFunnelPage({
 
       {hasEntriesInRange && (
         <div>
-          <p className="mb-3 text-sm font-bold">Historique</p>
+          <p className="mb-3 text-sm font-bold">{t("history")}</p>
           <EntriesTable entries={entries} />
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, PencilLine, Phone, Send, Sparkles, WalletCards, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { KpiNumberField, type KpiFieldSource } from "@/components/kpi-number-field";
@@ -12,8 +13,12 @@ import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { formatEur } from "@/lib/currency";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import { monthDateRange } from "@/lib/date-range";
+<<<<<<< HEAD
 import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { MONTH_LABELS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
+=======
+import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import { revenuePerCall, toClosingTotals, toFunnelTotals } from "@/lib/monthly-metrics/rates";
@@ -21,6 +26,7 @@ import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 
 import { saveMonthlyMetrics } from "./actions";
 
+<<<<<<< HEAD
 const SETTING_SOURCE: KpiFieldSource = {
   text: "Calculé depuis ton suivi quotidien. Modifiable dans Pipeline → Funnel journalier.",
   href: "/acquisition/pipeline/funnel",
@@ -43,10 +49,13 @@ function callsSource(source: MonthlyCallSource): KpiFieldSource {
 const SYNC_DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 function stripeSource(syncedAt: Date | null): KpiFieldSource {
+=======
+function stripeSource(syncedAt: Date | null, locale: string, text: string, linkLabel: string): KpiFieldSource {
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   return {
-    text: syncedAt ? `Synchronisé depuis Stripe le ${SYNC_DATE_FORMAT.format(syncedAt)}.` : "Synchronisé depuis Stripe.",
+    text: syncedAt ? `${text} ${new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(syncedAt)}.` : `${text}.`,
     href: "/integrations",
-    linkLabel: "Voir mes intégrations",
+    linkLabel,
   };
 }
 
@@ -113,7 +122,12 @@ export function MonthModal({
   onClose: () => void;
   onNavigate: (nextYear: number, nextMonth: number) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("data.modal");
   const router = useRouter();
+  const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
+  const settingSource: KpiFieldSource = { text: t("settingSource"), href: "/acquisition/pipeline/funnel", linkLabel: t("dailyTracking") };
+  const closingSource: KpiFieldSource = { text: t("closingSource"), href: "/ventes/appels/funnel", linkLabel: t("dailyTracking") };
   const persistedSettingManualOverride = initialData?.settingManualOverride ?? false;
   const persistedClosingManualOverride = initialData?.closingManualOverride ?? false;
   const persistedSourceOverrides = useMemo(
@@ -300,11 +314,11 @@ export function MonthModal({
 
   const callsTakenWarning =
     draft.callsTaken !== null && draft.callsBooked !== null && draft.callsTaken > draft.callsBooked
-      ? "Vérifie ce chiffre"
+      ? t("checkNumber")
       : undefined;
   const salesClosedWarning =
     draft.salesClosed !== null && draft.callsTaken !== null && draft.salesClosed > draft.callsTaken
-      ? "Vérifie ce chiffre"
+      ? t("checkNumber")
       : undefined;
 
   const sourceImportFields = useMemo(() => {
@@ -319,13 +333,13 @@ export function MonthModal({
       <DialogContent className="max-w-2xl p-0">
         {pendingAction ? (
           <div className="flex flex-col gap-4 p-2 text-center">
-            <p className="font-bold">Tu as des modifications non enregistrées</p>
+            <p className="font-bold">{t("unsavedChanges")}</p>
             <div className="flex justify-center gap-3">
               <Button onClick={saveAndProceed} disabled={isPending}>
-                Enregistrer
+                {t("save")}
               </Button>
               <Button variant="outline" onClick={discardAndProceed}>
-                Quitter sans sauver
+                {t("discard")}
               </Button>
             </div>
           </div>
@@ -340,18 +354,18 @@ export function MonthModal({
                   type="button"
                   onClick={() => requestNavigate(-1)}
                   className="flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-                  aria-label="Mois précédent"
+                  aria-label={t("previousMonth")}
                 >
                   <ChevronLeft className="size-4" />
                 </button>
                 <DialogTitle className="font-display text-lg font-bold">
-                  {MONTH_LABELS[month - 1]} {year}
+                  {monthLabel} {year}
                 </DialogTitle>
                 <button
                   type="button"
                   onClick={() => requestNavigate(1)}
                   className="flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-                  aria-label="Mois suivant"
+                  aria-label={t("nextMonth")}
                 >
                   <ChevronRight className="size-4" />
                 </button>
@@ -360,7 +374,7 @@ export function MonthModal({
                 type="button"
                 onClick={requestClose}
                 className="flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-                aria-label="Fermer"
+                aria-label={t("close")}
               >
                 <X className="size-4" />
               </button>
@@ -368,11 +382,11 @@ export function MonthModal({
 
             <div className="px-6 pt-4">
               <p className="text-sm text-muted-foreground">
-                Ajoute les données de {MONTH_LABELS[month - 1].toLowerCase()} en quelques secondes. Falco peut reconnaître ton tableau automatiquement.
+                {t("intro", { month: monthLabel })}
               </p>
             </div>
 
-            <div className="mx-6 mt-5 grid grid-cols-2 gap-1 rounded-[var(--radius-control)] border border-border bg-surface-sunken p-1" role="tablist" aria-label="Méthode de saisie">
+            <div className="mx-6 mt-5 grid grid-cols-2 gap-1 rounded-[var(--radius-control)] border border-border bg-surface-sunken p-1" role="tablist" aria-label={t("inputMethod")}>
               <button
                 type="button"
                 role="tab"
@@ -383,7 +397,7 @@ export function MonthModal({
                 }`}
               >
                 <Sparkles className="size-4" aria-hidden="true" />
-                Import intelligent
+                {t("smartImport")}
               </button>
               <button
                 type="button"
@@ -395,7 +409,7 @@ export function MonthModal({
                 }`}
               >
                 <PencilLine className="size-4" aria-hidden="true" />
-                Saisie manuelle
+                {t("manualEntry")}
               </button>
             </div>
 
@@ -406,9 +420,9 @@ export function MonthModal({
                     <Sparkles className="size-4" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-accent-2-text">Falco trie ton tableau pour toi</p>
+                    <p className="text-sm font-bold text-accent-2-text">{t("falcoTitle")}</p>
                     <p className="mt-1 text-xs leading-5 text-accent-2-text/80">
-                      Envoie un CSV/Excel ou colle tes cellules. Il associe les bons chiffres aux 9 indicateurs de ce mois, puis te montre le résultat avant toute validation.
+                      {t("falcoHelp")}
                     </p>
                   </div>
                 </div>
@@ -450,53 +464,56 @@ export function MonthModal({
               {importAppliedCount !== null && (
                 <div className="flex items-start justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-3" role="status">
                   <div>
+<<<<<<< HEAD
                     <p className="text-sm font-bold text-accent-2-text">{importAppliedCount} valeur{importAppliedCount > 1 ? "s" : ""} prête{importAppliedCount > 1 ? "s" : ""} à vérifier</p>
                     <p className="mt-1 text-xs text-accent-2-text/80">Relis les champs puis clique sur « Valider et fermer » pour terminer.</p>
+=======
+                    <p className="text-sm font-bold text-accent-2-text">{t("valuesReady", { count: importAppliedCount, plural: importAppliedCount > 1 ? "s" : "" })}</p>
+                    <p className="mt-1 text-xs text-accent-2-text/80">{t("valuesReadyHelp")}</p>
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                   </div>
                   <button type="button" onClick={() => setEntryMode("import")} className="shrink-0 text-xs font-bold text-accent-2-text underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent-2">
-                    Revoir
+                    {t("review")}
                   </button>
                 </div>
               )}
               <div className="flex flex-col gap-3">
                 <p className="flex items-center gap-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">
                   <WalletCards className="size-4" aria-hidden="true" />
-                  Finance
+                  {t("finance")}
                 </p>
                 {cashCollectedStale && (
                   <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-xs font-bold text-state-caution">
-                    Stripe déconnecté, chiffres figés au{" "}
-                    {initialData?.cashCollectedSyncedAt ? SYNC_DATE_FORMAT.format(initialData.cashCollectedSyncedAt) : "?"}. Tu
-                    peux à nouveau saisir ce champ à la main.
+                    {t("stripeStale", { date: initialData?.cashCollectedSyncedAt ? new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(initialData.cashCollectedSyncedAt) : "?" })}
                   </div>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <KpiNumberField
-                    label="CA collecté (€)"
+                    label={t("cashCollected")}
                     value={draft.cashCollected}
                     onChange={(v) => update({ cashCollected: v })}
-                    disabledReason={cashCollectedSynced ? stripeSource(initialData?.cashCollectedSyncedAt ?? null) : undefined}
+                    disabledReason={cashCollectedSynced ? stripeSource(initialData?.cashCollectedSyncedAt ?? null, locale, t("stripeSynced"), t("viewIntegrations")) : undefined}
                   />
                   <KpiNumberField
-                    label="CA contracté (€)"
+                    label={t("cashContracted")}
                     value={draft.cashContracted}
                     onChange={(v) => update({ cashContracted: v })}
                   />
                   {newCustomersSynced && (
                     <KpiNumberField
-                      label="Nouveaux clients"
+                      label={t("newCustomers")}
                       value={initialData?.newCustomers ?? null}
                       onChange={() => {}}
-                      disabledReason={stripeSource(initialData?.newCustomersSyncedAt ?? null)}
+                      disabledReason={stripeSource(initialData?.newCustomersSyncedAt ?? null, locale, t("stripeSynced"), t("viewIntegrations"))}
                     />
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Cumul annuel collecté : {formatEur(cumulCollected)}
+                  {t("yearToDate", { amount: formatEur(cumulCollected, locale) })}
                 </p>
                 {salesThisMonth && salesThisMonth.contracted > 0 && salesThisMonth.contracted !== draft.cashContracted && (
                   <SuggestionBanner
-                    text={`Tes ventes de Suivi des ventes totalisent ${formatEur(salesThisMonth.contracted)} contracté, ${formatEur(salesThisMonth.collected)} encaissé ce mois.`}
+                    text={t("salesSuggestion", { contracted: formatEur(salesThisMonth.contracted, locale), collected: formatEur(salesThisMonth.collected, locale) })}
                     onApply={() =>
                       update({ cashContracted: salesThisMonth.contracted, cashCollected: salesThisMonth.collected })
                     }
@@ -507,80 +524,95 @@ export function MonthModal({
               <div className="flex flex-col gap-3">
                 <p className="flex items-center gap-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">
                   <Send className="size-4" aria-hidden="true" />
-                  Setting · prospection
+                  {t("settingProspecting")}
                 </p>
                 {(settingSourced || callsBookedSourced) && !sourceEditMode.setting && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
+<<<<<<< HEAD
                     <span>Les KPI disponibles sont calculés depuis {settingSourceLabel}.</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("setting", true)}>
                       Modifier malgré la source
+=======
+                    <span>{t("settingCalculated")}</span>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("setting", true)}>
+                      {t("editMonth")}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                     </Button>
                   </div>
                 )}
                 {settingSourced && sourceEditMode.setting && !sourceOverrides.settingManualOverride && (
                   <p className="rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
-                    Tu peux corriger ces valeurs pour la revue. Une modification sera conservée comme override mensuel après Enregistrer.
+                    {t("overrideHint")}
                   </p>
                 )}
                 {sourceOverrides.settingManualOverride && (
+<<<<<<< HEAD
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution-bg px-3 py-2 text-xs text-state-caution" role="status">
                     <span>
                       <strong>Attention :</strong> tes valeurs remplacent {callSource ? "les données connectées" : "le suivi quotidien"} pour ce mois. Vérifie la source avant de confirmer.
                     </span>
+=======
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2 text-xs text-accent-2-text">
+                    <span>{t("overrideActive")}</span>
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("setting", false)}>
-                      Revenir au suivi
+                      {t("backToDaily")}
                     </Button>
                   </div>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <KpiNumberField
-                    label="Nouveaux abonnés"
+                    label={t("newFollowers")}
                     value={draft.newFollowers}
                     onChange={(v) => updateSourceField("setting", "newFollowers", v)}
-                    disabledReason={settingSourced && !sourceEditMode.setting ? SETTING_SOURCE : undefined}
+                    disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined}
                   />
                   <KpiNumberField
-                    label="Premiers messages envoyés"
+                    label={t("firstMessages")}
                     value={draft.firstMessages}
                     onChange={(v) => updateSourceField("setting", "firstMessages", v)}
-                    disabledReason={settingSourced && !sourceEditMode.setting ? SETTING_SOURCE : undefined}
+                    disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined}
                   />
                   <KpiNumberField
-                    label="Conversations démarrées"
+                    label={t("conversations")}
                     value={draft.conversations}
                     onChange={(v) => updateSourceField("setting", "conversations", v)}
-                    disabledReason={settingSourced && !sourceEditMode.setting ? SETTING_SOURCE : undefined}
+                    disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined}
                   />
                   <KpiNumberField
-                    label="Appels proposés"
+                    label={t("callsProposed")}
                     value={draft.callsProposed}
                     onChange={(v) => updateSourceField("setting", "callsProposed", v)}
-                    disabledReason={settingSourced && !sourceEditMode.setting ? SETTING_SOURCE : undefined}
+                    disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined}
                   />
                   <KpiNumberField
-                    label="Appels réservés"
+                    label={t("callsBooked")}
                     value={draft.callsBooked}
                     onChange={(v) => updateSourceField("setting", "callsBooked", v)}
+<<<<<<< HEAD
                     disabledReason={(settingSourced || callsBookedSourced) && !sourceEditMode.setting ? settingCallsBookedSource : undefined}
+=======
+                    disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span>
-                    Taux de réponse :{" "}
-                    {settingRates.responseRate === null ? "—" : formatPercent(settingRates.responseRate)}
+                    {t("responseRate")}:{" "}
+                    {settingRates.responseRate === null ? "—" : formatPercent(settingRates.responseRate, locale)}
                   </span>
                   <span>
-                    Taux d&apos;appels proposés :{" "}
-                    {settingRates.proposalRate === null ? "—" : formatPercent(settingRates.proposalRate)}
+                    {t("proposalRate")}:{" "}
+                    {settingRates.proposalRate === null ? "—" : formatPercent(settingRates.proposalRate, locale)}
                   </span>
                   <span>
-                    Taux de réservation :{" "}
-                    {settingRates.bookingRate === null ? "—" : formatPercent(settingRates.bookingRate)}
+                    {t("bookingRate")}:{" "}
+                    {settingRates.bookingRate === null ? "—" : formatPercent(settingRates.bookingRate, locale)}
                   </span>
                 </div>
                 {!settingSourced && postLeadsThisMonth > 0 && postLeadsThisMonth !== draft.newFollowers && (
                   <SuggestionBanner
-                    text={`Tes posts de Contenu totalisent ${postLeadsThisMonth} leads ce mois.`}
+                    text={t("contentSuggestion", { count: postLeadsThisMonth })}
                     onApply={() => update({ newFollowers: postLeadsThisMonth })}
                   />
                 )}
@@ -589,7 +621,7 @@ export function MonthModal({
                   pipelineVolumesThisMonth.conversations > 0 &&
                   pipelineVolumesThisMonth.conversations !== draft.conversations && (
                     <SuggestionBanner
-                      text={`Ton pipeline Acquisition recense ${pipelineVolumesThisMonth.conversations} conversation${pipelineVolumesThisMonth.conversations > 1 ? "s" : ""} démarrée${pipelineVolumesThisMonth.conversations > 1 ? "s" : ""} ce mois.`}
+                      text={t("pipelineConversationsSuggestion", { count: pipelineVolumesThisMonth.conversations, plural: pipelineVolumesThisMonth.conversations > 1 ? "s" : "" })}
                       onApply={() => update({ conversations: pipelineVolumesThisMonth.conversations })}
                     />
                   )}
@@ -598,7 +630,7 @@ export function MonthModal({
                   pipelineVolumesThisMonth.callsBooked > 0 &&
                   pipelineVolumesThisMonth.callsBooked !== draft.callsBooked && (
                     <SuggestionBanner
-                      text={`Ton pipeline Acquisition recense ${pipelineVolumesThisMonth.callsBooked} RDV fixé${pipelineVolumesThisMonth.callsBooked > 1 ? "s" : ""} ce mois.`}
+                      text={t("pipelineBookedSuggestion", { count: pipelineVolumesThisMonth.callsBooked, plural: pipelineVolumesThisMonth.callsBooked > 1 ? "s" : "" })}
                       onApply={() => update({ callsBooked: pipelineVolumesThisMonth.callsBooked })}
                     />
                   )}
@@ -607,65 +639,84 @@ export function MonthModal({
               <div className="flex flex-col gap-3">
                 <p className="flex items-center gap-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">
                   <Phone className="size-4" aria-hidden="true" />
-                  Closing
+                  {t("closing")}
                 </p>
                 {closingSourced && !sourceEditMode.closing && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
+<<<<<<< HEAD
                     <span>Ces 2 KPI sont calculés depuis {closingSourceLabel}.</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", true)}>
                       Modifier malgré la source
+=======
+                    <span>{t("closingCalculated")}</span>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", true)}>
+                      {t("editMonth")}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                     </Button>
                   </div>
                 )}
                 {closingSourced && sourceEditMode.closing && !sourceOverrides.closingManualOverride && (
                   <p className="rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
-                    Tu peux corriger ces valeurs pour la revue. Une modification sera conservée comme override mensuel après Enregistrer.
+                    {t("overrideHint")}
                   </p>
                 )}
                 {sourceOverrides.closingManualOverride && (
+<<<<<<< HEAD
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution-bg px-3 py-2 text-xs text-state-caution" role="status">
                     <span>
                       <strong>Attention :</strong> tes valeurs remplacent {callSource ? "les données du Suivi d'appel" : "le suivi quotidien"} pour ce mois. Vérifie la source avant de confirmer.
                     </span>
+=======
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2 text-xs text-accent-2-text">
+                    <span>{t("overrideActive")}</span>
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", false)}>
-                      Revenir au suivi
+                      {t("backToDaily")}
                     </Button>
                   </div>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <KpiNumberField
-                    label="Appels pris"
+                    label={t("callsTaken")}
                     value={draft.callsTaken}
                     onChange={(v) => updateSourceField("closing", "callsTaken", v)}
                     warning={callsTakenWarning}
+<<<<<<< HEAD
                     disabledReason={closingSourced && !sourceEditMode.closing ? closingFieldSource : undefined}
+=======
+                    disabledReason={closingSourced && !sourceEditMode.closing ? closingSource : undefined}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                   />
                   <KpiNumberField
-                    label="Ventes conclues"
+                    label={t("salesClosed")}
                     value={draft.salesClosed}
                     onChange={(v) => updateSourceField("closing", "salesClosed", v)}
                     warning={salesClosedWarning}
+<<<<<<< HEAD
                     disabledReason={closingSourced && !sourceEditMode.closing ? closingFieldSource : undefined}
+=======
+                    disabledReason={closingSourced && !sourceEditMode.closing ? closingSource : undefined}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span>
-                    Taux de présence :{" "}
-                    {closingRates.showUpRate === null ? "—" : formatPercent(closingRates.showUpRate)}
+                    {t("showUpRate")}:{" "}
+                    {closingRates.showUpRate === null ? "—" : formatPercent(closingRates.showUpRate, locale)}
                   </span>
                   <span>
-                    Taux de no-show :{" "}
-                    {closingRates.noShowRate === null ? "—" : formatPercent(closingRates.noShowRate)}
+                    {t("noShowRate")}:{" "}
+                    {closingRates.noShowRate === null ? "—" : formatPercent(closingRates.noShowRate, locale)}
                   </span>
                   <span>
-                    Taux de closing :{" "}
-                    {closingRates.closingRate === null ? "—" : formatPercent(closingRates.closingRate)}
+                    {t("closingRate")}:{" "}
+                    {closingRates.closingRate === null ? "—" : formatPercent(closingRates.closingRate, locale)}
                   </span>
-                  <span>Revenu par appel : {perCall === null ? "—" : formatEur(perCall)}</span>
+                  <span>{t("revenuePerCall", { amount: perCall === null ? "—" : formatEur(perCall, locale) })}</span>
                 </div>
                 {!closingSourced && salesThisMonth && salesThisMonth.closedCount > 0 && salesThisMonth.closedCount !== draft.salesClosed && (
                   <SuggestionBanner
-                    text={`Suivi des ventes recense ${salesThisMonth.closedCount} vente${salesThisMonth.closedCount > 1 ? "s" : ""} conclue${salesThisMonth.closedCount > 1 ? "s" : ""} ce mois.`}
+                    text={t("salesClosedSuggestion", { count: salesThisMonth.closedCount, plural: salesThisMonth.closedCount > 1 ? "s" : "" })}
                     onApply={() => update({ salesClosed: salesThisMonth.closedCount })}
                   />
                 )}
@@ -674,7 +725,7 @@ export function MonthModal({
                   pipelineVolumesThisMonth.callsTaken > 0 &&
                   pipelineVolumesThisMonth.callsTaken !== draft.callsTaken && (
                     <SuggestionBanner
-                      text={`Ton pipeline Acquisition recense ${pipelineVolumesThisMonth.callsTaken} RDV honoré${pipelineVolumesThisMonth.callsTaken > 1 ? "s" : ""} ce mois.`}
+                      text={t("pipelineTakenSuggestion", { count: pipelineVolumesThisMonth.callsTaken, plural: pipelineVolumesThisMonth.callsTaken > 1 ? "s" : "" })}
                       onApply={() => update({ callsTaken: pipelineVolumesThisMonth.callsTaken })}
                     />
                   )}
@@ -684,8 +735,16 @@ export function MonthModal({
 
               <div className="flex items-center justify-between gap-4">
                 <Button onClick={() => handleSave()} disabled={isPending}>
+<<<<<<< HEAD
                   {isPending ? "Validation..." : "Valider et fermer"}
                 </Button>
+=======
+                  {isPending ? t("saving") : t("save")}
+                </Button>
+                {saved && !isDirty && (
+                  <span className="text-sm font-bold text-state-healthy">{t("saved")} ✓</span>
+                )}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
               </div>
             </div>
             )}

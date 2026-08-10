@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, MoreHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useMemo, useState, useTransition, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ const MAX_VISIBLE = 8;
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 function TodoMenu({ todo, projects }: { todo: Todo; projects: { id: string; name: string }[] }) {
+  const t = useTranslations("journal");
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState(todo.label);
   const [dueDate, setDueDate] = useState(todo.dueDate ?? "");
@@ -52,7 +54,7 @@ function TodoMenu({ todo, projects }: { todo: Todo; projects: { id: string; name
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted" aria-label="Options">
+        <button type="button" className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted" aria-label={t("options")}>
           <MoreHorizontal className="size-4" />
         </button>
       </PopoverTrigger>
@@ -63,7 +65,7 @@ function TodoMenu({ todo, projects }: { todo: Todo; projects: { id: string; name
           className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus-visible:border-accent"
         />
         <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
-          Échéance
+          {t("deadline")}
           <input
             type="date"
             value={dueDate}
@@ -72,13 +74,13 @@ function TodoMenu({ todo, projects }: { todo: Todo; projects: { id: string; name
           />
         </label>
         <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
-          Lier à un projet
+          {t("linkProject")}
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
             className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus-visible:border-accent"
           >
-            <option value="">Aucun</option>
+            <option value="">{t("none")}</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -88,14 +90,14 @@ function TodoMenu({ todo, projects }: { todo: Todo; projects: { id: string; name
         </label>
         <label className="flex items-center gap-2 text-xs font-bold">
           <input type="checkbox" checked={isBusinessImprovement} onChange={(e) => setIsBusinessImprovement(e.target.checked)} className="size-3.5" />
-          Amélioration business
+          {t("businessImprovement")}
         </label>
         <div className="flex gap-2">
           <Button size="sm" onClick={handleSave} disabled={isPending} className="flex-1">
-            Enregistrer
+            {t("save")}
           </Button>
           <Button size="sm" variant="destructive" onClick={handleDelete} disabled={isPending}>
-            Supprimer
+            {t("remove")}
           </Button>
         </div>
       </PopoverContent>
@@ -104,6 +106,7 @@ function TodoMenu({ todo, projects }: { todo: Todo; projects: { id: string; name
 }
 
 function TodoRow({ todo, projects }: { todo: Todo; projects: { id: string; name: string }[] }) {
+  const t = useTranslations("journal");
   const [isPending, startTransition] = useTransition();
   const overdue = todo.dueDate !== null && !todo.done && todo.dueDate < todayIso();
 
@@ -119,7 +122,7 @@ function TodoRow({ todo, projects }: { todo: Todo; projects: { id: string; name:
         type="button"
         onClick={handleToggle}
         disabled={isPending}
-        aria-label={todo.done ? "Marquer comme à faire" : "Marquer comme terminée"}
+        aria-label={todo.done ? t("markTodo") : t("markDone")}
         className={cn(
           "flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)]",
           // Positive/"done" state, not coral — coral stays reserved for
@@ -141,6 +144,7 @@ function TodoRow({ todo, projects }: { todo: Todo; projects: { id: string; name:
 }
 
 export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: string; name: string }[] }) {
+  const t = useTranslations("journal");
   const [draft, setDraft] = useState("");
   const [isPending, startTransition] = useTransition();
   const [showAllDone, setShowAllDone] = useState(false);
@@ -169,7 +173,7 @@ export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: 
   return (
     <div className="sticker-card p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-bold">Mes tâches</h2>
+        <h2 className="text-base font-bold">{t("myTasks")}</h2>
         <span className="text-xs font-bold text-muted-foreground">
           {todos.filter((t) => t.done).length}/{todos.length}
         </span>
@@ -180,7 +184,7 @@ export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: 
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={handleAdd}
         disabled={isPending}
-        placeholder="+ Ajouter une tâche personnelle"
+        placeholder={`+ ${t("addPersonalTask")}`}
         className="mb-3 w-full rounded-[var(--radius-control)] border border-dashed border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent"
       />
 
@@ -196,14 +200,14 @@ export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: 
           onClick={() => setShowAllPending((v) => !v)}
           className="mt-2 text-xs font-bold text-muted-foreground hover:underline"
         >
-          {showAllPending ? "Réduire" : `Tout voir (${pending.length})`}
+          {showAllPending ? t("collapse") : t("seeAll", { count: pending.length })}
         </button>
       )}
 
       {done.length > 0 && (
         <div className="mt-3 border-t border-border pt-2">
           <button type="button" onClick={() => setShowAllDone((v) => !v)} className="text-xs font-bold text-muted-foreground hover:underline">
-            Terminées ({done.length})
+            {t("completedCount", { count: done.length })}
           </button>
           {showAllDone && (
             <div className="mt-2 flex flex-col divide-y divide-border">

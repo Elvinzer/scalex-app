@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 export type MetricSource = "Stripe" | "Calendly" | "iClosed" | "Suivi d'appel" | "Pipeline" | "Saisie" | "Calculé" | "Stripe + saisie";
 
@@ -14,9 +15,19 @@ const sourceClasses: Record<MetricSource, string> = {
 };
 
 export function SourceBadge({ source, className }: { source: MetricSource; className?: string }) {
+  const t = useTranslations("common.sources");
+  const keyBySource: Record<MetricSource, string> = {
+    Stripe: "stripe",
+    Calendly: "calendly",
+    iClosed: "iclosed",
+    Pipeline: "pipeline",
+    Saisie: "manual",
+    Calculé: "calculated",
+    "Stripe + saisie": "stripeManual",
+  };
   return (
     <span className={cn("inline-flex items-center rounded-full px-2 py-1 text-[11px] font-bold", sourceClasses[source], className)}>
-      {source}
+      {t(keyBySource[source])}
     </span>
   );
 }

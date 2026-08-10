@@ -1,17 +1,18 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 
 import { saveSettingKpiEntry } from "./actions";
 
 const COUNT_FIELDS = [
-  { name: "newSubscribers", label: "Nouveaux abonnés" },
-  { name: "firstMessagesSent", label: "Premiers messages envoyés" },
-  { name: "conversationsStarted", label: "Conversations démarrées" },
-  { name: "callsProposed", label: "Appels proposés" },
-  { name: "callsBooked", label: "Appels réservés" },
+  { name: "newSubscribers", key: "newSubscribers" },
+  { name: "firstMessagesSent", key: "firstMessages" },
+  { name: "conversationsStarted", key: "conversations" },
+  { name: "callsProposed", key: "callsProposed" },
+  { name: "callsBooked", key: "callsBooked" },
 ] as const;
 
 const INPUT_CLASS =
@@ -34,6 +35,7 @@ function nextDay(date: string): string {
 }
 
 export function EntryForm() {
+  const t = useTranslations("pipeline.funnel");
   const [date, setDate] = useState(today);
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export function EntryForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm">
-        <span className="text-muted-foreground">Date</span>
+        <span className="text-muted-foreground">{t("date")}</span>
         <input
           type="date"
           name="date"
@@ -76,14 +78,14 @@ export function EntryForm() {
       <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
         {COUNT_FIELDS.map((field) => (
           <label key={field.name} className="flex flex-col gap-1.5 text-sm">
-            <span className={FIELD_LABEL_CLASS}>{field.label}</span>
+            <span className={FIELD_LABEL_CLASS}>{t(field.key)}</span>
             <input
               type="number"
               name={field.name}
               min={0}
               max={100_000}
               required
-              placeholder="0"
+              placeholder={t("countPlaceholder")}
               value={counts[field.name] ?? ""}
               onChange={(event) =>
                 setCounts((prev) => ({ ...prev, [field.name]: event.target.value }))
@@ -97,12 +99,12 @@ export function EntryForm() {
       {error && <p className="text-sm text-state-critical">{error}</p>}
       {savedDate && !error && (
         <p className="text-sm text-state-healthy">
-          {savedDate} enregistré, au tour du {nextDay(savedDate)}.
+          {t("saved", { date: savedDate, next: nextDay(savedDate) })}
         </p>
       )}
 
       <Button type="submit" disabled={isPending} className="self-start">
-        {isPending ? "Enregistrement..." : "Enregistrer ce jour"}
+        {isPending ? t("saving") : t("saveDay")}
       </Button>
     </form>
   );

@@ -1,17 +1,19 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Offer } from "@/lib/business/types";
-import { LEAD_SOURCE_LABELS, LEAD_SOURCES } from "@/lib/leads/types";
+import { LEAD_SOURCES } from "@/lib/leads/types";
 import type { SetterRow } from "@/lib/setters/types";
 
 import { createLeadAction } from "./lead-actions";
 
 export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: SetterRow[] }) {
+  const t = useTranslations("pipeline");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,16 +56,16 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
       <DialogTrigger asChild>
         <Button type="button">
           <Plus className="size-4" />
-          Ajouter un lead
+          {t("newLead.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-bold">Ajouter un lead</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{t("newLead.title")}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Prénom</span>
+              <span className="text-muted-foreground">{t("newLead.firstName")}</span>
               <input
                 type="text"
                 name="firstName"
@@ -72,7 +74,7 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Nom</span>
+              <span className="text-muted-foreground">{t("newLead.lastName")}</span>
               <input
                 type="text"
                 name="lastName"
@@ -83,7 +85,7 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
           </div>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Source</span>
+            <span className="text-muted-foreground">{t("newLead.source")}</span>
             <select
               name="source"
               defaultValue="autre"
@@ -91,14 +93,14 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
             >
               {LEAD_SOURCES.map((source) => (
                 <option key={source} value={source}>
-                  {LEAD_SOURCE_LABELS[source]}
+                  {t(`source.${source}`)}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Offre visée</span>
+            <span className="text-muted-foreground">{t("newLead.offer")}</span>
             {offers.length > 0 ? (
               <select
                 value={offerId}
@@ -113,12 +115,12 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
                 ))}
               </select>
             ) : (
-              <p className="text-sm text-muted-foreground">Aucune offre renseignée dans Mon business.</p>
+              <p className="text-sm text-muted-foreground">{t("newLead.noOffer")}</p>
             )}
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Valeur potentielle (€)</span>
+            <span className="text-muted-foreground">{t("newLead.potentialValue")}</span>
             <input
               type="number"
               name="potentialValueEur"
@@ -130,7 +132,7 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Setter (optionnel)</span>
+              <span className="text-muted-foreground">{t("newLead.setterOptional")}</span>
               <select
                 name="setterId"
                 defaultValue=""
@@ -145,7 +147,7 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
               </select>
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Closer (optionnel)</span>
+              <span className="text-muted-foreground">{t("newLead.closerOptional")}</span>
               <input
                 type="text"
                 name="closer"
@@ -157,7 +159,7 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : "Ajouter le lead"}
+            {isPending ? t("newLead.saving") : t("newLead.add")}
           </Button>
         </form>
       </DialogContent>

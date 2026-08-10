@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { importClosingKpiCsv, type ImportClosingKpiCsvResult } from "./actions";
 
 export function CsvImport() {
+  const t = useTranslations("sales.closingFunnel");
   const inputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<ImportClosingKpiCsvResult | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export function CsvImport() {
     try {
       text = await file.text();
     } catch {
-      setFileError("Impossible de lire ce fichier.");
+      setFileError(t("readError"));
       return;
     }
 
@@ -35,8 +37,7 @@ export function CsvImport() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Un fichier avec une ligne par jour : les jours déjà enregistrés sont mis à jour,
-        pas dupliqués.
+        {t("csvHelp")}
       </p>
 
       <a
@@ -44,7 +45,7 @@ export function CsvImport() {
         download
         className="self-start text-sm font-bold text-primary underline underline-offset-4"
       >
-        Télécharger le modèle CSV
+        {t("downloadTemplate")}
       </a>
 
       <div>
@@ -58,21 +59,21 @@ export function CsvImport() {
         />
       </div>
 
-      {isPending && <p className="text-sm text-muted-foreground">Import en cours...</p>}
+      {isPending && <p className="text-sm text-muted-foreground">{t("importing")}</p>}
       {fileError && <p className="text-sm text-state-critical">{fileError}</p>}
 
       {result && (
         <div className="rounded-xl border border-border bg-muted p-4 text-sm">
           <p className="font-bold">
             {result.imported > 0
-              ? `${result.imported} jour${result.imported > 1 ? "s" : ""} importé${result.imported > 1 ? "s" : ""}`
-              : "Aucune ligne importée"}
+              ? t("imported", { count: result.imported, plural: result.imported > 1 ? "s" : "" })
+              : t("noImported")}
           </p>
           {result.errors.length > 0 && (
             <ul className="mt-2 flex flex-col gap-1 text-state-critical">
               {result.errors.map((error, index) => (
                 <li key={index}>
-                  {error.line > 0 ? `Ligne ${error.line} : ` : ""}
+                  {error.line > 0 ? t("line", { line: error.line }) : ""}
                   {error.message}
                 </li>
               ))}

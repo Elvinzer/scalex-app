@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 
 import { saveClosingKpiEntry } from "./actions";
 
 const COUNT_FIELDS = [
-  { name: "callsAttended", label: "Appels pris" },
-  { name: "salesClosed", label: "Ventes conclues" },
+  { name: "callsAttended", labelKey: "callsAttended" },
+  { name: "salesClosed", labelKey: "salesClosed" },
 ] as const;
 
 const INPUT_CLASS =
@@ -31,6 +32,7 @@ function nextDay(date: string): string {
 }
 
 export function EntryForm() {
+  const t = useTranslations("sales.closingFunnel");
   const [date, setDate] = useState(today);
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export function EntryForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm">
-        <span className="text-muted-foreground">Date</span>
+        <span className="text-muted-foreground">{t("date")}</span>
         <input
           type="date"
           name="date"
@@ -73,7 +75,7 @@ export function EntryForm() {
       <div className="grid grid-cols-2 gap-x-3 gap-y-4">
         {COUNT_FIELDS.map((field) => (
           <label key={field.name} className="flex flex-col gap-1.5 text-sm">
-            <span className={FIELD_LABEL_CLASS}>{field.label}</span>
+            <span className={FIELD_LABEL_CLASS}>{t(field.labelKey)}</span>
             <input
               type="number"
               name={field.name}
@@ -94,12 +96,12 @@ export function EntryForm() {
       {error && <p className="text-sm text-state-critical">{error}</p>}
       {savedDate && !error && (
         <p className="text-sm text-state-healthy">
-          {savedDate} enregistré, au tour du {nextDay(savedDate)}.
+          {t("saved", { date: savedDate, next: nextDay(savedDate) })}
         </p>
       )}
 
       <Button type="submit" disabled={isPending} className="self-start">
-        {isPending ? "Enregistrement..." : "Enregistrer ce jour"}
+        {isPending ? t("saving") : t("saveDay")}
       </Button>
     </form>
   );

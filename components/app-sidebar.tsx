@@ -23,6 +23,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Fragment, useEffect, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
@@ -47,7 +48,7 @@ type IconType = React.ComponentType<{ className?: string; style?: React.CSSPrope
 type LinkEntry = {
   type: "link";
   href: string;
-  label: string;
+  labelKey: string;
   icon: IconType;
   permission?: PermissionKey;
   anyOfPermissions?: readonly PermissionKey[];
@@ -76,13 +77,13 @@ type LinkEntry = {
 // replaces the old "Avancé" nav entry.
 //
 const topEntries: LinkEntry[] = [
-  { type: "link", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
-  { type: "link", href: "/journal", label: "Journal de bord", icon: CalendarDays, permission: "dashboard" },
-  { type: "link", href: "/datas", label: "Mes chiffres", icon: Database, permission: "datas" },
+  { type: "link", href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
+  { type: "link", href: "/journal", labelKey: "journal", icon: CalendarDays, permission: "dashboard" },
+  { type: "link", href: "/datas", labelKey: "data", icon: Database, permission: "datas" },
   {
     type: "link",
     href: "/acquisition",
-    label: "Acquisition",
+    labelKey: "acquisition",
     icon: Megaphone,
     // All 5 real sub-page permissions (matches lib/nav/pillar-subpages.ts) —
     // this list previously omitted mail/pipeline/setters, so a team member
@@ -94,7 +95,7 @@ const topEntries: LinkEntry[] = [
   {
     type: "link",
     href: "/ventes",
-    label: "Vente",
+    labelKey: "sales",
     icon: Handshake,
     // Same anyOfPermissions gap as Acquisition above, fixed the same way —
     // this previously listed only suivi/closing, so a member with just
@@ -109,21 +110,21 @@ const topEntries: LinkEntry[] = [
       "ventes:videos",
     ],
   },
-  { type: "link", href: "/diagnostic", label: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
+  { type: "link", href: "/diagnostic", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
   // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
   // même permission que le Copilote partout ailleurs dans l'app.
-  { type: "link", href: "/copilote", label: "Copilote", icon: MessageCircle, permission: "diagnostic" },
+  { type: "link", href: "/copilote", labelKey: "copilot", icon: MessageCircle, permission: "diagnostic" },
 ];
 
 // COMPTE — account-level settings behind the avatar/profile dropdown
 // (ProfileMenu). Mon business is a primary destination now because offers and
 // upsell configuration are core product work, not secondary account settings.
 const profileMenuEntries: LinkEntry[] = [
-  { type: "link", href: "/business", label: "Business & offres", icon: Store, permission: "business" },
-  { type: "link", href: "/settings/equipe", label: "Équipe & permissions", icon: Users },
-  { type: "link", href: "/settings", label: "Réglages", icon: Settings },
-  { type: "link", href: "/integrations", label: "Intégrations", icon: Plug },
-  { type: "link", href: "/parrainage", label: "Parrainage", icon: Gift },
+  { type: "link", href: "/business", labelKey: "business", icon: Store, permission: "business" },
+  { type: "link", href: "/settings/equipe", labelKey: "team", icon: Users },
+  { type: "link", href: "/settings", labelKey: "settings", icon: Settings },
+  { type: "link", href: "/integrations", labelKey: "integrations", icon: Plug },
+  { type: "link", href: "/parrainage", labelKey: "referral", icon: Gift },
 ];
 
 // Separate from the permission model entirely — gated by isAdmin (the
@@ -133,7 +134,22 @@ const profileMenuEntries: LinkEntry[] = [
 // own tiny pinned link at the bottom of the sidebar rather than folded into
 // the account dropdown. app/admin/layout.tsx still does its own
 // server-side check regardless of this link being visible.
-const adminEntry: LinkEntry = { type: "link", href: "/admin", label: "Panel admin", icon: ShieldCheck };
+const adminEntry: LinkEntry = { type: "link", href: "/admin", labelKey: "admin", icon: ShieldCheck };
+
+const subpageLabelKeys: Record<string, string> = {
+  "/acquisition/contenu": "content",
+  "/acquisition/mail": "mail",
+  "/acquisition/pipeline": "pipeline",
+  "/acquisition/setters": "setters",
+  "/acquisition/ads": "ads",
+  "/ventes/suivi": "salesTracking",
+  "/ventes/appels": "callsTracking",
+  "/ventes/rdv": "appointments",
+};
+
+function getSubpageLabelKey(href: string): string {
+  return subpageLabelKeys[href] ?? href;
+}
 
 function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonly PermissionKey[]): boolean {
   if (isOwner) return true;
@@ -156,6 +172,7 @@ function NavLink({
   className?: string;
 }) {
   const Icon = entry.icon;
+  const t = useTranslations("navigation");
   const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
   const activeClassName =
     entry.href === "/copilote"
@@ -174,7 +191,7 @@ function NavLink({
       aria-current={active ? "page" : undefined}
     >
       <Icon className="size-4 shrink-0" />
-      <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
+      <span className="min-w-0 whitespace-normal break-words">{t(entry.labelKey)}</span>
       {badge && (
         <span className="ml-auto rounded-full bg-mist/15 px-1.5 py-0.5 text-[9.5px] font-bold tracking-[0.06em] text-mist/70 uppercase">
           {badge}
@@ -204,6 +221,7 @@ function PillarNavGroup({
   isOwner: boolean;
   permissions: readonly PermissionKey[];
 }) {
+  const t = useTranslations("navigation");
   const subpages = (PILLAR_SUBPAGES[entry.href] ?? [])
     .filter((sub) => isOwner || permissions.includes(sub.permission))
     .filter((sub) => !topEntries.some((topEntry) => topEntry.href === sub.href));
@@ -227,7 +245,7 @@ function PillarNavGroup({
           type="button"
           onClick={() => setOpen((prev) => !prev)}
           aria-expanded={open}
-          aria-label={`${open ? "Replier" : "Déplier"} les pages ${entry.label}`}
+          aria-label={t(open ? "collapsePages" : "expandPages", { label: t(entry.labelKey) })}
           className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-control)] text-mist/50 transition-colors hover:bg-mist/10 hover:text-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
         >
           <ChevronDown className={cn("size-4 transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} />
@@ -250,7 +268,7 @@ function PillarNavGroup({
                 )}
                 aria-current={active ? "page" : undefined}
               >
-                <span className="min-w-0 whitespace-normal break-words">{sub.label}</span>
+                <span className="min-w-0 whitespace-normal break-words">{t(getSubpageLabelKey(sub.href))}</span>
               </Link>
             );
           })}
@@ -280,6 +298,7 @@ function ProfileMenu({
   businessCompletionCount: number;
 }) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("navigation");
   const initial = email.charAt(0).toUpperCase() || "?";
   const entries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
@@ -301,7 +320,7 @@ function ProfileMenu({
             )}
             <div className="min-w-0 flex-1">
               <p className="whitespace-normal break-words text-[12.5px] font-bold tracking-[-0.005em] text-mist">
-                {displayName || businessName || "Mon compte"}
+                {displayName || businessName || t("account")}
               </p>
               <p className="whitespace-normal break-all text-[11px] tracking-[-0.005em] text-mist/60">{email}</p>
             </div>
@@ -309,7 +328,7 @@ function ProfileMenu({
           </button>
         </PopoverTrigger>
         <PopoverContent side="top" align="start" sideOffset={10} className="w-56 p-1.5">
-          {entries.length > 0 && <p className="px-2.5 pb-1 pt-2 text-[10px] font-bold tracking-[0.08em] text-muted-foreground uppercase">Configuration</p>}
+          {entries.length > 0 && <p className="px-2.5 pb-1 pt-2 text-[10px] font-bold tracking-[0.08em] text-muted-foreground uppercase">{t("configuration")}</p>}
           {entries.map((entry) => {
             const Icon = entry.icon;
             return (
@@ -320,9 +339,9 @@ function ProfileMenu({
                 className="flex min-w-0 items-center gap-2.5 whitespace-normal break-words rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-muted"
               >
                 <Icon className="size-4 text-muted-foreground" />
-                <span className="min-w-0 whitespace-normal break-words">{entry.label}</span>
+                <span className="min-w-0 whitespace-normal break-words">{t(entry.labelKey)}</span>
                 {entry.href === "/business" && businessCompletionCount > 0 && (
-                  <span className="ml-auto rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-bold text-accent-text">{businessCompletionCount} à compléter</span>
+                  <span className="ml-auto rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-bold text-accent-text">{businessCompletionCount} {t("completeCount")}</span>
                 )}
               </Link>
             );
@@ -342,7 +361,7 @@ function ProfileMenu({
             className="flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-left text-[13px] font-bold text-state-critical transition-colors hover:bg-state-critical/10"
           >
             <LogOut className="size-4" />
-            Se déconnecter
+            {t("signOut")}
           </button>
         </PopoverContent>
       </Popover>
@@ -386,6 +405,7 @@ export function AppSidebar({
   potentialMonthlyRevenue: number | null;
   streak: StreakSnapshot | null;
 }) {
+  const t = useTranslations("navigation");
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -403,13 +423,13 @@ export function AppSidebar({
 
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const mobileEntries = ([
-    { type: "link", href: "/dashboard", label: "Dashboard", mobileLabel: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
-    { type: "link", href: "/journal", label: "Journal de bord", mobileLabel: "Journal", icon: CalendarDays, permission: "dashboard" },
-    { type: "link", href: "/datas", label: "Mes chiffres", mobileLabel: "Chiffres", icon: Database, permission: "datas" },
-    { type: "link", href: "/ventes", label: "Vente", mobileLabel: "Vente", icon: Handshake, anyOfPermissions: ["ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
-    { type: "link", href: "/diagnostic", label: "Diagnostic", mobileLabel: "Diagnostic", icon: Stethoscope, permission: "diagnostic" },
-  ] satisfies Array<LinkEntry & { mobileLabel: string }>).filter((entry) => isEntryVisible(entry, isOwner, permissions));
-  const mobilePageTitle = mobileEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`))?.mobileLabel ?? "Scale X";
+    { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
+    { type: "link", href: "/journal", labelKey: "journal", mobileLabelKey: "journal", icon: CalendarDays, permission: "dashboard" },
+    { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
+    { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
+    { type: "link", href: "/diagnostic", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
+  ] satisfies Array<LinkEntry & { mobileLabelKey: string }>).filter((entry) => isEntryVisible(entry, isOwner, permissions));
+  const mobilePageTitle = mobileEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`));
 
   return (
     <>
@@ -422,7 +442,7 @@ export function AppSidebar({
           type="button"
           aria-controls="app-navigation"
           aria-expanded={mobileOpen}
-          aria-label={mobileOpen ? "Fermer la navigation" : "Ouvrir la navigation"}
+          aria-label={mobileOpen ? t("closeNavigation") : t("openNavigation")}
           onClick={() => setMobileOpen((open) => !open)}
           className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-control)] text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 md:hidden"
         >
@@ -431,7 +451,7 @@ export function AppSidebar({
 
         <div className="flex min-w-0 items-center gap-2 md:hidden">
           <Image src="/scalex-wordmark.png" alt="Scale X" width={120} height={30} priority className="h-6 w-auto" />
-          <span className="truncate text-sm font-bold">{mobilePageTitle}</span>
+          <span className="truncate text-sm font-bold">{mobilePageTitle ? t(mobilePageTitle.mobileLabelKey) : "Scale X"}</span>
         </div>
 
       </header>
@@ -439,7 +459,7 @@ export function AppSidebar({
       {mobileOpen && (
         <button
           type="button"
-          aria-label="Fermer la navigation"
+          aria-label={t("closeNavigation")}
           onClick={() => setMobileOpen(false)}
           className="glass-overlay fixed inset-0 z-30 md:hidden"
         />
@@ -465,7 +485,7 @@ export function AppSidebar({
           </Link>
         </div>
 
-        <nav aria-label="Navigation principale" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain pt-6">
+        <nav aria-label={t("primaryNavigation")} className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain pt-6">
           {visibleTopEntries.map((entry) => (
             <Fragment key={entry.href}>
               {/* PillarNavGroup falls back to a plain NavLink for any entry
@@ -492,7 +512,7 @@ export function AppSidebar({
                 className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/35 uppercase transition-colors hover:bg-mist/10 hover:text-mist/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
               >
                 <ShieldCheck className="size-3.5" />
-                <span className="min-w-0 whitespace-normal break-words">{adminEntry.label}</span>
+                <span className="min-w-0 whitespace-normal break-words">{t(adminEntry.labelKey)}</span>
               </Link>
             </div>
           )}
@@ -539,7 +559,7 @@ export function AppSidebar({
         </div>
       </aside>
 
-      <nav aria-label="Navigation mobile" className="fixed inset-x-0 bottom-0 z-50 grid border-t border-border bg-card/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_rgba(22,21,15,0.08)] backdrop-blur-sm md:hidden" style={{ gridTemplateColumns: `repeat(${Math.max(mobileEntries.length, 1)}, minmax(0, 1fr))` }}>
+      <nav aria-label={t("mobileNavigation")} className="fixed inset-x-0 bottom-0 z-50 grid border-t border-border bg-card/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_rgba(22,21,15,0.08)] backdrop-blur-sm md:hidden" style={{ gridTemplateColumns: `repeat(${Math.max(mobileEntries.length, 1)}, minmax(0, 1fr))` }}>
         {mobileEntries.map((entry) => {
           const Icon = entry.icon;
           const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
@@ -551,7 +571,7 @@ export function AppSidebar({
               className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-[10px] font-bold transition-colors", active ? (entry.href === "/copilote" ? "text-accent-2" : "text-accent") : "text-muted-foreground")}
             >
               <Icon className="size-4" aria-hidden="true" />
-              {entry.mobileLabel}
+              {t(entry.mobileLabelKey)}
             </Link>
           );
         })}

@@ -2,6 +2,7 @@
 
 import { Check, CircleAlert, MessageCircle, Pencil, RotateCcw } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -17,27 +18,19 @@ import type { FalcoInsightEvent, FalcoInsightProposal } from "@/lib/agent/falco-
 
 import { InsightLaunchDialog } from "./insight-launch-dialog";
 
-const STATUS_LABELS: Record<InsightHistoryItem["decision"], string> = {
-  todo: "À traiter",
-  launched: "Lancé",
-  later: "À reprendre",
-  dismissed: "Écartée",
-  completed: "Terminée",
-};
-
 type InsightCardState = "proposal" | "editing" | "saving" | "saved" | "launched" | "completed" | "vague" | "error" | "duplicate";
 
-function snapshotText(insight: InsightHistoryItem, key: "problem" | "successCriterion"): string {
+function snapshotText(insight: InsightHistoryItem, key: "problem" | "successCriterion", t: (key: string) => string): string {
   const value = insight.snapshot[key];
-  return typeof value === "string" ? value : key === "problem" ? "Problème identifié dans la conversation." : "Critère à préciser dans le suivi.";
+  return typeof value === "string" ? value : key === "problem" ? t("fallbackProblem") : t("fallbackCriterion");
 }
 
-function draftFromInsight(insight: InsightHistoryItem): Draft {
+function draftFromInsight(insight: InsightHistoryItem, t: (key: string) => string): Draft {
   return {
     title: insight.title,
-    problem: snapshotText(insight, "problem"),
+    problem: snapshotText(insight, "problem", t),
     actionText: insight.insightText,
-    successCriterion: snapshotText(insight, "successCriterion"),
+    successCriterion: snapshotText(insight, "successCriterion", t),
   };
 }
 
@@ -58,9 +51,10 @@ function statusClass(decision: InsightHistoryItem["decision"]): string {
 }
 
 export function InsightStatusBadge({ decision }: { decision: InsightHistoryItem["decision"] }) {
+  const t = useTranslations("app.insights");
   return (
     <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass(decision)}`}>
-      {STATUS_LABELS[decision]}
+      {t(`filter${decision === "todo" ? "Todo" : decision === "launched" ? "Launched" : decision === "later" ? "Later" : decision === "dismissed" ? "Dismissed" : "Completed"}`)}
     </span>
   );
 }
@@ -81,12 +75,13 @@ export function VagueActionPrompt({
   event: Extract<FalcoInsightEvent, { kind: "vague" }>;
   onQuickReply?: (value: string) => void;
 }) {
+  const t = useTranslations("app.insights");
   return (
     <div className="sticker-card-dashed w-full p-4" data-state="vague" data-testid="falco-vague-action">
       <div className="flex items-start gap-3">
         <CircleAlert className="mt-0.5 size-5 shrink-0 text-accent-2-text" aria-hidden="true" />
         <div className="min-w-0">
-          <p className="font-bold">Pas encore d&apos;action à retenir</p>
+          <p className="font-bold">{t("noAction")}</p>
           <p className="mt-1 text-sm text-muted-foreground">{event.missing}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {event.quickReplies.map((reply) => (
@@ -108,15 +103,16 @@ export function ExistingActionBanner({
   conversationId: string;
   onOpen?: () => void;
 }) {
+  const t = useTranslations("app.insights");
   return (
     <div className="flex w-full items-center justify-between gap-3 rounded-[var(--radius-card)] border border-accent-2-border bg-accent-2-soft p-4" role="status">
-      <p className="text-sm font-bold">Cette conversation a déjà une action associée.</p>
+      <p className="text-sm font-bold">{t("alreadyAssociated")}</p>
       <Link
         href={`/copilote?conversation=${encodeURIComponent(conversationId)}`}
         onClick={onOpen}
         className="inline-flex min-h-11 shrink-0 items-center text-xs font-bold text-accent-2-text underline-offset-2 hover:underline"
       >
-        Voir l&apos;action
+        {t("viewAction")}
       </Link>
     </div>
   );
@@ -141,6 +137,7 @@ export function InsightActionCard({
   onContinue?: () => void;
   onQuickReply?: (value: string) => void;
 }) {
+  const t = useTranslations("app.insights");
   const proposal = event?.kind === "proposal" ? event : null;
   const [mode, setMode] = useState<"proposal" | "editing">("proposal");
   const [draft, setDraft] = useState<Draft>(() => draftFromProposal(proposal));
@@ -149,7 +146,7 @@ export function InsightActionCard({
 
   useEffect(() => {
     if (insight) {
-      setDraft(draftFromInsight(insight));
+      setDraft(draftFromInsight(insight, t));
       return;
     }
     const restored = readInsightDraft(typeof window === "undefined" ? null : window.sessionStorage, conversationId);
@@ -159,7 +156,7 @@ export function InsightActionCard({
     } else if (proposal) {
       setDraft(draftFromProposal(proposal));
     }
-  }, [conversationId, insight, proposal]);
+  }, [conversationId, insight, proposal, t]);
 
   useEffect(() => {
     if (mode === "editing" && !insight) writeInsightDraft(typeof window === "undefined" ? null : window.sessionStorage, conversationId, draft);
@@ -182,7 +179,7 @@ export function InsightActionCard({
 
   function cancelEditing() {
     clearInsightDraft(typeof window === "undefined" ? null : window.sessionStorage, conversationId);
-    setDraft(insight ? draftFromInsight(insight) : draftFromProposal(proposal));
+    setDraft(insight ? draftFromInsight(insight, t) : draftFromProposal(proposal));
     setMode("proposal");
     setError(null);
   }
@@ -195,7 +192,7 @@ export function InsightActionCard({
         ? await updateCopiloteInsight({ conversationId, ...draft })
         : await captureCopiloteInsight({ conversationId, ...draft });
       if (result.error || !result.insight) {
-        setError(result.error ?? "L'action n'a pas pu être enregistrée.");
+        setError(result.error ?? t("actionFailed"));
         return;
       }
       clearInsightDraft(typeof window === "undefined" ? null : window.sessionStorage, conversationId);
@@ -238,7 +235,7 @@ export function InsightActionCard({
 
   if (!proposal && !insight) return null;
 
-  const display = insight ? draftFromInsight(insight) : draft;
+  const display = insight ? draftFromInsight(insight, t) : draft;
   const source = insight?.sourceLabel ?? sourceLabel;
   const cardState: InsightCardState = error
     ? "error"
@@ -256,10 +253,10 @@ export function InsightActionCard({
             ? "editing"
             : "proposal";
   const cardLabel = duplicateInsight
-    ? `Action déjà associée — ${display.title}`
+    ? `${t("alreadyAssociated")} — ${display.title}`
     : insight
-      ? `${STATUS_LABELS[insight.decision]} — ${display.title}`
-      : `Action à retenir — ${display.title}`;
+      ? `${t(`filter${insight.decision === "todo" ? "Todo" : insight.decision === "launched" ? "Launched" : insight.decision === "later" ? "Later" : insight.decision === "dismissed" ? "Dismissed" : "Completed"}`)} — ${display.title}`
+      : `${t("actionToKeep")} — ${display.title}`;
 
   return (
     <section
@@ -270,11 +267,11 @@ export function InsightActionCard({
       data-testid="falco-insight-card"
     >
       <span className="sr-only" role="status">
-        {isPending ? "Enregistrement de l’insight en cours." : ""}
+        {isPending ? t("saving") : ""}
       </span>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-accent-2-text">{insight ? "Insight conservé" : "Action à retenir"}</p>
+          <p className="text-sm font-bold text-accent-2-text">{insight ? t("actionSaved") : t("actionToKeep")}</p>
           <InsightSourceLine label={source} />
         </div>
         {insight && <InsightStatusBadge decision={insight.decision} />}
@@ -285,31 +282,31 @@ export function InsightActionCard({
       {mode === "editing" && canEdit ? (
         <div className="mt-4 flex flex-col gap-3">
           <label className="flex flex-col gap-1.5 text-sm font-bold">
-            Titre de l&apos;action
+            {t("title")}
             <input value={draft.title} onChange={(event) => updateField("title", event.target.value)} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" maxLength={120} />
           </label>
           <label className="flex flex-col gap-1.5 text-sm font-bold">
-            L&apos;action à implémenter
+            {t("action")}
             <textarea value={draft.actionText} onChange={(event) => updateField("actionText", event.target.value)} rows={5} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" maxLength={2000} />
           </label>
           <label className="flex flex-col gap-1.5 text-sm font-bold">
-            Critère de réussite
+            {t("successCriterion")}
             <textarea value={draft.successCriterion} onChange={(event) => updateField("successCriterion", event.target.value)} rows={3} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" maxLength={1000} />
           </label>
           <div className="flex flex-wrap gap-2">
             <Button type="button" className="min-h-11" onClick={save} disabled={isPending || missingFields}>
-              {isPending ? "Enregistrement..." : "Enregistrer l’insight"}
+              {isPending ? t("saving") : t("saveObservation")}
             </Button>
             <Button type="button" variant="outline" className="min-h-11" onClick={cancelEditing} disabled={isPending}>
-              Annuler
+              {t("cancel")}
             </Button>
           </div>
           {error && (
             <div className="flex items-start gap-2 rounded-[var(--radius-control)] border border-state-critical/35 bg-state-critical/10 p-3 text-sm text-state-critical" role="alert">
               <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>{error} Ton texte est conservé. Réessaie.</span>
+              <span>{error} {t("keepText")}</span>
               <Button type="button" size="sm" variant="outline" onClick={save} disabled={isPending} className="ml-auto min-h-11 shrink-0">
-                Réessayer
+                {t("retry")}
               </Button>
             </div>
           )}
@@ -317,24 +314,24 @@ export function InsightActionCard({
       ) : (
         <div className="mt-4 flex flex-col gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Le problème</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("problem")}</p>
             <p className="mt-1 text-sm leading-6">{display.problem}</p>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">L&apos;action</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("action")}</p>
             <p className="mt-1 text-sm leading-6 whitespace-pre-wrap break-words">{display.actionText}</p>
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Critère de réussite</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("successCriterion")}</p>
             <p className="mt-1 text-sm leading-6 whitespace-pre-wrap break-words">{display.successCriterion}</p>
           </div>
 
           {error && (
             <div className="flex items-start gap-2 rounded-[var(--radius-control)] border border-state-critical/35 bg-state-critical/10 p-3 text-sm text-state-critical" role="alert">
               <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>{error} Ton texte est conservé. Réessaie.</span>
+              <span>{error} {t("keepText")}</span>
               <Button type="button" size="sm" variant="outline" onClick={save} disabled={isPending} className="ml-auto shrink-0">
-                Réessayer
+                {t("retry")}
               </Button>
             </div>
           )}
@@ -342,10 +339,10 @@ export function InsightActionCard({
           {!insight && (
             <div className="flex flex-wrap gap-2">
               <Button type="button" className="min-h-11" onClick={() => setMode("editing")} disabled={isPending}>
-                Garder cette action
+                {t("actionToKeep")}
               </Button>
               <Button type="button" variant="ghost" className="min-h-11" onClick={onContinue}>
-                Continuer à creuser
+                {t("continueDigging")}
               </Button>
             </div>
           )}
@@ -355,7 +352,7 @@ export function InsightActionCard({
               {canEdit && (
                 <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => setMode("editing")} disabled={isPending}>
                   <Pencil className="size-3.5" aria-hidden="true" />
-                  Modifier
+                  {t("edit")}
                 </Button>
               )}
               <InsightLaunchDialog
@@ -363,23 +360,23 @@ export function InsightActionCard({
                 members={[]}
                 projects={[]}
                 canAssign={false}
-                triggerLabel="Lancer dans le Journal"
+                triggerLabel={t("launch")}
                 triggerPrimary
                 onLaunched={onInsightChange}
               />
               {insight.decision !== "dismissed" ? (
                 <Button type="button" size="sm" variant="ghost" className="min-h-11" onClick={() => decide(insight.decision === "later" ? "todo" : "later")} disabled={isPending}>
-                  {insight.decision === "later" ? "Réactiver" : "Plus tard"}
+                  {insight.decision === "later" ? t("reactivate") : t("later")}
                 </Button>
               ) : (
                 <Button type="button" size="sm" variant="ghost" className="min-h-11" onClick={() => decide("todo")} disabled={isPending}>
                   <RotateCcw className="size-3.5" aria-hidden="true" />
-                  Réactiver
+                  {t("reactivate")}
                 </Button>
               )}
               {insight.decision !== "dismissed" && (
                 <Button type="button" size="sm" variant="ghost" className="min-h-11" onClick={() => decide("dismissed")} disabled={isPending}>
-                  Écarter
+                  {t("dismiss")}
                 </Button>
               )}
             </div>
@@ -388,11 +385,11 @@ export function InsightActionCard({
           {isLaunched && !isCompleted && (
             <div className="flex flex-wrap gap-2">
               <Link href="/journal" className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
-                Ouvrir dans le Journal
+                {t("openJournal")}
               </Link>
               <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={complete} disabled={isPending}>
                 <Check className="size-3.5" aria-hidden="true" />
-                Marquer terminée
+                {t("markCompleted")}
               </Button>
             </div>
           )}
@@ -400,10 +397,10 @@ export function InsightActionCard({
           {isCompleted && (
             <div className="flex flex-wrap gap-2">
               <Link href={`/copilote?conversation=${encodeURIComponent(conversationId)}`} className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
-                Voir la conversation
+                {t("viewConversation")}
               </Link>
               <Link href="/journal" className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold hover:bg-muted">
-                Ouvrir dans le Journal
+                {t("openJournal")}
               </Link>
             </div>
           )}

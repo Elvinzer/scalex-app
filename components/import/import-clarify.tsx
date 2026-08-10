@@ -1,23 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { FalcoConversationTurn } from "@/components/falco/falco-conversation-turn";
 import { useFalcoListening } from "@/components/falco/use-falco-listening";
 import { Button } from "@/components/ui/button";
 import type { AnalyzeSheetResult } from "@/lib/import/schema";
-
-const FIELD_LABELS: Record<string, string> = {
-  cashCollected: "CA encaissé",
-  cashContracted: "CA contracté",
-  newFollowers: "Nouveaux abonnés",
-  firstMessages: "Premiers messages",
-  conversations: "Conversations démarrées",
-  callsProposed: "Appels proposés",
-  callsBooked: "Appels réservés",
-  callsTaken: "Appels pris",
-  salesClosed: "Ventes conclues",
-};
 
 type ColumnQuestion = { kind: "column"; sheetIndex: number; sourceColumn: string; prompt: string; options: string[] };
 type PeriodQuestion = { kind: "period"; sheetIndex: number };
@@ -59,6 +48,7 @@ export function ImportClarify({
   // re-slice headers/values itself).
   onHeaderRowChosen: (sheetName: string, rowIndex: number) => void;
 }) {
+  const t = useTranslations("data");
   const [sheets, setSheets] = useState(initialSheets);
   const [queue] = useState(() => buildQuestionQueue(initialSheets));
   const [index, setIndex] = useState(0);
@@ -129,9 +119,9 @@ export function ImportClarify({
         falcoClassName={current.kind === "period" ? listening.className : undefined}
         bubbleText={
           current.kind === "period"
-            ? "Ces chiffres, c'est quel mois ?"
+            ? t("importClarify.periodQuestion")
             : current.kind === "header"
-              ? `C'est laquelle, ta ligne de titres, sur "${current.sheetName}" ?`
+              ? t("importClarify.headerQuestion", { sheet: current.sheetName })
               : current.prompt
         }
       >
@@ -154,8 +144,8 @@ export function ImportClarify({
             </div>
             <div className="flex flex-wrap gap-2">
               {current.previewRows.map((_, rowIndex) => (
-                <Button key={rowIndex} variant="secondary" onClick={() => onHeaderRowChosen(current.sheetName, rowIndex)}>
-                  Ligne {rowIndex + 1}
+                  <Button key={rowIndex} variant="secondary" onClick={() => onHeaderRowChosen(current.sheetName, rowIndex)}>
+                  {t("importClarify.row", { number: rowIndex + 1 })}
                 </Button>
               ))}
             </div>
@@ -187,18 +177,18 @@ export function ImportClarify({
               className="w-24 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent"
             />
             <Button size="sm" onClick={() => handlePeriodAnswer(current)}>
-              Continuer →
+              {t("importClarify.continue")}
             </Button>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {current.options.map((option) => (
               <Button key={option} variant="secondary" onClick={() => handleColumnAnswer(current, option)}>
-                {FIELD_LABELS[option] ?? option}
+                {t(`importFields.${option}`)}
               </Button>
             ))}
             <Button variant="ghost" onClick={() => handleColumnAnswer(current, null)}>
-              Ignorer cette colonne
+              {t("importClarify.ignore")}
             </Button>
           </div>
         )}

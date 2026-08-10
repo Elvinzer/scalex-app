@@ -4,14 +4,23 @@ import { DEFAULT_LOCALE, type Locale } from "./config";
 // build time instead of silently rendering raw keys on one page.
 export const NAMESPACES = [
   "common",
+  "auth",
+  "navigation",
   "onboarding",
   "dashboard",
   "journal",
   "diagnostic",
   "content",
   "pipeline",
+  "business",
+  "data",
+  "integrations",
+  "sales",
+  "booking",
+  "referral",
   "settings",
   "falco",
+  "app",
 ] as const;
 
 export type Namespace = (typeof NAMESPACES)[number];

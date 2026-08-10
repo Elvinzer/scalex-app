@@ -10,10 +10,11 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import type { Offer } from "@/lib/business/types";
-import { LEAD_STAGES, LEAD_STAGE_LABELS, type LeadRow, type LeadStage } from "@/lib/leads/types";
+import { LEAD_STAGES, type LeadRow, type LeadStage } from "@/lib/leads/types";
 import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,8 @@ function Column({
   targetedLeadId: string | null;
   onCardClick: (lead: LeadRow) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("pipeline");
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   const totalValue = leads.reduce((sum, lead) => sum + lead.potentialValueEur, 0);
 
@@ -52,10 +55,10 @@ function Column({
       )}
     >
       <div className="flex items-center justify-between px-1 py-1">
-        <p className="text-sm font-bold">{LEAD_STAGE_LABELS[stage]}</p>
+        <p className="text-sm font-bold">{t(`stage.${stage}`)}</p>
         <span className="text-xs font-bold text-muted-foreground">{leads.length}</span>
       </div>
-      {totalValue > 0 && <p className="px-1 text-xs text-muted-foreground">{new Intl.NumberFormat("fr-FR").format(totalValue)} €</p>}
+      {totalValue > 0 && <p className="px-1 text-xs text-muted-foreground">{new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(totalValue)}</p>}
 
       <div className="flex flex-col gap-2">
         {leads.map((lead) => (

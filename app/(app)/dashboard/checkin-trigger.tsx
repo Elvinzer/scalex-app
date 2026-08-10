@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -24,13 +25,14 @@ export function CheckinTrigger({
   settingSourced: boolean;
   closingSourced: boolean;
 }) {
+  const t = useTranslations("dashboard");
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(() => searchParams.get("checkin") === "1");
 
   return (
     <>
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        Faire mon check-in
+        {t("doCheckin")}
       </Button>
       <CheckinModal
         open={open}

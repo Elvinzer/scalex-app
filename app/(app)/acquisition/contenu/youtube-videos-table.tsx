@@ -2,12 +2,13 @@
 
 import { ArrowDown, ArrowUp, ChevronsUpDown, MonitorPlay } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { InfoPopover } from "@/components/info-popover";
 import { Button } from "@/components/ui/button";
 import { YoutubeVideoDetailDialog } from "@/components/youtube/youtube-video-detail-dialog";
 import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
-import { VIDEO_FORMATS, type VideoFormat, matchesFormat } from "@/lib/youtube/format";
+import { type VideoFormat, matchesFormat } from "@/lib/youtube/format";
 import { comparisonMetric, computeVideoPerformanceComparisons, type VideoPerformanceTier } from "@/lib/youtube/insights-comparison";
 import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
 import { cn } from "@/lib/utils";
@@ -17,18 +18,6 @@ import { Pager } from "./pager";
 type SortKey = "publishedAt" | "views" | "retention";
 
 const PAGE_SIZE = 10;
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" });
-
-const EXPLANATIONS = {
-  topVideos: "Classement de tes vidéos par vues, depuis la connexion de ta chaîne YouTube.",
-  retention:
-    "Pourcentage moyen de la vidéo regardé par les spectateurs — ce que YouTube utilise pour juger si une vidéo mérite d'être recommandée, avec le watch time. La couleur compare cette vidéo à la médiane de tes autres vidéos du même format (Shorts vs. vidéos longues, si un filtre de format est actif — leur rétention n'est pas sur la même échelle) : vert au-dessus, gris dans la moyenne, rouge en dessous — YouTube recommande lui-même de comparer une vidéo à tes uploads récents plutôt qu'à un seuil absolu.",
-  watchTime: "Temps de visionnage total cumulé sur cette vidéo, en minutes.",
-  abonnes: "Abonnés gagnés moins abonnés perdus, générés directement par cette vidéo, remonté par YouTube.",
-  bookings: "Nombre de RDV bookés attribués à cette vidéo — saisie manuelle, aucune donnée YouTube ne l'expose. Clique sur une vidéo pour la renseigner.",
-  dealsClosed: "Nombre de RDV issus de cette vidéo qui se sont conclus par une vente — saisie manuelle. Clique sur une vidéo pour la renseigner.",
-} as const;
 
 const TIER_TEXT_CLASS: Record<VideoPerformanceTier, string> = {
   above: "text-state-healthy",
@@ -69,22 +58,24 @@ function computeTopVideos(videos: YoutubeVideoInsightRow[]): YoutubeVideoInsight
     .slice(0, TOP_VIDEOS_COUNT);
 }
 
-const FORMAT_SUBTITLE: Record<VideoFormat, string> = {
-  all: "toutes vidéos confondues",
-  short: "Shorts uniquement",
-  long: "vidéos longues uniquement",
-};
-
 function TopVideosPanel({ videos, format }: { videos: YoutubeVideoInsightRow[]; format: VideoFormat }) {
+  const locale = useLocale();
+  const t = useTranslations("content.youtube");
+  const contentT = useTranslations("content");
+
   if (videos.length === 0) return null;
+
+  const numberFormat = new Intl.NumberFormat(locale);
+  const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+  const formatLabel = contentT(`format${format === "all" ? "All" : format === "short" ? "Short" : "Long"}`);
 
   return (
     <div className="sticker-card p-6">
       <div className="flex items-center gap-1.5">
-        <h2 className="text-base font-bold">Tes 3 meilleures vidéos</h2>
-        <InfoPopover text={EXPLANATIONS.topVideos} />
+        <h2 className="text-base font-bold">{t("topVideos")}</h2>
+        <InfoPopover text={t("topVideosHelp")} />
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">Classées par vues, {FORMAT_SUBTITLE[format]}, depuis ta connexion.</p>
+      <p className="mt-1 text-sm text-muted-foreground">{t("topVideosSub", { format: formatLabel.toLocaleLowerCase(locale) })}</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {videos.map((video, index) => (
           <a
@@ -109,12 +100,12 @@ function TopVideosPanel({ videos, format }: { videos: YoutubeVideoInsightRow[]; 
               <VideoThumbnail thumbnailUrl={video.thumbnailUrl} />
               <div className="min-w-0">
                 <p className={cn("truncate text-sm font-bold", index === 0 && "text-accent-text")}>{video.title}</p>
-                <p className="text-xs text-muted-foreground">{DATE_FORMAT.format(video.publishedAt)}</p>
+                <p className="text-xs text-muted-foreground">{dateFormat.format(video.publishedAt)}</p>
               </div>
             </div>
             <p className="font-display text-2xl font-bold tabular-nums">
-              {NUMBER_FORMAT.format(video.views ?? 0)}
-              <span className="ml-1.5 font-sans text-xs font-bold text-muted-foreground">vues</span>
+              {numberFormat.format(video.views ?? 0)}
+              <span className="ml-1.5 font-sans text-xs font-bold text-muted-foreground">{t("viewsShort")}</span>
             </p>
           </a>
         ))}
@@ -134,9 +125,14 @@ export function YoutubeVideosTable({
   period: DateFilterKey;
   format: VideoFormat;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("content.youtube");
+  const contentT = useTranslations("content");
   const [sortKey, setSortKey] = useState<SortKey>("publishedAt");
   const [sortDesc, setSortDesc] = useState(true);
   const [page, setPage] = useState(1);
+  const numberFormat = new Intl.NumberFormat(locale);
+  const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
 
   // Format narrows the base cohort everything else derives from — Shorts
   // and long-form have wildly different view/retention baselines, so mixing
@@ -204,8 +200,8 @@ export function YoutubeVideosTable({
   if (videos.length === 0) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-bold">Aucune vidéo synchronisée pour l&apos;instant</p>
-        <p className="mt-1 text-sm text-muted-foreground">Connecte ta chaîne YouTube ci-dessus pour voir tes vidéos.</p>
+        <p className="text-sm font-bold">{t("noVideos")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("noVideosHelp")}</p>
       </div>
     );
   }
@@ -213,18 +209,19 @@ export function YoutubeVideosTable({
   // Distinguishes "nothing in this format at all" from "nothing in this
   // format for this period" — the fix is different (pick another format vs.
   // widen the period), so the suggested next step below should be too.
+  const formatLabel = contentT(`format${format === "all" ? "All" : format === "short" ? "Short" : "Long"}`);
   const emptyStateCopy =
     format !== "all" && formatFiltered.length === 0
-      ? { title: `Aucune vidéo au format "${VIDEO_FORMATS.find((f) => f.key === format)?.label}"`, hint: "Choisis un autre format, ou « Tous »." }
-      : { title: "Aucune vidéo sur cette période", hint: "Choisis « Tout » pour voir l'historique complet." };
+      ? { title: t("noFormat", { format: formatLabel }), hint: t("noFormatHelp") }
+      : { title: t("noPeriod"), hint: t("noPeriodHelp") };
 
   return (
     <div className="flex flex-col gap-6">
       <TopVideosPanel videos={topVideos} format={format} />
 
       <div className="flex items-baseline justify-between">
-        <h2 className="text-base font-bold">Toutes les vidéos</h2>
-        <p className="text-sm text-muted-foreground">{sorted.length} vidéo{sorted.length > 1 ? "s" : ""} sur la période sélectionnée</p>
+        <h2 className="text-base font-bold">{t("allVideos")}</h2>
+        <p className="text-sm text-muted-foreground">{t("periodCount", { count: sorted.length, plural: sorted.length > 1 ? "s" : "" })}</p>
       </div>
 
       {sorted.length === 0 ? (
@@ -237,41 +234,41 @@ export function YoutubeVideosTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="p-3 text-left"><SortHeader label="Date" sortKeyValue="publishedAt" /></th>
-                <th className="p-3 text-left text-xs font-bold text-muted-foreground">Titre</th>
-                <th className="p-3 text-right"><SortHeader label="Vues" sortKeyValue="views" /></th>
+                <th className="p-3 text-left"><SortHeader label={t("date")} sortKeyValue="publishedAt" /></th>
+                <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("title")}</th>
+                <th className="p-3 text-right"><SortHeader label={t("views")} sortKeyValue="views" /></th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <SortHeader label="Rétention" sortKeyValue="retention" />
-                    <InfoPopover text={EXPLANATIONS.retention} />
+                    <SortHeader label={t("retention")} sortKeyValue="retention" />
+                    <InfoPopover text={t("explanations.retention")} />
                   </div>
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">Watch time</span>
-                    <InfoPopover text={EXPLANATIONS.watchTime} />
+                    <span className="text-xs font-bold text-muted-foreground">{t("watchTime")}</span>
+                    <InfoPopover text={t("explanations.watchTime")} />
                   </div>
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">Abonnés</span>
-                    <InfoPopover text={EXPLANATIONS.abonnes} />
+                    <span className="text-xs font-bold text-muted-foreground">{t("subscribers")}</span>
+                    <InfoPopover text={t("explanations.subscribers")} />
                   </div>
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">RDV bookés</span>
-                    <InfoPopover text={EXPLANATIONS.bookings} />
+                    <span className="text-xs font-bold text-muted-foreground">{t("bookings")}</span>
+                    <InfoPopover text={t("explanations.bookings")} />
                   </div>
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-muted-foreground">RDV closés</span>
-                    <InfoPopover text={EXPLANATIONS.dealsClosed} />
+                    <span className="text-xs font-bold text-muted-foreground">{t("dealsClosed")}</span>
+                    <InfoPopover text={t("explanations.dealsClosed")} />
                   </div>
                 </th>
                 <th className="p-3" scope="col">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("actions")}</span>
                 </th>
               </tr>
             </thead>
@@ -285,7 +282,7 @@ export function YoutubeVideosTable({
 
                 return (
                   <tr key={video.id} className="border-b border-border last:border-0">
-                    <td className="p-3 whitespace-nowrap text-muted-foreground">{DATE_FORMAT.format(video.publishedAt)}</td>
+                    <td className="p-3 whitespace-nowrap text-muted-foreground">{dateFormat.format(video.publishedAt)}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-3">
                         <VideoThumbnail thumbnailUrl={video.thumbnailUrl} />
@@ -299,7 +296,7 @@ export function YoutubeVideosTable({
                         </a>
                       </div>
                     </td>
-                    <td className="p-3 text-right tabular-nums">{NUMBER_FORMAT.format(video.views ?? 0)}</td>
+                    <td className="p-3 text-right tabular-nums">{numberFormat.format(video.views ?? 0)}</td>
                     <td className="p-3 text-right">
                       {retention === null ? (
                         <span className="tabular-nums text-muted-foreground">—</span>
@@ -308,25 +305,25 @@ export function YoutubeVideosTable({
                           className={cn("font-bold tabular-nums", tier ? TIER_TEXT_CLASS[tier] : "text-foreground")}
                           title={
                             tier
-                              ? `${tier === "above" ? "Au-dessus" : tier === "below" ? "En dessous" : "Dans la moyenne"} de tes ${comparisons.get(video.videoId)?.cohortSize} vidéos comparables`
+                              ? `${t(tier)} de tes ${comparisons.get(video.videoId)?.cohortSize} ${t("comparable")}`
                               : undefined
                           }
                         >
-                          {`${NUMBER_FORMAT.format(Math.round(retention * 10) / 10)}%`}
+                          {`${numberFormat.format(Math.round(retention * 10) / 10)}%`}
                         </span>
                       )}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", video.estimatedMinutesWatched === null && "text-muted-foreground")}>
-                      {video.estimatedMinutesWatched === null ? "—" : `${NUMBER_FORMAT.format(video.estimatedMinutesWatched)} min`}
+                      {video.estimatedMinutesWatched === null ? "—" : `${numberFormat.format(video.estimatedMinutesWatched)} ${t("minutes")}`}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", netSubscribers === null && "text-muted-foreground")}>
-                      {netSubscribers === null ? "—" : `${netSubscribers >= 0 ? "+" : ""}${NUMBER_FORMAT.format(netSubscribers)}`}
+                      {netSubscribers === null ? "—" : `${netSubscribers >= 0 ? "+" : ""}${numberFormat.format(netSubscribers)}`}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", stats.bookings === null && "text-muted-foreground")}>
-                      {stats.bookings === null ? "—" : NUMBER_FORMAT.format(stats.bookings)}
+                      {stats.bookings === null ? "—" : numberFormat.format(stats.bookings)}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", stats.dealsClosed === null && "text-muted-foreground")}>
-                      {stats.dealsClosed === null ? "—" : NUMBER_FORMAT.format(stats.dealsClosed)}
+                      {stats.dealsClosed === null ? "—" : numberFormat.format(stats.dealsClosed)}
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">
@@ -335,7 +332,7 @@ export function YoutubeVideosTable({
                           bookings={stats.bookings}
                           dealsClosed={stats.dealsClosed}
                           trigger={
-                            <Button type="button" variant="ghost" size="icon-sm" aria-label="Voir le détail">
+                            <Button type="button" variant="ghost" size="icon-sm" aria-label={t("viewDetails")}>
                               <MonitorPlay className="size-3.5" />
                             </Button>
                           }

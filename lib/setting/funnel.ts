@@ -80,11 +80,9 @@ export const STAGE_TIPS: Record<FunnelStage, string> = {
 // (lib/diagnostic/content-metrics.ts) both live down there, and "0% vs 0%"
 // on a card flagged critical reads as a broken widget rather than a small
 // number.
-const PERCENT_FORMAT = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
-
-export function formatPercent(value: number): string {
+export function formatPercent(value: number, locale = "fr-FR"): string {
   const percent = value * 100;
-  if (percent > 0 && percent < 1) return `${PERCENT_FORMAT.format(Math.round(percent * 100) / 100)}%`;
+  if (percent > 0 && percent < 1) return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Math.round(percent * 100) / 100)}%`;
   return `${Math.round(percent)}%`;
 }
 

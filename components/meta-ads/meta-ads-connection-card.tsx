@@ -4,6 +4,7 @@ import { BarChart3, Check, ExternalLink, RefreshCw, Unplug } from "lucide-react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import {
   disconnectMetaAds,
@@ -55,6 +56,8 @@ export function MetaAdsConnectionCard({
   connectionNotice,
   returnTo,
 }: Props) {
+  const locale = useLocale();
+  const t = useTranslations("app.ads.connection");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -85,7 +88,7 @@ export function MetaAdsConnectionCard({
     startTransition(async () => {
       const result = await refreshMetaAdAccounts();
       if (result.error) setError(result.error);
-      else setNotice(`${result.imported ?? 0} compte(s) Meta récupéré(s).${result.syncTriggered ? " Synchronisation des campagnes relancée." : ""}`);
+      else setNotice(`${result.imported ?? 0} ${locale === "en" ? "Meta account(s) retrieved." : "compte(s) Meta récupéré(s)."}${result.syncTriggered ? ` ${locale === "en" ? "Campaign sync restarted." : "Synchronisation des campagnes relancée."}` : ""}`);
       router.refresh();
     });
   }
@@ -97,13 +100,13 @@ export function MetaAdsConnectionCard({
     startTransition(async () => {
       const result = await selectMetaAdAccount(value);
       if (result.error) setError(result.error);
-      else setNotice("Compte sélectionné. La synchronisation va démarrer.");
+      else setNotice(locale === "en" ? "Account selected. Sync will start." : "Compte sélectionné. La synchronisation va démarrer.");
       router.refresh();
     });
   }
 
   function handleDisconnect() {
-    if (!window.confirm("Déconnecter Meta Ads ? Les données déjà synchronisées resteront consultables, mais ne seront plus actualisées.")) return;
+    if (!window.confirm(t("disconnectConfirm"))) return;
     setError(null);
     startTransition(async () => {
       const result = await disconnectMetaAds();
@@ -120,15 +123,15 @@ export function MetaAdsConnectionCard({
           <div>
             <p className="font-bold">Meta Ads</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Lecture des campagnes, coûts, créas et conversions. Les seules actions directes proposées sont la pause, la reprise et le budget quotidien ; ciblage et créas restent dans Meta Ads.
+              {t("description")}
             </p>
-            {connected && metaUserName && <p className="mt-1 text-xs text-muted-foreground">Compte Meta : {metaUserName}</p>}
+            {connected && metaUserName && <p className="mt-1 text-xs text-muted-foreground">{t("metaAccount", { name: metaUserName })}</p>}
           </div>
         </div>
         {connected && (
           <span className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1 text-sm font-bold whitespace-nowrap ${connectionStatus === "connected" ? "bg-state-healthy-bg text-state-healthy" : "bg-state-caution/10 text-state-caution"}`}>
             <span className={`size-2 rounded-full ${connectionStatus === "connected" ? "bg-state-healthy" : "bg-state-caution"}`} />
-            {connectionStatus === "token_expired" ? "Jeton expiré" : connectionStatus === "permission_revoked" ? "Permission à renouveler" : connectionStatus === "account_inaccessible" ? "Compte inaccessible" : "Connecté"}
+            {connectionStatus === "token_expired" ? t("tokenExpired") : connectionStatus === "permission_revoked" ? t("permissionRevoked") : connectionStatus === "account_inaccessible" ? t("accountInaccessible") : t("connected")}
           </span>
         )}
       </div>
@@ -137,18 +140,18 @@ export function MetaAdsConnectionCard({
         <div className="mt-4 flex flex-col gap-3">
           {connectionStatus === "disconnected" && (
             <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
-              Meta Ads est déconnecté. Les campagnes et métriques déjà synchronisées restent consultables dans Ads, mais ne seront plus actualisées tant que tu ne reconnectes pas le compte.
+              {t("disconnectedNotice")}
             </p>
           )}
           {subscriptionActive ? (
             <MetaAdsConsentDialog
               mode="read"
               href={readConnectHref}
-              triggerLabel={connectionStatus === "disconnected" ? "Reconnecter Meta Ads" : "Connecter Meta Ads"}
+              triggerLabel={connectionStatus === "disconnected" ? t("reconnect") : t("connect")}
             />
           ) : (
             <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Un abonnement actif est nécessaire pour connecter Meta Ads.
+              {t("subscriptionRequired")}
             </p>
           )}
         </div>
@@ -156,7 +159,7 @@ export function MetaAdsConnectionCard({
         <>
           <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <label className="flex flex-col gap-2 text-sm font-bold" htmlFor="meta-ad-account">
-              {selectedAccount ? "Changer de compte publicitaire" : "Compte publicitaire à analyser"}
+              {selectedAccount ? t("changeAccount") : t("accountToAnalyze")}
               <select
                 id="meta-ad-account"
                 value={selectedAdAccountId ?? ""}
@@ -164,40 +167,40 @@ export function MetaAdsConnectionCard({
                 disabled={isPending || readableAccounts.length === 0}
                 className="h-9 rounded-[var(--radius-control)] border border-border bg-card px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
               >
-                <option value="">Choisir un compte</option>
+                <option value="">{t("chooseAccount")}</option>
                 {accounts.map((account) => (
                   <option key={account.externalId} value={account.externalId} disabled={!account.canRead}>
-                    {account.name} · {maskedAccountId(account.externalId)}{account.canRead ? "" : ` · ${account.disableReason ?? "accès indisponible"}`}
+                    {account.name} · {maskedAccountId(account.externalId)}{account.canRead ? "" : ` · ${t("unavailableAccess")}`}
                   </option>
                 ))}
               </select>
             </label>
             <Button variant="outline" onClick={handleRefresh} disabled={isPending}>
               <RefreshCw className={isPending ? "size-4 animate-spin motion-reduce:animate-none" : "size-4"} />
-              Rafraîchir maintenant
+              {t("refresh")}
             </Button>
           </div>
 
           {selectedAccount && (
             <dl className="mt-4 grid gap-3 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
               <div>
-                <dt className="text-xs text-muted-foreground">Compte sélectionné</dt>
+                <dt className="text-xs text-muted-foreground">{t("selectedAccount")}</dt>
                 <dd className="mt-1 font-bold">{selectedAccount.name}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Identifiant</dt>
+                <dt className="text-xs text-muted-foreground">{t("identifier")}</dt>
                 <dd className="mt-1 font-mono font-bold">{maskedAccountId(selectedAccount.externalId)}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Devise</dt>
+                <dt className="text-xs text-muted-foreground">{t("currency")}</dt>
                 <dd className="mt-1 font-bold">{selectedAccount.currency ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Fuseau horaire</dt>
+                <dt className="text-xs text-muted-foreground">{t("timezone")}</dt>
                 <dd className="mt-1 font-bold">{selectedAccount.timezone ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Permissions accordées</dt>
+                <dt className="text-xs text-muted-foreground">{t("grantedPermissions")}</dt>
                 <dd className="mt-1 font-bold">{grantedScopes.length > 0 ? grantedScopes.join(", ") : "—"}</dd>
               </div>
             </dl>
@@ -205,82 +208,82 @@ export function MetaAdsConnectionCard({
 
           {connectionNotice === "connected" && (
             <p className="mt-4 text-sm font-bold text-state-healthy" role="status">
-              Connexion Meta Ads réussie. Choisis maintenant le compte publicitaire à analyser.
+              {t("connectedNotice")}
             </p>
           )}
           {connectionNotice === "write_ready" && (
             <p className="mt-4 text-sm font-bold text-state-healthy" role="status">
-              Permission d&apos;actions Meta accordée. La proposition conservée peut maintenant être confirmée.
+              {t("writeReady")}
             </p>
           )}
           {connectionNotice === "write_declined" && (
             <p className="mt-4 text-sm font-bold text-state-caution" role="status">
-              La permission d&apos;actions Meta n&apos;a pas été accordée. La lecture reste active et tu peux réessayer plus tard.
+              {t("writeDeclined")}
             </p>
           )}
           {lastSyncCompletedAt && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Dernière synchronisation terminée le {new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastSyncCompletedAt))}.
+              {t("lastSync", { date: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastSyncCompletedAt)) })}
             </p>
           )}
 
           {isInitialAccountImportPending && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy" role="status">
-              Connexion réussie. Récupération de tes comptes publicitaires Meta en cours…
+              {t("importingAccounts")}
             </p>
           )}
           {readableAccounts.length === 0 && !isInitialAccountImportPending && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
-              Aucun compte publicitaire lisible n&apos;a été trouvé. Vérifie que ton utilisateur Meta a bien accès à un compte Ads.
+              {t("noReadableAccounts")}
             </p>
           )}
           {initialSyncStatus === "awaiting_account" && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
-              Choisis le compte publicitaire à analyser pour lancer la première synchronisation.
+              {t("chooseForSync")}
             </p>
           )}
           {(initialSyncStatus === "pending" || initialSyncStatus === "syncing") && selectedAdAccountId && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy">
-              <span className="font-bold">Synchronisation en cours.</span> Les données de campagne et les 90 derniers jours d&apos;Insights seront disponibles dans Ads.
+              <span className="font-bold">{t("syncingTitle")}</span> {t("syncingDescription")}
             </p>
           )}
           {initialSyncStatus === "completed" && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm font-bold text-state-healthy">
               <Check className="mr-1 inline size-4" />
-              Données synchronisées
-              {initialSyncCompletedAt && ` le ${new Intl.DateTimeFormat("fr-FR").format(new Date(initialSyncCompletedAt))}`}. Rafraîchissement automatique toutes les 6h.
+              {t("synced")}
+              {initialSyncCompletedAt && ` ${locale === "en" ? "on" : "le"} ${new Intl.DateTimeFormat(locale).format(new Date(initialSyncCompletedAt))}`}. {t("syncedFooter")}
             </p>
           )}
           {initialSyncStatus === "failed" && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
-              La synchronisation a échoué. Vérifie l&apos;accès du compte dans Meta Business Suite, puis actualise.
+              {t("syncFailed")}
             </p>
           )}
           {connectionStatus === "token_expired" && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
-              Le jeton Meta a expiré. Reconnecte Meta Ads pour reprendre les synchronisations ; les données déjà lues restent conservées.
+              {t("tokenExpiredHelp")}
             </p>
           )}
           {connectionStatus === "permission_revoked" && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
-              Meta a retiré l’accès à ce compte publicitaire. Reconnecte Meta Ads ou vérifie les droits dans Business Suite.
+              {t("permissionRevokedHelp")}
             </p>
           )}
           {connectionStatus === "account_inaccessible" && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
-              Le compte sélectionné n&apos;est plus accessible en lecture. Vérifie les droits dans Business Suite ou choisis un autre compte ; les données déjà synchronisées restent consultables.
+              {t("accountInaccessibleHelp")}
             </p>
           )}
           {!hasWriteAccess && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted px-3 py-3 text-sm">
-              <p className="font-bold">Actions directes désactivées</p>
+              <p className="font-bold">{t("directActionsDisabled")}</p>
               <p className="mt-1 text-muted-foreground">
-                Scale X reste en lecture seule. Une permission séparée sera proposée uniquement lorsque tu prépareras une pause, une reprise ou un nouveau budget.
+                {t("readOnlyHelp")}
               </p>
             </div>
           )}
           {hasWriteAccess && (
-            <p className="mt-4 text-sm font-bold text-state-healthy">Permission d&apos;actions Meta disponible — chaque modification demandera encore une confirmation.</p>
+            <p className="mt-4 text-sm font-bold text-state-healthy">{t("writePermissionAvailable")}</p>
           )}
           {(error || notice) && (
             <p className={error ? "mt-4 text-sm font-bold text-state-critical" : "mt-4 text-sm font-bold text-state-healthy"}>
@@ -293,12 +296,12 @@ export function MetaAdsConnectionCard({
             )}
             <Button variant="outline" asChild>
               <Link href="/acquisition/ads">
-                Voir les Ads <ExternalLink className="size-4" />
+                {t("viewAds")} <ExternalLink className="size-4" />
               </Link>
             </Button>
             <Button variant="destructive" onClick={handleDisconnect} disabled={isPending}>
               <Unplug className="size-4" />
-              Déconnecter
+              {t("disconnect")}
             </Button>
           </div>
         </>

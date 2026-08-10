@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { CalcPopover } from "@/components/calc-popover";
@@ -11,11 +12,10 @@ import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import { recordDiagnosticAddClicked, recordImproveChatOpened } from "@/lib/improve-chat-tracking";
-import { LEVER_BENCHMARK_INFO } from "@/lib/levers/benchmark-info";
+import { LEVER_BENCHMARK_INFO, LEVER_BENCHMARK_INFO_EN } from "@/lib/levers/benchmark-info";
 import { cn } from "@/lib/utils";
 import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
 
-const EFFORT_LABEL: Record<"faible" | "moyen" | "eleve", string> = { faible: "Effort faible", moyen: "Effort moyen", eleve: "Effort élevé" };
 const EFFORT_CLASS: Record<"faible" | "moyen" | "eleve", string> = {
   faible: "bg-state-healthy-bg text-state-healthy",
   moyen: "bg-state-caution-bg text-state-caution",
@@ -26,12 +26,6 @@ const EFFORT_CLASS: Record<"faible" | "moyen" | "eleve", string> = {
 // expectation to encourage ("à minima les premiers résultats"), not a precise
 // forecast, hence "en moyenne". Tied to effort like FALLBACK_EXTRA_CLIENTS in
 // opportunities.ts rather than invented per-lever.
-const EFFORT_TIME_HORIZON: Record<"faible" | "moyen" | "eleve", string> = {
-  faible: "1 à 2 semaines",
-  moyen: "1 à 2 mois",
-  eleve: "3 à 6 mois",
-};
-
 // Local drawer, same technique as app/(app)/diagnostic/auto-open-improve.tsx
 // — no state lifted to the global floating bubble, no new AI role (reuses
 // the general Copilote as-is, per this chantier's confirmed scope).
@@ -76,13 +70,19 @@ export function DiscoveryOpportunityCard({
   // provided.
   insightSourceId?: string;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("diagnostic.discovery");
   const [open, setOpen] = useState(false);
   const info = LEVER_BENCHMARK_INFO[leverKey];
+  const localizedInfo = locale === "en" ? LEVER_BENCHMARK_INFO_EN[leverKey] ?? info : info;
+  const localizedExplanation = locale === "en" ? t("calculatedFromData") : impactExplanation;
+  const localizedWarning = locale === "en" && warning ? t("scaleWarning") : warning;
+  const localizedContext = locale === "en" && contextSentence ? t("leverContext") : contextSentence;
 
   const chatContext: ChatContext = { topicType: "lever", topicKey: leverKey, topicLabel: label, sourcePage };
   const gapBadge =
     currentValue !== undefined && currentValue !== null && info?.okMax !== undefined
-      ? `${Math.round(currentValue * 100)}% → objectif ${Math.round(info.okMax * 100)}%`
+      ? `${Math.round(currentValue * 100)}% → ${t("target")} ${Math.round(info.okMax * 100)}%`
       : null;
 
   // Only reachable from the "actifs à surveiller" case now (currentValue
@@ -100,33 +100,33 @@ export function DiscoveryOpportunityCard({
           <div>
             <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{category}</p>
             <p className="mt-0.5 font-bold">{label}</p>
-            {info && <p className="mt-1 text-xs text-muted-foreground">{info.whatIsThis}</p>}
+        {localizedInfo && <p className="mt-1 text-xs text-muted-foreground">{localizedInfo.whatIsThis}</p>}
           </div>
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold whitespace-nowrap", EFFORT_CLASS[effort])}>
-            {EFFORT_LABEL[effort]}
+            {t(`effort.${effort}`)}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5">
           <p className="font-display text-lg font-bold tabular-nums">
             {impactRangeEur
-              ? `≈ ${formatEur(impactRangeEur.min)}–${formatEur(impactRangeEur.max)}/mois`
+              ? `≈ ${formatEur(impactRangeEur.min, locale)}–${formatEur(impactRangeEur.max, locale)}/${t("monthShort")}`
               : impactAmountEur === null
-                ? "Impact : à évaluer"
-                : `≈ ${formatEur(impactAmountEur)}/mois`}
+                ? t("impactToEstimate")
+                : `≈ ${formatEur(impactAmountEur, locale)}/${t("monthShort")}`}
           </p>
-          <CalcPopover explanation={impactExplanation} />
+          <CalcPopover explanation={localizedExplanation} />
         </div>
 
-        {warning && <p className="text-xs font-bold text-state-caution">{warning}</p>}
-        {contextSentence && <p className="text-xs text-muted-foreground">{contextSentence}</p>}
+        {localizedWarning && <p className="text-xs font-bold text-state-caution">{localizedWarning}</p>}
+        {localizedContext && <p className="text-xs text-muted-foreground">{localizedContext}</p>}
 
         {/* Time-to-first-results horizon — only on "à implémenter" cards (a
             lever not yet in place, i.e. no currentValue), to set an honest
             expectation next to the € potential. */}
         {currentValue === undefined && (
           <p className="text-xs text-muted-foreground">
-            ⏱ Premiers résultats : ≈ {EFFORT_TIME_HORIZON[effort]} en moyenne
+            ⏱ {t("firstResults", { horizon: t(`horizon.${effort}`) })}
           </p>
         )}
 
@@ -136,7 +136,7 @@ export function DiscoveryOpportunityCard({
             okMax={info.okMax}
             excellentAt={info.excellentAt}
             currentValue={currentValue}
-            centralLabel={info.centralLabel}
+            centralLabel={localizedInfo?.centralLabel}
           />
         )}
 

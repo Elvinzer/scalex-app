@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
@@ -37,6 +38,7 @@ export function DemarrerInteractive({
   onToggleStep: (order: number) => Promise<void>;
   onActivate: () => Promise<void>;
 }) {
+  const t = useTranslations("app.leverGuide");
   const [chatOpen, setChatOpen] = useState(false);
   const [activeSeedQuestion, setActiveSeedQuestion] = useState<string | null>(null);
 
@@ -50,7 +52,7 @@ export function DemarrerInteractive({
 
   function handleHelpStep(order: number) {
     const step = plan?.find((s) => s.order === order);
-    openChat(step ? `Aide-moi avec cette étape : ${step.title}` : null, order);
+    openChat(step ? t("stepHelp", { step: step.title }) : null, order);
   }
 
   return (
@@ -73,12 +75,12 @@ export function DemarrerInteractive({
           <Falco pose="neutral" size="sm" />
         )}
         <div className="flex-1">
-          <p className="text-sm font-bold">Besoin d&apos;aide pour mettre en place {leverLabel} ?</p>
-          <p className="text-xs text-muted-foreground">Falco t&apos;aide à l&apos;exécuter, adapté à ton business.</p>
+          <p className="text-sm font-bold">{t("needHelp", { lever: leverLabel })}</p>
+          <p className="text-xs text-muted-foreground">{t("falcoHelp")}</p>
         </div>
         <Button variant="accent2" onClick={() => openChat(null, null)}>
           <MessageCircle className="size-4" />
-          Discuter avec Falco
+          {t("chatWithFalco")}
         </Button>
       </div>
 

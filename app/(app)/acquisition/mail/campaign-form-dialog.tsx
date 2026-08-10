@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,11 +10,11 @@ import type { EmailCampaignRow } from "@/lib/email-campaigns/types";
 import { saveEmailCampaign } from "./actions";
 
 const COUNT_FIELDS = [
-  { name: "opens", label: "Ouvertures" },
-  { name: "clicks", label: "Clics" },
-  { name: "revenueAttributed", label: "CA attribué (€)" },
-  { name: "bookings", label: "RDV bookés" },
-  { name: "dealsClosed", label: "RDV closés" },
+  { name: "opens", key: "opens" },
+  { name: "clicks", key: "clicks" },
+  { name: "revenueAttributed", key: "revenueAttributed" },
+  { name: "bookings", key: "bookings" },
+  { name: "dealsClosed", key: "dealsClosed" },
 ] as const;
 
 function today(): string {
@@ -21,6 +22,7 @@ function today(): string {
 }
 
 export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCampaignRow; trigger: React.ReactNode }) {
+  const t = useTranslations("app.mail");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -62,13 +64,13 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogTitle className="text-lg font-bold">
-          {campaign ? "Modifier l'envoi" : "Ajouter un envoi"}
+          {campaign ? t("editSend") : t("addSend")}
         </DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Nom de l&apos;envoi</span>
+              <span className="text-muted-foreground">{t("sendName")}</span>
               <input
                 type="text"
                 name="name"
@@ -78,7 +80,7 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Date d&apos;envoi</span>
+              <span className="text-muted-foreground">{t("sendDate")}</span>
               <input
                 type="date"
                 name="sentAt"
@@ -90,7 +92,7 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
           </div>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Sujet (optionnel)</span>
+            <span className="text-muted-foreground">{t("subjectOptional")}</span>
             <input
               type="text"
               name="subject"
@@ -100,7 +102,7 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Envois</span>
+            <span className="text-muted-foreground">{t("sends")}</span>
             <input
               type="number"
               name="sends"
@@ -114,7 +116,7 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {COUNT_FIELDS.map((field) => (
               <label key={field.name} className="flex flex-col gap-1.5 text-sm">
-                <span className="text-muted-foreground">{field.label}</span>
+                <span className="text-muted-foreground">{t(`field.${field.key}`)}</span>
                 <input
                   type="number"
                   name={field.name}
@@ -129,7 +131,7 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : campaign ? "Enregistrer" : "Ajouter l'envoi"}
+            {isPending ? t("saving") : campaign ? t("save") : t("addSend")}
           </Button>
         </form>
       </DialogContent>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import type { PermissionKey } from "@/lib/team/permissions";
@@ -14,8 +15,9 @@ export function RoleCard({
   permissionOptions,
 }: {
   role: Role;
-  permissionOptions: { key: PermissionKey; label: string }[];
+  permissionOptions: { key: PermissionKey }[];
 }) {
+  const t = useTranslations("settings.team");
   const [permissions, setPermissions] = useState<string[]>(role.permissions);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -31,7 +33,7 @@ export function RoleCard({
   }
 
   function handleDelete() {
-    if (!confirm(`Supprimer le rôle "${role.name}" ?`)) return;
+    if (!confirm(t("deleteRoleConfirm", { name: role.name }))) return;
     startTransition(async () => {
       await deleteRole(role.id);
     });
@@ -43,7 +45,7 @@ export function RoleCard({
         <p className="text-base font-bold">{role.name}</p>
         {!role.isDefault && (
           <Button type="button" variant="destructive" size="sm" disabled={isPending} onClick={handleDelete}>
-            Supprimer
+            {t("remove")}
           </Button>
         )}
       </div>
@@ -62,7 +64,7 @@ export function RoleCard({
                   : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-signal/50"
               }
             >
-              {option.label}
+              {t(`permission.${permissionKey(option.key)}`)}
             </button>
           );
         })}
@@ -70,4 +72,8 @@ export function RoleCard({
       {error && <p className="mt-3 text-sm text-state-critical">{error}</p>}
     </div>
   );
+}
+
+function permissionKey(key: PermissionKey): string {
+  return key.replace(":", "_");
 }

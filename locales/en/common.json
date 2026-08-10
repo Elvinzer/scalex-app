@@ -6,7 +6,43 @@
     "continue": "Continue",
     "back": "Back",
     "retry": "Try again",
-    "seeDetail": "See details"
+    "seeDetail": "See details",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "disconnect": "Disconnect",
+    "disconnecting": "Disconnecting…"
+  },
+  "period": {
+    "this_month": "This month",
+    "last_month": "Last month",
+    "last_30d": "30 days",
+    "last_90d": "90 days",
+    "this_year": "This year",
+    "all": "All"
+  },
+  "dateRange": {
+    "all": "All time",
+    "currentMonth": "Current month",
+    "last30Days": "Last 30 days",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "chooseRange": "Choose a range",
+    "cancel": "Cancel",
+    "update": "Update"
+  },
+  "businessNudge": {
+    "message": "Add your offers in My business to quantify your revenue gap",
+    "complete": "Complete"
+  },
+  "contact": {
+    "prospect": "this prospect",
+    "contact": "Contact {name}",
+    "call": "Call",
+    "callAria": "Call {name}",
+    "whatsapp": "WhatsApp",
+    "whatsappAria": "Send a WhatsApp message to {name}",
+    "callSubject": "our call",
+    "followUp": "Hi{firstName}, I’m following up about {subject}."
   },
   "states": {
     "loading": "Loading…",
@@ -19,5 +55,153 @@
     "label": "Interface language",
     "fr": "Français",
     "en": "English"
+  },
+  "nature": {
+    "observed": "Observed",
+    "calculated": "Calculated",
+    "benchmark": "Benchmark",
+    "projection": "Projection"
+  },
+  "sources": {
+    "stripe": "Stripe",
+    "calendly": "Calendly",
+    "iclosed": "iClosed",
+    "pipeline": "Pipeline",
+    "manual": "Manual",
+    "calculated": "Calculated",
+    "stripeManual": "Stripe + manual"
+  },
+  "streak": {
+    "openDetails": "Open streak details",
+    "ariaLabel": "Your streak: {count} day(s). Open details.",
+    "days": "{count} day(s)",
+    "currentStreak": "Current streak",
+    "weeklyGoal": "Weekly goal",
+    "goalMet": "Reached — your streak is protected until Sunday.",
+    "todayValidated": "Day validated.",
+    "oneAction": "One action is enough to validate today."
+  },
+  "scaleScore": {
+    "needNumbers": "I need your numbers to score you.",
+    "fillNumbers": "Enter my numbers",
+    "title": "Your Scale Score",
+    "lastCalculated": "Last calculated:",
+    "over30Days": "over 30 days",
+    "evolution": "Evolution (last 8 weeks)",
+    "improve": "Improve my score",
+    "exporting": "Exporting…",
+    "share": "Share",
+    "tier": {
+      "rouge": "Fragile health",
+      "ambre": "Healthy",
+      "vert": "Excellent health"
+    }
+  },
+  "shared": {
+    "yourSector": "Your sector",
+    "sectorNotSet": "Not set (global benchmark)",
+    "previousMetric": "Previous metric",
+    "nextMetric": "Next metric",
+    "goToMetric": "Go to {label}",
+    "exporting": "Exporting…",
+    "shareCard": "Share this card",
+    "hideAmounts": "Hide amounts",
+    "addFalco": "Add Falco",
+    "benchmark": "Benchmark",
+    "marketBenchmark": "Market benchmark",
+    "marketStandard": "Market standard: {value}",
+    "excellentFrom": "excellent from {value}%",
+    "notEnoughVolume": "Not enough volume to be reliable",
+    "noMarketBenchmark": "No market benchmark for this metric yet",
+    "you": "You",
+    "aboveMarket": "Above market",
+    "belowMarket": "Below market",
+    "withinMarket": "Within sector average",
+    "calculatedHow": "How is this calculated",
+    "dataSource": "Where does this data come from",
+    "lastDaysTrend": "Trend over the last {count} days",
+    "active": "Active",
+    "watch": "Watch",
+    "impactToAssess": "Impact: to assess",
+    "calculatedFromData": "Calculated from your data, funnel rates and offer price.",
+    "scaleWarning": "Make sure your closing process is stable before scaling volume.",
+    "leverContext": "This estimate combines your current performance with the lever benchmark.",
+    "perMonth": "/month",
+    "launchPlan": "Launch plan",
+    "helpFromFalco": "Falco can help →",
+    "markLaunched": "Mark as launched",
+    "yourRevenueIfOptimized": "My revenue if I optimize everything",
+    "perMonthLabel": "per month",
+    "freeProjection": "Get your free projection at scalex.app",
+    "shareScaleScore": "Scale Score: not calculated yet, see details",
+    "scaleScoreAria": "Scale Score: {score} out of 100, potential {potential}, see details",
+    "toCalculate": "To calculate",
+    "potential": "Potential",
+    "accessSuspended": "Access suspended",
+    "subscriptionInactive": "The Scale X subscription for the account you belong to is no longer active. Contact the account owner to restore access.",
+    "low": "Low",
+    "medium": "Medium",
+    "good": "Good",
+    "marketGoodReference": "Market “good” reference: {value}",
+    "falcoThinking": "Falco is thinking…",
+    "chatError": "This conversation encountered an error.",
+    "retry": "Try again",
+    "aiError": "AI could not respond. Try again in a moment.",
+    "messageLimit": "Message limit reached",
+    "writeMessage": "Write your message…"
+    ,"writeHook": "Write an ad hook"
+    ,"writeHookFor": "Write an ad hook: {offer}"
+  },
+  "integration": {
+    "connected": "Connected",
+    "syncing": "Sync in progress",
+    "plan_limited": "Plan-limited access",
+    "error": "Sync failed",
+    "not_connected": "Not connected"
+  },
+  "sector": {
+    "coaching_b2b_high_ticket": "High-ticket B2B coaching / consulting (€2,000–5,000)",
+    "low_ticket_infoproduct": "Low-ticket / consumer infoproduct (<€100)",
+    "ecommerce_dtc": "E-commerce / DTC",
+    "real_estate_finance": "Real estate / wealth / personal finance with calls"
+  },
+  "health": {
+    "aboveStandard": "Above standard ✓",
+    "belowBenchmark": "Below benchmark",
+    "monthlyRecovery": "≈ {amount} / month to recover",
+    "clientsRecovery": "≈ {count} client(s)/month to recover",
+    "benchmarkNiche": "Your niche benchmark: {value} %",
+    "freeAudit": "Get your free audit at {url}"
+  },
+  "streakDetails": {
+    "new": "New streak, let’s start again. One action today is enough to launch it.",
+    "goalMet": "Weekly goal reached. Your streak is safe, even if you slow down before Sunday.",
+    "long": "{count} days in a row. It’s a habit now, not an effort.",
+    "week": "{count} days in a row. That’s exactly the rhythm that builds a business.",
+    "regularity": "{count} day(s) in a row. Keep going; consistency pays.",
+    "title": "Your streak",
+    "record": "Personal record: {count} day(s)",
+    "weeklyGoal": "Weekly goal",
+    "goalHelp": "Based on your real rhythm over the last 4 weeks. Lower it if things are busy — reaching your goal protects your streak even with empty days.",
+    "last30Days": "Your last 30 days",
+    "activeDay": "Active day",
+    "graceDay": "Grace day",
+    "protectedDay": "Covered by your goal",
+    "emptyDay": "No activity",
+    "protectedByGoal": "Covered by your weekly goal",
+    "graceRemaining": "{count} grace day(s) left this month. They are used automatically; you don’t need to do anything.",
+    "validatesDay": "What validates a day",
+    "validatesHelp": "One of these actions is enough. Everything is detected automatically.",
+    "reminderTitle": "End-of-day reminder",
+    "reminderHelp": "A discreet email at 7 pm on days without activity. Off by default, with no guilt-inducing follow-up.",
+    "reminderAria": "End-of-day reminder",
+    "close": "Close",
+    "sources": {
+      "content_published": { "label": "Publish content", "detail": "A post, Reel, Short, story or YouTube video — detected automatically during sync." },
+      "email_sent": { "label": "Send an email campaign", "detail": "A campaign sent from your Mail module." },
+      "business_progress": { "label": "Move your business forward", "detail": "A Journal action checked, a lever started, or an improvement marked as done." },
+      "checkin_filled": { "label": "Enter your numbers", "detail": "A setting or closing numbers entry." },
+      "lead_worked": { "label": "Work your pipeline", "detail": "A lead comment or a lead moved in your pipeline." }
+    }
   }
 }

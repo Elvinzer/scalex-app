@@ -1,4 +1,5 @@
 import { KeyRound, Phone, RefreshCw, UserRound } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { OverdueAction, OverdueActionIcon } from "@/lib/dashboard/overdue-actions";
 
@@ -14,12 +15,13 @@ const ICONS: Record<OverdueActionIcon, typeof Phone> = {
 // the badge and rows use state-critical throughout instead of a neutral
 // count + per-row urgency tone.
 export function OverdueActionsSection({ actions }: { actions: OverdueAction[] }) {
+  const t = useTranslations("dashboard");
   if (actions.length === 0) return null;
 
   return (
     <div className="sticker-card animate-rise p-4">
       <div className="flex items-center gap-2">
-        <p className="text-sm font-bold">Actions en retard</p>
+        <p className="text-sm font-bold">{t("overdueTitle")}</p>
         <span className="rounded-full bg-state-critical/15 px-2 py-0.5 text-xs font-bold text-state-critical">
           {actions.length}
         </span>
@@ -41,7 +43,7 @@ export function OverdueActionsSection({ actions }: { actions: OverdueAction[] })
                   <span className="font-bold">{action.title}</span>
                   <span className="ml-2 text-xs text-muted-foreground">{action.detail}</span>
                 </span>
-                <span className="shrink-0 text-xs font-bold text-muted-foreground">voir →</span>
+                <span className="shrink-0 text-xs font-bold text-muted-foreground">{t("openArrow")}</span>
               </a>
             </li>
           );

@@ -3,6 +3,7 @@
 import { Camera, MonitorPlay } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { InstagramConnectionCard } from "@/components/instagram/instagram-connection-card";
 import { YoutubeConnectionCard } from "@/components/youtube/youtube-connection-card";
@@ -90,15 +91,18 @@ export function ContenuView({
   youtubeSubscriberCount,
   youtubeRecommendations = [],
   youtubeAnalyzableVideoCount = 0,
-  youtubeFalcoStateText = "Je regarde les signaux de ta chaîne YouTube.",
+  youtubeFalcoStateText,
   youtubeChatContext = DEFAULT_YOUTUBE_CONTEXT,
   youtubeFalcoSkin = null,
-  overviewStateText = "Regardons la performance de ton contenu.",
+  overviewStateText,
   overviewChatContext = DEFAULT_OVERVIEW_CONTEXT,
   overviewFalcoSkin = null,
   subscriptionActive,
   hasConnectedPlatform,
 }: ContenuViewProps) {
+  const t = useTranslations("content");
+  const resolvedYoutubeFalcoStateText = youtubeFalcoStateText ?? t("youtubeState");
+  const resolvedOverviewStateText = overviewStateText ?? t("overviewState");
   const router = useRouter();
   const pathname = usePathname();
   const defaultPlatform: Platform = instagramConnected || !youtubeConnected ? "instagram" : "youtube";
@@ -128,15 +132,15 @@ export function ContenuView({
   return (
     <div className="flex flex-col gap-6">
       <AgentBanner
-        stateText={platform === "youtube" ? youtubeFalcoStateText : overviewStateText}
-        ctaLabel="Parler contenu →"
+        stateText={platform === "youtube" ? resolvedYoutubeFalcoStateText : resolvedOverviewStateText}
+        ctaLabel={t("talkContent")}
         chatContext={platform === "youtube" ? youtubeChatContext : overviewChatContext}
-        gapBadge={platform === "youtube" ? "Falco Créateur" : null}
+        gapBadge={platform === "youtube" ? t("falcoCreator") : null}
         mode={platform === "youtube" ? null : "optimiser"}
         falcoSkin={platform === "youtube" ? youtubeFalcoSkin : overviewFalcoSkin}
       />
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Plateforme de contenu">
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t("platformGroup")}>
         {PLATFORM_OPTIONS.map((option) => {
           const Icon = option.icon;
           const active = platform === option.id;
@@ -170,7 +174,7 @@ export function ContenuView({
                 <span className="mt-0.5 flex items-center gap-1.5">
                   <span aria-hidden="true" className={cn("size-1.5 rounded-full", connected ? "bg-state-healthy" : "bg-muted-foreground")} />
                   <span className={cn("text-xs font-bold", connected ? "text-state-healthy" : "text-muted-foreground")}>
-                    {connected ? "Connecté" : "Non connecté"}
+                    {connected ? t("connected") : t("notConnected")}
                   </span>
                 </span>
               </span>
@@ -181,7 +185,7 @@ export function ContenuView({
 
       <div id={`content-panel-${platform}`} role="region" aria-labelledby={`content-panel-${platform}-heading`} className="flex flex-col gap-6">
         <h2 id={`content-panel-${platform}-heading`} className="sr-only">
-          Données de contenu {platform === "instagram" ? "Instagram" : "YouTube"}
+          {t("contentData")} {platform === "instagram" ? "Instagram" : "YouTube"}
         </h2>
 
         {platform === "instagram" ? (
@@ -216,7 +220,7 @@ export function ContenuView({
         )}
       </div>
 
-      {!hasConnectedPlatform && <p className="sr-only">Aucune plateforme n&apos;est encore connectée.</p>}
+      {!hasConnectedPlatform && <p className="sr-only">{t("noPlatform")}</p>}
     </div>
   );
 }

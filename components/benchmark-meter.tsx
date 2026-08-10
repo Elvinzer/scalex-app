@@ -14,15 +14,17 @@ export function BenchmarkMeter({
   value: number | null;
   band: BenchmarkBand;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("common.shared");
   if (!band) {
     return (
       <div>
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-sm font-bold text-muted-foreground">{label}</p>
-          <p className="font-display text-lg font-bold">{value === null ? "—" : formatPercent(value)}</p>
+          <p className="font-display text-lg font-bold">{value === null ? "—" : formatPercent(value, locale)}</p>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Pas de repère marché pour cette métrique sur ce secteur.
+          {t("noMarketBenchmark")}
         </p>
       </div>
     );
@@ -32,7 +34,7 @@ export function BenchmarkMeter({
     return (
       <div>
         <p className="text-sm font-bold text-muted-foreground">{label}</p>
-        <p className="mt-2 text-xs text-muted-foreground">Pas encore assez de données.</p>
+        <p className="mt-2 text-xs text-muted-foreground">{t("notEnoughVolume")}</p>
       </div>
     );
   }
@@ -46,7 +48,7 @@ export function BenchmarkMeter({
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-sm font-bold text-muted-foreground">{label}</p>
-        <p className="font-display text-lg font-bold">{formatPercent(value)}</p>
+        <p className="font-display text-lg font-bold">{formatPercent(value, locale)}</p>
       </div>
 
       <div className="relative mt-4 h-3">
@@ -60,7 +62,7 @@ export function BenchmarkMeter({
         <div
           className="absolute top-0 h-3 w-0.5 bg-ink/40"
           style={{ left: `${band.bon * 100}%` }}
-          title={`Repère "bon" du marché : ${formatPercent(band.bon)}`}
+          title={t("marketGoodReference", { value: formatPercent(band.bon, locale) })}
         />
 
         {/* user's actual rate */}
@@ -73,10 +75,11 @@ export function BenchmarkMeter({
       </div>
 
       <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-        <span>Bas {formatPercent(band.bas)}</span>
-        <span>Moyen {formatPercent(band.moyen)}</span>
-        <span>Bon {formatPercent(band.bon)}</span>
+        <span>{t("low")} {formatPercent(band.bas, locale)}</span>
+        <span>{t("medium")} {formatPercent(band.moyen, locale)}</span>
+        <span>{t("good")} {formatPercent(band.bon, locale)}</span>
       </div>
     </div>
   );
 }
+import { useLocale, useTranslations } from "next-intl";

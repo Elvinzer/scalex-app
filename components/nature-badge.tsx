@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 export type MetricNature = "Observé" | "Calculé" | "Benchmark" | "Projection";
 
@@ -10,9 +11,16 @@ const natureClasses: Record<MetricNature, string> = {
 };
 
 export function NatureBadge({ nature, className }: { nature: MetricNature; className?: string }) {
+  const t = useTranslations("common.nature");
+  const labels: Record<MetricNature, string> = {
+    Observé: t("observed"),
+    Calculé: t("calculated"),
+    Benchmark: t("benchmark"),
+    Projection: t("projection"),
+  };
   return (
     <span className={cn("inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-bold", natureClasses[nature], className)}>
-      {nature}
+      {labels[nature]}
     </span>
   );
 }

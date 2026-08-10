@@ -1,6 +1,7 @@
 "use client";
 
 import { MonitorPlay } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { updatePostCommercialStats } from "@/app/(app)/acquisition/contenu/actions";
@@ -8,14 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
 
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
-function formatStat(value: number | null): string {
-  return value === null ? "—" : NUMBER_FORMAT.format(value);
+function formatStat(value: number | null, locale: string): string {
+  return value === null ? "—" : new Intl.NumberFormat(locale).format(value);
 }
 
-function formatPercentValue(value: number | null): string {
-  return value === null ? "—" : `${NUMBER_FORMAT.format(Math.round(value * 10) / 10)}%`;
+function formatPercentValue(value: number | null, locale: string): string {
+  return value === null ? "—" : `${new Intl.NumberFormat(locale).format(Math.round(value * 10) / 10)}%`;
 }
 
 // seconds -> "m:ss" (or "h:mm:ss" past an hour) — used for both a video's
@@ -30,9 +29,9 @@ export function formatDurationSeconds(seconds: number | null): string {
   return `${minutes}:${String(secs).padStart(2, "0")}`;
 }
 
-function formatSignedStat(value: number | null): string {
+function formatSignedStat(value: number | null, locale: string): string {
   if (value === null) return "—";
-  return `${value >= 0 ? "+" : ""}${NUMBER_FORMAT.format(value)}`;
+  return `${value >= 0 ? "+" : ""}${new Intl.NumberFormat(locale).format(value)}`;
 }
 
 export function YoutubeVideoDetailDialog({
@@ -46,6 +45,8 @@ export function YoutubeVideoDetailDialog({
   dealsClosed: number | null;
   trigger: React.ReactNode;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("content.detail");
   const [open, setOpen] = useState(false);
   const [bookingsInput, setBookingsInput] = useState(bookings === null ? "" : String(bookings));
   const [dealsClosedInput, setDealsClosedInput] = useState(dealsClosed === null ? "" : String(dealsClosed));
@@ -71,15 +72,15 @@ export function YoutubeVideoDetailDialog({
     insight.subscribersGained !== null && insight.subscribersLost !== null ? insight.subscribersGained - insight.subscribersLost : null;
 
   const stats: { label: string; value: string }[] = [
-    { label: "Vues", value: formatStat(insight.views) },
-    { label: "Rétention moyenne", value: formatPercentValue(insight.averageViewPercentage) },
-    { label: "Durée de vue moyenne", value: formatDurationSeconds(insight.averageViewDurationSeconds) },
-    { label: "Durée de la vidéo", value: formatDurationSeconds(insight.durationSeconds) },
-    { label: "Watch time total", value: insight.estimatedMinutesWatched === null ? "—" : `${formatStat(insight.estimatedMinutesWatched)} min` },
-    { label: "Abonnés (net)", value: formatSignedStat(netSubscribers) },
-    { label: "Likes", value: formatStat(insight.likes) },
-    { label: "Commentaires", value: formatStat(insight.comments) },
-    { label: "Partages", value: formatStat(insight.shares) },
+    { label: t("views"), value: formatStat(insight.views, locale) },
+    { label: t("retention"), value: formatPercentValue(insight.averageViewPercentage, locale) },
+    { label: t("avgViewDuration"), value: formatDurationSeconds(insight.averageViewDurationSeconds) },
+    { label: t("videoDuration"), value: formatDurationSeconds(insight.durationSeconds) },
+    { label: t("totalWatchTime"), value: insight.estimatedMinutesWatched === null ? "—" : `${formatStat(insight.estimatedMinutesWatched, locale)} min` },
+    { label: t("netSubscribers"), value: formatSignedStat(netSubscribers, locale) },
+    { label: t("likes"), value: formatStat(insight.likes, locale) },
+    { label: t("comments"), value: formatStat(insight.comments, locale) },
+    { label: t("shares"), value: formatStat(insight.shares, locale) },
   ];
 
   return (
@@ -88,7 +89,7 @@ export function YoutubeVideoDetailDialog({
       <DialogContent className="max-w-md">
         <div className="flex items-center gap-2">
           <MonitorPlay className="size-4 text-muted-foreground" />
-          <DialogTitle>Détail de la vidéo YouTube</DialogTitle>
+          <DialogTitle>{t("youtubeTitle")}</DialogTitle>
         </div>
 
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{insight.title}</p>
@@ -103,13 +104,13 @@ export function YoutubeVideoDetailDialog({
         </div>
 
         <div className="mt-4 border-t border-border pt-4">
-          <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Suivi commercial (manuel)</p>
+          <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("commercialTracking")}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            YouTube n&apos;expose aucune donnée de RDV — renseigne-les ici pour cette vidéo.
+            {t("youtubeNotice")}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">RDV bookés</span>
+              <span className="text-muted-foreground">{t("bookings")}</span>
               <input
                 type="number"
                 min={0}
@@ -121,7 +122,7 @@ export function YoutubeVideoDetailDialog({
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">RDV closés</span>
+              <span className="text-muted-foreground">{t("dealsClosed")}</span>
               <input
                 type="number"
                 min={0}
@@ -138,7 +139,7 @@ export function YoutubeVideoDetailDialog({
 
         <Button asChild variant="outline" className="mt-4">
           <a href={`https://www.youtube.com/watch?v=${insight.videoId}`} target="_blank" rel="noreferrer">
-            Voir sur YouTube
+            {t("viewYoutube")}
           </a>
         </Button>
       </DialogContent>

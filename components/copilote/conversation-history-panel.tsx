@@ -1,23 +1,14 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Falco } from "@/components/falco/falco";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ConversationWithPreview } from "@/lib/agent/chat-history";
-import type { InsightDecision } from "@/lib/insight-execution/types";
 import { cn } from "@/lib/utils";
 
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" });
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-const ACTION_LABELS: Record<InsightDecision, string> = {
-  todo: "Action à traiter",
-  launched: "Action lancée",
-  later: "Action à reprendre",
-  dismissed: "Action écartée",
-  completed: "Action terminée",
-};
 
 function truncate(text: string): string {
   const singleLine = text.replace(/\s+/g, " ").trim();
@@ -43,9 +34,9 @@ function groupConversations(
     else before.push(conversation);
   }
   return [
-    { label: "Aujourd'hui", items: today },
-    { label: "Cette semaine", items: thisWeek },
-    { label: "Avant", items: before },
+    { label: "today", items: today },
+    { label: "thisWeek", items: thisWeek },
+    { label: "before", items: before },
   ].filter((group) => group.items.length > 0);
 }
 
@@ -66,6 +57,7 @@ export function ConversationHistoryPanel({
   onNewConversation: () => void;
   compact?: boolean;
 }) {
+  const t = useTranslations("app.copilote.history");
   const groups = groupConversations(conversations);
   const selected = conversations.find((conversation) => conversation.id === selectedConversationId) ?? null;
 
@@ -77,7 +69,7 @@ export function ConversationHistoryPanel({
             type="button"
             className="flex min-h-11 w-full items-center justify-between gap-2 rounded-[var(--radius-control)] border border-border px-3 py-2 text-left text-sm font-bold"
           >
-            <span className="truncate">{selected?.title ?? "Choisis une conversation"}</span>
+            <span className="truncate">{selected?.title ?? t("choose")}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="max-h-[70vh] w-[calc(100vw-2rem)] overflow-y-auto p-2">
@@ -117,6 +109,7 @@ function ConversationList({
   onSelect: (conversationId: string) => void;
   onNewConversation: () => void;
 }) {
+  const t = useTranslations("app.copilote.history");
   const isEmpty = groups.every((group) => group.items.length === 0);
 
   return (
@@ -127,16 +120,16 @@ function ConversationList({
         className="mb-2 flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-dashed border-border px-3 py-2 text-left text-sm font-bold hover:bg-muted"
       >
         <Plus className="size-4" />
-        Nouvelle conversation
+        {t("new")}
       </button>
 
       {isEmpty ? (
-        <p className="px-2 py-4 text-center text-sm text-muted-foreground">Pas encore de conversation.</p>
+        <p className="px-2 py-4 text-center text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         groups.map((group, index) => (
           <div key={group.label ?? index}>
             {group.label && (
-              <p className="mt-3 mb-1 px-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">{group.label}</p>
+              <p className="mt-3 mb-1 px-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">{t(group.label)}</p>
             )}
             <div className="flex flex-col gap-1">
               {group.items.map((conversation) => (
@@ -164,6 +157,9 @@ function ConversationRow({
   selected: boolean;
   onSelect: (conversationId: string) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("app.copilote.history");
+  const dateFormat = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit" });
   return (
     <button
       type="button"
@@ -180,14 +176,14 @@ function ConversationRow({
       <span className="min-w-0 flex-1">
         <span className="flex items-center justify-between gap-2">
           <span className="truncate text-sm font-bold">{conversation.title}</span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">{DATE_FORMAT.format(new Date(conversation.updatedAt))}</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">{dateFormat.format(new Date(conversation.updatedAt))}</span>
         </span>
         <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-          <span className="min-w-0 truncate">{conversation.preview ? truncate(conversation.preview) : "Nouvelle conversation"}</span>
-          <span className="shrink-0">· {conversation.messageCount} msg.</span>
+          <span className="min-w-0 truncate">{conversation.preview ? truncate(conversation.preview) : t("newPreview")}</span>
+          <span className="shrink-0">· {conversation.messageCount} {t("messages")}</span>
         </span>
         <span className="block min-h-4 truncate text-[10px] font-bold text-accent-2-text">
-          {conversation.insightDecision ? ACTION_LABELS[conversation.insightDecision] : "\u00a0"}
+          {conversation.insightDecision ? t(`action${conversation.insightDecision === "todo" ? "Todo" : conversation.insightDecision === "launched" ? "Launched" : conversation.insightDecision === "later" ? "Later" : conversation.insightDecision === "dismissed" ? "Dismissed" : "Completed"}`) : "\u00a0"}
         </span>
       </span>
     </button>

@@ -1,5 +1,6 @@
 import { CalcPopover } from "@/components/calc-popover";
 import { formatEur } from "@/lib/currency";
+import { useLocale, useTranslations } from "next-intl";
 
 // Same amount+CalcPopover snippet as discovery-opportunity-card.tsx's own
 // card, extracted so Mail/Ads/Upsell's mode Démarrer can show it without
@@ -22,20 +23,25 @@ export function LeverImpactEstimate({
   warning?: string | null;
   contextSentence?: string | null;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("common.shared");
+  const localizedExplanation = locale === "en" ? t("calculatedFromData") : explanation;
+  const localizedWarning = locale === "en" && warning ? t("scaleWarning") : warning;
+  const localizedContext = locale === "en" && contextSentence ? t("leverContext") : contextSentence;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
         <p className="font-display text-lg font-bold tabular-nums">
           {rangeEur
-            ? `≈ ${formatEur(rangeEur.min)}–${formatEur(rangeEur.max)}/mois`
+            ? `≈ ${formatEur(rangeEur.min, locale)}–${formatEur(rangeEur.max, locale)}${t("perMonth")}`
             : amountEur === null
-              ? "Impact : à évaluer"
-              : `≈ ${formatEur(amountEur)}/mois`}
+              ? t("impactToAssess")
+              : `≈ ${formatEur(amountEur, locale)}${t("perMonth")}`}
         </p>
-        <CalcPopover explanation={explanation} />
+        <CalcPopover explanation={localizedExplanation} />
       </div>
-      {warning && <p className="text-xs font-bold text-state-caution">{warning}</p>}
-      {contextSentence && <p className="text-xs text-muted-foreground">{contextSentence}</p>}
+      {localizedWarning && <p className="text-xs font-bold text-state-caution">{localizedWarning}</p>}
+      {localizedContext && <p className="text-xs text-muted-foreground">{localizedContext}</p>}
     </div>
   );
 }

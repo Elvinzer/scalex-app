@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { Celebration } from "@/components/celebration";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function LeverStarterPlanCard({
   // checklist (no chat wiring implied).
   onHelpStep?: (order: number) => void;
 }) {
+  const t = useTranslations("common.shared");
   const [isPending, startTransition] = useTransition();
   const [justActivated, setJustActivated] = useState(false);
 
@@ -52,7 +54,7 @@ export function LeverStarterPlanCard({
   return (
     <div className="sticker-card flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-bold">Plan de lancement</p>
+        <p className="text-sm font-bold">{t("launchPlan")}</p>
         <p className="text-xs font-bold text-muted-foreground tabular-nums">
           {doneCount}/{steps.length}
         </p>
@@ -86,7 +88,7 @@ export function LeverStarterPlanCard({
                     onClick={() => onHelpStep(step.order)}
                     className="self-start text-xs font-bold text-accent-2-text hover:underline"
                   >
-                    Falco m&apos;aide →
+                    {t("helpFromFalco")}
                   </button>
                 )}
               </div>
@@ -95,7 +97,7 @@ export function LeverStarterPlanCard({
         })}
       </ul>
       <Button onClick={handleActivate} disabled={isPending || !canActivate} className="self-start">
-        Marquer comme lancé
+        {t("markLaunched")}
       </Button>
       <Celebration trigger={justActivated} />
     </div>

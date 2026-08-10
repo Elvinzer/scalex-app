@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { InfoPopover } from "@/components/info-popover";
 import { computePostRates } from "@/lib/content-posts/rates";
@@ -11,8 +12,6 @@ import { formatPercent } from "@/lib/setting/funnel";
 
 import { PeriodPills } from "./period-pills";
 import { PostsTable } from "./posts-table";
-
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
 
 // The data panel for Instagram. The parent shell owns the period so switching
 // platforms does not reset the user's selected window.
@@ -27,6 +26,8 @@ export function InstagramView({
   period: DateFilterKey;
   onPeriodChange: (period: DateFilterKey) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("content");
   const filtered = useMemo(() => posts.filter((post) => isWithinPeriod(post.publishedAt, period)), [posts, period]);
   const totalViews = filtered.reduce((sum, post) => sum + post.views, 0);
   const clickRates = filtered.map((post) => computePostRates(post).clickRate).filter((rate): rate is number => rate !== null);
@@ -39,22 +40,22 @@ export function InstagramView({
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="sticker-card flex flex-col p-5">
-          <p className="text-sm font-bold text-muted-foreground">Vues sur la période</p>
-          <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(totalViews)}</p>
+          <p className="text-sm font-bold text-muted-foreground">{t("instagramViews")}</p>
+          <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat(locale).format(totalViews)}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold text-muted-foreground">Taux de clic moyen</p>
-            <InfoPopover text="Instagram ne fournit aucune donnée de clics sortants pour un post organique — ce chiffre reste vide par nature, ce n'est pas un bug." />
+            <p className="text-sm font-bold text-muted-foreground">{t("instagramCtr")}</p>
+            <InfoPopover text={t("instagramCtrHelp")} />
           </div>
-          <p className="mt-2 font-display text-3xl font-bold">{avgClickRate === null ? "—" : formatPercent(avgClickRate)}</p>
+          <p className="mt-2 font-display text-3xl font-bold">{avgClickRate === null ? "—" : formatPercent(avgClickRate, locale)}</p>
         </div>
         <div className="sticker-card flex flex-col p-5">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold text-muted-foreground">Leads attribués</p>
-            <InfoPopover text="Un lead attribué à un post nécessite un rattachement manuel, qui n'existe plus depuis que le contenu vient uniquement d'Instagram — ce chiffre reste à 0 pour l'instant." />
+            <p className="text-sm font-bold text-muted-foreground">{t("instagramLeads")}</p>
+            <InfoPopover text={t("instagramLeadsHelp")} />
           </div>
-          <p className="mt-2 font-display text-3xl font-bold">{NUMBER_FORMAT.format(totalLeads)}</p>
+          <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat(locale).format(totalLeads)}</p>
         </div>
       </div>
 

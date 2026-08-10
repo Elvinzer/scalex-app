@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,6 @@ import {
   updateInitiativeStatus,
 } from "@/lib/insight-execution/actions";
 import type { InitiativeSummary } from "@/lib/insight-execution/types";
-import { INITIATIVE_STATUS_LABELS } from "@/lib/insight-execution/state";
 
 type Member = { id: string; name: string; roles: string[] };
 
@@ -33,6 +33,7 @@ export function InitiativeControls({
   members?: Member[];
   canAssign?: boolean;
 }) {
+  const t = useTranslations("app.insights");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -60,8 +61,8 @@ export function InitiativeControls({
       else {
         setMessage(
           result.ready
-            ? "Résultat enregistré."
-            : (result.reason ?? "Pas encore assez de données."),
+            ? t("resultRecorded")
+            : (result.reason ?? t("notEnoughData")),
         );
         router.refresh();
       }
@@ -83,7 +84,7 @@ export function InitiativeControls({
     <div className="flex flex-col gap-2">
       {canAssign && members.length > 0 && (
         <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="font-bold">Responsable</span>
+          <span className="font-bold">{t("assign")}</span>
           <select
             value={initiative.assignedMember?.id ?? ""}
             onChange={(event) =>
@@ -93,13 +94,13 @@ export function InitiativeControls({
                     initiativeId: initiative.id,
                     teamMemberId: event.target.value || null,
                   }),
-                "Responsable mis à jour.",
+                t("assignmentUpdated"),
               )
             }
             disabled={isPending}
             className="rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-xs font-bold text-foreground outline-none focus-visible:border-accent"
           >
-            <option value="">Moi-même</option>
+            <option value="">{t("myselfOption")}</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.name}
@@ -120,11 +121,11 @@ export function InitiativeControls({
               onClick={() =>
                 run(
                   () => setWeeklyFocus({ initiativeId: initiative.id }),
-                  "Priorité de la semaine mise à jour.",
+                  t("priorityUpdated"),
                 )
               }
             >
-              Faire ma priorité
+              {t("makePriority")}
             </Button>
           )}
         {canComplete && (
@@ -140,11 +141,11 @@ export function InitiativeControls({
                     initiativeId: initiative.id,
                     status: "completed",
                   }),
-                "Action terminée.",
+                t("actionCompletedToast"),
               )
             }
           >
-            Marquer terminée
+            {t("markCompleted")}
           </Button>
         )}
         {canMeasure && (
@@ -156,8 +157,8 @@ export function InitiativeControls({
             onClick={handleMeasure}
           >
             {initiative.status === "measured"
-              ? "Actualiser la mesure"
-              : "Mesurer le résultat"}
+              ? t("refreshMeasurement")
+              : t("measureResult")}
           </Button>
         )}
         {!canMeasure &&
@@ -179,11 +180,11 @@ export function InitiativeControls({
                     initiativeId: initiative.id,
                     status: "in_progress",
                   }),
-                "Action reprise.",
+                t("actionResumed"),
               )
             }
           >
-            Reprendre
+            {t("resume")}
           </Button>
         )}
         {canPause && (
@@ -196,7 +197,7 @@ export function InitiativeControls({
               run(() => pauseInitiative({ initiativeId: initiative.id }))
             }
           >
-            Mettre en pause
+            {t("pause")}
           </Button>
         )}
         {(initiative.status === "planned" ||
@@ -210,22 +211,23 @@ export function InitiativeControls({
             onClick={() =>
               run(
                 () => postponeInitiative({ initiativeId: initiative.id }),
-                "Relance reportée.",
+                t("postponed"),
               )
             }
           >
-            Reporter 7 jours
+            {t("postpone")}
           </Button>
         )}
       </div>
       <p className="text-xs text-muted-foreground" aria-live="polite">
-        {message ?? INITIATIVE_STATUS_LABELS[initiative.status]}
+        {message ?? (initiative.status === "planned" ? "Planned" : initiative.status === "in_progress" ? t("statuses.inProgress") : initiative.status === "completed" ? t("statuses.completed") : initiative.status === "awaiting_measurement" ? "Awaiting measurement" : initiative.status === "measured" ? t("statuses.measured") : initiative.status === "paused" ? t("statuses.paused") : initiative.status === "cancelled" ? t("statuses.cancelled") : initiative.status)}
       </p>
     </div>
   );
 }
 
 function QualitativeResultDialog({ initiativeId }: { initiativeId: string }) {
+  const t = useTranslations("app.insights");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -250,16 +252,15 @@ function QualitativeResultDialog({ initiativeId }: { initiativeId: string }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button type="button" size="sm" variant="outline">
-          Ajouter une observation
+          {t("addObservation")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogTitle className="text-lg font-bold">
-          Qu&apos;est-ce qui a changé ?
+          {t("whatChanged")}
         </DialogTitle>
         <p className="mt-2 text-sm text-muted-foreground">
-          Cette action n&apos;a pas de métrique comparable. Note le résultat
-          observé, sans lui attribuer un montant automatiquement.
+          {t("qualitativeHelp")}
         </p>
         <textarea
           value={note}
@@ -279,7 +280,7 @@ function QualitativeResultDialog({ initiativeId }: { initiativeId: string }) {
           disabled={isPending || note.trim().length === 0}
           onClick={save}
         >
-          {isPending ? "Enregistrement..." : "Enregistrer l’observation"}
+          {isPending ? t("saving") : t("saveObservation")}
         </Button>
       </DialogContent>
     </Dialog>
@@ -293,6 +294,7 @@ export function FollowUpControls({
   initiativeId: string;
   canPause?: boolean;
 }) {
+  const t = useTranslations("app.insights");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -318,11 +320,11 @@ export function FollowUpControls({
         onClick={() =>
           handle(
             () => postponeInitiative({ initiativeId }),
-            "Relance reportée.",
+            t("postponed"),
           )
         }
       >
-        Reporter
+        {t("postpone")}
       </Button>
       {canPause && (
         <Button
@@ -333,11 +335,11 @@ export function FollowUpControls({
           onClick={() =>
             handle(
               () => pauseInitiative({ initiativeId }),
-              "Action mise en pause.",
+              t("pause"),
             )
           }
         >
-          Mettre en pause
+          {t("pause")}
         </Button>
       )}
       {message && (

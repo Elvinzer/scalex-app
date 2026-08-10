@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Falco } from "@/components/falco/falco";
 import { Button } from "@/components/ui/button";
@@ -8,26 +9,6 @@ import { aggregateColumnValues, aggregateColumnValuesForRows, groupValuesByMonth
 import { parseLocaleNumber } from "@/lib/import/parse";
 import type { AnalyzeSheetResult, CommitImportPayload } from "@/lib/import/schema";
 import { cn } from "@/lib/utils";
-
-const FIELD_LABELS: Record<string, string> = {
-  cashCollected: "CA encaissé",
-  cashContracted: "CA contracté",
-  newFollowers: "Nouveaux abonnés",
-  firstMessages: "Premiers messages",
-  conversations: "Conversations démarrées",
-  callsProposed: "Appels proposés",
-  callsBooked: "Appels réservés",
-  callsTaken: "Appels pris",
-  salesClosed: "Ventes conclues",
-  leads: "Leads",
-  clientName: "Client",
-  clientEmail: "Email client",
-  sourceChannel: "Canal",
-  totalPrice: "Montant",
-  paymentType: "Type de paiement",
-  saleDate: "Date de vente",
-  closer: "Closer",
-};
 
 // Fields whose values are text, never summed/averaged — everything else is
 // treated as numeric (parseLocaleNumber). The sales target relies on this to
@@ -56,9 +37,10 @@ type ResolvedGroup = {
   incompleteDaysCount?: number;
   fields: { targetField: string; value: number | string; sourceLabel: string; confidence: "high" | "medium" | "low" }[];
 };
+type DataTranslator = (key: string, values?: Record<string, string | number>) => string;
 
-function monthLabel(year: number, month: number): string {
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
+function monthLabel(year: number, month: number, locale: string): string {
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 // How many days have actually elapsed in a given month vs. today — used to
@@ -76,7 +58,7 @@ function daysElapsedInMonth(year: number, month: number): number | null {
 // (falls back to the whole-sheet periodDetected when no date column
 // resolved) — each field aggregated (summed, or last-value for "monthly"
 // granularity) ONLY over the rows in that month, never the whole column.
-function buildMonthlyMetricsGroups(sheet: AnalyzeSheetResult, sheetIndex: number): ResolvedGroup[] {
+function buildMonthlyMetricsGroups(sheet: AnalyzeSheetResult, sheetIndex: number, locale: string, t: DataTranslator): ResolvedGroup[] {
   const { mapping } = sheet;
   const buckets = mapping.dateColumnValues ? groupValuesByMonth(mapping.dateColumnValues) : null;
 
@@ -86,7 +68,7 @@ function buildMonthlyMetricsGroups(sheet: AnalyzeSheetResult, sheetIndex: number
       return {
         key: `sheet${sheetIndex}-${bucket.year}-${bucket.month}`,
         sheetIndex,
-        label: monthLabel(bucket.year, bucket.month),
+        label: monthLabel(bucket.year, bucket.month, locale),
         year: bucket.year,
         month: bucket.month,
         incompleteDaysCount: daysElapsed !== null && bucket.rowIndexes.length < daysElapsed ? bucket.rowIndexes.length : undefined,
@@ -95,7 +77,7 @@ function buildMonthlyMetricsGroups(sheet: AnalyzeSheetResult, sheetIndex: number
           .map((entry) => ({
             targetField: entry.targetField as string,
             value: aggregateColumnValuesForRows(entry.columnValues, bucket.rowIndexes, entry.granularity),
-            sourceLabel: `colonne "${entry.sourceColumn}", ${bucket.rowIndexes.length} ligne${bucket.rowIndexes.length > 1 ? "s" : ""} de ${monthLabel(bucket.year, bucket.month)} additionnées`,
+            sourceLabel: t("importPreview.sourceRows", { column: entry.sourceColumn, count: bucket.rowIndexes.length, plural: bucket.rowIndexes.length > 1 ? "s" : "", month: monthLabel(bucket.year, bucket.month, locale) }),
             confidence: entry.confidence,
           })),
       };
@@ -108,7 +90,7 @@ function buildMonthlyMetricsGroups(sheet: AnalyzeSheetResult, sheetIndex: number
     {
       key: `sheet${sheetIndex}-${year}-${month}`,
       sheetIndex,
-      label: monthLabel(year, month),
+      label: monthLabel(year, month, locale),
       year,
       month,
       fields: mapping.mappings
@@ -116,7 +98,9 @@ function buildMonthlyMetricsGroups(sheet: AnalyzeSheetResult, sheetIndex: number
         .map((entry) => ({
           targetField: entry.targetField as string,
           value: aggregateColumnValues(entry.columnValues, entry.granularity),
-          sourceLabel: `colonne "${entry.sourceColumn}"${entry.granularity === "monthly" ? ", valeur du mois" : `, ${entry.granularity} × ${entry.columnValues.length}`}`,
+          sourceLabel: entry.granularity === "monthly"
+            ? t("importPreview.sourceMonthly", { column: entry.sourceColumn })
+            : t("importPreview.sourceRepeated", { column: entry.sourceColumn, granularity: t(`importPreview.granularity.${entry.granularity}`), count: entry.columnValues.length }),
           confidence: entry.confidence,
         })),
     },
@@ -126,7 +110,7 @@ function buildMonthlyMetricsGroups(sheet: AnalyzeSheetResult, sheetIndex: number
 // sales: one row = one entity (a sale) — never aggregated together. Builds
 // one group per row that has at least one mapped value, each field read at
 // that row's own index.
-function buildRowLevelGroups(sheet: AnalyzeSheetResult, sheetIndex: number): ResolvedGroup[] {
+function buildRowLevelGroups(sheet: AnalyzeSheetResult, sheetIndex: number, t: DataTranslator): ResolvedGroup[] {
   const { mapping } = sheet;
   const mappedEntries = mapping.mappings.filter((entry) => entry.targetField);
   const rowCount = Math.max(0, ...mappedEntries.map((e) => e.columnValues.length));
@@ -139,7 +123,7 @@ function buildRowLevelGroups(sheet: AnalyzeSheetResult, sheetIndex: number): Res
         if (raw.trim() === "") return null;
         const targetField = entry.targetField as string;
         const value = STRING_FIELDS.has(targetField) ? raw.trim() : (parseLocaleNumber(raw) ?? 0);
-        return { targetField, value, sourceLabel: `colonne "${entry.sourceColumn}", ligne ${rowIndex + 1}`, confidence: entry.confidence };
+        return { targetField, value, sourceLabel: t("importPreview.sourceRow", { column: entry.sourceColumn, row: rowIndex + 1 }), confidence: entry.confidence };
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
     if (fields.length === 0) continue;
@@ -153,7 +137,7 @@ function buildRowLevelGroups(sheet: AnalyzeSheetResult, sheetIndex: number): Res
     groups.push({
       key: `sheet${sheetIndex}-row${rowIndex}`,
       sheetIndex,
-      label: String(titleField?.value ?? `Ligne ${rowIndex + 1}`),
+      label: String(titleField?.value ?? t("importPreview.defaultRow", { row: rowIndex + 1 })),
       year,
       month,
       fields,
@@ -162,11 +146,11 @@ function buildRowLevelGroups(sheet: AnalyzeSheetResult, sheetIndex: number): Res
   return groups;
 }
 
-function buildGroups(sheets: AnalyzeSheetResult[]): ResolvedGroup[] {
+function buildGroups(sheets: AnalyzeSheetResult[], locale: string, t: DataTranslator): ResolvedGroup[] {
   return sheets.flatMap((sheet, sheetIndex) => {
     if (sheet.mapping.targetTable === "ignore") return [];
-    if (sheet.mapping.targetTable === "monthly_metrics") return buildMonthlyMetricsGroups(sheet, sheetIndex);
-    return buildRowLevelGroups(sheet, sheetIndex);
+    if (sheet.mapping.targetTable === "monthly_metrics") return buildMonthlyMetricsGroups(sheet, sheetIndex, locale, t);
+    return buildRowLevelGroups(sheet, sheetIndex, t);
   });
 }
 
@@ -174,14 +158,14 @@ function buildGroups(sheets: AnalyzeSheetResult[]): ResolvedGroup[] {
 // that says WHERE it broke — the fixed date-serial bug (lib/import/aggregate.ts)
 // means this now only fires for genuinely different failures, each with its
 // own actionable text instead of one catch-all.
-function diagnoseNoUsableData(sheets: AnalyzeSheetResult[]): string {
+function diagnoseNoUsableData(sheets: AnalyzeSheetResult[], t: (key: string, values?: Record<string, string | number>) => string): string {
   const relevantSheets = sheets.filter((s) => s.mapping.targetTable !== "ignore");
 
   if (relevantSheets.length === 0) {
     const reasons = sheets.map((s) => s.mapping.ignoreReason).filter((r): r is string => Boolean(r));
     return reasons.length > 0
-      ? `Toutes les feuilles ont été ignorées : ${reasons.join(" · ")}`
-      : "Aucune feuille de ce fichier ne correspond à un tableau de chiffres exploitable.";
+      ? t("importPreview.allIgnored", { reasons: reasons.join(" · ") })
+      : t("importPreview.noSheets");
   }
 
   // A date column was identified but every single value in it failed to
@@ -196,10 +180,10 @@ function diagnoseNoUsableData(sheets: AnalyzeSheetResult[]): string {
       (s.mapping.dateColumnValues === null || s.mapping.dateColumnValues.every((v) => v.trim() === ""))
   );
   if (hasUnreadableDateColumn) {
-    return "Je vois des chiffres mais pas de dates valides dans la colonne repérée. Vérifie que la bonne colonne contient bien tes dates.";
+    return t("importPreview.unreadableDates");
   }
 
-  return "Aucune valeur exploitable détectée dans les colonnes repérées. Vérifie que les bonnes colonnes sont bien remplies.";
+  return t("importPreview.noData");
 }
 
 export function ImportPreview({
@@ -219,7 +203,9 @@ export function ImportPreview({
   onCancel: () => void;
   isCommitting: boolean;
 }) {
-  const groups = useMemo(() => buildGroups(sheets), [sheets]);
+  const locale = useLocale();
+  const t = useTranslations("data");
+  const groups = useMemo(() => buildGroups(sheets, locale, t), [sheets, locale, t]);
   const ignoredSheets = sheets.filter((s) => s.mapping.targetTable === "ignore");
   const unmappedColumns = sheets.flatMap((s) => (s.mapping.targetTable === "ignore" ? [] : s.mapping.unmappedColumns));
   const [conflictChoices, setConflictChoices] = useState<Record<string, "keep" | "replace">>({});
@@ -273,9 +259,9 @@ export function ImportPreview({
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <Falco pose="sleeping" size="md" animate="enter" />
-        <p className="text-sm text-muted-foreground">{diagnoseNoUsableData(sheets)}</p>
+        <p className="text-sm text-muted-foreground">{diagnoseNoUsableData(sheets, t)}</p>
         <Button variant="secondary" onClick={onCancel}>
-          Annuler
+          {t("importPreview.cancel")}
         </Button>
       </div>
     );
@@ -312,10 +298,8 @@ export function ImportPreview({
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2.5">
-        <p className="text-sm font-bold text-accent-2-text">Falco a rangé tes chiffres</p>
-        <p className="mt-1 text-xs text-accent-2-text/80">
-          Vérifie chaque colonne et corrige une valeur si nécessaire. Rien ne sera écrit avant ta validation.
-        </p>
+        <p className="text-sm font-bold text-accent-2-text">{t("importPreview.readyTitle")}</p>
+        <p className="mt-1 text-xs text-accent-2-text/80">{t("importPreview.readyHelp")}</p>
       </div>
 
       {groups.map((group) => {
@@ -327,7 +311,7 @@ export function ImportPreview({
               <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{group.label}</p>
               {group.incompleteDaysCount !== undefined && (
                 <span className="rounded-full bg-state-caution-bg px-2 py-0.5 text-xs font-bold text-state-caution">
-                  {monthLabel(group.year, group.month)} : seulement {group.incompleteDaysCount} jour{group.incompleteDaysCount > 1 ? "s" : ""} de données
+                  {t("importPreview.daysData", { month: monthLabel(group.year, group.month, locale), count: group.incompleteDaysCount, plural: group.incompleteDaysCount > 1 ? "s" : "" })}
                 </span>
               )}
             </div>
@@ -340,12 +324,12 @@ export function ImportPreview({
                   className="flex flex-col items-start justify-between gap-2 border-t border-border py-2 first:border-t-0 sm:flex-row sm:items-center sm:gap-3"
                 >
                   <div>
-                    <p className="text-sm font-bold">{FIELD_LABELS[field.targetField] ?? field.targetField}</p>
+                    <p className="text-sm font-bold">{t(`importFields.${field.targetField}`)}</p>
                     <p className="text-xs text-muted-foreground">{field.sourceLabel}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", CONFIDENCE_CLASS[field.confidence])}>
-                      {field.confidence}
+                      {t("importPreview.confidence", { value: t(`importPreview.confidenceValues.${field.confidence}`) })}
                     </span>
                     {hasConflict ? (
                       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -359,8 +343,8 @@ export function ImportPreview({
                           }
                           className="rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-xs outline-none"
                         >
-                          <option value="replace">Remplacer</option>
-                          <option value="keep">Garder l&apos;actuel</option>
+                          <option value="replace">{t("importPreview.replace")}</option>
+                          <option value="keep">{t("importPreview.keep")}</option>
                         </select>
                       </div>
                     ) : (
@@ -378,22 +362,22 @@ export function ImportPreview({
         <div className="flex flex-col gap-1 text-xs text-muted-foreground">
           {ignoredSheets.map((sheet) => (
             <p key={sheet.sheetName}>
-              <span className="font-bold">{sheet.sheetName}</span> : ignorée — {sheet.mapping.ignoreReason}
+              {t("importPreview.ignoredSheet", { sheet: sheet.sheetName, reason: sheet.mapping.ignoreReason ?? t("importPreview.noReason") })}
             </p>
           ))}
         </div>
       )}
 
       {unmappedColumns.length > 0 && (
-        <p className="text-xs text-muted-foreground">Ignorées : {unmappedColumns.map((c) => `"${c}"`).join(", ")}</p>
+        <p className="text-xs text-muted-foreground">{t("importPreview.ignored", { columns: unmappedColumns.map((c) => `"${c}"`).join(", ") })}</p>
       )}
 
       <div className="flex gap-2">
         <Button onClick={handleCommit} disabled={isCommitting}>
-          {isCommitting ? "Validation en cours..." : `Valider ${groups.reduce((sum, g) => sum + g.fields.length, 0)} valeur(s)`}
+          {isCommitting ? t("importPreview.validation") : t("importPreview.validate", { count: groups.reduce((sum, g) => sum + g.fields.length, 0) })}
         </Button>
         <Button variant="secondary" onClick={onCancel} disabled={isCommitting}>
-          Annuler
+          {t("importPreview.cancel")}
         </Button>
       </div>
     </div>

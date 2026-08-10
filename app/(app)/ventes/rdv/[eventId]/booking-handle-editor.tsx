@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ const inputClass =
 // Le handle est propre au COMPTE (partagé par tous les events de booking) :
 // l'éditer ici change le préfixe /book/{handle} de toutes les pages de réservation.
 export function BookingHandleEditor({ initialHandle }: { initialHandle: string }) {
+  const t = useTranslations("app.booking.editor");
   const [handle, setHandle] = useState(initialHandle);
   const [saved, setSaved] = useState(initialHandle);
   const [status, setStatus] = useState<"idle" | "saving">("idle");
@@ -41,9 +43,9 @@ export function BookingHandleEditor({ initialHandle }: { initialHandle: string }
   return (
     <div className="sticker-card flex flex-col gap-3 p-4">
       <div>
-        <p className="text-sm font-bold">Lien public de ton compte</p>
+        <p className="text-sm font-bold">{t("handleTitle")}</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Ce nom préfixe toutes tes pages de réservation. Le changer casse les liens déjà partagés avec l&apos;ancien nom.
+          {t("handleHelp")}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -55,11 +57,11 @@ export function BookingHandleEditor({ initialHandle }: { initialHandle: string }
             spellCheck={false}
             autoCapitalize="none"
             className={inputClass}
-            aria-label="Nom public du compte"
+            aria-label={t("handleLabel")}
           />
         </div>
         <Button type="button" variant="outline" size="sm" onClick={save} disabled={status === "saving" || !dirty}>
-          {status === "saving" ? "..." : justSaved ? <><Check className="size-4 text-state-healthy" /> Enregistré</> : "Enregistrer"}
+          {status === "saving" ? "..." : justSaved ? <><Check className="size-4 text-state-healthy" /> {t("saved")}</> : t("save")}
         </Button>
       </div>
       {error && (

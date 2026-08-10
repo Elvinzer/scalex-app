@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useTransition } from "react";
 
 import { PERIOD_OPTIONS, type PeriodKey } from "@/lib/period";
@@ -8,6 +9,7 @@ import { PERIOD_OPTIONS, type PeriodKey } from "@/lib/period";
 // Period selector — writes ?period=<key> to the URL so the server component
 // recomputes KPIs and re-filters the table. Shared by the sales & calls views.
 export function PeriodFilter({ current }: { current: PeriodKey }) {
+  const t = useTranslations("common.period");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -34,7 +36,7 @@ export function PeriodFilter({ current }: { current: PeriodKey }) {
             i > 0 ? "border-l border-border" : ""
           } ${current === o.key ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60"}`}
         >
-          {o.label}
+          {t(o.key)}
         </button>
       ))}
     </div>

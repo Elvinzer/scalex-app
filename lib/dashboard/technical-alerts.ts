@@ -3,8 +3,9 @@ export type TechnicalAlertIcon = "key" | "sync";
 export type TechnicalAlert = {
   id: string;
   icon: TechnicalAlertIcon;
-  title: string;
-  detail: string;
+  titleKey: "invalidKey" | "syncFailed";
+  tool?: string;
+  detailKey: "invalidKeyDetail" | "syncFailedDetail";
   href: string;
 };
 
@@ -15,8 +16,8 @@ export function buildTechnicalAlerts({ keyInvalid, failedSyncs }: { keyInvalid: 
     alerts.push({
       id: "compte-api-key",
       icon: "key",
-      title: "Clé API Anthropic invalide",
-      detail: "Renouvelle-la pour débloquer les insights de l’agent.",
+      titleKey: "invalidKey",
+      detailKey: "invalidKeyDetail",
       href: "/settings",
     });
   }
@@ -25,8 +26,9 @@ export function buildTechnicalAlerts({ keyInvalid, failedSyncs }: { keyInvalid: 
     alerts.push({
       id: `compte-sync-${tool}`,
       icon: "sync",
-      title: `Synchronisation ${tool} en échec`,
-      detail: "Reconnecte l’intégration pour reprendre la récupération de tes appels.",
+      titleKey: "syncFailed",
+      tool,
+      detailKey: "syncFailedDetail",
       href: "/integrations",
     });
   }

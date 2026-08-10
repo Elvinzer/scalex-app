@@ -44,13 +44,6 @@ export type ContentGain = {
   usesBenchmark: boolean;
 };
 
-// fr-FR throughout: the chain is shown to the user in a tooltip, so "0,5%"
-// and not JS's default "0.5%".
-// Two decimals for the same reason as content-metrics.ts: the benchmark
-// itself is 0,15%, and one decimal would print it as "0,2%".
-const PERCENT_FORMAT = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
-const PERCENT = (value: number) => `${PERCENT_FORMAT.format(Math.round(value * 10000) / 100)}%`;
-
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
@@ -61,14 +54,15 @@ function round1(value: number): number {
 function resolveRate(
   real: number | null,
   benchmark: number,
-  label: string
+  label: string,
+  locale: "fr" | "en"
 ): { value: number; isReal: boolean; describe: string } {
   const isReal = real !== null;
   const value = isReal ? real : benchmark;
   return {
     value,
     isReal,
-    describe: `${PERCENT(value)} ${label}${isReal ? "" : " (benchmark)"}`,
+    describe: `${formatPercent(value, locale)} ${label}${isReal ? "" : " (benchmark)"}`,
   };
 }
 
@@ -79,6 +73,7 @@ export function computeContentGain({
   funnelRates,
   funnelBenchmarks,
   dealPrice,
+  locale = "fr",
 }: {
   metricKey: ContentMetricKey;
   totals: ContentTotals;
@@ -86,30 +81,38 @@ export function computeContentGain({
   funnelRates: Record<MetricKey, number | null>;
   funnelBenchmarks: Record<MetricKey, number>;
   dealPrice: DealPrice;
+  locale?: string;
 }): ContentGain {
+  const uiLocale: "fr" | "en" = locale === "en" ? "en" : "fr";
+  const formatLocale = uiLocale === "en" ? "en-GB" : "fr-FR";
+  const numberFormat = new Intl.NumberFormat(formatLocale);
+  const decimalFormat = new Intl.NumberFormat(formatLocale, { maximumFractionDigits: 1 });
+
   // What a single lead is worth once it enters the pipeline. Starts at
   // proposalRate, not responseRate: a content lead has already raised their
   // hand, so the "did they reply to my DM" stage doesn't apply to them.
   const leadStages: MetricKey[] = ["proposalRate", "bookingRate", "showUpRate", "closingRate"];
   const leadStageRates = leadStages.map((key) =>
-    resolveRate(funnelRates[key], funnelBenchmarks[key], LEAD_STAGE_LABELS[key])
+    resolveRate(funnelRates[key], funnelBenchmarks[key], stageLabel(key, uiLocale), uiLocale)
   );
   const leadToSale = leadStageRates.reduce((product, stage) => product * stage.value, 1);
 
   const clickToLead = resolveRate(
     sampleRate(totals.samples.content_lead_rate),
     contentBenchmarks.content_lead_rate,
-    "de clics qui deviennent des leads"
+    uiLocale === "en" ? "of clicks becoming leads" : "de clics qui deviennent des leads",
+    uiLocale
   );
   const bookingToSale = resolveRate(
     sampleRate(totals.samples.content_close_rate),
     contentBenchmarks.content_close_rate,
-    "de RDV closés"
+    uiLocale === "en" ? "of booked calls closing" : "de RDV closés",
+    uiLocale
   );
 
   const sample = totals.samples[metricKey];
   const base = sample.denominator;
-  const baseLabel = BASE_LABELS[metricKey];
+  const baseLabel = baseLabelFor(metricKey, uiLocale);
   const current = sampleRate(sample);
   const benchmark = contentBenchmarks[metricKey];
   // Only the gap counts. A metric already at or above benchmark has no gain
@@ -136,11 +139,20 @@ export function computeContentGain({
 
   const monthlyGain = dealPrice.price === null ? null : Math.round(extraSales * dealPrice.price);
 
+  const salesLabel =
+    uiLocale === "en"
+      ? `${decimalFormat.format(round1(extraSales))} ${extraSales === 1 ? "extra sale" : "extra sales"}`
+      : `${decimalFormat.format(round1(extraSales))} vente${extraSales >= 2 ? "s" : ""} en plus`;
+  const priceChain =
+    dealPrice.price === null
+      ? null
+      : `× ${formatEur(Math.round(dealPrice.price), formatLocale)} = ${formatEur(monthlyGain as number, formatLocale)}`;
+
   const chain = [
-    `${NUMBER.format(Math.round(base))} ${baseLabel} × ${PERCENT(benchmark)} (benchmark) = +${DECIMAL.format(round1(extraUnits))}`,
+    `${numberFormat.format(Math.round(base))} ${baseLabel} × ${formatPercent(benchmark, uiLocale)} (benchmark) = +${decimalFormat.format(round1(extraUnits))}`,
     downstream.length > 0 ? `× ${downstream.map((stage) => stage.describe).join(" × ")}` : null,
-    `= ${DECIMAL.format(round1(extraSales))} vente${extraSales >= 2 ? "s" : ""} en plus`,
-    dealPrice.price === null ? null : `× ${formatEur(Math.round(dealPrice.price))} = ${formatEur(monthlyGain as number)}`,
+    `= ${salesLabel}`,
+    priceChain,
   ]
     .filter(Boolean)
     .join(" ");
@@ -154,24 +166,34 @@ export function computeContentGain({
   };
 }
 
-const NUMBER = new Intl.NumberFormat("fr-FR");
-const DECIMAL = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
+function formatPercent(value: number, locale: "fr" | "en"): string {
+  const formatLocale = locale === "en" ? "en-GB" : "fr-FR";
+  return `${new Intl.NumberFormat(formatLocale, { maximumFractionDigits: 2 }).format(Math.round(value * 10000) / 100)}%`;
+}
 
-const LEAD_STAGE_LABELS: Record<MetricKey, string> = {
-  responseRate: "de réponses",
-  proposalRate: "de propositions d'appel",
-  bookingRate: "d'appels réservés",
-  showUpRate: "de présence en appel",
-  closingRate: "de closing",
+const LEAD_STAGE_LABELS: Record<MetricKey, { fr: string; en: string }> = {
+  responseRate: { fr: "de réponses", en: "of replies" },
+  proposalRate: { fr: "de propositions d'appel", en: "of call proposals" },
+  bookingRate: { fr: "d'appels réservés", en: "of booked calls" },
+  showUpRate: { fr: "de présence en appel", en: "of calls attended" },
+  closingRate: { fr: "de closing", en: "of closing" },
 };
 
 // What the restricted denominator counts, for the tooltip's first term.
-const BASE_LABELS: Record<ContentMetricKey, string> = {
-  content_click_rate: "vues (posts renseignés)",
-  content_lead_rate: "clics (posts renseignés)",
-  content_booking_rate: "vues (posts renseignés)",
-  content_close_rate: "RDV bookés (posts renseignés)",
+const BASE_LABELS: Record<ContentMetricKey, { fr: string; en: string }> = {
+  content_click_rate: { fr: "vues (posts renseignés)", en: "views (annotated posts)" },
+  content_lead_rate: { fr: "clics (posts renseignés)", en: "clicks (annotated posts)" },
+  content_booking_rate: { fr: "vues (posts renseignés)", en: "views (annotated posts)" },
+  content_close_rate: { fr: "RDV bookés (posts renseignés)", en: "booked calls (annotated posts)" },
 };
+
+function stageLabel(key: MetricKey, locale: "fr" | "en"): string {
+  return LEAD_STAGE_LABELS[key][locale];
+}
+
+function baseLabelFor(key: ContentMetricKey, locale: "fr" | "en"): string {
+  return BASE_LABELS[key][locale];
+}
 
 // null on an empty denominator — no post carries the figure, so there is no
 // rate, as opposed to a rate of zero.

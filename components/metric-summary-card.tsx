@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import type { MetricStatus } from "@/lib/diagnostic/cascade";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 // Shared shape between lib/diagnostic/cascade.ts's MetricSummary
 // (Setting/Closing) and lib/diagnostic/content-metrics.ts's
@@ -40,6 +41,7 @@ export function MetricSummaryCard({
   measureHintHref: string;
   measureHintLabel: string;
 }) {
+  const t = useTranslations("diagnostic");
   return (
     <div id={`metric-${summary.key}`} className="sticker-card p-5">
       <div className="flex items-center justify-between gap-2">
@@ -52,7 +54,7 @@ export function MetricSummaryCard({
         <Popover>
           <PopoverTrigger asChild>
             <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
-              Pas encore mesuré — comment mesurer ça ?
+              {t("notMeasured")}
             </button>
           </PopoverTrigger>
           <PopoverContent>

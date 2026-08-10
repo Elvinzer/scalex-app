@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 
 import { formatEur } from "@/lib/currency";
 
@@ -19,12 +20,14 @@ export type NextAction = {
 const MAX_NEXT_ACTIONS = 4;
 
 export function NextActions({ actions }: { actions: NextAction[] }) {
+  const locale = useLocale();
+  const t = useTranslations("journal");
   if (actions.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="next-actions-title">
       <h2 id="next-actions-title" className="text-base font-bold">
-        Les prochaines actions
+        {t("nextActions")}
       </h2>
       <ul className="flex flex-col gap-2">
         {actions.slice(0, MAX_NEXT_ACTIONS).map((action) => (
@@ -36,11 +39,11 @@ export function NextActions({ actions }: { actions: NextAction[] }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-bold">{action.title}</p>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">{action.originLabel}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Effort : {action.effortLabel}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("effortLabel")} : {action.effortLabel}</p>
               </div>
               {action.monthlyGainEur !== null && (
                 <p className="shrink-0 text-sm font-bold tabular-nums text-accent-text">
-                  ≈{formatEur(action.monthlyGainEur)}/mois
+                  ≈{formatEur(action.monthlyGainEur, locale)}{t("perMonth")}
                 </p>
               )}
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

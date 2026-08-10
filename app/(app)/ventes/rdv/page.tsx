@@ -1,5 +1,6 @@
 import { CalendarPlus, ExternalLink, Link2 } from "lucide-react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export default async function NativeBookingEventsPage({
 }: {
   searchParams: Promise<{ lead?: string; from?: string; calendar_error?: string; provider?: string; calendar?: string; view?: string; source?: string; closer?: string; status?: string; range?: string; to?: string; tz?: string }>;
 }) {
+  const t = await getTranslations("app.booking");
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:rdv");
   const params = await searchParams;
@@ -52,17 +54,17 @@ export default async function NativeBookingEventsPage({
   const periodBounds = dateFromRange(filters.range, filters.from, filters.to);
   const calendarProvider = params.provider === "outlook" ? "Outlook" : "Google Calendar";
   const calendarErrorMessage = params.calendar_error === "not_configured"
-    ? `La connexion ${calendarProvider} n'est pas encore configurée sur cet environnement.`
+    ? t("calendarErrors.notConfigured", { provider: calendarProvider })
     : params.calendar_error === "oauth"
-      ? `${calendarProvider} n'a pas pu terminer la connexion. Vérifie l'autorisation du compte puis réessaie.`
+      ? t("calendarErrors.oauth", { provider: calendarProvider })
       : params.calendar_error === "denied"
-        ? `La connexion ${calendarProvider} a été annulée. Tu peux réessayer quand tu veux.`
+        ? t("calendarErrors.denied", { provider: calendarProvider })
         : params.calendar_error === "state"
-          ? `La tentative de connexion ${calendarProvider} a expiré. Relance la connexion depuis cet écran.`
+          ? t("calendarErrors.state", { provider: calendarProvider })
           : params.calendar_error === "plan"
-            ? "La connexion à un agenda externe n'est pas incluse dans ton abonnement actuel."
+            ? t("calendarErrors.plan")
             : params.calendar_error === "provider"
-              ? "Ce fournisseur de calendrier n'est pas reconnu."
+              ? t("calendarErrors.provider")
               : null;
   const calendarConnected = params.calendar === "connected";
 
@@ -120,21 +122,19 @@ export default async function NativeBookingEventsPage({
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-accent-text">Troisième source d&apos;appels</p>
-          <h2 className="mt-1 text-3xl font-bold">Rendez-vous</h2>
-          <p className="mt-2 max-w-2xl text-foreground/70">
-            Un agenda unique pour les réservations natives, iClosed et Calendly. Les appels manuels restent dans le journal détaillé.
-          </p>
+          <p className="text-sm font-bold text-accent-text">{t("eyebrow")}</p>
+          <h2 className="mt-1 text-3xl font-bold">{t("title")}</h2>
+          <p className="mt-2 max-w-2xl text-foreground/70">{t("subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
           {fromDashboard && (
             <Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-bold text-muted-foreground outline-none hover:underline focus-visible:ring-3 focus-visible:ring-accent/20">
-              ← Retour au Dashboard
+              ← {t("backDashboard")}
             </Link>
           )}
           <div className="flex min-h-11 items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-sm font-bold">
             <CalendarPlus className="size-4 text-accent" />
-            {entitlements.maxEvents === null ? `${usage} événement${usage > 1 ? "s" : ""}` : `${usage}/${entitlements.maxEvents} événement${entitlements.maxEvents > 1 ? "s" : ""}`}
+            {entitlements.maxEvents === null ? t("eventCount", { count: usage, plural: usage > 1 ? "s" : "" }) : t("eventLimit", { count: usage, max: entitlements.maxEvents, plural: entitlements.maxEvents > 1 ? "s" : "" })}
           </div>
         </div>
       </div>
@@ -146,7 +146,7 @@ export default async function NativeBookingEventsPage({
       )}
       {calendarConnected && (
         <div className="rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-4 py-3 text-sm font-bold text-state-healthy" role="status">
-          Calendrier connecté. Tu peux maintenant choisir les agendas à prendre en compte.
+          {t("calendarConnected")}
         </div>
       )}
 
@@ -171,9 +171,9 @@ export default async function NativeBookingEventsPage({
             <Link2 className="size-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold">La prise de rendez-vous native n&apos;est pas activée</h3>
+            <h3 className="text-lg font-bold">{t("notEnabled")}</h3>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Active cette capacité dans le plan d&apos;abonnement depuis l&apos;administration pour publier ton premier lien.
+              {t("notEnabledHelp")}
             </p>
           </div>
         </div>
@@ -184,8 +184,8 @@ export default async function NativeBookingEventsPage({
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold">Tes événements</h3>
-                <p className="text-sm text-muted-foreground">Chaque événement possède son lien, son fuseau et ses règles.</p>
+                <h3 className="text-lg font-bold">{t("yourEvents")}</h3>
+                <p className="text-sm text-muted-foreground">{t("eventsHelp")}</p>
               </div>
               <span className="text-sm font-bold text-muted-foreground">{events.length}</span>
             </div>
@@ -194,8 +194,8 @@ export default async function NativeBookingEventsPage({
               <div className="sticker-card-dashed flex flex-col items-center gap-3 p-8 text-center">
                 <CalendarPlus className="size-8 text-muted-foreground" />
                 <div>
-                  <p className="font-bold">Aucun événement pour l&apos;instant</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Commence par créer ta première page de réservation.</p>
+                  <p className="font-bold">{t("noEvents")}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("noEventsHelp")}</p>
                 </div>
               </div>
             ) : (
@@ -210,27 +210,27 @@ export default async function NativeBookingEventsPage({
                       <EventStatusButton eventId={event.id} status={event.status} />
                     </div>
                     <p className="line-clamp-2 text-sm text-muted-foreground">
-                      {event.description || "Aucune description ajoutée pour le moment."}
+                      {event.description || t("noDescription")}
                     </p>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="rounded-[var(--radius-control)] bg-muted/60 p-3">
-                        <p className="text-xs text-muted-foreground">Durée</p>
+                        <p className="text-xs text-muted-foreground">{t("duration")}</p>
                         <p className="mt-1 font-bold">{event.durationMinutes} min</p>
                       </div>
                       <div className="rounded-[var(--radius-control)] bg-muted/60 p-3">
-                        <p className="text-xs text-muted-foreground">Fuseau</p>
+                        <p className="text-xs text-muted-foreground">{t("timeZone")}</p>
                         <p className="mt-1 truncate font-bold">{event.timeZone}</p>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
                       <Button asChild size="sm">
                         <Link href={`/ventes/rdv/${event.id}`}>
-                          Configurer <ExternalLink className="size-3.5" />
+                          {t("configure")} <ExternalLink className="size-3.5" />
                         </Link>
                       </Button>
                       <Button asChild size="sm" variant="outline">
                         <a href={`/book/${publicHandle}/${event.slug}`} target="_blank" rel="noreferrer">
-                          Voir la page <ExternalLink className="size-3.5" />
+                          {t("viewPage")} <ExternalLink className="size-3.5" />
                         </a>
                       </Button>
                       <CopyLinkButton url={`/book/${publicHandle}/${event.slug}`} compact />

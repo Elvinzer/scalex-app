@@ -1,6 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,27 +12,6 @@ import type { SalesCallRow } from "@/lib/iclosed/calls";
 import { AmountInput, CallResultSelect, TONE_TEXT, useCallOutcome } from "./call-outcome";
 import { addCallComment, deleteCallComment, getCallComments, type CallComment } from "./comment-actions";
 
-const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-const STAMP_FORMAT = new Intl.DateTimeFormat("fr-FR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function sourceLabel(source: string): string {
-  if (source === "calendly") return "Calendly";
-  if (source === "manual") return "Manuel";
-  if (source === "native") return "Rendez-vous natif";
-  return "iClosed";
-}
-
 export function CallDetailDrawer({
   call,
   open,
@@ -41,6 +21,8 @@ export function CallDetailDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("app.calls");
   const [comments, setComments] = useState<CallComment[]>([]);
   const [loading, setLoading] = useState(false);
   const [body, setBody] = useState("");
@@ -108,7 +90,7 @@ export function CallDetailDrawer({
         <div className="flex items-center justify-between border-b border-border p-5">
           <DrawerTitle className="text-lg font-bold">{call.inviteeName ?? "Appel"}</DrawerTitle>
           <DrawerClose asChild>
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Fermer">
+            <Button type="button" variant="ghost" size="icon-sm" aria-label={t("close")}>
               ×
             </Button>
           </DrawerClose>
@@ -117,10 +99,10 @@ export function CallDetailDrawer({
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5">
           <div className="flex flex-col gap-1 text-sm text-muted-foreground">
             {call.inviteeEmail && <span>{call.inviteeEmail}</span>}
-            <span>{DATE_FORMAT.format(new Date(call.scheduledAt))}</span>
-            {call.closer && <span>Closer : {call.closer}</span>}
+            <span>{new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(call.scheduledAt))}</span>
+            {call.closer && <span>{t("closer")} : {call.closer}</span>}
             <span className="text-[10px] font-bold tracking-wide uppercase">
-              {sourceLabel(call.source)}
+              {t(`source.${call.source}`)}
             </span>
             {call.inviteePhone ? (
               <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -128,20 +110,20 @@ export function CallDetailDrawer({
                 <CallContactActions phone={call.inviteePhone} name={call.inviteeName} eventType={call.eventType} />
               </div>
             ) : (
-              <span>Téléphone non renseigné</span>
+              <span>{t("phoneMissing")}</span>
             )}
             {call.source === "native" && (call.utmSource || call.utmMedium || call.utmCampaign || call.utmContent) && (
               <span className="text-accent">
-                Attribution : {[call.utmSource, call.utmMedium, call.utmCampaign, call.utmContent].filter(Boolean).join(" · ")}
+                {t("attribution")} : {[call.utmSource, call.utmMedium, call.utmCampaign, call.utmContent].filter(Boolean).join(" · ")}
               </span>
             )}
           </div>
 
           <div className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-border p-4">
-            <p className="text-sm font-bold">Issue de l&apos;appel</p>
+            <p className="text-sm font-bold">{t("outcome")}</p>
             {cancelled ? (
               <span className="w-fit rounded-full bg-state-unknown-bg px-2 py-0.5 text-xs font-bold text-state-unknown">
-                Annulé
+                {t("cancelled")}
               </span>
             ) : (
               <>
@@ -150,24 +132,24 @@ export function CallDetailDrawer({
                   <div className="flex items-center gap-2">
                     <input
                       type="date"
-                      aria-label="Réponse attendue le"
+                      aria-label={t("expectedResponseDate")}
                       value={outcome.dueDate}
                       onChange={(e) => outcome.commitDueDate(e.target.value)}
                       className="rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-xs outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
                     />
                     {outcome.dueUrgency ? (
                       <span className={`text-[10px] font-bold ${TONE_TEXT[outcome.dueUrgency.tone]}`}>
-                        {outcome.dueUrgency.label}
+                        {outcome.dueUrgency.days < 0 ? t("lateBy", { days: -outcome.dueUrgency.days }) : outcome.dueUrgency.days === 0 ? t("today") : t("inDays", { days: outcome.dueUrgency.days })}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-muted-foreground">réponse attendue ?</span>
+                      <span className="text-[10px] text-muted-foreground">{t("expectedResponse")}</span>
                     )}
                   </div>
                 )}
                 {outcome.result === "closed" && (
                   <div className="flex items-center gap-5">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Contracté</span>
+                      <span className="text-xs text-muted-foreground">{t("contracted")}</span>
                       <AmountInput
                         value={outcome.contracted}
                         onChange={outcome.setContracted}
@@ -176,7 +158,7 @@ export function CallDetailDrawer({
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">Collecté</span>
+                      <span className="text-xs text-muted-foreground">{t("collected")}</span>
                       <AmountInput
                         value={outcome.collected}
                         onChange={outcome.setCollected}
@@ -187,7 +169,7 @@ export function CallDetailDrawer({
                   </div>
                 )}
                 {outcome.result === null && isFuture && (
-                  <p className="text-xs text-muted-foreground">À venir — pas encore d&apos;issue à choisir.</p>
+                  <p className="text-xs text-muted-foreground">{t("upcomingNoOutcome")}</p>
                 )}
               </>
             )}
@@ -196,7 +178,7 @@ export function CallDetailDrawer({
 
           <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-bold">Commentaires</p>
+              <p className="text-sm font-bold">{t("comments")}</p>
               <CallContactActions
                 phone={call.inviteePhone}
                 name={call.inviteeName}
@@ -206,9 +188,9 @@ export function CallDetailDrawer({
             </div>
 
             {loading ? (
-              <p className="text-sm text-muted-foreground">Chargement…</p>
+              <p className="text-sm text-muted-foreground">{t("loading")}</p>
             ) : comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun commentaire pour l&apos;instant.</p>
+              <p className="text-sm text-muted-foreground">{t("noComments")}</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {comments.map((c) => (
@@ -216,13 +198,13 @@ export function CallDetailDrawer({
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-bold">{c.authorName}</p>
                       <span className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{STAMP_FORMAT.format(new Date(c.createdAt))}</span>
+                        <span className="text-xs text-muted-foreground">{new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(c.createdAt))}</span>
                         {c.isOwn && (
                           <button
                             type="button"
                             onClick={() => handleDelete(c.id)}
                             disabled={isPending}
-                            aria-label="Supprimer"
+                            aria-label={t("delete")}
                             className="text-muted-foreground hover:text-state-critical"
                           >
                             <Trash2 className="size-3.5" />
@@ -241,13 +223,13 @@ export function CallDetailDrawer({
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Ajouter un commentaire (objection, relance, contexte…)"
+              placeholder={t("commentPlaceholder")}
               rows={3}
               className="resize-y rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             />
             {error && <p className="text-sm text-state-critical">{error}</p>}
             <Button type="submit" disabled={isPending || body.trim() === ""} className="self-end">
-              {isPending ? "Enregistrement…" : "Ajouter"}
+              {isPending ? t("saving") : t("add")}
             </Button>
           </form>
         </div>

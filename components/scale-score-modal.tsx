@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Falco } from "@/components/falco/falco";
 import { ScaleScoreShareCard } from "@/components/scale-score-share-card";
@@ -13,12 +14,6 @@ import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 import { cn } from "@/lib/utils";
-
-const TIER_LABEL: Record<"rouge" | "ambre" | "vert", string> = {
-  rouge: "Santé fragile",
-  ambre: "Santé correcte",
-  vert: "Santé excellente",
-};
 
 export function ScaleScoreModal({
   open,
@@ -41,6 +36,8 @@ export function ScaleScoreModal({
   currentMonthlyRevenue: number | null;
   potentialMonthlyRevenue: number | null;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("common.scaleScore");
   const shareCardRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const { score } = scaleScore;
@@ -75,10 +72,10 @@ export function ScaleScoreModal({
                 size="md"
                 animate="enter"
                 withBubble
-                bubbleText={scaleScoreGapText ?? "Il me faut tes chiffres pour te noter."}
+                bubbleText={scaleScoreGapText ?? t("needNumbers")}
               />
               <Button asChild className="mt-2">
-                <a href="/datas">Remplir mes chiffres</a>
+                <a href="/datas">{t("fillNumbers")}</a>
               </Button>
               {scaleScoreMonthNote && (
                 <p className="max-w-[280px] text-xs text-muted-foreground">{scaleScoreMonthNote}</p>
@@ -87,10 +84,9 @@ export function ScaleScoreModal({
           ) : (
             <>
               <div>
-                <DialogTitle className="font-display text-lg font-bold">Ton Scale Score</DialogTitle>
+                <DialogTitle className="font-display text-lg font-bold">{t("title")}</DialogTitle>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Dernier calcul :{" "}
-                  {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                  {t("lastCalculated")} {new Date().toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}
                 </p>
               </div>
 
@@ -109,13 +105,13 @@ export function ScaleScoreModal({
                     </span>
                     <span className="text-sm text-muted-foreground">/100</span>
                     <span className="text-sm font-bold" style={{ color: tier?.colorText }}>
-                      {tier && TIER_LABEL[tier.tier]}
+                      {tier && t(`tier.${tier.tier}`)}
                     </span>
                   </div>
                   {delta30d !== null && (
                     <p className={cn("mt-1 text-sm font-bold", delta30d > 0 ? "text-positive" : "text-muted-foreground")}>
                       {delta30d > 0 ? "↑" : delta30d < 0 ? "↓" : ""} {delta30d >= 0 ? "+" : ""}
-                      {delta30d} sur 30 jours
+                      {delta30d} {t("over30Days")}
                     </p>
                   )}
                 </div>
@@ -123,7 +119,7 @@ export function ScaleScoreModal({
 
               {sparkline.length >= 2 && (
                 <div>
-                  <p className="text-xs font-bold text-muted-foreground">Évolution (8 dernières semaines)</p>
+                  <p className="text-xs font-bold text-muted-foreground">{t("evolution")}</p>
                   <div className="mt-1">
                     <Sparkline
                       values={sparkline.map((point) => point.score)}
@@ -138,10 +134,10 @@ export function ScaleScoreModal({
 
               <div className="flex gap-2">
                 <Button asChild className="flex-1">
-                  <a href="/diagnostic">Améliorer mon score</a>
+                  <a href="/diagnostic">{t("improve")}</a>
                 </Button>
                 <Button variant="secondary" onClick={handleShare} disabled={isExporting} className="flex-1">
-                  {isExporting ? "Export…" : "Partager"}
+                  {isExporting ? t("exporting") : t("share")}
                 </Button>
               </div>
             </>

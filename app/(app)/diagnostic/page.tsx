@@ -51,6 +51,7 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
 import { InsightHistorySection } from "@/components/insight-execution/insight-history-section";
 import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
+import { getLocale, getTranslations } from "next-intl/server";
 
 type DiagnosticTab = "overview" | "discovery";
 
@@ -58,11 +59,7 @@ function resolveTab(value: string | undefined): DiagnosticTab {
   return value === "discovery" ? value : "overview";
 }
 
-const PERIOD_LABELS: Record<string, string> = {
-  "3-months": "3 derniers mois",
-  "current-month": "mois en cours",
-  "12-months": "12 mois",
-};
+const PERIOD_VALUES = new Set(["3-months", "current-month", "12-months"]);
 
 const STATUS_BADGE: Record<string, string> = {
   ok: "bg-state-healthy-bg text-state-healthy",
@@ -72,15 +69,38 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 const MEASURE_HINTS: Record<string, string> = {
-  responseRate: "Renseigne tes premiers messages envoyés et tes conversations démarrées dans Datas.",
-  proposalRate: "Renseigne tes conversations démarrées et tes appels proposés dans Datas.",
-  bookingRate: "Renseigne tes appels proposés et réservés dans Datas.",
-  showUpRate: "Renseigne tes appels réservés et pris dans Datas.",
-  closingRate: "Renseigne tes appels pris et tes ventes conclues dans Datas.",
-  content_click_rate: "Renseigne les vues et les clics de tes posts dans Contenu.",
-  content_lead_rate: "Renseigne les clics et les leads de tes posts dans Contenu.",
-  content_booking_rate: "Renseigne les RDV bookés de tes vidéos dans Contenu.",
-  content_close_rate: "Renseigne les RDV bookés et closés de tes vidéos dans Contenu.",
+  responseRate: "responseRate",
+  proposalRate: "proposalRate",
+  bookingRate: "bookingRate",
+  showUpRate: "showUpRate",
+  closingRate: "closingRate",
+  content_click_rate: "contentClickRate",
+  content_lead_rate: "contentLeadRate",
+  content_booking_rate: "contentBookingRate",
+  content_close_rate: "contentCloseRate",
+};
+
+const LEVER_LABEL_KEYS: Record<string, string> = {
+  lead_magnet: "leadMagnet",
+  email_marketing: "emailMarketing",
+  newsletter: "newsletter",
+  seo_blog: "seoBlog",
+  podcast: "podcast",
+  retargeting: "retargeting",
+  referral: "referral",
+  ads: "ads",
+  vsl: "vsl",
+  webinar: "webinar",
+  sequence_relance_non_acheteurs: "nonBuyerFollowup",
+  order_bump: "orderBump",
+  downsell: "downsell",
+  garantie: "guarantee",
+  preuve_sociale_page: "socialProof",
+  upsell_ascension: "upsell",
+  onboarding_structure: "onboarding",
+  collecte_temoignages_systematique: "testimonials",
+  communaute_clients: "community",
+  reactivation_anciens_clients: "reactivation",
 };
 
 export default async function DiagnosticPage({
@@ -100,14 +120,31 @@ export default async function DiagnosticPage({
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "diagnostic");
   const params = await searchParams;
+  const locale = await getLocale();
+  const t = await getTranslations("diagnostic");
   const tab = resolveTab(params.tab);
   after(() => track("diagnostic_viewed", userId));
-  const period = params.period && PERIOD_LABELS[params.period] ? params.period : "3-months";
+  const period = params.period && PERIOD_VALUES.has(params.period) ? params.period : "3-months";
+  const measureHint = (key: string) => {
+    const hintKey = MEASURE_HINTS[key];
+    return hintKey ? t(`measureHints.${hintKey}`) : undefined;
+  };
+  const localizedMetricLabel = (key: string) => t(`metrics.${key}`);
+  const localizedContentMetricLabel = (key: string) => t(`contentMetrics.${key}`);
+  const localizedLeverLabel = (key: string, fallback: string) => {
+    const labelKey = LEVER_LABEL_KEYS[key];
+    return labelKey ? t(`levers.${labelKey}`) : fallback;
+  };
+  const localizedCategory = (category: string) => {
+    const normalized = category.toLowerCase();
+    return t(`categories.${normalized === "contenu" ? "content" : normalized}`);
+  };
+  const localizedFollowupLabel = (key: string, fallback: string) => t(`followups.${key}`) || fallback;
   const discoveryProgress = await getDiscoveryProgress(accountId);
   const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
 
   const overviewHeader = (
-    <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Ton diagnostic</h1>
+    <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{t("title")}</h1>
   );
 
   if (tab === "discovery") {
@@ -118,9 +155,9 @@ export default async function DiagnosticPage({
               diagnostic dit déjà "Optimise ce que tu fais déjà" en Section 1;
               garder le même mot ici pour un questionnaire qui sert à révéler
               des leviers non configurés créait une collision de nom. */}
-          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">Découverte</h1>
+          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{t("discovery")}</h1>
           <Link href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
-            ← Retour au diagnostic
+            {t("back")}
           </Link>
         </div>
         <DiscoveryTab accountId={accountId} />
@@ -151,10 +188,10 @@ export default async function DiagnosticPage({
         <InsightHistorySection accountId={accountId} viewerUserId={userId} canAssign={userId === accountId} />
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-6 text-center">
           <p className="max-w-md text-muted-foreground">
-            Remplis au moins un mois dans Mes chiffres pour lancer ton diagnostic.
+            {t("noData")}
           </p>
           <Button size="lg" asChild className="mt-2">
-            <a href="/datas">Remplir mes chiffres →</a>
+            <a href="/datas">{t("fillData")}</a>
           </Button>
         </div>
       </div>
@@ -250,6 +287,7 @@ export default async function DiagnosticPage({
         funnelRates,
         funnelBenchmarks: benchmarks,
         dealPrice: contentDealPrice,
+        locale,
       }),
     }))
     .sort((a, b) => (b.gain.monthlyGain ?? 0) - (a.gain.monthlyGain ?? 0));
@@ -309,8 +347,11 @@ export default async function DiagnosticPage({
   // Falco on this screen).
   const verdictLine =
     topPoints.length > 0
-      ? `J'ai repéré ton goulot : ${topPoints[0].label}${totalMonthlyGain !== null ? `, ≈${formatEur(totalMonthlyGain)}/mois à récupérer` : ""}.`
-      : "Tes taux mesurés sont au niveau du benchmark. Solide.";
+      ? t("verdictWithBottleneck", {
+          label: localizedMetricLabel(topPoints[0].key),
+          amount: totalMonthlyGain !== null ? `, ≈${formatEur(totalMonthlyGain, locale)}${t("perMonthToRecover")}` : "",
+        })
+      : t("verdictSolid");
 
   return (
     <div className="flex flex-col gap-8">
@@ -322,24 +363,29 @@ export default async function DiagnosticPage({
 
       <section id="diagnostic-spotlight" className="sticker-spotlight flex flex-col gap-5 px-7 py-6 sm:flex-row sm:items-end sm:justify-between" aria-labelledby="diagnostic-spotlight-heading">
         <div>
-          <p className="text-xs font-bold tracking-[0.12em] text-mist/70 uppercase">Goulot principal détecté</p>
-          <h2 id="diagnostic-spotlight-heading" className="mt-2 max-w-xl text-2xl font-bold">{topPoints[0]?.label ?? "Aucun goulot mesurable pour l'instant"}</h2>
+          <p className="text-xs font-bold tracking-[0.12em] text-mist/70 uppercase">{t("mainBottleneck")}</p>
+          <h2 id="diagnostic-spotlight-heading" className="mt-2 max-w-xl text-2xl font-bold">{topPoints[0] ? localizedMetricLabel(topPoints[0].key) : t("noMeasurableBottleneck")}</h2>
           <p className="mt-2 max-w-xl text-sm text-mist/70">
             {topPoints[0]
-              ? `${topPoints[0].currentRatePercent}% actuellement · benchmark ${topPoints[0].benchmarkRatePercent}% · ${topPoints[0].extraClients} client${topPoints[0].extraClients > 1 ? "s" : ""} potentiel${topPoints[0].extraClients > 1 ? "s" : ""} par mois.`
-              : "Renseigne davantage de données dans Mes chiffres pour obtenir un écart fiable au benchmark."}
+              ? t("spotlightSummary", {
+                  current: topPoints[0].currentRatePercent,
+                  benchmark: topPoints[0].benchmarkRatePercent,
+                  clients: topPoints[0].extraClients,
+                  plural: topPoints[0].extraClients > 1 ? "s" : "",
+                })
+              : t("reliableGap")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Button asChild>
-              <a href="#points-a-ameliorer">Traiter la priorité</a>
+              <a href="#points-a-ameliorer">{t("treatPriority")}</a>
             </Button>
-            <a href="#calcul" className="text-sm font-bold text-mist/70 underline-offset-4 hover:text-text-on-dark hover:underline">Comment c&apos;est calculé</a>
+            <a href="#calcul" className="text-sm font-bold text-mist/70 underline-offset-4 hover:text-text-on-dark hover:underline">{t("calculatedHow")}</a>
           </div>
         </div>
         <div className="shrink-0 sm:text-right">
-          <p className="text-xs font-bold text-mist/70">Manque à gagner estimé</p>
-          <p className="mt-1 font-display text-4xl font-bold tabular-nums">{totalMonthlyGain === null ? "—" : `+${formatEur(totalMonthlyGain)}`}</p>
-          <p className="mt-1 text-xs text-mist/60">par mois · données calculées</p>
+          <p className="text-xs font-bold text-mist/70">{t("estimatedGap")}</p>
+          <p className="mt-1 font-display text-4xl font-bold tabular-nums">{totalMonthlyGain === null ? "—" : `+${formatEur(totalMonthlyGain, locale)}`}</p>
+          <p className="mt-1 text-xs text-mist/60">{t("perMonthCalculated")}</p>
         </div>
       </section>
 
@@ -354,7 +400,7 @@ export default async function DiagnosticPage({
           bubbleClassName="max-w-md"
         />
         <div className="flex gap-2">
-          {Object.entries(PERIOD_LABELS).map(([value, label]) => (
+          {[...PERIOD_VALUES].map((value) => (
             <Link
               key={value}
               href={`/diagnostic?period=${value}`}
@@ -367,7 +413,7 @@ export default async function DiagnosticPage({
                   : "border-border text-muted-foreground hover:border-border-hover"
               )}
             >
-              {label}
+              {t(`period.${value}`)}
             </Link>
           ))}
         </div>
@@ -382,41 +428,40 @@ export default async function DiagnosticPage({
       {/* ============================= SECTION 1 — OPTIMISER ============================= */}
       <div className="flex flex-col gap-8">
         <div>
-          <h2 className="text-lg font-bold">Optimiser ce que tu fais déjà</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Tes leviers actifs, comparés au benchmark de ta niche.</p>
+          <h2 className="text-lg font-bold">{t("optimizeTitle")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("optimizeHelp")}</p>
         </div>
 
         {/* Le total "Optimiser" — calculé uniquement sur les 3 premiers points
             cascade, ouverture visuelle de cette section. */}
         <div id="calcul" className="sticker-card-dashed animate-rise px-7 py-6">
-          <p className="text-xs text-muted-foreground">Potentiel total détecté</p>
+          <p className="text-xs text-muted-foreground">{t("totalPotential")}</p>
           <p className="mt-2 font-display text-3xl font-bold">
-            {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain)}/mois`}
+            {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain, locale)}${t("perMonthSuffix")}`}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            +{totalExtraClients} clients/mois possibles en corrigeant tes {topPoints.length} points les plus faibles
+            {t("extraClients", { count: totalExtraClients, points: topPoints.length })}
           </p>
           <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
             {contentDealPrice.source === "main_offer" ? (
               <span>
-                Calculé avec ton offre {contentDealPrice.offerName || "principale"} à {formatEur(contentDealPrice.price as number)}
+                {t("withOffer", { offer: contentDealPrice.offerName || "main", price: formatEur(contentDealPrice.price as number, locale) })}
               </span>
             ) : contentDealPrice.source === "average_basket" ? (
-              <span>Calculé avec ton panier moyen réel (aucune offre principale définie)</span>
+              <span>{t("withAverageBasket")}</span>
             ) : contentDealPrice.source === "offer_average" ? (
               <span>
-                Calculé avec la moyenne de tes offres ({formatEur(Math.round(contentDealPrice.price as number))}) — désigne une offre
-                principale pour un chiffrage exact
+                {t("withOfferAverage", { price: formatEur(Math.round(contentDealPrice.price as number), locale) })}
               </span>
             ) : (
-              <span>Chiffrage indisponible : aucun prix d&apos;offre renseigné</span>
+              <span>{t("noPrice")}</span>
             )}
-            <CalcPopover explanation="Pour chaque point sous benchmark, je simule ton funnel avec CE taux ramené au niveau du marché (les autres restent réels), puis je multiplie les ventes en plus par le prix de ton offre. Je ne cumule que les 3 premiers points pour rester crédible." />
+            <CalcPopover explanation={t("calculationExplanation")} />
           </div>
         </div>
 
         <div id="points-a-ameliorer" className="flex flex-col gap-4">
-          <h3 className="text-base font-bold">Points à améliorer</h3>
+          <h3 className="text-base font-bold">{t("pointsToImprove")}</h3>
           {/* A point with no resolvable € is dropped by scoreCandidates
               (it has nothing to normalise against), so without this the
               section would congratulate the user while real metrics sit
@@ -425,21 +470,20 @@ export default async function DiagnosticPage({
           {optimizeList.length === 0 && contentPoints.length === 0 && unpricedPoints.length > 0 && (
             <div className="sticker-card-dashed flex flex-col gap-3 p-6">
               <p className="text-sm font-bold">
-                {unpricedPoints.length} point{unpricedPoints.length > 1 ? "s" : ""} sous le benchmark, pas encore chiffrable
-                {unpricedPoints.length > 1 ? "s" : ""}
+                {t("unpricedPoints", { count: unpricedPoints.length, plural: unpricedPoints.length > 1 ? "s" : "" })}
               </p>
               <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
                 {unpricedPoints.map((point) => (
                   <li key={point.key}>
-                    {point.label} — {point.currentRatePercent}% vs benchmark {point.benchmarkRatePercent}%
+                    {localizedMetricLabel(point.key)} — {point.currentRatePercent}% vs benchmark {point.benchmarkRatePercent}%
                   </li>
                 ))}
               </ul>
               <p className="text-sm text-muted-foreground">
-                Renseigne le prix d&apos;une offre pour que je convertisse ces écarts en euros.
+                {t("unpricedHelp")}
               </p>
               <Button asChild variant="outline" className="self-start">
-                <Link href="/business#offres">Ajouter le prix d&apos;une offre</Link>
+                <Link href="/business#offres">{t("addOfferPrice")}</Link>
               </Button>
             </div>
           )}
@@ -450,7 +494,7 @@ export default async function DiagnosticPage({
                 size="md"
                 animate="enter"
                 withBubble
-                bubbleText="Tes leviers actifs sont solides. Regarde du côté d'Ajouter pour la suite."
+                bubbleText={t("solidBubble")}
                 bubbleSide="left"
               />
             </div>
@@ -462,17 +506,28 @@ export default async function DiagnosticPage({
             const watchItem = isLever ? watchByKey.get(candidate.key) : undefined;
             const currentRate = isLever ? (watchItem?.statValue ?? null) : candidate.sourceMetricPoint!.currentRatePercent / 100;
             const benchmarkRate = isLever ? (watchItem?.benchmarkValue ?? null) : candidate.sourceMetricPoint!.benchmarkRatePercent / 100;
+            const displayLabel = isLever ? localizedLeverLabel(candidate.key, candidate.label) : localizedMetricLabel(candidate.key);
+            const displayCategory = localizedCategory(candidate.category);
             // Levers show a NEW deterministic advice sentence (adviceFor) as
             // the body text — the € breakdown (impactExplanation) moves into
             // the CalcPopover only, so the two don't repeat each other.
             // Metric points keep their existing explanation as-is (already
             // factual/actionable, no new template needed for those).
             const advice = isLever
-              ? adviceFor(watchItem!.leverKey, watchItem!.statKey, Math.round(currentRate! * 100), Math.round(benchmarkRate! * 100), "Falco")
-              : candidate.sourceMetricPoint!.explanation;
-            const tooltip = isLever ? (watchItem?.impactExplanation ?? "") : candidate.sourceMetricPoint!.tooltip;
+              ? adviceFor(watchItem!.leverKey, watchItem!.statKey, Math.round(currentRate! * 100), Math.round(benchmarkRate! * 100), "Falco", locale)
+              : t(`metricExplanations.${candidate.key}`, {
+                  current: candidate.sourceMetricPoint!.currentRatePercent,
+                  benchmark: candidate.sourceMetricPoint!.benchmarkRatePercent,
+                  gain: candidate.sourceMetricPoint!.extraClients,
+                  noShow: 100 - candidate.sourceMetricPoint!.currentRatePercent,
+                });
+            const tooltip = isLever
+              ? (watchItem?.impactExplanation ?? "")
+              : locale === "en"
+                ? t("calculationExplanation")
+                : candidate.sourceMetricPoint!.tooltip;
             const href = isLever
-              ? `/diagnostic?openLever=${watchItem!.leverKey}&openLeverLabel=${encodeURIComponent(candidate.label)}`
+              ? `/diagnostic?openLever=${watchItem!.leverKey}&openLeverLabel=${encodeURIComponent(displayLabel)}`
               : `/diagnostic?open=${candidate.key}`;
 
             return (
@@ -494,9 +549,9 @@ export default async function DiagnosticPage({
                     </span>
                     <div>
                       <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                        #{index + 1} · {candidate.category}
+                        #{index + 1} · {displayCategory}
                       </p>
-                      <p className="mt-0.5 font-bold">{candidate.label}</p>
+                      <p className="mt-0.5 font-bold">{displayLabel}</p>
                     </div>
                   </div>
                 </div>
@@ -508,19 +563,19 @@ export default async function DiagnosticPage({
                 <div className="grid gap-4 sm:grid-cols-2">
                   {candidate.extraClientsPerMonth !== null ? (
                     <div className="rounded-xl bg-muted p-3">
-                      <p className="text-xs font-bold text-muted-foreground">Clients en plus</p>
-                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{candidate.extraClientsPerMonth}/mois</p>
+                      <p className="text-xs font-bold text-muted-foreground">{t("extraClientsLabel")}</p>
+                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{candidate.extraClientsPerMonth}{t("perMonthSuffix")}</p>
                     </div>
                   ) : (
                     <div className="rounded-xl bg-muted p-3">
-                      <p className="text-xs font-bold text-muted-foreground">Statut</p>
-                      <p className="mt-1 text-sm font-bold">{candidate.isActive ? "En place, sous le benchmark" : "—"}</p>
+                      <p className="text-xs font-bold text-muted-foreground">{t("status")}</p>
+                      <p className="mt-1 text-sm font-bold">{candidate.isActive ? t("activeBelow") : "—"}</p>
                     </div>
                   )}
                   <div className="flex items-start justify-between rounded-xl bg-muted p-3">
                     <div>
-                      <p className="text-xs font-bold text-muted-foreground">Gain</p>
-                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{formatEur(candidate.monthlyGainEur)}/mois</p>
+                      <p className="text-xs font-bold text-muted-foreground">{t("gain")}</p>
+                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{formatEur(candidate.monthlyGainEur, locale)}{t("perMonthSuffix")}</p>
                     </div>
                     <CalcPopover explanation={tooltip} />
                   </div>
@@ -532,13 +587,13 @@ export default async function DiagnosticPage({
                   <div className="flex items-center gap-3 border-t border-accent/20 pt-4">
                     <Falco pose="alert" size="xs" animate="enter" />
                     <FalcoBubble arrow="left" className="max-w-none flex-1">
-                      C&apos;est mon conseil n°1 : attaque celui-là en premier, c&apos;est là qu&apos;est le plus gros levier.
+                      {t("adviceOne")}
                     </FalcoBubble>
                   </div>
                 )}
 
                 <a href={href} className="self-start text-sm font-bold text-muted-foreground hover:underline">
-                  Voir le détail
+                  {t("viewDetail")}
                 </a>
                 <QuickInsightLaunchButton
                   sourceType={isLever ? "diagnostic_lever" : "diagnostic_metric"}
@@ -557,7 +612,8 @@ export default async function DiagnosticPage({
           {contentPoints.map(({ summary, gain }, contentIndex) => {
               const score = computeHealthScore(summary.currentRatePercent / 100, summary.benchmarkRatePercent / 100, summary.status);
               const tier = getHealthTier(score);
-              const advice = adviceFor(summary.key, undefined, summary.currentRatePercent, summary.benchmarkRatePercent, "Falco");
+              const advice = adviceFor(summary.key, undefined, summary.currentRatePercent, summary.benchmarkRatePercent, "Falco", locale);
+              const displayLabel = localizedContentMetricLabel(summary.key);
 
               return (
                 <div key={summary.key} className="sticker-card animate-rise flex flex-col gap-4 p-6">
@@ -570,9 +626,9 @@ export default async function DiagnosticPage({
                     </span>
                     <div>
                       <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                        #{optimizeList.length + contentIndex + 1} · {summary.category}
+                        #{optimizeList.length + contentIndex + 1} · {localizedCategory("content")}
                       </p>
-                      <p className="mt-0.5 font-bold">{summary.label}</p>
+                      <p className="mt-0.5 font-bold">{displayLabel}</p>
                     </div>
                   </div>
 
@@ -580,18 +636,18 @@ export default async function DiagnosticPage({
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="rounded-xl bg-muted p-3">
-                      <p className="text-xs font-bold text-muted-foreground">Ventes en plus</p>
-                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{gain.extraSales}/mois</p>
+                      <p className="text-xs font-bold text-muted-foreground">{t("extraSalesLabel")}</p>
+                      <p className="mt-1 font-display text-xl font-bold tabular-nums">+{gain.extraSales}{t("perMonthSuffix")}</p>
                     </div>
                     <div className="flex items-start justify-between rounded-xl bg-muted p-3">
                       <div>
-                        <p className="text-xs font-bold text-muted-foreground">Gain</p>
+                        <p className="text-xs font-bold text-muted-foreground">{t("gain")}</p>
                         <p className="mt-1 font-display text-xl font-bold tabular-nums">
-                          {gain.monthlyGain === null ? "—" : `+${formatEur(gain.monthlyGain)}/mois`}
+                          {gain.monthlyGain === null ? "—" : `+${formatEur(gain.monthlyGain, locale)}${t("perMonthSuffix")}`}
                         </p>
                         {gain.usesBenchmark && (
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            Estimation : une partie du parcours n&apos;est pas encore mesurée.
+                            {t("benchmarkEstimate")}
                           </p>
                         )}
                       </div>
@@ -602,10 +658,10 @@ export default async function DiagnosticPage({
                   <p className="text-sm text-muted-foreground">{advice}</p>
 
                   <a
-                    href={`/diagnostic?openLever=content&openLeverLabel=${encodeURIComponent("Contenu")}`}
+                    href={`/diagnostic?openLever=content&openLeverLabel=${encodeURIComponent(t("contentLabel"))}`}
                     className="self-start text-sm font-bold text-muted-foreground hover:underline"
                   >
-                    Voir le détail
+                    {t("viewDetail")}
                   </a>
                   <QuickInsightLaunchButton sourceType="diagnostic_metric" sourceId={summary.key} />
                 </div>
@@ -618,26 +674,26 @@ export default async function DiagnosticPage({
             <AccordionItem value="points-forts" className="sticker-card-dashed rounded-xl border-0 px-5">
               <AccordionTrigger>
                 <span className="rounded-full bg-state-healthy-bg px-2 py-0.5 text-xs font-bold text-state-healthy">
-                  Tes points forts ({strongCount}) ▸
+                  {t("strongPoints", { count: strongCount })} ▸
                 </span>
               </AccordionTrigger>
               <AccordionContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {summaries
+                  {summaries
                   .filter((s) => s.status === "ok")
                   .map((summary) => (
                     <MetricSummaryCard
                       key={summary.key}
-                      summary={summary}
-                      measureHint={MEASURE_HINTS[summary.key]}
+                      summary={{ ...summary, label: localizedMetricLabel(summary.key), category: localizedCategory(summary.category) }}
+                      measureHint={measureHint(summary.key) ?? t("notMeasured")}
                       measureHintHref="/datas"
-                      measureHintLabel="Aller sur Datas →"
+                      measureHintLabel={t("goToData")}
                     />
                   ))}
                 {strong.map((item) => (
                   <OverviewActiveLeverCard
                     key={item.leverKey}
-                    label={item.label}
-                    category={item.category}
+                    label={localizedLeverLabel(item.leverKey, item.label)}
+                    category={localizedCategory(item.category)}
                     statValue={item.statValue}
                     benchmarkValue={item.benchmarkValue}
                     score={item.score}
@@ -652,8 +708,8 @@ export default async function DiagnosticPage({
       {/* ============================== SECTION 2 — AJOUTER ============================== */}
       <div className="flex flex-col gap-8">
         <div>
-          <h2 className="text-lg font-bold">Ajouter de nouveaux leviers</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Des leviers que tu n&apos;exploites pas encore, classés par potentiel.</p>
+          <h2 className="text-lg font-bold">{t("addTitle")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("addHelp")}</p>
         </div>
 
         {addList.length > 0 ? (
@@ -664,15 +720,15 @@ export default async function DiagnosticPage({
                 <DiscoveryOpportunityCard
                   key={opportunity.leverKey}
                   leverKey={opportunity.leverKey}
-                  label={opportunity.label}
-                  category={opportunity.category}
+                  label={localizedLeverLabel(opportunity.leverKey, opportunity.label)}
+                  category={localizedCategory(opportunity.category)}
                   effort={opportunity.effort}
                   impactAmountEur={opportunity.impactAmountEur}
                   impactRangeEur={opportunity.impactRangeEur}
                   impactExplanation={opportunity.impactExplanation}
                   contextSentence={opportunity.contextSentence}
                   warning={opportunity.warning}
-                  ctaLabel="Découvrir →"
+                  ctaLabel={t("discover")}
                   sourcePage="diagnostic_overview"
                   insightSourceId={opportunity.leverKey}
                 />
@@ -681,7 +737,7 @@ export default async function DiagnosticPage({
           </div>
         ) : (
           <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
-            Aucun levier supplémentaire identifié pour l&apos;instant.
+            {t("noneAdditional")}
           </div>
         )}
 
@@ -696,32 +752,32 @@ export default async function DiagnosticPage({
 
       {/* Bloc 3 — La vue complète */}
       <div>
-        <h2 className="text-base font-bold">Ce qui fonctionne déjà</h2>
+        <h2 className="text-base font-bold">{t("alreadyWorks")}</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {summaries.map((summary) => (
             <MetricSummaryCard
               key={summary.key}
-              summary={summary}
-              measureHint={MEASURE_HINTS[summary.key]}
+              summary={{ ...summary, label: localizedMetricLabel(summary.key), category: localizedCategory(summary.category) }}
+              measureHint={measureHint(summary.key) ?? t("notMeasured")}
               measureHintHref="/datas"
-              measureHintLabel="Aller sur Datas →"
+              measureHintLabel={t("goToData")}
             />
           ))}
 
           {contentSummaries.map((summary) => (
             <MetricSummaryCard
               key={summary.key}
-              summary={summary}
-              measureHint={MEASURE_HINTS[summary.key]}
+              summary={{ ...summary, label: localizedContentMetricLabel(summary.key), category: localizedCategory(summary.category) }}
+              measureHint={measureHint(summary.key) ?? t("notMeasured")}
               measureHintHref="/acquisition/contenu"
-              measureHintLabel="Aller sur Contenu →"
+              measureHintLabel={t("goToContent")}
             />
           ))}
 
           {followups.map((followup) => (
             <div key={followup.key} className="sticker-card p-5">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold">{followup.label}</p>
+                <p className="text-sm font-bold">{localizedFollowupLabel(followup.key, followup.label)}</p>
                 <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_BADGE[followup.status])}>
                   {followup.status === "ok" ? "✅" : followup.status === "critical" ? "❌" : "❓"}
                 </span>
@@ -730,15 +786,15 @@ export default async function DiagnosticPage({
                 <Popover>
                   <PopoverTrigger asChild>
                     <button type="button" className="mt-2 text-left text-xs text-muted-foreground hover:underline">
-                      Pas encore renseigné : comment mesurer ça ?
+                      {t("followupUnmeasured")}
                     </button>
                   </PopoverTrigger>
                   <PopoverContent>
                     <p className="text-muted-foreground">
-                      Indique si tu as une séquence de relance dans Mon business, section Vente.
+                      {t("followupHelp")}
                     </p>
                     <Button asChild size="sm" variant="outline" className="mt-3">
-                      <a href="/business">Aller sur Mon business →</a>
+                      <a href="/business">{t("goToBusiness")}</a>
                     </Button>
                   </PopoverContent>
                 </Popover>
@@ -750,16 +806,16 @@ export default async function DiagnosticPage({
 
       {/* Bloc 4 — Le simulateur cumulé */}
       <div className="sticker-card-dashed p-6">
-        <p className="text-sm font-bold">Et si tu corrigeais tout ?</p>
+        <p className="text-sm font-bold">{t("simulateTitle")}</p>
         <p className="mt-2 text-lg">
-          {projection.realSales === null ? "—" : `${Math.round(projection.realSales * 10) / 10} ventes/mois aujourd'hui`}
-          {" → "}
-          {projection.simulatedSales === null ? "—" : `${Math.round(projection.simulatedSales * 10) / 10} possibles`}
-          {projection.monthlyGain !== null && `, soit +${formatEur(projection.monthlyGain)}/mois`}
+          {t("simulationSummary", {
+            real: projection.realSales === null ? "—" : `${Math.round(projection.realSales * 10) / 10} ${t("todaySales")}`,
+            possible: projection.simulatedSales === null ? "—" : `${Math.round(projection.simulatedSales * 10) / 10} ${t("possibleSales")}`,
+            gain: projection.monthlyGain !== null ? t("simulationGain", { amount: formatEur(projection.monthlyGain, locale) }) : "",
+          })}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Projection si tout est au benchmark en même temps, différente de la somme des points ci-dessus (les
-          améliorations se multiplient entre elles).
+          {t("simulationHelp")}
         </p>
       </div>
     </div>

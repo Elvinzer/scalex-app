@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { Switch } from "@/components/ui/switch";
 
 import { updateFalcoPreferences } from "./actions";
 
 export function FalcoPreferencesForm({ initialReduceAnimations }: { initialReduceAnimations: boolean }) {
+  const t = useTranslations("settings.page");
   const [reduceAnimations, setReduceAnimations] = useState(initialReduceAnimations);
   const [isPending, startTransition] = useTransition();
 
@@ -21,9 +23,9 @@ export function FalcoPreferencesForm({ initialReduceAnimations }: { initialReduc
   return (
     <label className="flex items-center justify-between gap-4">
       <div>
-        <p className="text-sm font-bold">Réduire les animations de Falco</p>
+        <p className="text-sm font-bold">{t("reduceAnimations")}</p>
         <p className="text-xs text-muted-foreground">
-          Falco reste présent mais anime moins ses bulles (indépendant des réglages de ton système).
+          {t("reduceAnimationsHelp")}
         </p>
       </div>
       <Switch checked={reduceAnimations} onCheckedChange={handleChange} disabled={isPending} />

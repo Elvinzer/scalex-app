@@ -1,6 +1,7 @@
 "use client";
 
 import { Clapperboard, RotateCw, Sparkles } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -20,21 +21,12 @@ import {
 } from "./actions";
 
 const MIN_ANALYZABLE_VIDEOS = 5;
-const NUMBER = new Intl.NumberFormat("fr-FR");
-
 export type YoutubeRecommendationCard = Omit<YoutubeRecommendationRecord, "createdAt" | "updatedAt"> & {
   createdAt: string;
   updatedAt: string;
 };
 
 type PublishedVideo = { videoId: string; title: string };
-
-const STATUS_LABEL: Record<YoutubeRecommendationCard["status"], string> = {
-  new: "Nouvelle idée",
-  building: "En construction",
-  filming: "À tourner",
-  published: "Publiée",
-};
 
 export function YoutubeRecommendationsSection({
   recommendations,
@@ -45,6 +37,8 @@ export function YoutubeRecommendationsSection({
   analyzedVideoCount: number;
   publishedVideos: PublishedVideo[];
 }) {
+  const locale = useLocale();
+  const t = useTranslations("content.recommendations");
   const router = useRouter();
   const [activeRecommendation, setActiveRecommendation] = useState<YoutubeRecommendationCard | null>(null);
   const [selectedVideos, setSelectedVideos] = useState<Record<string, string>>({});
@@ -99,15 +93,13 @@ export function YoutubeRecommendationsSection({
         <div>
           <div className="flex items-center gap-2">
             <Clapperboard className="size-4 text-accent-2-text" />
-            <h2 id="youtube-recommendations-title" className="text-base font-bold">
-              Tes prochaines vidéos
-            </h2>
+            <h2 id="youtube-recommendations-title" className="text-base font-bold">{t("title")}</h2>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">D&apos;après ce qui marche déjà chez toi, voilà quoi tourner cette semaine.</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button type="button" variant="secondary" size="sm" onClick={regenerate} disabled={isPending}>
           <RotateCw className={isPending ? "animate-spin" : undefined} />
-          Régénérer des idées
+          {t("regenerate")}
         </Button>
       </div>
 
@@ -115,15 +107,15 @@ export function YoutubeRecommendationsSection({
 
       {analyzedVideoCount < MIN_ANALYZABLE_VIDEOS ? (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Publie quelques vidéos pour que je repère tes patterns gagnants.</p>
+          <p className="text-sm font-bold">{t("notEnoughTitle")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Falco Créateur ne propose pas d&apos;idées hors-sol : il lui faut au moins {MIN_ANALYZABLE_VIDEOS} vidéos publiques analysables.
+            {t("notEnoughHelp", { count: MIN_ANALYZABLE_VIDEOS })}
           </p>
         </div>
       ) : visibleRecommendations.length === 0 ? (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Falco prépare tes prochaines idées.</p>
-          <p className="mt-1 text-sm text-muted-foreground">Régénère les idées quand tes données YouTube sont à jour.</p>
+          <p className="text-sm font-bold">{t("emptyTitle")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("emptyHelp")}</p>
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -138,43 +130,43 @@ export function YoutubeRecommendationsSection({
               <article key={recommendation.id} className="sticker-card flex flex-col gap-4 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{STATUS_LABEL[recommendation.status]}</span>
+                    <span className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t(recommendation.status)}</span>
                     <h3 className="mt-1 text-lg font-bold">{recommendation.title}</h3>
                   </div>
-                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-bold">Effort {recommendation.effort}</span>
+                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-bold">{t("effort", { value: recommendation.effort })}</span>
                 </div>
 
                 <div className="rounded-[var(--radius-control)] bg-surface-sunken p-3 text-sm">
-                  <p className="font-bold text-accent-2-text">Angle / format</p>
+                  <p className="font-bold text-accent-2-text">{t("angle")}</p>
                   <p className="mt-1">{recommendation.angle}</p>
                 </div>
 
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-bold">Impact estimé</p>
-                      <InfoPopover text={recommendation.impactBasis ?? "Estimation prudente basée sur les performances de tes vidéos sources — ce n'est pas une garantie."} />
+                      <p className="text-sm font-bold">{t("estimatedImpact")}</p>
+                      <InfoPopover text={recommendation.impactBasis ?? t("impactBasisFallback")} />
                     </div>
                     <p className="mt-1 font-display text-2xl font-bold tabular-nums">
-                      {recommendation.estImpact === null ? "—" : `≈ ${NUMBER.format(recommendation.estImpact)} vues`}
+                      {recommendation.estImpact === null ? "—" : `≈ ${new Intl.NumberFormat(locale).format(recommendation.estImpact)} ${t("views")}`}
                     </p>
                   </div>
-                  <span className="text-right text-xs text-muted-foreground">Estimation, pas une promesse</span>
+                  <span className="text-right text-xs text-muted-foreground">{t("estimateNote")}</span>
                 </div>
 
                 <div>
-                  <p className="text-sm font-bold">Pourquoi ça devrait marcher chez toi</p>
+                  <p className="text-sm font-bold">{t("why")}</p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">{recommendation.rationale}</p>
                 </div>
 
                 <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4">
                   <Button type="button" variant="accent2" size="sm" onClick={() => openRecommendation(recommendation)} disabled={isPending}>
                     <Sparkles />
-                    Développer avec Falco →
+                    {t("develop")}
                   </Button>
                   {!isAccepted && (
                     <Button type="button" variant="outline" size="sm" onClick={() => accept(recommendation.id)} disabled={isPending}>
-                      Je la tourne
+                      {t("film")}
                     </Button>
                   )}
                   {recommendation.status !== "published" && (
@@ -183,7 +175,7 @@ export function YoutubeRecommendationsSection({
                   {recommendation.status === "filming" && publishedVideos.length > 0 && (
                     <div className="flex w-full flex-wrap items-center gap-2 pt-1">
                       <label htmlFor={`published-video-${recommendation.id}`} className="text-xs font-bold text-muted-foreground">
-                        Vidéo publiée
+                        {t("publishedVideo")}
                       </label>
                       <select
                         id={`published-video-${recommendation.id}`}
@@ -191,7 +183,7 @@ export function YoutubeRecommendationsSection({
                         onChange={(event) => setSelectedVideos((current) => ({ ...current, [recommendation.id]: event.target.value }))}
                         className="min-w-0 flex-1 rounded-[var(--radius-control)] border border-border bg-card px-2 py-1.5 text-xs outline-none focus-visible:border-accent"
                       >
-                        <option value="">Choisir une vidéo…</option>
+                        <option value="">{t("chooseVideo")}</option>
                         {publishedVideos.map((video) => (
                           <option key={video.videoId} value={video.videoId}>
                             {video.title}
@@ -199,7 +191,7 @@ export function YoutubeRecommendationsSection({
                         ))}
                       </select>
                       <Button type="button" variant="secondary" size="xs" onClick={() => linkVideo(recommendation.id)} disabled={!selectedVideo || isPending}>
-                        Lier
+                        {t("link")}
                       </Button>
                     </div>
                   )}
@@ -210,7 +202,7 @@ export function YoutubeRecommendationsSection({
                       rel="noreferrer"
                       className="w-full text-xs font-bold text-accent-2-text hover:underline"
                     >
-                      Publiée : {linkedVideo.title} →
+                      {t("publishedPrefix", { title: linkedVideo.title })}
                     </a>
                   )}
                 </div>
@@ -231,7 +223,7 @@ export function YoutubeRecommendationsSection({
                 sourcePage: "acquisition_contenu_youtube",
               }}
               period="3-months"
-              gapBadge="Falco Créateur"
+              gapBadge={t("falcoCreator")}
               falcoSkin={resolveFalcoSkin("/acquisition/contenu/youtube")}
             />
           )}

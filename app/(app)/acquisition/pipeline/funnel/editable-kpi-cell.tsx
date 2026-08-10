@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { updateSettingKpiEntryField } from "./actions";
 import type { EditableSettingKpiField } from "@/lib/setting/schema";
@@ -14,6 +15,7 @@ export function EditableKpiCell({
   field: EditableSettingKpiField;
   value: number;
 }) {
+  const t = useTranslations("pipeline.funnel");
   const [editing, setEditing] = useState(false);
   const [displayValue, setDisplayValue] = useState(value);
   const [draft, setDraft] = useState(String(value));
@@ -29,7 +31,7 @@ export function EditableKpiCell({
   function commit() {
     const parsed = Number(draft);
     if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100_000) {
-      setError("Entier entre 0 et 100 000");
+      setError(t("invalidRange"));
       return;
     }
 
@@ -75,7 +77,7 @@ export function EditableKpiCell({
     <td
       className="cursor-pointer px-4 py-2.5 font-mono tabular-nums hover:bg-muted/50"
       onDoubleClick={startEditing}
-      title="Double-clic pour modifier"
+      title={t("editCell")}
     >
       {displayValue}
       {isPending && <span className="ml-1 text-xs text-muted-foreground">…</span>}

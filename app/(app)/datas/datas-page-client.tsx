@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
@@ -51,6 +52,8 @@ export function DatasPageClient({
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
   callSourcesByMonth: Record<string, MonthlyCallSource>;
 }) {
+  const t = useTranslations("data");
+  const locale = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState<{ year: number; month: number } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -61,6 +64,7 @@ export function DatasPageClient({
   const featuredRow = historicalRows.slice(0, period === "90" ? 3 : period === "year" ? 12 : 1)[0] ?? null;
   const featuredYear = featuredRow?.year ?? currentYear;
   const featuredMonth = featuredRow?.month ?? currentMonth;
+<<<<<<< HEAD
   const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
   const featuredCallSource = featuredRow?.closingManualOverride
     ? null
@@ -68,11 +72,15 @@ export function DatasPageClient({
   const featuredCallsBooked = featuredCallSource?.callsBooked ?? featuredRow?.callsBooked ?? null;
   const featuredCallsTaken = featuredCallSource?.callsTaken ?? featuredRow?.callsTaken ?? null;
   const featuredSalesClosed = featuredCallSource?.salesClosed ?? featuredRow?.salesClosed ?? null;
+=======
+  const featuredLabel = new Date(Date.UTC(featuredRow?.year ?? year, featuredMonth - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   const metricSource = (source: MetricSource): MetricSource => source;
   const featuredClosingRate = featuredSalesClosed !== null && featuredCallsTaken !== null
     ? rate(featuredSalesClosed, featuredCallsTaken)
     : null;
   const metrics: Array<{ label: string; description: string; value: string; evolution: string; source: MetricSource }> = [
+<<<<<<< HEAD
     { label: "CA encaissé", description: "Paiements réellement reçus", value: featuredRow?.cashCollected === null || featuredRow?.cashCollected === undefined ? "—" : formatEur(featuredRow.cashCollected), evolution: "À comparer", source: metricSource(featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
     { label: "CA contracté", description: "Valeur des deals signés", value: featuredRow?.cashContracted === null || featuredRow?.cashContracted === undefined ? "—" : formatEur(featuredRow.cashContracted), evolution: "À comparer", source: "Saisie" },
     { label: "Leads", description: "Nouveaux contacts entrants", value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: "À comparer", source: "Pipeline" },
@@ -81,6 +89,16 @@ export function DatasPageClient({
     { label: "Appels honorés", description: "Hors no-show et annulations", value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: "À comparer", source: metricSource(featuredCallSource ? "Suivi d'appel" : "iClosed") },
     { label: "Ventes conclues", description: "Deals signés sur la période", value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: "À comparer", source: metricSource(featuredCallSource ? "Suivi d'appel" : "Stripe + saisie") },
     { label: "Taux de closing", description: "Ventes / appels honorés", value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate), evolution: "À comparer", source: "Calculé" },
+=======
+    { label: t("metrics.cashCollected"), description: t("metrics.cashCollectedHelp"), value: featuredRow?.cashCollected === null || featuredRow?.cashCollected === undefined ? "—" : formatEur(featuredRow.cashCollected, locale), evolution: t("compare"), source: metricSource(featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
+    { label: t("metrics.cashContracted"), description: t("metrics.cashContractedHelp"), value: featuredRow?.cashContracted === null || featuredRow?.cashContracted === undefined ? "—" : formatEur(featuredRow.cashContracted, locale), evolution: t("compare"), source: "Saisie" },
+    { label: t("metrics.leads"), description: t("metrics.leadsHelp"), value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: t("compare"), source: "Pipeline" },
+    { label: t("metrics.conversations"), description: t("metrics.conversationsHelp"), value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: t("compare"), source: "Saisie" },
+    { label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredRow?.callsBooked === null || featuredRow?.callsBooked === undefined ? "—" : String(featuredRow.callsBooked), evolution: t("compare"), source: "Calendly" },
+    { label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredRow?.callsTaken === null || featuredRow?.callsTaken === undefined ? "—" : String(featuredRow.callsTaken), evolution: t("compare"), source: "iClosed" },
+    { label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredRow?.salesClosed === null || featuredRow?.salesClosed === undefined ? "—" : String(featuredRow.salesClosed), evolution: t("compare"), source: "Stripe + saisie" },
+    { label: t("metrics.closingRate"), description: t("metrics.closingRateHelp"), value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate, locale), evolution: t("compare"), source: "Calculé" },
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   ];
 
   return (
@@ -89,23 +107,20 @@ export function DatasPageClient({
         <div className="flex items-center gap-4">
           <Falco skin="chiffres" skinSizePx={80} priority className="-mt-2" />
           <div>
-            <h1 className="text-3xl font-bold">Mes chiffres</h1>
-            <p className="mt-1 text-muted-foreground">
-              Remplis tes chiffres mois par mois. Tout le reste de l&apos;app se met à jour
-              automatiquement.
-            </p>
+            <h1 className="text-3xl font-bold">{t("title")}</h1>
+            <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
           </div>
         </div>
         <Button variant="secondary" onClick={() => setImportOpen(true)}>
           <Upload className="size-4" />
-          Importer
+          {t("import")}
         </Button>
       </div>
 
       <Drawer open={importOpen} onOpenChange={setImportOpen}>
         <DrawerContent>
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-            <DrawerTitle className="text-base font-bold">Importer tes chiffres</DrawerTitle>
+            <DrawerTitle className="text-base font-bold">{t("importNumbers")}</DrawerTitle>
             <ImportFlow
               source="datas"
               onCommitted={() => {
@@ -121,7 +136,7 @@ export function DatasPageClient({
         <Link
           href={`/datas?year=${year - 1}`}
           className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-          aria-label="Année précédente"
+          aria-label={t("previousYear")}
         >
           <ChevronLeft className="size-4" />
         </Link>
@@ -129,18 +144,18 @@ export function DatasPageClient({
         <Link
           href={`/datas?year=${year + 1}`}
           className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-          aria-label="Année suivante"
+          aria-label={t("nextYear")}
         >
           <ChevronRight className="size-4" />
         </Link>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2" aria-label="Période">
+      <div className="flex flex-wrap items-center gap-2" aria-label={t("period")}>
         {[
-          ["Ce mois", "current"],
-          ["30 j", "30"],
-          ["90 j", "90"],
-          ["Cette année", "year"],
+          [t("currentMonth"), "current"],
+          [t("days30"), "30"],
+          [t("days90"), "90"],
+          [t("currentYear"), "year"],
         ].map(([label, value]) => (
           <button key={value} type="button" aria-pressed={period === value} onClick={() => setPeriod(value as typeof period)} className={period === value ? "min-h-11 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-sm font-bold text-accent-text" : "min-h-11 rounded-[var(--radius-control)] border border-border px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent"}>
             {label}
@@ -148,7 +163,7 @@ export function DatasPageClient({
         ))}
       </div>
 
-      <h2 className="text-base font-bold">Historique mensuel</h2>
+      <h2 className="text-base font-bold">{t("monthlyHistory")}</h2>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
@@ -173,12 +188,12 @@ export function DatasPageClient({
 
       <section className="overflow-hidden rounded-[var(--radius-card)] border-2 border-border bg-card" aria-labelledby="raw-metrics-title">
         <div className="border-b border-border bg-muted/50 px-5 py-3">
-          <h2 id="raw-metrics-title" className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Données brutes · {featuredLabel}</h2>
+          <h2 id="raw-metrics-title" className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("rawData", { month: featuredLabel })}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-muted/40 text-left text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-              <tr><th className="px-5 py-3">Métrique</th><th className="px-5 py-3">{featuredLabel}</th><th className="px-5 py-3">Évolution</th><th className="px-5 py-3">Origine</th></tr>
+              <tr><th className="px-5 py-3">{t("metric")}</th><th className="px-5 py-3">{featuredLabel}</th><th className="px-5 py-3">{t("evolution")}</th><th className="px-5 py-3">{t("origin")}</th></tr>
             </thead>
             <tbody>
               {metrics.map((metric) => (
@@ -196,10 +211,10 @@ export function DatasPageClient({
 
       <section className="sticker-card-dashed flex flex-wrap items-center justify-between gap-4 p-5" aria-labelledby="manual-metrics-title">
         <div>
-          <h2 id="manual-metrics-title" className="text-sm font-bold">Deux métriques restent saisies à la main</h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Conversations et appels proposés viennent de ta saisie mensuelle. Connecter iClosed les remplirait automatiquement et fiabiliserait ton taux de closing.</p>
+          <h2 id="manual-metrics-title" className="text-sm font-bold">{t("manualTitle")}</h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("manualHelp")}</p>
         </div>
-        <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setOpen({ year, month: featuredMonth })}>Saisir</Button><Button type="button" variant="outline" onClick={() => setImportOpen(true)}>Importer</Button></div>
+        <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setOpen({ year, month: featuredMonth })}>{t("enter")}</Button><Button type="button" variant="outline" onClick={() => setImportOpen(true)}>{t("import")}</Button></div>
       </section>
 
       {open && (

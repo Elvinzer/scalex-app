@@ -1,10 +1,5 @@
 import { compareToBand, type BenchmarkBand } from "@/lib/benchmarks";
-
-const CONCLUSION_LABELS: Record<"below" | "within" | "above", string> = {
-  below: "En dessous du marché",
-  within: "Dans la moyenne du secteur",
-  above: "Au-dessus du marché",
-};
+import { useTranslations } from "next-intl";
 
 // Compact "vs marché" strip shown directly on a Setting/Closing stat tile —
 // same 3-zone comparison as BenchmarkMeter (components/benchmark-meter.tsx),
@@ -21,10 +16,11 @@ export function TileBenchmarkStrip({
   band: BenchmarkBand;
   sublabel?: string;
 }) {
+  const t = useTranslations("common.shared");
   if (!band || value === null) {
     return (
       <p className="mt-3 text-[10.5px] text-muted-foreground italic">
-        Pas encore de repère marché pour cette métrique
+        {t("noMarketBenchmark")}
       </p>
     );
   }
@@ -38,7 +34,7 @@ export function TileBenchmarkStrip({
   return (
     <div className="mt-3">
       <p className="mb-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-        {sublabel}
+        {sublabel === "vs marché" ? t("marketBenchmark") : sublabel}
       </p>
       <div className="relative h-1.5 overflow-hidden rounded-full">
         <div className="flex h-full">
@@ -52,7 +48,7 @@ export function TileBenchmarkStrip({
         />
       </div>
       {comparison && (
-        <p className="mt-1 text-[10.5px] font-bold">{CONCLUSION_LABELS[comparison]}</p>
+        <p className="mt-1 text-[10.5px] font-bold">{comparison === "below" ? t("belowMarket") : comparison === "above" ? t("aboveMarket") : t("withinMarket")}</p>
       )}
     </div>
   );

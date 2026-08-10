@@ -2,18 +2,19 @@
 
 import { ArrowDown } from "lucide-react";
 import { motion } from "motion/react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion-tokens";
 import { cn } from "@/lib/utils";
 import { formatPercent, type FunnelRates, type FunnelStage, type FunnelTotals } from "@/lib/setting/funnel";
 
-const STAGES: { key: keyof FunnelTotals; label: string }[] = [
-  { key: "newSubscribers", label: "Nouveaux abonnés" },
-  { key: "firstMessagesSent", label: "Premiers messages envoyés" },
-  { key: "conversationsStarted", label: "Conversations démarrées" },
-  { key: "callsProposed", label: "Appels proposés" },
-  { key: "callsBooked", label: "Appels réservés" },
+const STAGES: { key: keyof FunnelTotals; labelKey: string }[] = [
+  { key: "newSubscribers", labelKey: "newSubscribers" },
+  { key: "firstMessagesSent", labelKey: "firstMessages" },
+  { key: "conversationsStarted", labelKey: "conversations" },
+  { key: "callsProposed", labelKey: "callsProposed" },
+  { key: "callsBooked", labelKey: "callsBooked" },
 ];
 
 // Order matches the transition each rate measures: newSubscribers →
@@ -39,6 +40,8 @@ export function FunnelChart({
   rates: FunnelRates;
   bottleneckStage: FunnelStage | null;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("pipeline.funnel");
   const reducedMotion = useReducedMotion();
   const maxValue = Math.max(totals.newSubscribers, totals.firstMessagesSent, 1);
 
@@ -69,13 +72,13 @@ export function FunnelChart({
                       : "text-muted-foreground"
                   )}
                 >
-                  {connectorValue === null ? "—" : formatPercent(connectorValue)}
+                  {connectorValue === null ? "—" : formatPercent(connectorValue, locale)}
                 </span>
               </div>
             )}
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-20 shrink-0 truncate text-xs text-muted-foreground sm:w-48 sm:text-sm">{stage.label}</div>
+              <div className="w-20 shrink-0 truncate text-xs text-muted-foreground sm:w-48 sm:text-sm">{t(stage.labelKey)}</div>
               <div className="relative h-8 flex-1 rounded-lg border border-ink/10 bg-muted">
                 <motion.div
                   className="h-full rounded-lg bg-signal"

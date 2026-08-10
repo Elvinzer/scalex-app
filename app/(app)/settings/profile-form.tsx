@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { useRef, useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export function ProfileForm({
   initialDisplayName: string | null;
   initialAvatarUrl: string | null;
 }) {
+  const t = useTranslations("settings.page");
   const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +48,11 @@ export function ProfileForm({
 
     const extension = ALLOWED_AVATAR_TYPES[file.type];
     if (!extension) {
-      setError("Format non supporté (HEIC notamment). Utilise un JPG, PNG ou WebP.");
+      setError(t("unsupportedFormat"));
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
-      setError("Image trop lourde (2 Mo maximum).");
+      setError(t("imageTooLarge"));
       return;
     }
 
@@ -63,7 +65,7 @@ export function ProfileForm({
         .upload(path, file, { upsert: true, contentType: file.type });
       if (uploadError) {
         console.error("Avatar upload failed", uploadError);
-        setError(`Upload impossible : ${uploadError.message}`);
+        setError(t("uploadImpossible", { message: uploadError.message }));
         return;
       }
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
@@ -104,16 +106,16 @@ export function ProfileForm({
           className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-lg font-bold text-muted-foreground transition-opacity hover:opacity-80"
         >
           {avatarUrl ? (
-            <Image src={avatarUrl} alt="Photo de profil" fill sizes="64px" className="object-cover" />
+            <Image src={avatarUrl} alt={t("photoAlt")} fill sizes="64px" className="object-cover" />
           ) : (
             "?"
           )}
         </button>
         <div>
           <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-            {isUploading ? "Envoi..." : "Changer la photo"}
+            {isUploading ? t("uploading") : t("changePhoto")}
           </Button>
-          <p className="mt-1 text-xs text-muted-foreground">JPG ou PNG, 2 Mo maximum.</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("imageHelp")}</p>
         </div>
         <input
           ref={fileInputRef}
@@ -126,24 +128,24 @@ export function ProfileForm({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted-foreground">Ton nom</span>
+          <span className="text-muted-foreground">{t("profileName")}</span>
           <input
             type="text"
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
             maxLength={40}
-            placeholder="Ex : Ibrahim"
+            placeholder={t("namePlaceholder")}
             className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           />
           <span className="text-xs text-muted-foreground">
-            Utilisé pour t&apos;accueillir sur le Dashboard, dans le menu, et par Falco quand il te parle.
+            {t("nameHelp")}
           </span>
         </label>
 
         {error && <p className="text-sm text-state-critical">{error}</p>}
 
         <Button type="submit" disabled={isPending} className="self-start">
-          {isPending ? "Enregistrement..." : "Enregistrer"}
+          {isPending ? t("saving") : t("save")}
         </Button>
       </form>
     </div>

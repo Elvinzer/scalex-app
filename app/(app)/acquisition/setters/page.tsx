@@ -1,4 +1,5 @@
 import { AgentBanner } from "@/components/agent-banner";
+import { getTranslations } from "next-intl/server";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
@@ -11,6 +12,7 @@ import { AddSetterDialog } from "./add-setter-dialog";
 import { SetterCard } from "./setter-card";
 
 export default async function SettersPage() {
+  const t = await getTranslations("app.setters");
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:setters");
 
@@ -24,8 +26,8 @@ export default async function SettersPage() {
   return (
     <div className="flex flex-col gap-8">
       <AgentBanner
-        stateText="Tes setters et leurs commissions, calculées depuis tes vraies ventes."
-        ctaLabel="Améliorer →"
+        stateText={t("agentState")}
+        ctaLabel={t("improve")}
         chatContext={chatContext}
         mode="optimiser"
         falcoSkin={falcoSkin}
@@ -33,15 +35,15 @@ export default async function SettersPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Setters</h1>
-          <p className="mt-1 text-muted-foreground">Commissions payées et à venir, calculées depuis Suivi des ventes.</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
         </div>
         <AddSetterDialog />
       </div>
 
       {setters.length === 0 ? (
-        <FalcoEmptyState title="Aucun setter pour l'instant" showFalco={false}>
-          <p className="text-sm font-bold text-muted-foreground">Ajoute ton premier setter pour suivre ses commissions.</p>
+        <FalcoEmptyState title={t("emptyTitle")} showFalco={false}>
+          <p className="text-sm font-bold text-muted-foreground">{t("emptyHelp")}</p>
         </FalcoEmptyState>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

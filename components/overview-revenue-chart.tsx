@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "motion/react";
+import { useTranslations } from "next-intl";
 import { defineChart, dot, lineY, ruleY, text as textMark } from "@tanstack/charts";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { Chart } from "@tanstack/react-charts";
@@ -26,13 +27,6 @@ export const METRIC_TOGGLE_LABELS: Record<OverviewMetricOption, string> = {
   ventes: "Ventes",
 };
 
-const METRIC_CHART_TITLE: Record<OverviewMetricOption, string> = {
-  ca: "CA encaissé",
-  leads: "Leads générés",
-  rdv: "RDV réservés",
-  ventes: "Ventes conclues",
-};
-
 export type ChartPoint = { label: string; value: number | null };
 
 // TanStack Charts line chart + segmented metric toggle + optional objective
@@ -50,6 +44,22 @@ export function OverviewRevenueChart({
   onSelectMetric: (metric: OverviewMetricOption) => void;
   goalValue: number | null;
 }) {
+  const t = useTranslations("dashboard.chart");
+  const metricToggleLabels: Record<OverviewMetricOption, string> = {
+    ca: t("toggle.ca"),
+    leads: t("toggle.leads"),
+    rdv: t("toggle.rdv"),
+    ventes: t("toggle.ventes"),
+  };
+  const metricChartTitle = useMemo<Record<OverviewMetricOption, string>>(
+    () => ({
+      ca: t("title.ca"),
+      leads: t("title.leads"),
+      rdv: t("title.rdv"),
+      ventes: t("title.ventes"),
+    }),
+    [t],
+  );
   const data = series[selectedMetric];
   const isMoney = selectedMetric === "ca";
   const format = isMoney ? formatChartEur : formatChartNumber;
@@ -139,10 +149,10 @@ export function OverviewRevenueChart({
         items: [
           {
             channel: "y",
-            label: METRIC_CHART_TITLE[selectedMetric],
+            label: metricChartTitle[selectedMetric],
             text: (point) => (point.yValue === null || point.yValue === undefined ? "—" : format(point.yValue as number)),
           },
-          { channel: "x", label: "Mois" },
+          { channel: "x", label: t("month") },
         ],
       },
       // A month with no data must show as a real gap, never an invented
@@ -151,12 +161,12 @@ export function OverviewRevenueChart({
       // default equivalent).
       animate: { duration: 420, easing: "ease-out" },
     });
-  }, [data, isMoney, goalValue, lastPoint, format, selectedMetric]);
+  }, [data, isMoney, goalValue, lastPoint, format, metricChartTitle, selectedMetric, t]);
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-bold">{METRIC_CHART_TITLE[selectedMetric]}</p>
+        <p className="text-sm font-bold">{metricChartTitle[selectedMetric]}</p>
         <div className="flex gap-1 rounded-full border border-border p-1">
           {(Object.keys(METRIC_TOGGLE_LABELS) as OverviewMetricOption[]).map((key) => (
             <button
@@ -170,7 +180,7 @@ export function OverviewRevenueChart({
                 key === selectedMetric ? "bg-accent-soft text-accent-text" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {METRIC_TOGGLE_LABELS[key]}
+              {metricToggleLabels[key]}
             </button>
           ))}
         </div>
@@ -186,7 +196,7 @@ export function OverviewRevenueChart({
           definition={definition}
           height={280}
           initialWidth={760}
-          ariaLabel={`${METRIC_CHART_TITLE[selectedMetric]} — évolution mensuelle`}
+          ariaLabel={`${metricChartTitle[selectedMetric]} — ${t("monthlyTrend")}`}
         />
       </motion.div>
     </div>

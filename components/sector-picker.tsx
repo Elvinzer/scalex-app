@@ -1,11 +1,13 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useTransition } from "react";
 
 import { SECTOR_KEYS, SECTOR_LABELS, type SectorKey } from "@/lib/benchmarks";
 import { updateSector } from "@/lib/user-actions";
 
 export function SectorPicker({ sector }: { sector: SectorKey | null }) {
+  const t = useTranslations("common");
   const [isPending, startTransition] = useTransition();
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
@@ -17,17 +19,17 @@ export function SectorPicker({ sector }: { sector: SectorKey | null }) {
 
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="font-bold text-muted-foreground">Ton secteur</span>
+      <span className="font-bold text-muted-foreground">{t("shared.yourSector")}</span>
       <select
         defaultValue={sector ?? ""}
         onChange={handleChange}
         disabled={isPending}
         className="rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-60"
       >
-        <option value="">Non renseigné (repère global)</option>
+        <option value="">{t("shared.sectorNotSet")}</option>
         {SECTOR_KEYS.map((key) => (
           <option key={key} value={key}>
-            {SECTOR_LABELS[key]}
+            {t(`sector.${key}`) || SECTOR_LABELS[key]}
           </option>
         ))}
       </select>

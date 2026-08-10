@@ -1,19 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition, type KeyboardEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import type { SalesCallRow } from "@/lib/iclosed/calls";
 
 import { setCallAmounts, setCallDecisionDue, setCallResult } from "./actions";
 
 export type Result = "no_show" | "not_closed" | "awaiting_decision" | "closed";
-
-export const RESULT_LABEL: Record<Result, string> = {
-  no_show: "No-show",
-  not_closed: "Non closé",
-  awaiting_decision: "Attente décision",
-  closed: "Closé",
-};
 
 // Trigger tint per outcome — reuses the existing DA state tokens. "Attente
 // décision" stays neutral on purpose (caution/unknown/healthy are already
@@ -45,12 +39,12 @@ function startOfDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-export function decisionUrgency(iso: string): { tone: Tone; label: string } {
+export function decisionUrgency(iso: string): { tone: Tone; days: number } {
   const days = Math.round((startOfDay(new Date(iso)) - startOfDay(new Date())) / 86_400_000);
-  if (days < 0) return { tone: "critical", label: `En retard de ${-days} j` };
-  if (days === 0) return { tone: "critical", label: "Aujourd'hui" };
-  if (days <= 3) return { tone: "caution", label: `dans ${days} j` };
-  return { tone: "healthy", label: `dans ${days} j` };
+  if (days < 0) return { tone: "critical", days };
+  if (days === 0) return { tone: "critical", days };
+  if (days <= 3) return { tone: "caution", days };
+  return { tone: "healthy", days };
 }
 
 export const TONE_TEXT: Record<Tone, string> = {
@@ -162,6 +156,7 @@ export function useCallOutcome(call: SalesCallRow | null) {
 }
 
 export function CallResultSelect({ result, onChange }: { result: Result | null; onChange: (next: Result | "") => void }) {
+  const t = useTranslations("app.calls");
   return (
     <select
       aria-label="Issue de l'appel"
@@ -172,11 +167,11 @@ export function CallResultSelect({ result, onChange }: { result: Result | null; 
       }`}
     >
       <option value="" disabled>
-        À traiter…
+        {t("toProcess")}
       </option>
       {RESULT_ORDER.map((value) => (
         <option key={value} value={value}>
-          {RESULT_LABEL[value]}
+          {t(`result.${value}`)}
         </option>
       ))}
     </select>

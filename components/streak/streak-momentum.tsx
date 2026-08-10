@@ -2,6 +2,7 @@
 
 import { Flame } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { Celebration } from "@/components/celebration";
 import { StreakModal } from "@/components/streak/streak-modal";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 // objectif, activités de la semaine. Any fourth number turns this into the
 // dashboard it is explicitly not supposed to be.
 export function StreakMomentum({ snapshot }: { snapshot: StreakSnapshot }) {
+  const t = useTranslations("common.streak");
   const [open, setOpen] = useState(false);
   const lit = snapshot.current > 0;
   const progressPercent = Math.min(100, Math.round((snapshot.weeklyDone / snapshot.weeklyGoal) * 100));
@@ -25,22 +27,22 @@ export function StreakMomentum({ snapshot }: { snapshot: StreakSnapshot }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Ouvrir le détail de ta série"
+        aria-label={t("openDetails")}
         className="sticker-card flex w-full cursor-pointer flex-wrap items-center gap-x-6 gap-y-3 p-5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <div className="flex items-center gap-3">
           <Flame className={cn("size-6 shrink-0", lit ? "text-accent" : "text-muted-foreground/50")} aria-hidden="true" />
           <div>
             <p className="font-display text-2xl font-bold tabular-nums">
-              {snapshot.current} jour{snapshot.current > 1 ? "s" : ""}
+              {t("days", { count: snapshot.current })}
             </p>
-            <p className="text-xs text-muted-foreground">Série en cours</p>
+            <p className="text-xs text-muted-foreground">{t("currentStreak")}</p>
           </div>
         </div>
 
         <div className="min-w-[180px] flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-xs text-muted-foreground">Objectif de la semaine</p>
+            <p className="text-xs text-muted-foreground">{t("weeklyGoal")}</p>
             <p className="text-sm font-bold tabular-nums">
               {snapshot.weeklyDone}/{snapshot.weeklyGoal}
             </p>
@@ -53,10 +55,10 @@ export function StreakMomentum({ snapshot }: { snapshot: StreakSnapshot }) {
           </div>
           <p className="mt-1.5 text-xs text-muted-foreground">
             {snapshot.weeklyGoalMet
-              ? "Atteint — ta série est protégée jusqu'à dimanche."
+              ? t("goalMet")
               : snapshot.todayValidated
-                ? "Journée validée."
-                : "Une seule action suffit à valider aujourd'hui."}
+                ? t("todayValidated")
+                : t("oneAction")}
           </p>
         </div>
       </button>

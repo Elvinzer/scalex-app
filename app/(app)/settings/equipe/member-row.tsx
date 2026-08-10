@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -16,6 +17,7 @@ type Member = {
 };
 
 export function MemberRow({ member, roles, statusLabel }: { member: Member; roles: RoleOption[]; statusLabel: string }) {
+  const t = useTranslations("settings.team");
   const [open, setOpen] = useState(false);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(member.roles.map((role) => role.id));
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export function MemberRow({ member, roles, statusLabel }: { member: Member; role
   }
 
   function handleRemove() {
-    if (!confirm(`Retirer ${member.email} de l'équipe ?`)) return;
+    if (!confirm(t("removeConfirm", { email: member.email }))) return;
     startTransition(async () => {
       await removeMember(member.id);
     });
@@ -65,11 +67,11 @@ export function MemberRow({ member, roles, statusLabel }: { member: Member; role
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button type="button" variant="outline" size="sm">
-                Rôles
+                {t("roles")}
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogTitle className="text-lg font-bold">Rôles de {member.email}</DialogTitle>
+              <DialogTitle className="text-lg font-bold">{t("memberRoles", { email: member.email })}</DialogTitle>
               <div className="mt-4 flex flex-wrap gap-2">
                 {roles.map((role) => {
                   const active = selectedRoleIds.includes(role.id);
@@ -91,12 +93,12 @@ export function MemberRow({ member, roles, statusLabel }: { member: Member; role
               </div>
               {error && <p className="mt-3 text-sm text-state-critical">{error}</p>}
               <Button type="button" disabled={isPending} onClick={handleSave} className="mt-4 self-start">
-                {isPending ? "Enregistrement..." : "Enregistrer"}
+                {isPending ? t("saving") : t("save")}
               </Button>
             </DialogContent>
           </Dialog>
           <Button type="button" variant="destructive" size="sm" disabled={isPending} onClick={handleRemove}>
-            Retirer
+            {t("remove")}
           </Button>
         </div>
       </td>

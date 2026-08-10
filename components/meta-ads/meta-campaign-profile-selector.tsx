@@ -2,22 +2,11 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { setMetaCampaignProfile } from "@/app/(app)/acquisition/ads/meta-actions";
 import { Button } from "@/components/ui/button";
 import { campaignTypeNeedsConversionGoal, META_CAMPAIGN_TYPES, META_CONVERSION_GOALS, type MetaCampaignType, type MetaConversionGoal } from "@/lib/meta-ads/types";
-
-const labels: Record<MetaCampaignType, string> = {
-  vsl: "VSL",
-  webinar: "Webinaire",
-  instagram_profile_growth: "Trafic Instagram",
-  retargeting: "Retargeting",
-};
-
-const conversionGoalLabels: Record<MetaConversionGoal, string> = {
-  call: "Appel",
-  sale: "Vente",
-};
 
 export function MetaCampaignProfileSelector({
   campaignId,
@@ -32,6 +21,7 @@ export function MetaCampaignProfileSelector({
   metaObjective: string | null;
   typeSource: string;
 }) {
+  const t = useTranslations("app.ads.profile");
   const router = useRouter();
   const initialType = campaignType ?? "";
   const initialGoal = conversionGoal ?? "";
@@ -67,7 +57,7 @@ export function MetaCampaignProfileSelector({
       } else {
         setSavedValue(value);
         setSavedGoal(nextGoal ?? "");
-        setMessage("Configuration enregistrée.");
+        setMessage(t("saved"));
         router.refresh();
       }
     });
@@ -77,6 +67,7 @@ export function MetaCampaignProfileSelector({
     <form className="sticker-card p-5" onSubmit={save}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+<<<<<<< HEAD
           <p className="font-bold">Type de campagne</p>
           <p className="mt-1 text-xs text-muted-foreground">Utilisé pour adapter le funnel et les insights Scale X.</p>
           {metaObjective && (
@@ -85,15 +76,22 @@ export function MetaCampaignProfileSelector({
               <span className="mt-1 block">{metaObjective}</span>
             </details>
           )}
+=======
+          <p className="font-bold">{t("title")}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            {t("description")}
+          </p>
+          {metaObjective && <p className="mt-2 text-xs text-muted-foreground">{t("technicalObjective")} <span className="font-bold">{metaObjective}</span></p>}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
         </div>
         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isComplete && !isDirty ? "bg-state-healthy-bg text-state-healthy" : "bg-state-caution/10 text-state-caution"}`}>
-          {isComplete && !isDirty ? "Configurée" : "Configuration requise"}
+          {isComplete && !isDirty ? t("configured") : t("required")}
         </span>
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-2 text-sm font-bold" htmlFor="meta-campaign-type">
-          Type de campagne
+          {t("campaignType")}
           <select
             id="meta-campaign-type"
             value={value}
@@ -101,14 +99,14 @@ export function MetaCampaignProfileSelector({
             onChange={(event) => updateType(META_CAMPAIGN_TYPES.find((type) => type === event.target.value) ?? "")}
             className="h-10 rounded-[var(--radius-control)] border border-border bg-card px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           >
-            <option value="">Choisir un type</option>
-            {META_CAMPAIGN_TYPES.map((type) => <option key={type} value={type}>{labels[type]}</option>)}
+            <option value="">{t("chooseType")}</option>
+            {META_CAMPAIGN_TYPES.map((type) => <option key={type} value={type}>{t(type === "instagram_profile_growth" ? "instagramGrowth" : type)}</option>)}
           </select>
         </label>
 
         {needsGoal ? (
           <label className="flex flex-col gap-2 text-sm font-bold" htmlFor="meta-conversion-goal">
-            Objectif de conversion
+            {t("conversionGoal")}
             <select
               id="meta-conversion-goal"
               value={goal}
@@ -119,18 +117,19 @@ export function MetaCampaignProfileSelector({
               }}
               className="h-10 rounded-[var(--radius-control)] border border-border bg-card px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             >
-              <option value="">Choisir un objectif</option>
-              {META_CONVERSION_GOALS.map((candidate) => <option key={candidate} value={candidate}>{conversionGoalLabels[candidate]}</option>)}
+              <option value="">{t("chooseGoal")}</option>
+              {META_CONVERSION_GOALS.map((candidate) => <option key={candidate} value={candidate}>{t(candidate)}</option>)}
             </select>
-            <span className="text-xs font-normal text-muted-foreground">Ce choix est demandé pour distinguer la lecture d’un appel de celle d’une vente.</span>
+            <span className="text-xs font-normal text-muted-foreground">{t("goalHelp")}</span>
           </label>
         ) : (
           <div className="flex min-h-10 flex-col justify-center rounded-[var(--radius-control)] border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-            {value === "" ? "Choisis d’abord un type pour voir les réglages spécifiques." : "Aucun objectif de conversion supplémentaire n’est requis pour ce type."}
+            {value === "" ? t("chooseTypeHelp") : t("noGoalHelp")}
           </div>
         )}
       </div>
 
+<<<<<<< HEAD
       {typeSource === "pending" && <p className="mt-4 text-xs font-bold text-state-caution">Enregistre un type pour activer le funnel adapté.</p>}
       {error && <p className="mt-4 text-sm font-bold text-state-critical" role="alert">{error}</p>}
       {message && <p className="mt-4 text-sm font-bold text-state-healthy" role="status">{message}</p>}
@@ -138,6 +137,15 @@ export function MetaCampaignProfileSelector({
         <p className="text-xs text-muted-foreground">Ce choix ne modifie rien dans Meta Ads.</p>
         <Button type="submit" disabled={isPending || !isComplete || !isDirty}>
           {isPending ? "Enregistrement…" : "Enregistrer"}
+=======
+      {typeSource === "pending" && <p className="mt-4 text-xs font-bold text-state-caution">{t("pendingHelp")}</p>}
+      {error && <p className="mt-4 text-sm font-bold text-state-critical" role="alert">{error}</p>}
+      {message && <p className="mt-4 text-sm font-bold text-state-healthy" role="status">{message}</p>}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">{t("laterHelp")}</p>
+        <Button type="submit" disabled={isPending || !isComplete || !isDirty}>
+          {isPending ? t("saving") : t("save")}
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
         </Button>
       </div>
     </form>

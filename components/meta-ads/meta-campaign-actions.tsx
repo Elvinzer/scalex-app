@@ -1,6 +1,7 @@
 "use client";
 
 import { ExternalLink, Pause, Play, Save, ShieldAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { z } from "zod";
 
@@ -32,20 +33,8 @@ type Props = {
   returnTo?: string;
 };
 
-function actionLabel(actionType: ActionType): string {
-  if (actionType === "pause") return "Mettre en pause";
-  if (actionType === "resume") return "Réactiver";
-  return "Modifier le budget quotidien";
-}
-
-function statusLabel(status: string | null): string {
-  if (status === "ACTIVE") return "Active";
-  if (status === "PAUSED") return "En pause";
-  if (status === "ARCHIVED") return "Archivée";
-  return status ?? "inconnu";
-}
-
 export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasWriteAccess, accountLabel, deepLink: campaignDeepLink, returnTo }: Props) {
+  const t = useTranslations("app.ads.actions");
   const [budget, setBudget] = useState(dailyBudgetCents === null ? "" : String(Math.round(dailyBudgetCents / 100)));
   const storageKey = `scale-x-meta-action:${campaignId}`;
   const [proposal, setProposal] = useState<Proposal | null>(() => {
@@ -75,11 +64,11 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
     setMessage(null);
     setDeepLink(null);
     if (isArchived && actionType === "resume") {
-      setMessage("Cette campagne est archivée dans Meta Ads. Ouvre Meta pour décider de la suite.");
+      setMessage(t("archiveMessage"));
       return;
     }
     if (actionType === "set_daily_budget" && (!value || value < 1)) {
-      setMessage("Renseigne un budget quotidien supérieur à 0 €.");
+      setMessage(t("budgetError"));
       return;
     }
     const nextProposal = { actionType, dailyBudgetCents: actionType === "set_daily_budget" && value ? Math.round(value * 100) : undefined, idempotencyKey: crypto.randomUUID() };
@@ -94,10 +83,10 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
   function confirmProposal() {
     if (!proposal) return;
     if (!hasWriteAccess || writeAccessRequired) {
-      setMessage("Autorise ads_management pour continuer. La proposition est conservée sur cet appareil.");
+      setMessage(t("permissionError"));
       return;
     }
-    if (proposal.actionType === "pause" && !window.confirm("Cette action va interrompre la diffusion de la campagne dans Meta Ads. Confirmer la mise en pause ?")) return;
+    if (proposal.actionType === "pause" && !window.confirm(t("pauseConfirm"))) return;
     const action = proposal;
     setMessage(null);
     setDeepLink(null);
@@ -122,11 +111,11 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
         }
       }
       if (result.needsWriteAccess) {
-        setMessage("Permission d’écriture requise. Aucune modification n’a été tentée.");
+        setMessage(t("permissionRequired"));
       } else if (result.error) {
         setMessage(result.error);
       } else {
-        setMessage("Action vérifiée dans Meta Ads.");
+        setMessage(t("verified"));
         setProposal(null);
         try {
           window.sessionStorage.removeItem(storageKey);
@@ -141,23 +130,25 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
     ? ((proposal.dailyBudgetCents - dailyBudgetCents) / dailyBudgetCents) * 100
     : null;
   const writeAccessUnavailable = !hasWriteAccess || writeAccessRequired;
+  const actionLabel = proposal?.actionType === "pause" ? t("pause") : proposal?.actionType === "resume" ? t("resume") : t("budget");
+  const statusText = status === "ACTIVE" ? t("active") : status === "PAUSED" ? t("paused") : status === "ARCHIVED" ? t("archivedStatus") : status ?? t("unknown");
 
   return (
     <div className="sticker-card p-6">
       <div>
-        <p className="font-bold">Actions contrôlées</p>
-        <p className="mt-1 text-sm text-muted-foreground">Chaque action suit proposition → confirmation → relecture de l’état dans Meta. Les changements de ciblage et de créatif restent dans Meta Ads.</p>
+        <p className="font-bold">{t("title")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
       </div>
       {!proposal && !hasWriteAccess && (
-        <p className="mt-4 text-sm text-muted-foreground">Les actions directes demanderont une autorisation séparée au moment de confirmer une proposition. La lecture Meta reste active.</p>
+        <p className="mt-4 text-sm text-muted-foreground">{t("permissionHelp")}</p>
       )}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="outline" onClick={() => propose(isPaused ? "resume" : "pause")} disabled={isPending || isArchived}>
           {isPaused ? <Play className="size-4" /> : <Pause className="size-4" />}
-          {isArchived ? "Campagne archivée" : isPaused ? "Proposer la reprise" : "Proposer la pause"}
+          {isArchived ? t("archived") : isPaused ? t("proposeResume") : t("proposePause")}
         </Button>
         <div className="flex items-center gap-2">
-          <label htmlFor="meta-daily-budget" className="sr-only">Budget quotidien en euros</label>
+          <label htmlFor="meta-daily-budget" className="sr-only">{t("budgetLabel")}</label>
           <input
             id="meta-daily-budget"
             inputMode="decimal"
@@ -167,11 +158,11 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
             value={budget}
             onChange={(event) => setBudget(event.target.value)}
             className="h-9 w-28 rounded-[var(--radius-control)] border border-border bg-card px-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
-            placeholder="Budget / jour"
+            placeholder={t("budgetPlaceholder")}
           />
           <Button variant="outline" onClick={() => propose("set_daily_budget", Number(budget))} disabled={isPending}>
             <Save className="size-4" />
-            Proposer le budget
+            {t("proposeBudget")}
           </Button>
         </div>
       </div>
@@ -180,34 +171,34 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-0.5 size-5 shrink-0 text-accent-2" />
             <div className="min-w-0 flex-1">
-              <p id="meta-action-proposal-title" className="font-bold">Proposition : {actionLabel(proposal.actionType)}</p>
+              <p id="meta-action-proposal-title" className="font-bold">{t("proposal", { action: actionLabel })}</p>
               <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-                <div><dt className="text-xs text-muted-foreground">État actuel</dt><dd className="font-bold">{statusLabel(status)}{dailyBudgetCents !== null ? ` · ${Math.round(dailyBudgetCents / 100)} €/jour` : ""}</dd></div>
-                <div><dt className="text-xs text-muted-foreground">Nouvelle valeur</dt><dd className="font-bold">{proposal.actionType === "pause" ? "PAUSED" : proposal.actionType === "resume" ? "ACTIVE" : `${Math.round((proposal.dailyBudgetCents ?? 0) / 100)} €/jour`}</dd></div>
-                <div><dt className="text-xs text-muted-foreground">Variation budget</dt><dd className="font-bold">{proposal.actionType === "set_daily_budget" ? (variation === null ? "Base inconnue" : `${variation >= 0 ? "+" : ""}${variation.toFixed(0)} %`) : "—"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">{t("currentState")}</dt><dd className="font-bold">{statusText}{dailyBudgetCents !== null ? ` · ${Math.round(dailyBudgetCents / 100)} €/jour` : ""}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">{t("newValue")}</dt><dd className="font-bold">{proposal.actionType === "pause" ? "PAUSED" : proposal.actionType === "resume" ? "ACTIVE" : `${Math.round((proposal.dailyBudgetCents ?? 0) / 100)} €/jour`}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">{t("budgetVariation")}</dt><dd className="font-bold">{proposal.actionType === "set_daily_budget" ? (variation === null ? t("unknownBase") : `${variation >= 0 ? "+" : ""}${variation.toFixed(0)} %`) : "—"}</dd></div>
               </dl>
               <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
-                <div><dt className="font-bold text-muted-foreground">Justification</dt><dd>Demande explicite de pilotage depuis Scale X.</dd></div>
-                <div><dt className="font-bold text-muted-foreground">Impact potentiel</dt><dd>{proposal.actionType === "pause" ? "La diffusion et la dépense s’arrêtent après validation Meta." : proposal.actionType === "resume" ? "La campagne peut recommencer à diffuser selon les règles Meta." : "La cadence de dépense quotidienne est ajustée à la valeur demandée."}</dd></div>
-                <div><dt className="font-bold text-muted-foreground">Risque</dt><dd>{proposal.actionType === "pause" ? "Perdre du volume pendant l’interruption." : proposal.actionType === "resume" ? "Relancer une dépense avant une nouvelle lecture de performance." : "Dépenser plus ou moins chaque jour dans la limite Scale X."}</dd></div>
+                <div><dt className="font-bold text-muted-foreground">{t("justification")}</dt><dd>{t("justificationText")}</dd></div>
+                <div><dt className="font-bold text-muted-foreground">{t("impact")}</dt><dd>{proposal.actionType === "pause" ? t("pauseImpact") : proposal.actionType === "resume" ? t("resumeImpact") : t("budgetImpact")}</dd></div>
+                <div><dt className="font-bold text-muted-foreground">{t("risk")}</dt><dd>{proposal.actionType === "pause" ? t("pauseRisk") : proposal.actionType === "resume" ? t("resumeRisk") : t("budgetRisk")}</dd></div>
               </dl>
               <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-                <span className="text-muted-foreground">La valeur sera relue dans Meta juste avant l’écriture ; toute divergence arrête l’action.</span>
-                {campaignDeepLink && <a href={campaignDeepLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline">Ouvrir dans Meta Ads <ExternalLink className="size-3.5" /></a>}
+                <span className="text-muted-foreground">{t("reread")}</span>
+                {campaignDeepLink && <a href={campaignDeepLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold underline-offset-4 hover:underline">{t("openMeta")} <ExternalLink className="size-3.5" /></a>}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {writeAccessUnavailable ? (
                   <MetaAdsConsentDialog
                     mode="write"
                     href={writeAccessHref}
-                    accountLabel={accountLabel ?? "compte publicitaire sélectionné"}
-                    triggerLabel="Autoriser puis reprendre"
+                    accountLabel={accountLabel ?? t("unknown")}
+                    triggerLabel={t("authorizeResume")}
                     triggerVariant="accent2"
                   />
                 ) : (
-                  <Button variant="accent2" onClick={confirmProposal} disabled={isPending}>{isPending ? "Vérification…" : "Confirmer et appliquer"}</Button>
+                  <Button variant="accent2" onClick={confirmProposal} disabled={isPending}>{isPending ? t("checking") : t("confirmApply")}</Button>
                 )}
-                <Button variant="outline" onClick={() => setProposal(null)} disabled={isPending}>Annuler</Button>
+                <Button variant="outline" onClick={() => setProposal(null)} disabled={isPending}>{t("cancel")}</Button>
               </div>
             </div>
           </div>
@@ -216,7 +207,7 @@ export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasW
       {message && <p className="mt-3 text-sm font-bold text-muted-foreground" role="status">{message}</p>}
       {deepLink && (
         <a href={deepLink} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-bold underline-offset-4 hover:underline">
-          Ouvrir dans Meta Ads <ExternalLink className="size-4" />
+          {t("openMeta")} <ExternalLink className="size-4" />
         </a>
       )}
     </div>

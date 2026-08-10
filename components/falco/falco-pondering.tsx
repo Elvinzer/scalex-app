@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 import { Falco, type FalcoPose, type FalcoSize } from "./falco";
 
@@ -11,7 +12,7 @@ export function FalcoPondering({
   isLoading,
   pose = "thinking",
   size = "xs",
-  label = "Falco réfléchit…",
+  label,
   className,
 }: {
   isLoading: boolean;
@@ -20,17 +21,19 @@ export function FalcoPondering({
   label?: string;
   className?: string;
 }) {
+  const t = useTranslations("common.shared");
+  const displayLabel = label ?? t("falcoThinking");
   if (!isLoading) return null;
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <Falco pose={pose} size={size} />
-      <span className="inline-flex items-center gap-1" role="status" aria-label={label}>
+      <span className="inline-flex items-center gap-1" role="status" aria-label={displayLabel}>
         <span aria-hidden className="falco-pondering-dot size-1.5 rounded-full bg-muted-foreground" />
         <span aria-hidden className="falco-pondering-dot size-1.5 rounded-full bg-muted-foreground" />
         <span aria-hidden className="falco-pondering-dot size-1.5 rounded-full bg-muted-foreground" />
       </span>
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-muted-foreground">{displayLabel}</span>
     </div>
   );
 }

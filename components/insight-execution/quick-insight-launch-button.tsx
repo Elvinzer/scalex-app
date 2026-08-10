@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { launchInsight, materializeInsight } from "@/lib/insight-execution/actio
 import type { InsightSourceType } from "@/lib/insight-execution/types";
 
 export function QuickInsightLaunchButton({ sourceType, sourceId }: { sourceType: Exclude<InsightSourceType, "copilote">; sourceId: string }) {
+  const t = useTranslations("app.insights");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,7 @@ export function QuickInsightLaunchButton({ sourceType, sourceId }: { sourceType:
     startTransition(async () => {
       const materialized = await materializeInsight({ sourceType, sourceId });
       if (materialized.error || !materialized.insightId) {
-        setError(materialized.error ?? "Cette recommandation n'est plus disponible.");
+        setError(materialized.error ?? t("actionFailed"));
         return;
       }
       const launched = await launchInsight({
@@ -38,7 +40,7 @@ export function QuickInsightLaunchButton({ sourceType, sourceId }: { sourceType:
   return (
     <div className="flex flex-wrap items-start gap-2">
       <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={handleLaunch}>
-        {isPending ? "Lancement..." : "Je lance cette action"}
+        {isPending ? t("launching") : t("launch")}
       </Button>
       {error && <span className="max-w-xs text-xs text-state-critical" role="alert">{error}</span>}
     </div>

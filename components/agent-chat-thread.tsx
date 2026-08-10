@@ -1,6 +1,7 @@
 "use client";
 
 import { Send } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -124,6 +125,7 @@ async function streamChat(
   onToken: (token: string) => void,
   onUsage: (usage: ChatUsage) => void,
   onInsightEvent: (event: FalcoInsightEvent) => void,
+  t: (key: string) => string,
 ): Promise<{ error: string | null }> {
   const controller = new AbortController();
   const connectTimeoutId = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
@@ -138,16 +140,16 @@ async function streamChat(
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      return { error: "La connexion à l'IA a expiré. Réessaie." };
+      return { error: t("connectionTimeout") };
     }
-    return { error: "Impossible de joindre le serveur. Vérifie ta connexion et réessaie." };
+    return { error: t("serverUnavailable") };
   } finally {
     clearTimeout(connectTimeoutId);
   }
 
   if (!response.ok || !response.body) {
     const data = await response.json().catch(() => null);
-    return { error: data?.error ?? "L'IA n'a pas pu répondre. Réessaie dans un instant." };
+    return { error: data?.error ?? t("aiUnavailable") };
   }
 
   const reader = response.body.getReader();
@@ -190,7 +192,7 @@ async function streamChat(
     }
   } catch {
     void reader.cancel().catch(() => {});
-    return { error: "La génération s'est interrompue. Réessaie." };
+    return { error: t("generationInterrupted") };
   }
 
   return { error: null };
@@ -248,6 +250,8 @@ export const AgentChatThread = forwardRef<
   { context, followupKey, period, mode = null, falcoSkin, conversationId: explicitConversationId, conversationTitle: explicitConversationTitle, onConversationChange, onInsightChange, seedQuestion, onEngaged },
   ref
 ) {
+  const locale = useLocale();
+  const t = useTranslations("app.copilote.chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -370,6 +374,7 @@ export const AgentChatThread = forwardRef<
             return next;
           });
         },
+        t,
       );
 
       if (result.error) {
@@ -390,7 +395,7 @@ export const AgentChatThread = forwardRef<
       // isStreaming stuck true forever (the classic missing-finally bug).
       setMessages((prev) => {
         const next = [...prev];
-        next[next.length - 1] = { role: "assistant", content: "Une erreur inattendue s'est produite. Réessaie.", isError: true };
+        next[next.length - 1] = { role: "assistant", content: t("unexpectedError"), isError: true };
         return next;
       });
       setFailedHistory(history);
@@ -510,7 +515,7 @@ export const AgentChatThread = forwardRef<
                   )}
                   {message.isError && index === messages.length - 1 && !isStreaming && (
                     <Button size="sm" variant="outline" className="min-h-11" onClick={retry}>
-                      Réessayer
+                      {t("retry")}
                     </Button>
                   )}
                 </div>
@@ -534,16 +539,16 @@ export const AgentChatThread = forwardRef<
 
       {limitReached && (
         <div className="mx-4 mb-3 flex items-center justify-between gap-3 rounded-[var(--radius-card)] bg-accent-2-soft px-4 py-3 text-sm">
-          <p className="font-bold text-accent-2-text">On a bien avancé. Mets en place et reviens avec tes chiffres.</p>
+          <p className="font-bold text-accent-2-text">{t("progress")}</p>
           <Button size="sm" variant="outline" onClick={() => void handleNewConversation()}>
-            Recommencer à zéro
+            {t("restart")}
           </Button>
         </div>
       )}
 
       {usage && (
         <p className="border-t border-border px-4 py-2 text-right text-[11px] text-muted-foreground">
-          Conso de cette session · {usage.inputTokens.toLocaleString("fr-FR")} tokens entrants · {usage.outputTokens.toLocaleString("fr-FR")} sortants
+          {t("usage", { input: usage.inputTokens.toLocaleString(locale), output: usage.outputTokens.toLocaleString(locale) })}
         </p>
       )}
 
@@ -555,14 +560,14 @@ export const AgentChatThread = forwardRef<
           value={input}
           onChange={(event) => setInput(event.target.value)}
           disabled={isStreaming || limitReached}
-          placeholder={limitReached ? "Limite de messages atteinte" : "Écris ton message..."}
+          placeholder={limitReached ? t("limitReached") : t("placeholder")}
           className="min-h-11 flex-1 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12 disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={isStreaming || limitReached || input.trim().length === 0}
           className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-2 text-white transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-2-hover motion-reduce:transition-none disabled:opacity-50"
-          aria-label="Envoyer le message"
+          aria-label={t("send")}
         >
           <Send className="size-4" />
         </button>

@@ -1,10 +1,10 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { formatEur } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 export type FailedPaymentItem = {
@@ -17,6 +17,8 @@ export type FailedPaymentItem = {
 };
 
 export function FailedPaymentsPanel({ items, className }: { items: FailedPaymentItem[]; className?: string }) {
+  const locale = useLocale();
+  const t = useTranslations("sales");
   const [retried, setRetried] = useState<Set<string>>(new Set());
   if (items.length === 0) return null;
 
@@ -28,13 +30,13 @@ export function FailedPaymentsPanel({ items, className }: { items: FailedPayment
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-accent-border px-5 py-4">
         <div>
           <h2 id="failed-payments-title" className="text-base font-bold">
-            {items.length} paiement{items.length > 1 ? "s" : ""} Stripe échoué{items.length > 1 ? "s" : ""}
+            {t("failedPaymentsTitle", { count: items.length, plural: items.length > 1 ? "s" : "" })}
           </h2>
-          <p className="mt-1 text-sm text-accent-text">{formatEur(items.reduce((sum, item) => sum + item.amount, 0))} contractés jamais encaissés.</p>
+          <p className="mt-1 text-sm text-accent-text">{new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(items.reduce((sum, item) => sum + item.amount, 0))} {t("failedPaymentsSubtitle")}</p>
         </div>
         <Button type="button" onClick={() => items.forEach((item) => retry(item.id))} disabled={allRetried}>
           <RotateCcw className="size-4" />
-          {allRetried ? "Relances envoyées" : "Tout relancer"}
+          {allRetried ? t("followUpsSent") : t("followUpAll")}
         </Button>
       </div>
       <div className="divide-y divide-accent-border/70 bg-card">
@@ -43,14 +45,14 @@ export function FailedPaymentsPanel({ items, className }: { items: FailedPayment
           return (
             <div key={item.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold">{item.client} · {formatEur(item.amount)} dus</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{item.reason} · échéance du {item.dueDate} · {item.attempts} tentative{item.attempts > 1 ? "s" : ""}</p>
+                <p className="text-sm font-bold">{item.client} · {new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.amount)} {t("due")}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{item.reason} · {t("dueDate", { date: item.dueDate })} · {item.attempts} {t("attempts", { plural: item.attempts > 1 ? "s" : "" })}</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button type="button" variant={sent ? "ghost" : "outline"} size="sm" onClick={() => retry(item.id)} disabled={sent} className={cn(sent && "text-state-healthy")}>
-                  {sent ? "Relance envoyée" : "Relancer"}
+                  {sent ? t("followUpSent") : t("followUp")}
                 </Button>
-                <Button type="button" variant="ghost" size="sm">Détail</Button>
+                <Button type="button" variant="ghost" size="sm">{t("detail")}</Button>
               </div>
             </div>
           );

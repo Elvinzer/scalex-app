@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
 import { ImproveChat } from "@/components/improve-chat";
@@ -29,6 +30,8 @@ export type TodayAction = {
 };
 
 export function TodayActionCard({ action }: { action: TodayAction }) {
+  const locale = useLocale();
+  const t = useTranslations("journal");
   const [chatOpen, setChatOpen] = useState(false);
   const [done, setDone] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -49,7 +52,7 @@ export function TodayActionCard({ action }: { action: TodayAction }) {
     <>
       <section className="sticker-spotlight animate-rise px-7 py-6" aria-labelledby="today-action-title">
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-xs font-bold tracking-[0.08em] text-accent uppercase">Action du jour</p>
+          <p className="text-xs font-bold tracking-[0.08em] text-accent uppercase">{t("dailyAction")}</p>
           <span className="h-3 w-px bg-mist/25" aria-hidden="true" />
           <p className="text-xs text-mist/60">{action.originLabel}</p>
         </div>
@@ -57,7 +60,7 @@ export function TodayActionCard({ action }: { action: TodayAction }) {
         <div className="mt-4 flex items-start gap-4">
           <FalcoPageGreet pageKey="dashboard" pose="alert" size="sm" className="hidden shrink-0 sm:flex" />
           <div className="min-w-0">
-            <p className="text-[13px] text-mist/70">Falco te propose :</p>
+            <p className="text-[13px] text-mist/70">{t("falcoProposes")}</p>
             <h2 id="today-action-title" className="mt-0.5 text-[22px] leading-snug font-bold text-text-on-dark">
               {action.label}
             </h2>
@@ -65,14 +68,14 @@ export function TodayActionCard({ action }: { action: TodayAction }) {
 
             {action.monthlyGainEur !== null && (
               <p className="mt-3 inline-flex rounded-full border border-accent/40 bg-accent/15 px-3 py-1 text-sm font-bold text-accent">
-                Impact estimé : ≈{formatEur(action.monthlyGainEur)}/mois
+                {t("estimatedImpact", { amount: formatEur(action.monthlyGainEur, locale) })}
               </p>
             )}
 
             <div className="mt-5 flex flex-wrap gap-2">
               {/* The one filled coral button on the whole screen. */}
               <Button size="lg" type="button" onClick={() => handleChatOpenChange(true)}>
-                Faire avec Falco
+                {t("doWithFalco")}
               </Button>
               <Button
                 size="lg"
@@ -85,14 +88,14 @@ export function TodayActionCard({ action }: { action: TodayAction }) {
                 {done ? (
                   <>
                     <Check className="size-4" aria-hidden="true" />
-                    Noté
+                    {t("noted")}
                   </>
                 ) : (
-                  "C'est fait"
+                  t("done")
                 )}
               </Button>
             </div>
-            {done && <p className="mt-2 text-xs text-mist/60">Ajouté à ton Journal de bord.</p>}
+            {done && <p className="mt-2 text-xs text-mist/60">{t("addedToJournal")}</p>}
           </div>
         </div>
       </section>

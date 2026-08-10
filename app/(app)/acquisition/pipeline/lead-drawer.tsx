@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { Offer } from "@/lib/business/types";
 import { formatEur } from "@/lib/currency";
 import {
-  LEAD_LOST_REASON_LABELS,
-  LEAD_SOURCE_LABELS,
   LEAD_SOURCES,
-  LEAD_STAGE_LABELS,
   type LeadRow,
   type LeadWithRelations,
 } from "@/lib/leads/types";
@@ -20,8 +18,8 @@ import { addCommentAction, deleteLeadAction, getLeadDetailAction, setReminderAct
 import { LostReasonDialog } from "./lost-reason-dialog";
 import { SaleValidationDialog } from "./sale-validation-dialog";
 
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+function formatDateTime(iso: string, locale: string): string {
+  return new Date(iso).toLocaleString(locale, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export function LeadDrawer({
@@ -37,6 +35,8 @@ export function LeadDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("pipeline");
   const [detail, setDetail] = useState<LeadWithRelations | null>(null);
   const [commentBody, setCommentBody] = useState("");
   const [reminderDate, setReminderDate] = useState("");
@@ -78,7 +78,7 @@ export function LeadDrawer({
   }
 
   function handleDelete() {
-    if (!window.confirm(`Supprimer définitivement ${lead!.firstName} ${lead!.lastName} ? Cette action est irréversible.`)) return;
+    if (!window.confirm(t("leadDrawer.deleteConfirm", { name: `${lead!.firstName} ${lead!.lastName}` }))) return;
     startDeleteTransition(async () => {
       const result = await deleteLeadAction(lead!.id);
       if (result.error) {
@@ -126,12 +126,12 @@ export function LeadDrawer({
                 {lead.firstName} {lead.lastName}
               </DrawerTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {LEAD_SOURCE_LABELS[lead.source]}
-                {offer && ` · ${offer.name}`} · {formatEur(lead.potentialValueEur)}
+                {t(`source.${lead.source}`)}
+                {offer && ` · ${offer.name}`} · {formatEur(lead.potentialValueEur, locale)}
               </p>
               <p className="mt-1 text-xs font-bold text-muted-foreground uppercase">
-                {LEAD_STAGE_LABELS[lead.stage]}
-                {lead.stage === "perdu" && lead.lostReason && ` — ${LEAD_LOST_REASON_LABELS[lead.lostReason]}`}
+                {t(`stage.${lead.stage}`)}
+                {lead.stage === "perdu" && lead.lostReason && ` — ${t(`lostReason.${lead.lostReason}`)}`}
               </p>
             </div>
             <DrawerClose className="flex size-7 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted">
@@ -142,10 +142,10 @@ export function LeadDrawer({
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-3">
-                <p className="text-sm font-bold">Informations</p>
+                <p className="text-sm font-bold">{t("leadDrawer.information")}</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="flex flex-col gap-1.5 text-sm">
-                    <span className="text-muted-foreground">Prénom</span>
+                    <span className="text-muted-foreground">{t("leadDrawer.firstName")}</span>
                     <input
                       type="text"
                       defaultValue={lead.firstName}
@@ -157,7 +157,7 @@ export function LeadDrawer({
                     />
                   </label>
                   <label className="flex flex-col gap-1.5 text-sm">
-                    <span className="text-muted-foreground">Nom</span>
+                    <span className="text-muted-foreground">{t("leadDrawer.lastName")}</span>
                     <input
                       type="text"
                       defaultValue={lead.lastName}
@@ -171,7 +171,7 @@ export function LeadDrawer({
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="flex flex-col gap-1.5 text-sm">
-                    <span className="text-muted-foreground">Source</span>
+                    <span className="text-muted-foreground">{t("leadDrawer.source")}</span>
                     <select
                       defaultValue={lead.source}
                       onChange={(event) => handleFieldUpdate({ source: event.target.value as LeadRow["source"] })}
@@ -179,13 +179,13 @@ export function LeadDrawer({
                     >
                       {LEAD_SOURCES.map((source) => (
                         <option key={source} value={source}>
-                          {LEAD_SOURCE_LABELS[source]}
+                          {t(`source.${source}`)}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label className="flex flex-col gap-1.5 text-sm">
-                    <span className="text-muted-foreground">Offre visée</span>
+                    <span className="text-muted-foreground">{t("leadDrawer.offer")}</span>
                     <select
                       defaultValue={lead.offerId ?? ""}
                       onChange={(event) => handleFieldUpdate({ offerId: event.target.value || null })}
@@ -201,7 +201,7 @@ export function LeadDrawer({
                   </label>
                 </div>
                 <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="text-muted-foreground">Valeur potentielle (€)</span>
+                  <span className="text-muted-foreground">{t("leadDrawer.potentialValue")}</span>
                   <input
                     type="number"
                     min={0}
@@ -218,7 +218,7 @@ export function LeadDrawer({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="text-muted-foreground">Setter</span>
+                  <span className="text-muted-foreground">{t("setter")}</span>
                   <select
                     defaultValue={lead.setterId ?? ""}
                     onChange={(event) => handleFieldUpdate({ setterId: event.target.value || null })}
@@ -233,7 +233,7 @@ export function LeadDrawer({
                   </select>
                 </label>
                 <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="text-muted-foreground">Closer</span>
+                  <span className="text-muted-foreground">{t("closer")}</span>
                   <input
                     type="text"
                     defaultValue={lead.closer ?? ""}
@@ -244,7 +244,7 @@ export function LeadDrawer({
               </div>
 
               <div className="flex flex-col gap-2 rounded-xl border border-border p-3">
-                <p className="text-sm font-bold">Rappel de follow-up</p>
+                <p className="text-sm font-bold">{t("leadDrawer.followUpReminder")}</p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input
                     type="date"
@@ -255,7 +255,7 @@ export function LeadDrawer({
                   />
                   <input
                     type="text"
-                    placeholder="Note"
+                    placeholder={t("leadDrawer.note")}
                     value={reminderNote}
                     onChange={(event) => setReminderNote(event.target.value)}
                     onBlur={handleSaveReminder}
@@ -270,24 +270,24 @@ export function LeadDrawer({
                       onChange={(event) => handleToggleReminderDone(event.target.checked)}
                       className="size-4"
                     />
-                    <span>Fait</span>
+                    <span>{t("leadDrawer.done")}</span>
                   </label>
                 )}
               </div>
 
               <div className="flex flex-col gap-2">
-                <p className="text-sm font-bold">Commentaires</p>
+                <p className="text-sm font-bold">{t("leadDrawer.comments")}</p>
                 {detail?.comments.length ? (
                   <div className="flex flex-col gap-2">
                     {detail.comments.map((comment) => (
                       <div key={comment.id} className="rounded-xl bg-muted p-2.5 text-sm">
                         <p>{comment.body}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(comment.createdAt)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(comment.createdAt, locale)}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Aucun commentaire pour l&apos;instant.</p>
+                  <p className="text-sm text-muted-foreground">{t("leadDrawer.noComments")}</p>
                 )}
                 <div className="flex gap-2">
                   <input
@@ -297,44 +297,44 @@ export function LeadDrawer({
                     onKeyDown={(event) => {
                       if (event.key === "Enter") handleAddComment();
                     }}
-                    placeholder="Ajouter un commentaire..."
+                    placeholder={t("leadDrawer.addCommentPlaceholder")}
                     className="flex-1 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
                   />
                   <Button type="button" size="sm" disabled={isPending} onClick={handleAddComment}>
-                    Ajouter
+                    {t("leadDrawer.add")}
                   </Button>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <p className="text-sm font-bold">Historique</p>
+                <p className="text-sm font-bold">{t("leadDrawer.history")}</p>
                 {detail?.history.length ? (
                   <ul className="flex flex-col gap-1.5 text-sm">
                     {[...detail.history].reverse().map((entry) => (
                       <li key={entry.id} className="flex items-center justify-between text-xs">
                         <span>
-                          {entry.fromStage ? `${LEAD_STAGE_LABELS[entry.fromStage]} → ` : ""}
-                          {LEAD_STAGE_LABELS[entry.toStage]}
+                          {entry.fromStage ? `${t(`stage.${entry.fromStage}`)} → ` : ""}
+                          {t(`stage.${entry.toStage}`)}
                         </span>
-                        <span className="text-muted-foreground">{formatDateTime(entry.changedAt)}</span>
+                        <span className="text-muted-foreground">{formatDateTime(entry.changedAt, locale)}</span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Chargement...</p>
+                  <p className="text-sm text-muted-foreground">{t("leadDrawer.loading")}</p>
                 )}
               </div>
 
               <div className="border-t border-border pt-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Button type="button" size="sm" onClick={() => setSaleDialogOpen(true)}>
-                    Valider une vente
+                    {t("leadDrawer.validateSale")}
                   </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => setLostDialogOpen(true)}>
-                    Perdu
+                    {t("leadDrawer.lost")}
                   </Button>
                   <Button type="button" variant="destructive" size="sm" disabled={isDeleting} onClick={handleDelete}>
-                    {isDeleting ? "Suppression..." : "Supprimer"}
+                    {isDeleting ? t("leadDrawer.deleting") : t("leadDrawer.delete")}
                   </Button>
                 </div>
               </div>

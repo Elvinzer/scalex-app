@@ -18,6 +18,21 @@ const statusClasses: Record<string, string> = {
   "appel aujourd'hui": "bg-accent-2-soft text-accent-2-text",
   stagnant: "bg-warning-soft text-warning-text",
   "à qualifier": "bg-muted text-muted-foreground",
+  sold: "bg-positive-soft text-positive",
+  paid: "bg-positive-soft text-positive",
+  "upcoming payment": "bg-accent-2-soft text-accent-2-text",
+  upcoming: "bg-accent-2-soft text-accent-2-text",
+  "failed payment": "bg-state-critical-bg text-state-critical",
+  unpaid: "bg-state-critical-bg text-state-critical",
+  refunded: "bg-muted text-muted-foreground",
+  "transfer expected": "bg-warning-soft text-warning-text",
+  "to attach": "bg-warning-soft text-warning-text",
+  showed: "bg-positive-soft text-positive",
+  cancelled: "bg-muted text-muted-foreground",
+  overdue: "bg-state-critical-bg text-state-critical",
+  reschedule: "bg-warning-soft text-warning-text",
+  "call today": "bg-accent-2-soft text-accent-2-text",
+  qualify: "bg-muted text-muted-foreground",
 };
 
 export function StatusBadge({ status, label, className }: { status: string; label?: string; className?: string }) {

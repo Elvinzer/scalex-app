@@ -1,27 +1,19 @@
 "use client";
 
 import { useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { Offer } from "@/lib/business/types";
 import { displayInstallments, summarize } from "@/lib/sales/installments";
-import type { InstallmentStatus, SaleRow } from "@/lib/sales/types";
+import type { SaleRow } from "@/lib/sales/types";
 import { stripeDashboardChargeUrl } from "@/lib/stripe/dashboard-url";
 import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
 
 import { acknowledgeFailedInstallment, setInstallmentStatus } from "./actions";
 import { SaleFormDialog } from "./sale-form-dialog";
-
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
-const STATUS_LABELS: Record<InstallmentStatus, string> = {
-  upcoming: "À venir",
-  paid: "Payée",
-  failed: "Échouée",
-  refunded: "Remboursée",
-};
 
 export function SaleDetailDrawer({
   sale,
@@ -40,6 +32,9 @@ export function SaleDetailDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("sales.detailView");
+  const numberFormat = new Intl.NumberFormat(locale);
   const [isPending, startTransition] = useTransition();
 
   if (!sale) return null;
@@ -79,9 +74,9 @@ export function SaleDetailDrawer({
         <div className="flex items-center justify-between border-b border-border p-5">
           <DrawerTitle className="text-lg font-bold">{sale.clientName}</DrawerTitle>
           <div className="flex items-center gap-1">
-            <SaleFormDialog offers={offers} setters={setters} sale={sale} trigger={<Button type="button" variant="outline" size="sm">Modifier</Button>} />
+            <SaleFormDialog offers={offers} setters={setters} sale={sale} trigger={<Button type="button" variant="outline" size="sm">{t("edit")}</Button>} />
             <DrawerClose asChild>
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="Fermer">
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={t("close")}>
                 ×
               </Button>
             </DrawerClose>
@@ -91,46 +86,46 @@ export function SaleDetailDrawer({
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5">
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {offerName && <span>{offerName}</span>}
-            {sale.sourceChannel && <span>Source : {sale.sourceChannel}</span>}
-            {setterName && <span>Setter : {setterName}</span>}
-            {sale.closer && <span>Closer : {sale.closer}</span>}
+            {sale.sourceChannel && <span>{t("source", { value: sale.sourceChannel })}</span>}
+            {setterName && <span>{t("setter", { value: setterName })}</span>}
+            {sale.closer && <span>{t("closer", { value: sale.closer })}</span>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="sticker-card p-4">
-              <p className="text-xs font-bold text-muted-foreground">Payé</p>
-              <p className="mt-1 font-display text-xl font-bold">{summary.paidTotal} €</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("paid")}</p>
+              <p className="mt-1 font-display text-xl font-bold">{numberFormat.format(summary.paidTotal)} €</p>
             </div>
             <div className="sticker-card p-4">
-              <p className="text-xs font-bold text-muted-foreground">En attente</p>
-              <p className="mt-1 font-display text-xl font-bold">{summary.pendingTotal} €</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("pending")}</p>
+              <p className="mt-1 font-display text-xl font-bold">{numberFormat.format(summary.pendingTotal)} €</p>
             </div>
             <div className="sticker-card p-4">
-              <p className="text-xs font-bold text-muted-foreground">Impayé</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("failed")}</p>
               <p className={cn("mt-1 font-display text-xl font-bold", summary.failedTotal > 0 && "text-state-critical")}>
-                {summary.failedTotal} €
+                {numberFormat.format(summary.failedTotal)} €
               </p>
             </div>
             <div className="sticker-card p-4">
-              <p className="text-xs font-bold text-muted-foreground">Reste à payer</p>
+              <p className="text-xs font-bold text-muted-foreground">{t("remaining")}</p>
               <p className="mt-1 font-display text-xl font-bold">
-                {hasFiniteSchedule ? `${NUMBER_FORMAT.format(aggregatedRemaining)} €` : "—"}
+                {hasFiniteSchedule ? `${numberFormat.format(aggregatedRemaining)} €` : "—"}
               </p>
             </div>
           </div>
 
-          {summary.nextDue && <p className="text-sm text-muted-foreground">Prochaine échéance : {summary.nextDue}</p>}
+          {summary.nextDue && <p className="text-sm text-muted-foreground">{t("nextDue", { date: summary.nextDue })}</p>}
 
           {sale.isOrphan && (
             <div className="rounded-[var(--radius-control)] bg-warning-soft p-4">
-              <p className="text-sm font-bold text-warning-text">Ce paiement Stripe est à rattacher à une vente.</p>
-              <p className="mt-1 text-sm text-warning-text">Le montant, la date et l&apos;email sont déjà pré-remplis.</p>
+              <p className="text-sm font-bold text-warning-text">{t("attachNotice")}</p>
+              <p className="mt-1 text-sm text-warning-text">{t("attachHint")}</p>
               <div className="mt-3">
                 <SaleFormDialog
                   offers={offers}
                   setters={setters}
                   sale={sale}
-                  trigger={<Button type="button" variant="outline" size="sm">Créer la vente</Button>}
+                  trigger={<Button type="button" variant="outline" size="sm">{t("createSale")}</Button>}
                 />
               </div>
             </div>
@@ -138,15 +133,15 @@ export function SaleDetailDrawer({
 
           {displayInstallments(sale.totalPrice, sale.saleDate, sale.installments).length > 0 && (
             <div>
-              <p className="mb-2 text-sm font-bold">Échéances</p>
+              <p className="mb-2 text-sm font-bold">{t("installments")}</p>
               <ul className="flex flex-col gap-2">
                 {displayInstallments(sale.totalPrice, sale.saleDate, sale.installments).map(({ installment, index }) => (
                   <li key={index} className="flex flex-col gap-2 rounded-[var(--radius-control)] border border-border p-3 text-sm">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-bold">{installment.amount} €</p>
+                        <p className="font-bold">{numberFormat.format(installment.amount)} €</p>
                         <p className="text-xs text-muted-foreground">
-                          {installment.dueDate} — {STATUS_LABELS[installment.status]}
+                          {installment.dueDate} — {t(`statuses.${installment.status}`)}
                         </p>
                       </div>
                       {installment.status !== "paid" && installment.status !== "refunded" && (
@@ -158,7 +153,7 @@ export function SaleDetailDrawer({
                             disabled={isPending}
                             onClick={() => toggleStatus(index, "paid")}
                           >
-                            Marquer payée
+                            {t("markPaid")}
                           </Button>
                           {installment.status !== "failed" && (
                             <Button
@@ -168,7 +163,7 @@ export function SaleDetailDrawer({
                               disabled={isPending}
                               onClick={() => toggleStatus(index, "failed")}
                             >
-                              Marquer échouée
+                              {t("markFailed")}
                             </Button>
                           )}
                         </div>
@@ -178,7 +173,7 @@ export function SaleDetailDrawer({
                     {installment.status === "failed" && (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-control)] bg-state-critical/10 px-3 py-2">
                         <p className="text-xs font-bold text-state-critical">
-                          {installment.failureReason ?? "Paiement refusé"}
+                          {installment.failureReason ?? t("paymentDeclined")}
                         </p>
                         <div className="flex items-center gap-1.5">
                           {installment.stripeChargeId && stripeConnection && (
@@ -188,7 +183,7 @@ export function SaleDetailDrawer({
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
-                                Voir sur Stripe →
+                                {t("viewStripe")}
                               </a>
                             </Button>
                           )}
@@ -199,14 +194,14 @@ export function SaleDetailDrawer({
                             disabled={isPending || Boolean(installment.acknowledgedAt)}
                             onClick={() => acknowledge(index)}
                           >
-                            {installment.acknowledgedAt ? "Traité ✓" : "Marquer comme traité"}
+                            {installment.acknowledgedAt ? t("processed") : t("markProcessed")}
                           </Button>
                         </div>
                       </div>
                     )}
                     {installment.status === "refunded" && (
                       <div className="rounded-[var(--radius-control)] bg-muted px-3 py-2 text-xs font-bold text-muted-foreground">
-                        Remboursement enregistré sur Stripe.
+                        {t("refundNotice")}
                       </div>
                     )}
                   </li>

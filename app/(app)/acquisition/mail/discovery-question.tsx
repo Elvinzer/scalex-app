@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +11,7 @@ import { saveMailDiscoveryAnswer } from "./actions";
 // yes/no question, reusing the catalog's own email_marketing wording — this
 // page doesn't run the full Découverte parcours, just this one question.
 export function DiscoveryQuestion() {
+  const t = useTranslations("app.mail");
   const [answer, setAnswer] = useState<"yes" | "no" | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -29,15 +31,15 @@ export function DiscoveryQuestion() {
 
   return (
     <div className="sticker-card flex flex-col gap-4 p-6">
-      <p className="text-sm font-bold">Tu envoies des emails à ta liste ?</p>
+      <p className="text-sm font-bold">{t("discoveryQuestion")}</p>
 
       {answer === null && (
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => setAnswer("yes")} disabled={isPending}>
-            Oui
+            {t("yes")}
           </Button>
           <Button variant="secondary" onClick={handleNo} disabled={isPending}>
-            Non
+            {t("no")}
           </Button>
         </div>
       )}
@@ -45,7 +47,7 @@ export function DiscoveryQuestion() {
       {answer === "yes" && (
         <form action={handleYesSubmit} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Taille de ta liste ?</span>
+            <span className="text-muted-foreground">{t("listSizeQuestion")}</span>
             <input
               type="number"
               name="listSize"
@@ -55,7 +57,7 @@ export function DiscoveryQuestion() {
             />
           </label>
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : "Valider"}
+            {isPending ? t("saving") : t("confirm")}
           </Button>
         </form>
       )}

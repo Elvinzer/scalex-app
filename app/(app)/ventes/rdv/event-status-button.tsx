@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { toggleNativeBookingEventAction } from "./actions";
 
 export function EventStatusButton({ eventId, status }: { eventId: string; status: "draft" | "active" | "paused" | "archived" }) {
+  const t = useTranslations("app.booking");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -31,9 +33,9 @@ export function EventStatusButton({ eventId, status }: { eventId: string; status
               ? "border-state-caution/30 bg-state-caution/10 text-state-caution"
               : "border-border bg-muted text-muted-foreground"
         }`}
-        title={status === "active" ? "Mettre en pause" : "Activer l’événement"}
+        title={status === "active" ? t("pauseEvent") : t("activateEvent")}
       >
-        {isPending ? "…" : status === "active" ? "Actif" : status === "paused" ? "En pause" : status === "archived" ? "Archivé" : "Brouillon"}
+        {isPending ? "…" : status === "active" ? t("active") : status === "paused" ? t("paused") : status === "archived" ? t("archived") : t("draft")}
       </button>
       {error && <span className="max-w-48 text-right text-[11px] font-bold text-state-critical" role="alert">{error}</span>}
     </span>

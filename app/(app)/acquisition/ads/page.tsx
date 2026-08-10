@@ -1,6 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { after } from "next/server";
+<<<<<<< HEAD
 import { z } from "zod";
+=======
+import { getLocale, getTranslations } from "next-intl/server";
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
@@ -34,6 +38,7 @@ const LEVER_KEY = "ads";
 // approach as every other benchmark in lib/levers/opportunities.ts.
 const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
 
+<<<<<<< HEAD
 const adsSearchParamsSchema = z.object({
   meta_days: z.string().optional(),
   meta_range: z.enum(META_PERIOD_RANGE_OPTIONS).optional(),
@@ -44,6 +49,11 @@ const adsSearchParamsSchema = z.object({
 });
 
 export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string; meta_ads?: string; meta_ads_error?: string }> }) {
+=======
+export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_ads?: string; meta_ads_error?: string }> }) {
+  const locale = await getLocale();
+  const t = await getTranslations("app.ads");
+>>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
   const parsedSearchParams = adsSearchParamsSchema.safeParse(await searchParams);
@@ -117,23 +127,22 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
       return (
         <div className="flex flex-col gap-8">
           <AgentBanner
-            stateText="Les ads ne sont pas prioritaires pour l'instant."
-            ctaLabel="Améliorer →"
+            stateText={t("notPriority")}
+            ctaLabel={t("improve")}
             chatContext={chatContext}
             mode={mode}
             falcoSkin={falcoSkin}
           />
           <div>
-            <h1 className="text-3xl font-bold">Ads</h1>
-            <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
+            <h1 className="text-3xl font-bold">{t("title")}</h1>
+            <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
           </div>
           {metaAdsErrorAlert}
           {metaConnectionCard}
           <div className="sticker-card-dashed p-6 text-center">
-            <p className="text-sm font-bold">Pas prioritaire pour l&apos;instant</p>
+            <p className="text-sm font-bold">{t("notPriorityTitle")}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Avec un CA moyen de {formatEur(Math.round(avgMonthlyRevenue))}/mois sur les 3 derniers mois, mieux vaut
-              d&apos;abord consolider ton acquisition organique avant d&apos;investir en ads.
+              {t("notPriorityHelp", { revenue: formatEur(Math.round(avgMonthlyRevenue), locale) })}
             </p>
           </div>
         </div>
@@ -145,16 +154,16 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
     return (
       <div className="flex flex-col gap-8">
         <AgentBanner
-          stateText="Tu n'as pas encore de campagnes ads - Falco peut t'aider à démarrer."
-          ctaLabel="Améliorer →"
+          stateText={t("noCampaignsState")}
+          ctaLabel={t("improve")}
           chatContext={chatContext}
           falcoPose="thinking"
           mode={mode}
           falcoSkin={falcoSkin}
         />
         <div>
-          <h1 className="text-3xl font-bold">Ads</h1>
-          <p className="mt-1 text-muted-foreground">Le suivi de tes campagnes publicitaires.</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
         </div>
         {metaAdsErrorAlert}
         {metaConnectionCard}
@@ -168,7 +177,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
           />
         )}
         <Button variant="outline" asChild className="self-start">
-          <a href={`/demarrer/${LEVER_KEY}`}>Voir le guide complet →</a>
+          <a href={`/demarrer/${LEVER_KEY}`}>{t("fullGuide")} →</a>
         </Button>
       </div>
     );
@@ -176,14 +185,18 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
 
   const stateText =
     metaDashboard
-      ? `Meta Ads : ${metricValue(metaDashboard.totals, "spendCents") === null ? "dépenses indisponibles" : `${formatEur((metricValue(metaDashboard.totals, "spendCents") ?? 0) / 100)} dépensés`}, ${metricValue(metaDashboard.totals, "leads") === null ? "leads indisponibles" : `${metricValue(metaDashboard.totals, "leads")} lead(s) mesuré(s)`} sur les ${metaDashboard.period.days} derniers jours.`
-      : "Aucune campagne Meta Ads synchronisée pour l'instant.";
+      ? t("connectedState", {
+          spend: metricValue(metaDashboard.totals, "spendCents") === null ? t("unavailableSpend") : `${formatEur((metricValue(metaDashboard.totals, "spendCents") ?? 0) / 100, locale)} ${t("spent")}`,
+          leads: metricValue(metaDashboard.totals, "leads") === null ? t("unavailableLeads") : `${metricValue(metaDashboard.totals, "leads")} ${t("measuredLeads")}`,
+          days: metaDashboard.period.days,
+        })
+      : t("noSyncedCampaigns");
 
   return (
     <div className="flex flex-col gap-8">
       <AgentBanner
         stateText={stateText}
-        ctaLabel="Améliorer →"
+        ctaLabel={t("improve")}
         chatContext={chatContext}
         mode={mode}
         falcoSkin={falcoSkin}
@@ -193,7 +206,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
         <div>
           <h1 className="text-3xl font-bold">Ads</h1>
           <p className="mt-1 text-muted-foreground">
-            Le suivi de tes campagnes publicitaires, avec un chat IA pour rédiger tes accroches.
+            {t("chatSubtitle")}
           </p>
         </div>
         <AdCopyTrigger offers={profile.sales.offers} />
@@ -205,9 +218,9 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
 
       {profile.sales.offers.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune offre renseignée</p>
+          <p className="text-sm font-bold">{t("noOffers")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ajoute tes offres dans Mon business pour que le chat de création de pub s&apos;appuie dessus.
+            {t("noOffersHelp")}
           </p>
         </div>
       )}

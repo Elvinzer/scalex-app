@@ -2,21 +2,22 @@
 
 import { Check, ExternalLink, MonitorPlay, X } from "lucide-react";
 import { useState, useTransition } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { disconnectYoutube, refreshYoutubeVideos } from "@/app/(app)/integrations/youtube-actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const WHAT_WE_FETCH = [
-  "Vues, temps de visionnage et durée de vue moyenne",
-  "Taux de rétention (audience retention) par vidéo",
-  "Abonnés gagnés et perdus, par vidéo",
-  "Likes, commentaires, partages",
+  "fetchViews",
+  "fetchRetention",
+  "fetchSubscribers",
+  "fetchEngagement",
 ];
 
 const WHAT_WE_NEVER_FETCH = [
-  "Clics sortants vers un lien externe — YouTube n'expose pas cette donnée pour le contenu organique",
-  "Impressions et taux de clic (CTR) sur la miniature — YouTube n'expose pas cette donnée via son API en temps réel, seulement dans Studio",
+  "neverOutboundClicks",
+  "neverCtr",
 ];
 
 type Props = {
@@ -36,6 +37,8 @@ export function YoutubeConnectionCard({
   subscriptionActive = true,
   primaryCta = false,
 }: Props) {
+  const locale = useLocale();
+  const t = useTranslations("integrations.youtube");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -64,7 +67,7 @@ export function YoutubeConnectionCard({
       // — the rest keeps going in the background instead of leaving the user
       // staring at a spinner.
       if (result.completed === false) {
-        setNotice("Synchronisation en cours en arrière-plan — reviens dans quelques minutes pour voir le reste de tes vidéos.");
+        setNotice(t("backgroundSync"));
       }
     });
   }
@@ -78,15 +81,15 @@ export function YoutubeConnectionCard({
             <p className="font-bold">YouTube</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {connected && channelTitle
-                ? `Connecté en tant que ${channelTitle}.`
-                : "Vues, watch time, rétention, CTR… ce que ton audience regarde vraiment, vidéo par vidéo."}
+                ? t("connectedAs", { channel: channelTitle })
+                : t("description")}
             </p>
           </div>
         </div>
         {connected && (
           <span className="flex shrink-0 items-center gap-2 rounded-full bg-state-healthy-bg px-3 py-1 text-sm font-bold whitespace-nowrap text-state-healthy">
             <span className="size-2 rounded-full bg-state-healthy" />
-            Connecté
+            {t("connected")}
           </span>
         )}
       </div>
@@ -95,36 +98,34 @@ export function YoutubeConnectionCard({
         <>
           {initialSyncStatus === "pending" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy">
-              <span className="font-bold">✅ YouTube est connecté.</span> On récupère tes vidéos et leurs chiffres.
-              Ils apparaîtront dans « Contenu » d&apos;ici quelques minutes.
+              <span className="font-bold">✅ {t("connected")}</span> {t("syncPending")}
             </div>
           )}
           {initialSyncStatus === "completed" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm font-bold text-state-healthy">
-              Vidéos synchronisées
+              {t("videosSynced")}
               {initialSyncCompletedAt &&
-                ` le ${new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(initialSyncCompletedAt))}`}
-              . Les chiffres se rafraîchissent automatiquement toutes les 6h.
+                ` ${t("onDate")} ${new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(initialSyncCompletedAt))}`}
+              . {t("autoRefresh")}
             </div>
           )}
           {initialSyncStatus === "token_expired" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
-              La connexion a expiré ou a été révoquée. Déconnecte puis reconnecte YouTube pour continuer à recevoir tes
-              chiffres.
+              {t("tokenExpired")}
             </div>
           )}
           {initialSyncStatus === "failed" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
-              La synchronisation a échoué. Réessaie, ou déconnecte puis reconnecte YouTube.
+              {t("syncFailed")}
             </div>
           )}
 
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="outline" onClick={handleRefresh} disabled={isPending}>
-              {isPending ? "Rafraîchissement…" : "Rafraîchir maintenant"}
+              {isPending ? t("refreshing") : t("refreshNow")}
             </Button>
             <Button variant="destructive" onClick={handleDisconnect} disabled={isPending}>
-              {isPending ? "Déconnexion…" : "Déconnecter"}
+              {isPending ? t("disconnecting") : t("disconnect")}
             </Button>
           </div>
         </>
@@ -132,54 +133,50 @@ export function YoutubeConnectionCard({
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="mt-4" variant={primaryCta ? "default" : "outline"}>
-              Connecter YouTube
+              {t("connect")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
-            <DialogTitle>Connecter YouTube</DialogTitle>
+            <DialogTitle>{t("connect")}</DialogTitle>
 
             <div className="mt-4 flex flex-col gap-4">
               <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2.5 text-sm text-state-caution">
-                <span className="font-bold">Prérequis : une chaîne YouTube existante</span> sur le compte Google que tu
-                vas connecter. Tant que Google n&apos;a pas fini de vérifier l&apos;application Scale X, seuls les
-                comptes ajoutés comme testeurs peuvent se connecter — contacte-nous si l&apos;écran Google affiche
-                « application non vérifiée » et se bloque.
+                <span className="font-bold">{t("channelRequirement")}</span> {t("channelRequirementHelp")}
               </div>
 
               <div className="flex flex-col gap-2">
-                <p className="text-sm font-bold">Ce qu&apos;on récupère</p>
+                <p className="text-sm font-bold">{t("whatFetch")}</p>
                 <ul className="flex flex-col gap-1.5">
                   {WHAT_WE_FETCH.map((item) => (
                     <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
                       <Check className="mt-0.5 size-3.5 shrink-0 text-state-healthy" />
-                      {item}
+                      {t(item)}
                     </li>
                   ))}
                 </ul>
               </div>
 
               <div className="flex flex-col gap-2">
-                <p className="text-sm font-bold">Ce qu&apos;on ne pourra jamais récupérer</p>
+                <p className="text-sm font-bold">{t("whatNeverFetch")}</p>
                 <ul className="flex flex-col gap-1.5">
                   {WHAT_WE_NEVER_FETCH.map((item) => (
                     <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
                       <X className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                      {item}
+                      {t(item)}
                     </li>
                   ))}
                 </ul>
               </div>
 
               <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
-                🔒 Ta connexion est chiffrée, en lecture seule (aucune publication ni modification possible en ton
-                nom), et déconnectable à tout moment. Les chiffres se rafraîchissent automatiquement toutes les 6h.
+                🔒 {t("securityNote")}
               </p>
 
               {error && <p className="text-sm text-state-critical">{error}</p>}
 
               <Button asChild className="justify-center">
                 <a href="/api/youtube/connect">
-                  Connecter ma chaîne YouTube
+                  {t("connectMyChannel")}
                   <ExternalLink className="size-4" />
                 </a>
               </Button>
@@ -188,7 +185,7 @@ export function YoutubeConnectionCard({
         </Dialog>
       ) : (
         <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
-          Le suivi de contenu nécessite un abonnement actif. Active ton abonnement pour connecter YouTube.
+          {t("subscriptionRequired")}
         </div>
       )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { InfoPopover } from "@/components/info-popover";
+import { useTranslations } from "next-intl";
 import { DATE_FILTERS, type DateFilterKey } from "@/lib/content-posts/period-filter";
 import { VIDEO_FORMATS, type VideoFormat } from "@/lib/youtube/format";
 import { cn } from "@/lib/utils";
@@ -10,9 +11,10 @@ import { cn } from "@/lib/utils";
 // their KPI tiles AND their table from the same period selection, so this
 // stays one shared control rather than a copy in each view.
 export function PeriodPills({ period, onChange }: { period: DateFilterKey; onChange: (key: DateFilterKey) => void }) {
+  const t = useTranslations("content");
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-bold text-muted-foreground">Période :</span>
+      <span className="text-xs font-bold text-muted-foreground">{t("period")}</span>
       {DATE_FILTERS.map((filter) => (
         <button
           key={filter.key}
@@ -25,7 +27,7 @@ export function PeriodPills({ period, onChange }: { period: DateFilterKey; onCha
               : "border-border text-muted-foreground hover:border-border-hover"
           )}
         >
-          {filter.label}
+          {t(`period${filter.key === "7d" ? "7d" : filter.key === "30d" ? "30d" : filter.key === "3m" ? "3m" : "All"}`)}
         </button>
       ))}
     </div>
@@ -36,9 +38,10 @@ export function PeriodPills({ period, onChange }: { period: DateFilterKey; onCha
 // long-form have wildly different view/retention baselines, so mixing them
 // into the same averages/ranking is misleading either way.
 export function FormatPills({ format, onChange }: { format: VideoFormat; onChange: (key: VideoFormat) => void }) {
+  const t = useTranslations("content");
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-bold text-muted-foreground">Format :</span>
+      <span className="text-xs font-bold text-muted-foreground">{t("format")}</span>
       {VIDEO_FORMATS.map((option) => (
         <button
           key={option.key}
@@ -51,10 +54,10 @@ export function FormatPills({ format, onChange }: { format: VideoFormat; onChang
               : "border-border text-muted-foreground hover:border-border-hover"
           )}
         >
-          {option.label}
+          {t(`format${option.key === "all" ? "All" : option.key === "short" ? "Short" : "Long"}`)}
         </button>
       ))}
-      <InfoPopover text="YouTube ne fournit aucun indicateur officiel « Short » via son API. On classe comme Short toute vidéo de 2min ou moins - une vidéo longue publiée au format court peut être mal classée." />
+      <InfoPopover text={t("formatHelp")} />
     </div>
   );
 }

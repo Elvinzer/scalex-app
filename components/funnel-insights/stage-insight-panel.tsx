@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export function StageInsightPanel({
   existingInsight: ExistingStageInsight;
   onClose: () => void;
 }) {
+  const t = useTranslations("diagnostic.insight");
   const knowledge = STAGE_KNOWLEDGE[stage];
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [mode, setMode] = useState<"result" | "questions">(
@@ -73,7 +75,7 @@ export function StageInsightPanel({
             variant="ghost"
             size="icon-sm"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t("close")}
           >
             <X className="size-4" />
           </Button>
@@ -95,7 +97,7 @@ export function StageInsightPanel({
               onClick={() => setMode("questions")}
               className="mt-4 text-sm font-bold text-signal"
             >
-              Refaire le diagnostic
+              {t("regenerate")}
             </button>
           </div>
         )}
@@ -103,7 +105,7 @@ export function StageInsightPanel({
         {mode === "questions" && (
           <div className="mt-4 flex flex-col gap-5">
             <p className="text-sm text-muted-foreground">
-              Réponds à ces questions pour un insight personnalisé sur ce taux.
+              {t("questionsHelp")}
             </p>
 
             {knowledge.questions.map((question) => (
@@ -141,7 +143,7 @@ export function StageInsightPanel({
               disabled={!allAnswered || isPending}
               onClick={handleSubmit}
             >
-              {isPending ? "Génération…" : "Générer mon insight"}
+              {isPending ? t("generating") : t("generate")}
             </Button>
           </div>
         )}

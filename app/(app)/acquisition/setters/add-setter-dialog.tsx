@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import { saveSetter } from "./actions";
 
 export function AddSetterDialog() {
+  const t = useTranslations("app.setters");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -39,15 +41,15 @@ export function AddSetterDialog() {
       <DialogTrigger asChild>
         <Button type="button">
           <Plus className="size-4" />
-          Ajouter un setter
+          {t("addSetter")}
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-bold">Ajouter un setter</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{t("addSetter")}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Nom</span>
+            <span className="text-muted-foreground">{t("name")}</span>
             <input
               type="text"
               name="name"
@@ -56,7 +58,7 @@ export function AddSetterDialog() {
             />
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Email (optionnel)</span>
+            <span className="text-muted-foreground">{t("emailOptional")}</span>
             <input
               type="email"
               name="email"
@@ -64,7 +66,7 @@ export function AddSetterDialog() {
             />
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">% de commission par défaut</span>
+            <span className="text-muted-foreground">{t("defaultCommission")}</span>
             <input
               type="number"
               name="defaultCommissionPct"
@@ -78,7 +80,7 @@ export function AddSetterDialog() {
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : "Ajouter le setter"}
+            {isPending ? t("saving") : t("addSetter")}
           </Button>
         </form>
       </DialogContent>

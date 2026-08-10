@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { after } from "next/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { KpiTile } from "@/components/kpi-tile";
@@ -24,6 +25,8 @@ import { DiscoveryQuestion } from "./discovery-question";
 const LEVER_KEY = "email_marketing";
 
 export default async function MailPage() {
+  const locale = await getLocale();
+  const t = await getTranslations("app.mail");
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:mail");
 
@@ -41,22 +44,22 @@ export default async function MailPage() {
 
   after(() => track("lever_page_viewed", userId, { lever: LEVER_KEY, mode }));
 
-  const chatContext: ChatContext = { topicType: "lever", topicKey: LEVER_KEY, topicLabel: "Emailing", sourcePage: "acquisition_mail" };
+  const chatContext: ChatContext = { topicType: "lever", topicKey: LEVER_KEY, topicLabel: t("topicLabel"), sourcePage: "acquisition_mail" };
   const falcoSkin = resolveFalcoSkin("/acquisition/mail");
 
   if (mode === "decouverte") {
     return (
       <div className="flex flex-col gap-8">
         <AgentBanner
-          stateText="Pas encore vu si tu fais de l'emailing. Une question rapide."
-          ctaLabel="Améliorer →"
+            stateText={t("discoveryState")}
+            ctaLabel={t("improve")}
           chatContext={chatContext}
           mode={mode}
           falcoSkin={falcoSkin}
         />
         <div>
-          <h1 className="text-3xl font-bold">Mail</h1>
-          <p className="mt-1 text-muted-foreground">Le suivi de tes envois email, une fois lancé.</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("notStartedSubtitle")}</p>
         </div>
         <DiscoveryQuestion />
       </div>
@@ -69,16 +72,16 @@ export default async function MailPage() {
     return (
       <div className="flex flex-col gap-8">
         <AgentBanner
-          stateText="Tu n'as pas encore d'emailing en place - Falco peut t'aider à démarrer."
-          ctaLabel="Améliorer →"
+          stateText={t("notStartedState")}
+          ctaLabel={t("improve")}
           chatContext={chatContext}
           falcoPose="thinking"
           mode={mode}
           falcoSkin={falcoSkin}
         />
         <div>
-          <h1 className="text-3xl font-bold">Mail</h1>
-          <p className="mt-1 text-muted-foreground">Le suivi de tes envois email, une fois lancé.</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("notStartedSubtitle")}</p>
         </div>
         {impact && (
           <LeverImpactEstimate
@@ -90,7 +93,7 @@ export default async function MailPage() {
           />
         )}
         <Button variant="outline" asChild className="self-start">
-          <a href={`/demarrer/${LEVER_KEY}`}>Voir le guide complet →</a>
+          <a href={`/demarrer/${LEVER_KEY}`}>{t("fullGuide")} →</a>
         </Button>
       </div>
     );
@@ -110,14 +113,14 @@ export default async function MailPage() {
 
   const stateText =
     avgOpenRate !== null
-      ? `Taux d'ouverture moyen de ${formatPercent(avgOpenRate)} ce mois-ci, ${formatEur(totalRevenue)} de CA attribué.`
-      : "Aucun envoi ce mois-ci pour l'instant.";
+      ? t("stateWithData", { rate: formatPercent(avgOpenRate, locale), revenue: formatEur(totalRevenue, locale) })
+      : t("noSends");
 
   return (
     <div className="flex flex-col gap-8">
       <AgentBanner
         stateText={stateText}
-        ctaLabel="Améliorer →"
+        ctaLabel={t("improve")}
         chatContext={chatContext}
         mode={mode}
         falcoSkin={falcoSkin}
@@ -125,14 +128,14 @@ export default async function MailPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Mail</h1>
-          <p className="mt-1 text-muted-foreground">Le suivi de tes envois email.</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
         </div>
         <CampaignFormDialog
           trigger={
             <Button type="button">
               <Plus className="size-4" />
-              Ajouter un envoi
+              {t("addSend")}
             </Button>
           }
         />
@@ -140,13 +143,13 @@ export default async function MailPage() {
 
       <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {listSize !== null && (
-          <KpiTile label="Taille de liste" value={listSize.toLocaleString("fr-FR")} />
+          <KpiTile label={t("listSize")} value={listSize.toLocaleString(locale)} />
         )}
-        <KpiTile label="Envois ce mois" value={totalSends.toLocaleString("fr-FR")} />
-        <KpiTile label="Taux d'ouverture" value={avgOpenRate === null ? "—" : formatPercent(avgOpenRate)} tone="positive" />
-        <KpiTile label="Taux de clic" value={avgCtr === null ? "—" : formatPercent(avgCtr)} tone="accent2" />
-        <KpiTile label="RDV bookés ce mois" value={totalBookings.toLocaleString("fr-FR")} />
-        <KpiTile label="RDV closés ce mois" value={totalDealsClosed.toLocaleString("fr-FR")} tone="positive" />
+        <KpiTile label={t("sendsThisMonth")} value={totalSends.toLocaleString(locale)} />
+        <KpiTile label={t("openRate")} value={avgOpenRate === null ? "—" : formatPercent(avgOpenRate, locale)} tone="positive" />
+        <KpiTile label={t("clickRate")} value={avgCtr === null ? "—" : formatPercent(avgCtr, locale)} tone="accent2" />
+        <KpiTile label={t("bookingsThisMonth")} value={totalBookings.toLocaleString(locale)} />
+        <KpiTile label={t("dealsThisMonth")} value={totalDealsClosed.toLocaleString(locale)} tone="positive" />
       </div>
 
       <CampaignsTable campaigns={campaigns} falcoSkin={falcoSkin} />

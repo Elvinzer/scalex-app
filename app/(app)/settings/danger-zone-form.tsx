@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { deleteAccount, resetAccountData } from "./actions";
 
 export function DangerZoneForm({ email }: { email: string }) {
+  const t = useTranslations("settings.page");
   const router = useRouter();
 
   const [resetOpen, setResetOpen] = useState(false);
@@ -53,30 +55,28 @@ export function DangerZoneForm({ email }: { email: string }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-bold">Réinitialiser mes données</p>
+          <p className="text-sm font-bold">{t("resetData")}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Efface tes chiffres, ton diagnostic, ton journal et ton équipe. Ton compte, ta clé API et Stripe restent
-            intacts. Tu repars sur l&apos;onboarding, comme un nouveau compte.
+            {t("resetDataHelp")}
           </p>
         </div>
         <Dialog open={resetOpen} onOpenChange={setResetOpen}>
           <DialogTrigger asChild>
             <Button type="button" variant="outline" size="sm" className="shrink-0">
-              Réinitialiser
+              {t("reset")}
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogTitle className="text-lg font-bold">Réinitialiser toutes tes données ?</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{t("resetConfirmTitle")}</DialogTitle>
             <p className="mt-3 text-sm text-muted-foreground">
-              Cette action efface définitivement : tes chiffres (Setting/Closing/Datas), ton diagnostic, ton profil
-              business, tes imports, ton journal (projets, to-do, notes) et ton équipe (rôles, membres invités).
+              {t("resetConfirmHelp")}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Restent intacts : ton email, ta clé API Anthropic, ta connexion Stripe et ton abonnement Scale X.
+              {t("resetConfirmKeep")}
             </p>
             {resetError && <p className="mt-3 text-sm text-state-critical">{resetError}</p>}
             <Button type="button" variant="destructive" disabled={isResetting} onClick={handleReset} className="mt-4">
-              {isResetting ? "Réinitialisation..." : "Confirmer la réinitialisation"}
+              {isResetting ? t("resetting") : t("confirmReset")}
             </Button>
           </DialogContent>
         </Dialog>
@@ -84,10 +84,9 @@ export function DangerZoneForm({ email }: { email: string }) {
 
       <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-bold">Supprimer mon compte</p>
+          <p className="text-sm font-bold">{t("deleteAccount")}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Suppression définitive et irréversible : ton compte, toutes tes données, ta connexion Stripe et ton
-            abonnement Scale X.
+            {t("deleteAccountHelp")}
           </p>
         </div>
         <Dialog
@@ -99,19 +98,17 @@ export function DangerZoneForm({ email }: { email: string }) {
         >
           <DialogTrigger asChild>
             <Button type="button" variant="destructive" size="sm" className="shrink-0">
-              Supprimer le compte
+              {t("deleteAccountButton")}
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogTitle className="text-lg font-bold">Supprimer définitivement ton compte ?</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{t("deleteConfirmTitle")}</DialogTitle>
             <p className="mt-3 text-sm text-muted-foreground">
-              Irréversible. Ton abonnement Scale X est annulé, ta connexion Stripe est révoquée, et absolument tout
-              (chiffres, diagnostic, journal, équipe, clé API) est supprimé. Tu ne pourras plus te reconnecter avec ce
-              compte.
+              {t("deleteConfirmHelp")}
             </p>
             <label className="mt-4 flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">
-                Tape <span className="font-bold text-foreground">{email}</span> pour confirmer
+                {t("typeToConfirm", { email })}
               </span>
               <input
                 type="text"
@@ -129,7 +126,7 @@ export function DangerZoneForm({ email }: { email: string }) {
               onClick={handleDelete}
               className="mt-4"
             >
-              {isDeleting ? "Suppression..." : "Supprimer définitivement"}
+              {isDeleting ? t("deleting") : t("deletePermanently")}
             </Button>
           </DialogContent>
         </Dialog>

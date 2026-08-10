@@ -1,4 +1,7 @@
+"use client";
+
 import { ArrowDown, ArrowUp } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Sparkline } from "@/components/sparkline";
 import { TileBenchmarkStrip } from "@/components/tile-benchmark-strip";
@@ -15,10 +18,8 @@ import type { ExistingStageInsight } from "@/components/funnel-insights/stage-in
 type ClosingKpiEntry = typeof closingKpiEntries.$inferSelect;
 
 const SPARKLINE_DAYS = 30;
-const NUMBER_FORMAT = new Intl.NumberFormat("fr-FR");
-
-function shortDate(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("fr-FR", {
+function shortDate(date: string, locale: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(locale, {
     day: "numeric",
     month: "short",
     timeZone: "UTC",
@@ -26,11 +27,14 @@ function shortDate(date: string): string {
 }
 
 function CountDelta({ current, previous }: { current: number; previous: number | null }) {
+  const locale = useLocale();
+  const t = useTranslations("sales.closingFunnel");
+  const numberFormat = new Intl.NumberFormat(locale);
   if (previous === null) return null;
   const diff = current - previous;
 
   if (diff === 0) {
-    return <p className="text-xs text-muted-foreground">= vs période précédente</p>;
+    return <p className="text-xs text-muted-foreground">{t("noChange")}</p>;
   }
 
   const isUp = diff > 0;
@@ -43,17 +47,18 @@ function CountDelta({ current, previous }: { current: number; previous: number |
     >
       {isUp ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
       {isUp ? "+" : ""}
-      {NUMBER_FORMAT.format(diff)} vs période précédente
+      {numberFormat.format(diff)} {t("previousPeriod")}
     </p>
   );
 }
 
 function RateDelta({ current, previous }: { current: number | null; previous: number | null }) {
+  const t = useTranslations("sales.closingFunnel");
   if (current === null || previous === null) return null;
   const diffPts = Math.round((current - previous) * 100);
 
   if (diffPts === 0) {
-    return <p className="text-xs text-muted-foreground">= vs période précédente</p>;
+    return <p className="text-xs text-muted-foreground">{t("noChange")}</p>;
   }
 
   const isUp = diffPts > 0;
@@ -66,7 +71,7 @@ function RateDelta({ current, previous }: { current: number | null; previous: nu
     >
       {isUp ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
       {isUp ? "+" : ""}
-      {diffPts} pts vs période précédente
+      {diffPts} {t("points")} {t("previousPeriod")}
     </p>
   );
 }
@@ -94,16 +99,19 @@ export function ClosingTiles({
   existingInsights: Partial<Record<FunnelStageKey, ExistingStageInsight>>;
   hasWorkingKey: boolean;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("sales.closingFunnel");
+  const numberFormat = new Intl.NumberFormat(locale);
   const recent = entriesAscending.slice(-SPARKLINE_DAYS);
-  const labels = recent.map((entry) => shortDate(entry.date));
+  const labels = recent.map((entry) => shortDate(entry.date, locale));
   const missedCalls = Math.max(callsBooked - totals.callsAttended, 0);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div className="sticker-card flex flex-col p-5">
-        <p className="text-sm font-bold text-muted-foreground">Appels pris</p>
+        <p className="text-sm font-bold text-muted-foreground">{t("callsAttended")}</p>
         <p className="mt-2 font-display text-3xl font-bold">
-          {NUMBER_FORMAT.format(totals.callsAttended)}
+          {numberFormat.format(totals.callsAttended)}
         </p>
         <div className="mt-1 min-h-4">
           <CountDelta
@@ -117,9 +125,9 @@ export function ClosingTiles({
       </div>
 
       <div className="sticker-card flex flex-col p-5">
-        <p className="text-sm font-bold text-muted-foreground">Ventes conclues</p>
+        <p className="text-sm font-bold text-muted-foreground">{t("salesClosed")}</p>
         <p className="mt-2 font-display text-3xl font-bold">
-          {NUMBER_FORMAT.format(totals.salesClosed)}
+          {numberFormat.format(totals.salesClosed)}
         </p>
         <div className="mt-1 min-h-4">
           <CountDelta
@@ -134,23 +142,23 @@ export function ClosingTiles({
 
       <div className="sticker-card flex flex-col border-violet/40 bg-paper-alt/60 p-5">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-bold text-muted-foreground">Taux de closing</p>
+          <p className="text-sm font-bold text-muted-foreground">{t("closingRate")}</p>
           <InsightTrigger
             stage="closingRate"
-            label="Taux de closing"
+            label={t("closingRate")}
             existingInsight={existingInsights.closingRate ?? null}
             hasWorkingKey={hasWorkingKey}
           />
         </div>
         <p className="mt-2 font-display text-3xl font-bold text-violet">
-          {rates.closingRate === null ? "—" : formatPercent(rates.closingRate)}
+          {rates.closingRate === null ? "—" : formatPercent(rates.closingRate, locale)}
         </p>
         <div className="mt-1 min-h-4">
           <RateDelta current={rates.closingRate} previous={previousRates?.closingRate ?? null} />
         </div>
         <div className="mt-auto pt-3">
           <p className="text-xs text-muted-foreground">
-            {NUMBER_FORMAT.format(totals.salesClosed)} / {NUMBER_FORMAT.format(totals.callsAttended)}
+            {numberFormat.format(totals.salesClosed)} / {numberFormat.format(totals.callsAttended)}
           </p>
           {/* closingRate has no market benchmark band today (lib/benchmarks.ts) */}
           <TileBenchmarkStrip value={null} band={null} />
@@ -159,31 +167,30 @@ export function ClosingTiles({
 
       <div className="sticker-card flex flex-col border-violet/40 bg-paper-alt/60 p-5">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-bold text-muted-foreground">Taux de no-show</p>
+          <p className="text-sm font-bold text-muted-foreground">{t("noShowRate")}</p>
           <InsightTrigger
             stage="showUpRate"
-            label="Taux de présence à l'appel (show-up)"
+            label={t("showUpRate")}
             existingInsight={existingInsights.showUpRate ?? null}
             hasWorkingKey={hasWorkingKey}
           />
         </div>
         <p className="mt-2 font-display text-3xl font-bold text-violet">
-          {rates.noShowRate === null ? "—" : formatPercent(rates.noShowRate)}
+          {rates.noShowRate === null ? "—" : formatPercent(rates.noShowRate, locale)}
         </p>
         <div className="mt-1 min-h-4">
           <RateDelta current={rates.noShowRate} previous={previousRates?.noShowRate ?? null} />
         </div>
         <div className="mt-auto pt-3">
           <p className="text-xs text-muted-foreground">
-            {NUMBER_FORMAT.format(missedCalls)} sur {NUMBER_FORMAT.format(callsBooked)} réservés
-            (Setting)
+            {numberFormat.format(missedCalls)} sur {numberFormat.format(callsBooked)} {t("reserved")}
           </p>
           {/* Same underlying ratio as the "présence à l'appel" benchmark,
               just formulated negatively — see ClosingRates.showUpRate. */}
           <TileBenchmarkStrip
             value={rates.showUpRate}
             band={benchmark.showUpRate}
-            sublabel="vs marché (présence à l'appel)"
+            sublabel={t("marketShowUp")}
           />
         </div>
       </div>

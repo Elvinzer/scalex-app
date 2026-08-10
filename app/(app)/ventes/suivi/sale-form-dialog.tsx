@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -34,6 +35,7 @@ export function SaleFormDialog({
   // Existing DECLARED attribution for this sale, so editing shows it.
   currentVideoId?: string | null;
 }) {
+  const t = useTranslations("sales.form");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -116,12 +118,12 @@ export function SaleFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
-        <DialogTitle className="text-lg font-bold">{sale ? "Modifier la vente" : "Ajouter une vente"}</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{sale ? t("editTitle") : t("createTitle")}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Client</span>
+              <span className="text-muted-foreground">{t("client")}</span>
               <input
                 type="text"
                 name="clientName"
@@ -131,7 +133,7 @@ export function SaleFormDialog({
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Email (optionnel)</span>
+              <span className="text-muted-foreground">{t("emailOptional")}</span>
               <input
                 type="email"
                 name="clientEmail"
@@ -142,14 +144,14 @@ export function SaleFormDialog({
           </div>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Offre</span>
+            <span className="text-muted-foreground">{t("offer")}</span>
             {offers.length > 0 ? (
               <select
                 value={selectedOfferId}
                 onChange={(event) => handleOfferChange(event.target.value)}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
               >
-                <option value="">Deal négocié (hors offres)</option>
+                <option value="">{t("negotiatedDeal")}</option>
                 {offers.map((offer) => (
                   <option key={offer.id} value={offer.id}>
                     {offer.name}
@@ -158,14 +160,14 @@ export function SaleFormDialog({
               </select>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Aucune offre renseignée dans Mon business, deal saisi librement.
+                {t("noOffers")}
               </p>
             )}
           </label>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Prix total (€)</span>
+              <span className="text-muted-foreground">{t("price")}</span>
               <input
                 type="number"
                 min={0}
@@ -176,7 +178,7 @@ export function SaleFormDialog({
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Date de vente</span>
+              <span className="text-muted-foreground">{t("saleDate")}</span>
               <input
                 type="date"
                 required
@@ -190,7 +192,7 @@ export function SaleFormDialog({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Canal source (optionnel)</span>
+              <span className="text-muted-foreground">{t("sourceChannelOptional")}</span>
               <input
                 type="text"
                 name="sourceChannel"
@@ -199,7 +201,7 @@ export function SaleFormDialog({
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Closer (optionnel)</span>
+              <span className="text-muted-foreground">{t("closerOptional")}</span>
               <input
                 type="text"
                 name="closer"
@@ -214,13 +216,13 @@ export function SaleFormDialog({
               an empty select would suggest data we can't offer. */}
           {youtubeVideos.length > 0 && (
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Vidéo YouTube à l&apos;origine (optionnel)</span>
+              <span className="text-muted-foreground">{t("youtubeOriginOptional")}</span>
               <select
                 value={sourceVideoId}
                 onChange={(event) => setSourceVideoId(event.target.value)}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
               >
-                <option value="">Je ne sais pas</option>
+                <option value="">{t("youtubeUnknown")}</option>
                 {youtubeVideos.map((video) => (
                   <option key={video.videoId} value={video.videoId}>
                     {video.title}
@@ -228,14 +230,13 @@ export function SaleFormDialog({
                 ))}
               </select>
               <span className="text-xs text-muted-foreground">
-                Sert à mesurer ce que ton contenu rapporte vraiment. Laisse sur « Je ne sais pas » si tu n&apos;es pas sûr —
-                une réponse au hasard fausserait le calcul.
+                {t("youtubeHelp")}
               </span>
             </label>
           )}
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Setter (optionnel)</span>
+            <span className="text-muted-foreground">{t("setterOptional")}</span>
             <select
               value={setterId}
               onChange={(event) => setSetterId(event.target.value)}
@@ -251,7 +252,7 @@ export function SaleFormDialog({
           </label>
 
           <div className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Paiement</span>
+            <span className="text-muted-foreground">{t("payment")}</span>
             <div className="flex gap-1.5">
               <Button
                 type="button"
@@ -259,7 +260,7 @@ export function SaleFormDialog({
                 size="sm"
                 onClick={() => setPaymentType("one_shot")}
               >
-                Paiement unique
+                {t("oneShot")}
               </Button>
               <Button
                 type="button"
@@ -267,7 +268,7 @@ export function SaleFormDialog({
                 size="sm"
                 onClick={() => setPaymentType("installments")}
               >
-                Échelonné
+                {t("installments")}
               </Button>
               {sale?.paymentType === "subscription" && (
                 <Button
@@ -276,14 +277,14 @@ export function SaleFormDialog({
                   size="sm"
                   onClick={() => setPaymentType("subscription")}
                 >
-                  Abonnement
+                  {t("subscription")}
                 </Button>
               )}
             </div>
           </div>
 
           <div className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Moyen de paiement</span>
+            <span className="text-muted-foreground">{t("paymentMethod")}</span>
             <div className="flex gap-1.5">
               <Button
                 type="button"
@@ -291,7 +292,7 @@ export function SaleFormDialog({
                 size="sm"
                 onClick={() => setPaymentMethod("virement")}
               >
-                Virement
+                {t("transfer")}
               </Button>
               <Button
                 type="button"
@@ -307,7 +308,7 @@ export function SaleFormDialog({
           {paymentType === "installments" && (
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Nombre d&apos;échéances</span>
+                <span className="text-muted-foreground">{t("installmentCount")}</span>
                 <input
                   type="number"
                   min={2}
@@ -337,13 +338,13 @@ export function SaleFormDialog({
                 onChange={(event) => setHasUpsell(event.target.checked)}
                 className="size-4"
               />
-              <span>Upsell pris ?</span>
+              <span>{t("upsell")}</span>
             </label>
 
             {hasUpsell && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="text-muted-foreground">Offre d&apos;upsell</span>
+                  <span className="text-muted-foreground">{t("upsellOffer")}</span>
                   {offers.length > 0 ? (
                     <select
                       value={upsellOfferId}
@@ -358,11 +359,11 @@ export function SaleFormDialog({
                       ))}
                     </select>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Aucune offre renseignée dans Mon business.</p>
+                    <p className="text-sm text-muted-foreground">{t("noBusinessOffers")}</p>
                   )}
                 </label>
                 <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="text-muted-foreground">Montant upsell (€)</span>
+                  <span className="text-muted-foreground">{t("upsellAmount")}</span>
                   <input
                     type="number"
                     min={0}
@@ -378,7 +379,7 @@ export function SaleFormDialog({
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : sale ? "Enregistrer" : "Ajouter la vente"}
+            {isPending ? t("savePending") : sale ? t("save") : t("add")}
           </Button>
         </form>
       </DialogContent>

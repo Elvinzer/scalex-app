@@ -1,6 +1,6 @@
-export function formatReferralMoney(cents: number, currency: string): string {
+export function formatReferralMoney(cents: number, currency: string, locale = "fr-FR"): string {
   try {
-    return new Intl.NumberFormat("fr-FR", {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: currency.toUpperCase(),
       minimumFractionDigits: 2,
@@ -18,8 +18,8 @@ export function maskReferralEmail(email: string): string {
   return `${visible}${"•".repeat(Math.max(1, localPart.length - visible.length))}@${domain}`;
 }
 
-export function formatReferralDate(value: Date): string {
-  return new Intl.DateTimeFormat("fr-FR", {
+export function formatReferralDate(value: Date, locale = "fr-FR"): string {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
   }).format(value);
 }

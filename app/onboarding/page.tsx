@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { track } from "@/lib/analytics";
 import { getCurrentUser } from "@/lib/current-user";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getDiscoveryState } from "@/lib/levers/discovery";
-import { MONTH_LABELS } from "@/lib/monthly-metrics/types";
 import { matchLocaleFromAcceptLanguage } from "@/lib/i18n/config";
 import { getStoredUserLocale } from "@/lib/i18n/locale";
 
 import { OnboardingFlow } from "./onboarding-flow";
 
-export const metadata: Metadata = {
-  title: "Ton diagnostic en 3 minutes — Scale X",
-  description: "Renseigne ton offre et tes chiffres du mois dernier pour voir ton premier goulot chiffré en €.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("onboarding");
+  return { title: t("metaTitle"), description: t("metaDescription") };
+}
 
 export default async function OnboardingPage() {
   const { user } = await getCurrentUser();
@@ -33,7 +33,10 @@ export default async function OnboardingPage() {
   }
 
   const previousMonth = lastCompletedMonths(1)[0];
-  const previousMonthLabel = `${MONTH_LABELS[previousMonth.month - 1]} ${previousMonth.year}`;
+  const locale = await getLocale();
+  const previousMonthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(
+    new Date(Date.UTC(previousMonth.year, previousMonth.month - 1, 1))
+  );
 
   // Optional step-4 questionnaire: the levers still needing a question for this
   // user, snapshotted here (step 1 never touches the 4 profile-backed levers,

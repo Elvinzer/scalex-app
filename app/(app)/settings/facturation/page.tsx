@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { getLocale, getTranslations } from "next-intl/server";
 import { isAdminEmail } from "@/lib/admin";
 import { formatSubscriptionAmount } from "@/lib/billing/admin-subscription-format";
 import { parsePlanFeatures } from "@/lib/billing/plan-schema";
@@ -7,18 +8,9 @@ import { formatUsdCents } from "@/lib/currency";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 
-const STATUS_LABELS: Record<string, string> = {
-  active: "Actif",
-  trialing: "Essai en cours",
-  past_due: "Paiement en retard",
-  canceled: "Annulé",
-  incomplete: "Incomplet",
-  incomplete_expired: "Paiement expiré",
-  unpaid: "Impayé",
-  paused: "En pause",
-};
-
 export default async function FacturationPage() {
+  const t = await getTranslations("settings.billing");
+  const locale = await getLocale();
   const userId = await requireUserId();
   const access = await requireOwnerOrRedirect(userId);
   const { user } = await getCurrentUser();
@@ -32,40 +24,35 @@ export default async function FacturationPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Facturation</h1>
-        <p className="mt-1 text-muted-foreground">
-          Ton abonnement Scale X - nécessaire pour inviter des membres d&apos;équipe.
-        </p>
+        <h1 className="text-3xl font-bold">{t("title")}</h1>
+        <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       {isAdmin && (
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold text-muted-foreground">Accès administrateur</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Compte fondateur : accès illimité à toutes les fonctionnalités (dont les membres
-            d&apos;équipe), sans abonnement requis.
-          </p>
+          <p className="text-sm font-bold text-muted-foreground">{t("adminAccess")}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t("adminHelp")}</p>
         </div>
       )}
 
       {subscription && (
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold text-muted-foreground">Abonnement actuel</p>
+          <p className="text-sm font-bold text-muted-foreground">{t("currentSubscription")}</p>
           <div className="mt-2 flex items-center gap-3">
             <p className="text-lg font-bold">{subscription.plan.name}</p>
             <span className="rounded-full bg-signal/15 px-3 py-1 text-xs font-bold text-signal">
-              {STATUS_LABELS[subscription.status] ?? subscription.status}
+              {t(`status.${subscription.status}`)}
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {subscription.priceMonthlyCents === null ? "Montant historique à vérifier" : `${formatSubscriptionAmount(subscription.priceMonthlyCents)} / mois`}
+            {subscription.priceMonthlyCents === null ? t("historicalAmount") : `${formatSubscriptionAmount(subscription.priceMonthlyCents)} ${t("perMonth")}`}
             {subscription.currentPeriodEnd &&
-              ` (${subscription.cancelAtPeriodEnd ? "se termine" : "renouvellement"} le ${new Date(
+              ` (${subscription.cancelAtPeriodEnd ? t("ends") : t("renews")} ${t("on")} ${new Date(
                 subscription.currentPeriodEnd
-              ).toLocaleDateString("fr-FR")})`}
+              ).toLocaleDateString(locale)})`}
           </p>
           <Button asChild variant="outline" className="mt-4">
-            <a href="/api/billing/portal">Gérer mon abonnement →</a>
+            <a href="/api/billing/portal">{t("manageSubscription")} →</a>
           </Button>
         </div>
       )}
@@ -80,12 +67,12 @@ export default async function FacturationPage() {
               <p className="font-display text-2xl font-bold">{formatUsdCents(plan.priceMonthlyCents)}<span className="text-sm font-normal text-muted-foreground">/mois</span></p>
               <p className="text-sm text-muted-foreground">
                 {features.teamMembersEnabled
-                  ? `Équipe incluse${features.maxTeamMembers ? ` (jusqu'à ${features.maxTeamMembers} membres)` : ""}`
-                  : "Sans membres d'équipe"}
+                  ? `${t("teamIncluded")}${features.maxTeamMembers ? ` (${t("upToMembers", { count: features.maxTeamMembers })})` : ""}`
+                  : t("noTeam")}
               </p>
               <Button asChild disabled={isCurrent} className="mt-2">
                 <a href={`/api/billing/checkout?plan=${plan.key}`}>
-                  {isCurrent ? "Plan actuel" : subscription ? "Changer de plan" : "S'abonner"}
+                  {isCurrent ? t("currentPlan") : subscription ? t("changePlan") : t("subscribe")}
                 </a>
               </Button>
             </div>

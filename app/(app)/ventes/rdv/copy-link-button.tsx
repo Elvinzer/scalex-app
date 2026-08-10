@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertCircle, Check, Link2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 type CopyStatus = "idle" | "copied" | "error";
 
 export function CopyLinkButton({ url, compact = false }: { url: string; compact?: boolean }) {
+  const t = useTranslations("app.booking");
   const [status, setStatus] = useState<CopyStatus>("idle");
 
   async function copy() {
@@ -21,7 +23,7 @@ export function CopyLinkButton({ url, compact = false }: { url: string; compact?
     }
   }
 
-  const label = status === "copied" ? "Lien copié" : status === "error" ? "Impossible de copier le lien" : "Copier le lien";
+  const label = status === "copied" ? t("linkCopied") : status === "error" ? t("copyError") : t("copyLink");
 
   return (
     <Button
@@ -34,7 +36,7 @@ export function CopyLinkButton({ url, compact = false }: { url: string; compact?
       title={label}
     >
       {status === "copied" ? <Check className="size-4 text-state-healthy" /> : status === "error" ? <AlertCircle className="size-4 text-state-critical" /> : <Link2 className="size-4" />}
-      {!compact && (status === "copied" ? "Copié" : status === "error" ? "Réessayer" : "Copier le lien")}
+      {!compact && (status === "copied" ? t("copied") : status === "error" ? t("retry") : t("copyLink"))}
     </Button>
   );
 }

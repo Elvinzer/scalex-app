@@ -1,12 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { FalcoConversationTurn } from "@/components/falco/falco-conversation-turn";
 import { useFalcoListening } from "@/components/falco/use-falco-listening";
 import { Button } from "@/components/ui/button";
 import type { LeverCatalogEntry, LeverQuestion } from "@/lib/levers/catalog";
+import { localizeLeverCategory, localizeLeverLabel, localizeLeverQuestion } from "@/lib/levers/locale";
 import { cn } from "@/lib/utils";
 
 import { saveLeverAnswer } from "./discovery-actions";
@@ -30,27 +32,33 @@ function StatField({
   onFocus?: () => void;
   onBlur?: () => void;
 }) {
+  const t = useTranslations("diagnostic.discovery");
+  const locale = useLocale();
+  const localizedQuestion = localizeLeverQuestion(question, locale);
   const fieldClass =
     "rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12";
 
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-bold">
-        {question.prompt}
-        {question.unit && <span className="ml-1 font-normal text-muted-foreground">({question.unit})</span>}
+        {localizedQuestion.prompt}
+        {localizedQuestion.unit && <span className="ml-1 font-normal text-muted-foreground">({localizedQuestion.unit})</span>}
       </span>
-      {question.kind === "select" ? (
+      {localizedQuestion.kind === "select" ? (
         <select value={value} onChange={(event) => onChange(event.target.value)} onFocus={onFocus} onBlur={onBlur} className={fieldClass}>
-          <option value="">Choisir...</option>
-          {question.options?.map((option) => (
-            <option key={option} value={option}>
+          <option value="">{t("choose")}</option>
+          {localizedQuestion.options?.map((option, index) => {
+            const rawOption = question.options?.[index] ?? option;
+            return (
+            <option key={rawOption} value={rawOption}>
               {option}
             </option>
-          ))}
+            );
+          })}
         </select>
       ) : (
         <input
-          type={question.kind === "stat_number" ? "number" : "text"}
+          type={localizedQuestion.kind === "stat_number" ? "number" : "text"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onFocus={onFocus}
@@ -81,6 +89,9 @@ export function DiscoveryConversation({
   // the dashboard rather than swap to the (diagnostic-only) results view.
   onComplete?: () => void;
 }) {
+  const t = useTranslations("diagnostic.discovery");
+  const tDiagnostic = useTranslations("diagnostic");
+  const locale = useLocale();
   const router = useRouter();
   // Snapshotted once on mount, deliberately ignoring subsequent `levers`
   // prop updates: saveLeverAnswer calls revalidatePath("/diagnostic") after
@@ -108,6 +119,7 @@ export function DiscoveryConversation({
   const lever = levers[index];
   const primaryQuestion = lever?.questions[0];
   const statQuestions = lever?.questions.slice(1) ?? [];
+  const localizedPrimaryQuestion = primaryQuestion ? localizeLeverQuestion(primaryQuestion, locale) : null;
 
   async function advance(status: "active" | "absent", stats: Record<string, string>) {
     if (!lever) return;
@@ -184,7 +196,7 @@ export function DiscoveryConversation({
           disabled={isPending}
           className="-mb-2 self-start text-xs font-bold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         >
-          ← Précédent
+          ← {t("previous")}
         </button>
       )}
 
@@ -193,26 +205,28 @@ export function DiscoveryConversation({
           detailing once the primary "yes/no" question (which carried the
           context, e.g. "Tu fais de la publicité payante ?") is gone. */}
       <div>
-        <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">{CATEGORY_LABEL[lever.category]}</p>
-        <p className="mt-0.5 text-base font-bold">{lever.label}</p>
+        <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">
+          {localizeLeverCategory(lever.category, CATEGORY_LABEL[lever.category], locale, tDiagnostic)}
+        </p>
+        <p className="mt-0.5 text-base font-bold">{localizeLeverLabel(lever.leverKey, lever.label, locale, tDiagnostic)}</p>
       </div>
 
       <FalcoConversationTurn
         key={`${lever.leverKey}-${phase}`}
         pose={listening.pose ?? "thinking"}
         falcoClassName={phase === "stats" ? listening.className : undefined}
-        bubbleText={phase === "primary" ? (primaryQuestion?.prompt ?? "") : "Top. Un à-peu-près suffit sur les chiffres qui suivent."}
+        bubbleText={phase === "primary" ? (localizedPrimaryQuestion?.prompt ?? "") : t("estimateHelp")}
       >
         {phase === "primary" ? (
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => handlePrimaryAnswer("yes")} disabled={isPending}>
-              Oui
+              {t("yes")}
             </Button>
             <Button variant="secondary" onClick={() => handlePrimaryAnswer("no")} disabled={isPending}>
-              Non
+              {t("no")}
             </Button>
             <Button variant="ghost" onClick={() => handlePrimaryAnswer("not_yet")} disabled={isPending}>
-              Pas encore
+              {t("notYet")}
             </Button>
           </div>
         ) : (
@@ -231,7 +245,7 @@ export function DiscoveryConversation({
               />
             ))}
             <Button type="submit" disabled={isPending} className={cn("self-start", isPending && "opacity-70")}>
-              {isPending ? "..." : "Continuer →"}
+              {isPending ? "..." : `${t("continue")} →`}
             </Button>
           </form>
         )}

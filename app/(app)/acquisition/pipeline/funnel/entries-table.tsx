@@ -1,4 +1,5 @@
 import type { settingKpiEntries } from "@/db/schema";
+import { useLocale, useTranslations } from "next-intl";
 
 import { EditableKpiCell } from "./editable-kpi-cell";
 
@@ -6,8 +7,8 @@ type SettingKpiEntry = typeof settingKpiEntries.$inferSelect;
 
 const VISIBLE_ROWS = 30;
 
-function formatDate(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("fr-FR", {
+function formatDate(date: string, locale: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(locale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -17,6 +18,8 @@ function formatDate(date: string): string {
 
 // entries must already be sorted most-recent-first.
 export function EntriesTable({ entries }: { entries: SettingKpiEntry[] }) {
+  const locale = useLocale();
+  const t = useTranslations("pipeline.funnel");
   const visible = entries.slice(0, VISIBLE_ROWS);
 
   return (
@@ -24,18 +27,18 @@ export function EntriesTable({ entries }: { entries: SettingKpiEntry[] }) {
       <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b-2 border-border text-left text-muted-foreground">
-            <th className="px-4 py-3 font-bold">Date</th>
-            <th className="px-4 py-3 font-bold">Abonnés</th>
-            <th className="px-4 py-3 font-bold">Messages</th>
-            <th className="px-4 py-3 font-bold">Conversations</th>
-            <th className="px-4 py-3 font-bold">Appels proposés</th>
-            <th className="px-4 py-3 font-bold">Appels réservés</th>
+            <th className="px-4 py-3 font-bold">{t("date")}</th>
+            <th className="px-4 py-3 font-bold">{t("newSubscribers")}</th>
+            <th className="px-4 py-3 font-bold">{t("firstMessages")}</th>
+            <th className="px-4 py-3 font-bold">{t("conversations")}</th>
+            <th className="px-4 py-3 font-bold">{t("callsProposed")}</th>
+            <th className="px-4 py-3 font-bold">{t("callsBooked")}</th>
           </tr>
         </thead>
         <tbody>
           {visible.map((entry) => (
             <tr key={entry.id} className="border-b border-border last:border-0">
-              <td className="px-4 py-2.5">{formatDate(entry.date)}</td>
+              <td className="px-4 py-2.5">{formatDate(entry.date, locale)}</td>
               <EditableKpiCell
                 entryId={entry.id}
                 field="newSubscribers"
@@ -63,9 +66,7 @@ export function EntriesTable({ entries }: { entries: SettingKpiEntry[] }) {
       </table>
       {entries.length > VISIBLE_ROWS && (
         <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
-          {entries.length - VISIBLE_ROWS} autre{entries.length - VISIBLE_ROWS > 1 ? "s" : ""}{" "}
-          jour{entries.length - VISIBLE_ROWS > 1 ? "s" : ""} enregistré
-          {entries.length - VISIBLE_ROWS > 1 ? "s" : ""}
+          {t("otherDays", { count: entries.length - VISIBLE_ROWS, plural: entries.length - VISIBLE_ROWS > 1 ? "s" : "" })}
         </p>
       )}
     </div>

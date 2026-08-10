@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,8 @@ export function CampaignsTable({
   campaigns: EmailCampaignRow[];
   falcoSkin?: FalcoSkinKey | null;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("app.mail");
   const [, startTransition] = useTransition();
   const [sortKey, setSortKey] = useState<SortKey>("sentAt");
   const [sortDesc, setSortDesc] = useState(true);
@@ -99,8 +102,8 @@ export function CampaignsTable({
   if (campaigns.length === 0) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
-        <p className="text-sm font-bold">Aucun envoi enregistré pour l&apos;instant</p>
-        <p className="mt-1 text-sm text-muted-foreground">Ajoute ton premier envoi ci-dessus.</p>
+        <p className="text-sm font-bold">{t("noSendsRecorded")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("firstSendHelp")}</p>
       </div>
     );
   }
@@ -110,14 +113,14 @@ export function CampaignsTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border">
-            <th className="p-3 text-left"><SortHeader label="Envoi" sortKeyValue="sentAt" /></th>
-            <th className="p-3 text-right"><SortHeader label="Envois" sortKeyValue="sends" /></th>
-            <th className="p-3 text-right"><SortHeader label="Ouverture" sortKeyValue="openRate" /></th>
-            <th className="p-3 text-right"><SortHeader label="Clic" sortKeyValue="ctr" /></th>
-            <th className="p-3 text-right"><SortHeader label="CA attribué" sortKeyValue="revenueAttributed" /></th>
-            <th className="p-3 text-right"><SortHeader label="RDV bookés" sortKeyValue="bookings" /></th>
-            <th className="p-3 text-right"><SortHeader label="RDV closés" sortKeyValue="dealsClosed" /></th>
-            <th className="p-3 text-right"><SortHeader label="Score" sortKeyValue="score" /></th>
+            <th className="p-3 text-left"><SortHeader label={t("table.send")} sortKeyValue="sentAt" /></th>
+            <th className="p-3 text-right"><SortHeader label={t("sends")} sortKeyValue="sends" /></th>
+            <th className="p-3 text-right"><SortHeader label={t("table.open")} sortKeyValue="openRate" /></th>
+            <th className="p-3 text-right"><SortHeader label={t("table.click")} sortKeyValue="ctr" /></th>
+            <th className="p-3 text-right"><SortHeader label={t("table.revenue")} sortKeyValue="revenueAttributed" /></th>
+            <th className="p-3 text-right"><SortHeader label={t("bookingsThisMonth")} sortKeyValue="bookings" /></th>
+            <th className="p-3 text-right"><SortHeader label={t("dealsThisMonth")} sortKeyValue="dealsClosed" /></th>
+            <th className="p-3 text-right"><SortHeader label={t("table.score")} sortKeyValue="score" /></th>
             <th className="p-3" />
           </tr>
         </thead>
@@ -127,9 +130,9 @@ export function CampaignsTable({
               <td className="p-3">
                 <div className="flex items-center gap-2">
                   <p className="font-bold">{campaign.name}</p>
-                  {campaign.id === topId && (
+                {campaign.id === topId && (
                     <span className="rounded-full bg-state-healthy-bg px-2 py-0.5 text-xs font-bold text-state-healthy">
-                      Top
+                      {t("table.top")}
                     </span>
                   )}
                 </div>
@@ -137,11 +140,11 @@ export function CampaignsTable({
               </td>
               <td className="p-3 text-right tabular-nums">{campaign.sends}</td>
               <td className="p-3 text-right tabular-nums">
-                {metrics.openRate === null ? "—" : formatPercent(metrics.openRate)}
+                {metrics.openRate === null ? "—" : formatPercent(metrics.openRate, locale)}
               </td>
-              <td className="p-3 text-right tabular-nums">{metrics.ctr === null ? "—" : formatPercent(metrics.ctr)}</td>
+              <td className="p-3 text-right tabular-nums">{metrics.ctr === null ? "—" : formatPercent(metrics.ctr, locale)}</td>
               <td className="p-3 text-right tabular-nums">
-                {campaign.revenueAttributed === null ? "—" : formatEur(campaign.revenueAttributed)}
+                {campaign.revenueAttributed === null ? "—" : formatEur(campaign.revenueAttributed, locale)}
               </td>
               <td className="p-3 text-right tabular-nums">{campaign.bookings === null ? "—" : campaign.bookings}</td>
               <td className="p-3 text-right tabular-nums">{campaign.dealsClosed === null ? "—" : campaign.dealsClosed}</td>
@@ -152,9 +155,11 @@ export function CampaignsTable({
                   <ItemScoreButton
                     score={score}
                     chatContext={
-                      { topicType: "lever", topicKey: "email_marketing", topicLabel: "Emailing", sourcePage: "acquisition_mail_score" } satisfies ChatContext
+                      { topicType: "lever", topicKey: "email_marketing", topicLabel: t("topicLabel"), sourcePage: "acquisition_mail_score" } satisfies ChatContext
                     }
-                    seedQuestion={`Pourquoi ma campagne "${campaign.name}" a un score de ${score}/100 ? Comment je peux l'améliorer ?`}
+                    seedQuestion={locale === "en"
+                      ? `Why does my campaign "${campaign.name}" have a score of ${score}/100? How can I improve it?`
+                      : `Pourquoi ma campagne "${campaign.name}" a un score de ${score}/100 ? Comment je peux l'améliorer ?`}
                     falcoSkin={falcoSkin}
                   />
                 )}
@@ -164,7 +169,7 @@ export function CampaignsTable({
                   <CampaignFormDialog
                     campaign={campaign}
                     trigger={
-                      <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier">
+                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t("edit")}>
                         <Pencil className="size-3.5" />
                       </Button>
                     }
@@ -173,7 +178,7 @@ export function CampaignsTable({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Supprimer"
+                    aria-label={t("delete")}
                     onClick={() => handleDelete(campaign.id)}
                   >
                     <Trash2 className="size-3.5" />

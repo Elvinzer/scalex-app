@@ -9,8 +9,10 @@ export function formatSignedPercent(value: number | null): string {
   return `${rounded > 0 ? "+" : ""}${rounded}%`;
 }
 
-export function targetVarianceLabel(actual: number | null, target: number | null): string | null {
+export function targetVarianceLabel(actual: number | null, target: number | null, locale = "fr"): string | null {
   if (target === null) return null;
   const variance = targetVariance(actual, target);
-  return variance === null ? "écart non calculable" : `écart ${formatSignedPercent(variance)}`;
+  return variance === null
+    ? locale === "en" ? "gap cannot be calculated" : "écart non calculable"
+    : locale === "en" ? `gap ${formatSignedPercent(variance)}` : `écart ${formatSignedPercent(variance)}`;
 }

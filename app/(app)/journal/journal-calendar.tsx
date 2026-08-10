@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,11 +12,7 @@ import { cn } from "@/lib/utils";
 import { DayDrawer } from "./day-drawer";
 import type { JournalDay } from "@/lib/journal/queries";
 
-const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-const MONTH_LABELS = [
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
-];
+const WEEKDAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
@@ -56,6 +53,8 @@ export function JournalCalendar({
   days: JournalDay[];
   todayIso: string;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("journal.calendar");
   const router = useRouter();
   const [selected, setSelected] = useState<JournalDay | null>(null);
   const dayByDate = new Map(days.map((d) => [d.date, d]));
@@ -78,29 +77,31 @@ export function JournalCalendar({
     goToMonth(now.getUTCFullYear(), now.getUTCMonth() + 1);
   }
 
+  const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
+
   return (
     <div className="sticker-card p-4 sm:p-6">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="text-base font-bold">
-          {MONTH_LABELS[month - 1]} {year}
+          {monthLabel} {year}
         </h2>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon-sm" onClick={handlePrev} aria-label="Mois précédent">
+          <Button variant="ghost" size="icon-sm" onClick={handlePrev} aria-label={t("previousMonth")}>
             <ChevronLeft className="size-4" />
           </Button>
           <Button variant="ghost" size="sm" onClick={handleToday}>
-            Aujourd&apos;hui
+            {t("today")}
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={handleNext} aria-label="Mois suivant">
+          <Button variant="ghost" size="icon-sm" onClick={handleNext} aria-label={t("nextMonth")}>
             <ChevronRight className="size-4" />
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-7 gap-1.5">
-        {WEEKDAY_LABELS.map((label) => (
-          <div key={label} className="pb-1 text-center text-[11px] font-bold text-muted-foreground">
-            {label}
+        {WEEKDAY_KEYS.map((key) => (
+          <div key={key} className="pb-1 text-center text-[11px] font-bold text-muted-foreground">
+            {t(`weekdays.${key}`)}
           </div>
         ))}
 
@@ -111,9 +112,9 @@ export function JournalCalendar({
           const tier = journalDay?.score !== null && journalDay?.score !== undefined ? getHealthTier(journalDay.score) : null;
           const keyNumber =
             journalDay && journalDay.totals.salesClosed > 0
-              ? `${journalDay.totals.salesClosed} vente${journalDay.totals.salesClosed > 1 ? "s" : ""}`
+              ? t("salesCount", { count: journalDay.totals.salesClosed, plural: journalDay.totals.salesClosed > 1 ? "s" : "" })
               : journalDay && journalDay.totals.callsAttended > 0
-                ? `${journalDay.totals.callsAttended} appel${journalDay.totals.callsAttended > 1 ? "s" : ""}`
+                ? t("callsCount", { count: journalDay.totals.callsAttended, plural: journalDay.totals.callsAttended > 1 ? "s" : "" })
                 : null;
           const hasImprovement = (journalDay?.events.length ?? 0) > 0;
 

@@ -2,9 +2,9 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { MessageCircle } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
-import { formatEur } from "@/lib/currency";
-import { LEAD_SOURCE_LABELS, type LeadRow } from "@/lib/leads/types";
+import type { LeadRow } from "@/lib/leads/types";
 import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +47,8 @@ export function LeadCard({
   isTargeted?: boolean;
   onClick: () => void;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("pipeline");
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id });
 
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
@@ -67,7 +69,7 @@ export function LeadCard({
       }}
       tabIndex={0}
       role="button"
-      aria-label={`Ouvrir le lead ${lead.firstName} ${lead.lastName}`}
+      aria-label={t("openLead", { name: `${lead.firstName} ${lead.lastName}` })}
       className={cn(
         "sticker-card flex cursor-grab flex-col gap-2 p-3 text-sm outline-none active:cursor-grabbing focus-visible:ring-3 focus-visible:ring-accent/25",
         isTargeted && "ring-2 ring-accent ring-offset-2 ring-offset-background",
@@ -80,21 +82,21 @@ export function LeadCard({
         </p>
         {lead.stage === "rdv_fixe" && lead.isNoShow && (
           <span className="shrink-0 rounded-full bg-state-critical-bg px-2 py-0.5 text-[10px] font-bold whitespace-nowrap text-state-critical">
-            No-show
+            {t("noShow")}
           </span>
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">{LEAD_SOURCE_LABELS[lead.source]}</p>
+      <p className="text-xs text-muted-foreground">{t(`source.${lead.source}`)}</p>
       {offerName && <p className="text-xs text-muted-foreground">{offerName}</p>}
 
-      <p className="font-display text-base font-bold tabular-nums">{formatEur(lead.potentialValueEur)}</p>
+      <p className="font-display text-base font-bold tabular-nums">{new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(lead.potentialValueEur)}</p>
 
       <div className="flex items-center justify-between gap-2">
         <div className="flex -space-x-1.5">
           {setter && (
             <span
-              title={`Setter : ${setter.name}`}
+              title={`${t("setter")} : ${setter.name}`}
               className="flex size-6 items-center justify-center rounded-full border-2 border-card bg-accent-2-soft text-[10px] font-bold text-accent-2-text"
             >
               {initials(setter.name)}
@@ -102,7 +104,7 @@ export function LeadCard({
           )}
           {lead.closer && (
             <span
-              title={`Closer : ${lead.closer}`}
+              title={`${t("closer")} : ${lead.closer}`}
               className="flex size-6 items-center justify-center rounded-full border-2 border-card bg-accent-soft text-[10px] font-bold text-accent-text"
             >
               {initials(lead.closer)}
@@ -112,7 +114,7 @@ export function LeadCard({
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {isReminderDue(lead.reminderDate, lead.reminderDone) && (
-            <span title={lead.reminderNote ?? "Rappel"} className="size-2 rounded-full bg-state-critical" />
+            <span title={lead.reminderNote ?? t("reminder")} className="size-2 rounded-full bg-state-critical" />
           )}
           {commentCount > 0 && (
             <span className="flex items-center gap-0.5">

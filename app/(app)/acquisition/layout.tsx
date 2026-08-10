@@ -1,4 +1,5 @@
 import { PillarTabs, type PillarTab } from "@/components/pillar-tabs";
+import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
@@ -10,6 +11,7 @@ import { getAccountContext } from "@/lib/team/context";
 // alongside Pipeline/Setters (it was delinked in an earlier chantier,
 // explicitly brought back for this one).
 export default async function AcquisitionLayout({ children }: { children: React.ReactNode }) {
+  const t = await getTranslations("app.acquisition");
   const { userId } = await getCurrentUser();
   const context = await getAccountContext(userId);
   const isOwner = context?.isOwner ?? false;
@@ -35,8 +37,8 @@ export default async function AcquisitionLayout({ children }: { children: React.
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/falco-skin-${skin}.webp`} />
       ))}
       <div>
-        <h1 className="text-3xl font-bold">Acquisition</h1>
-        <p className="mt-1 max-w-2xl text-muted-foreground">Comprends ce qui attire des prospects, puis transforme chaque source en prochaine action mesurable.</p>
+        <h1 className="text-3xl font-bold">{t("title")}</h1>
+        <p className="mt-1 max-w-2xl text-muted-foreground">{t("subtitle")}</p>
       </div>
       <PillarTabs tabs={tabs} />
       {children}

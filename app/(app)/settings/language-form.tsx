@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 
 import { LOCALES, LOCALE_LABELS, type Locale } from "@/lib/i18n/config";
 import { setLocaleAction } from "@/lib/i18n/actions";
@@ -16,6 +17,7 @@ export function LanguageForm({
   initialLocale: Locale;
   showNewLanguageNotice: boolean;
 }) {
+  const router = useRouter();
   const t = useTranslations("settings.preferences");
   const tStates = useTranslations("common.states");
   const [locale, setLocale] = useState<Locale>(initialLocale);
@@ -33,9 +35,11 @@ export function LanguageForm({
         setLocale(previous);
         return;
       }
-      // The action revalidates the layout, so the surrounding page re-renders
-      // in the new language without a visible reload and without losing
-      // scroll position (§C's "bascule fluide").
+      // revalidatePath invalidates the server cache, but a client-side Server
+      // Action call does not refresh the current RSC tree by itself. Refresh
+      // explicitly so the root layout, sidebar and current page all resolve
+      // the new locale in the same round-trip.
+      router.refresh();
       setSaved(true);
     });
   }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 
@@ -10,13 +11,14 @@ import { Button } from "@/components/ui/button";
 // Button (variant="default") here — "Ajouter une vente" is already this
 // screen's one priority CTA, per the DA's one-accent-per-screen rule.
 export function StripeStatusLine({ connected }: { connected: boolean }) {
+  const t = useTranslations("sales");
   if (connected) {
     return (
       <div className="flex items-center gap-2 text-sm font-bold">
         <span className="size-1.5 rounded-full bg-state-healthy" />
-        <span className="text-state-healthy">Stripe connecté · tes paiements alimentent ce suivi automatiquement</span>
+        <span className="text-state-healthy">{t("stripeConnectedLine")}</span>
         <Button asChild variant="link" size="sm" className="min-h-11">
-          <Link href="/integrations#stripe">Déconnecter</Link>
+          <Link href="/integrations#stripe">{t("disconnect")}</Link>
         </Button>
       </div>
     );
@@ -25,9 +27,9 @@ export function StripeStatusLine({ connected }: { connected: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
       <span className="size-1.5 rounded-full bg-state-caution" />
-      <span className="text-state-caution">Aucun compte Stripe lié — connecte-le pour suivre tes paiements automatiquement.</span>
+      <span className="text-state-caution">{t("stripeNotLinked")}</span>
       <Button asChild variant="outline" size="sm" className="min-h-11">
-        <Link href="/integrations#stripe">Connecter Stripe</Link>
+        <Link href="/integrations#stripe">{t("connectStripe")}</Link>
       </Button>
     </div>
   );

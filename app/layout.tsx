@@ -51,7 +51,7 @@ export default async function RootLayout({
     // own explicit font utility class then inherited.
     <html lang={LOCALE_HTML_LANG[locale]} className={`${inter.variable} overflow-x-clip`}>
       <body className="antialiased overflow-x-clip">
-        <NextIntlClientProvider>
+        <NextIntlClientProvider locale={locale}>
           <PostHogInit />
           <MetaTouchpointCapture />
           {children}

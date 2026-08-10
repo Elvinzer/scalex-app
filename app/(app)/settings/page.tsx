@@ -34,31 +34,28 @@ export default async function SettingsPage() {
 
   // storedLocale === null marks an account that predates the language choice:
   // it keeps French and gets the dismissable note, never a replayed onboarding.
-  const [resolvedLocale, storedLocale, tPreferences] = await Promise.all([
+  const [resolvedLocale, storedLocale, tPreferences, tPage] = await Promise.all([
     getRequestLocale(),
     getStoredUserLocale(),
     getTranslations("settings.preferences"),
+    getTranslations("settings.page"),
   ]);
 
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Réglages</h1>
-        <p className="mt-1 text-muted-foreground">
-          Ton compte, ta clé Anthropic et tes intégrations.
-        </p>
+        <h1 className="text-3xl font-bold">{tPage("title")}</h1>
+        <p className="mt-1 text-muted-foreground">{tPage("subtitle")}</p>
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-bold text-muted-foreground">Compte</p>
+        <p className="text-sm font-bold text-muted-foreground">{tPage("account")}</p>
         <p className="mt-2 text-lg font-bold">{user?.email}</p>
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-bold text-muted-foreground">Profil</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ta photo et ton pseudo, affichés dans le menu de gauche.
-        </p>
+        <p className="text-sm font-bold text-muted-foreground">{tPage("profile")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tPage("profileHelp")}</p>
         <div className="mt-4">
           <ProfileForm userId={userId} initialDisplayName={user?.displayName ?? null} initialAvatarUrl={user?.avatarUrl ?? null} />
         </div>
@@ -75,22 +72,16 @@ export default async function SettingsPage() {
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-bold text-muted-foreground">Mon business</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Décris ton offre, ton acquisition et ta delivery pour que Scale X calcule des
-          chiffres justes.
-        </p>
+        <p className="text-sm font-bold text-muted-foreground">{tPage("business")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tPage("businessHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
-          <a href="/business">Modifier mon business →</a>
+          <a href="/business">{tPage("editBusiness")}</a>
         </Button>
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-bold text-muted-foreground">Clé API Anthropic (BYOK)</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ton agent utilise toujours ta propre clé : jamais partagée, jamais affichée en
-          clair.
-        </p>
+        <p className="text-sm font-bold text-muted-foreground">{tPage("anthropicKey")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tPage("anthropicKeyHelp")}</p>
 
         {maskedKey && !keyInvalid && (
           <p className="mt-4 inline-flex items-center rounded-full bg-signal/15 px-3 py-1 font-mono text-sm font-bold text-signal">
@@ -105,8 +96,7 @@ export default async function SettingsPage() {
               {maskedKey} : ne fonctionne plus
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Cette clé a été révoquée ou a expiré côté Anthropic. Génères-en une nouvelle
-              ci-dessous pour débloquer à nouveau les insights.
+              {tPage("keyInvalid")}
             </p>
           </div>
         )}
@@ -115,20 +105,19 @@ export default async function SettingsPage() {
           <div className="mt-4 rounded-xl border border-state-critical/40 bg-state-critical/10 p-3">
             <p className="inline-flex items-center gap-2 text-sm font-bold text-state-critical">
               <AlertTriangle className="size-4 shrink-0" />
-              Ta clé enregistrée n&apos;a pas pu être lue
+              {tPage("keyUnreadableTitle")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              La clé de chiffrement du serveur a changé depuis son enregistrement. Ta clé stockée
-              est inutilisable : re-saisis-la ci-dessous pour rétablir tes insights.
+              {tPage("keyUnreadable")}
             </p>
           </div>
         )}
 
         <div className="mt-6 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-          <p className="font-bold text-foreground">Comment obtenir ta clé</p>
+          <p className="font-bold text-foreground">{tPage("getKey")}</p>
           <ol className="mt-2 list-decimal space-y-1 pl-4">
             <li>
-              Va sur{" "}
+              {tPage("getKeyStep1")}{" "}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
@@ -136,15 +125,13 @@ export default async function SettingsPage() {
                 className="font-bold text-signal underline"
               >
                 console.anthropic.com
-              </a>{" "}
-              et connecte-toi (ou crée un compte).
+              </a>{" "}{tPage("getKeyStep1End")}
             </li>
-            <li>Ajoute quelques dollars de crédit dans Billing - sans ça, l&apos;API refuse tout appel.</li>
+            <li>{tPage("getKeyStep2")}</li>
             <li>
-              Dans API Keys, clique « Create Key », donne-lui un nom (ex. « Scale X »), et copie
-              la valeur qui commence par sk-ant-.
+              {tPage("getKeyStep3")}
             </li>
-            <li>Colle-la ci-dessous. Elle ne sera plus jamais affichée en clair une fois enregistrée.</li>
+            <li>{tPage("getKeyStep4")}</li>
           </ol>
         </div>
 
@@ -154,38 +141,31 @@ export default async function SettingsPage() {
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-bold text-muted-foreground">Facturation</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ton abonnement Scale X - nécessaire pour inviter des membres d&apos;équipe.
-        </p>
+        <p className="text-sm font-bold text-muted-foreground">{tPage("billing")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tPage("billingHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
-          <a href="/settings/facturation">Gérer mon abonnement →</a>
+          <a href="/settings/facturation">{tPage("manageBilling")}</a>
         </Button>
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-bold text-muted-foreground">Équipe</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Invite des membres, attribue-leur des rôles (setting, closing, financier...) et
-          configure les accès de chaque rôle.
-        </p>
+        <p className="text-sm font-bold text-muted-foreground">{tPage("team")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tPage("teamHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
-          <a href="/settings/equipe">Gérer l&apos;équipe →</a>
+          <a href="/settings/equipe">{tPage("manageTeam")}</a>
         </Button>
       </div>
 
       <div className="sticker-card p-8">
-        <p className="text-sm font-bold text-muted-foreground">Intégrations</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Stripe, iClosed, Calendly, Instagram et YouTube — les sources de ton diagnostic.
-        </p>
+        <p className="text-sm font-bold text-muted-foreground">{tPage("integrations")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tPage("integrationsHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
-          <a href="/integrations">Voir les intégrations →</a>
+          <a href="/integrations">{tPage("viewIntegrations")}</a>
         </Button>
       </div>
 
       <div className="sticker-card border-state-critical/30 p-8">
-        <p className="text-sm font-bold text-state-critical">Suppression de données</p>
+        <p className="text-sm font-bold text-state-critical">{tPage("deleteData")}</p>
         <div className="mt-4">
           <DangerZoneForm email={user?.email ?? ""} />
         </div>

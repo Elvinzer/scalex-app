@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "motion/react";
+import { useLocale, useTranslations } from "next-intl";
 import { defineChart, dot, lineY, text as textMark } from "@tanstack/charts";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { Chart } from "@tanstack/react-charts";
@@ -13,19 +14,21 @@ import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion-tokens";
 
 import type { StripeTrendPoint } from "@/lib/stripe/transaction-insights";
 
-function formatMoney(cents: number, currency: string): string {
+function formatMoney(cents: number, currency: string, locale: string): string {
   try {
-    return new Intl.NumberFormat("fr-FR", {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: currency.toUpperCase(),
       maximumFractionDigits: 0,
     }).format(cents / 100);
   } catch {
-    return `${Math.round(cents / 100).toLocaleString("fr-FR")} ${currency.toUpperCase()}`;
+    return `${Math.round(cents / 100).toLocaleString(locale)} ${currency.toUpperCase()}`;
   }
 }
 
 export function StripeTrendChart({ data, currency }: { data: StripeTrendPoint[]; currency: string }) {
+  const locale = useLocale();
+  const t = useTranslations("sales.insights");
   const reducedMotion = useReducedMotion();
   const lastPoint = data.at(-1) ?? null;
 
@@ -55,7 +58,7 @@ export function StripeTrendChart({ data, currency }: { data: StripeTrendPoint[];
                   id: "stripe-net-last-label",
                   x: "label",
                   y: "netCents",
-                  text: (point: StripeTrendPoint) => formatMoney(point.netCents, currency),
+                  text: (point: StripeTrendPoint) => formatMoney(point.netCents, currency, locale),
                   dy: -14,
                   fontSize: 12,
                   fontWeight: 700,
@@ -71,7 +74,7 @@ export function StripeTrendChart({ data, currency }: { data: StripeTrendPoint[];
           grid: true,
           axis: {
             line: false,
-            ticks: { size: 0, count: 5, format: (value: number) => formatMoney(value, currency) },
+            ticks: { size: 0, count: 5, format: (value: number) => formatMoney(value, currency, locale) },
           },
         },
         theme: {
@@ -85,21 +88,21 @@ export function StripeTrendChart({ data, currency }: { data: StripeTrendPoint[];
           items: [
             {
               channel: "y",
-              label: "CA net",
-              text: (point) => (point.yValue === null || point.yValue === undefined ? "—" : formatMoney(point.yValue, currency)),
+              label: t("netRevenue"),
+              text: (point) => (point.yValue === null || point.yValue === undefined ? "—" : formatMoney(point.yValue, currency, locale)),
             },
-            { channel: "x", label: "Mois" },
+            { channel: "x", label: t("month") },
           ],
         },
         animate: reducedMotion ? false : { duration: 420, easing: "ease-out" },
       }),
-    [currency, data, lastPoint, reducedMotion],
+    [currency, data, lastPoint, locale, reducedMotion, t],
   );
 
   if (data.length === 0) {
     return (
       <div className="flex min-h-56 items-center justify-center rounded-[var(--radius-control)] border border-dashed border-border bg-surface-sunken px-4 text-center text-sm text-muted-foreground">
-        Pas assez de données pour tracer une tendance sur cette période.
+        {t("noTransactions")}
       </div>
     );
   }
@@ -107,7 +110,13 @@ export function StripeTrendChart({ data, currency }: { data: StripeTrendPoint[];
   const first = data[0];
   const last = data[data.length - 1];
   const direction = last.netCents - first.netCents;
-  const summary = `Tendance du CA net de ${first.label} à ${last.label} : ${formatMoney(first.netCents, currency)} puis ${formatMoney(last.netCents, currency)}. ${direction > 0 ? "La dernière valeur est en hausse." : direction < 0 ? "La dernière valeur est en baisse." : "La dernière valeur est stable."}`;
+  const summary = t("trendSummary", {
+    first: first.label,
+    firstValue: formatMoney(first.netCents, currency, locale),
+    last: last.label,
+    lastValue: formatMoney(last.netCents, currency, locale),
+    direction: direction > 0 ? t("rising") : direction < 0 ? t("falling") : t("unchanged"),
+  });
 
   return (
     <div>
@@ -123,15 +132,15 @@ export function StripeTrendChart({ data, currency }: { data: StripeTrendPoint[];
           definition={definition}
           height={250}
           initialWidth={720}
-          ariaLabel={`Évolution du CA net en ${currency.toUpperCase()}`}
+          ariaLabel={`${t("netTrend")} — ${currency.toUpperCase()}`}
         />
       </motion.div>
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-muted-foreground" role="group" aria-label="Légende du graphique">
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-muted-foreground" role="group" aria-label={t("netTrend")}>
         <span className="inline-flex items-center gap-2">
           <span className="size-2 rounded-full bg-accent" aria-hidden="true" />
-          CA net
+          {t("netRevenue")}
         </span>
-        <span>{data.reduce((sum, point) => sum + point.transactionCount, 0)} transactions réussies</span>
+        <span>{data.reduce((sum, point) => sum + point.transactionCount, 0)} {t("successfulTransactions").toLocaleLowerCase(locale)}</span>
       </div>
     </div>
   );

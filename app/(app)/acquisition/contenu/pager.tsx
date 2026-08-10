@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -18,11 +19,12 @@ function pageWindow(page: number, totalPages: number): number[] {
 }
 
 export function Pager({ page, totalPages, onPageChange }: { page: number; totalPages: number; onPageChange: (page: number) => void }) {
+  const t = useTranslations("common.actions");
   if (totalPages <= 1) return null;
 
   return (
     <div className="flex items-center justify-center gap-1.5">
-      <Button type="button" variant="outline" size="icon-sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)} aria-label="Page précédente">
+      <Button type="button" variant="outline" size="icon-sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)} aria-label={t("previousPage")}>
         <ChevronLeft className="size-3.5" />
       </Button>
       {pageWindow(page, totalPages).map((n) => (
@@ -39,7 +41,7 @@ export function Pager({ page, totalPages, onPageChange }: { page: number; totalP
           {n}
         </button>
       ))}
-      <Button type="button" variant="outline" size="icon-sm" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} aria-label="Page suivante">
+      <Button type="button" variant="outline" size="icon-sm" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} aria-label={t("nextPage")}>
         <ChevronRight className="size-3.5" />
       </Button>
     </div>

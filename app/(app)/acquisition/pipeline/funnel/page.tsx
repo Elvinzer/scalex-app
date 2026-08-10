@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
@@ -9,7 +10,6 @@ import { getBenchmark } from "@/lib/benchmarks";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
-import { labelFor } from "@/lib/diagnostic/cascade";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
@@ -27,8 +27,9 @@ import { StatTiles } from "./stat-tiles";
 // outreachRate is a FunnelStage but not one of the 5 diagnostic-engine
 // MetricKeys (lib/diagnostic/metric-keys.ts) — labelFor() only accepts real
 // MetricKeys, so it needs its own label for the stateText sentence below.
-function stageLabel(stage: FunnelStage): string {
-  return stage === "outreachRate" ? "Taux de sollicitation" : labelFor(stage);
+function stageLabel(stage: FunnelStage, t: (key: string) => string): string {
+  if (stage === "outreachRate") return t("funnel.outreachRate");
+  return t(`funnel.${stage}`);
 }
 
 // The day-by-day view of Acquisition's funnel — was its own page
@@ -45,6 +46,8 @@ export default async function AcquisitionFunnelPage({
   searchParams: Promise<{ range?: string | string[]; from?: string | string[]; to?: string | string[] }>;
 }) {
   const { userId, accountId, user } = await getCurrentUser();
+  const t = await getTranslations("pipeline");
+  const locale = await getLocale();
   await requirePermissionOrRedirect(userId, "acquisition:pipeline");
   const params = await searchParams;
   const sector = user?.sector ?? null;
@@ -93,8 +96,8 @@ export default async function AcquisitionFunnelPage({
 
   const stateText =
     hasEntriesInRange && bottleneck
-      ? `Ton taux le plus faible du funnel : ${stageLabel(bottleneck.stage).toLowerCase()} à ${Math.round(bottleneck.rate * 100)}%.`
-      : "Tu n'as pas encore de données de prospection sur cette période.";
+      ? t("funnel.bottleneckState", { stage: stageLabel(bottleneck.stage, t).toLowerCase(), rate: Math.round(bottleneck.rate * 100) })
+      : t("funnel.noDataState");
   const chatContext: ChatContext = { topicType: "lever", topicKey: "setting", topicLabel: "Setting", sourcePage: "acquisition_pipeline_funnel" };
   const falcoSkin = resolveFalcoSkin("/acquisition/pipeline");
 
@@ -102,7 +105,7 @@ export default async function AcquisitionFunnelPage({
     <div className="flex flex-col gap-8">
       <AgentBanner
         stateText={stateText}
-        ctaLabel="Améliorer →"
+        ctaLabel={t("improve")}
         chatContext={chatContext}
         mode="optimiser"
         falcoSkin={falcoSkin}
@@ -110,23 +113,18 @@ export default async function AcquisitionFunnelPage({
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Funnel journalier</h1>
-          <p className="mt-1 text-muted-foreground">
-            Ton funnel de prospection, jour par jour : nouveaux abonnés, premiers messages,
-            conversations, appels proposés et réservés.
-          </p>
+          <h1 className="text-3xl font-bold">{t("funnel.title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("funnel.subtitle")}</p>
         </div>
         <Link href="/acquisition/pipeline" className="text-sm font-bold text-muted-foreground hover:underline">
-          ← Retour au pipeline
+          ← {t("funnel.back")}
         </Link>
       </div>
 
       {!hasAnyEntries && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucun KPI enregistré pour l&apos;instant</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ajoute ta première journée ci-dessous, ou importe un historique en CSV.
-          </p>
+          <p className="text-sm font-bold">{t("funnel.noKpis")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("funnel.noKpisHelp")}</p>
         </div>
       )}
 
@@ -138,19 +136,16 @@ export default async function AcquisitionFunnelPage({
 
       {hasAnyEntries && !hasEntriesInRange && (
         <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">Aucune donnée sur cette période</p>
-          <p className="mt-1 text-sm text-muted-foreground">Choisis une autre plage ci-dessus.</p>
+          <p className="text-sm font-bold">{t("funnel.noRange")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("funnel.chooseRange")}</p>
         </div>
       )}
 
       {hasEntriesInRange && (
         <>
           <div className="sticker-card p-8">
-            <p className="text-sm font-bold">Funnel</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Cumul sur {entries.length} jour{entries.length > 1 ? "s" : ""}
-              {range ? ` — ${formatRangeDates(range)}` : " enregistrés"}.
-            </p>
+            <p className="text-sm font-bold">{t("funnel.funnel")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t("funnel.cumulative", { count: entries.length, plural: entries.length > 1 ? "s" : "", suffix: range ? ` — ${formatRangeDates(range, locale)}` : ` ${t("funnel.history").toLowerCase()}` })}</p>
             <div className="mt-6">
               <FunnelChart totals={totals} rates={rates} bottleneckStage={bottleneck?.stage ?? null} />
             </div>
@@ -171,15 +166,15 @@ export default async function AcquisitionFunnelPage({
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold">Ajouter un jour</p>
-          <p className="mt-1 text-sm text-muted-foreground">Ressaisir une date déjà enregistrée la met à jour.</p>
+          <p className="text-sm font-bold">{t("funnel.addDay")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("funnel.updateHelp")}</p>
           <div className="mt-6">
             <EntryForm />
           </div>
         </div>
 
         <div className="sticker-card p-8">
-          <p className="text-sm font-bold">Importer un CSV</p>
+          <p className="text-sm font-bold">{t("funnel.importCsv")}</p>
           <div className="mt-6">
             <CsvImport />
           </div>
@@ -188,7 +183,7 @@ export default async function AcquisitionFunnelPage({
 
       {hasEntriesInRange && (
         <div>
-          <p className="mb-3 text-sm font-bold">Historique</p>
+          <p className="mb-3 text-sm font-bold">{t("funnel.history")}</p>
           <EntriesTable entries={entries} />
         </div>
       )}

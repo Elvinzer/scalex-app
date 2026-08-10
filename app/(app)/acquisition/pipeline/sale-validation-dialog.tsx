@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { Offer } from "@/lib/business/types";
-import { LEAD_SOURCE_LABELS, type LeadRow } from "@/lib/leads/types";
+import { type LeadRow } from "@/lib/leads/types";
 import { generateSchedule } from "@/lib/sales/installments";
 import type { SetterRow } from "@/lib/setters/types";
 
@@ -32,6 +33,7 @@ export function SaleValidationDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations("pipeline");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -63,7 +65,7 @@ export function SaleValidationDialog({
     const data = {
       clientName: `${lead.firstName} ${lead.lastName}`.trim(),
       clientEmail: null,
-      sourceChannel: LEAD_SOURCE_LABELS[lead.source],
+      sourceChannel: t(`source.${lead.source}`),
       offerId: selectedOfferId || null,
       totalPrice: Number(totalPrice) || 0,
       paymentType,
@@ -91,18 +93,18 @@ export function SaleValidationDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle className="text-lg font-bold">Valider la vente — {lead.firstName} {lead.lastName}</DialogTitle>
+        <DialogTitle className="text-lg font-bold">{t("saleValidation.title", { name: `${lead.firstName} ${lead.lastName}` })}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Offre</span>
+            <span className="text-muted-foreground">{t("saleValidation.offer")}</span>
             {offers.length > 0 ? (
               <select
                 value={selectedOfferId}
                 onChange={(event) => handleOfferChange(event.target.value)}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
               >
-                <option value="">Deal négocié (hors offres)</option>
+                <option value="">{t("saleValidation.negotiatedDeal")}</option>
                 {offers.map((offer) => (
                   <option key={offer.id} value={offer.id}>
                     {offer.name}
@@ -110,13 +112,13 @@ export function SaleValidationDialog({
                 ))}
               </select>
             ) : (
-              <p className="text-sm text-muted-foreground">Aucune offre renseignée dans Mon business.</p>
+              <p className="text-sm text-muted-foreground">{t("saleValidation.noOffer")}</p>
             )}
           </label>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Prix total (€)</span>
+              <span className="text-muted-foreground">{t("saleValidation.totalPrice")}</span>
               <input
                 type="number"
                 min={0}
@@ -127,7 +129,7 @@ export function SaleValidationDialog({
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Date de vente</span>
+              <span className="text-muted-foreground">{t("saleValidation.saleDate")}</span>
               <input
                 type="date"
                 required
@@ -141,7 +143,7 @@ export function SaleValidationDialog({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Setter</span>
+              <span className="text-muted-foreground">{t("saleValidation.setter")}</span>
               <select
                 value={setterId}
                 onChange={(event) => setSetterId(event.target.value)}
@@ -156,7 +158,7 @@ export function SaleValidationDialog({
               </select>
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Closer (optionnel)</span>
+              <span className="text-muted-foreground">{t("saleValidation.closerOptional")}</span>
               <input
                 type="text"
                 value={closer}
@@ -167,25 +169,25 @@ export function SaleValidationDialog({
           </div>
 
           <div className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Paiement</span>
+            <span className="text-muted-foreground">{t("saleValidation.payment")}</span>
             <div className="flex gap-1.5">
               <Button type="button" variant={paymentType === "one_shot" ? "default" : "outline"} size="sm" onClick={() => setPaymentType("one_shot")}>
-                Paiement unique
+                {t("saleValidation.oneShot")}
               </Button>
               <Button type="button" variant={paymentType === "installments" ? "default" : "outline"} size="sm" onClick={() => setPaymentType("installments")}>
-                Échelonné
+                {t("saleValidation.installments")}
               </Button>
             </div>
           </div>
 
           <div className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Moyen de paiement</span>
+            <span className="text-muted-foreground">{t("saleValidation.paymentMethod")}</span>
             <div className="flex gap-1.5">
               <Button type="button" variant={paymentMethod === "virement" ? "default" : "outline"} size="sm" onClick={() => setPaymentMethod("virement")}>
-                Virement
+                {t("saleValidation.transfer")}
               </Button>
               <Button type="button" variant={paymentMethod === "stripe" ? "default" : "outline"} size="sm" onClick={() => setPaymentMethod("stripe")}>
-                Stripe
+                {t("saleValidation.stripe")}
               </Button>
             </div>
           </div>
@@ -193,7 +195,7 @@ export function SaleValidationDialog({
           {paymentType === "installments" && (
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Nombre d&apos;échéances</span>
+                <span className="text-muted-foreground">{t("saleValidation.installmentCount")}</span>
                 <input
                   type="number"
                   min={2}
@@ -218,7 +220,7 @@ export function SaleValidationDialog({
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : "Valider la vente"}
+            {isPending ? t("saleValidation.saving") : t("saleValidation.validate")}
           </Button>
         </form>
       </DialogContent>

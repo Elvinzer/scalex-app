@@ -266,25 +266,31 @@ export function buildStripeInsightSnapshot(
   };
 }
 
-function formatPct(value: number | null): string {
-  return value === null ? "Donnée insuffisante" : `${Math.round(value)} %`;
+function formatPct(value: number | null, locale: string): string {
+  if (value === null) return locale === "en" ? "Insufficient data" : "Donnée insuffisante";
+  return `${new Intl.NumberFormat(locale === "en" ? "en-GB" : "fr-FR", { maximumFractionDigits: 0 }).format(Math.round(value))} %`;
+}
+
+function formatAmount(cents: number, currency: string, locale: string): string {
+  return `${new Intl.NumberFormat(locale === "en" ? "en-GB" : "fr-FR").format(Math.round(cents / 100))} ${currency.toUpperCase()}`;
 }
 
 function priorityForRate(value: number, highThreshold: number): StripeInsightPriority {
   return value >= highThreshold * 2 ? "high" : "medium";
 }
 
-export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot): StripeInsightSignal[] {
+export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot, locale = "fr"): StripeInsightSignal[] {
+  const isEnglish = locale === "en";
   const totalSample = snapshot.successfulTransactions + snapshot.failedTransactions;
   if (totalSample === 0) {
     return [
       {
         type: "insufficient_data",
         priority: "low",
-        title: "Pas encore assez de transactions",
-        summary: "Synchronise Stripe ou élargis la période pour faire émerger un signal fiable.",
-        evidence: ["Aucune transaction dans la devise et la période sélectionnées."],
-        action: "Rafraîchir les données",
+        title: isEnglish ? "Not enough transactions yet" : "Pas encore assez de transactions",
+        summary: isEnglish ? "Sync Stripe or widen the period to surface a reliable signal." : "Synchronise Stripe ou élargis la période pour faire émerger un signal fiable.",
+        evidence: [isEnglish ? "No transaction in the selected currency and period." : "Aucune transaction dans la devise et la période sélectionnées."],
+        action: isEnglish ? "Refresh the data" : "Rafraîchir les données",
         actionHref: "#stripe-insights-toolbar",
       },
     ];
@@ -301,15 +307,15 @@ export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot): Stri
     signals.push({
       type: "trend",
       priority: isDown && trend.deltaPercent <= -20 ? "high" : "medium",
-      title: isDown ? "Le CA brut ralentit" : "Le CA brut accélère",
+      title: isDown ? (isEnglish ? "Gross revenue is slowing" : "Le CA brut ralentit") : (isEnglish ? "Gross revenue is accelerating" : "Le CA brut accélère"),
       summary: isDown
-        ? "Le rythme de paiement est inférieur à la période précédente : cherche le point de rupture avant d’augmenter le trafic."
-        : "Le rythme de paiement progresse : identifie ce qui a changé pour le rendre reproductible.",
+        ? (isEnglish ? "Payment pace is below the previous period: find the break point before increasing traffic." : "Le rythme de paiement est inférieur à la période précédente : cherche le point de rupture avant d’augmenter le trafic.")
+        : (isEnglish ? "Payment pace is improving: identify what changed so you can reproduce it." : "Le rythme de paiement progresse : identifie ce qui a changé pour le rendre reproductible."),
       evidence: [
-        `CA brut : ${Math.round(trend.current / 100)} ${snapshot.currency.toUpperCase()}`,
-        `Écart période précédente : ${trend.deltaPercent >= 0 ? "+" : ""}${Math.round(trend.deltaPercent)} %`,
+        `${isEnglish ? "Gross revenue" : "CA brut"} : ${formatAmount(trend.current, snapshot.currency, locale)}`,
+        `${isEnglish ? "Change vs previous period" : "Écart période précédente"} : ${trend.deltaPercent >= 0 ? "+" : ""}${Math.round(trend.deltaPercent)} %`,
       ],
-      action: isDown ? "Vérifier le tunnel de vente" : "Documenter le levier de croissance",
+      action: isDown ? (isEnglish ? "Check the sales funnel" : "Vérifier le tunnel de vente") : (isEnglish ? "Document the growth lever" : "Documenter le levier de croissance"),
       actionHref: "#stripe-trend",
     });
   }
@@ -322,13 +328,13 @@ export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot): Stri
     signals.push({
       type: "refunds",
       priority: priorityForRate(snapshot.refundRatePct, REFUND_THRESHOLD_PCT),
-      title: "Les remboursements érodent le CA",
-      summary: "Une part notable du CA brut repart en remboursements : vérifie la promesse et le délai de livraison.",
+      title: isEnglish ? "Refunds are eroding revenue" : "Les remboursements érodent le CA",
+      summary: isEnglish ? "A meaningful share of gross revenue is going back out in refunds: check the promise and delivery time." : "Une part notable du CA brut repart en remboursements : vérifie la promesse et le délai de livraison.",
       evidence: [
-        `Taux de remboursement : ${formatPct(snapshot.refundRatePct)}`,
-        `Remboursements : ${Math.round(snapshot.refundsCents / 100)} ${snapshot.currency.toUpperCase()}`,
+        `${isEnglish ? "Refund rate" : "Taux de remboursement"} : ${formatPct(snapshot.refundRatePct, locale)}`,
+        `${isEnglish ? "Refunds" : "Remboursements"} : ${formatAmount(snapshot.refundsCents, snapshot.currency, locale)}`,
       ],
-      action: "Analyser les ventes remboursées",
+      action: isEnglish ? "Analyze refunded sales" : "Analyser les ventes remboursées",
       actionHref: "#stripe-transactions",
     });
   }
@@ -341,13 +347,13 @@ export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot): Stri
     signals.push({
       type: "failures",
       priority: priorityForRate(snapshot.failureRatePct, FAILURE_THRESHOLD_PCT),
-      title: "Des paiements échouent encore",
-      summary: "Les échecs créent du CA à risque : relance les clients concernés avant d’acquérir davantage.",
+      title: isEnglish ? "Payments are still failing" : "Des paiements échouent encore",
+      summary: isEnglish ? "Failures create at-risk revenue: follow up with those customers before acquiring more." : "Les échecs créent du CA à risque : relance les clients concernés avant d’acquérir davantage.",
       evidence: [
-        `Taux d’échec : ${formatPct(snapshot.failureRatePct)}`,
-        `Montant à risque : ${Math.round(snapshot.amountAtRiskCents / 100)} ${snapshot.currency.toUpperCase()}`,
+        `${isEnglish ? "Failure rate" : "Taux d’échec"} : ${formatPct(snapshot.failureRatePct, locale)}`,
+        `${isEnglish ? "Amount at risk" : "Montant à risque"} : ${formatAmount(snapshot.amountAtRiskCents, snapshot.currency, locale)}`,
       ],
-      action: "Traiter les impayés",
+      action: isEnglish ? "Handle failed payments" : "Traiter les impayés",
       actionHref: "#failed-payments",
     });
   }
@@ -360,13 +366,13 @@ export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot): Stri
     signals.push({
       type: "recurrence",
       priority: "low",
-      title: "Le récurrent pèse dans le CA",
-      summary: "Une part significative du CA vient des abonnements : protège la rétention avant de pousser le volume.",
+      title: isEnglish ? "Recurring revenue is significant" : "Le récurrent pèse dans le CA",
+      summary: isEnglish ? "A significant share of revenue comes from subscriptions: protect retention before pushing volume." : "Une part significative du CA vient des abonnements : protège la rétention avant de pousser le volume.",
       evidence: [
-        `Part récurrente : ${formatPct(snapshot.recurringSharePct)}`,
-        `CA récurrent : ${Math.round(snapshot.recurringRevenueCents / 100)} ${snapshot.currency.toUpperCase()}`,
+        `${isEnglish ? "Recurring share" : "Part récurrente"} : ${formatPct(snapshot.recurringSharePct, locale)}`,
+        `${isEnglish ? "Recurring revenue" : "CA récurrent"} : ${formatAmount(snapshot.recurringRevenueCents, snapshot.currency, locale)}`,
       ],
-      action: "Suivre la rétention",
+      action: isEnglish ? "Track retention" : "Suivre la rétention",
       actionHref: "#stripe-insights",
     });
   }
@@ -379,13 +385,13 @@ export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot): Stri
     signals.push({
       type: "loyalty",
       priority: "medium",
-      title: "Les clients reviennent",
-      summary: "La récurrence client est un levier exploitable : formalise la prochaine offre après achat.",
+      title: isEnglish ? "Customers are coming back" : "Les clients reviennent",
+      summary: isEnglish ? "Customer repeat business is an available lever: formalize the next offer after purchase." : "La récurrence client est un levier exploitable : formalise la prochaine offre après achat.",
       evidence: [
-        `Clients récurrents : ${snapshot.repeatCustomers ?? 0}`,
-        `Taux de clients récurrents : ${formatPct(snapshot.repeatCustomerRatePct)}`,
+        `${isEnglish ? "Repeat customers" : "Clients récurrents"} : ${snapshot.repeatCustomers ?? 0}`,
+        `${isEnglish ? "Repeat-customer rate" : "Taux de clients récurrents"} : ${formatPct(snapshot.repeatCustomerRatePct, locale)}`,
       ],
-      action: "Préparer la prochaine offre",
+      action: isEnglish ? "Prepare the next offer" : "Préparer la prochaine offre",
       actionHref: "#stripe-transactions",
     });
   }
@@ -398,13 +404,13 @@ export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot): Stri
     signals.push({
       type: "concentration",
       priority: "high",
-      title: "Le CA est concentré",
-      summary: "Un client connu représente une part importante du CA : sécurise cette relation et diversifie l’acquisition.",
+      title: isEnglish ? "Revenue is concentrated" : "Le CA est concentré",
+      summary: isEnglish ? "One known customer represents a large share of revenue: secure the relationship and diversify acquisition." : "Un client connu représente une part importante du CA : sécurise cette relation et diversifie l’acquisition.",
       evidence: [
-        `Part du plus gros client connu : ${formatPct(snapshot.topCustomerSharePct)}`,
-        `Clients connus : ${snapshot.customersWithKnownId}`,
+        `${isEnglish ? "Largest known customer share" : "Part du plus gros client connu"} : ${formatPct(snapshot.topCustomerSharePct, locale)}`,
+        `${isEnglish ? "Known customers" : "Clients connus"} : ${snapshot.customersWithKnownId}`,
       ],
-      action: "Réduire la dépendance client",
+      action: isEnglish ? "Reduce customer dependency" : "Réduire la dépendance client",
       actionHref: "#stripe-transactions",
     });
   }
@@ -413,13 +419,15 @@ export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot): Stri
     signals.push({
       type: "insufficient_data",
       priority: "low",
-      title: "Aucun signal critique détecté",
-      summary: "Les indicateurs sont dans une zone stable pour cette période ; continue à suivre la tendance.",
+      title: isEnglish ? "No critical signal detected" : "Aucun signal critique détecté",
+      summary: isEnglish ? "Indicators are in a stable zone for this period; keep tracking the trend." : "Les indicateurs sont dans une zone stable pour cette période ; continue à suivre la tendance.",
       evidence: [
-        `${totalSample} transaction${totalSample > 1 ? "s" : ""} analysée${totalSample > 1 ? "s" : ""}`,
-        `Taux de remboursement : ${formatPct(snapshot.refundRatePct)}`,
+        isEnglish
+          ? `${totalSample} transaction${totalSample > 1 ? "s" : ""} analyzed`
+          : `${totalSample} transaction${totalSample > 1 ? "s" : ""} analysée${totalSample > 1 ? "s" : ""}`,
+        `${isEnglish ? "Refund rate" : "Taux de remboursement"} : ${formatPct(snapshot.refundRatePct, locale)}`,
       ],
-      action: "Voir les transactions",
+      action: isEnglish ? "View transactions" : "Voir les transactions",
       actionHref: "#stripe-transactions",
     });
   }
@@ -435,8 +443,8 @@ function monthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function monthLabel(date: Date): string {
-  return new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric", timeZone: "UTC" }).format(date);
+function monthLabel(date: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "fr-FR", { month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
 export function buildStripeTrend(
@@ -444,6 +452,7 @@ export function buildStripeTrend(
   refunds: StripeInsightRefund[],
   period: ResolvedPeriod,
   currency: string,
+  locale = "fr",
 ): StripeTrendPoint[] {
   const selectedCurrency = normalizedCurrency(currency);
   const dates = [
@@ -462,7 +471,7 @@ export function buildStripeTrend(
   while (cursor <= last) {
     buckets.set(monthKey(cursor), {
       key: monthKey(cursor),
-      label: monthLabel(cursor),
+      label: monthLabel(cursor, locale),
       grossCents: 0,
       refundsCents: 0,
       netCents: 0,

@@ -2,15 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { OverviewRevenueChart, type ChartPoint, type OverviewMetricOption } from "@/components/overview-revenue-chart";
 import { trackClient } from "@/lib/analytics-client";
 
 const TREND_OPTIONS: { value: string; label: string }[] = [
-  { value: "3", label: "3 derniers mois" },
-  { value: "6", label: "6 derniers mois" },
-  { value: "12", label: "12 mois" },
-  { value: "year", label: "Année en cours" },
+  { value: "3", label: "trend3" },
+  { value: "6", label: "trend6" },
+  { value: "12", label: "trend12" },
+  { value: "year", label: "trendYear" },
 ];
 
 // Moved from the old /overview page (removed — this chart was the one thing
@@ -33,6 +34,7 @@ export function RevenueTrend({
   chartSeries: Record<OverviewMetricOption, ChartPoint[]>;
   goalValue: number | null;
 }) {
+  const t = useTranslations("data");
   const router = useRouter();
   const [selectedMetric, setSelectedMetric] = useState<OverviewMetricOption>("ca");
 
@@ -44,7 +46,7 @@ export function RevenueTrend({
   return (
     <div className="sticker-card p-6">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Tendance</p>
+        <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("trend")}</p>
         <select
           value={trendPeriod}
           onChange={(event) => router.push(`/datas?year=${year}&trendPeriod=${event.target.value}`)}
@@ -52,7 +54,7 @@ export function RevenueTrend({
         >
           {TREND_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {t(option.label)}
             </option>
           ))}
         </select>

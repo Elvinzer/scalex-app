@@ -16,6 +16,7 @@ export function LeverBenchmarkBar({
   currentValue?: number | null; // 0-1 fraction — only known for "actifs à surveiller"
   centralLabel?: string;
 }) {
+  const t = useTranslations("common.shared");
   const badWidth = Math.min(badMax, 1) * 100;
   const okWidth = Math.max(0, Math.min(okMax, 1) - Math.min(badMax, 1)) * 100;
   const goodWidth = Math.max(0, 100 - badWidth - okWidth);
@@ -26,7 +27,7 @@ export function LeverBenchmarkBar({
     <div className="flex flex-col gap-1.5">
       {centralLabel && (
         <p className="text-xs text-muted-foreground">
-          Standard du marché : <span className="font-bold text-foreground">{centralLabel}</span>
+          {t("marketStandard", { value: centralLabel })}
         </p>
       )}
       <div className="relative h-2 overflow-visible rounded-full">
@@ -51,8 +52,9 @@ export function LeverBenchmarkBar({
         )}
       </div>
       {excellentLeft !== null && (
-        <p className="text-right text-[10px] text-muted-foreground">excellent à partir de {Math.round((excellentAt ?? 0) * 100)}%</p>
+        <p className="text-right text-[10px] text-muted-foreground">{t("excellentFrom", { value: Math.round((excellentAt ?? 0) * 100) })}</p>
       )}
     </div>
   );
 }
+import { useTranslations } from "next-intl";
