@@ -2388,10 +2388,10 @@ export const closingVideos = pgTable(
   (table) => [index("closing_videos_user_call_date_idx").on(table.userId, table.callDate)]
 ).enableRLS();
 
-// Manual entry (the "/acquisition/ads" page) — one row per ad campaign.
-// Rates (CTR, cost per lead/click) are never stored, always computed on
-// read — see lib/ad-campaigns/metrics.ts. Not wired into Diagnostic: no
-// existing CPL/CTR benchmark data exists to compare against.
+// Legacy storage for historical/manual ad campaign rows. The Ads UI is now
+// Meta-only and no longer exposes a create, edit, delete, or import path for
+// this table; keep the table to preserve existing data without a destructive
+// migration.
 export const adCampaigns = pgTable(
   "ad_campaigns",
   {

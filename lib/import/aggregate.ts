@@ -13,8 +13,7 @@ export type EnrichedMapping = Omit<ImportMappingResult, "mappings"> & {
   // The date column's own row-aligned values (when dateColumnName resolved
   // to a real column) — used client-side (import-preview.tsx) to group
   // rows by month via groupValuesByMonth below. Never itself a "target
-  // field" for monthly_metrics/ad_campaigns: it's a grouping key, not an
-  // imported value.
+  // field" for monthly_metrics: it's a grouping key, not an imported value.
   dateColumnValues: string[] | null;
 };
 
@@ -78,8 +77,7 @@ export function normalizeDateCellToIso(raw: string): string | null {
 // Date-typed target fields that can appear inside mapping.mappings itself
 // (sales' saleDate) rather than through the separate dateColumnName
 // mechanism — normalized here too so buildRowLevelGroups' `new Date(...)`
-// and buildAdCampaignGroups' string min/max both keep working when the
-// source cell was a bare serial number.
+// keeps working when the source cell was a bare serial number.
 const DATE_TARGET_FIELDS = new Set(["saleDate"]);
 
 export function enrichMapping(parsed: ParsedFile, mapping: ImportMappingResult): EnrichedMapping {

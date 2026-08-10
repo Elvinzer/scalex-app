@@ -4,6 +4,20 @@ Cette capacité expose les performances Meta lues et dérivées, en qualifiant l
 
 ## ADDED Requirements
 
+### Requirement: Meta Ads is the only campaign source in the Ads module
+
+Le système SHALL afficher dans le module Ads uniquement les campagnes synchronisées depuis Meta Ads. Il SHALL ne plus proposer de création, édition, suppression ou import manuel de campagnes publicitaires ; une configuration manuelle du type de campagne reste autorisée car elle ne crée ni ne modifie une campagne Meta.
+
+#### Scenario: User opens the Ads module
+
+- **WHEN** l'utilisateur consulte `/acquisition/ads`
+- **THEN** Scale X affiche les campagnes Meta synchronisées et ne rend visible aucun formulaire ou tableau de suivi manuel complémentaire
+
+#### Scenario: User imports a file containing ad campaigns
+
+- **WHEN** une feuille ressemble à un export de campagnes publicitaires
+- **THEN** le flux d'import ne propose pas la destination Ads et n'écrit aucune ligne dans le stockage legacy `ad_campaigns`
+
 ### Requirement: Every metric carries a three-axis provenance
 
 Le système SHALL qualifier chaque métrique exposée sur trois axes indépendants : `source` (`meta`, `stripe`, `calendly`, `iclosed`, `instagram`, `scalex`), `calculation` (`brute`, `derivee`) et `attribution` (`directe`, `jointe`, `estimee`, `non_rattachee`, `indisponible`). Le libellé affiché SHALL être dérivé de ce triplet et SHALL ne jamais être transmis par la couleur seule.

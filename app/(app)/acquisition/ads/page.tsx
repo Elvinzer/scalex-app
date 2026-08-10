@@ -1,17 +1,13 @@
 import { and, eq } from "drizzle-orm";
-import { Plus } from "lucide-react";
 import { after } from "next/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
-import { KpiTile } from "@/components/kpi-tile";
 import { MetaAdsConnectionCard, type MetaAdAccountOption } from "@/components/meta-ads/meta-ads-connection-card";
 import { MetaAdsDashboard } from "@/components/meta-ads/meta-ads-dashboard";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { metaAdAccounts, metaAdsConnections } from "@/db/schema";
-import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
-import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
@@ -27,12 +23,9 @@ import { getLeverStatus } from "@/lib/levers/status";
 import { getMetaAdsDashboard, metricValue } from "@/lib/meta-ads/queries";
 import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
 import { normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
-import { formatPercent } from "@/lib/setting/funnel";
 import { requireOwner, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { AdCopyTrigger } from "./ad-copy-trigger";
-import { CampaignFormDialog } from "./campaign-form-dialog";
-import { CampaignsTable } from "./campaigns-table";
 
 const LEVER_KEY = "ads";
 // No settings UI for this — a hardcoded threshold below which running ads
@@ -52,8 +45,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
     </div>
   ) : null;
   const ownerAccess = await requireOwner(userId);
-  const [campaigns, profile, lever, metaDashboard, metaConnectionRows, metaAdAccountRows, subscriptionActive] = await Promise.all([
-    getAdCampaigns(accountId),
+  const [profile, lever, metaDashboard, metaConnectionRows, metaAdAccountRows, subscriptionActive] = await Promise.all([
     getBusinessProfile(accountId),
     getLeverStatus(accountId, LEVER_KEY),
     getMetaAdsDashboard(accountId, periodDays),
@@ -97,7 +89,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   ) : null;
 
   const mode: "optimiser" | "demarrer" =
-    campaigns.length > 0 || metaDashboard !== null || lever.status === "active" ? "optimiser" : "demarrer";
+    metaDashboard !== null || lever.status === "active" ? "optimiser" : "demarrer";
 
   after(() => track("lever_page_viewed", userId, { lever: LEVER_KEY, mode }));
 
@@ -171,20 +163,10 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
     );
   }
 
-  const totalSpend = campaigns.reduce((sum, c) => sum + (c.spend ?? 0), 0);
-  const ctrValues = campaigns.map((c) => computeCampaignMetrics(c).ctr).filter((v): v is number => v !== null);
-  const avgCtr = ctrValues.length > 0 ? ctrValues.reduce((sum, v) => sum + v, 0) / ctrValues.length : null;
-  const cplValues = campaigns
-    .map((c) => computeCampaignMetrics(c).costPerLead)
-    .filter((v): v is number => v !== null);
-  const avgCpl = cplValues.length > 0 ? cplValues.reduce((sum, v) => sum + v, 0) / cplValues.length : null;
-
   const stateText =
     metaDashboard
       ? `Meta Ads : ${metricValue(metaDashboard.totals, "spendCents") === null ? "dépenses indisponibles" : `${formatEur((metricValue(metaDashboard.totals, "spendCents") ?? 0) / 100)} dépensés`}, ${metricValue(metaDashboard.totals, "leads") === null ? "leads indisponibles" : `${metricValue(metaDashboard.totals, "leads")} lead(s) mesuré(s)`} sur les ${metaDashboard.period.days} derniers jours.`
-      : avgCtr !== null
-      ? `CTR moyen de ${formatPercent(avgCtr)}, coût par lead moyen de ${avgCpl === null ? "—" : formatEur(avgCpl)}.`
-      : "Aucune campagne suivie pour l'instant.";
+      : "Aucune campagne Meta Ads synchronisée pour l'instant.";
 
   return (
     <div className="flex flex-col gap-8">
@@ -203,29 +185,12 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
             Le suivi de tes campagnes publicitaires, avec un chat IA pour rédiger tes accroches.
           </p>
         </div>
-        <div className="flex gap-2">
-          <AdCopyTrigger offers={profile.sales.offers} />
-          <CampaignFormDialog
-            trigger={
-              <Button type="button">
-                <Plus className="size-4" />
-                Ajouter une campagne
-              </Button>
-            }
-          />
-        </div>
+        <AdCopyTrigger offers={profile.sales.offers} />
       </div>
 
       {metaAdsErrorAlert}
       {metaConnectionCard}
       {metaDashboard && <MetaAdsDashboard data={metaDashboard} />}
-
-      {metaDashboard && (
-        <div>
-          <h2 className="text-xl font-bold">Suivi manuel complémentaire</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Tu peux conserver ici des campagnes ou plateformes qui ne sont pas reliées à Meta Ads.</p>
-        </div>
-      )}
 
       {profile.sales.offers.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">
@@ -236,13 +201,6 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <KpiTile label="Dépenses totales" value={formatEur(totalSpend)} />
-        <KpiTile label="CTR moyen" value={avgCtr === null ? "—" : formatPercent(avgCtr)} tone="accent2" />
-        <KpiTile label="Coût par lead moyen" value={avgCpl === null ? "—" : formatEur(avgCpl)} tone="warning" />
-      </div>
-
-      <CampaignsTable campaigns={campaigns} />
     </div>
   );
 }

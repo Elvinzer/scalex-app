@@ -10,18 +10,13 @@ import { MONTHLY_METRICS_FIELDS } from "@/lib/monthly-metrics/types";
 // definition). "ignore" is a real, first-class outcome — a sheet that
 // doesn't fit anything is always shown as ignored with a reason, never
 // silently dropped.
-export const IMPORT_TARGET_TABLES = ["monthly_metrics", "sales", "ad_campaigns", "ignore"] as const;
+export const IMPORT_TARGET_TABLES = ["monthly_metrics", "sales", "ignore"] as const;
 
 const SALES_FIELDS = ["clientName", "clientEmail", "sourceChannel", "totalPrice", "paymentType", "saleDate", "closer"] as const;
-// Deliberately minimal (not every ad_campaigns column) — the brief's own
-// validation case only asks for spend/impressions/clicks/leads aggregated
-// per named campaign, not a full campaign-setup import.
-const AD_CAMPAIGN_FIELDS = ["campaignName", "spend", "impressions", "clicks", "leads"] as const;
 
 export const ALL_TARGET_FIELDS = [
   ...MONTHLY_METRICS_FIELDS,
   ...SALES_FIELDS,
-  ...AD_CAMPAIGN_FIELDS,
 ] as unknown as [string, ...string[]];
 
 // One entry per source column the model looked at — target_field null means
@@ -58,8 +53,8 @@ export const modelMappingSchema = z
     ignoreReason: z.string().nullable(),
     mappings: z.array(mappingEntrySchema),
     // The column whose values determine which month each row belongs to
-    // (monthly_metrics/ad_campaigns) — grouping happens in code from the
-    // column's real values (lib/import/aggregate.ts's groupValuesByMonth),
+    // (monthly_metrics) — grouping happens in code from the column's real
+    // values (lib/import/aggregate.ts's groupValuesByMonth),
     // never by the model doing the counting. Null falls back to
     // periodDetected (a single period for the whole sheet).
     dateColumnName: z.string().nullable(),

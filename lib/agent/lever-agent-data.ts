@@ -1,7 +1,5 @@
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { ClosingTotals } from "@/lib/closing/metrics";
-import { getAdCampaigns } from "@/lib/ad-campaigns/queries";
-import { computeCampaignMetrics } from "@/lib/ad-campaigns/metrics";
 import type { SectorKey } from "@/lib/benchmarks";
 import { formatEur } from "@/lib/currency";
 import { inRange } from "@/lib/dashboard/metrics";
@@ -108,24 +106,14 @@ async function buildEmailMarketingData(ctx: LeverAgentDataContext): Promise<Leve
 }
 
 async function buildAdsData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
-  const [opportunity, campaigns] = await Promise.all([resolveOpportunityBlock("ads", ctx), getAdCampaigns(ctx.accountId)]);
-  const recent = campaigns.slice(0, 3);
-  const recentLines =
-    recent.length > 0
-      ? recent
-          .map((c) => {
-            const metrics = computeCampaignMetrics(c);
-            return `- ${c.name} (${c.platform}, ${c.startDate}) : CTR ${metrics.ctr === null ? "?" : formatPercent(metrics.ctr)}, coût/lead ${metrics.costPerLead === null ? "?" : formatEur(metrics.costPerLead)}.`;
-          })
-          .join("\n")
-      : "Aucune campagne enregistrée pour l'instant.";
+  const opportunity = await resolveOpportunityBlock("ads", ctx);
 
   const gainLine = opportunity
     ? `${opportunity.impactExplanation} Manque à gagner : ${opportunity.impactAmountEur !== null ? `${formatEur(opportunity.impactAmountEur)}/mois` : "non chiffrable"}.`
     : "Ce levier est actif, pas de manque à gagner identifié pour l'instant.";
 
   return {
-    metricsBlock: `${gainLine}\n\nDernières campagnes :\n${recentLines}`,
+    metricsBlock: `${gainLine}\n\nLes performances détaillées sont disponibles dans le module Meta Ads.`,
     impactAmountEur: opportunity?.impactAmountEur ?? null,
     impactExplanation: opportunity?.impactExplanation ?? "Ce levier est actif, pas de manque à gagner identifié pour l'instant.",
     gapBadge: opportunity?.gapBadge ?? null,

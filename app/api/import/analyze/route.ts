@@ -145,22 +145,6 @@ export async function POST(request: Request): Promise<Response> {
         totalInputTokens += inputTokens;
         totalOutputTokens += outputTokens;
 
-        // "ad_campaigns" is never silent, regardless of the model's own
-        // confidence — a code-injected confirmation question, not left to
-        // the model to decide whether to ask (per the fix's non-negotiable
-        // rule: Ads targeting always asks, never auto-commits).
-        const questions =
-          result.targetTable === "ad_campaigns"
-            ? [
-                {
-                  sourceColumn: "__ad_campaigns_confirm__",
-                  prompt: `Ta feuille "${result.sheetName}" ressemble à du tracking de pub. Je l'importe dans ton module Ads, ou je l'ignore ?`,
-                  options: [] as string[],
-                },
-                ...result.questions,
-              ]
-            : result.questions;
-
         const sheet = unit.kind === "sheet" ? unit.sheet : null;
         results.push({
           fileName: file.name,
@@ -168,7 +152,7 @@ export async function POST(request: Request): Promise<Response> {
           fileHash,
           headerRowConfident: sheet?.headerRowConfident ?? true,
           previewRows: sheet?.previewRows ?? [],
-          mapping: enrichMapping(parsed, { ...result, questions }),
+          mapping: enrichMapping(parsed, result),
         });
       } catch (error) {
         const sheetName = unit.kind === "sheet" ? unit.sheet.name : unit.fileName;

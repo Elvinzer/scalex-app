@@ -148,7 +148,7 @@ pas le goulot actuel.
   appliqué ici). → détail en §"Suspects" ci-dessous.
 - **N+1 en écriture (secondaire, hors scope "chargement de page")** :
   `app/(app)/datas/import-actions.ts` insère les lignes `sales`/
-  `content_posts`/`ad_campaigns` importées une par une dans une boucle
+  `content_posts` importées une par une dans une boucle
   `for...of` avec `await` séquentiel — pas une régression de chargement de
   page, mais ralentit la validation d'un gros import CSV. Noté, pas
   prioritaire pour ce correctif.

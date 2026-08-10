@@ -27,14 +27,13 @@ const FIELD_DEFINITIONS = `Champs "monthly_metrics" (funnel mensuel — destinat
 Champs "sales" (seulement si la feuille est manifestement une liste de ventes/clients) :
 clientName, clientEmail, sourceChannel, totalPrice (euros), paymentType (one_shot|installments), saleDate, closer
 
-Champs "ad_campaigns" (seulement si la feuille est manifestement du tracking de publicité payante) :
-campaignName, spend (euros dépensés), impressions, clicks, leads`;
+`;
 
 const SYSTEM_PROMPT = `Tu es l'agent d'import de données de Scale X, un SaaS pour infopreneurs.
 On te donne UNE feuille/fichier (tableau ou texte extrait) à la fois et tu dois la mapper vers les champs existants de l'app via l'outil map_columns.
 
 Règles absolues, non négociables :
-- Une seule table cible (targetTable) par feuille : "monthly_metrics", "sales", "ad_campaigns", ou "ignore" si rien ne correspond manifestement (données de tiers/veille concurrentielle, notes libres, feuille de calcul annexe...).
+- Une seule table cible (targetTable) par feuille : "monthly_metrics", "sales", ou "ignore" si rien ne correspond manifestement (données de tiers/veille concurrentielle, notes libres, feuille de calcul annexe...).
 - "ignore" exige TOUJOURS un ignoreReason concret et court (ex: "Données de veille sur des comptes concurrents, pas tes métriques.") — jamais vide, jamais générique. N'inclus PAS le champ ignoreReason du tout si targetTable n'est pas "ignore".
 - Ne JAMAIS mapper une colonne de taux/pourcentage/ratio — ces valeurs sont toujours recalculées par l'app, jamais importées. Mets cette colonne dans unmapped_columns avec l'explication.
 - Ne JAMAIS inventer une valeur qui n'est pas explicitement dans le fichier.

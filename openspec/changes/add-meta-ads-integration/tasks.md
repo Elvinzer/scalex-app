@@ -63,6 +63,7 @@
 - [x] 7.7 Implémenter `/acquisition/ads/[campaignId]` : header, résumé économique, ensembles, publicités, créatifs, historique
 - [x] 7.8 Implémenter le constructeur de deep-link serveur (ad → adset → campaign → compte) avec validation d'appartenance et ouverture externe sécurisée
 - [x] 7.9 Vérifier responsive 1440 / tablette / 390, clavier, focus, reduced motion et CTA corail unique — fixture Meta Ads locale vérifiée avec `agent-browser` à 1440 / 768 / 390 px : aucune largeur horizontale, axe sans violation, focus clavier et `prefers-reduced-motion` contrôlés ; le parcours authentifié relève de 11.4.
+- [x] 7.10 Retirer le suivi complémentaire et toute création/édition/suppression/import manuel de campagnes ; conserver uniquement le stockage legacy non affiché pour éviter une suppression destructive.
 
 ## 8. Insights
 

@@ -1,6 +1,6 @@
 ## Why
 
-Scale X lit déjà Stripe, Calendly, iClosed, Instagram et YouTube, mais l'acquisition payante reste saisie à la main dans `/acquisition/ads`. L'utilisateur ne peut ni voir où son budget publicitaire se perd, ni relier une dépense Meta au cash réellement encaissé, ni décider quoi corriger en premier.
+Scale X lit déjà Stripe, Calendly, iClosed, Instagram et YouTube, mais l'acquisition payante n'a pas encore de source fiable dans `/acquisition/ads`. L'utilisateur ne peut ni voir où son budget publicitaire se perd, ni relier une dépense Meta au cash réellement encaissé, ni décider quoi corriger en premier.
 
 Cette change connecte Meta Ads en lecture, produit des recommandations orientées décision, et autorise un nombre volontairement réduit d'écritures — toujours derrière une confirmation explicite. Scale X n'est pas un clone du gestionnaire de publicités Meta.
 
@@ -18,10 +18,12 @@ Cette change connecte Meta Ads en lecture, produit des recommandations orientée
 - Appliquer trois actions seulement — pause, réactivation, budget quotidien borné — via un flux proposition → confirmation → résultat, avec journal d'audit.
 - Construire les deep-links `Ouvrir dans Meta Ads` côté serveur, au bon niveau d'objet, avec repli sur le compte.
 - Paramétrer les cibles business. Sans cible, Scale X compare à l'historique et n'émet aucun jugement absolu.
+- Faire de Meta Ads l'unique source de campagnes dans le module Ads : le suivi complémentaire, la création manuelle et l'import manuel de campagnes sont retirés de l'interface et des flux d'écriture. Les anciennes lignes restent conservées en base comme historique non affiché.
 
 ## Non-goals
 
 - Créateur de campagnes, éditeur de ciblage, éditeur de créatifs, upload de créatifs, éditeur de copy, gestionnaire d'audiences.
+- Saisie, édition, suppression ou import de campagnes publicitaires hors Meta Ads.
 - Tout clone du gestionnaire de publicités Meta.
 - Toute exécution automatique sans confirmation utilisateur.
 - Toute reconstruction d'un modèle d'attribution multi-touch : Scale X rattache ou ne rattache pas, il ne pondère pas.
@@ -38,7 +40,7 @@ Cette change connecte Meta Ads en lecture, produit des recommandations orientée
 
 ### Modified Capabilities
 
-Aucune capacité publiée dans `openspec/specs/` n'est modifiée. Cette change **réutilise** `insight-execution-history` (`insightRecords`, `launchInsight`, initiatives Journal) livrée par `add-insight-execution-loop` : les insights Meta sont une nouvelle source d'insight, pas un nouveau système. La page `/acquisition/ads` existante reste accessible et devient une source secondaire quand un compte Meta est connecté.
+Aucune capacité publiée dans `openspec/specs/` n'est modifiée. Cette change **réutilise** `insight-execution-history` (`insightRecords`, `launchInsight`, initiatives Journal) livrée par `add-insight-execution-loop` : les insights Meta sont une nouvelle source d'insight, pas un nouveau système. La page `/acquisition/ads` devient Meta-only pour les campagnes ; les anciennes lignes du stockage legacy sont conservées mais ne sont plus affichées ni alimentées.
 
 ## Impact
 

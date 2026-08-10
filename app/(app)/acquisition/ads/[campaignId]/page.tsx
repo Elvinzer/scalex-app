@@ -10,9 +10,10 @@ const aliasSearchParamsSchema = z.object({
 /**
  * Compatibility route for the OpenSpec URL contract.
  *
- * The Meta-specific segment remains canonical so it can coexist with the
- * existing manual Ads surface. Validation happens before redirecting so an
- * arbitrary path value is never reflected into the destination URL.
+ * The Meta-specific segment remains canonical for campaign details. This
+ * compatibility route keeps older links working after the Ads module became
+ * Meta-only. Validation happens before redirecting so an arbitrary path value
+ * is never reflected into the destination URL.
  */
 export default async function MetaCampaignAliasPage({
   params,

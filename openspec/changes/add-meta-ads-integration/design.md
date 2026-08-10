@@ -14,9 +14,11 @@ La connexion initiale demande **`ads_read` uniquement**. Aucune permission d'éc
 
 Le callback OAuth ne choisit jamais de compte. Même avec un seul compte accessible, l'utilisateur confirme. Un compte sans accès lecture est listé, non sélectionnable, avec son motif. Devise et fuseau sont affichés car ils conditionnent le rapprochement avec Stripe.
 
-### 3. Le type de campagne est une configuration business explicite
+### 3. Le type de campagne est une configuration business explicite, pas une saisie de campagne
 
 Meta fournit des objectifs techniques, mais ne décrit pas de façon fiable le parcours business réel. Scale X ne déduit donc plus le type depuis le nom, l'objectif Meta, le performance goal ou l'URL de destination. Chaque campagne doit être configurée manuellement avec l'un des quatre contextes : VSL, Webinaire, Trafic Instagram ou Retargeting. Tant que ce choix n'est pas enregistré, le funnel spécialisé et les insights restent en attente.
+
+Cette configuration manuelle ne crée pas la campagne : les campagnes et leurs performances affichées dans Scale X proviennent exclusivement de Meta Ads. Le suivi manuel complémentaire, la création/édition/suppression de campagnes et leur import hors Meta ne font plus partie du produit ; les anciennes lignes sont conservées uniquement comme historique technique non affiché.
 
 Pour une VSL ou un Webinaire, l'utilisateur choisit aussi l'objectif de conversion suivi dans Scale X : Appel ou Vente. Ce choix ne modifie rien dans Meta ; il sélectionne la dernière étape du funnel, le libellé de conversion et l'identité de l'insight. Les appels et ventes restent calculés uniquement depuis l'attribution Scale X disponible, jamais inventés depuis le seul objectif Meta.
 

@@ -27,16 +27,11 @@ const FIELD_LABELS: Record<string, string> = {
   paymentType: "Type de paiement",
   saleDate: "Date de vente",
   closer: "Closer",
-  campaignName: "Campagne",
-  spend: "Dépensé",
-  impressions: "Impressions",
-  clicks: "Clics",
 };
 
 // Fields whose values are text, never summed/averaged — everything else is
-// treated as numeric (parseLocaleNumber). Row-level targets (sales/
-// ad_campaigns' campaignName) rely on this to know which raw cell value to
-// pass through as-is vs. parse as a number.
+// treated as numeric (parseLocaleNumber). The sales target relies on this to
+// know which raw cell value to pass through as-is vs. parse as a number.
 const STRING_FIELDS = new Set([
   "clientName",
   "clientEmail",
@@ -44,7 +39,6 @@ const STRING_FIELDS = new Set([
   "paymentType",
   "saleDate",
   "closer",
-  "campaignName",
 ]);
 
 const CONFIDENCE_CLASS: Record<string, string> = {
@@ -168,52 +162,10 @@ function buildRowLevelGroups(sheet: AnalyzeSheetResult, sheetIndex: number): Res
   return groups;
 }
 
-// ad_campaigns: grouped by the campaignName field (or one unnamed campaign
-// if none was mapped) — spend/impressions/clicks/leads summed per
-// campaign, startDate/endDate = min/max of the date column for its rows.
-function buildAdCampaignGroups(sheet: AnalyzeSheetResult, sheetIndex: number): ResolvedGroup[] {
-  const { mapping } = sheet;
-  const nameEntry = mapping.mappings.find((e) => e.targetField === "campaignName");
-  const numericEntries = mapping.mappings.filter((e) => e.targetField && e.targetField !== "campaignName");
-  const rowCount = Math.max(nameEntry?.columnValues.length ?? 0, ...numericEntries.map((e) => e.columnValues.length));
-
-  const byCampaign = new Map<string, number[]>();
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-    const name = nameEntry?.columnValues[rowIndex]?.trim() || "Campagne importée";
-    byCampaign.set(name, [...(byCampaign.get(name) ?? []), rowIndex]);
-  }
-
-  const dates = mapping.dateColumnValues ?? [];
-
-  return [...byCampaign.entries()].map(([name, rowIndexes]) => {
-    const campaignDates = rowIndexes.map((i) => dates[i]).filter((d): d is string => Boolean(d && d.trim()));
-    const startDate = campaignDates.length > 0 ? campaignDates.reduce((a, b) => (a < b ? a : b)) : undefined;
-    const endDate = campaignDates.length > 0 ? campaignDates.reduce((a, b) => (a > b ? a : b)) : undefined;
-
-    const fields: ResolvedGroup["fields"] = [
-      { targetField: "campaignName", value: name, sourceLabel: `colonne "${nameEntry?.sourceColumn ?? "?"}"`, confidence: "high" },
-      ...numericEntries.map((entry) => ({
-        targetField: entry.targetField as string,
-        value: aggregateColumnValuesForRows(entry.columnValues, rowIndexes, entry.granularity),
-        sourceLabel: `colonne "${entry.sourceColumn}", ${rowIndexes.length} ligne${rowIndexes.length > 1 ? "s" : ""} de "${name}" additionnées`,
-        confidence: entry.confidence,
-      })),
-    ];
-    if (startDate) fields.push({ targetField: "startDate", value: startDate, sourceLabel: "date la plus ancienne", confidence: "high" });
-    if (endDate) fields.push({ targetField: "endDate", value: endDate, sourceLabel: "date la plus récente", confidence: "high" });
-
-    const startYear = startDate ? Number(startDate.slice(0, 4)) : new Date().getUTCFullYear();
-    const startMonth = startDate ? Number(startDate.slice(5, 7)) : new Date().getUTCMonth() + 1;
-
-    return { key: `sheet${sheetIndex}-campaign-${name}`, sheetIndex, label: name, year: startYear, month: startMonth, fields };
-  });
-}
-
 function buildGroups(sheets: AnalyzeSheetResult[]): ResolvedGroup[] {
   return sheets.flatMap((sheet, sheetIndex) => {
     if (sheet.mapping.targetTable === "ignore") return [];
     if (sheet.mapping.targetTable === "monthly_metrics") return buildMonthlyMetricsGroups(sheet, sheetIndex);
-    if (sheet.mapping.targetTable === "ad_campaigns") return buildAdCampaignGroups(sheet, sheetIndex);
     return buildRowLevelGroups(sheet, sheetIndex);
   });
 }
@@ -331,8 +283,8 @@ export function ImportPreview({
 
   function handleCommit() {
     // One commit call per distinct (sheet's targetTable) — a single file
-    // can have sheets going to different tables (monthly_metrics + ads +
-    // sales in the same workbook), and commitImportPayloadSchema is
+    // can have sheets going to different tables (monthly_metrics + sales
+    // in the same workbook), and commitImportPayloadSchema is
     // one-table-per-call.
     const payloads: CommitImportPayload[] = [];
     for (const sheet of sheets) {
