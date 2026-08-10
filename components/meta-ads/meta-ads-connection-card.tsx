@@ -3,7 +3,7 @@
 import { BarChart3, Check, ExternalLink, RefreshCw, Unplug } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import {
   disconnectMetaAds,
@@ -62,6 +62,21 @@ export function MetaAdsConnectionCard({
   const hasWriteAccess = grantedScopes.includes("ads_management");
   const readableAccounts = accounts.filter((account) => account.canRead);
   const selectedAccount = accounts.find((account) => account.externalId === selectedAdAccountId) ?? null;
+  const isInitialAccountImportPending =
+    connectionNotice === "connected" &&
+    accounts.length === 0 &&
+    (initialSyncStatus === "pending" || initialSyncStatus === "syncing");
+
+  useEffect(() => {
+    if (!isInitialAccountImportPending) return;
+    const refreshTimer = window.setInterval(() => router.refresh(), 2000);
+    const stopTimer = window.setTimeout(() => window.clearInterval(refreshTimer), 15000);
+    return () => {
+      window.clearInterval(refreshTimer);
+      window.clearTimeout(stopTimer);
+    };
+  }, [isInitialAccountImportPending, router]);
+
   const readConnectHref = returnTo ? `/api/meta/connect?return_to=${encodeURIComponent(returnTo)}` : "/api/meta/connect";
 
   function handleRefresh() {
@@ -236,7 +251,12 @@ export function MetaAdsConnectionCard({
             </p>
           )}
 
-          {readableAccounts.length === 0 && (
+          {isInitialAccountImportPending && (
+            <p className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy" role="status">
+              Connexion réussie. Récupération de tes comptes publicitaires Meta en cours…
+            </p>
+          )}
+          {readableAccounts.length === 0 && !isInitialAccountImportPending && (
             <p className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">
               Aucun compte publicitaire lisible n&apos;a été trouvé. Vérifie que ton utilisateur Meta a bien accès à un compte Ads.
             </p>
