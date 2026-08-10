@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebarWithScaleScore } from "@/components/app-sidebar-with-scale-score";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
 import { FloatingChatBubble } from "@/components/floating-chat-bubble";
 import { db } from "@/db";
@@ -13,18 +15,6 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { computeGlobalCompletion } from "@/lib/business/completion";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { ensureUserRow } from "@/lib/current-user";
-import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
-import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
-import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeScaleScore, describeScaleScoreGap, type ScaleScoreResult } from "@/lib/diagnostic/scale-score";
-import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
-import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
-import { computeLeverOpportunities } from "@/lib/levers/opportunities";
-import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
-import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
-import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
-import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
-import { getStreakSnapshot } from "@/lib/streak/queries";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountContext } from "@/lib/team/context";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
@@ -80,13 +70,9 @@ export default async function AppLayout({
   // round-trip on literally every page change. All scoped by accountId (the
   // business's owner), not userId (who's logged in) — a team member sees
   // the account's business context, never their own empty one.
-  const [businessProfile, [userRow], scaleScoreInputs, streak] = await Promise.all([
+  const [businessProfile, [userRow]] = await Promise.all([
     getBusinessProfile(accountId),
     db.select().from(users).where(eq(users.id, accountId)).limit(1),
-    canSeeScaleScore ? getDiagnosticKpiRawData(accountId) : Promise.resolve(null),
-    // Same gate as the Scale Score: the streak reflects the account's whole
-    // activity, so a member without dashboard access has no business seeing it.
-    canSeeScaleScore ? getStreakSnapshot(accountId) : Promise.resolve(null),
   ]);
   const businessCompletion = computeGlobalCompletion(businessProfile);
   const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
@@ -100,89 +86,16 @@ export default async function AppLayout({
   // than recomputing the full diagnostic cascade on every navigation.
   const hasUnseenInsight = !isBusinessProfileThin(businessProfile) && !userRow?.lastImproveMetricKey;
 
-  // The sidebar badge always recomputes live from the same cascade engine
-  // the Dashboard/Diagnostic use — never reads a cached "current" value.
-  // scale_score_history is only consulted for the 7d/30d deltas and the
-  // 8-week sparkline, which are structurally impossible to derive live.
-  let scaleScore: ScaleScoreResult | null = null;
-  let scaleScoreDelta7d: number | null = null;
-  let scaleScoreDelta30d: number | null = null;
-  let scaleScoreSparkline: Awaited<ReturnType<typeof getScaleScoreSparkline>> = [];
-  // "Mon CA si j'optimise tout" (Scale Score modal's share card) — current
-  // average monthly revenue + the top-3 Découverte (lever) improvements
-  // only. Deliberately EXCLUDES the diagnostic cascade's own gain
-  // (computeDiagnosticPoints — the 5 Setting/Closing rates) per explicit
-  // product request: "CA optimisé" should reflect CA + improvements from
-  // levers you could add, not a re-projection of the diagnostic itself
-  // (that number already lives on /diagnostic's own "Le verdict" hero).
-  // Dashboard's separate "manque à gagner" figure (app/(app)/dashboard/page.tsx)
-  // still includes the cascade gain — the two are deliberately different
-  // numbers now, scoped to what each page is asking.
-  const SCALE_SCORE_PERIOD_MONTHS = 3;
-  let currentMonthlyRevenue: number | null = null;
-  let potentialMonthlyRevenue: number | null = null;
-  // Only populated when scaleScore.score === null — names the actual
-  // blocker instead of a generic "give me your numbers" (see
-  // lib/diagnostic/scale-score-copy.ts).
-  let scaleScoreGapText: string | null = null;
-  let scaleScoreMonthNote: string | null = null;
-
-  if (canSeeScaleScore && scaleScoreInputs) {
-    const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
-    const benchmarks = await getDiagnosticBenchmarks(userRow?.sector ?? null);
-    const { settingTotals, closingTotals, cashContractedTotal, emptyMonths } = aggregatePeriodTotals({
-      months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),
-      allMonthlyRows,
-      allSettingEntries,
-      allClosingEntries,
-    });
-    scaleScore = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
-
-    if (scaleScore.score === null) {
-      const gap = describeScaleScoreGap(emptyMonths, scaleScore.pillars);
-      scaleScoreGapText = gap ? scaleScoreGapMessage(gap) : null;
-
-      // The current month never enters the scoring window (see
-      // lastCompletedMonths) — if the user has already started filling it
-      // in, say so instead of leaving the placeholder unexplained.
-      const currentMonth = currentMonthWindow();
-      const currentMonthRow = allMonthlyRows.find((row) => row.year === currentMonth.year && row.month === currentMonth.month) ?? null;
-      const overlay = resolveDailySourceOverlay(currentMonth.range, allSettingEntries, allClosingEntries, {
-        settingManualOverride: currentMonthRow?.settingManualOverride,
-        closingManualOverride: currentMonthRow?.closingManualOverride,
-      });
-      const currentMonthData = { ...(currentMonthRow ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
-      if (monthStatus(computeCompletion(currentMonthData)) !== "empty") {
-        scaleScoreMonthNote = currentMonthNote(currentMonth);
-      }
-    }
-
-    if (cashContractedTotal > 0) {
-      // Top-3 Découverte (lever) opportunities only — the diagnostic
-      // cascade's own gain is deliberately excluded (see comment above).
-      const { toImplement: discoveryOpportunities } = await computeLeverOpportunities({
-        accountId,
-        businessProfile,
-        settingTotals,
-        closingTotals,
-        cashContractedTotal,
-        periodMonths: SCALE_SCORE_PERIOD_MONTHS,
-        months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),
-      });
-      const topDiscoveryGain = discoveryOpportunities.slice(0, 3).reduce((sum, o) => sum + (o.impactAmountEur ?? 0), 0);
-
-      currentMonthlyRevenue = cashContractedTotal / SCALE_SCORE_PERIOD_MONTHS;
-      potentialMonthlyRevenue = currentMonthlyRevenue + topDiscoveryGain;
-    }
-
-    if (scaleScore.score !== null) {
-      [scaleScoreDelta7d, scaleScoreDelta30d, scaleScoreSparkline] = await Promise.all([
-        getScaleScoreDelta(accountId, 7, scaleScore.score),
-        getScaleScoreDelta(accountId, 30, scaleScore.score),
-        getScaleScoreSparkline(accountId),
-      ]);
-    }
-  }
+  const sidebarBaseProps = {
+    email: typeof email === "string" ? email : "",
+    businessName: businessProfile.identity.businessName,
+    displayName: userRow?.displayName ?? null,
+    avatarUrl: userRow?.avatarUrl ?? null,
+    isOwner,
+    permissions,
+    isAdmin,
+    businessCompletionCount,
+  };
 
   return (
     <FalcoPreferencesProvider reduceAnimations={userRow?.reduceFalcoAnimations ?? false}>
@@ -193,25 +106,15 @@ export default async function AppLayout({
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
       ))}
       <div className="flex min-h-screen bg-panel">
-        <AppSidebar
-          email={typeof email === "string" ? email : ""}
-          businessName={businessProfile.identity.businessName}
-          displayName={userRow?.displayName ?? null}
-          avatarUrl={userRow?.avatarUrl ?? null}
-          isOwner={isOwner}
-          permissions={permissions}
-          isAdmin={isAdmin}
-          businessCompletionCount={businessCompletionCount}
-          scaleScore={canSeeScaleScore ? scaleScore : null}
-          scaleScoreGapText={scaleScoreGapText}
-          scaleScoreMonthNote={scaleScoreMonthNote}
-          scaleScoreDelta7d={scaleScoreDelta7d}
-          scaleScoreDelta30d={scaleScoreDelta30d}
-          scaleScoreSparkline={scaleScoreSparkline}
-          currentMonthlyRevenue={currentMonthlyRevenue}
-          potentialMonthlyRevenue={potentialMonthlyRevenue}
-          streak={streak}
-        />
+        <Suspense fallback={<AppSidebar {...sidebarBaseProps} streak={null} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+          <AppSidebarWithScaleScore
+            {...sidebarBaseProps}
+            accountId={accountId}
+            businessProfile={businessProfile}
+            sector={userRow?.sector ?? null}
+            canSeeScaleScore={canSeeScaleScore}
+          />
+        </Suspense>
         {/* The sidebar is fixed, so reserve its width in normal document flow
             on desktop; mobile opens it as an overlay instead. */}
         <div aria-hidden="true" className="w-0 shrink-0 md:w-64" />

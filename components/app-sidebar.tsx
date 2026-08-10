@@ -24,7 +24,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
 import { StreakBadge } from "@/components/streak/streak-badge";
@@ -115,6 +115,14 @@ const topEntries: LinkEntry[] = [
   // même permission que le Copilote partout ailleurs dans l'app.
   { type: "link", href: "/copilote", labelKey: "copilot", icon: MessageCircle, permission: "diagnostic" },
 ];
+
+const mobileNavEntries = [
+  { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
+  { type: "link", href: "/journal", labelKey: "journal", mobileLabelKey: "journal", icon: CalendarDays, permission: "dashboard" },
+  { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
+  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
+  { type: "link", href: "/diagnostic", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
+] satisfies Array<LinkEntry & { mobileLabelKey: string }>;
 
 // COMPTE — account-level settings behind the avatar/profile dropdown
 // (ProfileMenu). Mon business is a primary destination now because offers and
@@ -370,6 +378,26 @@ function ProfileMenu({
   );
 }
 
+export type AppSidebarProps = {
+  email: string;
+  businessName: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  isOwner: boolean;
+  permissions: readonly PermissionKey[];
+  isAdmin: boolean;
+  businessCompletionCount: number;
+  scaleScore: ScaleScoreResult | null;
+  scaleScoreGapText: string | null;
+  scaleScoreMonthNote: string | null;
+  scaleScoreDelta7d: number | null;
+  scaleScoreDelta30d: number | null;
+  scaleScoreSparkline: ScaleScoreSparklinePoint[];
+  currentMonthlyRevenue: number | null;
+  potentialMonthlyRevenue: number | null;
+  streak: StreakSnapshot | null;
+};
+
 export function AppSidebar({
   email,
   businessName,
@@ -388,25 +416,7 @@ export function AppSidebar({
   currentMonthlyRevenue,
   potentialMonthlyRevenue,
   streak,
-}: {
-  email: string;
-  businessName: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  isOwner: boolean;
-  permissions: readonly PermissionKey[];
-  isAdmin: boolean;
-  businessCompletionCount: number;
-  scaleScore: ScaleScoreResult | null;
-  scaleScoreGapText: string | null;
-  scaleScoreMonthNote: string | null;
-  scaleScoreDelta7d: number | null;
-  scaleScoreDelta30d: number | null;
-  scaleScoreSparkline: ScaleScoreSparklinePoint[];
-  currentMonthlyRevenue: number | null;
-  potentialMonthlyRevenue: number | null;
-  streak: StreakSnapshot | null;
-}) {
+}: AppSidebarProps) {
   const t = useTranslations("navigation");
   const pathname = usePathname();
   const router = useRouter();
@@ -424,14 +434,53 @@ export function AppSidebar({
   }
 
   const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
-  const mobileEntries = ([
-    { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
-    { type: "link", href: "/journal", labelKey: "journal", mobileLabelKey: "journal", icon: CalendarDays, permission: "dashboard" },
-    { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
-    { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
-    { type: "link", href: "/diagnostic", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
-  ] satisfies Array<LinkEntry & { mobileLabelKey: string }>).filter((entry) => isEntryVisible(entry, isOwner, permissions));
+  const mobileEntries = mobileNavEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const mobilePageTitle = mobileEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`));
+
+  // Warm the authenticated user's most likely destinations in the background.
+  // Link prefetch only covers links currently eligible for viewport prefetch;
+  // collapsed pillar tabs and profile destinations would otherwise still wait
+  // for their Server Components on first click. The queue is deliberately
+  // staggered so it never competes with the initial page's critical request.
+  const warmupRoutes = useMemo(() => {
+    const routes = new Set<string>();
+    const addEntry = (entry: LinkEntry) => {
+      routes.add(entry.href);
+      for (const subpage of PILLAR_SUBPAGES[entry.href] ?? []) {
+        if (isOwner || permissions.includes(subpage.permission)) routes.add(subpage.href);
+      }
+    };
+
+    for (const entry of topEntries.filter((candidate) => isEntryVisible(candidate, isOwner, permissions))) addEntry(entry);
+    for (const entry of mobileNavEntries.filter((candidate) => isEntryVisible(candidate, isOwner, permissions))) addEntry(entry);
+    for (const entry of profileMenuEntries) {
+      if (isEntryVisible(entry, isOwner, permissions)) addEntry(entry);
+    }
+    if (isAdmin) routes.add(adminEntry.href);
+    return [...routes];
+  }, [isAdmin, isOwner, permissions]);
+
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } }).connection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+
+    let cancelled = false;
+    let timer: number | null = null;
+    let routeIndex = 0;
+
+    const warmNextRoute = () => {
+      if (cancelled || routeIndex >= warmupRoutes.length) return;
+      const route = warmupRoutes[routeIndex++];
+      router.prefetch(route);
+      timer = window.setTimeout(warmNextRoute, 120);
+    };
+
+    timer = window.setTimeout(warmNextRoute, 500);
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [router, warmupRoutes]);
 
   return (
     <>
