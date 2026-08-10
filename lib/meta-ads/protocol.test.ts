@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeMetaConsolidationUntil, META_GRAPH_API_VERSION, metaAdsManagerUrl, normalizeAdAccountId, normalizeMetaPeriodDays } from "./protocol";
+import { comparisonMetaPeriod, computeMetaConsolidationUntil, META_GRAPH_API_VERSION, metaAdsManagerUrl, normalizeAdAccountId, normalizeMetaPeriodDays, normalizeMetaPeriodSelection, resolveMetaPeriod, serializeMetaPeriodSelection } from "./protocol";
 
 describe("Meta Ads protocol", () => {
   it("uses the supported Graph API fallback when no version is configured", () => {
@@ -15,6 +15,22 @@ describe("Meta Ads protocol", () => {
   it("keeps only the supported reading periods", () => {
     expect(normalizeMetaPeriodDays("7")).toBe(7);
     expect(normalizeMetaPeriodDays("365")).toBe(30);
+  });
+
+  it("resolves the previous calendar month and compares it with the preceding month", () => {
+    const referenceDate = new Date("2026-08-10T12:00:00.000Z");
+    const selection = normalizeMetaPeriodSelection({ meta_range: "previous_month" }, referenceDate);
+    const period = resolveMetaPeriod(selection, referenceDate);
+    expect(period).toEqual({ start: "2026-07-01", end: "2026-07-31", days: 31 });
+    expect(comparisonMetaPeriod(period, selection)).toEqual({ start: "2026-06-01", end: "2026-06-30" });
+  });
+
+  it("accepts a valid custom range and falls back safely for invalid ranges", () => {
+    const referenceDate = new Date("2026-08-10T12:00:00.000Z");
+    const custom = normalizeMetaPeriodSelection({ meta_range: "custom", meta_from: "2026-07-12", meta_to: "2026-08-10" }, referenceDate);
+    expect(resolveMetaPeriod(custom, referenceDate)).toEqual({ start: "2026-07-12", end: "2026-08-10", days: 30 });
+    expect(serializeMetaPeriodSelection(custom)).toBe("meta_range=custom&meta_from=2026-07-12&meta_to=2026-08-10");
+    expect(normalizeMetaPeriodSelection({ meta_range: "custom", meta_from: "2026-08-11", meta_to: "2026-08-12" }, referenceDate)).toEqual({ kind: "days", days: 30 });
   });
 
   it("computes consolidation from attribution windows plus processing delay", () => {

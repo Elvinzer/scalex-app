@@ -1,9 +1,14 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { META_PERIOD_RANGE_OPTIONS } from "@/lib/meta-ads/protocol";
+
 const campaignIdSchema = z.string().uuid();
 const aliasSearchParamsSchema = z.object({
   meta_days: z.string().optional(),
+  meta_range: z.enum(META_PERIOD_RANGE_OPTIONS).optional(),
+  meta_from: z.string().optional(),
+  meta_to: z.string().optional(),
   meta_ads: z.enum(["write_declined", "write_ready"]).optional(),
 });
 
@@ -20,7 +25,7 @@ export default async function MetaCampaignAliasPage({
   searchParams,
 }: {
   params: Promise<{ campaignId: string }>;
-  searchParams: Promise<{ meta_days?: string; meta_ads?: string }>;
+  searchParams: Promise<{ meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string; meta_ads?: string }>;
 }) {
   const { campaignId } = await params;
   const parsedCampaignId = campaignIdSchema.safeParse(campaignId);
@@ -29,6 +34,9 @@ export default async function MetaCampaignAliasPage({
   const search = aliasSearchParamsSchema.safeParse(await searchParams);
   const query = new URLSearchParams();
   if (search.success && search.data.meta_days) query.set("meta_days", search.data.meta_days);
+  if (search.success && search.data.meta_range) query.set("meta_range", search.data.meta_range);
+  if (search.success && search.data.meta_from) query.set("meta_from", search.data.meta_from);
+  if (search.success && search.data.meta_to) query.set("meta_to", search.data.meta_to);
   if (search.success && search.data.meta_ads) query.set("meta_ads", search.data.meta_ads);
   const suffix = query.toString() ? `?${query.toString()}` : "";
 

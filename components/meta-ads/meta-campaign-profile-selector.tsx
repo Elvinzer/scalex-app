@@ -77,11 +77,14 @@ export function MetaCampaignProfileSelector({
     <form className="sticker-card p-5" onSubmit={save}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-bold">Configurer la campagne</p>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Meta fournit un objectif technique, mais pas le parcours business réel. Choisis le contexte utilisé par le funnel et les insights Scale X.
-          </p>
-          {metaObjective && <p className="mt-2 text-xs text-muted-foreground">Objectif technique Meta : <span className="font-bold">{metaObjective}</span></p>}
+          <p className="font-bold">Type de campagne</p>
+          <p className="mt-1 text-xs text-muted-foreground">Utilisé pour adapter le funnel et les insights Scale X.</p>
+          {metaObjective && (
+            <details className="mt-2 text-xs text-muted-foreground">
+              <summary className="cursor-pointer font-bold underline-offset-4 hover:underline">Voir l’objectif Meta</summary>
+              <span className="mt-1 block">{metaObjective}</span>
+            </details>
+          )}
         </div>
         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isComplete && !isDirty ? "bg-state-healthy-bg text-state-healthy" : "bg-state-caution/10 text-state-caution"}`}>
           {isComplete && !isDirty ? "Configurée" : "Configuration requise"}
@@ -128,13 +131,13 @@ export function MetaCampaignProfileSelector({
         )}
       </div>
 
-      {typeSource === "pending" && <p className="mt-4 text-xs font-bold text-state-caution">Le funnel et les insights spécialisés restent en attente tant que cette configuration n’est pas enregistrée.</p>}
+      {typeSource === "pending" && <p className="mt-4 text-xs font-bold text-state-caution">Enregistre un type pour activer le funnel adapté.</p>}
       {error && <p className="mt-4 text-sm font-bold text-state-critical" role="alert">{error}</p>}
       {message && <p className="mt-4 text-sm font-bold text-state-healthy" role="status">{message}</p>}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">Tu peux modifier ce contexte plus tard ; cela ne modifie rien dans Meta Ads.</p>
+        <p className="text-xs text-muted-foreground">Ce choix ne modifie rien dans Meta Ads.</p>
         <Button type="submit" disabled={isPending || !isComplete || !isDirty}>
-          {isPending ? "Enregistrement…" : "Enregistrer la configuration"}
+          {isPending ? "Enregistrement…" : "Enregistrer"}
         </Button>
       </div>
     </form>

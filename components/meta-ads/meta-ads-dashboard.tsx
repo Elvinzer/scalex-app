@@ -1,11 +1,13 @@
 import { ArrowUpRight, BarChart3, Eye, MousePointerClick, Play, UserPlus } from "lucide-react";
 
 import { MetaCampaignsTable } from "@/components/meta-ads/meta-campaigns-table";
+import { MetaDataQuality } from "@/components/meta-ads/meta-data-quality";
+import { MetaPeriodFilter } from "@/components/meta-ads/meta-period-filter";
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import { safeRatio as ratio } from "@/lib/meta-ads/derived-metrics";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
-import { META_PERIOD_OPTIONS } from "@/lib/meta-ads/protocol";
+import { DEFAULT_META_PERIOD_SELECTION, formatMetaPeriodRange, metaPeriodSelectionLabel, serializeMetaPeriodSelection, type MetaPeriodSelection } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
 import { metricValue, rawMetaMetricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaInstagramObservation, type MetaMetricTotals } from "@/lib/meta-ads/queries";
 import { campaignTypeNeedsConversionGoal } from "@/lib/meta-ads/types";
@@ -243,7 +245,7 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
   );
 }
 
-export function MetaAdsDashboard({ data, canManageCampaigns = false }: { data: MetaAdsDashboard; canManageCampaigns?: boolean }) {
+export function MetaAdsDashboard({ data, canManageCampaigns = false, periodSelection = DEFAULT_META_PERIOD_SELECTION }: { data: MetaAdsDashboard; canManageCampaigns?: boolean; periodSelection?: MetaPeriodSelection }) {
   const spendCents = metricValue(data.totals, "spendCents");
   const comparisonSpendCents = metricValue(data.comparisonTotals, "spendCents");
   const impressions = metricValue(data.totals, "impressions");
@@ -287,6 +289,7 @@ export function MetaAdsDashboard({ data, canManageCampaigns = false }: { data: M
   const primaryType = allCampaignsConfigured && campaignTypes.length === 1 ? campaignTypes[0]! : null;
   const coverageValues = data.campaigns.map((campaign) => campaign.metricCoverageRate).filter((value): value is number => value !== null && value !== undefined);
   const minimumCoverage = coverageValues.length > 0 ? Math.min(...coverageValues) : null;
+  const periodQuery = serializeMetaPeriodSelection(periodSelection);
   const cplTargetCount = data.campaigns.filter((campaign) => campaign.campaignType !== "instagram_profile_growth" && campaign.targets?.targetCpaCents !== null && campaign.targets?.targetCpaCents !== undefined).length;
   const cplApplicable = primaryType !== "instagram_profile_growth";
   const cplDetail = primaryType === "instagram_profile_growth"
@@ -303,37 +306,23 @@ export function MetaAdsDashboard({ data, canManageCampaigns = false }: { data: M
     <section className="flex flex-col gap-5" aria-labelledby="meta-ads-dashboard-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Source Meta Ads · {data.account.name}</p>
-          <h2 id="meta-ads-dashboard-title" className="mt-1 text-xl font-bold">Performance des {data.period.days} derniers jours</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{data.period.start} → {data.period.end} · chiffres issus des Insights Meta, actualisés automatiquement.</p>
-          <p className="mt-1 text-xs text-muted-foreground">Comparaison : {data.comparisonPeriod.start} → {data.comparisonPeriod.end} · même durée précédente.</p>
-          <p className="mt-2 text-xs font-bold text-muted-foreground">
-            {data.period.consolidatedThrough
-              ? `Chiffres définitifs jusqu’au ${new Intl.DateTimeFormat("fr-FR").format(new Date(`${data.period.consolidatedThrough}T12:00:00Z`))} · les jours suivants peuvent évoluer.`
-              : "Fenêtre de consolidation en cours · les chiffres récents peuvent évoluer."}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Couverture minimale des campagnes : {minimumCoverage === null ? "—" : formatPercent(minimumCoverage)} · les périodes incomplètes ne sont pas complétées par des zéros.
-          </p>
-          {data.missingMetricDates.length > 0 && (
-            <p className="mt-1 text-xs font-bold text-state-caution" role="status">
-              Jours sans série Meta synchronisée : {data.missingMetricDates.slice(0, 8).join(", ")}{data.missingMetricDates.length > 8 ? ` · +${data.missingMetricDates.length - 8} autre(s)` : ""}. Ces dates restent indisponibles.
-            </p>
-          )}
+          <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Meta Ads · {data.account.name}</p>
+          <h2 id="meta-ads-dashboard-title" className="mt-1 text-xl font-bold">Performance</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(data.period)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <nav className="flex items-center gap-1 rounded-[var(--radius-control)] border border-border bg-card p-1" aria-label="Période Meta Ads">
-            {META_PERIOD_OPTIONS.map((days) => (
-              <a key={days} href={`/acquisition/ads?meta_days=${days}`} aria-current={data.period.days === days ? "page" : undefined} className={`rounded-[var(--radius-control)] px-3 py-1.5 text-xs font-bold ${data.period.days === days ? "bg-accent-2-soft text-accent-2-text" : "text-muted-foreground hover:bg-muted"}`}>
-                {days} j
-              </a>
-            ))}
-          </nav>
+          <MetaPeriodFilter selection={periodSelection} period={data.period} />
           <Button variant="outline" asChild>
-            <a href="/integrations#meta-ads">Gérer la connexion <ArrowUpRight className="size-4" /></a>
+            <a href="/integrations#meta-ads">Connexion <ArrowUpRight className="size-4" /></a>
           </Button>
         </div>
       </div>
+      <MetaDataQuality
+        coverageRate={minimumCoverage}
+        missingDates={data.missingMetricDates}
+        consolidatedThrough={data.period.consolidatedThrough}
+        initialSyncStatus={data.connection.initialSyncStatus}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Kpi label="Dépenses" value={spendCents === null ? "—" : formatEur(spendCents / 100)} detail={`${impressions === null ? "—" : number(impressions)} impressions`} comparison={trendLabel(spendCents, comparisonSpendCents)} provenance={metricProvenance("brute", spendCents !== null)} icon={<Eye className="size-4" />} />
@@ -343,18 +332,12 @@ export function MetaAdsDashboard({ data, canManageCampaigns = false }: { data: M
         <Kpi label="CPM" value={cpm === null ? "—" : formatEur(cpm)} detail="Coût pour 1 000 impressions" comparison={trendLabel(cpm, comparisonCpm)} provenance={metricProvenance(rawCpmCents !== null ? "brute" : "dérivée", cpm !== null)} icon={<BarChart3 className="size-4" />} />
       </div>
 
-      {data.connection.initialSyncStatus !== "completed" && (
-        <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-4 py-3 text-sm text-state-caution">
-          Les données Meta sont encore en préparation ({data.connection.initialSyncStatus}). Les métriques affichées peuvent être partielles.
-        </div>
-      )}
-
       <FunnelCard totals={data.totals} campaignType={primaryType} instagramObservation={data.instagramObservation} frequencySaturationThreshold={data.frequencySaturationThreshold} />
 
       <div className="sticker-card overflow-x-auto" tabIndex={0} role="region" aria-label="Tableau des campagnes Meta">
         <MetaCampaignsTable
           campaigns={data.campaigns}
-          periodDays={data.period.days}
+          periodQuery={periodQuery}
           canManageCampaigns={canManageCampaigns}
           instagramFollowerCount={data.instagramFollowerCount}
           instagramFollowerCountUpdatedAt={data.instagramFollowerCountUpdatedAt}

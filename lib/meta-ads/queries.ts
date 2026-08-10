@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { insightRecords, instagramConnections, instagramPostInsights, metaAdAccounts, metaAdActionLogs, metaAdMetricCorrections, metaAdMetricsDaily, metaAdSets, metaAds, metaAdsConnections, metaAdTouchpoints, metaCampaignProfiles, metaCampaigns, nativeBookingLeads, sales, salesCalls } from "@/db/schema";
 import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/types";
 import { countUnattributedMetaSales, metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
-import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, metaAdsManagerUrl, normalizeMetaPeriodDays } from "./protocol";
+import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, comparisonMetaPeriod, metaAdsManagerUrl, normalizeMetaPeriodSelection, resolveMetaPeriod } from "./protocol";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
 import type { MetaCampaignType, MetaConversionGoal, MetaRawObject, MetaWebinarObservation } from "./types";
 
@@ -388,25 +388,6 @@ export function rawMetaMetricValue(metrics: MetaMetricTotals, key: MetaRawMetric
   return metrics.metaProvided[key];
 }
 
-function period(days: number): { start: string; end: string; days: number } {
-  const end = new Date();
-  const start = new Date(end);
-  // Both bounds are inclusive in the SQL filters below. Subtract days - 1 so
-  // a "30 days" window contains exactly 30 calendar dates and coverage cannot
-  // look complete while one day is missing.
-  start.setUTCDate(start.getUTCDate() - (days - 1));
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10), days };
-}
-
-function comparisonPeriod(current: { start: string; end: string; days: number }): { start: string; end: string } {
-  const start = new Date(`${current.start}T00:00:00.000Z`);
-  const comparisonEnd = new Date(start);
-  comparisonEnd.setUTCDate(comparisonEnd.getUTCDate() - 1);
-  const comparisonStart = new Date(comparisonEnd);
-  comparisonStart.setUTCDate(comparisonStart.getUTCDate() - (current.days - 1));
-  return { start: comparisonStart.toISOString().slice(0, 10), end: comparisonEnd.toISOString().slice(0, 10) };
-}
-
 function calendarDates(start: string, end: string): string[] {
   const dates: string[] = [];
   const cursor = new Date(`${start}T00:00:00.000Z`);
@@ -444,7 +425,7 @@ function rawIsoDate(raw: MetaRawObject, keys: string[]): string | null {
   return null;
 }
 
-export async function getMetaAdsDashboard(accountId: string, requestedDays: unknown = 30): Promise<MetaAdsDashboard | null> {
+export async function getMetaAdsDashboard(accountId: string, requestedPeriod: unknown = 30): Promise<MetaAdsDashboard | null> {
   const [connection] = await db
     .select()
     .from(metaAdsConnections)
@@ -459,8 +440,9 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
     .limit(1);
   if (!account) return null;
 
-  const currentPeriod = period(normalizeMetaPeriodDays(requestedDays));
-  const previousPeriod = comparisonPeriod(currentPeriod);
+  const periodSelection = normalizeMetaPeriodSelection(requestedPeriod);
+  const currentPeriod = resolveMetaPeriod(periodSelection);
+  const previousPeriod = comparisonMetaPeriod(currentPeriod, periodSelection);
   const [campaignRows, metricRows, comparisonRows, adSetRowsForAudience, adRowsForTouchpoints, adSetMetricRows, correctionRows, instagramConnectionRows, instagramRows, comparisonInstagramRows, touchpointRows, salesRows] = await Promise.all([
     db
       .select({ campaign: metaCampaigns, profile: metaCampaignProfiles })
@@ -773,8 +755,8 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
   };
 }
 
-export async function getMetaCampaignDetail(accountId: string, campaignId: string, requestedDays: unknown = 30, dashboardOverride?: MetaAdsDashboard): Promise<MetaCampaignDetail | null> {
-  const dashboard = dashboardOverride ?? await getMetaAdsDashboard(accountId, requestedDays);
+export async function getMetaCampaignDetail(accountId: string, campaignId: string, requestedPeriod: unknown = 30, dashboardOverride?: MetaAdsDashboard): Promise<MetaCampaignDetail | null> {
+  const dashboard = dashboardOverride ?? await getMetaAdsDashboard(accountId, requestedPeriod);
   if (!dashboard) return null;
   const [campaignRow] = await db
     .select({ campaign: metaCampaigns, profile: metaCampaignProfiles })

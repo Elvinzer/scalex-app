@@ -4,6 +4,7 @@ import { z } from "zod";
 import { MetaAdsConnectionCard } from "@/components/meta-ads/meta-ads-connection-card";
 import { MetaAdsDashboard } from "@/components/meta-ads/meta-ads-dashboard";
 import type { MetaAdsDashboard as MetaAdsDashboardData, MetaCampaignDashboardRow, MetaMetricKey, MetaMetricTotals } from "@/lib/meta-ads/queries";
+import { META_PERIOD_RANGE_OPTIONS, comparisonMetaPeriod, normalizeMetaPeriodSelection, resolveMetaPeriod, type MetaPeriodSelection } from "@/lib/meta-ads/protocol";
 import { META_CAMPAIGN_TYPES, type MetaCampaignType } from "@/lib/meta-ads/types";
 
 const ALL_METRICS: MetaMetricKey[] = [
@@ -26,7 +27,13 @@ const ALL_METRICS: MetaMetricKey[] = [
 
 const FIXTURE_NOW = "2026-08-08";
 const FIXTURE_SYNCED_AT = "2026-08-08T08:00:00.000Z";
-const fixtureSearchParamsSchema = z.object({ module: z.enum(META_CAMPAIGN_TYPES).optional() });
+const fixtureSearchParamsSchema = z.object({
+  module: z.enum(META_CAMPAIGN_TYPES).optional(),
+  meta_days: z.string().optional(),
+  meta_range: z.enum(META_PERIOD_RANGE_OPTIONS).optional(),
+  meta_from: z.string().optional(),
+  meta_to: z.string().optional(),
+});
 
 function metrics(overrides: Partial<Omit<MetaMetricTotals, "available">>): MetaMetricTotals {
   const values: Omit<MetaMetricTotals, "available"> = {
@@ -122,7 +129,7 @@ function campaign(
   };
 }
 
-function buildDashboard(selectedType?: MetaCampaignType): MetaAdsDashboardData {
+function buildDashboard(selectedType: MetaCampaignType | undefined, periodSelection: MetaPeriodSelection): MetaAdsDashboardData {
   const allCampaigns = [
     campaign("11111111-1111-4111-8111-111111111111", "VSL — Angle douleur principale", "vsl", metrics({ spendCents: 186_000, impressions: 48_200, reach: 31_400, clicks: 2_100, linkClicks: 1_460, leads: 64, landingPageViews: 1_110, video3sViews: 18_500, videoThruplay: 7_100, purchases: 4, purchaseValueCents: 48_000 }), 3_500),
     campaign("22222222-2222-4222-8222-222222222222", "Webinaire — Session août", "webinar", metrics({ spendCents: 124_000, impressions: 32_800, reach: 23_200, clicks: 1_260, linkClicks: 920, leads: 48, registrations: 42, purchases: 2, purchaseValueCents: 24_000 }), 2_800),
@@ -131,6 +138,8 @@ function buildDashboard(selectedType?: MetaCampaignType): MetaAdsDashboardData {
     campaign("55555555-5555-4555-8555-555555555555", "Campagne sans typage", null, metrics({ spendCents: 45_000, impressions: 8_500, reach: 5_400, clicks: 210, linkClicks: 160 }), null),
   ];
   const campaigns = selectedType ? allCampaigns.filter((row) => row.campaignType === selectedType) : allCampaigns;
+  const period = resolveMetaPeriod(periodSelection, new Date(`${FIXTURE_NOW}T12:00:00.000Z`));
+  const comparisonPeriod = comparisonMetaPeriod(period, periodSelection);
 
   const totals = metrics({
     spendCents: campaigns.reduce((total, row) => total + row.metrics.spendCents, 0),
@@ -151,10 +160,10 @@ function buildDashboard(selectedType?: MetaCampaignType): MetaAdsDashboardData {
     connected: true,
     account: { id: "fixture-account", externalId: "act_1234567890", name: "Scale X Fixture Ads", currency: "EUR", timezone: "Europe/Paris" },
     connection: { status: "connected", initialSyncStatus: "completed", lastSyncCompletedAt: FIXTURE_SYNCED_AT, lastSyncError: null, grantedScopes: ["ads_read"] },
-    period: { start: "2026-07-10", end: FIXTURE_NOW, days: 30, consolidatedThrough: "2026-08-06" },
-    comparisonPeriod: { start: "2026-06-10", end: "2026-07-09" },
+    period: { ...period, consolidatedThrough: period.end >= FIXTURE_NOW ? "2026-08-06" : period.end },
+    comparisonPeriod,
     frequencySaturationThreshold: 3,
-    missingMetricDates: ["2026-07-17"],
+    missingMetricDates: period.start <= "2026-07-17" && period.end >= "2026-07-17" ? ["2026-07-17"] : [],
     totals,
     instagramFollowerCount: 18_200,
     instagramFollowerCountUpdatedAt: FIXTURE_SYNCED_AT,
@@ -185,10 +194,12 @@ function buildDashboard(selectedType?: MetaCampaignType): MetaAdsDashboardData {
   };
 }
 
-export default async function MetaAdsE2EFixturePage({ searchParams }: { searchParams: Promise<{ module?: string }> }) {
+export default async function MetaAdsE2EFixturePage({ searchParams }: { searchParams: Promise<{ module?: string; meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string }> }) {
   if (process.env.NODE_ENV === "production") notFound();
   const parsedSearchParams = fixtureSearchParamsSchema.safeParse(await searchParams);
-  const selectedType = parsedSearchParams.success ? parsedSearchParams.data.module : undefined;
+  const search = parsedSearchParams.success ? parsedSearchParams.data : {};
+  const selectedType = search.module;
+  const periodSelection = normalizeMetaPeriodSelection(search, new Date(`${FIXTURE_NOW}T12:00:00.000Z`));
 
   return (
     <main className="min-h-screen overflow-x-clip bg-panel px-4 py-8 md:px-16">
@@ -219,7 +230,7 @@ export default async function MetaAdsE2EFixturePage({ searchParams }: { searchPa
           connectionNotice={null}
         />
 
-        <MetaAdsDashboard data={buildDashboard(selectedType)} canManageCampaigns />
+        <MetaAdsDashboard data={buildDashboard(selectedType, periodSelection)} periodSelection={periodSelection} canManageCampaigns />
       </div>
     </main>
   );

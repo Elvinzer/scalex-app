@@ -4,12 +4,12 @@ export function relativeChange(current: number | null, previous: number | null):
 }
 
 export function trendLabel(current: number | null, previous: number | null): string {
-  if (current === null || previous === null) return "Évolution : — · comparaison indisponible";
+  if (current === null || previous === null) return "— · comparaison indisponible";
   if (previous === 0) {
     return current === 0
-      ? "Évolution : stable · période précédente nulle"
-      : "Évolution : nouvelle base · période précédente nulle";
+      ? "stable · période précédente nulle"
+      : "nouvelle base · période précédente nulle";
   }
   const percentage = Math.round((current / previous - 1) * 100);
-  return `Évolution : ${percentage > 0 ? "+" : ""}${percentage}% vs période précédente`;
+  return `${percentage > 0 ? "+" : ""}${percentage}% vs période précédente`;
 }

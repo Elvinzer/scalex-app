@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { after } from "next/server";
+import { z } from "zod";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { LeverImpactEstimate } from "@/components/lever-impact-estimate";
@@ -22,7 +23,7 @@ import { getLeverImpactEstimate } from "@/lib/levers/impact";
 import { getLeverStatus } from "@/lib/levers/status";
 import { getMetaAdsDashboard, metricValue } from "@/lib/meta-ads/queries";
 import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
-import { normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
+import { META_PERIOD_RANGE_OPTIONS, normalizeMetaPeriodSelection } from "@/lib/meta-ads/protocol";
 import { requireOwner, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { AdCopyTrigger } from "./ad-copy-trigger";
@@ -33,11 +34,21 @@ const LEVER_KEY = "ads";
 // approach as every other benchmark in lib/levers/opportunities.ts.
 const ADS_MIN_MONTHLY_REVENUE_EUR = 3000;
 
-export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_ads?: string; meta_ads_error?: string }> }) {
+const adsSearchParamsSchema = z.object({
+  meta_days: z.string().optional(),
+  meta_range: z.enum(META_PERIOD_RANGE_OPTIONS).optional(),
+  meta_from: z.string().optional(),
+  meta_to: z.string().optional(),
+  meta_ads: z.string().optional(),
+  meta_ads_error: z.string().optional(),
+});
+
+export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string; meta_ads?: string; meta_ads_error?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
-  const search = await searchParams;
-  const periodDays = normalizeMetaPeriodDays(search.meta_days);
+  const parsedSearchParams = adsSearchParamsSchema.safeParse(await searchParams);
+  const search = parsedSearchParams.success ? parsedSearchParams.data : {};
+  const periodSelection = normalizeMetaPeriodSelection(search);
   const metaAdsErrorMessageText = metaAdsErrorMessage(search.meta_ads_error);
   const metaAdsErrorAlert = metaAdsErrorMessageText ? (
     <div className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-4 py-3 text-sm font-bold text-state-critical" role="alert">
@@ -48,7 +59,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   const [profile, lever, metaDashboard, metaConnectionRows, metaAdAccountRows, subscriptionActive] = await Promise.all([
     getBusinessProfile(accountId),
     getLeverStatus(accountId, LEVER_KEY),
-    getMetaAdsDashboard(accountId, periodDays),
+    getMetaAdsDashboard(accountId, periodSelection),
     ownerAccess
       ? db.select().from(metaAdsConnections).where(eq(metaAdsConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -190,7 +201,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
 
       {metaAdsErrorAlert}
       {metaConnectionCard}
-      {metaDashboard && <MetaAdsDashboard data={metaDashboard} canManageCampaigns={Boolean(ownerAccess)} />}
+      {metaDashboard && <MetaAdsDashboard data={metaDashboard} periodSelection={periodSelection} canManageCampaigns={Boolean(ownerAccess)} />}
 
       {profile.sales.offers.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">

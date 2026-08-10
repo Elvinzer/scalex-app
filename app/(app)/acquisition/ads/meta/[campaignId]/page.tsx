@@ -1,12 +1,15 @@
 import { ArrowLeft, CircleAlert, ExternalLink, Gauge, MousePointerClick, Play, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { z } from "zod";
 
 import { MetaCampaignActions } from "@/components/meta-ads/meta-campaign-actions";
 import { MetaEntityAction } from "@/components/meta-ads/meta-entity-action";
 import { MetaCampaignProfileSelector } from "@/components/meta-ads/meta-campaign-profile-selector";
 import { MetaCampaignTargets } from "@/components/meta-ads/meta-campaign-targets";
 import { MetaInsightCard } from "@/components/meta-ads/meta-insight-card";
+import { MetaDataQuality } from "@/components/meta-ads/meta-data-quality";
+import { MetaPeriodFilter } from "@/components/meta-ads/meta-period-filter";
 import { MetaTouchpointGenerator } from "@/components/meta-ads/meta-touchpoint-generator";
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
@@ -19,7 +22,7 @@ import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
 import { safeRatio as ratio } from "@/lib/meta-ads/derived-metrics";
 import { getMetaAdsDashboard, getMetaCampaignDetail, metricValue, rawMetaMetricValue } from "@/lib/meta-ads/queries";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
-import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
+import { META_PERIOD_RANGE_OPTIONS, formatMetaPeriodRange, metaAdsManagerUrl, metaPeriodSelectionLabel, normalizeMetaPeriodSelection, serializeMetaPeriodSelection } from "@/lib/meta-ads/protocol";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 import { campaignTypeNeedsConversionGoal } from "@/lib/meta-ads/types";
 import { formatPercent } from "@/lib/setting/funnel";
@@ -33,11 +36,14 @@ function typeLabel(value: string | null): string {
   return "Type à définir";
 }
 
-function conversionGoalLabel(value: string | null): string | null {
-  if (value === "call") return "Appel";
-  if (value === "sale") return "Vente";
-  return null;
-}
+const campaignSearchParamsSchema = z.object({
+  meta_days: z.string().optional(),
+  meta_range: z.enum(META_PERIOD_RANGE_OPTIONS).optional(),
+  meta_from: z.string().optional(),
+  meta_to: z.string().optional(),
+  meta_ads: z.enum(["write_declined", "write_ready"]).optional(),
+  meta_ads_error: z.string().optional(),
+});
 
 function webinarSourceLabel(value: string): string {
   if (value === "calendly") return "Calendly";
@@ -163,26 +169,28 @@ function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
   );
 }
 
-export default async function MetaCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ meta_days?: string; meta_ads?: string; meta_ads_error?: string }> }) {
+export default async function MetaCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string; meta_ads?: string; meta_ads_error?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
   const { campaignId } = await params;
-  const search = await searchParams;
+  const parsedSearchParams = campaignSearchParamsSchema.safeParse(await searchParams);
+  const search = parsedSearchParams.success ? parsedSearchParams.data : {};
+  const periodSelection = normalizeMetaPeriodSelection(search);
+  const periodQuery = serializeMetaPeriodSelection(periodSelection);
   const metaAdsErrorMessageText = metaAdsErrorMessage(search.meta_ads_error);
-  const periodDays = normalizeMetaPeriodDays(search.meta_days);
   const [dashboard, businessProfile] = await Promise.all([
-    getMetaAdsDashboard(accountId, periodDays),
+    getMetaAdsDashboard(accountId, periodSelection),
     getBusinessProfile(accountId),
   ]);
   if (!dashboard) notFound();
-  if (periodDays !== 30) {
+  if (periodSelection.kind !== "days" || periodSelection.days !== 30) {
     try {
       await materializeMetaAdsInsights(accountId, dashboard, campaignId);
     } catch (error) {
       console.error("Meta Ads insight refresh for selected period failed", error instanceof Error ? error.message : "unknown");
     }
   }
-  const detail = await getMetaCampaignDetail(accountId, campaignId, periodDays, dashboard);
+  const detail = await getMetaCampaignDetail(accountId, campaignId, periodSelection, dashboard);
   if (!detail) notFound();
 
   const activeInsightRuleKeys: Set<string> = new Set(
@@ -267,7 +275,6 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const managerUrl = metaAdsManagerUrl(detail.dashboard.account.externalId, detail.campaign.externalId);
   const attribution = detail.attributionQuality;
   const attributionLabel = attribution.status === "verified" ? "Vérifiée" : attribution.status === "partial" ? "Partielle" : "Non calculable";
-  const conversionGoal = conversionGoalLabel(detail.campaign.conversionGoal);
   const campaignConfigured = detail.campaign.campaignType !== null
     && (!campaignTypeNeedsConversionGoal(detail.campaign.campaignType) || detail.campaign.conversionGoal !== null);
   const conversionMetricLabel = detail.campaign.conversionGoal === "call" ? "Appels réservés" : detail.campaign.conversionGoal === "sale" ? "Ventes reliées" : "Conversion business";
@@ -353,37 +360,28 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Button variant="ghost" asChild className="mb-3 -ml-2">
-            <Link href="/acquisition/ads"><ArrowLeft className="size-4" />Retour aux Ads</Link>
+            <Link href={`/acquisition/ads?${periodQuery}`}><ArrowLeft className="size-4" />Retour aux Ads</Link>
           </Button>
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Meta Ads · {typeLabel(detail.campaign.campaignType)}</p>
           <h1 className="mt-1 text-3xl font-bold">{detail.campaign.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{detail.dashboard.period.start} → {detail.dashboard.period.end} · {detail.campaign.objective ?? "Objectif Meta non renseigné"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {campaignConfigured && conversionGoal
-              ? `Objectif de conversion Scale X : ${conversionGoal} · utilisé pour la dernière étape du funnel.`
-              : "Objectif de conversion Scale X : à définir dans la configuration ci-dessous."}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">Comparaison : {detail.dashboard.comparisonPeriod.start} → {detail.dashboard.comparisonPeriod.end} · même durée précédente.</p>
-          <p className="mt-2 text-xs font-bold text-muted-foreground">
-            {detail.dashboard.period.consolidatedThrough
-              ? `Chiffres définitifs jusqu’au ${new Intl.DateTimeFormat("fr-FR").format(new Date(`${detail.dashboard.period.consolidatedThrough}T12:00:00Z`))}.`
-              : "Fenêtre de consolidation en cours · les chiffres récents peuvent évoluer."}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Couverture de lecture Meta : {detail.campaign.metricCoverageRate === null || detail.campaign.metricCoverageRate === undefined ? "—" : formatPercent(detail.campaign.metricCoverageRate)} des jours de la période · les jours manquants restent indisponibles.
-          </p>
-          {detail.dashboard.missingMetricDates.length > 0 && (
-            <p className="mt-1 text-xs font-bold text-state-caution" role="status">
-              Jours sans série Meta synchronisée pour le compte : {detail.dashboard.missingMetricDates.slice(0, 8).join(", ")}{detail.dashboard.missingMetricDates.length > 8 ? ` · +${detail.dashboard.missingMetricDates.length - 8} autre(s)` : ""}.
-            </p>
-          )}
+          <p className="mt-1 text-sm text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(detail.dashboard.period)}</p>
         </div>
-        <Button asChild variant="outline">
-          <a href={managerUrl} target="_blank" rel="noopener noreferrer">
-            Ouvrir dans Meta Ads <ExternalLink className="size-4" />
-          </a>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <MetaPeriodFilter selection={periodSelection} period={detail.dashboard.period} />
+          <Button asChild variant="outline">
+            <a href={managerUrl} target="_blank" rel="noopener noreferrer">
+              Ouvrir dans Meta Ads <ExternalLink className="size-4" />
+            </a>
+          </Button>
+        </div>
       </div>
+
+      <MetaDataQuality
+        coverageRate={detail.campaign.metricCoverageRate ?? null}
+        missingDates={detail.dashboard.missingMetricDates}
+        consolidatedThrough={detail.dashboard.period.consolidatedThrough}
+        initialSyncStatus={detail.dashboard.connection.initialSyncStatus}
+      />
 
       <MetaCampaignProfileSelector
         campaignId={detail.campaign.id}
@@ -470,7 +468,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         hasWriteAccess={hasWriteAccess}
         accountLabel={detail.dashboard.account.name}
         deepLink={managerUrl}
-        returnTo={`/acquisition/ads/meta/${detail.campaign.id}?meta_days=${periodDays}`}
+        returnTo={`/acquisition/ads/meta/${detail.campaign.id}?${periodQuery}`}
       />
 
       <section className="sticker-card overflow-x-auto" aria-labelledby="meta-action-history-title" tabIndex={0} role="region">
@@ -812,7 +810,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 </td>
                 <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= detail.dashboard.frequencySaturationThreshold ? ` · fréquence ≥ ${detail.dashboard.frequencySaturationThreshold}×` : ""}</td>
                 <td className="px-5 py-3 text-right">
-                  <MetaEntityAction entityType="adset" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} returnTo={`/acquisition/ads/meta/${detail.campaign.id}?meta_days=${periodDays}`} />
+                  <MetaEntityAction entityType="adset" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} returnTo={`/acquisition/ads/meta/${detail.campaign.id}?${periodQuery}`} />
                 </td>
                     </>
                   );
@@ -856,7 +854,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                 </td>
                 <td className="px-5 py-3 text-right text-xs font-bold text-muted-foreground">{row.status ?? "—"}{rowImpressions !== null && rowReach !== null && (ratio(rowImpressions, rowReach) ?? 0) >= detail.dashboard.frequencySaturationThreshold ? ` · fréquence ≥ ${detail.dashboard.frequencySaturationThreshold}× à vérifier` : ""}</td>
                 <td className="px-5 py-3 text-right">
-                  <MetaEntityAction entityType="ad" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} returnTo={`/acquisition/ads/meta/${detail.campaign.id}?meta_days=${periodDays}`} />
+                  <MetaEntityAction entityType="ad" entityId={row.id} campaignId={detail.campaign.id} status={row.status} deepLink={row.deepLink} hasWriteAccess={hasWriteAccess} accountLabel={detail.dashboard.account.name} returnTo={`/acquisition/ads/meta/${detail.campaign.id}?${periodQuery}`} />
                 </td>
                     </>
                   );

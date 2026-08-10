@@ -308,13 +308,13 @@ function CampaignTypePicker({ campaign, canManageCampaigns }: { campaign: MetaCa
 
 export function MetaCampaignsTable({
   campaigns,
-  periodDays,
+  periodQuery,
   canManageCampaigns,
   instagramFollowerCount,
   instagramFollowerCountUpdatedAt,
 }: {
   campaigns: MetaCampaignDashboardRow[];
-  periodDays: number;
+  periodQuery: string;
   canManageCampaigns: boolean;
   instagramFollowerCount: MetaAdsDashboard["instagramFollowerCount"];
   instagramFollowerCountUpdatedAt: MetaAdsDashboard["instagramFollowerCountUpdatedAt"];
@@ -355,7 +355,7 @@ export function MetaCampaignsTable({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-bold">Campagnes Meta</p>
-            <p className="mt-1 max-w-5xl text-xs text-muted-foreground">Clique une campagne pour lire ses créas, son funnel et ses insights. Le type se règle ici ; il sert uniquement à adapter la lecture Scale X et ne modifie rien dans Meta Ads.</p>
+            <p className="mt-1 max-w-5xl text-xs text-muted-foreground">Ouvre une campagne pour voir ses détails. Le type adapte uniquement la lecture Scale X.</p>
           </div>
           <span className="text-xs font-bold text-muted-foreground" aria-live="polite">{number(filteredRows.length)} / {number(campaigns.length)} campagne(s)</span>
         </div>
@@ -383,13 +383,14 @@ export function MetaCampaignsTable({
             {sortKey !== "default" && <Button type="button" variant="ghost" size="sm" onClick={resetSort}><RotateCcw className="size-3.5" />Réinitialiser</Button>}
           </div>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">Le tri initial utilise la dernière mise à jour Meta, puis la création. Si Meta ne fournit aucune de ces dates, les campagnes avec des dépenses sur la période remontent en premier.</p>
-        {hasInstagramCampaign && followerCount !== null && (
-          <p className="mt-2 text-xs text-muted-foreground">Coût / follower : repère dérivé du spend Meta et du stock de {number(followerCount)} followers Instagram{instagramFollowerCountUpdatedAt ? ` relevé le ${new Intl.DateTimeFormat("fr-FR").format(new Date(instagramFollowerCountUpdatedAt))}` : ""}. Ce n&apos;est pas une attribution individuelle.</p>
-        )}
-        {hasInstagramCampaign && followerCount === null && (
-          <p className="mt-2 text-xs text-state-caution">Coût / follower non affiché : Instagram n&apos;a pas fourni le nombre de followers du compte.</p>
-        )}
+        <details className="mt-2 text-xs text-muted-foreground">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center font-bold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/12">À propos de la liste</summary>
+          <div className="mt-1 space-y-1 border-l border-border pl-3">
+            <p>Tri initial : mise à jour Meta, puis dépenses.</p>
+            {hasInstagramCampaign && followerCount !== null && <p>Coût / follower : repère dérivé de {number(followerCount)} followers Instagram{instagramFollowerCountUpdatedAt ? ` relevé le ${new Intl.DateTimeFormat("fr-FR").format(new Date(instagramFollowerCountUpdatedAt))}` : ""}; non attribué individuellement.</p>}
+            {hasInstagramCampaign && followerCount === null && <p className="text-state-caution">Coût / follower indisponible : nombre de followers Instagram manquant.</p>}
+          </div>
+        </details>
       </div>
       {campaigns.length === 0 ? (
         <p className="p-5 text-sm text-muted-foreground">Aucune campagne synchronisée pour ce compte.</p>
@@ -418,7 +419,7 @@ export function MetaCampaignsTable({
               return (
                 <tr key={campaign.id} className="border-b border-border last:border-0">
                   <td className="sticky left-0 z-10 bg-card px-5 py-4 align-top">
-                    <a href={`/acquisition/ads/meta/${campaign.id}?meta_days=${periodDays}`} className="font-bold underline-offset-4 hover:underline">{campaign.name}</a>
+                    <a href={`/acquisition/ads/meta/${campaign.id}?${periodQuery}`} className="font-bold underline-offset-4 hover:underline">{campaign.name}</a>
                     <p className="mt-1 text-xs text-muted-foreground">{campaign.latestDate ? `Dernier jour mesuré : ${campaign.latestDate}` : "Pas encore de métrique"}</p>
                   </td>
                   <td className="px-5 py-4 align-top"><CampaignTypePicker campaign={campaign} canManageCampaigns={canManageCampaigns} /></td>
