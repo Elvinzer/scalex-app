@@ -256,7 +256,7 @@ export function InsightLaunchDialog({
 export function ExistingInitiativeLink({ initiative }: { initiative: InitiativeSummary }) {
   const t = useTranslations("app.insights");
   return (
-    <Link href={initiative.projectId || initiative.todoId ? "/journal" : "/diagnostic#insight-history"} prefetch={true} className="text-xs font-bold text-muted-foreground hover:underline">
+    <Link href={initiative.projectId || initiative.todoId ? "/roadmap" : "/diagnostic#insight-history"} prefetch={true} className="text-xs font-bold text-muted-foreground hover:underline">
       {initiative.projectId || initiative.todoId ? t("openJournal") : t("viewAction")}
     </Link>
   );

@@ -198,7 +198,7 @@ export function OnboardingFlow({
     }
 
     if (res.result?.kind === "no_data") {
-      router.push("/journal");
+      router.push("/roadmap");
       return;
     }
 
@@ -221,7 +221,7 @@ export function OnboardingFlow({
       return;
     }
     if (res.result?.kind === "no_data") {
-      router.push("/journal");
+      router.push("/roadmap");
       return;
     }
     setResult(res.result ?? null);
@@ -239,9 +239,9 @@ export function OnboardingFlow({
           levers={discoveryLevers}
           initialTotal={discoveryTotal}
           initialAnswered={discoveryAnswered}
-          onComplete={() => router.push("/journal")}
+          onComplete={() => router.push("/roadmap")}
         />
-        <Button type="button" variant="ghost" className="self-center" onClick={() => router.push("/journal")}>
+        <Button type="button" variant="ghost" className="self-center" onClick={() => router.push("/roadmap")}>
           {t("finishLater")} →
         </Button>
       </div>
@@ -473,7 +473,7 @@ export function OnboardingFlow({
             {t("noGapFound")}
           </Bubble>
           <Button size="lg" asChild className="w-full">
-            <a href="/journal">{t("openJournal")} →</a>
+            <a href="/roadmap">{t("openJournal")} →</a>
           </Button>
 
           <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />

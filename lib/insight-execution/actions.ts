@@ -129,7 +129,7 @@ function revalidateExecutionSurfaces(): void {
   refresh();
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
-  revalidatePath("/journal");
+  revalidatePath("/roadmap");
   revalidatePath("/copilote");
 }
 

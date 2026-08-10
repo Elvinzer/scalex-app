@@ -1,0 +1,114 @@
+{
+  "eyebrow": "THIS WEEK’S FOCUS",
+  "title": "Roadmap",
+  "subtitle": "Three useful actions now, then a clear view of what comes next.",
+  "active": "In motion",
+  "intro": {
+    "label": "How to read your Roadmap:",
+    "body": "Falco chooses one action in each area of your business from your numbers. Work on it with Falco or mark it done when it is complete.",
+    "dismiss": "Hide the Roadmap explanation"
+  },
+  "daily": {
+    "eyebrow": "TODAY",
+    "title": "The 3 actions that move your business forward",
+    "subtitle": "One content action, one sales action, and one team or organization action.",
+    "content": "Content",
+    "sales": "Sales",
+    "team": "Team",
+    "organization": "Organization"
+  },
+  "categories": {
+    "content": "Content",
+    "sales": "Sales",
+    "team": "Team",
+    "organization": "Organization"
+  },
+  "deferred": "Carried over from yesterday",
+  "actions": {
+    "withFalco": "Do it with Falco →",
+    "done": "It’s done",
+    "completed": "Completed",
+    "markDone": "Mark as completed: {title}",
+    "markedDone": "Action completed"
+  },
+  "actionTitles": {
+    "bottleneck": "Improve {label}",
+    "followUp": "Follow up with {name}",
+    "content": "Publish content about “{title}”",
+    "checkin": "Enter your numbers"
+  },
+  "origins": {
+    "bottleneck": "From your {label} bottleneck",
+    "pipeline": "From your sales pipeline",
+    "content": "From your content recommendations",
+    "delivery": "From your delivery levers",
+    "sales": "From your sales levers",
+    "organization": "From your organization levers"
+  },
+  "impact": {
+    "monthly": "Estimated impact: {amount}/month",
+    "clients": "Estimated impact: {amount} client(s)/month",
+    "views": "Estimated impact: {amount} views",
+    "toAssess": "Impact to assess"
+  },
+  "fallback": {
+    "content": {
+      "title": "Choose your next piece of content",
+      "body": "No priority recommendation yet. Your next piece of content can feed acquisition."
+    },
+    "sales": {
+      "title": "Reopen your sales pipeline",
+      "body": "Add your latest numbers or identify the next useful follow-up."
+    },
+    "team": {
+      "title": "Clarify your team’s next action",
+      "body": "No priority team lever is identified yet."
+    },
+    "organization": {
+      "title": "Structure one step in your organization",
+      "body": "Formalize onboarding, a process, or your next brief."
+    },
+    "openDiagnostic": "See my levers"
+  },
+  "bottleneck": {
+    "eyebrow": "TOP BOTTLENECK",
+    "title": "{label} is limiting your potential",
+    "explanation": "Your rate is {current}% versus a {benchmark}% benchmark. Falco can help you close that gap using your data.",
+    "current": "Your rate",
+    "benchmark": "Benchmark",
+    "opportunity": "Opportunity",
+    "cta": "Fix it with Falco →",
+    "emptyTitle": "Your funnel is solid",
+    "emptyBody": "No priority bottleneck is visible in the available data. Keep entering your numbers to hold this line.",
+    "emptyAction": "Want to check your levers?",
+    "openDiagnostic": "Open diagnostic"
+  },
+  "journey": {
+    "eyebrow": "YOUR JOURNEY",
+    "title": "A roadmap, not a task list",
+    "subtitle": "Your levers move from intent to execution, then to proof.",
+    "in_progress": "In progress",
+    "upcoming": "Upcoming",
+    "done": "Done",
+    "leverSource": "From your lever data",
+    "empty": "Nothing to show in this horizon yet."
+  },
+  "weekly": {
+    "eyebrow": "WEEKLY REVIEW",
+    "title": "Your key signals at a glance",
+    "subtitle": "Real numbers from your latest report, without rebuilding the dashboard.",
+    "actionsDone": "Actions done",
+    "thisWeek": "this week",
+    "stats": {
+      "ca_contracte": "Contracted revenue",
+      "nouveaux_clients": "New clients",
+      "leads": "Leads",
+      "rdv": "Booked calls",
+      "closing_rate": "Closing rate"
+    },
+    "empty": "Your first weekly report will appear here once enough data is available.",
+    "checkinReminder": "Your weekly check-in has not been recorded yet.",
+    "openData": "Enter my numbers",
+    "fullReport": "View the full report"
+  }
+}

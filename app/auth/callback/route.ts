@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     const context = await getAccountContext(userId);
     const accountId = context?.accountId ?? userId;
     const [user] = await db.select({ onboardingCompleted: users.onboardingCompleted }).from(users).where(eq(users.id, accountId)).limit(1);
-    destination = user?.onboardingCompleted ? "/journal" : "/onboarding";
+    destination = user?.onboardingCompleted ? "/roadmap" : "/onboarding";
   }
 
   return NextResponse.redirect(new URL(destination, requestUrl.origin));

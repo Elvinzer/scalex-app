@@ -1,0 +1,114 @@
+{
+  "eyebrow": "CAP DE LA SEMAINE",
+  "title": "Roadmap",
+  "subtitle": "Trois actions utiles maintenant, puis une vue claire de ce qui vient après.",
+  "active": "En mouvement",
+  "intro": {
+    "label": "Comment lire ta Roadmap :",
+    "body": "Falco choisit une action dans chaque zone de ton activité à partir de tes chiffres. Tu peux la faire avec lui ou la valider quand elle est terminée.",
+    "dismiss": "Masquer l’explication de la Roadmap"
+  },
+  "daily": {
+    "eyebrow": "AUJOURD’HUI",
+    "title": "Les 3 actions qui font avancer ton activité",
+    "subtitle": "Une action contenu, une action ventes et une action équipe ou organisation.",
+    "content": "Contenu",
+    "sales": "Ventes",
+    "team": "Équipe",
+    "organization": "Organisation"
+  },
+  "categories": {
+    "content": "Contenu",
+    "sales": "Ventes",
+    "team": "Équipe",
+    "organization": "Organisation"
+  },
+  "deferred": "Reporté d’hier",
+  "actions": {
+    "withFalco": "Faire avec Falco →",
+    "done": "C’est fait",
+    "completed": "Terminé",
+    "markDone": "Marquer comme terminée : {title}",
+    "markedDone": "Action terminée"
+  },
+  "actionTitles": {
+    "bottleneck": "Améliore {label}",
+    "followUp": "Relance {name}",
+    "content": "Publie un contenu sur « {title} »",
+    "checkin": "Renseigne tes chiffres"
+  },
+  "origins": {
+    "bottleneck": "Vient de ton goulot {label}",
+    "pipeline": "Vient de ton pipeline commercial",
+    "content": "Vient de tes recommandations de contenu",
+    "delivery": "Vient de tes leviers de délivrabilité",
+    "sales": "Vient de tes leviers de vente",
+    "organization": "Vient de tes leviers d’organisation"
+  },
+  "impact": {
+    "monthly": "Impact estimé : {amount}/mois",
+    "clients": "Impact estimé : {amount} client(s)/mois",
+    "views": "Impact estimé : {amount} vues",
+    "toAssess": "Impact à évaluer"
+  },
+  "fallback": {
+    "content": {
+      "title": "Choisis ton prochain contenu à publier",
+      "body": "Aucune recommandation prioritaire pour l’instant. Ton prochain contenu peut nourrir ton acquisition."
+    },
+    "sales": {
+      "title": "Rouvre ton pipeline commercial",
+      "body": "Ajoute tes dernières données ou identifie la prochaine relance utile."
+    },
+    "team": {
+      "title": "Clarifie la prochaine action de ton équipe",
+      "body": "Aucun levier d’équipe prioritaire n’est identifié pour l’instant."
+    },
+    "organization": {
+      "title": "Structure une étape de ton organisation",
+      "body": "Formalise ton onboarding, ton process ou ton prochain brief."
+    },
+    "openDiagnostic": "Voir mes leviers"
+  },
+  "bottleneck": {
+    "eyebrow": "GOULOT N°1",
+    "title": "{label} limite ton potentiel",
+    "explanation": "Ton taux est à {current}% contre {benchmark}% pour le benchmark. Falco peut t’aider à réduire cet écart à partir de tes données.",
+    "current": "Ton taux",
+    "benchmark": "Benchmark",
+    "opportunity": "Opportunité",
+    "cta": "Corriger avec Falco →",
+    "emptyTitle": "Ton funnel est solide",
+    "emptyBody": "Aucun goulot prioritaire n’est identifié avec les données disponibles. Continue à renseigner tes chiffres pour garder ce cap.",
+    "emptyAction": "Tu veux vérifier tes leviers ?",
+    "openDiagnostic": "Ouvrir le diagnostic"
+  },
+  "journey": {
+    "eyebrow": "TA TRAJECTOIRE",
+    "title": "Une roadmap, pas une liste de tâches",
+    "subtitle": "Tes leviers passent de l’intention à l’exécution, puis à la preuve.",
+    "in_progress": "En cours",
+    "upcoming": "À venir",
+    "done": "Fait",
+    "leverSource": "Vient de tes données de levier",
+    "empty": "Rien à afficher dans cet horizon pour l’instant."
+  },
+  "weekly": {
+    "eyebrow": "BILAN DE LA SEMAINE",
+    "title": "Tes repères en un coup d’œil",
+    "subtitle": "Les chiffres réels de ton dernier rapport, sans refaire tout le dashboard.",
+    "actionsDone": "Actions faites",
+    "thisWeek": "cette semaine",
+    "stats": {
+      "ca_contracte": "CA contracté",
+      "nouveaux_clients": "Nouveaux clients",
+      "leads": "Leads",
+      "rdv": "RDV réservés",
+      "closing_rate": "Taux de closing"
+    },
+    "empty": "Ton premier rapport hebdomadaire apparaîtra ici dès que suffisamment de données seront disponibles.",
+    "checkinReminder": "Ton check-in de la semaine n’est pas encore enregistré.",
+    "openData": "Renseigner mes chiffres",
+    "fullReport": "Voir le rapport complet"
+  }
+}

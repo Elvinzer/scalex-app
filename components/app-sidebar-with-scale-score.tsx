@@ -10,7 +10,6 @@ import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
-import { getStreakSnapshot } from "@/lib/streak/queries";
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { SectorKey } from "@/lib/benchmarks";
 
@@ -18,7 +17,7 @@ const SCALE_SCORE_PERIOD_MONTHS = 3;
 
 type AppSidebarWithScaleScoreProps = Omit<
   AppSidebarProps,
-  "streak" | "scaleScore" | "scaleScoreGapText" | "scaleScoreMonthNote" | "scaleScoreDelta7d" | "scaleScoreDelta30d" | "scaleScoreSparkline" | "currentMonthlyRevenue" | "potentialMonthlyRevenue"
+  "scaleScore" | "scaleScoreGapText" | "scaleScoreMonthNote" | "scaleScoreDelta7d" | "scaleScoreDelta30d" | "scaleScoreSparkline" | "currentMonthlyRevenue" | "potentialMonthlyRevenue"
 > & {
   accountId: string;
   businessProfile: BusinessProfileData;
@@ -44,13 +43,12 @@ export async function AppSidebarWithScaleScore({
   let scaleScoreSparkline: AppSidebarProps["scaleScoreSparkline"] = [];
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
-  const [streak, scaleScoreInputs, benchmarks] = canSeeScaleScore
+  const [scaleScoreInputs, benchmarks] = canSeeScaleScore
     ? await Promise.all([
-        getStreakSnapshot(accountId),
         getDiagnosticKpiRawData(accountId),
         getDiagnosticBenchmarks(sector),
       ])
-    : [null, null, null] as const;
+    : [null, null] as const;
 
   if (canSeeScaleScore && scaleScoreInputs && benchmarks) {
     const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
@@ -103,7 +101,6 @@ export async function AppSidebarWithScaleScore({
   return (
     <AppSidebar
       {...sidebarProps}
-      streak={streak}
       scaleScore={scaleScore}
       scaleScoreGapText={scaleScoreGapText}
       scaleScoreMonthNote={scaleScoreMonthNote}

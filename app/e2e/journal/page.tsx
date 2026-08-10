@@ -6,7 +6,7 @@ import type { JournalActionLoopData } from "@/lib/journal/action-loop";
 
 const today = "2026-08-08";
 
-function buildFixtureData(): JournalActionLoopData {
+export function buildFixtureData(): JournalActionLoopData {
   const todayAction = makeMetricAction({
     key: "responseRate",
     label: "Taux de réponse",
@@ -126,6 +126,29 @@ function buildFixtureData(): JournalActionLoopData {
     },
     momentum: { actionsDoneThisWeek: 3, scaleScoreDelta30d: 7, activeWeekStreak: 4 },
     emptyState: null,
+    dailyActions: [
+      { category: "content", labelKey: "content", action: contentAction },
+      { category: "sales", labelKey: "sales", action: leadAction },
+      { category: "team", labelKey: "organization", action: null },
+    ],
+    bottleneck: {
+      key: "responseRate",
+      label: "Taux de réponse",
+      category: "Setting",
+      currentRatePercent: 18,
+      benchmarkRatePercent: 35,
+      monthlyGain: 3200,
+      extraClients: 1.4,
+      href: "/diagnostic?open=responseRate",
+      chatContext: { topicType: "metric", topicKey: "responseRate", topicLabel: "Taux de réponse", sourcePage: "roadmap_bottleneck" },
+    },
+    roadmapItems: [
+      { id: todayAction.id, stage: "in_progress", type: "bottleneck", sourceId: todayAction.sourceId, title: todayAction.title, description: todayAction.sourceInsight, progress: 50, impactAmountEur: 3200, href: todayAction.href },
+      { id: leverAction.id, stage: "upcoming", type: "lever", sourceId: leverAction.sourceId, title: leverAction.title, description: leverAction.sourceInsight, progress: 0, impactAmountEur: 1400, href: leverAction.href },
+      { id: "done-demo", stage: "done", type: "lever", sourceId: "onboarding_structure", title: "Formalise ton onboarding", description: "Délivrabilité · onboarding", progress: 100, impactAmountEur: null, href: "/demarrer/onboarding_structure" },
+    ],
+    roadmapVisible: true,
+    checkInDoneThisWeek: true,
   };
 }
 

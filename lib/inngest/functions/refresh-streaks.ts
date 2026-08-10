@@ -62,7 +62,7 @@ export const refreshStreaks = inngest.createFunction(
               "publier un contenu, envoyer une campagne, cocher une action du Journal,",
               "remplir tes chiffres ou travailler un lead.",
               "",
-              `Ouvrir Scale X : ${appUrl}/journal`,
+              `Ouvrir Scale X : ${appUrl}/roadmap`,
               "",
               `Ne plus recevoir ce rappel : ${unsubscribeUrl}`,
             ].join("\n"),

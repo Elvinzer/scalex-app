@@ -88,7 +88,7 @@ export async function acceptYoutubeRecommendation(recommendationId: string): Pro
   }
   revalidatePath("/acquisition/contenu");
   revalidatePath("/acquisition/contenu/youtube");
-  revalidatePath("/journal");
+  revalidatePath("/roadmap");
   return { error: null };
 }
 

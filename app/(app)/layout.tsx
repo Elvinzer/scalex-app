@@ -47,7 +47,7 @@ async function AppChrome({
 
   return (
     <>
-      <Suspense fallback={<AppSidebar {...sidebarProps} streak={null} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+      <Suspense fallback={<AppSidebar {...sidebarProps} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
         <AppSidebarWithScaleScore
           {...sidebarProps}
           accountId={accountId}
@@ -125,7 +125,7 @@ export default async function AppLayout({
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
       ))}
       <div className="flex min-h-screen bg-panel">
-        <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} streak={null} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+        <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
           <AppChrome accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} />
         </Suspense>
         {/* The sidebar is fixed, so reserve its width in normal document flow

@@ -27,8 +27,6 @@ import { useTranslations } from "next-intl";
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
-import { StreakBadge } from "@/components/streak/streak-badge";
-import type { StreakSnapshot } from "@/lib/streak/service";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
@@ -78,7 +76,7 @@ type LinkEntry = {
 //
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
-  { type: "link", href: "/journal", labelKey: "journal", icon: CalendarDays, permission: "dashboard" },
+  { type: "link", href: "/roadmap", labelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/datas", labelKey: "data", icon: Database, permission: "datas" },
   {
     type: "link",
@@ -118,7 +116,7 @@ const topEntries: LinkEntry[] = [
 
 const mobileNavEntries = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
-  { type: "link", href: "/journal", labelKey: "journal", mobileLabelKey: "journal", icon: CalendarDays, permission: "dashboard" },
+  { type: "link", href: "/roadmap", labelKey: "roadmap", mobileLabelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
   { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
   { type: "link", href: "/diagnostic", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
@@ -395,7 +393,6 @@ export type AppSidebarProps = {
   scaleScoreSparkline: ScaleScoreSparklinePoint[];
   currentMonthlyRevenue: number | null;
   potentialMonthlyRevenue: number | null;
-  streak: StreakSnapshot | null;
 };
 
 export function AppSidebar({
@@ -415,7 +412,6 @@ export function AppSidebar({
   scaleScoreSparkline,
   currentMonthlyRevenue,
   potentialMonthlyRevenue,
-  streak,
 }: AppSidebarProps) {
   const t = useTranslations("navigation");
   const pathname = usePathname();
@@ -569,20 +565,8 @@ export function AppSidebar({
             </div>
           )}
 
-          {/* Both readouts, not destinations, so they stay outside the
-              scrollable nav. The flame comes first: it answers "ai-je fait
-              quelque chose aujourd'hui ?", a daily question, where the score
-              answers a monthly one. Rendered even at zero — a grey flame is
-              the invitation to start a série, and hiding it would make the
-              mechanic invisible to exactly the users it exists for. */}
-          {streak && (
-            <div className="px-3 pt-4">
-              <StreakBadge snapshot={streak} />
-            </div>
-          )}
-
           {scaleScore && (
-            <div className={cn("px-3", streak ? "pt-2" : "pt-4")}>
+            <div className="px-3 pt-4">
               <ScaleScoreBadge
                 scaleScore={scaleScore}
                 scaleScoreGapText={scaleScoreGapText}

@@ -40,7 +40,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       .from(users)
       .where(eq(users.id, accountId))
       .limit(1);
-    redirect(user?.onboardingCompleted ? "/journal" : "/onboarding");
+    redirect(user?.onboardingCompleted ? "/roadmap" : "/onboarding");
   }
 
   const locale = await getRequestLocale();

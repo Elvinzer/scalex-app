@@ -44,7 +44,7 @@ export async function ExecutionMomentumCard({
   const followUpHref = (initiativeId: string) =>
     canOpenDiagnostic
       ? `/diagnostic#insight-${initiativeId}`
-      : "/journal#execution-momentum";
+      : "/roadmap#execution-momentum";
   const completedPreviousWeeks = progress.previousWeeks.reduce(
     (total, week) => total + week.completed,
     0,

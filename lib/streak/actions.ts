@@ -33,7 +33,7 @@ export async function adjustWeeklyGoalAction(goal: number): Promise<{ error: str
   if (!parsed.success) return { error: `L'objectif doit être entre ${MIN_WEEKLY_GOAL} et ${MAX_WEEKLY_GOAL}.` };
 
   const next = await setWeeklyGoal(accountId, parsed.data);
-  revalidatePath("/journal");
+  revalidatePath("/roadmap");
   return { error: null, goal: next };
 }
 
@@ -42,6 +42,6 @@ export async function toggleStreakReminderAction(optIn: boolean): Promise<{ erro
   if (typeof accountId !== "string") return accountId;
 
   await setReminderOptIn(accountId, z.boolean().parse(optIn));
-  revalidatePath("/journal");
+  revalidatePath("/roadmap");
   return { error: null };
 }

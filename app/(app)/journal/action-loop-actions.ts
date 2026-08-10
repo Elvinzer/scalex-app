@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { improvementInitiatives, insightRecords, leads } from "@/db/schema";
+import { improvementEvents, improvementInitiatives, insightRecords, leads } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { calculateBaseline } from "@/lib/insight-execution/metrics";
 import { materializeSourceInsight } from "@/lib/insight-execution/source-adapters";
@@ -47,6 +47,7 @@ async function materializeJournalSource(accountId: string, input: z.infer<typeof
 
 function revalidateJournalSurfaces(): void {
   revalidatePath("/journal");
+  revalidatePath("/roadmap");
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
 }
@@ -122,6 +123,13 @@ export async function completeJournalAction(input: unknown): Promise<{ error: st
     if (!leadId.success) return { error: "Relance invalide." };
     const [updated] = await db.update(leads).set({ reminderDone: true, updatedAt: new Date() }).where(and(eq(leads.id, leadId.data), eq(leads.userId, access.accountId))).returning({ id: leads.id });
     if (!updated) return { error: "Relance introuvable." };
+    await db.insert(improvementEvents).values({
+      userId: access.accountId,
+      date: new Date().toISOString().slice(0, 10),
+      type: "todo_business_improvement",
+      label: "Relance lead terminée",
+      sourceId: updated.id,
+    });
     await track("action_completed", access.userId, { type: parsed.data.type, metric_key: "followupRecovery" });
     revalidateJournalSurfaces();
     return { error: null };
@@ -195,4 +203,3 @@ export async function dismissJournalAction(input: unknown): Promise<{ error: str
   revalidateJournalSurfaces();
   return { error: null };
 }
-

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne, or } from "drizzle-orm";
 
 import {
   improvementEvents,
@@ -6,6 +6,8 @@ import {
   initiativeMeasurements,
   insightRecords,
   leads,
+  sales,
+  setters,
   settingKpiEntries,
   closingKpiEntries,
   users,
@@ -30,6 +32,7 @@ import { calculateComparableMeasurement } from "@/lib/insight-execution/metrics"
 import { recordInitiativeMeasured } from "@/lib/insight-execution/service";
 import { getScaleScoreDelta } from "@/lib/scale-score-history/queries";
 import { track } from "@/lib/analytics";
+import { currentIsoWeekRange, inRange } from "@/lib/dashboard/metrics";
 
 import {
   makeCheckinAction,
@@ -89,6 +92,40 @@ export type JournalMomentum = {
   activeWeekStreak: number;
 };
 
+export type RoadmapActionCategory = "content" | "sales" | "team";
+
+export type RoadmapDailyAction = {
+  category: RoadmapActionCategory;
+  labelKey: RoadmapActionCategory | "organization";
+  action: JournalActionCandidate | null;
+};
+
+export type RoadmapBottleneck = {
+  key: MetricKey;
+  label: string;
+  category: "Setting" | "Closing";
+  currentRatePercent: number;
+  benchmarkRatePercent: number;
+  monthlyGain: number | null;
+  extraClients: number;
+  href: string;
+  chatContext: JournalActionCandidate["chatContext"];
+};
+
+export type RoadmapStage = "in_progress" | "upcoming" | "done";
+
+export type RoadmapItem = {
+  id: string;
+  stage: RoadmapStage;
+  type: "bottleneck" | "lever";
+  sourceId: string;
+  title: string;
+  description: string;
+  progress: number;
+  impactAmountEur: number | null;
+  href: string;
+};
+
 export type JournalActionLoopData = {
   todayAction: JournalActionCandidate | null;
   nextActions: JournalActionCandidate[];
@@ -99,6 +136,11 @@ export type JournalActionLoopData = {
   timeline: JournalTimeline;
   momentum: JournalMomentum;
   emptyState: "insufficient_data" | "all_done" | null;
+  dailyActions: RoadmapDailyAction[];
+  bottleneck: RoadmapBottleneck | null;
+  roadmapItems: RoadmapItem[];
+  roadmapVisible: boolean;
+  checkInDoneThisWeek: boolean;
 };
 
 function effort(value: string | null | undefined): JournalEffort {
@@ -275,6 +317,61 @@ function buildActiveWeekStreak(completedDates: string[], today: Date): number {
   return streak;
 }
 
+function isOpenRoadmapAction(action: JournalActionCandidate): boolean {
+  return action.status !== "dismissed" && action.status !== "snoozed";
+}
+
+function normalizedText(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function chooseRoadmapAction(
+  actions: JournalActionCandidate[],
+  usedIds: Set<string>,
+  predicate: (action: JournalActionCandidate) => boolean,
+): JournalActionCandidate | null {
+  const candidate = sortJournalActions(actions).find((action) => isOpenRoadmapAction(action) && !usedIds.has(action.id) && predicate(action));
+  if (candidate) usedIds.add(candidate.id);
+  return candidate ?? null;
+}
+
+function buildDailyActions(actions: JournalActionCandidate[], hasTeamMember: boolean): RoadmapDailyAction[] {
+  const usedIds = new Set<string>();
+  const content = chooseRoadmapAction(actions, usedIds, (action) =>
+    action.type === "content" ||
+    (action.type === "lever" && Boolean(action.sourceId.toLowerCase().match(/content|youtube|email|newsletter|webinar|instagram|seo/))),
+  );
+  const sales = chooseRoadmapAction(actions, usedIds, (action) =>
+    action.type === "lead_reminder" || action.type === "bottleneck" || (action.type === "lever" && normalizedText(action.sourceInsight).includes("vente")),
+  );
+  const team = chooseRoadmapAction(actions, usedIds, (action) => action.type === "lever" && normalizedText(action.sourceInsight).includes("delivrabilite"));
+
+  return [
+    { category: "content", labelKey: "content", action: content },
+    { category: "sales", labelKey: "sales", action: sales },
+    { category: "team", labelKey: hasTeamMember ? "team" : "organization", action: team },
+  ];
+}
+
+function buildRoadmapItems(actions: JournalActionCandidate[]): RoadmapItem[] {
+  return sortJournalActions(actions)
+    .filter((action): action is JournalActionCandidate & { type: "bottleneck" | "lever" } =>
+      (action.type === "bottleneck" || action.type === "lever") && action.status !== "dismissed" && action.status !== "snoozed",
+    )
+    .slice(0, 12)
+    .map((action) => ({
+      id: action.id,
+      stage: action.status === "done" ? "done" : action.status === "doing" ? "in_progress" : "upcoming",
+      type: action.type,
+      sourceId: action.sourceId,
+      title: action.title,
+      description: action.sourceInsight,
+      progress: action.status === "done" ? 100 : action.status === "doing" ? 50 : 0,
+      impactAmountEur: action.impact?.unit === "eur_month" ? action.impact.value : null,
+      href: action.href,
+    }));
+}
+
 function buildResult(
   record: InsightRecordRow,
   initiative: InitiativeRow,
@@ -311,15 +408,21 @@ function buildResult(
 export async function getJournalActionLoopData(accountId: string): Promise<JournalActionLoopData> {
   const now = todayUtc();
   const today = toIsoDate(now);
-  const [businessProfile, [user], rawData, contentRows, leadRows, records, initiatives, measurements, events, priorityRules, leverCatalog] = await Promise.all([
+  const [businessProfile, [user], rawData, contentRows, leadRows, setterRows, salesTeamRows, records, initiatives, measurements, events, priorityRules, leverCatalog] = await Promise.all([
     getBusinessProfile(accountId),
     db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1),
     getDiagnosticKpiRawData(accountId),
     getContentRecommendations(accountId),
     db
-      .select({ id: leads.id, firstName: leads.firstName, lastName: leads.lastName, reminderDate: leads.reminderDate, reminderNote: leads.reminderNote, reminderDone: leads.reminderDone })
+      .select({ id: leads.id, firstName: leads.firstName, lastName: leads.lastName, reminderDate: leads.reminderDate, reminderNote: leads.reminderNote, reminderDone: leads.reminderDone, setterId: leads.setterId, closer: leads.closer })
       .from(leads)
       .where(eq(leads.userId, accountId)),
+    db.select({ id: setters.id }).from(setters).where(eq(setters.userId, accountId)).limit(1),
+    db
+      .select({ id: sales.id })
+      .from(sales)
+      .where(and(eq(sales.userId, accountId), or(isNotNull(sales.setterId), and(isNotNull(sales.closer), ne(sales.closer, "")))))
+      .limit(1),
     db.select().from(insightRecords).where(eq(insightRecords.userId, accountId)).orderBy(desc(insightRecords.createdAt)),
     db.select().from(improvementInitiatives).where(eq(improvementInitiatives.userId, accountId)).orderBy(desc(improvementInitiatives.createdAt)),
     db.select().from(initiativeMeasurements).where(eq(initiativeMeasurements.userId, accountId)).orderBy(desc(initiativeMeasurements.version)),
@@ -515,6 +618,41 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     activeWeekStreak: buildActiveWeekStreak(completedDates, now),
   };
 
+  const bottleneckPoint = points[0] ?? null;
+  const bottleneck: RoadmapBottleneck | null = bottleneckPoint
+    ? {
+        key: bottleneckPoint.key,
+        label: bottleneckPoint.label,
+        category: bottleneckPoint.category,
+        currentRatePercent: bottleneckPoint.currentRatePercent,
+        benchmarkRatePercent: bottleneckPoint.benchmarkRatePercent,
+        monthlyGain: bottleneckPoint.monthlyGain,
+        extraClients: bottleneckPoint.extraClients,
+        href: `/diagnostic?open=${encodeURIComponent(bottleneckPoint.key)}`,
+        chatContext: {
+          topicType: "metric",
+          topicKey: bottleneckPoint.key,
+          topicLabel: bottleneckPoint.label,
+          sourcePage: "roadmap_bottleneck",
+        },
+      }
+    : null;
+
+  const hasTeamMember =
+    setterRows.length > 0 ||
+    leadRows.some((lead) => Boolean(lead.setterId || lead.closer?.trim())) ||
+    salesTeamRows.length > 0;
+  const dailyActions = buildDailyActions(actions, hasTeamMember);
+  const roadmapItems = buildRoadmapItems(actions);
+  const weekRange = currentIsoWeekRange();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth() + 1;
+  const currentMonthlyRow = rawData.allMonthlyRows.find((row) => row.year === currentYear && row.month === currentMonth);
+  const checkInDoneThisWeek =
+    rawData.allSettingEntries.some((entry) => inRange(entry.date, weekRange)) ||
+    rawData.allClosingEntries.some((entry) => inRange(entry.date, weekRange)) ||
+    currentMonthlyRow !== undefined;
+
   let emptyState: JournalActionLoopData["emptyState"] = null;
   if (!todayAction) {
     emptyState = actions.length > 0 ? "all_done" : "insufficient_data";
@@ -530,6 +668,11 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     timeline,
     momentum,
     emptyState,
+    dailyActions,
+    bottleneck,
+    roadmapItems,
+    roadmapVisible: roadmapItems.length >= 2,
+    checkInDoneThisWeek,
   };
 }
 

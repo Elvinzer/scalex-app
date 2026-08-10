@@ -9,6 +9,7 @@ export const NAMESPACES = [
   "onboarding",
   "dashboard",
   "journal",
+  "roadmap",
   "diagnostic",
   "content",
   "pipeline",
