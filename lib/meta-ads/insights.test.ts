@@ -54,9 +54,10 @@ function totals(overrides: Partial<MetaMetricTotals> = {}, availableOverrides: P
   };
 }
 
-function dashboard(campaign: MetaAdsDashboard["campaigns"][number]): MetaAdsDashboard {
+function dashboard(campaign: Omit<MetaAdsDashboard["campaigns"][number], "conversionGoal"> & { conversionGoal?: "call" | "sale" | null }): MetaAdsDashboard {
   const campaignWithCoverage = {
     ...campaign,
+    conversionGoal: campaign.conversionGoal !== undefined ? campaign.conversionGoal : (campaign.campaignType === "vsl" || campaign.campaignType === "webinar" ? "sale" : null),
     metricCoverageRate: campaign.metricCoverageRate ?? 1,
     comparisonMetricCoverageRate: campaign.comparisonMetricCoverageRate ?? 1,
   };
@@ -81,10 +82,45 @@ function dashboard(campaign: MetaAdsDashboard["campaigns"][number]): MetaAdsDash
 }
 
 describe("Meta Ads insight catalogue", () => {
+  it("does not produce a specialized insight before the user configures the campaign type", () => {
+    const data = dashboard({
+      id: "campaign",
+      externalId: "c1",
+      name: "Campaign to classify",
+      objective: "VIDEO_VIEWS",
+      effectiveStatus: "ACTIVE",
+      campaignType: null,
+      typeSource: "pending",
+      conversionGoal: null,
+      metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }),
+      comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true }),
+      latestDate: "2026-08-08",
+    });
+    expect(buildMetaAdsInsights(data)).toHaveLength(0);
+  });
+
+  it("does not produce a VSL insight until its conversion goal is selected", () => {
+    const data = dashboard({
+      id: "campaign",
+      externalId: "c1",
+      name: "VSL without business goal",
+      objective: "VIDEO_VIEWS",
+      effectiveStatus: "ACTIVE",
+      campaignType: "vsl",
+      typeSource: "manual",
+      conversionGoal: null,
+      metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }),
+      comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true }),
+      latestDate: "2026-08-08",
+    });
+    expect(buildMetaAdsInsights(data)).toHaveLength(0);
+  });
+
   it("fires the VSL retention rule with its evidence fields", () => {
     const data = dashboard({ id: "campaign", externalId: "c1", name: "VSL test", objective: "VIDEO_VIEWS", effectiveStatus: "ACTIVE", campaignType: "vsl", typeSource: "manual", metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }), comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true, videoThruplay: false }), latestDate: "2026-08-08" });
     const [insight] = buildMetaAdsInsights(data);
     expect(insight?.ruleKey).toBe("vsl_hook_ok_retention_faible");
+    expect(insight?.conversionGoal).toBe("sale");
     expect(insight?.evidence).toContain("30 %");
     expect(insight?.comparisonValue).toBeNull();
     expect(insight?.recommendedAction).toContain("Tester");
@@ -305,6 +341,16 @@ describe("Meta Ads insight catalogue", () => {
     const [insight] = buildMetaAdsInsights(data);
     expect(insight).toBeDefined();
     expect(metaInsightFingerprint("account", insight!, "2026-07-09", "2026-08-08")).not.toBe(metaInsightFingerprint("account", insight!, "2026-06-09", "2026-07-08"));
+  });
+
+  it("changes the insight identity when the selected conversion goal changes", () => {
+    const saleData = dashboard({ id: "campaign", externalId: "c1", name: "VSL", objective: "VIDEO_VIEWS", effectiveStatus: "ACTIVE", campaignType: "vsl", typeSource: "manual", conversionGoal: "sale", metrics: totals({ impressions: 10_000, video3sViews: 3_000, videoThruplay: 300 }, { impressions: true, video3sViews: true, videoThruplay: true }), comparisonMetrics: totals({ impressions: 10_000, video3sViews: 2_500 }, { impressions: true, video3sViews: true }), latestDate: "2026-08-08" });
+    const callData = dashboard({ ...saleData.campaigns[0]!, conversionGoal: "call" });
+    const [saleInsight] = buildMetaAdsInsights(saleData);
+    const [callInsight] = buildMetaAdsInsights(callData);
+    expect(saleInsight?.conversionGoal).toBe("sale");
+    expect(callInsight?.conversionGoal).toBe("call");
+    expect(saleInsight && callInsight ? metaInsightFingerprint("account", saleInsight, "2026-07-09", "2026-08-08") : null).not.toBe(callInsight && saleInsight ? metaInsightFingerprint("account", callInsight, "2026-07-09", "2026-08-08") : null);
   });
 
   it("materializes only the requested campaign for an alternate period", async () => {

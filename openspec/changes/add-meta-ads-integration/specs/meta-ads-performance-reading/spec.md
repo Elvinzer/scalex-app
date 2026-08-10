@@ -65,14 +65,33 @@ Le système SHALL calculer la fenêtre de consolidation de chaque série à part
 - **WHEN** une resynchronisation modifie une valeur d'un jour déjà consolidé
 - **THEN** la correction est journalisée et visible, et n'écrase pas silencieusement la valeur précédente
 
-### Requirement: Campaign type is suggested and user-editable
+### Requirement: Campaign type is explicitly configured by the user
 
-Le système SHALL suggérer un type de campagne parmi VSL, Webinar, Croissance Instagram, Retargeting et Autre, et SHALL permettre à l'utilisateur de le modifier. Le type SHALL déterminer le funnel, les KPI prioritaires et les règles de diagnostic, et SHALL ne produire aucune écriture dans Meta.
+Le système SHALL demander à l'utilisateur de choisir explicitement un seul type parmi VSL, Webinaire, Trafic Instagram et Retargeting. Le système SHALL NOT déduire ni préremplir ce type depuis le nom de campagne, l'objectif Meta, le performance goal, la landing page ou tout autre signal technique. Tant que le choix n'est pas enregistré, le funnel spécialisé et les insights propres au type SHALL rester en attente. Le choix SHALL déterminer le funnel, les KPI prioritaires et les règles de diagnostic, et SHALL ne produire aucune écriture dans Meta.
 
-#### Scenario: User corrects the suggested type
+#### Scenario: Campaign has not been configured
 
-- **WHEN** l'utilisateur remplace le type suggéré
-- **THEN** le funnel, les KPI et les règles d'insight changent immédiatement et aucune requête d'écriture n'est envoyée à Meta
+- **WHEN** une campagne vient d'être synchronisée sans configuration utilisateur
+- **THEN** Scale X affiche `Type à définir`, propose les quatre choix explicites et n'affiche aucun funnel ou insight spécialisé
+
+#### Scenario: User configures the campaign type
+
+- **WHEN** l'utilisateur enregistre VSL, Webinaire, Trafic Instagram ou Retargeting
+- **THEN** le funnel, les KPI et les règles d'insight correspondants deviennent disponibles, et aucune requête d'écriture n'est envoyée à Meta
+
+### Requirement: VSL and webinar conversion goals are explicit
+
+Le système SHALL demander, pour une campagne VSL ou Webinaire, un objectif de conversion parmi Appel et Vente. Il SHALL refuser une configuration incomplète ou un objectif de conversion associé à Trafic Instagram ou Retargeting. Cet objectif SHALL piloter le libellé et la dernière étape du funnel ; la valeur SHALL provenir de l'attribution Scale X et rester indisponible si cette source n'est pas couverte.
+
+#### Scenario: A VSL tracks booked calls
+
+- **WHEN** l'utilisateur configure une VSL avec l'objectif Appel
+- **THEN** le funnel affiche les appels réservés comme conversion business, avec la provenance Scale X et `—` si l'attribution est indisponible
+
+#### Scenario: A webinar tracks sales
+
+- **WHEN** l'utilisateur configure un Webinaire avec l'objectif Vente
+- **THEN** le funnel affiche les ventes reliées comme conversion business, sans transformer l'objectif technique Meta en preuve de vente
 
 ### Requirement: Instagram growth distinguishes attributed from observed
 

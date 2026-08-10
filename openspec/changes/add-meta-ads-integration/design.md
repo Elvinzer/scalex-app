@@ -14,9 +14,11 @@ La connexion initiale demande **`ads_read` uniquement**. Aucune permission d'éc
 
 Le callback OAuth ne choisit jamais de compte. Même avec un seul compte accessible, l'utilisateur confirme. Un compte sans accès lecture est listé, non sélectionnable, avec son motif. Devise et fuseau sont affichés car ils conditionnent le rapprochement avec Stripe.
 
-### 3. Le type de campagne pilote le funnel
+### 3. Le type de campagne est une configuration business explicite
 
-Le type est suggéré depuis l'objectif Meta, le performance goal et la landing page, puis modifiable. Il ne change rien dans Meta : il sélectionne le funnel, les KPI prioritaires et la famille de règles de diagnostic. Quatre modules spécifiés — VSL, Webinar, Croissance Instagram, Retargeting — plus un funnel générique pour `Autre`.
+Meta fournit des objectifs techniques, mais ne décrit pas de façon fiable le parcours business réel. Scale X ne déduit donc plus le type depuis le nom, l'objectif Meta, le performance goal ou l'URL de destination. Chaque campagne doit être configurée manuellement avec l'un des quatre contextes : VSL, Webinaire, Trafic Instagram ou Retargeting. Tant que ce choix n'est pas enregistré, le funnel spécialisé et les insights restent en attente.
+
+Pour une VSL ou un Webinaire, l'utilisateur choisit aussi l'objectif de conversion suivi dans Scale X : Appel ou Vente. Ce choix ne modifie rien dans Meta ; il sélectionne la dernière étape du funnel, le libellé de conversion et l'identité de l'insight. Les appels et ventes restent calculés uniquement depuis l'attribution Scale X disponible, jamais inventés depuis le seul objectif Meta.
 
 ### 4. Ne jamais fusionner deux vérités
 
@@ -90,7 +92,7 @@ Les insights ne sont pas générés librement : chaque type de campagne expose u
 Chaque insight porte une empreinte :
 
 ```text
-fingerprint = hash(accountId, campaignId, campaignType, ruleKey, metric, period)
+fingerprint = hash(accountId, campaignId, campaignType, conversionGoal, ruleKey, metric, period)
 ```
 
 La synchronisation 6 h re-matérialise l'insight sur la même empreinte : elle met à jour la preuve chiffrée, elle ne crée pas de doublon et ne réinitialise pas la décision utilisateur. Les insights Meta sont stockés dans les `insightRecords` existants et adoptés via `launchInsight` — pas de seconde source de vérité à côté du Journal.

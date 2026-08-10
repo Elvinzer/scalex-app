@@ -23,7 +23,6 @@ import {
   normalizeMetaObject,
   parseMetaOptionalNumber,
 } from "./client";
-import { classifyMetaCampaign } from "./classification";
 import { materializeMetaAdsInsights } from "./insights";
 import { parseMetaInsightMetrics } from "./metric-parser";
 import { buildMetaMetricCorrectionSnapshot, metaMetricCorrectionSnapshotChanged } from "./metric-snapshot";
@@ -192,7 +191,6 @@ async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRa
   for (const raw of raws) {
     const externalId = stringValue(raw, "id");
     if (!externalId) continue;
-    const classification = classifyMetaCampaign(raw);
     const values = {
       userId,
       adAccountId,
@@ -202,8 +200,8 @@ async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRa
       performanceGoal: stringValue(raw, "optimization_goal"),
       status: stringValue(raw, "status"),
       effectiveStatus: stringValue(raw, "effective_status"),
-      campaignType: classification.type,
-      typeConfidence: classification.confidence,
+      campaignType: null,
+      typeConfidence: null,
       landingPageUrl: stringValue(nestedRecord(raw, "promoted_object") ?? {}, "website_url"),
       dailyBudgetCents: budgetCents(raw, "daily_budget"),
       lifetimeBudgetCents: budgetCents(raw, "lifetime_budget"),
@@ -225,8 +223,8 @@ async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRa
           performanceGoal: values.performanceGoal,
           status: values.status,
           effectiveStatus: values.effectiveStatus,
-          campaignType: values.campaignType,
-          typeConfidence: values.typeConfidence,
+          campaignType: null,
+          typeConfidence: null,
           landingPageUrl: values.landingPageUrl,
           dailyBudgetCents: values.dailyBudgetCents,
           lifetimeBudgetCents: values.lifetimeBudgetCents,
@@ -245,14 +243,16 @@ async function upsertCampaigns(userId: string, adAccountId: string, raws: MetaRa
         .values({
           userId,
           campaignId: row.id,
-          campaignType: classification.type,
-          typeSource: "heuristic",
+          campaignType: null,
+          typeSource: "pending",
+          conversionGoal: null,
         })
         .onConflictDoUpdate({
           target: [metaCampaignProfiles.userId, metaCampaignProfiles.campaignId],
           set: {
-            campaignType: classification.type,
-            typeSource: "heuristic",
+            campaignType: null,
+            typeSource: "pending",
+            conversionGoal: null,
             updatedAt: now,
           },
           setWhere: ne(metaCampaignProfiles.typeSource, "manual"),

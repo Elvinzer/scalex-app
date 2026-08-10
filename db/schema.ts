@@ -36,6 +36,7 @@ import type {
 import type {
   MetaAttributionSettings,
   MetaCampaignType,
+  MetaConversionGoal,
   MetaMetricSnapshot,
   MetaRawObject,
 } from "@/lib/meta-ads/types";
@@ -514,7 +515,9 @@ export const metaCampaigns = pgTable(
     performanceGoal: text("performance_goal"),
     status: text("status"),
     effectiveStatus: text("effective_status"),
-    campaignType: text("campaign_type").notNull().default("other").$type<MetaCampaignType>(),
+    // Legacy cache column. Campaign type is a user-owned profile setting, not
+    // a property Meta can reliably provide.
+    campaignType: text("campaign_type").$type<MetaCampaignType | null>(),
     typeConfidence: real("type_confidence"),
     landingPageUrl: text("landing_page_url"),
     dailyBudgetCents: integer("daily_budget_cents"),
@@ -710,10 +713,8 @@ export const metaAdMetricCorrections = pgTable(
   ],
 ).enableRLS();
 
-// Optional per-campaign configuration. A heuristic can pre-fill campaignType,
-// but only an owner action changes the durable classification used by insight
-// rules. This preserves the difference between Meta's objective and the
-// business funnel the user actually wants to optimize.
+// User-owned per-campaign configuration. Meta's objective is only technical
+// context; the business funnel and conversion goal must be chosen explicitly.
 export const metaCampaignProfiles = pgTable(
   "meta_campaign_profiles",
   {
@@ -724,8 +725,9 @@ export const metaCampaignProfiles = pgTable(
     campaignId: uuid("campaign_id")
       .notNull()
       .references(() => metaCampaigns.id, { onDelete: "cascade" }),
-    campaignType: text("campaign_type").notNull().default("other").$type<MetaCampaignType>(),
-    typeSource: text("type_source").notNull().default("heuristic"),
+    campaignType: text("campaign_type").$type<MetaCampaignType | null>(),
+    typeSource: text("type_source").notNull().default("pending"),
+    conversionGoal: text("conversion_goal").$type<MetaConversionGoal | null>(),
     targetCpaCents: integer("target_cpa_cents"),
     targetRoas: real("target_roas"),
     leadValueCents: integer("lead_value_cents"),

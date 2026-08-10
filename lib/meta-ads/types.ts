@@ -3,10 +3,17 @@ export const META_CAMPAIGN_TYPES = [
   "webinar",
   "instagram_profile_growth",
   "retargeting",
-  "other",
 ] as const;
 
 export type MetaCampaignType = (typeof META_CAMPAIGN_TYPES)[number];
+
+export const META_CONVERSION_GOALS = ["call", "sale"] as const;
+
+export type MetaConversionGoal = (typeof META_CONVERSION_GOALS)[number];
+
+export function campaignTypeNeedsConversionGoal(type: MetaCampaignType | null): boolean {
+  return type === "vsl" || type === "webinar";
+}
 
 export const META_ENTITY_LEVELS = ["account", "campaign", "adset", "ad"] as const;
 
@@ -115,6 +122,7 @@ export type MetaAttributionSnapshot = {
 export type MetaInsightSnapshot = {
   version: 1;
   campaignType: MetaCampaignType;
+  conversionGoal?: MetaConversionGoal | null;
   ruleKey: string;
   campaignId: string;
   campaignName: string;

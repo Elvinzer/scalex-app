@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 
 import { upsertMaterializedInsight, type MaterializedInsight } from "@/lib/insight-execution/source-adapters";
 
-import type { MetaCampaignType, MetaInsightSnapshot, MetaProvenance, MetaWebinarObservation } from "./types";
+import { campaignTypeNeedsConversionGoal } from "./types";
+import type { MetaCampaignType, MetaConversionGoal, MetaInsightSnapshot, MetaProvenance, MetaWebinarObservation } from "./types";
 import { safeRatio as ratio } from "./derived-metrics";
 import { metricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow } from "./queries";
 import { targetVarianceLabel } from "./targets";
@@ -39,6 +40,7 @@ export type MetaInsightProposal = {
   campaignId: string;
   campaignName: string;
   campaignType: MetaCampaignType;
+  conversionGoal: MetaConversionGoal | null;
   ruleKey: MetaInsightRuleKey;
   title: string;
   insightText: string;
@@ -112,6 +114,12 @@ function webinarSourceLabel(source: MetaWebinarObservation["source"]): string {
   return "Scale X";
 }
 
+function conversionGoalLabel(goal: MetaConversionGoal | null): string | null {
+  if (goal === "call") return "Appel";
+  if (goal === "sale") return "Vente";
+  return null;
+}
+
 function webinarProvenanceSource(source: MetaWebinarObservation["source"], withStripe: boolean): MetaProvenance["source"] {
   if (withStripe) {
     if (source === "calendly") return "meta+calendly+stripe";
@@ -148,12 +156,17 @@ function provenance(source: MetaProvenance["source"] = "meta", attribution: Meta
 
 export function metaInsightFingerprint(accountId: string, proposal: MetaInsightProposal, periodStart: string, periodEnd: string): string {
   return createHash("sha256")
-    .update(`${accountId}:${proposal.campaignId}:${proposal.campaignType}:${proposal.ruleKey}:${proposal.metricKey}:${periodStart}:${periodEnd}`)
+    .update(`${accountId}:${proposal.campaignId}:${proposal.campaignType}:${proposal.conversionGoal ?? "none"}:${proposal.ruleKey}:${proposal.metricKey}:${periodStart}:${periodEnd}`)
     .digest("hex");
 }
 
+function isConfiguredCampaign(campaign: MetaCampaignDashboardRow): campaign is MetaCampaignDashboardRow & { campaignType: MetaCampaignType } {
+  return campaign.campaignType !== null
+    && (!campaignTypeNeedsConversionGoal(campaign.campaignType) || campaign.conversionGoal !== null);
+}
+
 function baseProposal(
-  campaign: MetaCampaignDashboardRow,
+  campaign: MetaCampaignDashboardRow & { campaignType: MetaCampaignType },
   ruleKey: MetaInsightRuleKey,
   title: string,
   insightText: string,
@@ -176,6 +189,8 @@ function baseProposal(
     ? "Meta Ads : couverture métrique indisponible"
     : `Meta Ads : ${Math.round(campaign.metricCoverageRate * 100)} % des jours de la période`;
   const sourceNotes = [metaCoverage];
+  const conversionGoal = conversionGoalLabel(campaign.conversionGoal);
+  if (conversionGoal) sourceNotes.push(`Objectif de conversion Scale X : ${conversionGoal}`);
   if (details.sourceCoverage.includes("Stripe")) {
     sourceNotes.push(
       campaign.cash?.coverageRate == null
@@ -198,6 +213,7 @@ function baseProposal(
     campaignId: campaign.id,
     campaignName: campaign.name,
     campaignType: campaign.campaignType,
+    conversionGoal: campaign.conversionGoal,
     ruleKey,
     title,
     insightText,
@@ -213,6 +229,7 @@ function baseProposal(
 }
 
 function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: number): MetaInsightProposal[] {
+  if (!isConfiguredCampaign(campaign)) return [];
   const metrics = campaign.metrics;
   if (campaign.metricCoverageRate === null || campaign.metricCoverageRate === undefined || campaign.metricCoverageRate < MIN_COVERAGE) return [];
   const comparisonCoverageReady = campaign.comparisonMetricCoverageRate !== null && campaign.comparisonMetricCoverageRate !== undefined && campaign.comparisonMetricCoverageRate >= MIN_COVERAGE;
@@ -610,6 +627,7 @@ function toMaterializedInsight(
   const snapshot: MetaInsightSnapshot = {
     version: 1,
     campaignType: proposal.campaignType,
+    conversionGoal: proposal.conversionGoal,
     ruleKey: proposal.ruleKey,
     campaignId: proposal.campaignId,
     campaignName: proposal.campaignName,

@@ -7,6 +7,7 @@ import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { META_PERIOD_OPTIONS } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
 import { metricValue, rawMetaMetricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaInstagramObservation, type MetaMetricTotals } from "@/lib/meta-ads/queries";
+import { campaignTypeNeedsConversionGoal } from "@/lib/meta-ads/types";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 
 const numberFormatter = new Intl.NumberFormat("fr-FR");
@@ -22,9 +23,15 @@ function metricProvenance(calculation: "brute" | "dérivée", available: boolean
 function typeLabel(value: MetaCampaignDashboardRow["campaignType"]): string {
   if (value === "vsl") return "VSL";
   if (value === "webinar") return "Webinaire";
-  if (value === "instagram_profile_growth") return "Followers Instagram";
+  if (value === "instagram_profile_growth") return "Trafic Instagram";
   if (value === "retargeting") return "Retargeting";
-  return "Autre";
+  return "À définir";
+}
+
+function conversionGoalLabel(value: MetaCampaignDashboardRow["conversionGoal"]): string | null {
+  if (value === "call") return "Appel";
+  if (value === "sale") return "Vente";
+  return null;
 }
 
 function statusLabel(status: string | null): string {
@@ -124,6 +131,14 @@ function FunnelCard({ totals, campaignType, instagramObservation, frequencySatur
   const profileVisits = metricValue(totals, "profileVisits");
   const observedFollows = instagramObservation.current.follows;
   const spendCents = metricValue(totals, "spendCents");
+  if (campaignType === null) {
+    return (
+      <div className="sticker-card-dashed p-6">
+        <p className="font-bold">Funnel en attente de configuration</p>
+        <p className="mt-1 text-sm text-muted-foreground">Le funnel global n&apos;est pas synthétisé lorsque le compte mélange plusieurs types. Ouvre une campagne pour lire son funnel ; si une campagne est « À définir », configure-la d&apos;abord.</p>
+      </div>
+    );
+  }
   if (campaignType === "vsl") {
     return (
       <div className="sticker-card p-6">
@@ -298,8 +313,9 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
     : comparisonImpressions !== null && comparisonImpressions > 0 && comparisonSpendCents !== null
       ? (comparisonSpendCents / comparisonImpressions) * 1000 / 100
       : null;
-  const campaignTypes = [...new Set(data.campaigns.map((campaign) => campaign.campaignType).filter((type) => type !== "other"))];
-  const primaryType = campaignTypes.length === 1 ? campaignTypes[0]! : "other";
+  const campaignTypes = [...new Set(data.campaigns.map((campaign) => campaign.campaignType).filter((type): type is NonNullable<typeof type> => type !== null))];
+  const allCampaignsConfigured = data.campaigns.length > 0 && data.campaigns.every((campaign) => campaign.campaignType !== null && (!campaignTypeNeedsConversionGoal(campaign.campaignType) || campaign.conversionGoal !== null));
+  const primaryType = allCampaignsConfigured && campaignTypes.length === 1 ? campaignTypes[0]! : null;
   const coverageValues = data.campaigns.map((campaign) => campaign.metricCoverageRate).filter((value): value is number => value !== null && value !== undefined);
   const minimumCoverage = coverageValues.length > 0 ? Math.min(...coverageValues) : null;
   const cplTargetCount = data.campaigns.filter((campaign) => campaign.campaignType !== "instagram_profile_growth" && campaign.targets?.targetCpaCents !== null && campaign.targets?.targetCpaCents !== undefined).length;
@@ -405,6 +421,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                 const targetCpaGap = targetVarianceLabel(campaignCpl, targetCpaEuros);
                 const targetRoas = campaign.targets?.targetRoas ?? null;
                 const targetRoasGap = targetVarianceLabel(campaignRoas, targetRoas);
+                const conversionGoal = conversionGoalLabel(campaign.conversionGoal);
                 return (
                   <tr key={campaign.id} className="border-b border-border last:border-0">
                     <td className="sticky left-0 z-10 bg-card px-5 py-4">
@@ -415,6 +432,7 @@ export function MetaAdsDashboard({ data }: { data: MetaAdsDashboard }) {
                     </td>
                     <td className="px-5 py-4">
                       <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold">{typeLabel(campaign.campaignType)}</span>
+                      {conversionGoal && (campaign.campaignType === "vsl" || campaign.campaignType === "webinar") && <span className="mt-1 block text-xs text-muted-foreground">Objectif : {conversionGoal}</span>}
                     </td>
                     <td className="px-5 py-4 text-right tabular-nums">
                       <TableMetric value={campaignSpend === null ? "—" : formatEur(campaignSpend / 100)} provenance={metricProvenance("brute", campaignSpend !== null)} />

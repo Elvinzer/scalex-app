@@ -47,9 +47,14 @@ Retargeting rt_fenetre_inefficace          CPA d'une fenêtre > seuil × CPA de 
 - **WHEN** une métrique nécessaire à une règle est indisponible ou sous le seuil de couverture
 - **THEN** la règle ne se déclenche pas et aucune version dégradée de l'insight n'est produite
 
+#### Scenario: A campaign is not configured
+
+- **WHEN** aucun type manuel n'est enregistré, ou qu'une VSL/Webinaire n'a pas d'objectif Appel/Vente
+- **THEN** aucune règle spécialisée ne se déclenche et Scale X invite l'utilisateur à configurer la campagne
+
 ### Requirement: Insights are idempotent across synchronisations
 
-Le système SHALL identifier chaque insight par une empreinte `hash(accountId, campaignId, campaignType, ruleKey, metric, period)`. Une nouvelle synchronisation SHALL mettre à jour l'insight portant la même empreinte plutôt que d'en créer un nouveau, et SHALL NOT réinitialiser la décision utilisateur.
+Le système SHALL identifier chaque insight par une empreinte `hash(accountId, campaignId, campaignType, conversionGoal, ruleKey, metric, period)`. Une nouvelle synchronisation SHALL mettre à jour l'insight portant la même empreinte plutôt que d'en créer un nouveau, et SHALL NOT réinitialiser la décision utilisateur. Un changement Appel/Vente SHALL produire une nouvelle identité d'insight afin de ne pas mélanger deux lectures business.
 
 #### Scenario: The 6-hour sync re-evaluates the same rule
 

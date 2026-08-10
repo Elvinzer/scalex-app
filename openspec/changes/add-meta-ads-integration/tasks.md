@@ -45,12 +45,12 @@
 
 ## 6. Typage de campagne et modules
 
-- [x] 6.1 Implémenter la suggestion automatique du type depuis l'objectif Meta, le performance goal et la landing page
+- [x] 6.1 Remplacer la classification automatique par une configuration manuelle du type (VSL, Webinaire, Trafic Instagram ou Retargeting) ; demander Appel/Vente pour VSL et Webinaire
 - [x] 6.2 Implémenter le funnel et les KPI du module VSL, avec étapes indisponibles tant que la source d'événements n'est pas branchée
 - [x] 6.3 Implémenter le funnel et les KPI du module Webinar, même règle sur présence live et présence au pitch
 - [x] 6.4 Implémenter le module Croissance Instagram avec distinction attribué / observé et coût par follower `estimee`
 - [x] 6.5 Implémenter le module Retargeting : segments, ladder d'audiences, fréquence vs CTR/CPA, exclusions
-- [x] 6.6 Implémenter le funnel générique du type `Autre`
+- [x] 6.6 Afficher un état d'attente explicite tant que le type n'est pas configuré ; ne pas afficher de funnel générique ambigu
 
 ## 7. UI Acquisition / Ads et détail campagne
 
@@ -68,7 +68,7 @@
 
 - [x] 8.1 Implémenter le catalogue de règles nommées par type de campagne, avec conditions chiffrées et seuils configurables
 - [x] 8.2 Implémenter le gel d'une règle dont les données sont indisponibles ou sous le seuil de couverture
-- [x] 8.3 Implémenter l'empreinte `hash(accountId, campaignId, campaignType, ruleKey, metric, period)` et la re-matérialisation idempotente
+- [x] 8.3 Implémenter l'empreinte `hash(accountId, campaignId, campaignType, conversionGoal, ruleKey, metric, period)` et la re-matérialisation idempotente
 - [x] 8.4 Brancher les insights Meta sur les `insightRecords` existants et sur `launchInsight`, sans créer de seconde source de vérité
 - [x] 8.5 Implémenter le mode sans cible business : comparaisons historiques uniquement, aucun jugement absolu
 - [x] 8.6 Implémenter l'adoption dans le Journal avec métrique de départ figée et lien retour vers la campagne

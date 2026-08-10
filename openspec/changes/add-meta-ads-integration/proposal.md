@@ -12,7 +12,7 @@ Cette change connecte Meta Ads en lecture, produit des recommandations orientée
 - Poser la chaîne d'attribution : UTMs et `campaign_id` / `adset_id` / `ad_id` propagés jusqu'aux formulaires, à Calendly, à iClosed et à Stripe, avec un niveau de rattachement explicite et une couverture mesurée.
 - Qualifier chaque métrique sur trois axes indépendants — `source`, `calculation`, `attribution` — au lieu d'un seul libellé ambigu.
 - Afficher dans `/acquisition/ads` les KPI, le funnel du type de campagne, l'analyse créative, les audiences et les placements. Une étape de funnel sans source connectée est `indisponible`, jamais estimée ni nulle.
-- Typer chaque campagne (VSL, Webinar, Croissance Instagram, Retargeting, Autre) — suggestion automatique, décision utilisateur — et adapter funnel, KPI et **règles de diagnostic** en conséquence.
+- Configurer explicitement chaque campagne (VSL, Webinaire, Trafic Instagram ou Retargeting), sans classification automatique. Pour VSL et Webinaire, demander aussi l'objectif de conversion Appel ou Vente ; adapter le funnel, les KPI et les **règles de diagnostic** à cette configuration.
 - Produire des insights structurés et idempotents, matérialisés dans les `insightRecords` existants, sans créer une seconde source de vérité à côté du Journal.
 - Adopter un insight dans le Journal via `launchInsight`, sans aucune écriture dans Meta.
 - Appliquer trois actions seulement — pause, réactivation, budget quotidien borné — via un flux proposition → confirmation → résultat, avec journal d'audit.

@@ -6,7 +6,7 @@ import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/t
 import { countUnattributedMetaSales, metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
 import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, metaAdsManagerUrl, normalizeMetaPeriodDays } from "./protocol";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
-import { META_CAMPAIGN_TYPES, type MetaCampaignType, type MetaRawObject, type MetaWebinarObservation } from "./types";
+import type { MetaCampaignType, MetaConversionGoal, MetaRawObject, MetaWebinarObservation } from "./types";
 
 export type MetaMetricTotals = {
   spendCents: number;
@@ -59,8 +59,9 @@ export type MetaCampaignDashboardRow = {
   name: string;
   objective: string | null;
   effectiveStatus: string | null;
-  campaignType: MetaCampaignType;
+  campaignType: MetaCampaignType | null;
   typeSource: string;
+  conversionGoal: MetaConversionGoal | null;
   targets?: {
     targetCpaCents: number | null;
     targetRoas: number | null;
@@ -379,10 +380,6 @@ export function metricValue(metrics: MetaMetricTotals, key: MetaMetricKey): numb
 export function rawMetaMetricValue(metrics: MetaMetricTotals, key: MetaRawMetricKey): number | null {
   if (metrics.metaProvided.rowCount === 0 || metrics.metaProvided.availableRows[key] !== metrics.metaProvided.rowCount) return null;
   return metrics.metaProvided[key];
-}
-
-function campaignType(value: string): MetaCampaignType {
-  return META_CAMPAIGN_TYPES.includes(value as MetaCampaignType) ? (value as MetaCampaignType) : "other";
 }
 
 function period(days: number): { start: string; end: string; days: number } {
@@ -713,8 +710,9 @@ export async function getMetaAdsDashboard(accountId: string, requestedDays: unkn
       name: campaign.name,
       objective: campaign.objective,
       effectiveStatus: campaign.effectiveStatus,
-      campaignType: campaignType(profile?.campaignType ?? campaign.campaignType),
-      typeSource: profile?.typeSource ?? "heuristic",
+      campaignType: profile?.campaignType ?? null,
+      typeSource: profile?.typeSource ?? "pending",
+      conversionGoal: profile?.conversionGoal ?? null,
       targets: {
         targetCpaCents: profile?.targetCpaCents ?? null,
         targetRoas: profile?.targetRoas ?? null,

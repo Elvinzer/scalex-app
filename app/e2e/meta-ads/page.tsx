@@ -84,6 +84,7 @@ function campaign(
     objective: campaignType === "instagram_profile_growth" ? "OUTCOME_ENGAGEMENT" : "OUTCOME_LEADS",
     effectiveStatus: "ACTIVE",
     campaignType,
+    conversionGoal: campaignType === "vsl" || campaignType === "webinar" ? "sale" : null,
     typeSource: "manual",
     targets: { targetCpaCents, targetRoas: 3, leadValueCents: 12_000 },
     metrics: campaignMetrics,
@@ -193,7 +194,7 @@ export default async function MetaAdsE2EFixturePage({ searchParams }: { searchPa
           <p className="mt-1 text-sm text-muted-foreground">Données synthétiques pour vérifier les états UI, les tableaux scrollables et les alternatives accessibles.</p>
           <nav className="mt-3 flex flex-wrap gap-2 text-xs font-bold" aria-label="Modules de fixture Meta Ads">
             <a href="/e2e/meta-ads" className="rounded-[var(--radius-control)] border border-border px-3 py-2 hover:bg-muted">Tous les modules</a>
-            {META_CAMPAIGN_TYPES.filter((type) => type !== "other").map((type) => (
+            {META_CAMPAIGN_TYPES.map((type) => (
               <a key={type} href={`/e2e/meta-ads?module=${type}`} className="rounded-[var(--radius-control)] border border-border px-3 py-2 hover:bg-muted">{type}</a>
             ))}
           </nav>

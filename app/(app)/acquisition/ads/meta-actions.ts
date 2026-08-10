@@ -24,7 +24,7 @@ import { metaAdsManagerUrl, normalizeAdAccountId } from "@/lib/meta-ads/protocol
 import { getMetaAdsDashboard } from "@/lib/meta-ads/queries";
 import { buildMetaTrackingUrl } from "@/lib/meta-ads/tracking";
 import { isMetaTokenExpiredError } from "@/lib/meta-ads/sync-state";
-import { META_CAMPAIGN_TYPES, type MetaEntityLevel } from "@/lib/meta-ads/types";
+import { campaignTypeNeedsConversionGoal, META_CAMPAIGN_TYPES, META_CONVERSION_GOALS, type MetaEntityLevel } from "@/lib/meta-ads/types";
 import { metaActionSchema } from "@/lib/meta-ads/action-validation";
 import { requireOwner } from "@/lib/team/context";
 
@@ -297,6 +297,14 @@ async function updateMetaActionTargetCache(
 const campaignProfileSchema = z.object({
   campaignId: z.string().uuid(),
   campaignType: z.enum(META_CAMPAIGN_TYPES),
+  conversionGoal: z.enum(META_CONVERSION_GOALS).nullable(),
+}).superRefine((value, context) => {
+  if (campaignTypeNeedsConversionGoal(value.campaignType) && value.conversionGoal === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["conversionGoal"], message: "Choisis un objectif de conversion pour cette campagne." });
+  }
+  if (!campaignTypeNeedsConversionGoal(value.campaignType) && value.conversionGoal !== null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["conversionGoal"], message: "L’objectif de conversion concerne uniquement les campagnes VSL et Webinaire." });
+  }
 });
 
 const campaignTargetsSchema = z.object({
@@ -315,7 +323,7 @@ async function refreshCurrentMetaInsights(accountId: string): Promise<void> {
   }
 }
 
-export async function setMetaCampaignType(input: unknown): Promise<{ error: string | null }> {
+export async function setMetaCampaignProfile(input: unknown): Promise<{ error: string | null }> {
   const parsed = campaignProfileSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Type de campagne invalide." };
 
@@ -355,17 +363,14 @@ export async function setMetaCampaignType(input: unknown): Promise<{ error: stri
       userId: access.accountId,
       campaignId: campaign.id,
       campaignType: parsed.data.campaignType,
+      conversionGoal: parsed.data.conversionGoal,
       typeSource: "manual",
       updatedAt: now,
     })
     .onConflictDoUpdate({
       target: [metaCampaignProfiles.userId, metaCampaignProfiles.campaignId],
-      set: { campaignType: parsed.data.campaignType, typeSource: "manual", updatedAt: now },
+      set: { campaignType: parsed.data.campaignType, conversionGoal: parsed.data.conversionGoal, typeSource: "manual", updatedAt: now },
     });
-  await db
-    .update(metaCampaigns)
-    .set({ campaignType: parsed.data.campaignType, updatedAt: now })
-    .where(and(eq(metaCampaigns.id, campaign.id), eq(metaCampaigns.userId, access.accountId)));
 
   // Re-evaluate the current period immediately. The detail page filters out
   // the old type, so a failed refresh can only leave the page without stale

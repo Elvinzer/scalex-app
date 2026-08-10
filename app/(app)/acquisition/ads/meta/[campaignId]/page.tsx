@@ -21,15 +21,22 @@ import { getMetaAdsDashboard, getMetaCampaignDetail, metricValue, rawMetaMetricV
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
 import { metaAdsManagerUrl, normalizeMetaPeriodDays } from "@/lib/meta-ads/protocol";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
+import { campaignTypeNeedsConversionGoal } from "@/lib/meta-ads/types";
 import { formatPercent } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
-function typeLabel(value: string): string {
+function typeLabel(value: string | null): string {
   if (value === "vsl") return "VSL";
   if (value === "webinar") return "Webinaire";
-  if (value === "instagram_profile_growth") return "Followers Instagram";
+  if (value === "instagram_profile_growth") return "Trafic Instagram";
   if (value === "retargeting") return "Retargeting";
-  return "Autre";
+  return "Type à définir";
+}
+
+function conversionGoalLabel(value: string | null): string | null {
+  if (value === "call") return "Appel";
+  if (value === "sale") return "Vente";
+  return null;
 }
 
 function webinarSourceLabel(value: string): string {
@@ -122,6 +129,7 @@ type FunnelTableRow = {
   numerator: number | null;
   denominator: number | null;
   unavailableReason?: string;
+  availability?: string;
 };
 
 function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
@@ -145,7 +153,7 @@ function FunnelTable({ rows }: { rows: FunnelTableRow[] }) {
                 <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-bold">{row.label}</th>
                 <td className="px-3 py-2 text-right tabular-nums">{row.numerator === null ? "—" : row.numerator.toLocaleString("fr-FR")}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{rate === null ? "—" : formatPercent(rate)}</td>
-                <td className="px-3 py-2 text-muted-foreground">{row.unavailableReason ?? (row.numerator === null ? "Indisponible sur la période" : "Mesurée")}</td>
+                <td className="px-3 py-2 text-muted-foreground">{row.unavailableReason ?? (row.numerator === null ? "Indisponible sur la période" : row.availability ?? "Mesurée")}</td>
               </tr>
             );
           })}
@@ -259,6 +267,23 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const managerUrl = metaAdsManagerUrl(detail.dashboard.account.externalId, detail.campaign.externalId);
   const attribution = detail.attributionQuality;
   const attributionLabel = attribution.status === "verified" ? "Vérifiée" : attribution.status === "partial" ? "Partielle" : "Non calculable";
+  const conversionGoal = conversionGoalLabel(detail.campaign.conversionGoal);
+  const campaignConfigured = detail.campaign.campaignType !== null
+    && (!campaignTypeNeedsConversionGoal(detail.campaign.campaignType) || detail.campaign.conversionGoal !== null);
+  const conversionMetricLabel = detail.campaign.conversionGoal === "call" ? "Appels réservés" : detail.campaign.conversionGoal === "sale" ? "Ventes reliées" : "Conversion business";
+  const conversionMetricValue = attribution.status === "unavailable"
+    ? null
+    : detail.campaign.conversionGoal === "call"
+      ? attribution.bookedCalls
+      : detail.campaign.conversionGoal === "sale"
+        ? attribution.sales
+        : null;
+  const conversionMetricBase = detail.campaign.campaignType === "webinar" ? registrations : leads;
+  const conversionUnavailableReason = !campaignConfigured
+    ? "Choisis le type et l’objectif de conversion pour afficher cette étape"
+    : attribution.status === "unavailable"
+      ? "Aucune attribution Scale X disponible pour cette campagne sur la période"
+      : undefined;
   const hasWriteAccess = detail.dashboard.connection.grantedScopes.includes("ads_management");
   const rankedAds = [...detail.ads].sort((left, right) => {
     const leftCpa = creativeCpaCents(left);
@@ -299,25 +324,27 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const funnelRows: FunnelTableRow[] = [
     { label: "Clic / impression", numerator: linkClicks, denominator: impressions },
   ];
-  if (detail.campaign.campaignType === "vsl") {
+  if (campaignConfigured && detail.campaign.campaignType === "vsl") {
     funnelRows.push(
       { label: "Vue 3 sec.", numerator: video3sViews, denominator: impressions },
       { label: "ThruPlay / vue", numerator: videoThruplay, denominator: video3sViews },
       { label: "Lecture VSL", numerator: null, denominator: null, unavailableReason: "Source manquante : événements de lecture de la page VSL" },
       { label: "Watch depth", numerator: null, denominator: null, unavailableReason: "Source manquante : événements de progression de la page VSL" },
+      { label: conversionMetricLabel, numerator: conversionMetricValue, denominator: conversionMetricBase, unavailableReason: conversionUnavailableReason, availability: "Scale X · attribution jointe" },
     );
   }
-  if (detail.campaign.campaignType === "webinar") {
+  if (campaignConfigured && detail.campaign.campaignType === "webinar") {
     funnelRows.push(
       { label: "Inscriptions", numerator: registrations, denominator: linkClicks },
       { label: "Présence live", numerator: webinarParticipants, denominator: registrations, unavailableReason: webinarParticipants === null ? "Source manquante : événement de présence du webinar" : undefined },
       { label: "Présence jusqu'au pitch", numerator: null, denominator: registrations, unavailableReason: "Source manquante : événement de progression du webinar" },
+      { label: conversionMetricLabel, numerator: conversionMetricValue, denominator: conversionMetricBase, unavailableReason: conversionUnavailableReason, availability: "Scale X · attribution jointe" },
     );
   }
-  if (detail.campaign.campaignType === "instagram_profile_growth") {
+  if (campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth") {
     funnelRows.push({ label: "Follow / visite", numerator: observedFollows, denominator: profileVisits, unavailableReason: detail.dashboard.instagramObservation.connected ? undefined : "Source manquante : connexion Instagram" });
   }
-  if (detail.campaign.campaignType === "retargeting") {
+  if (campaignConfigured && detail.campaign.campaignType === "retargeting") {
     funnelRows.push({ label: "Fréquence", numerator: impressions, denominator: metricValue(metrics, "reach") });
   }
 
@@ -331,6 +358,11 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Meta Ads · {typeLabel(detail.campaign.campaignType)}</p>
           <h1 className="mt-1 text-3xl font-bold">{detail.campaign.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{detail.dashboard.period.start} → {detail.dashboard.period.end} · {detail.campaign.objective ?? "Objectif Meta non renseigné"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {campaignConfigured && conversionGoal
+              ? `Objectif de conversion Scale X : ${conversionGoal} · utilisé pour la dernière étape du funnel.`
+              : "Objectif de conversion Scale X : à définir dans la configuration ci-dessous."}
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">Comparaison : {detail.dashboard.comparisonPeriod.start} → {detail.dashboard.comparisonPeriod.end} · même durée précédente.</p>
           <p className="mt-2 text-xs font-bold text-muted-foreground">
             {detail.dashboard.period.consolidatedThrough
@@ -356,6 +388,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       <MetaCampaignProfileSelector
         campaignId={detail.campaign.id}
         campaignType={detail.campaign.campaignType}
+        conversionGoal={detail.campaign.conversionGoal}
+        metaObjective={detail.campaign.objective}
         typeSource={detail.campaign.typeSource}
       />
 
@@ -672,16 +706,18 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
               <h2 id="funnel-title" className="font-bold">Funnel de lecture</h2>
               <p className="mt-1 text-sm text-muted-foreground">Les taux sont calculés en code à partir des compteurs Meta · Meta · dérivée · directe.</p>
             </div>
-            {detail.campaign.campaignType === "vsl" ? <Play className="size-5 text-accent-2" /> : detail.campaign.campaignType === "instagram_profile_growth" ? <UserPlus className="size-5 text-accent-2" /> : <MousePointerClick className="size-5 text-accent-2" />}
+            {!campaignConfigured ? <Gauge className="size-5 text-accent-2" /> : detail.campaign.campaignType === "vsl" ? <Play className="size-5 text-accent-2" /> : detail.campaign.campaignType === "instagram_profile_growth" ? <UserPlus className="size-5 text-accent-2" /> : <MousePointerClick className="size-5 text-accent-2" />}
           </div>
           <div className="mt-5 space-y-4">
             <ProgressRow label="Clic / impression" numerator={linkClicks} denominator={impressions} unavailableReason="Clics ou impressions Meta indisponibles sur la période" />
-            {detail.campaign.campaignType === "vsl" && <ProgressRow label="Vue 3 sec." numerator={video3sViews} denominator={impressions} unavailableReason="Source vidéo Meta indisponible sur la période" />}
-            {detail.campaign.campaignType === "vsl" && <ProgressRow label="ThruPlay / vue" numerator={videoThruplay} denominator={video3sViews} unavailableReason="Source vidéo Meta indisponible sur la période" />}
-            {detail.campaign.campaignType === "vsl" && <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">Lecture VSL et watch depth : indisponibles · source manquante : événements de lecture de la page VSL.</p>}
-            {detail.campaign.campaignType === "instagram_profile_growth" && <ProgressRow label="Follow / visite" numerator={observedFollows} denominator={profileVisits} unavailableReason={detail.dashboard.instagramObservation.connected ? "Observation Instagram indisponible sur la période" : "Source manquante : connexion Instagram"} />}
-            {detail.campaign.campaignType === "instagram_profile_growth" && <p className="text-xs text-muted-foreground">Coût / follower observé : {spendCents !== null && observedFollows !== null && observedFollows > 0 ? formatEur(spendCents / observedFollows / 100) : "—"} · Meta + Instagram · dérivée · estimée. {detail.dashboard.instagramObservation.connected ? "Les abonnements sont observés séparément, sans attribution directe." : "Étape indisponible · connecte Instagram pour observer les abonnements."}</p>}
-            {detail.campaign.campaignType === "webinar" && (
+            {!campaignConfigured && <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">Ce funnel reste générique tant que le type de campagne et, si nécessaire, l’objectif Appel/Vente ne sont pas enregistrés.</p>}
+            {campaignConfigured && detail.campaign.campaignType === "vsl" && <ProgressRow label="Vue 3 sec." numerator={video3sViews} denominator={impressions} unavailableReason="Source vidéo Meta indisponible sur la période" />}
+            {campaignConfigured && detail.campaign.campaignType === "vsl" && <ProgressRow label="ThruPlay / vue" numerator={videoThruplay} denominator={video3sViews} unavailableReason="Source vidéo Meta indisponible sur la période" />}
+            {campaignConfigured && detail.campaign.campaignType === "vsl" && <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">Lecture VSL et watch depth : indisponibles · source manquante : événements de lecture de la page VSL.</p>}
+            {campaignConfigured && detail.campaign.campaignType === "vsl" && <ProgressRow label={conversionMetricLabel} numerator={conversionMetricValue} denominator={conversionMetricBase} unavailableReason={conversionUnavailableReason} />}
+            {campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth" && <ProgressRow label="Follow / visite" numerator={observedFollows} denominator={profileVisits} unavailableReason={detail.dashboard.instagramObservation.connected ? "Observation Instagram indisponible sur la période" : "Source manquante : connexion Instagram"} />}
+            {campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth" && <p className="text-xs text-muted-foreground">Coût / follower observé : {spendCents !== null && observedFollows !== null && observedFollows > 0 ? formatEur(spendCents / observedFollows / 100) : "—"} · Meta + Instagram · dérivée · estimée. {detail.dashboard.instagramObservation.connected ? "Les abonnements sont observés séparément, sans attribution directe." : "Étape indisponible · connecte Instagram pour observer les abonnements."}</p>}
+            {campaignConfigured && detail.campaign.campaignType === "webinar" && (
               <>
                 <ProgressRow label="Inscriptions" numerator={registrations} denominator={linkClicks} unavailableReason="Inscriptions Meta indisponibles sur la période" />
                 <ProgressRow label="Présents" numerator={webinarParticipants} denominator={registrations} unavailableReason="Source manquante : événement de présence du webinar" />
@@ -694,9 +730,10 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
                     Présence live observée via {webinarObservation ? webinarSourceLabel(webinarObservation.source) : "la source webinar"} · la présence jusqu&apos;au pitch reste indisponible sans événement de progression.
                   </p>
                 )}
+                <ProgressRow label={conversionMetricLabel} numerator={conversionMetricValue} denominator={conversionMetricBase} unavailableReason={conversionUnavailableReason} />
               </>
             )}
-            {detail.campaign.campaignType === "retargeting" && (
+            {campaignConfigured && detail.campaign.campaignType === "retargeting" && (
               <p className="rounded-[var(--radius-control)] border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
                 Fréquence directionnelle : {ratio(impressions, metricValue(metrics, "reach"))?.toFixed(1) ?? "—"} · seuil de saturation : {detail.dashboard.frequencySaturationThreshold}. {ratio(impressions, metricValue(metrics, "reach")) !== null && (ratio(impressions, metricValue(metrics, "reach")) ?? 0) > detail.dashboard.frequencySaturationThreshold ? "Signal de saturation à vérifier dans Meta Ads." : "Aucun franchissement du seuil sur cette lecture."} Le reach additionné par jour n&apos;est pas dédupliqué ; confirme les exclusions d&apos;audience dans Meta.
               </p>
