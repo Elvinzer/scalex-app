@@ -177,6 +177,7 @@ function FunnelTable({ rows, locale, labels }: { rows: FunnelTableRow[]; locale:
 export default async function MetaCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string; meta_ads?: string; meta_ads_error?: string }> }) {
   const locale = await getLocale();
   const t = await getTranslations("app.ads.detail");
+  const profileT = await getTranslations("app.ads.profile");
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
   const { campaignId } = await params;
@@ -282,8 +283,14 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const managerUrl = metaAdsManagerUrl(detail.dashboard.account.externalId, detail.campaign.externalId);
   const attribution = detail.attributionQuality;
   const attributionLabel = attribution.status === "verified" ? (locale === "en" ? "Verified" : "Vérifiée") : attribution.status === "partial" ? (locale === "en" ? "Partial" : "Partielle") : (locale === "en" ? "Not calculable" : "Non calculable");
+  const conversionGoalRequired = campaignTypeNeedsConversionGoal(detail.campaign.campaignType);
   const campaignConfigured = detail.campaign.campaignType !== null
-    && (!campaignTypeNeedsConversionGoal(detail.campaign.campaignType) || detail.campaign.conversionGoal !== null);
+    && (!conversionGoalRequired || detail.campaign.conversionGoal !== null);
+  const conversionGoal = detail.campaign.conversionGoal === "call"
+    ? profileT("call")
+    : detail.campaign.conversionGoal === "sale"
+      ? profileT("sale")
+      : null;
   const conversionMetricLabel = detail.campaign.conversionGoal === "call" ? (locale === "en" ? "Booked calls" : "Appels réservés") : detail.campaign.conversionGoal === "sale" ? (locale === "en" ? "Linked sales" : "Ventes reliées") : (locale === "en" ? "Business conversion" : "Conversion business");
   const conversionMetricValue = attribution.status === "unavailable"
     ? null
@@ -381,15 +388,14 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           </Button>
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Meta Ads · {typeLabel(detail.campaign.campaignType, locale)}</p>
           <h1 className="mt-1 text-3xl font-bold">{detail.campaign.name}</h1>
-<<<<<<< HEAD
-          <p className="mt-1 text-sm text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(detail.dashboard.period)}</p>
-=======
           <p className="mt-1 text-sm text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(detail.dashboard.period)} · {detail.campaign.objective ?? t("objectiveMissing")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {campaignConfigured && conversionGoal
-              ? t("conversionGoal", { value: conversionGoal })
-              : t("conversionToDefine")}
-          </p>
+          {conversionGoalRequired && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {campaignConfigured && conversionGoal
+                ? t("conversionGoal", { value: conversionGoal })
+                : t("conversionToDefine")}
+            </p>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">{t("comparison", { start: detail.dashboard.comparisonPeriod.start, end: detail.dashboard.comparisonPeriod.end })}</p>
           <p className="mt-2 text-xs font-bold text-muted-foreground">
             {detail.dashboard.period.consolidatedThrough
@@ -404,7 +410,6 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
               {t("missingDates", { dates: detail.dashboard.missingMetricDates.slice(0, 8).join(", "), count: Math.max(0, detail.dashboard.missingMetricDates.length - 8) })}
             </p>
           )}
->>>>>>> 1adedcc (feat: Implement bottleneck funnel feature in dashboard)
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <MetaPeriodFilter selection={periodSelection} period={detail.dashboard.period} />
