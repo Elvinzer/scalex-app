@@ -497,10 +497,20 @@ export function AppSidebar({
             </div>
           )}
 
-          {/* The score is a readout, not a destination, so it stays outside
-              the scrollable nav. */}
-          {scaleScore && (
+          {/* Both readouts, not destinations, so they stay outside the
+              scrollable nav. The flame comes first: it answers "ai-je fait
+              quelque chose aujourd'hui ?", a daily question, where the score
+              answers a monthly one. Rendered even at zero — a grey flame is
+              the invitation to start a série, and hiding it would make the
+              mechanic invisible to exactly the users it exists for. */}
+          {streak && (
             <div className="px-3 pt-4">
+              <StreakBadge snapshot={streak} />
+            </div>
+          )}
+
+          {scaleScore && (
+            <div className={cn("px-3", streak ? "pt-2" : "pt-4")}>
               <ScaleScoreBadge
                 scaleScore={scaleScore}
                 scaleScoreGapText={scaleScoreGapText}
@@ -511,16 +521,6 @@ export function AppSidebar({
                 currentMonthlyRevenue={currentMonthlyRevenue}
                 potentialMonthlyRevenue={potentialMonthlyRevenue}
               />
-            </div>
-          )}
-
-          {/* Directly under the score, same "readout, not destination" slot.
-              Rendered even at zero — a grey flame is the invitation to start
-              one, and hiding it would make the mechanic invisible to exactly
-              the users it exists for. */}
-          {streak && (
-            <div className="px-3 pt-2">
-              <StreakBadge snapshot={streak} />
             </div>
           )}
 
