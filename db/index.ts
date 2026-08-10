@@ -8,7 +8,14 @@ if (!connectionString) {
 }
 
 // prepare: false — required with Supabase's Supavisor pooler in transaction
-// mode, which doesn't support prepared statements.
-const client = postgres(connectionString, { prepare: false });
+// mode, which doesn't support prepared statements. Explicitly pin the schema
+// path as well: Drizzle emits public table names without a schema qualifier,
+// and a reused pooler backend must resolve them consistently on every request.
+const client = postgres(connectionString, {
+  prepare: false,
+  connection: {
+    search_path: "public, extensions",
+  },
+});
 
 export const db = drizzle(client, { schema });
