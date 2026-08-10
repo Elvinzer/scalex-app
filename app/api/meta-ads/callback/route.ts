@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { metaAdsConnections, users } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
+import { getMetaAppCredentials } from "@/lib/meta-ads/config";
 import {
   debugMetaToken,
   exchangeForLongLivedMetaToken,
@@ -17,7 +18,6 @@ import { inngest, metaAdsAccountConnected } from "@/lib/inngest/client";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
-import { requireEnv } from "@/lib/utils";
 
 const STATE_COOKIE = "meta_ads_oauth_state";
 const MODE_COOKIE = "meta_ads_oauth_mode";
@@ -69,8 +69,9 @@ export async function GET(request: NextRequest) {
     return redirectWithError(origin, "access", returnTo);
   }
 
-  const appId = requireEnv("META_APP_ID");
-  const appSecret = requireEnv("META_APP_SECRET");
+  const credentials = getMetaAppCredentials();
+  if (!credentials) return redirectWithError(origin, "config", returnTo);
+  const { appId, appSecret } = credentials;
   if (!verifyMetaOAuthState(state, access.accountId, appSecret)) return redirectWithError(origin, "state", returnTo);
   if (oauthError || !code) {
     if (isWriteStepUp && oauthError === "access_denied") return redirectWriteDeclined(origin, returnTo);

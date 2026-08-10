@@ -4,6 +4,7 @@ import { metaAdsErrorMessage } from "./messages";
 
 describe("Meta Ads error messages", () => {
   it("explains known OAuth failures", () => {
+    expect(metaAdsErrorMessage("config")).toContain("META_APP_ID");
     expect(metaAdsErrorMessage("ads_read")).toContain("ads_read");
     expect(metaAdsErrorMessage("denied")).toContain("refusé");
     expect(metaAdsErrorMessage("state")).toContain("expiré");

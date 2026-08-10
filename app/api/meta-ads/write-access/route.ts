@@ -7,11 +7,11 @@ import { z } from "zod";
 import { db } from "@/db";
 import { metaAdsConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
+import { getMetaAppCredentials } from "@/lib/meta-ads/config";
 import { META_AUTHORIZE_URL, META_WRITE_SCOPES } from "@/lib/meta-ads/protocol";
 import { signMetaOAuthState } from "@/lib/meta-ads/oauth-state";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
-import { requireEnv } from "@/lib/utils";
 
 const STATE_COOKIE = "meta_ads_oauth_state";
 const MODE_COOKIE = "meta_ads_oauth_mode";
@@ -41,8 +41,14 @@ export async function GET(request: NextRequest) {
     .limit(1);
   if (!connection) return NextResponse.redirect(new URL("/integrations", origin));
 
-  const appId = requireEnv("META_APP_ID");
-  const appSecret = requireEnv("META_APP_SECRET");
+  const returnTo = safeReturnPath(request.nextUrl.searchParams.get("return_to"));
+  const credentials = getMetaAppCredentials();
+  if (!credentials) {
+    const destination = new URL(returnTo ?? "/integrations", origin);
+    destination.searchParams.set("meta_ads_error", "config");
+    return NextResponse.redirect(destination);
+  }
+  const { appId, appSecret } = credentials;
   const state = signMetaOAuthState(randomBytes(24).toString("hex"), access.accountId, appSecret);
   const authorizeUrl = new URL(META_AUTHORIZE_URL);
   authorizeUrl.searchParams.set("client_id", appId);
@@ -67,7 +73,6 @@ export async function GET(request: NextRequest) {
     maxAge: 600,
     path: "/",
   });
-  const returnTo = safeReturnPath(request.nextUrl.searchParams.get("return_to"));
   if (returnTo) {
     response.cookies.set(RETURN_COOKIE, returnTo, {
       httpOnly: true,

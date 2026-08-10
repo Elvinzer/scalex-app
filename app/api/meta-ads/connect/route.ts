@@ -4,12 +4,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
+import { getMetaAppCredentials } from "@/lib/meta-ads/config";
 import { META_AUTHORIZE_URL, META_READ_SCOPES } from "@/lib/meta-ads/protocol";
 import { signMetaOAuthState } from "@/lib/meta-ads/oauth-state";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
-import { requireEnv } from "@/lib/utils";
 
 const STATE_COOKIE = "meta_ads_oauth_state";
 const RETURN_COOKIE = "meta_ads_return_to";
@@ -36,8 +36,13 @@ export async function GET(request: NextRequest) {
   }
   const returnTo = safeReturnPath(request.nextUrl.searchParams.get("return_to"));
 
-  const appId = requireEnv("META_APP_ID");
-  const appSecret = requireEnv("META_APP_SECRET");
+  const credentials = getMetaAppCredentials();
+  if (!credentials) {
+    const destination = new URL(returnTo ?? "/integrations", origin);
+    destination.searchParams.set("meta_ads_error", "config");
+    return NextResponse.redirect(destination);
+  }
+  const { appId, appSecret } = credentials;
   const nonce = randomBytes(24).toString("hex");
   const state = signMetaOAuthState(nonce, access.accountId, appSecret);
   const authorizeUrl = new URL(META_AUTHORIZE_URL);

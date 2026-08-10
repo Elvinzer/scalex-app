@@ -1,4 +1,7 @@
 export function metaAdsErrorMessage(value: unknown): string | null {
+  if (value === "config") {
+    return "Meta Ads n’est pas configuré sur cet environnement. Ajoute META_APP_ID et META_APP_SECRET dans les variables serveur, puis redémarre l’application.";
+  }
   if (value === "ads_read") {
     return "Meta n’a pas accordé la permission de lecture des publicités. Reconnecte Meta Ads et accepte ads_read.";
   }
