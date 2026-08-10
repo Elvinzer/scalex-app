@@ -4,7 +4,8 @@ import { and, eq, gte, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { closingKpiEntries, dataImports, monthlyMetrics, sales, settingKpiEntries } from "@/db/schema";
+import { closingKpiEntries, dataImports, monthlyMetrics, sales, salesCalls, settingKpiEntries } from "@/db/schema";
+import { aggregateSalesCallsByMonth, monthKey } from "@/lib/monthly-metrics/call-source";
 import { monthDateRange } from "@/lib/date-range";
 import { commitImportPayloadSchema, type CommitImportPayload } from "@/lib/import/schema";
 import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS } from "@/lib/monthly-metrics/resolve";
@@ -21,7 +22,7 @@ export type CommitImportResult =
   | { status: "error"; error: string };
 
 const PROTECTED_FIELDS = new Set<string>([...SETTING_FIELDS, ...CLOSING_FIELDS]);
-const DAILY_ROLLUP_REASON = "Ce chiffre vient de ton suivi quotidien, il est déjà à jour.";
+const SOURCE_ROLLUP_REASON = "Ce chiffre vient de ton suivi d'appel ou de ton suivi quotidien, il est déjà à jour.";
 const STRIPE_SOURCED_REASON = "Ce chiffre vient de Stripe, il est déjà à jour.";
 
 async function resolveAuth(): Promise<{ accountId: string } | { error: string }> {
@@ -33,14 +34,14 @@ async function resolveAuth(): Promise<{ accountId: string } | { error: string }>
   return { accountId: access.accountId };
 }
 
-// Which fields of this month are currently read-only because they're
-// sourced from daily setting/closing entries — same detection
+// Which fields of this month are currently read-only because they're sourced
+// from Suivi d'appel or daily setting/closing entries — same detection
 // datas/month-modal.tsx already uses, reused here so an import can never
-// silently overwrite a daily roll-up (brief §C: "import bloqué avec
+// silently overwrite a connected roll-up (brief §C: "import bloqué avec
 // explication").
 async function protectedFieldsForMonth(accountId: string, year: number, month: number): Promise<Set<string>> {
   const range = monthDateRange(year, month);
-  const [dailySetting, dailyClosing] = await Promise.all([
+  const [dailySetting, dailyClosing, calls] = await Promise.all([
     db
       .select()
       .from(settingKpiEntries)
@@ -49,11 +50,23 @@ async function protectedFieldsForMonth(accountId: string, year: number, month: n
       .select()
       .from(closingKpiEntries)
       .where(and(eq(closingKpiEntries.userId, accountId), gte(closingKpiEntries.date, range.from), lte(closingKpiEntries.date, range.to))),
+    db
+      .select({ scheduledAt: salesCalls.scheduledAt, attendance: salesCalls.attendance, outcome: salesCalls.outcome })
+      .from(salesCalls)
+      .where(
+        and(
+          eq(salesCalls.userId, accountId),
+          gte(salesCalls.scheduledAt, new Date(Date.UTC(year, month - 1, 1))),
+          lte(salesCalls.scheduledAt, new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)))
+        )
+      ),
   ]);
 
-  const overlay = resolveDailySourceOverlay(range, dailySetting, dailyClosing);
+  const callSource = aggregateSalesCallsByMonth(calls)[monthKey(year, month)] ?? null;
+  const overlay = resolveDailySourceOverlay(range, dailySetting, dailyClosing, {}, callSource);
   const protectedFields = new Set<string>();
   if (overlay.settingSourced) for (const field of SETTING_FIELDS) protectedFields.add(field);
+  if (overlay.callsBookedSourced) protectedFields.add("callsBooked");
   if (overlay.closingSourced) for (const field of CLOSING_FIELDS) protectedFields.add(field);
   return protectedFields;
 }
@@ -97,7 +110,7 @@ async function commitMonthlyMetricsMonth(
   for (const [field, rawValue] of Object.entries(month.values)) {
     if (!(field in base)) continue; // not a monthly_metrics field — ignore rather than crash
     if (PROTECTED_FIELDS.has(field) && protectedFields.has(field)) {
-      blocked.push({ field, reason: DAILY_ROLLUP_REASON });
+      blocked.push({ field, reason: SOURCE_ROLLUP_REASON });
       continue;
     }
     // cashCollected is the one monthly_metrics field the Stripe sync can own

@@ -37,7 +37,7 @@ export default async function DatasPage({
   const year = params.year ? Number(params.year) : currentYear;
   const trendPeriod = params.trendPeriod && TREND_PERIODS.includes(params.trendPeriod) ? params.trendPeriod : "6";
 
-  const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }] =
+  const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth }] =
     await Promise.all([
       getMonthlyMetricsForYear(accountId, year),
       getPostLeadsSumByMonth(accountId, year),
@@ -58,11 +58,17 @@ export default async function DatasPage({
     const monthlyRow = allMonthlyRows.find((row) => row.year === mYear && row.month === mMonth) ?? null;
     const dailySetting = allSettingEntries.filter((e) => inRange(e.date, range));
     const dailyClosing = allClosingEntries.filter((e) => inRange(e.date, range));
+    const callSource = monthlyRow?.closingManualOverride ? null : allCallSourcesByMonth[`${mYear}-${String(mMonth).padStart(2, "0")}`] ?? null;
     const hasSetting = dailySetting.length > 0 || monthlyRow?.newFollowers !== null || monthlyRow?.callsBooked !== null;
-    const hasClosing = dailyClosing.length > 0 || monthlyRow?.callsTaken !== null || monthlyRow?.salesClosed !== null;
+    const hasClosing = callSource !== null || dailyClosing.length > 0 || monthlyRow?.callsTaken !== null || monthlyRow?.salesClosed !== null;
 
-    const monthSetting = resolveMonthSettingTotals(monthlyRow, dailySetting);
-    const monthClosing = resolveMonthClosingTotals(monthlyRow, dailyClosing);
+    const baseMonthSetting = resolveMonthSettingTotals(monthlyRow, dailySetting);
+    const monthSetting = callSource && !monthlyRow?.settingManualOverride
+      ? { ...baseMonthSetting, callsBooked: callSource.callsBooked }
+      : baseMonthSetting;
+    const monthClosing = callSource
+      ? { callsAttended: callSource.callsTaken, salesClosed: callSource.salesClosed }
+      : resolveMonthClosingTotals(monthlyRow, dailyClosing);
     const cash = resolveMonthCashCollected(monthlyRow);
     const label = new Date(Date.UTC(mYear, mMonth - 1, 1)).toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" });
 
@@ -70,7 +76,7 @@ export default async function DatasPage({
       label,
       ca: cash.amount,
       leads: hasSetting ? monthSetting.newSubscribers : null,
-      rdv: hasSetting ? monthSetting.callsBooked : null,
+      rdv: callSource && !monthlyRow?.settingManualOverride ? callSource.callsBooked : hasSetting ? monthSetting.callsBooked : null,
       ventes: hasClosing ? monthClosing.salesClosed : null,
     };
   });
@@ -93,6 +99,7 @@ export default async function DatasPage({
         pipelineVolumesByMonth={pipelineVolumesByMonth}
         allSettingEntries={allSettingEntries}
         allClosingEntries={allClosingEntries}
+        callSourcesByMonth={allCallSourcesByMonth}
       />
       <RevenueTrend year={year} trendPeriod={trendPeriod} chartSeries={chartSeries} goalValue={businessProfile.identity.mrrGoal} />
     </div>

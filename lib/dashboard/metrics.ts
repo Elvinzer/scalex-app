@@ -4,6 +4,7 @@ import { formatEur } from "@/lib/currency";
 import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
+import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import {
   resolveMonthCashCollected,
   resolveMonthClosingTotals,
@@ -117,12 +118,14 @@ export function buildMetricCards({
   allSettingEntries,
   allClosingEntries,
   allMonthlyRows,
+  callSourcesByMonth = {},
   isStripeConnected,
 }: {
   businessProfile: BusinessProfileData;
   allSettingEntries: SettingEntry[];
   allClosingEntries: ClosingEntry[];
   allMonthlyRows: MonthlyMetricsRow[];
+  callSourcesByMonth?: Record<string, MonthlyCallSource>;
   // Whether stripeConnections has a row for this account — no longer a live
   // fetch (lib/stripe/sync-write.ts persists straight into monthlyRow, see
   // resolveMonthCashCollected/resolveMonthNewCustomers below), just gates the
@@ -135,9 +138,15 @@ export function buildMetricCards({
     const monthlyRow = allMonthlyRows.find((row) => row.year === bucket.year && row.month === bucket.month) ?? null;
     const dailySetting = allSettingEntries.filter((entry) => inRange(entry.date, bucket.range));
     const dailyClosing = allClosingEntries.filter((entry) => inRange(entry.date, bucket.range));
+    const callSource = monthlyRow?.closingManualOverride ? null : callSourcesByMonth[monthKey(bucket.year, bucket.month)] ?? null;
 
-    const settingTotals = resolveMonthSettingTotals(monthlyRow, dailySetting);
-    const closingTotals = resolveMonthClosingTotals(monthlyRow, dailyClosing);
+    const baseSettingTotals = resolveMonthSettingTotals(monthlyRow, dailySetting);
+    const settingTotals = callSource && !monthlyRow?.settingManualOverride
+      ? { ...baseSettingTotals, callsBooked: callSource.callsBooked }
+      : baseSettingTotals;
+    const closingTotals = callSource
+      ? { callsAttended: callSource.callsTaken, salesClosed: callSource.salesClosed }
+      : resolveMonthClosingTotals(monthlyRow, dailyClosing);
     const closingRates = computeClosingRates(closingTotals, settingTotals.callsBooked);
     const cash = resolveMonthCashCollected(monthlyRow);
     const newCustomers = resolveMonthNewCustomers(monthlyRow);
@@ -149,7 +158,8 @@ export function buildMetricCards({
   const previous = resolved[resolved.length - 2];
 
   const hasAnySettingData = allSettingEntries.length > 0 || allMonthlyRows.some((row) => row.newFollowers !== null || row.callsBooked !== null);
-  const hasAnyClosingData = allClosingEntries.length > 0 || allMonthlyRows.some((row) => row.callsTaken !== null || row.salesClosed !== null);
+  const hasAnyBookingsData = hasAnySettingData || Object.keys(callSourcesByMonth).length > 0;
+  const hasAnyClosingData = allClosingEntries.length > 0 || Object.keys(callSourcesByMonth).length > 0 || allMonthlyRows.some((row) => row.callsTaken !== null || row.salesClosed !== null);
   const directSalePage = businessProfile.acquisition.setting.enabled === "no";
 
   const cards: MetricCard[] = [];
@@ -236,7 +246,7 @@ export function buildMetricCards({
     }
 
     // 4. RDV réservés
-    if (!hasAnySettingData) {
+    if (!hasAnyBookingsData) {
       cards.push({
         key: "bookings",
         label: "RDV réservés",

@@ -15,6 +15,7 @@ import { formatEur } from "@/lib/currency";
 import type { WeeklyReportRow } from "@/lib/dashboard/weekly-report";
 import { recordWeeklyReportViewed } from "@/lib/dashboard/weekly-report-tracking";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
+import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { cn } from "@/lib/utils";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short" });
@@ -48,7 +49,9 @@ export function WeeklyReportDialog({
   checkinMonth,
   checkinInitialData,
   checkinSettingSourced,
+  checkinCallsBookedSourced,
   checkinClosingSourced,
+  checkinCallSource,
 }: {
   reports: WeeklyReportRow[];
   checkInDoneThisWeek: boolean;
@@ -56,7 +59,9 @@ export function WeeklyReportDialog({
   checkinMonth: number;
   checkinInitialData: MonthlyMetricsInput;
   checkinSettingSourced: boolean;
+  checkinCallsBookedSourced: boolean;
   checkinClosingSourced: boolean;
+  checkinCallSource: MonthlyCallSource | null;
 }) {
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -233,7 +238,9 @@ export function WeeklyReportDialog({
         month={checkinMonth}
         initialData={checkinInitialData}
         settingSourced={checkinSettingSourced}
+        callsBookedSourced={checkinCallsBookedSourced}
         closingSourced={checkinClosingSourced}
+        callSource={checkinCallSource}
       />
     </>
   );

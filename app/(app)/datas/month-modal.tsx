@@ -12,6 +12,7 @@ import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { formatEur } from "@/lib/currency";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import { monthDateRange } from "@/lib/date-range";
+import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { MONTH_LABELS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
@@ -30,6 +31,14 @@ const CLOSING_SOURCE: KpiFieldSource = {
   href: "/ventes/appels/funnel",
   linkLabel: "Aller au suivi quotidien",
 };
+
+function callsSource(source: MonthlyCallSource): KpiFieldSource {
+  return {
+    text: `Ces valeurs viennent de Suivi d'appel : ${source.callsBooked} appel${source.callsBooked > 1 ? "s" : ""} réservé${source.callsBooked > 1 ? "s" : ""}, ${source.callsTaken} honoré${source.callsTaken > 1 ? "s" : ""} et ${source.salesClosed} vente${source.salesClosed > 1 ? "s" : ""} conclue${source.salesClosed > 1 ? "s" : ""}. Tu peux les corriger pour ce mois, mais vérifie d'abord la source avant de les remplacer.`,
+    href: "/ventes/appels",
+    linkLabel: "Vérifier le suivi d'appel",
+  };
+}
 
 const SYNC_DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -87,6 +96,7 @@ export function MonthModal({
   pipelineVolumesThisMonth,
   allSettingEntries,
   allClosingEntries,
+  callSource = null,
   onClose,
   onNavigate,
 }: {
@@ -99,6 +109,7 @@ export function MonthModal({
   pipelineVolumesThisMonth: { conversations: number; callsBooked: number; callsTaken: number } | undefined;
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
+  callSource?: MonthlyCallSource | null;
   onClose: () => void;
   onNavigate: (nextYear: number, nextMonth: number) => void;
 }) {
@@ -120,10 +131,14 @@ export function MonthModal({
   // Recomputed on every month navigation (no server round-trip) — same
   // pattern as monthRowsThisYear, which is also sliced client-side already.
   const dailySourceOverlay = useMemo(
-    () => resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, sourceOverrides),
-    [year, month, allSettingEntries, allClosingEntries, sourceOverrides]
+    () => resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, sourceOverrides, callSource),
+    [year, month, allSettingEntries, allClosingEntries, sourceOverrides, callSource]
   );
-  const { settingSourced, closingSourced } = dailySourceOverlay;
+  const { settingSourced, callsBookedSourced, closingSourced } = dailySourceOverlay;
+  const closingFieldSource = dailySourceOverlay.closingSource === "calls" && callSource ? callsSource(callSource) : CLOSING_SOURCE;
+  const closingSourceLabel = dailySourceOverlay.closingSource === "calls" ? "Suivi d'appel" : "ton suivi quotidien";
+  const settingCallsBookedSource = callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE;
+  const settingSourceLabel = callsBookedSourced && settingSourced ? "tes sources connectées" : callsBookedSourced ? "Suivi d'appel" : "ton suivi quotidien";
   const initial = { ...toDraft(initialData), ...dailySourceOverlay.overrides };
   const cashCollectedSynced = initialData?.cashCollectedSource === "stripe";
   const cashCollectedStale = initialData?.cashCollectedSource === "stripe_stale";
@@ -137,7 +152,7 @@ export function MonthModal({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    const persistedOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, persistedSourceOverrides);
+    const persistedOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource);
     setSourceOverrides(persistedSourceOverrides);
     setSourceEditMode({
       setting: persistedSourceOverrides.settingManualOverride,
@@ -147,7 +162,7 @@ export function MonthModal({
     setImportAppliedCount(null);
     setImportUsage(null);
     setEntryMode("import");
-  }, [year, month, initialData, allSettingEntries, allClosingEntries, persistedSourceOverrides]);
+  }, [year, month, initialData, allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource]);
 
   const isDirty =
     !sameDraft(draft, initial) ||
@@ -173,7 +188,7 @@ export function MonthModal({
       const dailyValues = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, {
         settingManualOverride: false,
         closingManualOverride: false,
-      }).overrides;
+      }, callSource).overrides;
       const fields = section === "setting" ? SETTING_FIELDS : CLOSING_FIELDS;
       const patch = Object.fromEntries(fields.map((field) => [field, dailyValues[field] ?? null])) as Partial<MonthlyMetricsInput>;
       update(patch);
@@ -224,6 +239,13 @@ export function MonthModal({
       nextSourceOverrides.settingManualOverride = true;
     }
     if (
+      callsBookedSourced &&
+      sourceEditMode.setting &&
+      draft.callsBooked !== (dailySourceOverlay.overrides.callsBooked ?? null)
+    ) {
+      nextSourceOverrides.settingManualOverride = true;
+    }
+    if (
       closingSourced &&
       sourceEditMode.closing &&
       CLOSING_FIELDS.some((field) => draft[field] !== (dailySourceOverlay.overrides[field] ?? null))
@@ -232,7 +254,7 @@ export function MonthModal({
     }
     setSourceOverrides(nextSourceOverrides);
     startTransition(async () => {
-      const saveOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, nextSourceOverrides);
+      const saveOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, nextSourceOverrides, callSource);
       const payload = stripDailySourcedFields(draft, saveOverlay);
       const result = await saveMonthlyMetrics(year, month, payload, importUsage ?? undefined, nextSourceOverrides);
       if (result.error) {
@@ -285,10 +307,11 @@ export function MonthModal({
       ? "Vérifie ce chiffre"
       : undefined;
 
-  const sourceImportFields = useMemo(
-    () => [...(settingSourced ? SETTING_FIELDS : []), ...(closingSourced ? CLOSING_FIELDS : [])],
-    [closingSourced, settingSourced]
-  );
+  const sourceImportFields = useMemo(() => {
+    const fields = [...(settingSourced ? SETTING_FIELDS : []), ...(closingSourced ? CLOSING_FIELDS : [])];
+    if (callsBookedSourced && !fields.includes("callsBooked")) fields.push("callsBooked");
+    return fields;
+  }, [callsBookedSourced, closingSourced, settingSourced]);
   const nonOverridableImportFields = useMemo(() => (cashCollectedSynced ? (["cashCollected"] as const) : []), [cashCollectedSynced]);
 
   return (
@@ -401,6 +424,9 @@ export function MonthModal({
                     ) {
                       nextOverrides.settingManualOverride = true;
                     }
+                    if (callsBookedSourced && values.callsBooked !== undefined && values.callsBooked !== dailySourceOverlay.overrides.callsBooked) {
+                      nextOverrides.settingManualOverride = true;
+                    }
                     if (
                       closingSourced &&
                       CLOSING_FIELDS.some((field) => values[field] !== undefined && values[field] !== dailySourceOverlay.overrides[field])
@@ -409,7 +435,7 @@ export function MonthModal({
                     }
                     setSourceOverrides(nextOverrides);
                     setSourceEditMode((current) => ({
-                      setting: current.setting || settingSourced,
+                      setting: current.setting || settingSourced || callsBookedSourced,
                       closing: current.closing || closingSourced,
                     }));
                     update(values);
@@ -483,11 +509,11 @@ export function MonthModal({
                   <Send className="size-4" aria-hidden="true" />
                   Setting · prospection
                 </p>
-                {settingSourced && !sourceEditMode.setting && (
+                {(settingSourced || callsBookedSourced) && !sourceEditMode.setting && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
-                    <span>Ces 5 KPI sont calculés depuis ton suivi quotidien.</span>
+                    <span>Les KPI disponibles sont calculés depuis {settingSourceLabel}.</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("setting", true)}>
-                      Modifier ce mois
+                      Modifier malgré la source
                     </Button>
                   </div>
                 )}
@@ -497,8 +523,10 @@ export function MonthModal({
                   </p>
                 )}
                 {sourceOverrides.settingManualOverride && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2 text-xs text-accent-2-text">
-                    <span>Override mensuel actif : tes valeurs priment sur le suivi quotidien pour ce mois.</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution-bg px-3 py-2 text-xs text-state-caution" role="status">
+                    <span>
+                      <strong>Attention :</strong> tes valeurs remplacent {callSource ? "les données connectées" : "le suivi quotidien"} pour ce mois. Vérifie la source avant de confirmer.
+                    </span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("setting", false)}>
                       Revenir au suivi
                     </Button>
@@ -533,7 +561,7 @@ export function MonthModal({
                     label="Appels réservés"
                     value={draft.callsBooked}
                     onChange={(v) => updateSourceField("setting", "callsBooked", v)}
-                    disabledReason={settingSourced && !sourceEditMode.setting ? SETTING_SOURCE : undefined}
+                    disabledReason={(settingSourced || callsBookedSourced) && !sourceEditMode.setting ? settingCallsBookedSource : undefined}
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -583,9 +611,9 @@ export function MonthModal({
                 </p>
                 {closingSourced && !sourceEditMode.closing && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
-                    <span>Ces 2 KPI sont calculés depuis ton suivi quotidien.</span>
+                    <span>Ces 2 KPI sont calculés depuis {closingSourceLabel}.</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", true)}>
-                      Modifier ce mois
+                      Modifier malgré la source
                     </Button>
                   </div>
                 )}
@@ -595,8 +623,10 @@ export function MonthModal({
                   </p>
                 )}
                 {sourceOverrides.closingManualOverride && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2 text-xs text-accent-2-text">
-                    <span>Override mensuel actif : tes valeurs priment sur le suivi quotidien pour ce mois.</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution-bg px-3 py-2 text-xs text-state-caution" role="status">
+                    <span>
+                      <strong>Attention :</strong> tes valeurs remplacent {callSource ? "les données du Suivi d'appel" : "le suivi quotidien"} pour ce mois. Vérifie la source avant de confirmer.
+                    </span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", false)}>
                       Revenir au suivi
                     </Button>
@@ -608,14 +638,14 @@ export function MonthModal({
                     value={draft.callsTaken}
                     onChange={(v) => updateSourceField("closing", "callsTaken", v)}
                     warning={callsTakenWarning}
-                    disabledReason={closingSourced && !sourceEditMode.closing ? CLOSING_SOURCE : undefined}
+                    disabledReason={closingSourced && !sourceEditMode.closing ? closingFieldSource : undefined}
                   />
                   <KpiNumberField
                     label="Ventes conclues"
                     value={draft.salesClosed}
                     onChange={(v) => updateSourceField("closing", "salesClosed", v)}
                     warning={salesClosedWarning}
-                    disabledReason={closingSourced && !sourceEditMode.closing ? CLOSING_SOURCE : undefined}
+                    disabledReason={closingSourced && !sourceEditMode.closing ? closingFieldSource : undefined}
                   />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

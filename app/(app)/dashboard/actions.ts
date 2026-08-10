@@ -1,15 +1,15 @@
 "use server";
 
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { saveMonthlyMetrics } from "@/app/(app)/datas/actions";
 import { db } from "@/db";
-import { closingKpiEntries, improvementEvents, settingKpiEntries, users } from "@/db/schema";
+import { improvementEvents, users } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { buildRates, labelFor } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -18,11 +18,7 @@ export type CheckinFeedback = { key: string; label: string; beforePercent: numbe
 // Same 3-month aggregation window as lib/improve-chat-tracking.ts's
 // snapshot, so the before/after comparison is apples-to-apples.
 async function currentRateFor(userId: string, metricKey: string): Promise<number | null> {
-  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(userId),
-  ]);
+  const { allSettingEntries, allClosingEntries, allMonthlyRows } = await getDiagnosticKpiRawData(userId);
   const { settingTotals, closingTotals } = aggregatePeriodTotals({
     months: lastCompletedMonths(3),
     allMonthlyRows,

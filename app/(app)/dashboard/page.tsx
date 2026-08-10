@@ -25,6 +25,7 @@ import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
+import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
@@ -67,7 +68,7 @@ export default async function DashboardPage({
   // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
   // per request, so this is deduped against app/(app)/layout.tsx's own call
   // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, benchmarks, weeklyReports] =
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth }, benchmarks, weeklyReports] =
     await Promise.all([
       getBusinessProfile(accountId),
       getDiagnosticKpiRawData(accountId),
@@ -104,6 +105,7 @@ export default async function DashboardPage({
     allSettingEntries,
     allClosingEntries,
     allMonthlyRows,
+    callSourcesByMonth: allCallSourcesByMonth,
     isStripeConnected: Boolean(user?.stripeConnectId),
   }).filter((card) => DASHBOARD_METRIC_CARD_KEYS.includes(card.key));
 
@@ -162,6 +164,9 @@ export default async function DashboardPage({
   const currentYear = new Date().getUTCFullYear();
   const currentMonth = new Date().getUTCMonth() + 1;
   const currentMonthlyRow = allMonthlyRows.find((row) => row.year === currentYear && row.month === currentMonth);
+  const currentCallSource: MonthlyCallSource | null = currentMonthlyRow?.closingManualOverride
+    ? null
+    : allCallSourcesByMonth[monthKey(currentYear, currentMonth)] ?? null;
   const dailySourceOverlay = resolveDailySourceOverlay(
     monthDateRange(currentYear, currentMonth),
     allSettingEntries,
@@ -169,7 +174,8 @@ export default async function DashboardPage({
     {
       settingManualOverride: currentMonthlyRow?.settingManualOverride,
       closingManualOverride: currentMonthlyRow?.closingManualOverride,
-    }
+    },
+    currentCallSource
   );
   const checkinInitialData = {
     ...(currentMonthlyRow ?? emptyMonthRow(currentYear, currentMonth)),
@@ -198,7 +204,9 @@ export default async function DashboardPage({
           checkinMonth={currentMonth}
           checkinInitialData={checkinInitialData}
           checkinSettingSourced={dailySourceOverlay.settingSourced}
+          checkinCallsBookedSourced={dailySourceOverlay.callsBookedSourced}
           checkinClosingSourced={dailySourceOverlay.closingSourced}
+          checkinCallSource={currentCallSource}
         />
       </div>
 

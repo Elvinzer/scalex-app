@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { monthlyMetrics } from "@/db/schema";
+import { monthlyMetrics, salesCalls } from "@/db/schema";
 
+import { aggregateSalesCallsByMonth, type MonthlyCallSource } from "./call-source";
 import { EMPTY_MONTHLY_METRICS, type MonthlyMetricsInput } from "./types";
 
 // "stripe"/"stripe_stale"/null — read-only, never part of MonthlyMetricsInput
@@ -78,6 +79,19 @@ export async function getMonthlyMetricsForYear(userId: string, year: number): Pr
 export async function getAllMonthlyMetrics(userId: string): Promise<MonthlyMetricsRow[]> {
   const rows = await db.select().from(monthlyMetrics).where(eq(monthlyMetrics.userId, userId));
   return rows.map(toRow);
+}
+
+export async function getMonthlyCallSources(userId: string): Promise<Record<string, MonthlyCallSource>> {
+  const rows = await db
+    .select({
+      scheduledAt: salesCalls.scheduledAt,
+      attendance: salesCalls.attendance,
+      outcome: salesCalls.outcome,
+    })
+    .from(salesCalls)
+    .where(eq(salesCalls.userId, userId));
+
+  return aggregateSalesCallsByMonth(rows);
 }
 
 export function emptyMonthRow(year: number, month: number): MonthlyMetricsRow {

@@ -4,6 +4,7 @@ import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { aggregateEntries, type FunnelTotals } from "@/lib/setting/funnel";
 
 import { toClosingTotals, toFunnelTotals } from "./rates";
+import type { MonthlyCallSource } from "./call-source";
 import type { MonthlyMetricsInput } from "./types";
 import type { MonthlyMetricsRow } from "./queries";
 
@@ -58,7 +59,9 @@ export function resolveMonthClosingTotals(
 
 export type DailySourceOverlay = {
   settingSourced: boolean;
+  callsBookedSourced: boolean;
   closingSourced: boolean;
+  closingSource: "calls" | "daily" | null;
   overrides: Partial<MonthlyMetricsInput>;
 };
 
@@ -68,20 +71,25 @@ export type MonthlySourceOverrides = {
 };
 
 // Every field the check-in/month form asks for that's already covered by a
-// daily Setting/Closing entry this month — the default remains the daily
-// roll-up. An explicit monthly override is the one deliberate exception and
-// is persisted on the monthly row, so a user edit is never silently dropped.
+// connected call or daily Setting/Closing source this month — the default
+// remains the source roll-up. An explicit monthly override is the one
+// deliberate exception and is persisted on the monthly row, so a user edit
+// is never silently dropped.
 export function resolveDailySourceOverlay(
   monthRange: DateRange,
   dailySettingEntries: SettingEntry[],
   dailyClosingEntries: ClosingEntry[],
-  monthlySourceOverrides: MonthlySourceOverrides = {}
+  monthlySourceOverrides: MonthlySourceOverrides = {},
+  monthlyCallSource: MonthlyCallSource | null = null
 ): DailySourceOverlay {
   const settingThisMonth = dailySettingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
   const closingThisMonth = dailyClosingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
 
   const settingSourced = settingThisMonth.length > 0 && !monthlySourceOverrides.settingManualOverride;
-  const closingSourced = closingThisMonth.length > 0 && !monthlySourceOverrides.closingManualOverride;
+  const callsBookedSourced = Boolean(monthlyCallSource && monthlyCallSource.callCount > 0) && !monthlySourceOverrides.settingManualOverride;
+  const callsSourced = Boolean(monthlyCallSource && monthlyCallSource.callCount > 0) && !monthlySourceOverrides.closingManualOverride;
+  const dailyClosingSourced = closingThisMonth.length > 0 && !monthlySourceOverrides.closingManualOverride;
+  const closingSourced = callsSourced || dailyClosingSourced;
   const overrides: Partial<MonthlyMetricsInput> = {};
 
   if (settingSourced) {
@@ -92,21 +100,34 @@ export function resolveDailySourceOverlay(
     overrides.callsProposed = totals.callsProposed;
     overrides.callsBooked = totals.callsBooked;
   }
-  if (closingSourced) {
+  if (callsBookedSourced && monthlyCallSource) {
+    overrides.callsBooked = monthlyCallSource.callsBooked;
+  }
+  if (callsSourced && monthlyCallSource) {
+    overrides.callsTaken = monthlyCallSource.callsTaken;
+    overrides.salesClosed = monthlyCallSource.salesClosed;
+  } else if (dailyClosingSourced) {
     const totals = aggregateClosingEntries(closingThisMonth);
     overrides.callsTaken = totals.callsAttended;
     overrides.salesClosed = totals.salesClosed;
   }
 
-  return { settingSourced, closingSourced, overrides };
+  return {
+    settingSourced,
+    callsBookedSourced,
+    closingSourced,
+    closingSource: callsSourced ? "calls" : dailyClosingSourced ? "daily" : null,
+    overrides,
+  };
 }
 
-// Called right before a save — replaces any daily-sourced field with null so
-// resolveMonthSettingTotals/resolveMonthClosingTotals's own fallback (not a
-// frozen snapshot written here) stays authoritative going forward.
+// Called right before a save — replaces any source-managed field with null so
+// the resolver's own fallback (not a frozen snapshot written here) stays
+// authoritative going forward.
 export function stripDailySourcedFields(
   input: MonthlyMetricsInput,
-  overlay: Pick<DailySourceOverlay, "settingSourced" | "closingSourced">
+  overlay: Pick<DailySourceOverlay, "settingSourced" | "closingSourced"> &
+    Partial<Pick<DailySourceOverlay, "callsBookedSourced">>
 ): MonthlyMetricsInput {
   const result = { ...input };
   if (overlay.settingSourced) {
@@ -115,6 +136,7 @@ export function stripDailySourcedFields(
   if (overlay.closingSourced) {
     for (const field of CLOSING_FIELDS) result[field] = null;
   }
+  if (overlay.callsBookedSourced && !overlay.settingSourced) result.callsBooked = null;
   return result;
 }
 

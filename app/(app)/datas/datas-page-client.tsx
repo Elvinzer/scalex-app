@@ -11,6 +11,7 @@ import { SourceBadge, type MetricSource } from "@/components/source-badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
+import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { formatEur } from "@/lib/currency";
 import { rate, formatPercent } from "@/lib/setting/funnel";
@@ -37,6 +38,7 @@ export function DatasPageClient({
   pipelineVolumesByMonth,
   allSettingEntries,
   allClosingEntries,
+  callSourcesByMonth,
 }: {
   year: number;
   monthRows: MonthlyMetricsRow[];
@@ -47,6 +49,7 @@ export function DatasPageClient({
   pipelineVolumesByMonth: Record<number, { conversations: number; callsBooked: number; callsTaken: number }>;
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
+  callSourcesByMonth: Record<string, MonthlyCallSource>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState<{ year: number; month: number } | null>(null);
@@ -56,20 +59,27 @@ export function DatasPageClient({
   const rowFor = (month: number) => monthRows.find((row) => row.month === month) ?? null;
   const historicalRows = monthRows.filter((row) => row.year < currentYear || (row.year === currentYear && row.month <= currentMonth)).sort((a, b) => b.year - a.year || b.month - a.month);
   const featuredRow = historicalRows.slice(0, period === "90" ? 3 : period === "year" ? 12 : 1)[0] ?? null;
+  const featuredYear = featuredRow?.year ?? currentYear;
   const featuredMonth = featuredRow?.month ?? currentMonth;
-  const featuredLabel = new Date(Date.UTC(featuredRow?.year ?? year, featuredMonth - 1, 1)).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
+  const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
+  const featuredCallSource = featuredRow?.closingManualOverride
+    ? null
+    : callSourcesByMonth[monthKey(featuredYear, featuredMonth)] ?? null;
+  const featuredCallsBooked = featuredCallSource?.callsBooked ?? featuredRow?.callsBooked ?? null;
+  const featuredCallsTaken = featuredCallSource?.callsTaken ?? featuredRow?.callsTaken ?? null;
+  const featuredSalesClosed = featuredCallSource?.salesClosed ?? featuredRow?.salesClosed ?? null;
   const metricSource = (source: MetricSource): MetricSource => source;
-  const featuredClosingRate = featuredRow && featuredRow.salesClosed !== null && featuredRow.callsTaken !== null
-    ? rate(featuredRow.salesClosed, featuredRow.callsTaken)
+  const featuredClosingRate = featuredSalesClosed !== null && featuredCallsTaken !== null
+    ? rate(featuredSalesClosed, featuredCallsTaken)
     : null;
   const metrics: Array<{ label: string; description: string; value: string; evolution: string; source: MetricSource }> = [
     { label: "CA encaissé", description: "Paiements réellement reçus", value: featuredRow?.cashCollected === null || featuredRow?.cashCollected === undefined ? "—" : formatEur(featuredRow.cashCollected), evolution: "À comparer", source: metricSource(featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
     { label: "CA contracté", description: "Valeur des deals signés", value: featuredRow?.cashContracted === null || featuredRow?.cashContracted === undefined ? "—" : formatEur(featuredRow.cashContracted), evolution: "À comparer", source: "Saisie" },
     { label: "Leads", description: "Nouveaux contacts entrants", value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: "À comparer", source: "Pipeline" },
     { label: "Conversations", description: "Échanges engagés par un setter", value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: "À comparer", source: "Saisie" },
-    { label: "Appels réservés", description: "Rendez-vous pris", value: featuredRow?.callsBooked === null || featuredRow?.callsBooked === undefined ? "—" : String(featuredRow.callsBooked), evolution: "À comparer", source: "Calendly" },
-    { label: "Appels honorés", description: "Hors no-show et annulations", value: featuredRow?.callsTaken === null || featuredRow?.callsTaken === undefined ? "—" : String(featuredRow.callsTaken), evolution: "À comparer", source: "iClosed" },
-    { label: "Ventes conclues", description: "Deals signés sur la période", value: featuredRow?.salesClosed === null || featuredRow?.salesClosed === undefined ? "—" : String(featuredRow.salesClosed), evolution: "À comparer", source: "Stripe + saisie" },
+    { label: "Appels réservés", description: "Rendez-vous pris", value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: "À comparer", source: metricSource(featuredCallSource ? "Suivi d'appel" : "Calendly") },
+    { label: "Appels honorés", description: "Hors no-show et annulations", value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: "À comparer", source: metricSource(featuredCallSource ? "Suivi d'appel" : "iClosed") },
+    { label: "Ventes conclues", description: "Deals signés sur la période", value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: "À comparer", source: metricSource(featuredCallSource ? "Suivi d'appel" : "Stripe + saisie") },
     { label: "Taux de closing", description: "Ventes / appels honorés", value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate), evolution: "À comparer", source: "Calculé" },
   ];
 
@@ -154,6 +164,7 @@ export function DatasPageClient({
               isFuture={isFuture}
               allSettingEntries={allSettingEntries}
               allClosingEntries={allClosingEntries}
+              callSourcesByMonth={callSourcesByMonth}
               onOpen={() => setOpen({ year, month })}
             />
           );
@@ -205,6 +216,7 @@ export function DatasPageClient({
           pipelineVolumesThisMonth={open.year === year ? pipelineVolumesByMonth[open.month] : undefined}
           allSettingEntries={allSettingEntries}
           allClosingEntries={allClosingEntries}
+          callSource={callSourcesByMonth[monthKey(open.year, open.month)] ?? null}
           onClose={() => setOpen(null)}
           onNavigate={(nextYear, nextMonth) => setOpen({ year: nextYear, month: nextMonth })}
         />

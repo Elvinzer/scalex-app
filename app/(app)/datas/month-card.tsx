@@ -1,6 +1,7 @@
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import { EMPTY_MONTHLY_METRICS, MONTH_LABELS } from "@/lib/monthly-metrics/types";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
+import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
@@ -21,6 +22,7 @@ export function MonthCard({
   isFuture,
   allSettingEntries,
   allClosingEntries,
+  callSourcesByMonth,
   onOpen,
 }: {
   year: number;
@@ -30,16 +32,16 @@ export function MonthCard({
   isFuture: boolean;
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
+  callSourcesByMonth: Record<string, MonthlyCallSource>;
   onOpen: () => void;
 }) {
-  // Same merge as MonthModal: fields sourced from daily Setting/Closing
-  // entries are shown there pre-filled (greyed, read-only) rather than from
-  // the monthly row itself — the completion badge must count them too, or
-  // it under-reports "X/9" for months filled via daily check-ins.
+  // Same merge as MonthModal: fields sourced from Suivi d'appel or daily
+  // Setting/Closing entries are shown pre-filled rather than from the monthly
+  // row itself — the completion badge must count them too.
   const overlay = resolveDailySourceOverlay(monthDateRange(year, monthIndex), allSettingEntries, allClosingEntries, {
     settingManualOverride: row?.settingManualOverride,
     closingManualOverride: row?.closingManualOverride,
-  });
+  }, callSourcesByMonth[monthKey(year, monthIndex)] ?? null);
   const data = { ...(row ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
   const completion = computeCompletion(data);
   const status = monthStatus(completion);

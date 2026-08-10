@@ -7,6 +7,7 @@ import { Falco } from "@/components/falco/falco";
 import { KpiNumberField, type KpiFieldSource } from "@/components/kpi-number-field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 
@@ -23,6 +24,14 @@ const CLOSING_SOURCE: KpiFieldSource = {
   linkLabel: "Aller au suivi d'appel",
 };
 
+function callsSource(source: MonthlyCallSource): KpiFieldSource {
+  return {
+    text: `Cette valeur vient de Suivi d'appel : ${source.callsBooked} appel${source.callsBooked > 1 ? "s" : ""} réservé${source.callsBooked > 1 ? "s" : ""}, ${source.callsTaken} honoré${source.callsTaken > 1 ? "s" : ""} et ${source.salesClosed} vente${source.salesClosed > 1 ? "s" : ""} conclue${source.salesClosed > 1 ? "s" : ""}. Vérifie la source avant de la remplacer.`,
+    href: "/ventes/appels",
+    linkLabel: "Vérifier le suivi d'appel",
+  };
+}
+
 export function CheckinModal({
   open,
   onClose,
@@ -30,7 +39,9 @@ export function CheckinModal({
   month,
   initialData,
   settingSourced,
+  callsBookedSourced = false,
   closingSourced,
+  callSource = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -38,7 +49,9 @@ export function CheckinModal({
   month: number;
   initialData: MonthlyMetricsInput;
   settingSourced: boolean;
+  callsBookedSourced?: boolean;
   closingSourced: boolean;
+  callSource?: MonthlyCallSource | null;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initialData);
@@ -55,7 +68,7 @@ export function CheckinModal({
     setError(null);
     setIsPending(true);
 
-    const payload = stripDailySourcedFields(draft, { settingSourced, closingSourced });
+    const payload = stripDailySourcedFields(draft, { settingSourced, callsBookedSourced, closingSourced });
     const result = await submitWeeklyCheckin(year, month, payload);
     setIsPending(false);
     if (result.error) {
@@ -144,19 +157,19 @@ export function CheckinModal({
                   label="Appels réservés"
                   value={draft.callsBooked}
                   onChange={(v) => update({ callsBooked: v })}
-                  disabledReason={settingSourced ? SETTING_SOURCE : undefined}
+                  disabledReason={settingSourced || callsBookedSourced ? (callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE) : undefined}
                 />
                 <KpiNumberField
                   label="Appels pris"
                   value={draft.callsTaken}
                   onChange={(v) => update({ callsTaken: v })}
-                  disabledReason={closingSourced ? CLOSING_SOURCE : undefined}
+                  disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined}
                 />
                 <KpiNumberField
                   label="Ventes conclues"
                   value={draft.salesClosed}
                   onChange={(v) => update({ salesClosed: v })}
-                  disabledReason={closingSourced ? CLOSING_SOURCE : undefined}
+                  disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined}
                 />
               </div>
 
