@@ -9,6 +9,9 @@ import { ensureUserRow } from "@/lib/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountContext } from "@/lib/team/context";
 
+import { PublicLocaleSwitcher } from "@/components/i18n/public-locale-switcher";
+import { getRequestLocale } from "@/lib/i18n/locale";
+
 import { SignInForm } from "./sign-in-form";
 
 export const metadata: Metadata = {
@@ -40,8 +43,15 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
     redirect(user?.onboardingCompleted ? "/journal" : "/onboarding");
   }
 
+  const locale = await getRequestLocale();
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-8 px-6 py-16">
+    <div className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center gap-8 px-6 py-16">
+      {/* Top-right, minimal: needed so an English speaker can sign up, but it
+          must never compete with the form itself (§C). */}
+      <div className="absolute top-6 right-6">
+        <PublicLocaleSwitcher current={locale} />
+      </div>
       <SignInForm authCallbackError={(await searchParams).error === "auth_callback"} />
     </div>
   );

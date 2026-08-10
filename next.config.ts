@@ -1,4 +1,5 @@
 import bundleAnalyzer from "@next/bundle-analyzer";
+import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import path from "node:path";
 
@@ -88,4 +89,9 @@ const nextConfig: NextConfig = {
 // `ANALYZE=true npx next build`.
 const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
 
-export default withBundleAnalyzer(nextConfig);
+// Points next-intl at lib/i18n/request.ts. No locale routing plugin: the app
+// resolves the locale from the user row / cookie, so every route keeps its
+// existing path (see lib/i18n/locale.ts).
+const withNextIntl = createNextIntlPlugin("./lib/i18n/request.ts");
+
+export default withNextIntl(withBundleAnalyzer(nextConfig));

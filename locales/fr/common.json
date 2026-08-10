@@ -1,0 +1,23 @@
+{
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "continue": "Continuer",
+    "back": "Retour",
+    "retry": "Réessayer",
+    "seeDetail": "Voir le détail"
+  },
+  "states": {
+    "loading": "Chargement…",
+    "saved": "Enregistré",
+    "saving": "Enregistrement…",
+    "error": "Une erreur est survenue.",
+    "empty": "Rien à afficher pour l'instant."
+  },
+  "language": {
+    "label": "Langue de l'interface",
+    "fr": "Français",
+    "en": "English"
+  }
+}

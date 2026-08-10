@@ -11,6 +11,7 @@ import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { formatEur } from "@/lib/currency";
+import type { Locale } from "@/lib/i18n/config";
 import type { SaleMode } from "@/lib/business/types";
 import type { LeverCatalogEntry } from "@/lib/levers/catalog";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
@@ -18,6 +19,7 @@ import type { OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot"
 import { cn } from "@/lib/utils";
 
 import { completeOnboardingAfterImport, saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
+import { LanguageStep } from "./language-step";
 
 // Same reasoning as app/(app)/datas/datas-page-client.tsx: ImportFlow pulls
 // exceljs/pdf-parse/papaparse (≈380 Ko gzip) but only renders once the user
@@ -121,6 +123,8 @@ export function OnboardingFlow({
   discoveryLevers,
   discoveryTotal,
   discoveryAnswered,
+  needsLanguageChoice,
+  suggestedLocale,
 }: {
   previousMonthYear: number;
   previousMonthNum: number;
@@ -128,8 +132,14 @@ export function OnboardingFlow({
   discoveryLevers: LeverCatalogEntry[];
   discoveryTotal: number;
   discoveryAnswered: number;
+  needsLanguageChoice: boolean;
+  suggestedLocale: Locale;
 }) {
   const router = useRouter();
+  // Step 0 (§B): shown only to accounts that have never chosen. An existing
+  // user reaching the wizard again never sees it — `needsLanguageChoice` is
+  // false as soon as users.locale holds a value.
+  const [languageChosen, setLanguageChosen] = useState(!needsLanguageChoice);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   // Optional step-4 questionnaire, offered on the step-3 reveal — kept out of
   // the 1..3 ProgressBar so it reads as a bonus, not a mandatory step.
@@ -241,6 +251,22 @@ export function OnboardingFlow({
         : step === 2 && isPending
           ? "thinking"
           : "neutral";
+
+  if (!languageChosen) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col justify-center px-6 py-12">
+        <LanguageStep
+          suggested={suggestedLocale}
+          onChosen={() => {
+            setLanguageChosen(true);
+            // The server action revalidated the layout, so the rest of the
+            // wizard re-renders with the chosen locale's messages.
+            router.refresh();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col gap-8 px-6 py-12">

@@ -1,0 +1,9 @@
+{
+  "language": {
+    "bubbleFr": "Salut, moi c'est Falco 👋 On parle en français ou en anglais ?",
+    "bubbleEn": "Hey, I'm Falco 👋 Shall we speak French or English?",
+    "chooseFr": "Français",
+    "chooseEn": "English",
+    "suggested": "Détecté depuis ton navigateur"
+  }
+}

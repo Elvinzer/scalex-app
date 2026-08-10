@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -21,7 +22,12 @@ const WINDOW_DAYS = 120;
 // Once the user's first activity of the day is cached, every later navigation
 // serves from activity_log alone. The daily cron covers accounts that never
 // open the app.
-export async function getStreakSnapshot(userId: string): Promise<StreakSnapshot> {
+// Memoized per userId for the lifetime of one request — same pattern as
+// lib/diagnostic/request-cache.ts. app/(app)/layout.tsx (sidebar flame) and
+// the Journal page both need the snapshot and render concurrently, so without
+// this they each triggered their own refresh: two identical full recomputes
+// per navigation, racing each other on the same rows.
+export const getStreakSnapshot = cache(async (userId: string): Promise<StreakSnapshot> => {
   const today = toIsoDate(todayUtc());
   const windowStart = addDays(today, -WINDOW_DAYS);
 
@@ -75,4 +81,4 @@ export async function getStreakSnapshot(userId: string): Promise<StreakSnapshot>
     celebrateMilestone: null,
     justBrokeFrom: null,
   };
-}
+});

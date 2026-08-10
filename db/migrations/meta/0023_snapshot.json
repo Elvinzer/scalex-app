@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "id": "b41cf9fa-96aa-49ee-9d32-09b17f72ebfc",
+=======
+  "id": "51f5dc90-9681-4c8b-88d8-c4ee6ee86b7f",
+>>>>>>> 0ad611b (feat(i18n): implement multilingual support with French and English locales)
   "prevId": "f3be8741-83b9-4bb9-b78f-2bdea5c78d94",
   "version": "7",
   "dialect": "postgresql",
@@ -6280,6 +6284,7 @@
           "primaryKey": false,
           "notNull": false
         },
+<<<<<<< HEAD
         "setting_manual_override": {
           "name": "setting_manual_override",
           "type": "boolean",
@@ -6294,6 +6299,8 @@
           "notNull": true,
           "default": false
         },
+=======
+>>>>>>> 0ad611b (feat(i18n): implement multilingual support with French and English locales)
         "first_messages": {
           "name": "first_messages",
           "type": "integer",
@@ -12603,6 +12610,15 @@
           "notNull": true,
           "default": true
         },
+<<<<<<< HEAD
+=======
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+>>>>>>> 0ad611b (feat(i18n): implement multilingual support with French and English locales)
         "is_test_account": {
           "name": "is_test_account",
           "type": "boolean",

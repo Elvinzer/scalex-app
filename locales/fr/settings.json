@@ -1,0 +1,9 @@
+{
+  "preferences": {
+    "title": "Préférences",
+    "languageLabel": "Langue de l'interface",
+    "languageHelp": "Falco, tes emails et tout le produit basculent dans cette langue.",
+    "newLanguageNotice": "L'anglais est maintenant disponible. Tu peux changer la langue de l'interface ici, quand tu veux.",
+    "dismissNotice": "Masquer"
+  }
+}

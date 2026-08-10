@@ -127,6 +127,19 @@ export const users = pgTable("users", {
   businessProfileCompletedAt: timestamp("business_profile_completed_at", { withTimezone: true }),
   // Monday weekly-brief email opt-out (lib/inngest/functions/weekly-brief-email.ts).
   weeklyEmailEnabled: boolean("weekly_email_enabled").notNull().default(true),
+  // Interface language, and the source of truth for it (lib/i18n/). The
+  // browser's Accept-Language only ever PRE-SELECTS the onboarding choice; it
+  // never decides on its own afterwards.
+  //
+  // Nullable on purpose, and that null is meaningful: it distinguishes "never
+  // chose" (every account predating this feature — served French, offered a
+  // dismissable note in Réglages, and never sent back through onboarding)
+  // from an explicit choice. A NOT NULL DEFAULT 'fr' would erase that
+  // difference on the very migration that creates the column.
+  //
+  // text + a runtime-validated union rather than a pg enum: adding a third
+  // locale then costs a constant in lib/i18n/config.ts, not a migration.
+  locale: text("locale").$type<"fr" | "en">(),
   // Excludes founders'/QA accounts from the weekly email — set manually via
   // DB for now, no admin UI toggle in this chantier.
   isTestAccount: boolean("is_test_account").notNull().default(false),

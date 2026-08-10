@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
 import "./globals.css";
+
+import { LOCALE_HTML_LANG } from "@/lib/i18n/config";
+import { getRequestLocale } from "@/lib/i18n/locale";
 
 import { PostHogInit } from "@/components/posthog-init";
 import { MetaTouchpointCapture } from "@/components/meta-ads/meta-touchpoint-capture";
@@ -25,11 +29,18 @@ export const metadata: Metadata = {
     "Scale X diagnoses the #1 bottleneck holding back your info business and deploys an AI agent that fixes it.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Resolved server-side, before the first byte: the page is rendered in the
+  // right language from the start, so there is no flash of French to correct
+  // in the browser (§A). Messages are provided by next-intl's request config
+  // (lib/i18n/request.ts) — the client provider inherits them, no prop
+  // drilling and no second fetch.
+  const locale = await getRequestLocale();
+
   return (
     // inter.variable (which defines --font-inter) must live on <html>, not
     // <body>: globals.css's `html { font-family: var(--font-sans) }` rule
@@ -38,11 +49,13 @@ export default function RootLayout({
     // descendant) left <html> unable to see it, so that rule silently fell
     // back to the browser's default serif, which every element without its
     // own explicit font utility class then inherited.
-    <html lang="en" className={`${inter.variable} overflow-x-clip`}>
+    <html lang={LOCALE_HTML_LANG[locale]} className={`${inter.variable} overflow-x-clip`}>
       <body className="antialiased overflow-x-clip">
-        <PostHogInit />
-        <MetaTouchpointCapture />
-        {children}
+        <NextIntlClientProvider>
+          <PostHogInit />
+          <MetaTouchpointCapture />
+          {children}
+        </NextIntlClientProvider>
       </body>
     </html>
   );

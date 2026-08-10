@@ -100,11 +100,33 @@ export async function collectActivityDays(userId: string, fromDate: string): Pro
 // Replaces the cached window wholesale rather than diffing: the source tables
 // are the authority, so a deleted post or a corrected entry has to be able to
 // REMOVE an active day, not just add one.
+//
+// Serialized per user by an advisory lock. Next renders the layout (sidebar
+// flame) and the page concurrently, and the daily cron can land at the same
+// moment, so two refreshes for one account genuinely overlap. Under READ
+// COMMITTED both transactions delete, then both insert, and the second one
+// hits activity_log's (user_id, date) primary key — a 500 on the Journal, in
+// production, from two writes that were computing the exact same rows. The
+// lock is transaction-scoped, so it releases on commit or rollback with no
+// cleanup path to get wrong.
 export async function replaceActivityWindow(userId: string, fromDate: string, days: ActivityDay[]): Promise<void> {
   await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`streak:${userId}`}))`);
+
     await tx.delete(activityLog).where(and(eq(activityLog.userId, userId), gte(activityLog.date, fromDate)));
     if (days.length === 0) return;
-    await tx.insert(activityLog).values(days.map((day) => ({ userId, date: day.date, sources: day.sources })));
+
+    // Upsert rather than plain insert: the lock covers concurrent refreshes,
+    // this covers everything else (a retried step, a row outside the deleted
+    // window). Both writers derive the same values, so last-write-wins is
+    // always the right outcome here.
+    await tx
+      .insert(activityLog)
+      .values(days.map((day) => ({ userId, date: day.date, sources: day.sources })))
+      .onConflictDoUpdate({
+        target: [activityLog.userId, activityLog.date],
+        set: { sources: sql`excluded.sources` },
+      });
   });
 }
 

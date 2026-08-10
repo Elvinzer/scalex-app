@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { track } from "@/lib/analytics";
@@ -6,6 +7,8 @@ import { getCurrentUser } from "@/lib/current-user";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getDiscoveryState } from "@/lib/levers/discovery";
 import { MONTH_LABELS } from "@/lib/monthly-metrics/types";
+import { matchLocaleFromAcceptLanguage } from "@/lib/i18n/config";
+import { getStoredUserLocale } from "@/lib/i18n/locale";
 
 import { OnboardingFlow } from "./onboarding-flow";
 
@@ -38,6 +41,12 @@ export default async function OnboardingPage() {
   // onboardingCompleted users were redirected above.
   const discovery = user ? await getDiscoveryState(user.id) : null;
 
+  // The browser only PRE-SELECTS (§A). An account that already holds a locale
+  // skips step 0 entirely rather than being asked twice.
+  const storedLocale = await getStoredUserLocale();
+  const headerStore = await headers();
+  const suggestedLocale = matchLocaleFromAcceptLanguage(headerStore.get("accept-language"));
+
   return (
     <OnboardingFlow
       previousMonthYear={previousMonth.year}
@@ -46,6 +55,8 @@ export default async function OnboardingPage() {
       discoveryLevers={discovery?.remainingLevers ?? []}
       discoveryTotal={discovery?.total ?? 0}
       discoveryAnswered={discovery?.answered ?? 0}
+      needsLanguageChoice={storedLocale === null}
+      suggestedLocale={storedLocale ?? suggestedLocale}
     />
   );
 }

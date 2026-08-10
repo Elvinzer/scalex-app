@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import { tryDecrypt } from "@/lib/crypto";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
+import { getRequestLocale, getStoredUserLocale } from "@/lib/i18n/locale";
+import { getTranslations } from "next-intl/server";
 
 import { ApiKeyForm } from "./api-key-form";
 import { DangerZoneForm } from "./danger-zone-form";
 import { FalcoPreferencesForm } from "./falco-preferences-form";
+import { LanguageForm } from "./language-form";
 import { ProfileForm } from "./profile-form";
 
 // Owner-only: BYOK key, Stripe Connect, billing, team & role management are
@@ -28,6 +31,14 @@ export default async function SettingsPage() {
   const maskedKey = decryptedKey ? `sk-ant-...${decryptedKey.slice(-4)}` : null;
   const keyUnreadable = Boolean(user?.anthropicApiKeyEncrypted) && decryptedKey === null;
   const keyInvalid = Boolean(user?.anthropicApiKeyInvalid);
+
+  // storedLocale === null marks an account that predates the language choice:
+  // it keeps French and gets the dismissable note, never a replayed onboarding.
+  const [resolvedLocale, storedLocale, tPreferences] = await Promise.all([
+    getRequestLocale(),
+    getStoredUserLocale(),
+    getTranslations("settings.preferences"),
+  ]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -53,6 +64,13 @@ export default async function SettingsPage() {
         </div>
         <div className="mt-6 border-t border-border pt-6">
           <FalcoPreferencesForm initialReduceAnimations={user?.reduceFalcoAnimations ?? false} />
+        </div>
+      </div>
+
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">{tPreferences("title")}</p>
+        <div className="mt-4">
+          <LanguageForm initialLocale={resolvedLocale} showNewLanguageNotice={storedLocale === null} />
         </div>
       </div>
 

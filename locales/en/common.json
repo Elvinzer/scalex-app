@@ -1,0 +1,23 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "continue": "Continue",
+    "back": "Back",
+    "retry": "Try again",
+    "seeDetail": "See details"
+  },
+  "states": {
+    "loading": "Loading…",
+    "saved": "Saved",
+    "saving": "Saving…",
+    "error": "Something went wrong.",
+    "empty": "Nothing to show yet."
+  },
+  "language": {
+    "label": "Interface language",
+    "fr": "Français",
+    "en": "English"
+  }
+}
