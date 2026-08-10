@@ -20,6 +20,7 @@ export function SourceBadge({ source, className }: { source: MetricSource; class
     Stripe: "stripe",
     Calendly: "calendly",
     iClosed: "iclosed",
+    "Suivi d'appel": "callTracking",
     Pipeline: "pipeline",
     Saisie: "manual",
     Calculé: "calculated",

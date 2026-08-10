@@ -46,12 +46,6 @@ const campaignSearchParamsSchema = z.object({
   meta_ads_error: z.string().optional(),
 });
 
-function conversionGoalLabel(value: string | null, locale: string): string | null {
-  if (value === "call") return locale === "en" ? "Call" : "Appel";
-  if (value === "sale") return locale === "en" ? "Sale" : "Vente";
-  return null;
-}
-
 function webinarSourceLabel(value: string): string {
   if (value === "calendly") return "Calendly";
   if (value === "iclosed") return "iClosed";
@@ -288,7 +282,6 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const managerUrl = metaAdsManagerUrl(detail.dashboard.account.externalId, detail.campaign.externalId);
   const attribution = detail.attributionQuality;
   const attributionLabel = attribution.status === "verified" ? (locale === "en" ? "Verified" : "Vérifiée") : attribution.status === "partial" ? (locale === "en" ? "Partial" : "Partielle") : (locale === "en" ? "Not calculable" : "Non calculable");
-  const conversionGoal = conversionGoalLabel(detail.campaign.conversionGoal, locale);
   const campaignConfigured = detail.campaign.campaignType !== null
     && (!campaignTypeNeedsConversionGoal(detail.campaign.campaignType) || detail.campaign.conversionGoal !== null);
   const conversionMetricLabel = detail.campaign.conversionGoal === "call" ? (locale === "en" ? "Booked calls" : "Appels réservés") : detail.campaign.conversionGoal === "sale" ? (locale === "en" ? "Linked sales" : "Ventes reliées") : (locale === "en" ? "Business conversion" : "Conversion business");
@@ -384,53 +377,20 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Button variant="ghost" asChild className="mb-3 -ml-2">
-<<<<<<< HEAD
-            <Link href={`/acquisition/ads?${periodQuery}`}><ArrowLeft className="size-4" />Retour aux Ads</Link>
-=======
-            <Link href="/acquisition/ads"><ArrowLeft className="size-4" />{t("backToAds")}</Link>
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
+            <Link href={`/acquisition/ads?${periodQuery}`}><ArrowLeft className="size-4" />{t("backToAds")}</Link>
           </Button>
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">Meta Ads · {typeLabel(detail.campaign.campaignType, locale)}</p>
           <h1 className="mt-1 text-3xl font-bold">{detail.campaign.name}</h1>
-<<<<<<< HEAD
           <p className="mt-1 text-sm text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(detail.dashboard.period)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <MetaPeriodFilter selection={periodSelection} period={detail.dashboard.period} />
           <Button asChild variant="outline">
             <a href={managerUrl} target="_blank" rel="noopener noreferrer">
-              Ouvrir dans Meta Ads <ExternalLink className="size-4" />
+              {t("openMetaAds")} <ExternalLink className="size-4" />
             </a>
           </Button>
         </div>
-=======
-          <p className="mt-1 text-sm text-muted-foreground">{detail.dashboard.period.start} → {detail.dashboard.period.end} · {detail.campaign.objective ?? t("objectiveMissing")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {campaignConfigured && conversionGoal
-              ? t("conversionGoal", { value: conversionGoal })
-              : t("conversionToDefine")}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("comparison", { start: detail.dashboard.comparisonPeriod.start, end: detail.dashboard.comparisonPeriod.end })}</p>
-          <p className="mt-2 text-xs font-bold text-muted-foreground">
-            {detail.dashboard.period.consolidatedThrough
-              ? t("consolidated", { date: new Intl.DateTimeFormat(locale).format(new Date(`${detail.dashboard.period.consolidatedThrough}T12:00:00Z`)) })
-              : t("consolidating")}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {t("coverage", { value: detail.campaign.metricCoverageRate === null || detail.campaign.metricCoverageRate === undefined ? "—" : formatPercent(detail.campaign.metricCoverageRate, locale) })}
-          </p>
-          {detail.dashboard.missingMetricDates.length > 0 && (
-            <p className="mt-1 text-xs font-bold text-state-caution" role="status">
-              {t("missingDates", { dates: detail.dashboard.missingMetricDates.slice(0, 8).join(", "), count: Math.max(0, detail.dashboard.missingMetricDates.length - 8) })}
-            </p>
-          )}
-        </div>
-        <Button asChild variant="outline">
-          <a href={managerUrl} target="_blank" rel="noopener noreferrer">
-            {t("openMetaAds")} <ExternalLink className="size-4" />
-          </a>
-        </Button>
->>>>>>> b780dd3 (Add French localization for integrations, navigation, referral, and sales tracking)
       </div>
 
       <MetaDataQuality

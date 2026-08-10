@@ -66,6 +66,7 @@
     "stripe": "Stripe",
     "calendly": "Calendly",
     "iclosed": "iClosed",
+    "callTracking": "Suivi d'appel",
     "pipeline": "Pipeline",
     "manual": "Saisie",
     "calculated": "Calculé",
