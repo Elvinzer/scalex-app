@@ -54,6 +54,8 @@
   --color-accent-2-soft: var(--accent-2-soft);
   --color-accent-2-border: var(--accent-2-border);
   --color-accent-2-text: var(--accent-2-text);
+  --color-bottleneck-highlight: var(--bottleneck-highlight);
+  --color-bottleneck-icon-border: var(--bottleneck-icon-border);
   --color-surface-dark-2: var(--surface-dark-2);
   --color-border-hover: var(--border-hover);
   --color-surface-sunken: var(--surface-sunken);
@@ -117,6 +119,18 @@
   --accent-border: #f5c4b3;
   --accent-text: #712b13;
   --accent-glow: rgba(232, 102, 60, 0.35);
+
+  /* Bottleneck funnel scale — the prototype's positional coral ramp,
+     exposed as tokens so the production component stays theme-driven. */
+  --bottleneck-stage-1: #f6d9c4;
+  --bottleneck-stage-2: #f0b98f;
+  --bottleneck-stage-3: #ea9a66;
+  --bottleneck-stage-4: var(--accent);
+  --bottleneck-stage-5: #d4552f;
+  --bottleneck-stage-6: #b5522f;
+  --bottleneck-stage-7: var(--surface-dark);
+  --bottleneck-highlight: #f3a483;
+  --bottleneck-icon-border: #ead3c6;
 
   /* Accent 2 — violet, second accent de marque (analytics/IA, variété
      visuelle) — anciennement un token "legacy" discret, promu ici. */

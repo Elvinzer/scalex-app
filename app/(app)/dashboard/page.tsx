@@ -324,8 +324,6 @@ export default async function DashboardPage({
         <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
       </Suspense>
 
-      <BottleneckFunnel data={bottleneckFunnel} />
-
       <div>
         <h2 className="text-base font-bold">{t("monthContext")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t("monthContextHelp")}</p>
@@ -337,6 +335,8 @@ export default async function DashboardPage({
           ))}
         </div>
       </div>
+
+      <BottleneckFunnel data={bottleneckFunnel} />
 
       <div className="grid gap-3 lg:grid-cols-2">
         <TechnicalAlertsSection alerts={technicalAlerts} />
