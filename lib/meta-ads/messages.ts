@@ -1,6 +1,6 @@
 export function metaAdsErrorMessage(value: unknown): string | null {
   if (value === "config") {
-    return "Meta Ads n’est pas configuré sur cet environnement. Ajoute META_APP_ID et META_APP_SECRET — ou réutilise INSTAGRAM_APP_ID et INSTAGRAM_APP_SECRET si c’est la même Meta App — puis redémarre l’application.";
+    return "Meta Ads n’est pas configuré sur cet environnement. Ajoute META_APP_ID et META_APP_SECRET, puis redémarre l’application. Les credentials INSTAGRAM_* du flow Instagram Login ne conviennent pas au Marketing API.";
   }
   if (value === "ads_read") {
     return "Meta n’a pas accordé la permission de lecture des publicités. Reconnecte Meta Ads et accepte ads_read.";

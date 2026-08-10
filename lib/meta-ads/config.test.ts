@@ -22,7 +22,7 @@ describe("Meta app configuration", () => {
     }
   }
 
-  it("returns null when neither credential pair is complete", () => {
+  it("returns null when the Meta pair is incomplete", () => {
     withEnvironment({ META_APP_ID: undefined, META_APP_SECRET: undefined, INSTAGRAM_APP_ID: undefined, INSTAGRAM_APP_SECRET: undefined }, () => {
       expect(getMetaAppCredentials()).toBeNull();
     });
@@ -34,9 +34,9 @@ describe("Meta app configuration", () => {
     });
   });
 
-  it("reuses a complete Instagram pair when the Meta pair is absent", () => {
+  it("does not reuse Instagram Login credentials", () => {
     withEnvironment({ META_APP_ID: undefined, META_APP_SECRET: undefined, INSTAGRAM_APP_ID: " ig-id ", INSTAGRAM_APP_SECRET: " ig-secret " }, () => {
-      expect(getMetaAppCredentials()).toEqual({ appId: "ig-id", appSecret: "ig-secret" });
+      expect(getMetaAppCredentials()).toBeNull();
     });
   });
 

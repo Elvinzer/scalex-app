@@ -12,12 +12,11 @@ function readPair(idName: string, secretName: string): MetaAppCredentials | null
 
 /**
  * Returns the credentials required by the Marketing API OAuth flow without
- * throwing from a route handler. A dedicated META pair wins; when neither
- * META variable is present, the Instagram pair is reused because both
- * products can belong to the same Meta App. Pairs are never mixed.
+ * throwing from a route handler. Marketing API credentials are deliberately
+ * kept separate from the Instagram Login credentials: the two integrations
+ * use different OAuth products and scopes, even when they are configured in
+ * the same Meta developer account.
  */
 export function getMetaAppCredentials(): MetaAppCredentials | null {
-  const hasExplicitMetaConfiguration = Boolean(process.env.META_APP_ID || process.env.META_APP_SECRET);
-  if (hasExplicitMetaConfiguration) return readPair("META_APP_ID", "META_APP_SECRET");
-  return readPair("INSTAGRAM_APP_ID", "INSTAGRAM_APP_SECRET");
+  return readPair("META_APP_ID", "META_APP_SECRET");
 }
