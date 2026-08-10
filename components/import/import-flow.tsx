@@ -25,6 +25,8 @@ type Step =
   | { kind: "done"; fieldsWritten: number; blockedFields: BlockedField[] }
   | { kind: "error"; message: string };
 
+type ImportPeriod = { year: number; month: number };
+
 function questionCountFor(analysis: AnalyzeResponse): number {
   return analysis.sheets.reduce((sum, sheet) => {
     const headerQuestion = sheet.headerRowConfident ? 0 : 1;
@@ -42,6 +44,34 @@ function hasPendingQuestions(analysis: AnalyzeResponse): boolean {
   );
 }
 
+// A month modal already gives Falco the destination period. If the pasted
+// table has no date column, set that period in code so the user can go
+// straight to the review instead of answering a question we already know.
+function applyDefaultPeriod(analysis: AnalyzeResponse, defaultPeriod?: ImportPeriod): AnalyzeResponse {
+  if (!defaultPeriod) return analysis;
+
+  return {
+    ...analysis,
+    sheets: analysis.sheets.map((sheet) => {
+      if (
+        sheet.mapping.targetTable !== "monthly_metrics" ||
+        sheet.mapping.dateColumnName !== null ||
+        sheet.mapping.periodDetected !== null
+      ) {
+        return sheet;
+      }
+
+      return {
+        ...sheet,
+        mapping: {
+          ...sheet.mapping,
+          periodDetected: defaultPeriod,
+        },
+      };
+    }),
+  };
+}
+
 // Shared by both entry points (Mes chiffres drawer, onboarding inline) —
 // only what wraps this component differs (Drawer vs. inline layout), the
 // upload→analyze→clarify→preview→commit state machine is identical for
@@ -53,9 +83,13 @@ function hasPendingQuestions(analysis: AnalyzeResponse): boolean {
 export function ImportFlow({
   source,
   onCommitted,
+  allowPaste = false,
+  defaultPeriod,
 }: {
   source: "onboarding" | "datas";
   onCommitted?: () => void;
+  allowPaste?: boolean;
+  defaultPeriod?: ImportPeriod;
 }) {
   const [step, setStep] = useState<Step>({ kind: "dropzone" });
   // Kept around so a "which line is your header row?" answer can
@@ -78,10 +112,11 @@ export function ImportFlow({
         return;
       }
 
-      const count = questionCountFor(body);
+      const analysis = applyDefaultPeriod(body, defaultPeriod);
+      const count = questionCountFor(analysis);
       if (count > 0) trackClient("import_questions_asked", { count });
 
-      setStep(hasPendingQuestions(body) ? { kind: "clarify", analysis: body } : { kind: "preview", analysis: body });
+      setStep(hasPendingQuestions(analysis) ? { kind: "clarify", analysis } : { kind: "preview", analysis });
     } catch {
       setStep({ kind: "error", message: "Erreur réseau pendant l'analyse du fichier." });
     }
@@ -141,7 +176,7 @@ export function ImportFlow({
 
   switch (step.kind) {
     case "dropzone":
-      return <ImportDropzone onFilesSelected={handleFilesSelected} />;
+      return <ImportDropzone onFilesSelected={handleFilesSelected} allowPaste={allowPaste} />;
 
     case "analyzing":
       return (

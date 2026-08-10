@@ -359,7 +359,12 @@ export function ImportPreview({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm font-bold">Vérifie avant d&apos;importer</p>
+      <div className="rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2.5">
+        <p className="text-sm font-bold text-accent-2-text">Falco a rangé tes chiffres</p>
+        <p className="mt-1 text-xs text-accent-2-text/80">
+          Vérifie chaque colonne et corrige une valeur si nécessaire. Rien ne sera écrit avant ta validation.
+        </p>
+      </div>
 
       {groups.map((group) => {
         const monthKey = `${group.year}-${group.month}`;
@@ -433,7 +438,7 @@ export function ImportPreview({
 
       <div className="flex gap-2">
         <Button onClick={handleCommit} disabled={isCommitting}>
-          {isCommitting ? "Import en cours..." : `Importer ${groups.reduce((sum, g) => sum + g.fields.length, 0)} valeur(s)`}
+          {isCommitting ? "Validation en cours..." : `Valider ${groups.reduce((sum, g) => sum + g.fields.length, 0)} valeur(s)`}
         </Button>
         <Button variant="secondary" onClick={onCancel} disabled={isCommitting}>
           Annuler

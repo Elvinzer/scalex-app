@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, PencilLine, Phone, Send, Sparkles, WalletCards, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { KpiNumberField, type KpiFieldSource } from "@/components/kpi-number-field";
+import { MonthlyKpiImport } from "@/components/import/monthly-kpi-import";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
@@ -13,7 +14,7 @@ import { computeClosingRates } from "@/lib/closing/metrics";
 import { monthDateRange } from "@/lib/date-range";
 import { MONTH_LABELS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
-import { resolveDailySourceOverlay, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
+import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import { revenuePerCall, toClosingTotals, toFunnelTotals } from "@/lib/monthly-metrics/rates";
 import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 
@@ -117,6 +118,8 @@ export function MonthModal({
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [entryMode, setEntryMode] = useState<"import" | "manual">("import");
+  const [importAppliedCount, setImportAppliedCount] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const isDirty = !sameDraft(draft, initial);
@@ -159,6 +162,7 @@ export function MonthModal({
       }
       setSaveError(null);
       setSaved(true);
+      setImportAppliedCount(null);
       router.refresh();
       after?.();
     });
@@ -201,9 +205,18 @@ export function MonthModal({
       ? "Vérifie ce chiffre"
       : undefined;
 
+  const blockedImportFields = useMemo(
+    () => [
+      ...(cashCollectedSynced ? (["cashCollected"] as const) : []),
+      ...(settingSourced ? SETTING_FIELDS : []),
+      ...(closingSourced ? CLOSING_FIELDS : []),
+    ],
+    [cashCollectedSynced, closingSourced, settingSourced]
+  );
+
   return (
     <Dialog open onOpenChange={(next) => !next && requestClose()}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl p-0">
         {pendingAction ? (
           <div className="flex flex-col gap-4 p-2 text-center">
             <p className="font-bold">Tu as des modifications non enregistrées</p>
@@ -218,8 +231,11 @@ export function MonthModal({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-4 px-6 pt-6">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent-text">
+                  <WalletCards className="size-5" aria-hidden="true" />
+                </div>
                 <button
                   type="button"
                   onClick={() => requestNavigate(-1)}
@@ -250,10 +266,79 @@ export function MonthModal({
               </button>
             </div>
 
-            <div className="mt-6 flex flex-col gap-6">
+            <div className="px-6 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Ajoute les données de {MONTH_LABELS[month - 1].toLowerCase()} en quelques secondes. Falco peut reconnaître ton tableau automatiquement.
+              </p>
+            </div>
+
+            <div className="mx-6 mt-5 grid grid-cols-2 gap-1 rounded-[var(--radius-control)] border border-border bg-surface-sunken p-1" role="tablist" aria-label="Méthode de saisie">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entryMode === "import"}
+                onClick={() => setEntryMode("import")}
+                className={`flex min-h-11 items-center justify-center gap-2 rounded-[calc(var(--radius-control)-2px)] px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-accent-2 ${
+                  entryMode === "import" ? "bg-card text-accent-2-text shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Sparkles className="size-4" aria-hidden="true" />
+                Import intelligent
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entryMode === "manual"}
+                onClick={() => setEntryMode("manual")}
+                className={`flex min-h-11 items-center justify-center gap-2 rounded-[calc(var(--radius-control)-2px)] px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                  entryMode === "manual" ? "bg-card text-accent-text shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <PencilLine className="size-4" aria-hidden="true" />
+                Saisie manuelle
+              </button>
+            </div>
+
+            {entryMode === "import" ? (
+              <div className="flex flex-col gap-4 px-6 py-5">
+                <div className="flex items-start gap-3 rounded-[var(--radius-card)] border border-accent-2-border bg-accent-2-soft/60 p-4">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-2 text-white shadow-[0_4px_12px_var(--accent-2-glow)]">
+                    <Sparkles className="size-4" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-accent-2-text">Falco trie ton tableau pour toi</p>
+                    <p className="mt-1 text-xs leading-5 text-accent-2-text/80">
+                      Envoie un CSV/Excel ou colle tes cellules. Il associe les bons chiffres aux 9 indicateurs de ce mois, puis te montre le résultat avant toute validation.
+                    </p>
+                  </div>
+                </div>
+                <MonthlyKpiImport
+                  period={{ year, month }}
+                  blockedFields={blockedImportFields}
+                  onApply={(values, count) => {
+                    update(values);
+                    setImportAppliedCount(count);
+                    setEntryMode("manual");
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col gap-6 px-6 pb-6">
+              {importAppliedCount !== null && (
+                <div className="flex items-start justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-3" role="status">
+                  <div>
+                    <p className="text-sm font-bold text-accent-2-text">{importAppliedCount} valeur{importAppliedCount > 1 ? "s" : ""} prête{importAppliedCount > 1 ? "s" : ""} à vérifier</p>
+                    <p className="mt-1 text-xs text-accent-2-text/80">Relis les champs puis clique sur Enregistrer pour confirmer.</p>
+                  </div>
+                  <button type="button" onClick={() => setEntryMode("import")} className="shrink-0 text-xs font-bold text-accent-2-text underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent-2">
+                    Revoir
+                  </button>
+                </div>
+              )}
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                  💰 Finance
+                <p className="flex items-center gap-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                  <WalletCards className="size-4" aria-hidden="true" />
+                  Finance
                 </p>
                 {cashCollectedStale && (
                   <div className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-xs font-bold text-state-caution">
@@ -297,8 +382,9 @@ export function MonthModal({
               </div>
 
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                  📩 Setting · prospection
+                <p className="flex items-center gap-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                  <Send className="size-4" aria-hidden="true" />
+                  Setting · prospection
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <KpiNumberField
@@ -373,8 +459,9 @@ export function MonthModal({
               </div>
 
               <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                  📞 Closing
+                <p className="flex items-center gap-2 text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                  <Phone className="size-4" aria-hidden="true" />
+                  Closing
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <KpiNumberField
@@ -435,6 +522,7 @@ export function MonthModal({
                 )}
               </div>
             </div>
+            )}
           </>
         )}
       </DialogContent>
