@@ -33,6 +33,7 @@ import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
+import { measureAsync } from "@/lib/perf/timing";
 import { getLocale, getTranslations } from "next-intl/server";
 
 const PERIOD_MONTHS = 3;
@@ -48,11 +49,17 @@ const DASHBOARD_METRIC_CARD_KEYS = [
   "average-sale",
 ];
 
-export default async function DashboardPage({
-  searchParams,
-}: {
+type DashboardPageProps = {
   searchParams: Promise<{ checkin?: string; bandeau?: string }>;
-}) {
+};
+
+export default function DashboardPage(props: DashboardPageProps) {
+  return measureAsync("page.dashboard", () => renderDashboardPage(props));
+}
+
+async function renderDashboardPage({
+  searchParams,
+}: DashboardPageProps) {
   const params = await searchParams;
   const locale = await getLocale();
   const t = await getTranslations("dashboard");

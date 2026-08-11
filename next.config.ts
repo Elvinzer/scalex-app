@@ -72,6 +72,16 @@ const nextConfig: NextConfig = {
   // route instead of just the symbols actually used.
   experimental: {
     optimizePackageImports: ["lucide-react", "motion", "@tanstack/react-charts", "@tanstack/charts"],
+    // Keep prefetched dynamic RSC payloads warm briefly. Without this,
+    // loading.tsx boundaries are prefetched but discarded immediately, so
+    // every click still waits for a server round-trip even after the user
+    // has hovered the link. Business mutations already call revalidatePath
+    // and revalidate the diagnostic tag, so this is a client navigation cache,
+    // not a long-lived source-of-truth cache.
+    staleTimes: {
+      dynamic: 15,
+      static: 60,
+    },
   },
   async headers() {
     return [

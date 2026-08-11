@@ -433,28 +433,35 @@ export function AppSidebar({
   const mobileEntries = mobileNavEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const mobilePageTitle = mobileEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`));
 
-  // Warm the authenticated user's most likely destinations in the background.
-  // Link prefetch only covers links currently eligible for viewport prefetch;
-  // collapsed pillar tabs and profile destinations would otherwise still wait
-  // for their Server Components on first click. The queue is deliberately
-  // staggered so it never competes with the initial page's critical request.
+  // Warm a small set of likely destinations in the background. Link prefetch
+  // already handles visible links; warming every pillar subpage here would
+  // create a burst of expensive Server Component requests on every page.
+  // The rest remains hover/viewport-prefetched by Next's own scheduler.
   const warmupRoutes = useMemo(() => {
     const routes = new Set<string>();
-    const addEntry = (entry: LinkEntry) => {
+    const addEntry = (entry: LinkEntry, includeSubpages: boolean) => {
       routes.add(entry.href);
+      if (!includeSubpages) return;
       for (const subpage of PILLAR_SUBPAGES[entry.href] ?? []) {
         if (isOwner || permissions.includes(subpage.permission)) routes.add(subpage.href);
       }
     };
 
-    for (const entry of topEntries.filter((candidate) => isEntryVisible(candidate, isOwner, permissions))) addEntry(entry);
-    for (const entry of mobileNavEntries.filter((candidate) => isEntryVisible(candidate, isOwner, permissions))) addEntry(entry);
-    for (const entry of profileMenuEntries) {
-      if (isEntryVisible(entry, isOwner, permissions)) addEntry(entry);
+    const visibleTopEntries = topEntries.filter((candidate) => isEntryVisible(candidate, isOwner, permissions));
+    const priorityHrefs = ["/dashboard", "/roadmap", "/diagnostic", "/datas", "/copilote"];
+    for (const href of priorityHrefs) {
+      const entry = visibleTopEntries.find((candidate) => candidate.href === href);
+      if (entry) addEntry(entry, false);
     }
+
+    const currentPillar = visibleTopEntries.find(
+      (entry) => (entry.href === "/acquisition" || entry.href === "/ventes") && pathname.startsWith(entry.href),
+    );
+    if (currentPillar) addEntry(currentPillar, true);
+
     if (isAdmin) routes.add(adminEntry.href);
-    return [...routes];
-  }, [isAdmin, isOwner, permissions]);
+    return [...routes].slice(0, 8);
+  }, [isAdmin, isOwner, pathname, permissions]);
 
   useEffect(() => {
     const connection = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } }).connection;
@@ -471,7 +478,7 @@ export function AppSidebar({
       timer = window.setTimeout(warmNextRoute, 120);
     };
 
-    timer = window.setTimeout(warmNextRoute, 500);
+    timer = window.setTimeout(warmNextRoute, 800);
     return () => {
       cancelled = true;
       if (timer !== null) window.clearTimeout(timer);

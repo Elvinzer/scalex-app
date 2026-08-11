@@ -49,6 +49,7 @@ import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
+import { measureAsync } from "@/lib/perf/timing";
 import { InsightHistorySection } from "@/components/insight-execution/insight-history-section";
 import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -103,9 +104,7 @@ const LEVER_LABEL_KEYS: Record<string, string> = {
   reactivation_anciens_clients: "reactivation",
 };
 
-export default async function DiagnosticPage({
-  searchParams,
-}: {
+type DiagnosticPageProps = {
   searchParams: Promise<{
     period?: string;
     tab?: string;
@@ -116,7 +115,15 @@ export default async function DiagnosticPage({
     open?: string;
     openLever?: string;
   }>;
-}) {
+};
+
+export default function DiagnosticPage(props: DiagnosticPageProps) {
+  return measureAsync("page.diagnostic", () => renderDiagnosticPage(props));
+}
+
+async function renderDiagnosticPage({
+  searchParams,
+}: DiagnosticPageProps) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "diagnostic");
   const params = await searchParams;

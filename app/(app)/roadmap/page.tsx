@@ -7,8 +7,13 @@ import { getJournalActionLoopData, measureDueJournalActions } from "@/lib/journa
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { getStreakSnapshot } from "@/lib/streak/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { measureAsync } from "@/lib/perf/timing";
 
-export default async function RoadmapPage() {
+export default function RoadmapPage() {
+  return measureAsync("page.roadmap", renderRoadmapPage);
+}
+
+async function renderRoadmapPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
 

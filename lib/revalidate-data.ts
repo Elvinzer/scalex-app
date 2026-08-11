@@ -1,4 +1,6 @@
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+
+import { DIAGNOSTIC_DATA_CACHE_TAG } from "@/lib/diagnostic/cache-tags";
 
 // All pages that consume the shared business funnel. A mutation in one
 // module must invalidate every projection of the same event, otherwise a
@@ -28,5 +30,10 @@ const BUSINESS_DATA_PATHS = [
 ] as const;
 
 export function revalidateBusinessData(): void {
+  // The tag is invalidated only from real business-data mutations and sync
+  // triggers. `max` keeps the last snapshot available while the next one is
+  // rebuilt, so the user does not wait on a cold diagnostic query after a
+  // navigation.
+  revalidateTag(DIAGNOSTIC_DATA_CACHE_TAG, "max");
   for (const path of BUSINESS_DATA_PATHS) revalidatePath(path);
 }

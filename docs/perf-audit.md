@@ -1,5 +1,76 @@
 # Audit de performance — Scale X
 
+## Passe performance du 11 août 2026
+
+Cette passe suit le correctif joint et distingue les mesures réellement
+observées des mesures impossibles sans session utilisateur. Aucun chiffre de
+page protégée n'est inventé : la session `agent-browser` isolée n'avait pas
+de cookie Supabase valide, donc Dashboard, Roadmap et Diagnostic redirigent
+vers `/sign-in`.
+
+### Baseline mesurée avant le correctif
+
+- Navigateur : redirection des trois routes protégées vers `/sign-in`;
+  waterfall métier, long tasks Chrome et React Profiler non disponibles sans
+  authentification.
+- Serveur de développement existant : `/sign-in` répondait en 168,0 ms et
+  `/dashboard` en 167,2 ms avec HTTP 307 (mesure de la garde d'accès, pas du
+  rendu métier; non comparable directement à la production).
+- Code : le snapshot diagnostic lançait une rafale parallèle, mais demandait
+  aussi `getMonthlyCallSources()` et `getSalesCallKpiRecords()` séparément;
+  la seconde lecture était conservée uniquement pour alimenter
+  `allCallRecords`, alors que la première relisait déjà les mêmes lignes.
+- DB : les plans `EXPLAIN (ANALYZE, BUFFERS)` sur les requêtes représentatives
+  étaient tous sous 0,1 ms avec l'UUID de test. `monthly_metrics`,
+  `content_posts`, `email_campaigns`, `meta_ad_metrics_daily` et
+  `native_booking_leads` utilisent leurs index composites. `sales` et
+  `leads` choisissent un Seq Scan sur ces tables minuscules et vides pour cet
+  UUID; ce n'est pas un signal justifiant une migration sans un plan lent
+  sur un compte réel.
+
+### Corrections appliquées
+
+- `lib/diagnostic/request-cache.ts` : cache Next inter-requêtes par compte,
+  TTL 30 s, tag invalidé par les mutations/synchronisations déjà centralisées;
+  la mensualisation des appels est maintenant dérivée d'une seule lecture.
+  Le payload reste JSON-compatible (`Map` et dates sont restaurées à la sortie)
+  pour que les données restent identiques après un hit de cache.
+- `lib/revalidate-data.ts` : invalidation du tag diagnostic avec sémantique
+  stale-while-revalidate, en plus des chemins existants.
+- `next.config.ts` : cache client des payloads RSC préchargés pendant 15 s
+  (dynamique) / 60 s (statique), afin qu'un lien déjà préchargé ne reparte
+  pas immédiatement au serveur au clic.
+- `components/app-sidebar.tsx` : préchauffage limité aux 5 destinations les
+  plus probables et à la branche courante, maximum 8 routes, démarré après
+  800 ms; les autres liens restent préchargés par Next au viewport/hover.
+- `lib/perf/timing.ts` + wrappers Dashboard/Roadmap/Diagnostic : logs
+  activables avec `PERF_DEBUG=1`, séparant chaque lecture DB et le temps total
+  de page sans afficher d'identifiant ni de donnée business.
+
+### Re-mesure après correction
+
+- `npm run typecheck` : OK.
+- `npm run lint` : OK.
+- `npm run test` : 63 fichiers, 308 tests, OK.
+- `npm run build` : OK; compilation 1,69 s, génération statique 1,39 s.
+- Serveur de production local avec `PERF_DEBUG=1` : `/sign-in` répond en
+  32,5 ms; `/dashboard`, `/roadmap` et `/diagnostic` répondent respectivement
+  en 41,4 ms, 11,2 ms et 11,7 ms avec HTTP 307. Ce sont des mesures de la
+  garde d'authentification, pas du rendu métier. Les trois routes
+  protégées atteignent bien leur garde d'authentification et loggent
+  `page.dashboard`, `page.roadmap` et `page.diagnostic` avant la redirection;
+  aucune requête DB métier ne peut être mesurée tant que la session n'est pas
+  restaurée.
+- Les URLs `/e2e/roadmap`, `/e2e/content` et `/e2e/journal` répondent 404 en
+  production locale; leurs temps de rendu ne sont donc pas retenus comme
+  mesure de l'application.
+
+La prochaine mesure utile doit être faite avec un compte connecté dans
+Chrome DevTools/agent-browser : trois navigations Dashboard → Roadmap →
+Diagnostic, HAR, Performance et React Profiler. Les objectifs `<400 ms` de
+navigation chaude et `<1,5 s` de données métier restent volontairement
+marqués à valider sur cette session authentifiée.
+
 Date : 2026-07-25. Mesures avant toute optimisation, comme demandé. Chaque
 section indique **comment** le chiffre a été obtenu et son statut : mesuré
 directement, ou en attente (nécessite un navigateur authentifié que cet
