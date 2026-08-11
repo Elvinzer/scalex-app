@@ -26,6 +26,45 @@ const platformSchema = z.object({
   postsPerWeek: z.number().int().min(0).max(100).nullable(),
 });
 
+const quizConfigurationSchema = z.object({
+  url: z.string().max(500).default(""),
+  questionCount: z.number().int().min(0).max(500).nullable().default(null),
+  tool: z.string().max(100).default(""),
+});
+
+const directCallConfigurationSchema = z.object({
+  bookingUrl: z.string().max(500).default(""),
+  calendarTool: z.string().max(100).default(""),
+});
+
+const webinarConfigurationSchema = z.object({
+  format: z.enum(["live", "evergreen"]).nullable().default(null),
+  frequency: z.string().max(100).default(""),
+  url: z.string().max(500).default(""),
+});
+
+const challengeConfigurationSchema = z.object({
+  durationDays: z.number().int().min(0).max(365).nullable().default(null),
+  frequency: z.string().max(100).default(""),
+  url: z.string().max(500).default(""),
+});
+
+const newsletterConfigurationSchema = z.object({
+  tool: z.string().max(100).default(""),
+  listSize: z.number().int().min(0).max(100000000).nullable().default(null),
+  frequency: z.string().max(100).default(""),
+});
+
+const directSalesConfigurationSchema = z.object({
+  url: z.string().max(500).default(""),
+  displayedPrice: z.number().nonnegative().nullable().default(null),
+});
+
+const communityConfigurationSchema = z.object({
+  platform: z.string().max(100).default(""),
+  memberCount: z.number().int().min(0).max(100000000).nullable().default(null),
+});
+
 export const acquisitionSchema = z.object({
   platforms: z.array(platformSchema).max(10),
   leadMagnet: z.object({
@@ -48,6 +87,15 @@ export const acquisitionSchema = z.object({
   }),
   funnels: z.array(z.enum(ACQUISITION_FUNNEL_KEYS)).min(1).max(10),
   primaryFunnel: z.enum(ACQUISITION_FUNNEL_KEYS),
+  configurations: z.object({
+    quiz: quizConfigurationSchema.default({}),
+    appel_direct: directCallConfigurationSchema.default({}),
+    webinaire: webinarConfigurationSchema.default({}),
+    challenge: challengeConfigurationSchema.default({}),
+    newsletter: newsletterConfigurationSchema.default({}),
+    vente_directe: directSalesConfigurationSchema.default({}),
+    communaute: communityConfigurationSchema.default({}),
+  }).default({}),
   funnelSelectionInferred: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   if (!value.funnels.includes(value.primaryFunnel)) {

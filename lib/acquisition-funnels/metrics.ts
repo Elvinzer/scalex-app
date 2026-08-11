@@ -1,4 +1,5 @@
 import type { AcquisitionFunnelCatalogEntry, AcquisitionFunnelKey } from "./types";
+import { acquisitionFunnelHref } from "./routes";
 
 export type AdaptiveFunnelStage = {
   id: string;
@@ -36,19 +37,22 @@ type BuildAdaptiveFunnelInput = {
 };
 
 function sourceFor(metricKey: string): AdaptiveFunnelStage["source"] {
-  if (metricKey.includes("content") || metricKey === "audience" || metricKey.includes("vsl")) return "content";
+  if (metricKey.includes("content") || metricKey === "audience") return "content";
+  if (metricKey.includes("vsl")) return "manual";
   if (metricKey.includes("calls") || metricKey.includes("booking")) return "calls";
   if (metricKey.includes("sales")) return "sales";
   if (metricKey.includes("newsletter") || metricKey.includes("quiz") || metricKey.includes("webinar") || metricKey.includes("challenge") || metricKey.includes("community")) return "manual";
   return "pipeline";
 }
 
-function defaultHref(metricKey: string): string {
+function defaultHref(metricKey: string, funnelKey: AcquisitionFunnelKey): string {
   if (metricKey.includes("newsletter")) return "/acquisition/mail";
-  if (metricKey.includes("quiz") || metricKey.includes("webinar") || metricKey.includes("challenge") || metricKey.includes("community") || metricKey.includes("sales_page") || metricKey.includes("checkout") || metricKey.includes("booking_link")) return "/datas";
-  if (metricKey.includes("content") || metricKey === "audience" || metricKey.includes("vsl")) return "/acquisition/contenu";
+  if (metricKey.includes("content") || metricKey === "audience") return "/acquisition/contenu";
+  if (metricKey.includes("vsl")) return acquisitionFunnelHref(funnelKey);
+  if (metricKey.includes("booking_link")) return acquisitionFunnelHref(funnelKey);
   if (metricKey.includes("calls") || metricKey.includes("booking")) return "/acquisition/pipeline/funnel";
   if (metricKey.includes("sales")) return "/ventes/suivi";
+  if (metricKey.includes("quiz") || metricKey.includes("webinar") || metricKey.includes("challenge") || metricKey.includes("community") || metricKey.includes("sales_page") || metricKey.includes("checkout")) return acquisitionFunnelHref(funnelKey);
   return "/datas";
 }
 
@@ -80,7 +84,7 @@ export function buildAdaptiveFunnel({ entry, stageVolumes, benchmarks, dealPrice
         benchmarkKey: step.benchmarkKey,
         isReliable,
         noteKey: currentRate !== null && !isReliable ? "volumeInsufficient" : monthlyGain === null && benchmarkRate !== null ? "gainUnavailable" : null,
-        sourceHref: sourceHrefByMetric[step.inputMetricKey] ?? defaultHref(step.inputMetricKey),
+        sourceHref: sourceHrefByMetric[step.inputMetricKey] ?? defaultHref(step.inputMetricKey, entry.funnelKey),
         source: sourceFor(step.inputMetricKey),
       } satisfies AdaptiveFunnelStage;
       previousVolume = volume;

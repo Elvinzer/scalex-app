@@ -1,6 +1,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { DIAGNOSTIC_DATA_CACHE_TAG } from "@/lib/diagnostic/cache-tags";
+import { ACQUISITION_FUNNEL_ROUTES } from "@/lib/acquisition-funnels/routes";
 
 // All pages that consume the shared business funnel. A mutation in one
 // module must invalidate every projection of the same event, otherwise a
@@ -13,6 +14,7 @@ const BUSINESS_DATA_PATHS = [
   "/roadmap",
   "/journal",
   "/copilote",
+  "/acquisition",
   "/acquisition/pipeline",
   "/acquisition/pipeline/funnel",
   "/acquisition/contenu",
@@ -30,6 +32,8 @@ const BUSINESS_DATA_PATHS = [
   "/integrations",
 ] as const;
 
+const ACQUISITION_FUNNEL_PATHS = Object.values(ACQUISITION_FUNNEL_ROUTES).map((slug) => `/acquisition/${slug}`);
+
 export function revalidateBusinessData(): void {
   // The tag is invalidated only from real business-data mutations and sync
   // triggers. `max` keeps the last snapshot available while the next one is
@@ -37,6 +41,7 @@ export function revalidateBusinessData(): void {
   // navigation.
   revalidateTag(DIAGNOSTIC_DATA_CACHE_TAG, "max");
   for (const path of BUSINESS_DATA_PATHS) revalidatePath(path);
+  for (const path of ACQUISITION_FUNNEL_PATHS) revalidatePath(path);
 }
 
 // Journal mutations affect the action loop shown on Roadmap and can change

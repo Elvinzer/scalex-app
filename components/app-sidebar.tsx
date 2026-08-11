@@ -52,6 +52,11 @@ type LinkEntry = {
   anyOfPermissions?: readonly PermissionKey[];
 };
 
+export type AcquisitionSidebarSubpage = {
+  href: string;
+  label: string;
+};
+
 // CŒUR — the value-loop pages, always visible (permission-gated as before).
 // Funnel/Insights are gone entirely (were duplicate readings of what the
 // Diagnostic already shows — removed, not just hidden). "Vue d'ensemble"
@@ -223,16 +228,23 @@ function PillarNavGroup({
   pathname,
   isOwner,
   permissions,
+  acquisitionSubpages,
 }: {
   entry: LinkEntry;
   pathname: string;
   isOwner: boolean;
   permissions: readonly PermissionKey[];
+  acquisitionSubpages: readonly AcquisitionSidebarSubpage[];
 }) {
   const t = useTranslations("navigation");
-  const subpages = (PILLAR_SUBPAGES[entry.href] ?? [])
+  const staticSubpages = (PILLAR_SUBPAGES[entry.href] ?? [])
     .filter((sub) => isOwner || permissions.includes(sub.permission))
-    .filter((sub) => !topEntries.some((topEntry) => topEntry.href === sub.href));
+    .filter((sub) => !topEntries.some((topEntry) => topEntry.href === sub.href))
+    .map((sub) => ({ href: sub.href, label: t(getSubpageLabelKey(sub.href)) }));
+  const dynamicSubpages = entry.href === "/acquisition" ? acquisitionSubpages : [];
+  const subpages = [...staticSubpages, ...dynamicSubpages].filter(
+    (sub, index, all) => all.findIndex((candidate) => candidate.href === sub.href) === index
+  );
   const insidePillar = pathname === entry.href || pathname.startsWith(`${entry.href}/`);
   const [open, setOpen] = useState(insidePillar);
 
@@ -277,7 +289,9 @@ function PillarNavGroup({
                 )}
                 aria-current={active ? "page" : undefined}
               >
-                <span className="min-w-0 whitespace-normal break-words">{t(getSubpageLabelKey(sub.href))}</span>
+                <span className="min-w-0 whitespace-normal break-words">
+                  {sub.label}
+                </span>
               </Link>
             );
           })}
@@ -394,6 +408,7 @@ export type AppSidebarProps = {
   scaleScoreSparkline: ScaleScoreSparklinePoint[];
   currentMonthlyRevenue: number | null;
   potentialMonthlyRevenue: number | null;
+  acquisitionSubpages?: readonly AcquisitionSidebarSubpage[];
 };
 
 export function AppSidebar({
@@ -413,6 +428,7 @@ export function AppSidebar({
   scaleScoreSparkline,
   currentMonthlyRevenue,
   potentialMonthlyRevenue,
+  acquisitionSubpages = [],
 }: AppSidebarProps) {
   const t = useTranslations("navigation");
   const pathname = usePathname();
@@ -446,6 +462,9 @@ export function AppSidebar({
       for (const subpage of PILLAR_SUBPAGES[entry.href] ?? []) {
         if (isOwner || permissions.includes(subpage.permission)) routes.add(subpage.href);
       }
+      if (entry.href === "/acquisition") {
+        for (const subpage of acquisitionSubpages) routes.add(subpage.href);
+      }
     };
 
     const visibleTopEntries = topEntries.filter((candidate) => isEntryVisible(candidate, isOwner, permissions));
@@ -462,7 +481,7 @@ export function AppSidebar({
 
     if (isAdmin) routes.add(adminEntry.href);
     return [...routes].slice(0, 8);
-  }, [isAdmin, isOwner, pathname, permissions]);
+  }, [acquisitionSubpages, isAdmin, isOwner, pathname, permissions]);
 
   useEffect(() => {
     const connection = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } }).connection;
@@ -550,10 +569,10 @@ export function AppSidebar({
                 // the product — but inside the scrollable nav, directly under
                 // Diagnostic, rather than pinned to the foot of the rail.
                 <div className="mt-2 border-t border-sidebar-border pt-3">
-                  <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
+                  <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} acquisitionSubpages={acquisitionSubpages} />
                 </div>
               ) : (
-                <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} />
+                <PillarNavGroup entry={entry} pathname={pathname} isOwner={isOwner} permissions={permissions} acquisitionSubpages={acquisitionSubpages} />
               )}
             </Fragment>
           ))}

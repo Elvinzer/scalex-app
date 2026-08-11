@@ -31,6 +31,8 @@ export const getBusinessProfile = cache(async (userId: string): Promise<Business
   const catalog = await getAcquisitionFunnelCatalog();
   const selection = normalizeAcquisitionSelection(acquisition, catalog);
   const hasExplicitSelection = Object.prototype.hasOwnProperty.call(acquisition, "funnels") && Object.prototype.hasOwnProperty.call(acquisition, "primaryFunnel");
+  const defaultConfigurations = EMPTY_BUSINESS_PROFILE.acquisition.configurations;
+  const storedConfigurations = acquisition.configurations ?? {};
 
   return {
     identity: row.identity,
@@ -38,6 +40,15 @@ export const getBusinessProfile = cache(async (userId: string): Promise<Business
       ...acquisition,
       funnels: selection.funnels,
       primaryFunnel: selection.primaryFunnel,
+      configurations: {
+        quiz: { ...defaultConfigurations.quiz, ...storedConfigurations.quiz },
+        appel_direct: { ...defaultConfigurations.appel_direct, ...storedConfigurations.appel_direct },
+        webinaire: { ...defaultConfigurations.webinaire, ...storedConfigurations.webinaire },
+        challenge: { ...defaultConfigurations.challenge, ...storedConfigurations.challenge },
+        newsletter: { ...defaultConfigurations.newsletter, ...storedConfigurations.newsletter },
+        vente_directe: { ...defaultConfigurations.vente_directe, ...storedConfigurations.vente_directe },
+        communaute: { ...defaultConfigurations.communaute, ...storedConfigurations.communaute },
+      },
       funnelSelectionInferred: !hasExplicitSelection,
     },
     sales: row.sales,

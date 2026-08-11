@@ -48,6 +48,59 @@ export type BusinessAcquisitionSetting = {
   operator: string;
 };
 
+// Journey-specific configuration is deliberately kept in business_profile,
+// not monthly_metrics. These values describe the asset/tool being used and
+// stay valid across months; only performance numbers belong in the monthly
+// canonical table.
+export type QuizConfiguration = {
+  url: string;
+  questionCount: number | null;
+  tool: string;
+};
+
+export type DirectCallConfiguration = {
+  bookingUrl: string;
+  calendarTool: string;
+};
+
+export type WebinarConfiguration = {
+  format: "live" | "evergreen" | null;
+  frequency: string;
+  url: string;
+};
+
+export type ChallengeConfiguration = {
+  durationDays: number | null;
+  frequency: string;
+  url: string;
+};
+
+export type NewsletterConfiguration = {
+  tool: string;
+  listSize: number | null;
+  frequency: string;
+};
+
+export type DirectSalesConfiguration = {
+  url: string;
+  displayedPrice: number | null;
+};
+
+export type CommunityConfiguration = {
+  platform: string;
+  memberCount: number | null;
+};
+
+export type AcquisitionFunnelConfigurations = {
+  quiz: QuizConfiguration;
+  appel_direct: DirectCallConfiguration;
+  webinaire: WebinarConfiguration;
+  challenge: ChallengeConfiguration;
+  newsletter: NewsletterConfiguration;
+  vente_directe: DirectSalesConfiguration;
+  communaute: CommunityConfiguration;
+};
+
 export type BusinessAcquisition = {
   platforms: Platform[];
   leadMagnet: LeadMagnet;
@@ -55,6 +108,7 @@ export type BusinessAcquisition = {
   setting: BusinessAcquisitionSetting;
   funnels: AcquisitionFunnelKey[];
   primaryFunnel: AcquisitionFunnelKey;
+  configurations: AcquisitionFunnelConfigurations;
   // Read-only runtime hint for existing accounts. It is stripped before a
   // profile save and lets Dashboard show the one-time confirmation nudge.
   funnelSelectionInferred?: boolean;
@@ -145,6 +199,15 @@ export const EMPTY_BUSINESS_PROFILE: BusinessProfileData = {
     setting: { enabled: null, channel: "", operator: "" },
     funnels: ["lead_magnet"],
     primaryFunnel: "lead_magnet",
+    configurations: {
+      quiz: { url: "", questionCount: null, tool: "" },
+      appel_direct: { bookingUrl: "", calendarTool: "" },
+      webinaire: { format: null, frequency: "", url: "" },
+      challenge: { durationDays: null, frequency: "", url: "" },
+      newsletter: { tool: "", listSize: null, frequency: "" },
+      vente_directe: { url: "", displayedPrice: null },
+      communaute: { platform: "", memberCount: null },
+    },
     funnelSelectionInferred: false,
   },
   sales: {
