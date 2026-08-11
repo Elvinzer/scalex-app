@@ -11,7 +11,7 @@ Le système SHALL revalider le créneau, les exceptions, les limites, l'absence 
 
 #### Scenario: Closer loses Google readiness before confirmation
 
-- **WHEN** le closer sélectionné perd son compte cible Google ou son calendrier accessible en écriture avant la confirmation
+- **WHEN** le closer sélectionné perd son compte cible Google ou l'accès en écriture à son calendrier principal avant la confirmation
 - **THEN** la réservation échoue de façon récupérable, aucun lien Meet invalide n'est retourné et le créneau peut être reproposé selon les closers encore prêts
 
 #### Scenario: Confirmation returns the generated meeting link

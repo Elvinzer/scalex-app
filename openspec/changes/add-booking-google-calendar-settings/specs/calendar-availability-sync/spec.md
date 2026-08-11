@@ -16,21 +16,21 @@ Le système SHALL permettre à un closer autorisé de connecter un ou plusieurs 
 
 ### Requirement: Busy periods exclude slots
 
-Pour chaque closer prêt, le système SHALL exclure des créneaux les périodes occupées des calendriers Google explicitement sélectionnés pour les conflits, les rendez-vous déjà confirmés et les buffers de l'événement. Le compte cible des invitations SHALL être consulté uniquement s'il fait aussi partie de la sélection des conflits.
+Pour chaque closer prêt, le système SHALL exclure des créneaux les périodes occupées des calendriers principaux des comptes Google sélectionnés pour les conflits, les rendez-vous déjà confirmés et les buffers de l'événement. Le compte cible des invitations SHALL être consulté uniquement s'il fait aussi partie de la sélection des conflits.
 
 #### Scenario: Selected conflict calendar blocks a slot
 
-- **WHEN** un calendrier Google sélectionné pour les conflits contient un événement qui chevauche un créneau
+- **WHEN** le calendrier principal d'un compte Google sélectionné pour les conflits contient un événement qui chevauche un créneau
 - **THEN** le closer n'est pas éligible à ce créneau et celui-ci n'est pas proposé si aucun autre closer ne peut le prendre
 
 #### Scenario: Unselected calendar does not block a slot
 
-- **WHEN** un événement existe dans un calendrier Google non sélectionné pour les conflits
+- **WHEN** un événement existe dans un calendrier Google secondaire ou dans le calendrier principal d'un compte non sélectionné pour les conflits
 - **THEN** cet événement n'est pas utilisé pour exclure le closer de ce créneau
 
 ### Requirement: External event creation is idempotent
 
-Lorsqu'une réservation native est confirmée, le système SHALL créer un événement dans le calendrier cible Google du closer attribué, ajouter le prospect comme invité lorsque son email est disponible et demander une conférence Google Meet unique. Une nouvelle tentative pour la même réservation SHALL réutiliser ou retrouver l'événement et la conférence externes existants sans créer de doublon.
+Lorsqu'une réservation native est confirmée, le système SHALL créer un événement dans le calendrier principal du compte cible Google du closer attribué, ajouter le prospect comme invité lorsque son email est disponible et demander une conférence Google Meet unique. Une nouvelle tentative pour la même réservation SHALL réutiliser ou retrouver l'événement et la conférence externes existants sans créer de doublon.
 
 #### Scenario: Google target creates a Calendar event and Meet link
 

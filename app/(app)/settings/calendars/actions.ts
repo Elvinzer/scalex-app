@@ -11,21 +11,12 @@ import {
   nativeCalendarConnections,
 } from "@/db/schema";
 import { requireUserId } from "@/lib/current-user";
-import { listCalendarsForConnection } from "@/lib/native-booking/calendar";
+import { getPrimaryCalendarOption, listCalendarsForConnection } from "@/lib/native-booking/calendar";
 import { requirePermission } from "@/lib/team/context";
 
 const calendarSettingsSchema = z.object({
-  invitationConnectionId: z.string().uuid(),
-  invitationCalendarId: z.string().trim().min(1).max(500),
-  conflicts: z
-    .array(
-      z.object({
-        connectionId: z.string().uuid(),
-        calendarId: z.string().trim().min(1).max(500),
-      })
-    )
-    .min(1)
-    .max(100),
+  invitationConnectionId: z.string().uuid().nullable(),
+  conflictConnectionIds: z.array(z.string().uuid()).max(100),
 });
 
 type SettingsActionResult = { error: string | null };
@@ -38,12 +29,12 @@ export async function saveNativeBookingCalendarSettingsAction(input: unknown): P
   const parsed = calendarSettingsSchema.safeParse(input);
   if (!parsed.success) return { error: "calendar_settings_invalid" };
 
-  const conflictKeys = new Set(parsed.data.conflicts.map(({ connectionId, calendarId }) => `${connectionId}:${calendarId}`));
-  if (conflictKeys.size !== parsed.data.conflicts.length) return { error: "calendar_settings_invalid" };
+  const conflictConnectionIds = Array.from(new Set(parsed.data.conflictConnectionIds));
+  if (parsed.data.invitationConnectionId === null && conflictConnectionIds.length === 0) return { error: "calendar_settings_invalid" };
 
   const connectionIds = Array.from(new Set([
-    parsed.data.invitationConnectionId,
-    ...parsed.data.conflicts.map(({ connectionId }) => connectionId),
+    ...(parsed.data.invitationConnectionId ? [parsed.data.invitationConnectionId] : []),
+    ...conflictConnectionIds,
   ]));
   const connections = await db
     .select()
@@ -56,8 +47,8 @@ export async function saveNativeBookingCalendarSettingsAction(input: unknown): P
       )
     );
   const connectionById = new Map(connections.map((connection) => [connection.id, connection]));
-  const invitationConnection = connectionById.get(parsed.data.invitationConnectionId);
-  if (!invitationConnection || invitationConnection.provider !== "google" || invitationConnection.status !== "connected") {
+  const invitationConnection = parsed.data.invitationConnectionId ? connectionById.get(parsed.data.invitationConnectionId) : undefined;
+  if (parsed.data.invitationConnectionId && (!invitationConnection || invitationConnection.provider !== "google" || invitationConnection.status !== "connected")) {
     return { error: "calendar_target_unavailable" };
   }
 
@@ -71,12 +62,14 @@ export async function saveNativeBookingCalendarSettingsAction(input: unknown): P
     }
   }
 
-  const invitationCalendar = optionsByConnection.get(invitationConnection.id)?.find((calendar) => calendar.id === parsed.data.invitationCalendarId);
-  if (!invitationCalendar?.canWrite) return { error: "calendar_target_not_writable" };
+  const invitationCalendar = invitationConnection
+    ? getPrimaryCalendarOption(optionsByConnection.get(invitationConnection.id) ?? [])
+    : null;
+  if (invitationConnection && !invitationCalendar?.canWrite) return { error: "calendar_target_not_writable" };
 
-  for (const conflict of parsed.data.conflicts) {
-    const connection = connectionById.get(conflict.connectionId);
-    const calendar = optionsByConnection.get(conflict.connectionId)?.find((option) => option.id === conflict.calendarId);
+  for (const connectionId of conflictConnectionIds) {
+    const connection = connectionById.get(connectionId);
+    const calendar = getPrimaryCalendarOption(optionsByConnection.get(connectionId) ?? []);
     if (!connection || connection.provider !== "google" || connection.status !== "connected" || !calendar) {
       return { error: "calendar_conflict_invalid" };
     }
@@ -92,8 +85,8 @@ export async function saveNativeBookingCalendarSettingsAction(input: unknown): P
       const values = {
         userId: access.accountId,
         closerUserId: userId,
-        invitationConnectionId: invitationConnection.id,
-        invitationCalendarId: parsed.data.invitationCalendarId,
+        invitationConnectionId: invitationConnection?.id ?? null,
+        invitationCalendarId: invitationCalendar?.id ?? null,
         updatedAt: new Date(),
       };
       if (existing) {
@@ -105,14 +98,16 @@ export async function saveNativeBookingCalendarSettingsAction(input: unknown): P
       await tx
         .delete(nativeBookingCalendarConflicts)
         .where(and(eq(nativeBookingCalendarConflicts.userId, access.accountId), eq(nativeBookingCalendarConflicts.closerUserId, userId)));
-      await tx.insert(nativeBookingCalendarConflicts).values(
-        parsed.data.conflicts.map(({ connectionId, calendarId }) => ({
+      if (conflictConnectionIds.length > 0) {
+        await tx.insert(nativeBookingCalendarConflicts).values(
+          conflictConnectionIds.map((connectionId) => ({
           userId: access.accountId,
           closerUserId: userId,
           connectionId,
-          calendarId,
-        }))
-      );
+            calendarId: getPrimaryCalendarOption(optionsByConnection.get(connectionId) ?? [])?.id ?? "primary",
+          }))
+        );
+      }
     });
   } catch {
     return { error: "calendar_settings_save_failed" };

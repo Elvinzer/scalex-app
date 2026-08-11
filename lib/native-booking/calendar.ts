@@ -23,6 +23,10 @@ export type BusyPeriod = { startAt: Date; endAt: Date };
 export type ExternalCalendarEvent = { id: string; url: string | null; meetingUrl: string | null };
 export type CalendarOption = { id: string; name: string; isPrimary: boolean; canWrite: boolean };
 
+export function getPrimaryCalendarOption(calendars: readonly CalendarOption[]): CalendarOption | null {
+  return calendars.find((calendar) => calendar.isPrimary) ?? calendars.find((calendar) => calendar.id === "primary") ?? null;
+}
+
 const BUSY_CACHE_TTL_MS = 15_000;
 const busyCache = new Map<string, { expiresAt: number; periods: BusyPeriod[] }>();
 const testExternalEvents = new Map<string, { connectionId: string; title: string; startAt: Date; endAt: Date; meetingUrl: string | null }>();
@@ -33,6 +37,10 @@ function isCalendarTestMode() {
 
 function isTestFailure(connection: CalendarConnection) {
   return connection.providerAccountEmail?.toLowerCase().includes("fixture-fail") ?? false;
+}
+
+function defaultCalendarId(connection: CalendarConnection) {
+  return connection.provider === "google" ? "primary" : connection.selectedCalendarIds[0] ?? "primary";
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -266,7 +274,7 @@ export async function listCalendarsForConnection(connection: CalendarConnection)
 }
 
 export async function listBusyForConnection(connection: CalendarConnection, from: Date, to: Date, calendarIds?: string[]): Promise<BusyPeriod[]> {
-  const selectedCalendarIds = calendarIds?.length ? calendarIds : connection.selectedCalendarIds;
+  const selectedCalendarIds = calendarIds?.length ? calendarIds : [defaultCalendarId(connection)];
   const cacheKey = [connection.id, connection.provider, selectedCalendarIds.join(","), from.toISOString(), to.toISOString()].join("|");
   const cached = busyCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.periods;
@@ -439,7 +447,7 @@ export async function createExternalCalendarEvent({
   }
   const { accessToken } = await getAccessToken(connection);
   if (connection.provider === "google") {
-    const targetCalendarId = calendarId ?? connection.selectedCalendarIds[0] ?? "primary";
+    const targetCalendarId = calendarId ?? defaultCalendarId(connection);
     const deterministicEventId = idempotencyKey.replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 100);
     const conferenceRequestId = `meet-${idempotencyKey.replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 90)}`;
     const eventUrl = new URL(`${GOOGLE_API_BASE}/calendars/${encodeURIComponent(targetCalendarId)}/events`);
@@ -513,7 +521,7 @@ export async function cancelExternalCalendarEvent(connection: CalendarConnection
   }
   const { accessToken } = await getAccessToken(connection);
   const url = connection.provider === "google"
-    ? `${GOOGLE_API_BASE}/calendars/${encodeURIComponent(calendarId ?? connection.selectedCalendarIds[0] ?? "primary")}/events/${encodeURIComponent(externalEventId)}`
+    ? `${GOOGLE_API_BASE}/calendars/${encodeURIComponent(calendarId ?? defaultCalendarId(connection))}/events/${encodeURIComponent(externalEventId)}`
     : `${MICROSOFT_API_BASE}/me/events/${encodeURIComponent(externalEventId)}`;
   const response = await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
   if (response.status !== 204 && (response.status < 200 || response.status >= 300)) throw new Error(`Calendar event cancellation failed (${response.status})`);
@@ -565,7 +573,7 @@ export async function updateExternalCalendarEvent({
         end: { dateTime: endAt.toISOString(), timeZone: "UTC" },
         ...(guestEmail ? { attendees: [{ emailAddress: { address: guestEmail, name: guestName }, type: "required" }] } : {}),
       };
-  const targetCalendarId = calendarId ?? connection.selectedCalendarIds[0] ?? "primary";
+  const targetCalendarId = calendarId ?? defaultCalendarId(connection);
   const url = connection.provider === "google"
     ? `${GOOGLE_API_BASE}/calendars/${encodeURIComponent(targetCalendarId)}/events/${encodeURIComponent(externalEventId)}`
     : `${MICROSOFT_API_BASE}/me/events/${encodeURIComponent(externalEventId)}`;

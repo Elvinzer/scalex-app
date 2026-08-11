@@ -4,6 +4,7 @@ vi.mock("@/db", () => ({ db: {} }));
 
 import {
   createExternalCalendarEvent,
+  getPrimaryCalendarOption,
   listBusyForConnection,
   listCalendarsForConnection,
   updateExternalCalendarEvent,
@@ -43,6 +44,16 @@ describe("native booking calendar adapter", () => {
       { id: "fixture-primary", name: "Agenda fixture principale", isPrimary: true, canWrite: true },
       { id: "fixture-team", name: "Agenda fixture équipe", isPrimary: false, canWrite: true },
     ]);
+  });
+
+  it("resolves the account primary calendar instead of a secondary calendar", () => {
+    expect(
+      getPrimaryCalendarOption([
+        { id: "fixture-team", name: "Agenda équipe", isPrimary: false, canWrite: true },
+        { id: "fixture-primary", name: "Agenda principale", isPrimary: true, canWrite: true },
+      ])
+    ).toEqual({ id: "fixture-primary", name: "Agenda principale", isPrimary: true, canWrite: true });
+    expect(getPrimaryCalendarOption([{ id: "fixture-team", name: "Agenda équipe", isPrimary: false, canWrite: true }])).toBeNull();
   });
 
   it("reuses one deterministic event and Meet link for an idempotent retry", async () => {

@@ -1,6 +1,6 @@
 ## Context
 
-La capacité existante stocke les connexions dans `native_calendar_connections`, avec une contrainte d'unicité par closer et fournisseur. Le callback OAuth effectue donc aujourd'hui un upsert qui ne peut pas conserver plusieurs comptes Google pour un même closer. La disponibilité et la création d'événements utilisent également une seule connexion implicitement choisie, alors que l'UX demandée distingue le calendrier cible des calendriers de conflit.
+La capacité existante stocke les connexions dans `native_calendar_connections`, avec une contrainte d'unicité par closer et fournisseur. Le callback OAuth effectue donc aujourd'hui un upsert qui ne peut pas conserver plusieurs comptes Google pour un même closer. La disponibilité et la création d'événements utilisent également une seule connexion implicitement choisie, alors que l'UX demandée distingue le compte cible des comptes de conflit et utilise le calendrier principal de chacun.
 
 Les événements natifs conservent encore un `meetingUrl` statique au niveau de l'événement. La création Google existante retourne le lien de l'événement Calendar, mais ne demande pas de `conferenceData` Google Meet et ne possède donc pas de lien de réunion propre à chaque réservation. Voir les spécifications de cette proposition pour le contrat comportemental.
 
@@ -31,8 +31,8 @@ Les événements natifs conservent encore un `meetingUrl` statique au niveau de 
 
 Une configuration booking distincte portera, par closer et par compte Scale X :
 
-- `invitationConnectionId` et `invitationCalendarId` pour la cible unique des nouveaux événements ;
-- les calendriers sélectionnés pour les conflits, sous forme de lignes relationnelles reliant une connexion et un `calendarId` externe.
+- `invitationConnectionId` et `invitationCalendarId` pour la cible unique des nouveaux événements ; l'identifiant du calendrier est résolu côté serveur vers le calendrier principal du compte et conservé comme snapshot technique ;
+- les comptes sélectionnés pour les conflits, sous forme de lignes relationnelles reliant une connexion à l'identifiant de son calendrier principal résolu côté serveur.
 
 Cette séparation évite de mettre les préférences de la feature sur la ligne OAuth et permet à une future feature d'utiliser la même autorisation avec une autre politique. Les réservations snapshotent la connexion cible effectivement choisie dans `nativeBookings.calendarConnectionId`.
 
@@ -46,13 +46,13 @@ L'email affiché pourra changer sans créer de nouvelle connexion. Les tokens ne
 
 ### 3. Faire de Google la condition de readiness native
 
-Un closer sera prêt seulement si sa configuration possède une connexion Google active, une cible accessible en écriture et au moins un calendrier de conflit. Les événements actifs vérifieront cette readiness pour chaque closer actif du pool avant activation. La sélection publique et la confirmation finale réutiliseront la même résolution serveur, afin qu'une déconnexion entre l'affichage et le clic final ne puisse pas produire un rendez-vous sans calendrier.
+Un closer sera prêt seulement si sa configuration possède une connexion Google active, un calendrier principal accessible en écriture et au moins un compte de conflit dont le calendrier principal est lisible. Les événements actifs vérifieront cette readiness pour chaque closer actif du pool avant activation. La sélection publique et la confirmation finale réutiliseront la même résolution serveur, afin qu'une déconnexion entre l'affichage et le clic final ne puisse pas produire un rendez-vous sans calendrier.
 
 Une connexion Outlook existante ne sera pas supprimée, mais elle ne satisfera pas la readiness Google Meet. La résolution d'un closer ne choisira plus « la connexion la plus récemment modifiée » : elle suivra explicitement la configuration enregistrée.
 
 ### 4. Placer l'UX dans les paramètres personnels du closer
 
-Une page `/settings/calendars` reprendra les trois blocs observés dans l'UX iClosed : comptes connectés, compte cible des nouvelles invitations et calendriers de conflit. Elle sera protégée côté serveur par la permission `ventes:rdv`, et non par la restriction owner-only de la page générale des réglages, car l'OAuth doit être réalisé par le closer lui-même.
+Une page `/settings/calendars` reprendra les trois blocs observés dans l'UX iClosed : comptes connectés, compte cible des nouvelles invitations et comptes de conflit. Chaque bloc affichera les comptes, avec une action « Modifier » et sans sélecteur de sous-calendrier. Elle sera protégée côté serveur par la permission `ventes:rdv`, et non par la restriction owner-only de la page générale des réglages, car l'OAuth doit être réalisé par le closer lui-même.
 
 La page `/ventes/rdv` chargera un résumé account-scoped des closers non prêts et affichera un avertissement avec un lien vers la page de paramètres. L'éditeur d'un événement n'hébergera plus les boutons OAuth ni les checkboxes de calendrier ; il pourra seulement afficher un prérequis non rempli et renvoyer vers les paramètres.
 
@@ -95,7 +95,7 @@ Cette décision évite qu'un closer découvre les rendez-vous d'un collègue par
 
 ### 10. Traduire le modèle iClosed en interface Scale X
 
-La page de paramètres présente d'abord les comptes Google connectés sous forme de cartes répétables, avec une action unique « Ajouter un autre calendrier », puis sépare clairement le calendrier d'invitation et les calendriers de conflits. La configuration est progressive : un closer commence par connecter un compte, choisit la cible, puis sélectionne les conflits.
+La page de paramètres présente d'abord les comptes Google connectés sous forme de cartes répétables, avec une action unique « Ajouter un autre calendrier », puis sépare clairement le compte d'invitation et les comptes de conflits. La configuration est progressive : un closer commence par connecter un compte, choisit la cible, puis sélectionne les comptes à vérifier. Chaque compte utilise toujours son calendrier Google principal.
 
 La recherche UX Pro Max recommande pour cette surface un SaaS à contraste élevé, des tokens sémantiques, une hiérarchie de titres séquentielle, des labels explicites, des erreurs annoncées (`role=alert` ou `aria-live`) et une navigation clavier complète. Ces règles seront adaptées aux tokens existants de Scale X, sans reprendre la palette hexadécimale de la recommandation générique. Les états loading, empty, success, error et disconnected seront tous prévus ; les actions asynchrones seront désactivées pendant leur traitement et offriront un chemin de reprise.
 
@@ -112,8 +112,8 @@ La version française conservera le sens, les chiffres, les contraintes et les p
 - **[Migration de la contrainte unique]** Plusieurs comptes Google existants ne peuvent pas être représentés avec la contrainte actuelle → ajouter l'identifiant fournisseur stable, migrer les lignes existantes et conserver l'email comme affichage uniquement.
 - **[Meet encore en attente]** Google peut créer l'événement avant de fournir l'entrée vidéo → polling borné puis retry Inngest, avec état visible et aucune URL inventée.
 - **[Compte cible déconnecté avec des rendez-vous futurs]** Une déconnexion peut empêcher l'annulation ou le déplacement externe → conserver la référence et signaler l'échec sans réattribuer les rendez-vous existants.
-- **[Calendrier cible non écrivable]** Un calendrier peut être lisible mais refuser la création → filtrer/valider l'accès en écriture lors de la configuration et revalider au moment de réserver.
-- **[Deux calendriers sélectionnés avec des usages différents]** Une sélection implicite pourrait créer dans le mauvais agenda → stocker séparément la cible d'invitation et les calendriers de conflits.
+- **[Calendrier principal non écrivable]** Le calendrier principal peut être lisible mais refuser la création → valider son accès en écriture lors de la configuration et revalider au moment de réserver.
+- **[Compte utilisé pour deux usages]** Une configuration implicite pourrait créer dans le mauvais agenda → stocker séparément le compte d'invitation et les comptes de conflits, puis résoudre le calendrier principal côté serveur.
 - **[Régression Outlook]** Le support existant peut être utilisé par des comptes historiques → ne pas supprimer les connexions Outlook, mais afficher clairement qu'un compte Google est requis pour la readiness native.
 - **[Invitation Google et email Scale X en double]** `sendUpdates=all` et Resend peuvent notifier le prospect deux fois → documenter le comportement, tester le contenu et décider pendant l'implémentation si l'invitation Google doit rester active lorsque l'email prospect existe.
 - **[OAuth réalisé par le mauvais utilisateur]** Un owner peut tenter de connecter le compte d'un closer → associer systématiquement l'autorisation à l'utilisateur authentifié et afficher le closer concerné dans les paramètres.
@@ -124,16 +124,16 @@ La version française conservera le sens, les chiffres, les contraintes et les p
 
 1. Ajouter les colonnes et tables de configuration de façon additive : identifiant fournisseur stable, état de connexion, préférences de cible/conflits et lien Meet sur les réservations. Ajouter les policies RLS et les index account/closer.
 2. Backfiller l'identité fournisseur des connexions existantes lorsque le fournisseur permet de la récupérer ; placer les anciennes connexions dans un état nécessitant une reconnexion si l'identité ne peut pas être prouvée sans exposer les tokens.
-3. Migrer `selectedCalendarIds` existants vers les sélections de conflits et utiliser le calendrier existant comme cible initiale lorsque sa capacité d'écriture est confirmée.
+3. Migrer les connexions existantes vers les comptes de conflits et utiliser le calendrier principal du compte comme cible initiale lorsque sa capacité d'écriture est confirmée ; les anciens IDs secondaires ne sont jamais repris comme choix utilisateur.
 4. Livrer la page `/settings/calendars`, le callback multi-comptes et les warnings `/ventes/rdv` avant d'activer la nouvelle readiness. Les événements existants restent lisibles ; les événements actifs incomplets devront être corrigés avant une nouvelle activation.
 5. Déployer la création Google Meet et le snapshot `native_bookings.meetingUrl`, puis adapter confirmation publique, emails, rappels, ICS, annulation et déplacement.
-6. Tester les scénarios avec plusieurs comptes Google, changement de cible, conflit sur plusieurs calendriers, déconnexion, expiration OAuth, génération Meet `pending`, retry après timeout et réservation concurrente.
+6. Tester les scénarios avec plusieurs comptes Google, changement de cible, conflits sur plusieurs comptes et leurs calendriers principaux, déconnexion, expiration OAuth, génération Meet `pending`, retry après timeout et réservation concurrente.
 7. Tester le cloisonnement avec un owner et deux closers invités : agendas, liens d'événements, URL directes, actions de mutation et réponses API ; exécuter le parcours E2E avec `agent-browser` sur des comptes et un fournisseur Google simulés ou de test.
 
 Le rollback fonctionnel consiste à désactiver l'entitlement ou à mettre en pause les événements incomplets. Les nouvelles colonnes et tables peuvent rester en place ; les réservations existantes continuent d'utiliser leurs identifiants externes et leur lien manuel legacy lorsqu'aucun snapshot Meet n'existe.
 
 ## Resolved V1 Choices
 
-- La V1 affiche les calendriers accessibles sous chaque compte Google. Le closer sélectionne exactement un calendrier cible pour les invitations et au moins un calendrier précis pour les conflits ; elle ne réduit pas l'UX au seul calendrier principal. Un compte ou calendrier dont l'accès requis ne peut pas être vérifié reste non prêt.
+- La V1 affiche les comptes Google connectés. Le closer sélectionne exactement un compte cible pour les invitations et au moins un compte pour les conflits ; le serveur utilise le calendrier principal de chaque compte et ne propose aucun sous-calendrier. Un compte dont l'accès requis ne peut pas être vérifié reste non prêt.
 - La confirmation effectue un polling borné de la conférence Meet. Si Google reste en `pending`, la réservation interne conserve un état récupérable avec le créneau protégé, mais la réponse publique, l'email et l'invitation ne la présentent pas comme finalisée tant que le lien n'est pas disponible. Un retry reprend l'événement existant et, après succès, finalise la réservation sans doublon.
 - Google reste l'expéditeur de l'invitation Calendar (`sendUpdates=all`) afin que le prospect soit bien ajouté à l'événement cible. L'email Scale X est complémentaire : il contient le lien de gestion et l'ICS, tandis que Google porte l'ajout au calendrier ; les deux communications sont protégées par l'idempotence de la réservation et de la notification.

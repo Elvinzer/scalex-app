@@ -16,7 +16,6 @@ import { CalendarSettings } from "./calendar-settings";
 const initial: CalendarSettingsView = {
   connections: [],
   invitationConnectionId: null,
-  invitationCalendarId: null,
   conflicts: [],
   ready: false,
   reason: "missing_target",

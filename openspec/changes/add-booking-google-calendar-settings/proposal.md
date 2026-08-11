@@ -1,6 +1,6 @@
 ## Why
 
-La prise de rendez-vous native sait déjà synchroniser un événement externe, mais elle ne permet qu'une connexion Google par closer et mélange encore la configuration des calendriers avec l'éditeur d'un événement. Elle doit proposer le même modèle que l'UX iClosed : plusieurs comptes Google connectés par closer, un compte cible pour les nouvelles invitations et une sélection indépendante des calendriers utilisés pour détecter les conflits.
+La prise de rendez-vous native sait déjà synchroniser un événement externe, mais elle ne permet qu'une connexion Google par closer et mélange encore la configuration des calendriers avec l'éditeur d'un événement. Elle doit proposer le même modèle que l'UX iClosed : plusieurs comptes Google connectés par closer, un compte cible pour les nouvelles invitations et une sélection indépendante des comptes dont le calendrier principal est utilisé pour détecter les conflits.
 
 La réservation doit aussi créer automatiquement un événement Google Calendar avec une conférence Google Meet unique, conserver ce lien sur la réservation et empêcher les nouveaux rendez-vous lorsqu'un closer n'a pas de configuration Google valide.
 
@@ -10,7 +10,7 @@ La réservation doit aussi créer automatiquement un événement Google Calendar
 - Utiliser l'invitation de l'équipe et la session du closer comme frontière d'identité : chaque closer connecte ses propres comptes Google et ne peut voir que ses appels à venir.
 - Limiter la liste des liens de prise de rendez-vous internes aux événements auxquels le closer est rattaché ; les contrôles d'accès doivent être appliqués côté serveur, y compris sur les accès directs aux routes et actions.
 - Permettre à un closer de connecter plusieurs comptes Google, de les reconnecter ou de les désactiver sans écraser les autres connexions.
-- Séparer le compte/calendrier qui reçoit les nouvelles invitations des comptes/calendriers utilisés pour vérifier les conflits de disponibilité.
+- Séparer le compte qui reçoit les nouvelles invitations des comptes utilisés pour vérifier les conflits de disponibilité ; chaque compte utilise automatiquement son calendrier Google principal.
 - Utiliser un identifiant stable du compte Google pour distinguer plusieurs autorisations, sans utiliser l'adresse email comme identifiant technique.
 - Rendre la configuration Google obligatoire pour qu'un closer puisse recevoir de nouveaux créneaux natifs ; conserver les rendez-vous existants lors d'une modification ou d'une déconnexion.
 - Afficher un avertissement actionnable sur `/ventes/rdv` lorsqu'un closer concerné n'a pas de compte cible ou de calendrier de conflit configuré, avec redirection vers les paramètres.
@@ -28,7 +28,7 @@ La réservation doit aussi créer automatiquement un événement Google Calendar
 
 ### Modified Capabilities
 
-- `calendar-availability-sync`: sélection explicite du compte/calendrier cible, exigence d'une configuration Google valide, création d'événements Google avec Google Meet et reprise idempotente.
+- `calendar-availability-sync`: sélection explicite du compte cible et des comptes de conflit, utilisation de leurs calendriers principaux, exigence d'une configuration Google valide, création d'événements Google avec Google Meet et reprise idempotente.
 - `native-booking-events`: readiness et activation conditionnées par la configuration calendrier de chaque closer actif.
 - `unified-booking-agenda`: visibilité des appels et des liens d'événement filtrée par le closer connecté, avec conservation des droits account-wide des owners/admins autorisés.
 - `public-booking-flow`: retour et affichage du lien de réunion généré sur la confirmation d'une réservation native.

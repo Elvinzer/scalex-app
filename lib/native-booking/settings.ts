@@ -8,15 +8,11 @@ import {
 } from "@/db/schema";
 
 import {
+  getPrimaryCalendarOption,
   listCalendarsForConnection,
   type CalendarConnection,
   type CalendarOption,
 } from "./calendar";
-
-export type CalendarConflictSelection = {
-  connectionId: string;
-  calendarId: string;
-};
 
 export type CalendarConfigurationState = {
   closerUserId: string;
@@ -33,33 +29,36 @@ export type CalendarSettingsConnectionView = {
   provider: "google" | "outlook";
   email: string | null;
   status: "connected" | "reconnect_required" | "revoked";
-  calendars: CalendarOption[];
+  primaryCalendar: CalendarOption | null;
   loadError: boolean;
 };
 
 export type CalendarSettingsView = {
   connections: CalendarSettingsConnectionView[];
   invitationConnectionId: string | null;
-  invitationCalendarId: string | null;
-  conflicts: CalendarConflictSelection[];
+  conflicts: string[];
   ready: boolean;
   reason: CalendarConfigurationState["reason"];
 };
 
+type CalendarSettingsRow = typeof nativeBookingCalendarSettings.$inferSelect;
+type CalendarConflictRow = typeof nativeBookingCalendarConflicts.$inferSelect;
+
 type CalendarLookup = {
   connection: CalendarConnection;
-  calendars: CalendarOption[];
+  primaryCalendar: CalendarOption | null;
   loadError: boolean;
 };
 
 async function loadCalendarLookups(connections: CalendarConnection[]): Promise<Map<string, CalendarLookup>> {
   const lookups = await Promise.all(
     connections.map(async (connection): Promise<CalendarLookup> => {
-      if (connection.status !== "connected") return { connection, calendars: [], loadError: false };
+      if (connection.status !== "connected") return { connection, primaryCalendar: null, loadError: false };
       try {
-        return { connection, calendars: await listCalendarsForConnection(connection), loadError: false };
+        const calendars = await listCalendarsForConnection(connection);
+        return { connection, primaryCalendar: getPrimaryCalendarOption(calendars), loadError: false };
       } catch {
-        return { connection, calendars: [], loadError: true };
+        return { connection, primaryCalendar: null, loadError: true };
       }
     })
   );
@@ -106,6 +105,71 @@ async function loadGoogleSettingsRows(accountId: string, closerUserIds: string[]
   return { connections, settings, conflicts };
 }
 
+function resolveCalendarState({
+  closerUserId,
+  closerConnections,
+  configuration,
+  conflictRows,
+  lookups,
+}: {
+  closerUserId: string;
+  closerConnections: CalendarConnection[];
+  configuration: CalendarSettingsRow | undefined;
+  conflictRows: CalendarConflictRow[];
+  lookups: Map<string, CalendarLookup>;
+}): CalendarConfigurationState {
+  const invitationConnection = configuration?.invitationConnectionId
+    ? closerConnections.find((connection) => connection.id === configuration.invitationConnectionId) ?? null
+    : null;
+  const configuredConflictConnectionIds = Array.from(new Set(conflictRows.map(({ connectionId }) => connectionId)));
+  const conflictCalendars = configuredConflictConnectionIds.flatMap((connectionId) => {
+    const connection = closerConnections.find((candidate) => candidate.id === connectionId);
+    const lookup = connection ? lookups.get(connection.id) : undefined;
+    const primaryCalendar = lookup?.primaryCalendar;
+    if (!connection || connection.status !== "connected" || !lookup || lookup.loadError || !primaryCalendar) return [];
+    return [{ connection, calendarId: primaryCalendar.id }];
+  });
+
+  const targetLookup = invitationConnection ? lookups.get(invitationConnection.id) : undefined;
+  const targetCalendar = targetLookup?.primaryCalendar;
+  const relevantConnectionIds = Array.from(
+    new Set([
+      ...(configuration?.invitationConnectionId ? [configuration.invitationConnectionId] : []),
+      ...configuredConflictConnectionIds,
+    ])
+  );
+  const calendarUnavailable = relevantConnectionIds.some((connectionId) => {
+    const lookup = lookups.get(connectionId);
+    return lookup?.loadError === true || (lookup !== undefined && lookup.primaryCalendar === null);
+  });
+  const targetReady = Boolean(
+    invitationConnection &&
+      invitationConnection.status === "connected" &&
+      targetLookup &&
+      !targetLookup.loadError &&
+      targetCalendar?.canWrite
+  );
+  const conflictReady = configuredConflictConnectionIds.length > 0 && conflictCalendars.length === configuredConflictConnectionIds.length;
+  const targetConfigured = Boolean(configuration?.invitationConnectionId && invitationConnection);
+  const reason: CalendarConfigurationState["reason"] = calendarUnavailable
+    ? "calendar_unavailable"
+    : !targetConfigured || !targetReady
+      ? "missing_target"
+      : !conflictReady
+        ? "missing_conflict"
+        : null;
+
+  return {
+    closerUserId,
+    invitationConnection: targetReady ? invitationConnection : null,
+    invitationCalendarId: targetReady ? targetCalendar?.id ?? null : null,
+    conflictCalendars,
+    ready: targetReady && conflictReady && !calendarUnavailable,
+    unavailable: !(targetReady && conflictReady && !calendarUnavailable),
+    reason,
+  };
+}
+
 export async function getCalendarStatesForClosers(accountId: string, closerUserIds: string[]) {
   const states = new Map<string, CalendarConfigurationState>();
   if (closerUserIds.length === 0) return states;
@@ -114,57 +178,16 @@ export async function getCalendarStatesForClosers(accountId: string, closerUserI
   const lookups = await loadCalendarLookups(connections);
 
   for (const closerUserId of closerUserIds) {
-    const closerConnections = connections.filter((connection) => connection.closerUserId === closerUserId);
-    const configuration = settings.find((row) => row.closerUserId === closerUserId);
-    const invitationConnection = configuration?.invitationConnectionId
-      ? closerConnections.find((connection) => connection.id === configuration.invitationConnectionId) ?? null
-      : null;
-    const closerConflicts = conflicts
-      .filter((row) => row.closerUserId === closerUserId)
-      .flatMap((row) => {
-        const connection = closerConnections.find((candidate) => candidate.id === row.connectionId);
-        const lookup = connection ? lookups.get(connection.id) : undefined;
-        if (!connection || connection.status !== "connected" || !lookup || lookup.loadError || !lookup.calendars.some((calendar) => calendar.id === row.calendarId)) {
-          return [];
-        }
-        return [{ connection, calendarId: row.calendarId }];
-      });
-
-    const targetLookup = invitationConnection ? lookups.get(invitationConnection.id) : undefined;
-    const targetCalendar = targetLookup?.calendars.find((calendar) => calendar.id === configuration?.invitationCalendarId);
-    const configuredConflictRows = conflicts.filter((row) => row.closerUserId === closerUserId);
-    const relevantConnectionIds = new Set([
-      ...(invitationConnection ? [invitationConnection.id] : []),
-      ...configuredConflictRows.map(({ connectionId }) => connectionId),
-    ]);
-    const lookupFailed = Array.from(relevantConnectionIds).some((connectionId) => lookups.get(connectionId)?.loadError === true);
-    const targetReady = Boolean(
-      invitationConnection &&
-        invitationConnection.status === "connected" &&
-        configuration?.invitationCalendarId &&
-        targetLookup &&
-        !targetLookup.loadError &&
-        targetCalendar?.canWrite
-    );
-    const conflictReady = configuredConflictRows.length > 0 && closerConflicts.length === configuredConflictRows.length;
-    const targetConfigured = Boolean(invitationConnection && configuration?.invitationCalendarId);
-    const reason: CalendarConfigurationState["reason"] = lookupFailed
-      ? "calendar_unavailable"
-      : !targetConfigured || !targetReady
-        ? "missing_target"
-        : !conflictReady
-          ? "missing_conflict"
-          : null;
-
-    states.set(closerUserId, {
+    states.set(
       closerUserId,
-      invitationConnection: targetReady ? invitationConnection : null,
-      invitationCalendarId: targetReady ? configuration?.invitationCalendarId ?? null : null,
-      conflictCalendars: closerConflicts,
-      ready: targetReady && conflictReady && !lookupFailed,
-      unavailable: !(targetReady && conflictReady && !lookupFailed),
-      reason,
-    });
+      resolveCalendarState({
+        closerUserId,
+        closerConnections: connections.filter((connection) => connection.closerUserId === closerUserId),
+        configuration: settings.find((row) => row.closerUserId === closerUserId),
+        conflictRows: conflicts.filter((row) => row.closerUserId === closerUserId),
+        lookups,
+      })
+    );
   }
 
   return states;
@@ -173,24 +196,29 @@ export async function getCalendarStatesForClosers(accountId: string, closerUserI
 export async function getCalendarSettingsView(accountId: string, closerUserId: string): Promise<CalendarSettingsView> {
   const { connections, settings, conflicts } = await loadGoogleSettingsRows(accountId, [closerUserId]);
   const lookups = await loadCalendarLookups(connections);
-  const configuration = settings[0] ?? null;
-  const selectedConflicts = conflicts.map(({ connectionId, calendarId }) => ({ connectionId, calendarId }));
-  const state = (await getCalendarStatesForClosers(accountId, [closerUserId])).get(closerUserId);
+  const configuration = settings.find((row) => row.closerUserId === closerUserId);
+  const closerConflicts = conflicts.filter((row) => row.closerUserId === closerUserId);
+  const state = resolveCalendarState({
+    closerUserId,
+    closerConnections: connections,
+    configuration,
+    conflictRows: closerConflicts,
+    lookups,
+  });
 
   return {
-    connections: Array.from(lookups.values()).map(({ connection, calendars, loadError }) => ({
+    connections: Array.from(lookups.values()).map(({ connection, primaryCalendar, loadError }) => ({
       id: connection.id,
       provider: connection.provider,
       email: connection.providerAccountEmail,
       status: connection.status,
-      calendars,
+      primaryCalendar,
       loadError,
     })),
     invitationConnectionId: configuration?.invitationConnectionId ?? null,
-    invitationCalendarId: configuration?.invitationCalendarId ?? null,
-    conflicts: selectedConflicts,
-    ready: state?.ready ?? false,
-    reason: state?.reason ?? "missing_target",
+    conflicts: Array.from(new Set(closerConflicts.map(({ connectionId }) => connectionId))),
+    ready: state.ready,
+    reason: state.reason,
   };
 }
 

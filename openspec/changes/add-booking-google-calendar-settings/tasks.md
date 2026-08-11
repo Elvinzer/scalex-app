@@ -7,14 +7,14 @@
 ## 2. Modèle de données et migrations
 
 - [x] 2.1 Étendre `native_calendar_connections` avec l'identifiant stable du compte Google et remplacer l'unicité closer/fournisseur par une unicité adaptée à un compte fournisseur ; préserver le chiffrement des tokens et l'état de connexion.
-- [x] 2.2 Ajouter la configuration booking par closer pour la cible d'invitation et les lignes de calendriers de conflits, avec contraintes d'intégrité, index account/closer et policies RLS.
+- [x] 2.2 Ajouter la configuration booking par closer pour le compte d'invitation et les lignes de comptes de conflits avec snapshot de leur calendrier principal, avec contraintes d'intégrité, index account/closer et policies RLS.
 - [x] 2.3 Ajouter le snapshot du lien Meet et les états nécessaires au suivi de synchronisation sur `native_bookings`, sans casser les références et liens legacy des réservations existantes.
 - [x] 2.4 Générer puis appliquer les migrations Drizzle avec `npm run db:generate` et `npm run db:migrate` ; vérifier les policies et ne pas utiliser `drizzle-kit push`.
 
 ## 3. OAuth Google et services de configuration
 
 - [x] 3.1 Modifier le flux OAuth pour lier l'autorisation à la session du closer authentifié, récupérer le `sub` Google, distinguer ajout et reconnexion et forcer la sélection du compte lors de l'ajout d'un compte supplémentaire.
-- [x] 3.2 Implémenter les lectures et mutations de configuration avec validation Zod : comptes connectés, calendriers accessibles, cible unique écrivable, sélection d'au moins un calendrier de conflit, reconnexion et déconnexion réversible.
+- [x] 3.2 Implémenter les lectures et mutations de configuration avec validation Zod : comptes connectés, calendrier principal accessible, cible unique écrivable, sélection d'au moins un compte de conflit, reconnexion et déconnexion réversible.
 - [x] 3.3 Remplacer la sélection implicite de la connexion la plus récente par un resolver explicite de readiness et de cible, réutilisé par les créneaux, l'activation et la confirmation finale.
 - [x] 3.4 Vérifier qu'un owner ou un manager ne peut pas connecter ni modifier le compte Google d'un autre closer en forgeant un identifiant dans le payload.
 
@@ -28,13 +28,13 @@
 
 ## 5. Readiness et disponibilité
 
-- [x] 5.1 Bloquer l'activation d'un événement si un closer actif du pool n'a pas de compte Google actif, de calendrier cible écrivable ou de calendrier de conflit sélectionné.
-- [x] 5.2 Faire calculer les créneaux à partir des seuls calendriers de conflit sélectionnés, en tenant compte des réservations et buffers, avec revalidation serveur au dernier moment.
+- [x] 5.1 Bloquer l'activation d'un événement si un closer actif du pool n'a pas de compte Google actif, de calendrier principal cible écrivable ou de compte de conflit sélectionné.
+- [x] 5.2 Faire calculer les créneaux à partir des seuls calendriers principaux des comptes de conflit sélectionnés, en tenant compte des réservations et buffers, avec revalidation serveur au dernier moment.
 - [x] 5.3 Revalider la readiness pendant la sélection publique et la confirmation pour gérer une déconnexion ou une révocation survenue entre deux écrans.
 
 ## 6. Création Google Calendar et Google Meet
 
-- [x] 6.1 Adapter l'adaptateur Google pour créer dans le calendrier cible choisi, inviter le prospect lorsque son email est disponible et demander `conferenceData` avec une clé Meet et un `requestId` déterministe par réservation.
+- [x] 6.1 Adapter l'adaptateur Google pour créer dans le calendrier principal du compte cible, inviter le prospect lorsque son email est disponible et demander `conferenceData` avec une clé Meet et un `requestId` déterministe par réservation.
 - [x] 6.2 Extraire le lien vidéo, gérer l'état `pending` avec un polling borné puis un job Inngest, et reprendre l'événement externe existant sans recréer une conférence.
 - [x] 6.3 Rendre la création, la mise à jour, l'annulation et la reconnexion idempotentes ; conserver les identifiants externes et signaler les erreurs de synchronisation sans perdre l'état Scale X.
 - [x] 6.4 Vérifier les scopes OAuth, les droits d'écriture et l'expiration des tokens sans exposer de secrets dans les logs, le frontend ou les erreurs utilisateur.
@@ -48,7 +48,7 @@
 
 ## 8. Tests unitaires, intégration et sécurité
 
-- [ ] 8.1 Couvrir les resolvers multi-comptes, l'identité `sub`, la cible unique, les conflits multi-calendriers, la readiness Google et la migration des connexions existantes.
+- [ ] 8.1 Couvrir les resolvers multi-comptes, l'identité `sub`, la cible unique, les conflits multi-comptes sur calendriers principaux, la readiness Google et la migration des connexions existantes.
 - [ ] 8.2 Couvrir l'idempotence de création et de retry, Meet `pending`, expiration/révocation OAuth, changement de cible, déconnexion, déplacement et annulation.
 - [ ] 8.3 Couvrir les policies RLS et les loaders/actions avec owner, closer A et closer B : agenda, événement, lien, fiche, recherche et mutation hors périmètre.
 - [x] 8.4 Vérifier le parsing JSON des locales, l'absence de clés manquantes ou dupliquées et la présence de chaque nouvelle clé dans `locales/en` et `locales/fr` ; relire les textes anglais et français pour retirer les tournures artificielles, les fallbacks et les tirets cadratins ou demi-cadratins anglais.
@@ -57,7 +57,7 @@
 
 - [x] 9.1 Charger les commandes du skill avec `rtk agent-browser skills get core --full`, préparer des fixtures et un fournisseur Google Calendar/Meet simulé ou de test, sans utiliser de secrets réels.
 - [ ] 9.2 Inviter puis authentifier un owner et deux closers ; vérifier que chaque closer arrive sur ses propres paramètres et que l'OAuth est attaché à la bonne session.
-- [ ] 9.3 Depuis le closer A, connecter deux comptes Google, choisir une cible et plusieurs calendriers de conflit, changer la cible, déconnecter un compte et vérifier les états de readiness et de reprise.
+- [ ] 9.3 Depuis le closer A, connecter deux comptes Google, choisir une cible et plusieurs comptes de conflit, changer la cible, déconnecter un compte et vérifier les états de readiness et de reprise.
 - [ ] 9.4 Vérifier avec `agent-browser` que le closer A ne voit que ses appels à venir et les liens des événements qui lui sont rattachés, que les événements du closer B sont absents et qu'une URL directe non rattachée est refusée.
 - [ ] 9.5 Réserver un créneau public rattaché au closer A et vérifier l'événement Google cible, l'unicité du lien Meet, la confirmation, l'email et l'ICS ; rejouer la confirmation pour vérifier l'absence de doublon.
 - [ ] 9.6 Vérifier les scénarios Meet `pending`, retry, déplacement, annulation et déconnexion du compte cible ; confirmer que le lien existant reste attaché au bon rendez-vous.

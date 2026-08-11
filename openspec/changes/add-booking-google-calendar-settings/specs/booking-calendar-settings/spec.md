@@ -1,6 +1,6 @@
 ## Purpose
 
-Cette capacité permet à chaque closer de gérer plusieurs comptes Google pour la prise de rendez-vous, de choisir le compte qui reçoit les invitations et de sélectionner séparément les calendriers utilisés pour détecter les conflits.
+Cette capacité permet à chaque closer de gérer plusieurs comptes Google pour la prise de rendez-vous, de choisir le compte qui reçoit les invitations et de sélectionner séparément les comptes dont le calendrier principal détecte les conflits.
 
 ## ADDED Requirements
 
@@ -46,7 +46,7 @@ Le système SHALL permettre à un closer autorisé de connecter plusieurs compte
 
 ### Requirement: Invitation target is selected independently
 
-Le système SHALL permettre de sélectionner un seul compte Google et un seul calendrier cible pour créer les nouveaux événements et envoyer les invitations. Le compte cible SHALL être choisi parmi les connexions actives du closer et un compte sans calendrier cible accessible en écriture SHALL être considéré comme non configuré.
+Le système SHALL permettre de sélectionner un seul compte Google pour créer les nouveaux événements et envoyer les invitations. Le calendrier cible SHALL être le calendrier principal de ce compte, résolu côté serveur ; un compte dont le calendrier principal n'est pas accessible en écriture SHALL être considéré comme non configuré.
 
 #### Scenario: Closer selects the invitation target
 
@@ -60,17 +60,17 @@ Le système SHALL permettre de sélectionner un seul compte Google et un seul ca
 
 ### Requirement: Conflict calendars are configured independently
 
-Le système SHALL permettre de sélectionner un ou plusieurs comptes ou calendriers Google pour vérifier les conflits de disponibilité. Cette sélection SHALL être indépendante du compte cible des invitations et SHALL être prise en compte pour les futurs créneaux du closer.
+Le système SHALL permettre de sélectionner un ou plusieurs comptes Google pour vérifier les conflits de disponibilité. Le calendrier principal de chaque compte sélectionné SHALL être utilisé automatiquement. Cette sélection SHALL être indépendante du compte cible des invitations et SHALL être prise en compte pour les futurs créneaux du closer.
 
 #### Scenario: Closer checks several Google calendars
 
-- **WHEN** un closer sélectionne des calendriers appartenant à plusieurs comptes Google
-- **THEN** une période occupée dans l'un de ces calendriers rend le closer indisponible sur le créneau chevauché
+- **WHEN** un closer sélectionne plusieurs comptes Google
+- **THEN** une période occupée dans le calendrier principal de l'un de ces comptes rend le closer indisponible sur le créneau chevauché
 
 #### Scenario: Closer changes conflict calendars
 
-- **WHEN** un closer retire un calendrier de la sélection des conflits
-- **THEN** les nouveaux calculs de disponibilité ne consultent plus ce calendrier, tandis que le calendrier cible d'invitation reste inchangé
+- **WHEN** un closer retire un compte de la sélection des conflits
+- **THEN** les nouveaux calculs de disponibilité ne consultent plus son calendrier principal, tandis que le compte cible d'invitation reste inchangé
 
 ### Requirement: Booking settings expose readiness and actionable recovery
 
