@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
+import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 
 import { CheckinModal } from "./checkin-modal";
 
@@ -18,12 +19,14 @@ export function CheckinTrigger({
   initialData,
   settingSourced,
   closingSourced,
+  activeMetricFields,
 }: {
   year: number;
   month: number;
   initialData: MonthlyMetricsInput;
   settingSourced: boolean;
   closingSourced: boolean;
+  activeMetricFields: AcquisitionFunnelStep[];
 }) {
   const t = useTranslations("dashboard");
   const searchParams = useSearchParams();
@@ -42,6 +45,7 @@ export function CheckinTrigger({
         initialData={initialData}
         settingSourced={settingSourced}
         closingSourced={closingSourced}
+        activeMetricFields={activeMetricFields}
       />
     </>
   );

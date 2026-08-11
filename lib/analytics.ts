@@ -27,6 +27,8 @@ export type AnalyticsEvent =
   | "onboarding_step_completed"
   | "activation_reached"
   | "business_profile_completed"
+  | "acquisition_funnel_selected"
+  | "acquisition_funnel_changed"
   | "month_data_filled"
   | "diagnostic_viewed"
   | "improve_chat_opened"

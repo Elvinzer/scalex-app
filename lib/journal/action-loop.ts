@@ -10,6 +10,8 @@ import {
   users,
 } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { db } from "@/db";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
@@ -509,7 +511,7 @@ function buildResult(
 export async function getJournalActionLoopData(accountId: string): Promise<JournalActionLoopData> {
   const now = todayUtc();
   const today = toIsoDate(now);
-  const [businessProfile, [user], rawData, contentRows, setterRows, records, initiatives, measurements, events, priorityRules, leverCatalog] = await Promise.all([
+  const [businessProfile, [user], rawData, contentRows, setterRows, records, initiatives, measurements, events, priorityRules, leverCatalog, acquisitionCatalog] = await Promise.all([
     getBusinessProfile(accountId),
     db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1),
     getDiagnosticKpiRawData(accountId),
@@ -521,7 +523,10 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     db.select().from(improvementEvents).where(eq(improvementEvents.userId, accountId)).orderBy(desc(improvementEvents.createdAt)),
     getPriorityRules(),
     getLeversCatalog(),
+    getAcquisitionFunnelCatalog(),
   ]);
+  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+  const activeMetricKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
 
   const leadRows = rawData.allLeads;
   const salesTeamRows = rawData.allSales.filter((sale) => Boolean(sale.setterId || sale.closer?.trim()));
@@ -548,6 +553,7 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
         benchmarks,
         businessProfile,
         cashContractedTotal: totals.cashContractedTotal,
+        activeMetricKeys,
       })
     : [];
   const opportunities = totals.hasAnySourceData
@@ -710,6 +716,7 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     benchmarks,
     businessProfile,
     cashContractedTotal: totals.cashContractedTotal,
+    activeMetricKeys,
   });
   const scaleScoreDelta30d = score.score === null ? null : await getScaleScoreDelta(accountId, 30, score.score);
   const currentWeekStart = isoDate(mondayOfWeek(now));

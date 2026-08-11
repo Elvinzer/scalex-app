@@ -8,7 +8,7 @@
     "chooseEn": "English",
     "suggested": "Détecté depuis ton navigateur"
   },
-  "stepProgress": "Étape {step} sur 3",
+  "stepProgress": "Étape {step} sur 4",
   "discoveryInvite": "Tu veux que je creuse encore ? J’ai {count} question(s) rapide(s) sur tes leviers. Facultatif, tu pourras le faire plus tard depuis ton diagnostic.",
   "answerQuestionnaire": "Répondre au questionnaire (2 min)",
   "finishLater": "Finir plus tard",
@@ -23,6 +23,9 @@
   "nichePlaceholder": "Ex. : coaching business pour thérapeutes",
   "loading": "…",
   "continue": "Continuer →",
+  "acquisitionQuestion": "Comment tes prospects arrivent jusqu’à toi ?",
+  "acquisitionHelp": "Tu peux choisir plusieurs parcours. Si tu hésites, garde Lead magnet : tu pourras le modifier ensuite.",
+  "primaryFunnel": "Quel est ton parcours principal ?",
   "skip": "Passer pour l’instant",
   "numbersQuestion": "Tes chiffres : tu as un export ou une capture ? Glisse-le ici, je m’occupe du tri, même si ça couvre plusieurs mois. Sinon on les remplit ensemble pour {month}.",
   "enterManually": "Saisir à la main",

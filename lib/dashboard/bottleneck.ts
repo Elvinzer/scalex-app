@@ -26,10 +26,12 @@ export const BOTTLENECK_STAGE_IDS = [
   "salesClosed",
 ] as const;
 
-export type BottleneckStageId = (typeof BOTTLENECK_STAGE_IDS)[number];
+// Runtime catalogue stages can be added without a TypeScript deployment.
+// Legacy ids remain in BOTTLENECK_STAGE_IDS for tests and fallback labels.
+export type BottleneckStageId = string;
 
 export type BottleneckStage = {
-  id: BottleneckStageId;
+  id: string;
   volume: number | null;
   currentRate: number | null;
   benchmarkRate: number | null;
@@ -37,15 +39,25 @@ export type BottleneckStage = {
   metricKey: string | null;
   isReliable: boolean;
   noteKey: "retentionUnavailable" | "volumeInsufficient" | "gainUnavailable" | null;
-  source?: "content" | "pipeline" | "calls" | "sales";
+  source?: "content" | "pipeline" | "calls" | "sales" | "manual";
+  label?: string;
+  unit?: string;
+  sourceHref?: string;
 };
 
-export type BottleneckFunnelData = {
+export type BottleneckFunnelVariant = {
+  catalogKey?: string;
+  catalogLabel?: string;
   stages: BottleneckStage[];
-  bottleneckId: BottleneckStageId | null;
+  bottleneckId: string | null;
   totalPotential: number | null;
   sales: number | null;
   revenue: number | null;
+};
+
+export type BottleneckFunnelData = BottleneckFunnelVariant & {
+  variants?: BottleneckFunnelVariant[];
+  activeFunnelKey?: string;
 };
 
 type GainResolution = {

@@ -2,6 +2,7 @@
 // types (not Zod-inferred) so db/schema.ts can import them without pulling
 // in the Zod schemas — schema.ts imports these types, not the other way
 // around.
+import type { AcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
 
 export type AcquisitionMode = "organique" | "ads" | "hybride";
 
@@ -52,6 +53,11 @@ export type BusinessAcquisition = {
   leadMagnet: LeadMagnet;
   vsl: Vsl;
   setting: BusinessAcquisitionSetting;
+  funnels: AcquisitionFunnelKey[];
+  primaryFunnel: AcquisitionFunnelKey;
+  // Read-only runtime hint for existing accounts. It is stripped before a
+  // profile save and lets Dashboard show the one-time confirmation nudge.
+  funnelSelectionInferred?: boolean;
 };
 
 export type OfferType = "formation" | "coaching" | "accompagnement" | "saas" | "autre";
@@ -137,6 +143,9 @@ export const EMPTY_BUSINESS_PROFILE: BusinessProfileData = {
     leadMagnet: { enabled: null, type: null, title: "", promise: "", url: "" },
     vsl: { enabled: null, url: "", durationMin: null, cta: "" },
     setting: { enabled: null, channel: "", operator: "" },
+    funnels: ["lead_magnet"],
+    primaryFunnel: "lead_magnet",
+    funnelSelectionInferred: false,
   },
   sales: {
     offers: [],

@@ -13,6 +13,8 @@ import { todayUtc } from "@/lib/date-range";
 import { summarize } from "@/lib/sales/installments";
 import { getSalesSummaryByMonth } from "@/lib/sales/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { activeFunnelEntries, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 
 import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
 
@@ -36,7 +38,7 @@ export default async function DatasPage({
   const year = params.year ? Number(params.year) : currentYear;
   const trendPeriod = params.trendPeriod && TREND_PERIODS.includes(params.trendPeriod) ? params.trendPeriod : "6";
 
-  const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, rawData] =
+  const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, rawData, acquisitionCatalog] =
     await Promise.all([
       getMonthlyMetricsForYear(accountId, year),
       getPostLeadsSumByMonth(accountId, year),
@@ -47,7 +49,16 @@ export default async function DatasPage({
       // boundaries client-side (and the trend chart below spans up to 12
       // rolling months, which can itself cross a year boundary).
       getDiagnosticKpiRawData(accountId),
+      getAcquisitionFunnelCatalog(),
     ]);
+  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+  const activeMetricFields = Array.from(
+    new Map(
+      activeFunnelEntries(acquisitionSelection, acquisitionCatalog)
+        .flatMap((entry) => entry.steps)
+        .map((stage) => [stage.inputMetricKey, stage] as const)
+    ).values()
+  );
 
   // Trend chart data — same aggregation as the old /overview page (removed),
   // kept here so the one genuinely unique thing that page did (CA/leads/RDV/
@@ -114,6 +125,7 @@ export default async function DatasPage({
         allSettingEntries={rawData.allSettingEntries}
         allClosingEntries={rawData.allClosingEntries}
         callSourcesByMonth={rawData.allCallSourcesByMonth}
+        activeMetricFields={activeMetricFields}
       />
       <RevenueTrend year={year} trendPeriod={trendPeriod} chartSeries={chartSeries} goalValue={businessProfile.identity.mrrGoal} />
     </div>

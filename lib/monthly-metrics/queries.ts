@@ -41,6 +41,7 @@ function toRow(row: typeof monthlyMetrics.$inferSelect): MonthlyMetricsRow {
     callsBooked: row.callsBooked,
     callsTaken: row.callsTaken,
     salesClosed: row.salesClosed,
+    acquisitionMetrics: row.acquisitionMetrics,
     cashCollectedSource: row.cashCollectedSource as StripeFieldSource,
     cashCollectedSyncedAt: row.cashCollectedSyncedAt,
     cashCollectedManualBackup: row.cashCollectedManualBackup,

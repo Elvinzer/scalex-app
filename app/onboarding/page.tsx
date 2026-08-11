@@ -9,6 +9,7 @@ import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getDiscoveryState } from "@/lib/levers/discovery";
 import { matchLocaleFromAcceptLanguage } from "@/lib/i18n/config";
 import { getStoredUserLocale } from "@/lib/i18n/locale";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 
 import { OnboardingFlow } from "./onboarding-flow";
 
@@ -42,7 +43,10 @@ export default async function OnboardingPage() {
   // user, snapshotted here (step 1 never touches the 4 profile-backed levers,
   // so this list stays valid through the wizard). `user` is guaranteed here —
   // onboardingCompleted users were redirected above.
-  const discovery = user ? await getDiscoveryState(user.id) : null;
+  const [discovery, acquisitionFunnels] = await Promise.all([
+    user ? getDiscoveryState(user.id) : Promise.resolve(null),
+    getAcquisitionFunnelCatalog(),
+  ]);
 
   // The browser only PRE-SELECTS (§A). An account that already holds a locale
   // skips step 0 entirely rather than being asked twice.
@@ -58,6 +62,7 @@ export default async function OnboardingPage() {
       discoveryLevers={discovery?.remainingLevers ?? []}
       discoveryTotal={discovery?.total ?? 0}
       discoveryAnswered={discovery?.answered ?? 0}
+      acquisitionFunnels={acquisitionFunnels}
       needsLanguageChoice={storedLocale === null}
       suggestedLocale={storedLocale ?? suggestedLocale}
     />

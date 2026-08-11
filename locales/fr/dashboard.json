@@ -8,6 +8,12 @@
   "howCalculated": "Comment c’est calculé",
   "completeNumbers": "Complète tes chiffres pour ton diagnostic",
   "notEnoughData": "Pas encore assez de données pour calculer un goulot.",
+  "acquisitionFunnelInferred": {
+    "title": "Ton parcours d’acquisition est encore estimé",
+    "help": "Choisis les parcours que tu utilises pour que le funnel, les benchmarks et le diagnostic collent à ta réalité.",
+    "cta": "Configurer mon parcours",
+    "dismiss": "Masquer ce rappel"
+  },
   "monthContext": "Contexte du mois",
   "monthContextHelp": "Mois en cours, comparé au mois précédent.",
   "weeklyCheckin": "Check-in hebdomadaire",

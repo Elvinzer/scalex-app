@@ -7,11 +7,11 @@ import { z } from "zod";
 import { AlertCircle, CheckCircle2, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
+import type { MonthlyMetricScalarKey, MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 
 import { ImportDropzone } from "./import-dropzone";
 
-type MonthlyMetricKey = keyof MonthlyMetricsInput;
+type MonthlyMetricKey = MonthlyMetricScalarKey;
 type ImportPeriod = { year: number; month: number };
 
 type MappedField = {

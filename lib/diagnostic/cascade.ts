@@ -189,14 +189,16 @@ export function computeMetricSummaries({
   settingTotals,
   closingTotals,
   benchmarks,
+  activeMetricKeys = METRIC_KEYS,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
   benchmarks: Record<MetricKey, number>;
+  activeMetricKeys?: MetricKey[];
 }): MetricSummary[] {
   const rates = buildRates(settingTotals, closingTotals);
 
-  return METRIC_KEYS.map((key) => {
+  return activeMetricKeys.map((key) => {
     const current = rates[key];
     const benchmark = benchmarks[key];
     const volume = volumeFor(key, settingTotals, closingTotals);
@@ -219,12 +221,14 @@ export function computeDiagnosticPoints({
   benchmarks,
   businessProfile,
   cashContractedTotal,
+  activeMetricKeys = METRIC_KEYS,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
   benchmarks: Record<MetricKey, number>;
   businessProfile: BusinessProfileData;
   cashContractedTotal: number;
+  activeMetricKeys?: MetricKey[];
 }): DiagnosticPoint[] {
   const rates = buildRates(settingTotals, closingTotals);
 
@@ -234,7 +238,7 @@ export function computeDiagnosticPoints({
 
   const points: DiagnosticPoint[] = [];
 
-  for (const key of METRIC_KEYS) {
+  for (const key of activeMetricKeys) {
     const current = rates[key];
     const benchmark = benchmarks[key];
     const volume = volumeFor(key, settingTotals, closingTotals);
@@ -320,12 +324,14 @@ export function computeMetricHealthCards({
   benchmarks,
   businessProfile,
   cashContractedTotal,
+  activeMetricKeys = METRIC_KEYS,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
   benchmarks: Record<MetricKey, number>;
   businessProfile: BusinessProfileData;
   cashContractedTotal: number;
+  activeMetricKeys?: MetricKey[];
 }): MetricHealthCard[] {
   const rates = buildRates(settingTotals, closingTotals);
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
@@ -334,7 +340,7 @@ export function computeMetricHealthCards({
 
   const cards: MetricHealthCard[] = [];
 
-  for (const key of METRIC_KEYS) {
+  for (const key of activeMetricKeys) {
     const current = rates[key];
     const benchmark = benchmarks[key];
     const volume = volumeFor(key, settingTotals, closingTotals);
@@ -377,13 +383,18 @@ export function computeFullBenchmarkProjection({
   benchmarks,
   businessProfile,
   cashContractedTotal,
+  activeMetricKeys = METRIC_KEYS,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
   benchmarks: Record<MetricKey, number>;
   businessProfile: BusinessProfileData;
   cashContractedTotal: number;
+  activeMetricKeys?: MetricKey[];
 }): FullBenchmarkProjection {
+  if (activeMetricKeys.length < METRIC_KEYS.length) {
+    return { realSales: null, simulatedSales: null, extraClients: null, monthlyGain: null };
+  }
   const rates = buildRates(settingTotals, closingTotals);
   const messagesSent = settingTotals.firstMessagesSent;
   const realSales = simulateSales(messagesSent, rates);

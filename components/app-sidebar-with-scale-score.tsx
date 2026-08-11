@@ -6,6 +6,8 @@ import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/comple
 import { computeScaleScore, describeScaleScoreGap } from "@/lib/diagnostic/scale-score";
 import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
@@ -43,14 +45,15 @@ export async function AppSidebarWithScaleScore({
   let scaleScoreSparkline: AppSidebarProps["scaleScoreSparkline"] = [];
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
-  const [scaleScoreInputs, benchmarks] = canSeeScaleScore
+  const [scaleScoreInputs, benchmarks, acquisitionCatalog] = canSeeScaleScore
     ? await Promise.all([
         getDiagnosticKpiRawData(accountId),
         getDiagnosticBenchmarks(sector),
+        getAcquisitionFunnelCatalog(),
       ])
-    : [null, null] as const;
+    : [null, null, null] as const;
 
-  if (canSeeScaleScore && scaleScoreInputs && benchmarks) {
+  if (canSeeScaleScore && scaleScoreInputs && benchmarks && acquisitionCatalog) {
     const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
     const { settingTotals, closingTotals, cashContractedTotal, emptyMonths } = aggregatePeriodTotals({
       months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),
@@ -58,7 +61,15 @@ export async function AppSidebarWithScaleScore({
       allSettingEntries,
       allClosingEntries,
     });
-    scaleScore = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+    const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+    scaleScore = computeScaleScore({
+      settingTotals,
+      closingTotals,
+      benchmarks,
+      businessProfile,
+      cashContractedTotal,
+      activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+    });
 
     if (scaleScore.score === null) {
       const gap = describeScaleScoreGap(emptyMonths, scaleScore.pillars);

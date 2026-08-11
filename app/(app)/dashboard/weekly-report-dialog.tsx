@@ -17,6 +17,7 @@ import type { WeeklyReportRow } from "@/lib/dashboard/weekly-report";
 import { recordWeeklyReportViewed } from "@/lib/dashboard/weekly-report-tracking";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 import { cn } from "@/lib/utils";
 
 function weekLabel(weekStart: string, locale: string, format: (from: string, to: string) => string): string {
@@ -53,6 +54,7 @@ export function WeeklyReportDialog({
   checkinCallsBookedSourced,
   checkinClosingSourced,
   checkinCallSource,
+  checkinActiveMetricFields,
 }: {
   reports: WeeklyReportRow[];
   checkInDoneThisWeek: boolean;
@@ -63,6 +65,7 @@ export function WeeklyReportDialog({
   checkinCallsBookedSourced: boolean;
   checkinClosingSourced: boolean;
   checkinCallSource: MonthlyCallSource | null;
+  checkinActiveMetricFields: AcquisitionFunnelStep[];
 }) {
   const t = useTranslations("dashboard");
   const locale = useLocale();
@@ -244,6 +247,7 @@ export function WeeklyReportDialog({
         callsBookedSourced={checkinCallsBookedSourced}
         closingSourced={checkinClosingSourced}
         callSource={checkinCallSource}
+        activeMetricFields={checkinActiveMetricFields}
       />
     </>
   );

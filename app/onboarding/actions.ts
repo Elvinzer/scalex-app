@@ -18,6 +18,9 @@ import { computeOnboardingGoulot, type OnboardingGoulotResult } from "@/lib/diag
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { isAcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
+import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 
 // The manual-entry form (screen 2's "Saisir à la main" path) still asks for
 // one specific month — lastCompletedMonths(1) is that window. The import
@@ -62,6 +65,28 @@ export async function saveOnboardingOffer(data: {
   return { error: null };
 }
 
+export async function saveOnboardingFunnels(data: { funnels: string[]; primaryFunnel: string }): Promise<{ error: string | null }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+  const funnels = Array.from(new Set(data.funnels.filter(isAcquisitionFunnelKey)));
+  const primaryFunnel = isAcquisitionFunnelKey(data.primaryFunnel) && funnels.includes(data.primaryFunnel) ? data.primaryFunnel : funnels[0] ?? "lead_magnet";
+  const profile = await getBusinessProfile(userId);
+  const catalog = await getAcquisitionFunnelCatalog();
+  const allowed = new Set(catalog.map((entry) => entry.funnelKey));
+  const validFunnels = funnels.filter((funnel) => allowed.has(funnel));
+  const selected = validFunnels.length > 0 ? validFunnels : ["lead_magnet"];
+  const validPrimary = selected.includes(primaryFunnel) ? primaryFunnel : selected[0];
+  const result = await saveBusinessSection("acquisition", {
+    ...profile.acquisition,
+    funnels: selected,
+    primaryFunnel: validPrimary,
+    funnelSelectionInferred: false,
+  }, "onboarding");
+  if (result.error) return result;
+  await track("acquisition_funnel_selected", userId, { funnels: selected, primary: validPrimary, from: "onboarding" });
+  return { error: null };
+}
+
 // Shared tail end of onboarding screen 2, regardless of HOW the data got
 // there (manual entry writes exactly one month; a smart import can write
 // several at once — see completeOnboardingAfterImport below). Deliberately
@@ -73,6 +98,8 @@ export async function saveOnboardingOffer(data: {
 async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingGoulotResult }> {
   const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const businessProfile = await getBusinessProfile(userId);
+  const acquisitionCatalog = await getAcquisitionFunnelCatalog();
+  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const rawData = await getDiagnosticKpiRawData(userId);
   const allMonthlyRows = rawData.allMonthlyRows;
 
@@ -92,7 +119,14 @@ async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingG
   });
 
   const benchmarks = await getDiagnosticBenchmarks(userRow?.sector ?? null);
-  const result = computeOnboardingGoulot({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+  const result = computeOnboardingGoulot({
+    settingTotals,
+    closingTotals,
+    benchmarks,
+    businessProfile,
+    cashContractedTotal,
+    activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+  });
 
   if (result.kind === "point" && userRow) {
     const minutesSinceSignup = Math.round((Date.now() - userRow.createdAt.getTime()) / 60_000);

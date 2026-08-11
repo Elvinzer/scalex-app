@@ -4,6 +4,8 @@ import { cron } from "inngest";
 import { db } from "@/db";
 import { scaleScoreHistory, users } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
@@ -35,6 +37,8 @@ export const snapshotScaleScore = inngest.createFunction(
       accounts.map((user) =>
         step.run(`snapshot-${user.id}`, async () => {
           const businessProfile = await getBusinessProfile(user.id);
+          const acquisitionCatalog = await getAcquisitionFunnelCatalog();
+          const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
           const rawData = await getDiagnosticKpiRawData(user.id);
 
           const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
@@ -52,7 +56,14 @@ export const snapshotScaleScore = inngest.createFunction(
           });
 
           const benchmarks = await getDiagnosticBenchmarks(user.sector ?? null);
-          const { score } = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+          const { score } = computeScaleScore({
+            settingTotals,
+            closingTotals,
+            benchmarks,
+            businessProfile,
+            cashContractedTotal,
+            activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+          });
           if (score === null) return { skipped: true };
 
           await db

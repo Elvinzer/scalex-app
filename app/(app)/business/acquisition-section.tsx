@@ -1,9 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useState } from "react";
+import { Route, PencilLine } from "lucide-react";
 
 import { computeSectionCompletion } from "@/lib/business/completion";
 import type { BusinessAcquisition, LeadMagnetType, Platform } from "@/lib/business/types";
+import type { AcquisitionFunnelCatalogEntry, AcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 import { saveBusinessSection } from "./actions";
 import { CompletionBadge, SaveIndicator } from "./save-indicator";
@@ -34,20 +39,27 @@ const LEAD_MAGNET_TYPES: { value: LeadMagnetType; labelKey: string }[] = [
 
 export function AcquisitionSection({
   value,
+  catalog,
   onChange,
 }: {
   value: BusinessAcquisition;
+  catalog: AcquisitionFunnelCatalogEntry[];
   onChange: (next: BusinessAcquisition) => void;
 }) {
   const t = useTranslations("business.acquisition");
   const { schedule, status, error } = useDebouncedSave<BusinessAcquisition>((next) =>
     saveBusinessSection("acquisition", next)
   );
+  const [funnelEditorOpen, setFunnelEditorOpen] = useState(false);
 
   function update(patch: Partial<BusinessAcquisition>) {
     const next = { ...value, ...patch };
     onChange(next);
     schedule(next);
+  }
+
+  function updateFunnels(funnels: AcquisitionFunnelKey[], primaryFunnel: AcquisitionFunnelKey) {
+    update({ funnels, primaryFunnel, funnelSelectionInferred: false });
   }
 
   function togglePlatform(name: string, active: boolean) {
@@ -81,6 +93,34 @@ export function AcquisitionSection({
       </div>
 
       <div className="mt-6 flex flex-col gap-6">
+        <div className="rounded-xl border border-accent-border bg-accent-soft/45 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-card text-accent-text">
+                <Route className="size-4" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="text-sm font-bold">{t("funnelTitle")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("funnelHelp")}</p>
+              </div>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => setFunnelEditorOpen(true)}>
+              <PencilLine className="size-3.5" aria-hidden="true" />
+              {t("editFunnel")}
+            </Button>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {value.funnels.map((key) => {
+              const entry = catalog.find((item) => item.funnelKey === key);
+              return (
+                <span key={key} className={key === value.primaryFunnel ? "rounded-full border border-accent bg-card px-3 py-1.5 text-xs font-bold text-accent-text" : "rounded-full border border-border bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground"}>
+                  {entry?.label ?? key}{key === value.primaryFunnel ? ` · ${t("primary")}` : ""}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3">
           <p className="text-sm font-bold">{t("platforms")}</p>
           <div className="flex flex-wrap gap-2">
@@ -271,6 +311,53 @@ export function AcquisitionSection({
           </div>
         </ConditionalBlock>
       </div>
+
+      <Dialog open={funnelEditorOpen} onOpenChange={setFunnelEditorOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogTitle className="text-lg font-bold">{t("funnelEditorTitle")}</DialogTitle>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("funnelImpact")}</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {catalog.map((entry) => {
+              const selected = value.funnels.includes(entry.funnelKey);
+              return (
+                <button
+                  key={entry.funnelKey}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    const nextFunnels = selected ? value.funnels.filter((key) => key !== entry.funnelKey) : [...value.funnels, entry.funnelKey];
+                    if (nextFunnels.length === 0) return;
+                    const nextPrimary = nextFunnels.includes(value.primaryFunnel) ? value.primaryFunnel : nextFunnels[0];
+                    updateFunnels(nextFunnels, nextPrimary);
+                  }}
+                  className={selected ? "rounded-xl border-2 border-accent bg-accent-soft p-4 text-left" : "rounded-xl border border-border bg-card p-4 text-left hover:border-accent/50"}
+                >
+                  <span className="text-sm font-bold">{entry.label}</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">{entry.description}</span>
+                </button>
+              );
+            })}
+          </div>
+          {value.funnels.length > 1 && (
+            <label className="mt-5 flex flex-col gap-2 text-sm font-bold">
+              {t("primaryLabel")}
+              <select
+                value={value.primaryFunnel}
+                onChange={(event) => {
+                  const key = catalog.find((entry) => entry.funnelKey === event.target.value)?.funnelKey;
+                  if (key) updateFunnels(value.funnels, key);
+                }}
+                className={inputClass}
+              >
+                {value.funnels.map((key) => <option key={key} value={key}>{catalog.find((entry) => entry.funnelKey === key)?.label ?? key}</option>)}
+              </select>
+            </label>
+          )}
+          <div className="mt-6 flex justify-end">
+            <Button type="button" onClick={() => setFunnelEditorOpen(false)}>{t("done")}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

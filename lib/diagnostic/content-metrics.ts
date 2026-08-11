@@ -138,11 +138,13 @@ export type ContentMetricSummary = {
 export function computeContentMetricSummaries({
   totals,
   benchmarks: contentBenchmarks,
+  activeMetricKeys = CONTENT_METRIC_KEYS,
 }: {
   totals: ContentTotals;
   benchmarks: Record<ContentMetricKey, number>;
+  activeMetricKeys?: ContentMetricKey[];
 }): ContentMetricSummary[] {
-  return CONTENT_METRIC_KEYS.map((key) => {
+  return activeMetricKeys.map((key) => {
     const sample = totals.samples[key];
     // rate() already returns null on a zero denominator, which is exactly
     // "no post carries this figure" — never a measured 0%.

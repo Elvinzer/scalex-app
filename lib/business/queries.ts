@@ -4,6 +4,8 @@ import { cache } from "react";
 import { db } from "@/db";
 import { businessProfile } from "@/db/schema";
 
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { EMPTY_BUSINESS_PROFILE, type BusinessProfileData } from "./types";
 
 // No row is created at signup — this returns an all-blank default when none
@@ -25,9 +27,19 @@ export const getBusinessProfile = cache(async (userId: string): Promise<Business
 
   if (!row) return EMPTY_BUSINESS_PROFILE;
 
+  const acquisition = row.acquisition;
+  const catalog = await getAcquisitionFunnelCatalog();
+  const selection = normalizeAcquisitionSelection(acquisition, catalog);
+  const hasExplicitSelection = Object.prototype.hasOwnProperty.call(acquisition, "funnels") && Object.prototype.hasOwnProperty.call(acquisition, "primaryFunnel");
+
   return {
     identity: row.identity,
-    acquisition: row.acquisition,
+    acquisition: {
+      ...acquisition,
+      funnels: selection.funnels,
+      primaryFunnel: selection.primaryFunnel,
+      funnelSelectionInferred: !hasExplicitSelection,
+    },
     sales: row.sales,
     delivery: row.delivery,
   };

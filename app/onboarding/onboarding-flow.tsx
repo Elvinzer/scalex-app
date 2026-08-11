@@ -14,12 +14,13 @@ import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { formatEur } from "@/lib/currency";
 import type { Locale } from "@/lib/i18n/config";
 import type { SaleMode } from "@/lib/business/types";
+import { isAcquisitionFunnelKey, type AcquisitionFunnelCatalogEntry, type AcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
 import type { LeverCatalogEntry } from "@/lib/levers/catalog";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
 import { cn } from "@/lib/utils";
 
-import { completeOnboardingAfterImport, saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
+import { completeOnboardingAfterImport, saveOnboardingFunnels, saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
 import { LanguageStep } from "./language-step";
 
 // Same reasoning as app/(app)/datas/datas-page-client.tsx: ImportFlow pulls
@@ -44,6 +45,7 @@ const EMPTY_MONTH: MonthlyMetricsInput = {
   callsBooked: null,
   callsTaken: null,
   salesClosed: null,
+  acquisitionMetrics: {},
 };
 
 // Falco's lines, revealed with a gentle stagger (CSS rise-in on the wrapper,
@@ -61,11 +63,11 @@ function Bubble({ index, children }: { index: number; children: React.ReactNode 
   );
 }
 
-function ProgressBar({ step }: { step: 1 | 2 | 3 }) {
+function ProgressBar({ step }: { step: 1 | 2 | 3 | 4 }) {
   const t = useTranslations("onboarding");
   return (
     <div className="flex items-center gap-1.5">
-      {[1, 2, 3].map((i) => (
+      {[1, 2, 3, 4].map((i) => (
         <span
           key={i}
           aria-hidden="true"
@@ -125,6 +127,7 @@ export function OnboardingFlow({
   discoveryLevers,
   discoveryTotal,
   discoveryAnswered,
+  acquisitionFunnels,
   needsLanguageChoice,
   suggestedLocale,
 }: {
@@ -134,6 +137,7 @@ export function OnboardingFlow({
   discoveryLevers: LeverCatalogEntry[];
   discoveryTotal: number;
   discoveryAnswered: number;
+  acquisitionFunnels: AcquisitionFunnelCatalogEntry[];
   needsLanguageChoice: boolean;
   suggestedLocale: Locale;
 }) {
@@ -145,7 +149,7 @@ export function OnboardingFlow({
   // user reaching the wizard again never sees it — `needsLanguageChoice` is
   // false as soon as users.locale holds a value.
   const [languageChosen, setLanguageChosen] = useState(!needsLanguageChoice);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   // Optional step-4 questionnaire, offered on the step-3 reveal — kept out of
   // the 1..3 ProgressBar so it reads as a bonus, not a mandatory step.
   const [showDiscovery, setShowDiscovery] = useState(false);
@@ -154,6 +158,8 @@ export function OnboardingFlow({
   const [offerName, setOfferName] = useState("");
   const [price, setPrice] = useState<number | null>(null);
   const [saleMode, setSaleMode] = useState<SaleMode>("appel_closing");
+  const [selectedFunnels, setSelectedFunnels] = useState<AcquisitionFunnelKey[]>(["lead_magnet"]);
+  const [primaryFunnel, setPrimaryFunnel] = useState<AcquisitionFunnelKey>("lead_magnet");
 
   const [monthDraft, setMonthDraft] = useState<MonthlyMetricsInput>(EMPTY_MONTH);
   const [result, setResult] = useState<OnboardingGoulotResult | null>(null);
@@ -185,6 +191,31 @@ export function OnboardingFlow({
     setStep(2);
   }
 
+  function toggleFunnel(key: AcquisitionFunnelKey) {
+    setSelectedFunnels((current) => {
+      if (current.includes(key)) {
+        if (current.length === 1) return current;
+        const next = current.filter((item) => item !== key);
+        if (primaryFunnel === key) setPrimaryFunnel(next[0]);
+        return next;
+      }
+      return [...current, key];
+    });
+  }
+
+  async function handleFunnelSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setIsPending(true);
+    const res = await saveOnboardingFunnels({ funnels: selectedFunnels, primaryFunnel });
+    setIsPending(false);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    setStep(3);
+  }
+
   async function handleScreen2Submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -203,7 +234,7 @@ export function OnboardingFlow({
     }
 
     setResult(res.result ?? null);
-    setStep(3);
+    setStep(4);
   }
 
   // The import path no longer targets a single month — commitImport (called
@@ -225,7 +256,7 @@ export function OnboardingFlow({
       return;
     }
     setResult(res.result ?? null);
-    setStep(3);
+    setStep(4);
   }
 
   // Optional questionnaire taking over the wizard — DiscoveryConversation
@@ -249,9 +280,9 @@ export function OnboardingFlow({
   }
 
   const headerPose: FalcoPose =
-    step === 3 && result?.kind === "point"
+    step === 4 && result?.kind === "point"
       ? "alert"
-      : step === 3 && result?.kind === "no_gap"
+      : step === 4 && result?.kind === "no_gap"
         ? "happy"
         : step === 2 && isPending
           ? "thinking"
@@ -280,6 +311,18 @@ export function OnboardingFlow({
       : result?.kind === "point"
         ? result.point.explanation
         : null;
+
+  const selectedEntries = acquisitionFunnels.filter((entry) => selectedFunnels.includes(entry.funnelKey));
+  const activeInputKeys = new Set(selectedEntries.flatMap((entry) => entry.steps.map((stage) => stage.inputMetricKey)));
+  const hasInput = (key: string) => activeInputKeys.has(key);
+  const customMetricFields = Array.from(
+    new Map(
+      selectedEntries
+        .flatMap((entry) => entry.steps)
+        .filter((stage) => !["new_followers", "first_messages", "conversations", "calls_proposed", "calls_booked", "calls_attended", "sales_closed"].includes(stage.inputMetricKey))
+        .map((stage) => [stage.inputMetricKey, stage] as const)
+    ).values()
+  );
 
   if (!languageChosen) {
     return (
@@ -379,7 +422,49 @@ export function OnboardingFlow({
         </form>
       )}
 
-      {step === 2 && step2Mode === "choice" && (
+      {step === 2 && (
+        <form onSubmit={handleFunnelSubmit} className="flex flex-col gap-4">
+          <Bubble index={0}>{t("acquisitionQuestion")}</Bubble>
+          <p className="text-sm text-muted-foreground">{t("acquisitionHelp")}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {acquisitionFunnels.map((entry) => {
+              const selected = selectedFunnels.includes(entry.funnelKey);
+              return (
+                <button
+                  key={entry.funnelKey}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => toggleFunnel(entry.funnelKey)}
+                  className={selected ? "rounded-xl border-2 border-accent bg-accent-soft p-4 text-left" : "rounded-xl border border-border bg-card p-4 text-left hover:border-accent/50"}
+                >
+                  <span className="text-sm font-bold">{entry.label}</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">{entry.description}</span>
+                </button>
+              );
+            })}
+          </div>
+          {selectedFunnels.length > 1 && (
+            <label className="flex flex-col gap-2 text-sm font-bold">
+              {t("primaryFunnel")}
+              <select
+                value={primaryFunnel}
+                onChange={(event) => {
+                  if (isAcquisitionFunnelKey(event.target.value)) setPrimaryFunnel(event.target.value);
+                }}
+                className={inputClass}
+              >
+                {selectedFunnels.map((key) => <option key={key} value={key}>{acquisitionFunnels.find((entry) => entry.funnelKey === key)?.label ?? key}</option>)}
+              </select>
+            </label>
+          )}
+          {error && <p className="text-sm text-state-critical">{error}</p>}
+          <Button type="submit" size="lg" disabled={isPending} className="w-full">
+            {isPending ? t("loading") : t("continue")}
+          </Button>
+        </form>
+      )}
+
+      {step === 3 && step2Mode === "choice" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
             {t("numbersQuestion", { month: previousMonthLabel })}
@@ -393,7 +478,7 @@ export function OnboardingFlow({
         </div>
       )}
 
-      {step === 2 && step2Mode === "manual" && (
+      {step === 3 && step2Mode === "manual" && (
         <form onSubmit={handleScreen2Submit} className="flex flex-col gap-4">
           <Bubble index={0}>
             {t("manualNumbersQuestion", { month: previousMonthLabel })}
@@ -402,26 +487,43 @@ export function OnboardingFlow({
           <div className="grid gap-3 sm:grid-cols-2">
             <NumberField label={t("cashCollected")} value={monthDraft.cashCollected} onChange={(v) => updateMonth({ cashCollected: v })} />
             <NumberField label={t("cashContracted")} value={monthDraft.cashContracted} onChange={(v) => updateMonth({ cashContracted: v })} />
-            <NumberField label={t("newFollowers")} value={monthDraft.newFollowers} onChange={(v) => updateMonth({ newFollowers: v })} />
+            {hasInput("new_followers") && <NumberField label={t("newFollowers")} value={monthDraft.newFollowers} onChange={(v) => updateMonth({ newFollowers: v })} />}
           </div>
 
-          {saleMode === "appel_closing" && (
+          {hasInput("first_messages") || hasInput("conversations") || hasInput("calls_proposed") || hasInput("calls_booked") || hasInput("calls_attended") ? (
             <>
               <Bubble index={1}>{t("prospectingQuestion")}</Bubble>
               <div className="grid gap-3 sm:grid-cols-2">
-                <NumberField label={t("firstMessages")} value={monthDraft.firstMessages} onChange={(v) => updateMonth({ firstMessages: v })} />
-                <NumberField label={t("conversations")} value={monthDraft.conversations} onChange={(v) => updateMonth({ conversations: v })} />
-                <NumberField label={t("callsProposed")} value={monthDraft.callsProposed} onChange={(v) => updateMonth({ callsProposed: v })} />
-                <NumberField label={t("callsBooked")} value={monthDraft.callsBooked} onChange={(v) => updateMonth({ callsBooked: v })} />
-                <NumberField label={t("callsTaken")} value={monthDraft.callsTaken} onChange={(v) => updateMonth({ callsTaken: v })} />
+                {hasInput("first_messages") && <NumberField label={t("firstMessages")} value={monthDraft.firstMessages} onChange={(v) => updateMonth({ firstMessages: v })} />}
+                {hasInput("conversations") && <NumberField label={t("conversations")} value={monthDraft.conversations} onChange={(v) => updateMonth({ conversations: v })} />}
+                {hasInput("calls_proposed") && <NumberField label={t("callsProposed")} value={monthDraft.callsProposed} onChange={(v) => updateMonth({ callsProposed: v })} />}
+                {hasInput("calls_booked") && <NumberField label={t("callsBooked")} value={monthDraft.callsBooked} onChange={(v) => updateMonth({ callsBooked: v })} />}
+                {hasInput("calls_attended") && <NumberField label={t("callsTaken")} value={monthDraft.callsTaken} onChange={(v) => updateMonth({ callsTaken: v })} />}
+              </div>
+            </>
+          ) : null}
+
+          {customMetricFields.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {customMetricFields.map((field) => (
+                <NumberField
+                  key={field.inputMetricKey}
+                  label={`${field.label} (${field.unit})`}
+                  value={monthDraft.acquisitionMetrics?.[field.inputMetricKey] ?? null}
+                  onChange={(value) => updateMonth({ acquisitionMetrics: { ...(monthDraft.acquisitionMetrics ?? {}), [field.inputMetricKey]: value } })}
+                />
+              ))}
+            </div>
+          )}
+
+          {hasInput("sales_closed") && (
+            <>
+              <Bubble index={2}>{t("lastQuestion")}</Bubble>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <NumberField label={t("salesClosed")} value={monthDraft.salesClosed} onChange={(v) => updateMonth({ salesClosed: v })} />
               </div>
             </>
           )}
-
-          <Bubble index={2}>{t("lastQuestion")}</Bubble>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <NumberField label={t("salesClosed")} value={monthDraft.salesClosed} onChange={(v) => updateMonth({ salesClosed: v })} />
-          </div>
 
           {isPending && <FalcoPondering isLoading pose="thinking" size="xs" label="Je calcule…" className="self-start" />}
           {error && <p className="text-sm text-state-critical">{error}</p>}
@@ -437,7 +539,7 @@ export function OnboardingFlow({
         </form>
       )}
 
-      {step === 3 && result?.kind === "point" && (
+      {step === 4 && result?.kind === "point" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
             {t("bottleneckFound")} <strong>{localizedPointLabel?.toLowerCase()}</strong>.
@@ -467,7 +569,7 @@ export function OnboardingFlow({
         </div>
       )}
 
-      {step === 3 && result?.kind === "no_gap" && (
+      {step === 4 && result?.kind === "no_gap" && (
         <div className="flex flex-col gap-4">
           <Bubble index={0}>
             {t("noGapFound")}

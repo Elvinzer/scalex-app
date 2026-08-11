@@ -9,6 +9,7 @@ import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-acti
 import { TechnicalAlertsSection } from "./technical-alerts-section";
 import { WeeklyReportDialog } from "./weekly-report-dialog";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
+import { AcquisitionFunnelInferredBanner } from "@/components/acquisition-funnel-inferred-banner";
 import { MetricCard } from "@/components/metric-card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
@@ -17,7 +18,7 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
+import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
 import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
 import { getPipelineDiagnosticBenchmark } from "@/lib/diagnostic/pipeline-metrics";
 import { computeContentRetentionSummary } from "@/lib/diagnostic/content-retention";
@@ -25,6 +26,11 @@ import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { buildBottleneckFunnel } from "@/lib/dashboard/bottleneck";
+import type { BottleneckFunnelVariant } from "@/lib/dashboard/bottleneck";
+import { buildAdaptiveFunnel } from "@/lib/acquisition-funnels/metrics";
+import { getAcquisitionFunnelBenchmarks, getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { activeFunnelEntries, activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
+import type { AcquisitionFunnelCatalogEntry } from "@/lib/acquisition-funnels/types";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
@@ -36,6 +42,11 @@ import { monthDateRange } from "@/lib/date-range";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 import { measureAsync } from "@/lib/perf/timing";
 import { getLocale, getTranslations } from "next-intl/server";
+import type { AcquisitionSourceTotals } from "@/lib/diagnostic/acquisition-sources";
+import type { ContentTotals } from "@/lib/diagnostic/content-metrics";
+import type { ClosingTotals } from "@/lib/closing/metrics";
+import type { FunnelTotals } from "@/lib/setting/funnel";
+import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 
 const PERIOD_MONTHS = 3;
 // buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
@@ -53,6 +64,62 @@ const DASHBOARD_METRIC_CARD_KEYS = [
 type DashboardPageProps = {
   searchParams: Promise<{ checkin?: string; bandeau?: string }>;
 };
+
+function adaptiveStageVolumes({
+  entry,
+  monthlyRow,
+  contentTotals,
+  contentPostsCount,
+  settingTotals,
+  closingTotals,
+  acquisitionTotals,
+  hasSettingData,
+  hasClosingData,
+  hasRevenueData,
+}: {
+  entry: AcquisitionFunnelCatalogEntry;
+  monthlyRow: MonthlyMetricsRow | null;
+  contentTotals: ContentTotals;
+  contentPostsCount: number;
+  settingTotals: FunnelTotals;
+  closingTotals: ClosingTotals;
+  acquisitionTotals: AcquisitionSourceTotals;
+  hasSettingData: boolean;
+  hasClosingData: boolean;
+  hasRevenueData: boolean;
+}): Record<string, number | null> {
+  const values: Record<string, number | null> = {
+    content_views: contentPostsCount > 0 ? contentTotals.views : null,
+    content_clicks: contentPostsCount > 0 ? contentTotals.clicks : null,
+    content_leads: contentPostsCount > 0 ? contentTotals.leads : null,
+    // A content post view is not a VSL view. Keep this step unmeasured until
+    // the user/import supplies the VSL-specific count instead of reusing an
+    // unrelated source and creating a false conversion rate.
+    vsl_views: null,
+    new_followers: hasSettingData ? settingTotals.newSubscribers : null,
+    first_messages: hasSettingData ? settingTotals.firstMessagesSent : null,
+    conversations: hasSettingData ? settingTotals.conversationsStarted : null,
+    calls_proposed: hasSettingData ? settingTotals.callsProposed : null,
+    calls_booked: hasSettingData ? settingTotals.callsBooked : null,
+    calls_attended: hasClosingData ? closingTotals.callsAttended : null,
+    sales_closed: hasClosingData ? closingTotals.salesClosed : null,
+    newsletter_subscribers: acquisitionTotals.email.sends > 0 ? acquisitionTotals.email.sends : null,
+    newsletter_opens: acquisitionTotals.email.opens > 0 ? acquisitionTotals.email.opens : null,
+    newsletter_offer_clicks: acquisitionTotals.email.clicks > 0 ? acquisitionTotals.email.clicks : null,
+  };
+
+  for (const step of entry.steps) {
+    const customValue = monthlyRow?.acquisitionMetrics?.[step.inputMetricKey];
+    if (typeof customValue === "number") values[step.inputMetricKey] = customValue;
+    else if (values[step.inputMetricKey] === undefined) values[step.inputMetricKey] = null;
+  }
+
+  // The first stage is useful even before a user has manually entered a
+  // revenue figure. `hasRevenueData` is intentionally read here so the
+  // generic builder can keep the same no-false-gain guard as the legacy one.
+  if (!hasRevenueData) values.sales_closed = values.sales_closed ?? null;
+  return values;
+}
 
 export default function DashboardPage(props: DashboardPageProps) {
   return measureAsync("page.dashboard", () => renderDashboardPage(props));
@@ -83,7 +150,7 @@ async function renderDashboardPage({
   // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
   // per request, so this is deduped against app/(app)/layout.tsx's own call
   // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, contentBenchmarks, pipelineBenchmark, weeklyReports] =
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, contentBenchmarks, pipelineBenchmark, weeklyReports, acquisitionCatalog] =
     await Promise.all([
       getBusinessProfile(accountId),
       getDiagnosticKpiRawData(accountId),
@@ -91,7 +158,18 @@ async function renderDashboardPage({
       getContentDiagnosticBenchmarks(user?.sector ?? null),
       getPipelineDiagnosticBenchmark(user?.sector ?? null),
       getRecentWeeklyReports(accountId),
+      getAcquisitionFunnelCatalog(),
     ]);
+  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+  const acquisitionBenchmarks = await getAcquisitionFunnelBenchmarks(acquisitionSelection.funnels, user?.sector ?? null);
+  const activeLegacyKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
+  const activeMetricFields = Array.from(
+    new Map(
+      activeFunnelEntries(acquisitionSelection, acquisitionCatalog)
+        .flatMap((entry) => entry.steps)
+        .map((stage) => [stage.inputMetricKey, stage] as const)
+    ).values()
+  );
 
   // The greeting is personal, so it reads the logged-in person's own row
   // (currentUser), not the account owner's — a team member should be
@@ -156,6 +234,7 @@ async function renderDashboardPage({
     closingTotals: bottleneckClosingTotals,
     cashContractedTotal: bottleneckCashContractedTotal,
     pipelineTotals: bottleneckPipelineTotals,
+    acquisitionTotals: bottleneckAcquisitionTotals,
   } = aggregatePeriodTotals({
     months: bottleneckMonths,
     allMonthlyRows,
@@ -171,7 +250,7 @@ async function renderDashboardPage({
   });
   const bottleneckMonthlyRow = allMonthlyRows.find(
     (row) => row.year === bottleneckMonth.year && row.month === bottleneckMonth.month
-  );
+  ) ?? null;
   const bottleneckSettingEntries = allSettingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
   const bottleneckClosingEntries = allClosingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
   const bottleneckCallSource = allCallSourcesByMonth[monthKey(bottleneckMonth.year, bottleneckMonth.month)];
@@ -203,7 +282,7 @@ async function renderDashboardPage({
   const hasBottleneckRevenueData = bottleneckCashContractedTotal > 0 || typeof bottleneckMonthlyRow?.cashContracted === "number";
 
   const allPoints = hasAnySourceData
-    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })
+    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys: activeLegacyKeys })
     : [];
   const points = allPoints.slice(0, 3);
   const bottleneckPoints = hasBottleneckSettingData || hasBottleneckClosingData || hasBottleneckRevenueData
@@ -213,9 +292,10 @@ async function renderDashboardPage({
         benchmarks,
         businessProfile,
         cashContractedTotal: bottleneckCashContractedTotal,
+        activeMetricKeys: activeLegacyKeys,
       })
     : [];
-  const bottleneckFunnel = buildBottleneckFunnel({
+  const legacyBottleneckFunnel = buildBottleneckFunnel({
     contentTotals: bottleneckContentTotals,
     contentPostsCount: bottleneckPostsInPeriod,
     contentBenchmarks,
@@ -233,6 +313,35 @@ async function renderDashboardPage({
     pipelineBenchmarkRate: pipelineBenchmark,
     locale,
   });
+  const dealPrice = resolveDealPrice(businessProfile, bottleneckClosingTotals, bottleneckCashContractedTotal);
+  const adaptiveVariants: BottleneckFunnelVariant[] = activeFunnelEntries(acquisitionSelection, acquisitionCatalog).map((entry) =>
+    buildAdaptiveFunnel({
+      entry,
+      stageVolumes: adaptiveStageVolumes({
+        entry,
+        monthlyRow: bottleneckMonthlyRow,
+        contentTotals: bottleneckContentTotals,
+        contentPostsCount: bottleneckPostsInPeriod,
+        settingTotals: bottleneckSettingTotals,
+        closingTotals: bottleneckClosingTotals,
+        acquisitionTotals: bottleneckAcquisitionTotals,
+        hasSettingData: hasBottleneckSettingData,
+        hasClosingData: hasBottleneckClosingData,
+        hasRevenueData: hasBottleneckRevenueData,
+      }),
+      benchmarks: acquisitionBenchmarks,
+      dealPrice: dealPrice.price,
+      revenue: hasBottleneckRevenueData ? bottleneckCashContractedTotal : null,
+    })
+  );
+  const primaryAdaptiveVariant = adaptiveVariants.find((variant) => variant.catalogKey === acquisitionSelection.primaryFunnel) ?? adaptiveVariants[0];
+  const bottleneckFunnel = primaryAdaptiveVariant
+    ? {
+        ...primaryAdaptiveVariant,
+        variants: adaptiveVariants,
+        activeFunnelKey: acquisitionSelection.primaryFunnel,
+      }
+    : legacyBottleneckFunnel;
   const bottleneckLabel = points[0] ? tDiagnostic(`metrics.${points[0].key}`) : t("there");
 
   const weekRange = currentIsoWeekRange();
@@ -280,8 +389,18 @@ async function renderDashboardPage({
           checkinCallsBookedSourced={dailySourceOverlay.callsBookedSourced}
           checkinClosingSourced={dailySourceOverlay.closingSourced}
           checkinCallSource={currentCallSource}
+          checkinActiveMetricFields={activeMetricFields}
         />
       </div>
+
+      {businessProfile.acquisition.funnelSelectionInferred && (
+        <AcquisitionFunnelInferredBanner
+          title={t("acquisitionFunnelInferred.title")}
+          help={t("acquisitionFunnelInferred.help")}
+          cta={t("acquisitionFunnelInferred.cta")}
+          dismiss={t("acquisitionFunnelInferred.dismiss")}
+        />
+      )}
 
       <Suspense fallback={<DashboardLossHeroSkeleton />}>
         <DashboardLossHero
@@ -344,6 +463,7 @@ async function renderDashboardPage({
                 initialData={checkinInitialData}
                 settingSourced={dailySourceOverlay.settingSourced}
                 closingSourced={dailySourceOverlay.closingSourced}
+                activeMetricFields={activeMetricFields}
               />
             </Suspense>
             <Button type="button" variant="link" asChild>

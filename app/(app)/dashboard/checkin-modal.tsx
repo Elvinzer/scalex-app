@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
+import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 
 import { submitWeeklyCheckin, type CheckinFeedback } from "./actions";
 
@@ -43,6 +44,7 @@ export function CheckinModal({
   callsBookedSourced = false,
   closingSourced,
   callSource = null,
+  activeMetricFields,
 }: {
   open: boolean;
   onClose: () => void;
@@ -53,6 +55,7 @@ export function CheckinModal({
   callsBookedSourced?: boolean;
   closingSourced: boolean;
   callSource?: MonthlyCallSource | null;
+  activeMetricFields: AcquisitionFunnelStep[];
 }) {
   const t = useTranslations("dashboard");
   const router = useRouter();
@@ -65,6 +68,14 @@ export function CheckinModal({
     href: "/acquisition/pipeline/funnel",
     linkLabel: t("checkin.goToPipeline"),
   };
+  const activeInputKeys = new Set(activeMetricFields.map((field) => field.inputMetricKey));
+  const customMetricFields = Array.from(
+    new Map(
+      activeMetricFields
+        .filter((field) => !["new_followers", "first_messages", "conversations", "calls_proposed", "calls_booked", "calls_attended", "sales_closed"].includes(field.inputMetricKey))
+        .map((field) => [field.inputMetricKey, field] as const)
+    ).values()
+  );
   function update(patch: Partial<MonthlyMetricsInput>) {
     setDraft((prev) => ({ ...prev, ...patch }));
   }
@@ -135,48 +146,21 @@ export function CheckinModal({
               <div className="grid gap-3 sm:grid-cols-2">
                 <KpiNumberField label={t("checkin.cashCollected")} value={draft.cashCollected} onChange={(v) => update({ cashCollected: v })} />
                 <KpiNumberField label={t("checkin.cashContracted")} value={draft.cashContracted} onChange={(v) => update({ cashContracted: v })} />
-                <KpiNumberField
-                  label={t("checkin.newFollowers")}
-                  value={draft.newFollowers}
-                  onChange={(v) => update({ newFollowers: v })}
-                  disabledReason={settingSourced ? settingSource : undefined}
-                />
-                <KpiNumberField
-                  label={t("checkin.firstMessages")}
-                  value={draft.firstMessages}
-                  onChange={(v) => update({ firstMessages: v })}
-                  disabledReason={settingSourced ? settingSource : undefined}
-                />
-                <KpiNumberField
-                  label={t("checkin.conversations")}
-                  value={draft.conversations}
-                  onChange={(v) => update({ conversations: v })}
-                  disabledReason={settingSourced ? settingSource : undefined}
-                />
-                <KpiNumberField
-                  label={t("checkin.callsProposed")}
-                  value={draft.callsProposed}
-                  onChange={(v) => update({ callsProposed: v })}
-                  disabledReason={settingSourced ? settingSource : undefined}
-                />
-                <KpiNumberField
-                  label={t("checkin.callsBooked")}
-                  value={draft.callsBooked}
-                  onChange={(v) => update({ callsBooked: v })}
-                  disabledReason={settingSourced || callsBookedSourced ? (callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE) : undefined}
-                />
-                <KpiNumberField
-                  label={t("checkin.callsTaken")}
-                  value={draft.callsTaken}
-                  onChange={(v) => update({ callsTaken: v })}
-                  disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined}
-                />
-                <KpiNumberField
-                  label={t("checkin.salesClosed")}
-                  value={draft.salesClosed}
-                  onChange={(v) => update({ salesClosed: v })}
-                  disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined}
-                />
+                {activeInputKeys.has("new_followers") && <KpiNumberField label={t("checkin.newFollowers")} value={draft.newFollowers} onChange={(v) => update({ newFollowers: v })} disabledReason={settingSourced ? settingSource : undefined} />}
+                {activeInputKeys.has("first_messages") && <KpiNumberField label={t("checkin.firstMessages")} value={draft.firstMessages} onChange={(v) => update({ firstMessages: v })} disabledReason={settingSourced ? settingSource : undefined} />}
+                {activeInputKeys.has("conversations") && <KpiNumberField label={t("checkin.conversations")} value={draft.conversations} onChange={(v) => update({ conversations: v })} disabledReason={settingSourced ? settingSource : undefined} />}
+                {activeInputKeys.has("calls_proposed") && <KpiNumberField label={t("checkin.callsProposed")} value={draft.callsProposed} onChange={(v) => update({ callsProposed: v })} disabledReason={settingSourced ? settingSource : undefined} />}
+                {activeInputKeys.has("calls_booked") && <KpiNumberField label={t("checkin.callsBooked")} value={draft.callsBooked} onChange={(v) => update({ callsBooked: v })} disabledReason={settingSourced || callsBookedSourced ? (callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE) : undefined} />}
+                {activeInputKeys.has("calls_attended") && <KpiNumberField label={t("checkin.callsTaken")} value={draft.callsTaken} onChange={(v) => update({ callsTaken: v })} disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined} />}
+                {activeInputKeys.has("sales_closed") && <KpiNumberField label={t("checkin.salesClosed")} value={draft.salesClosed} onChange={(v) => update({ salesClosed: v })} disabledReason={closingSourced ? (callSource ? callsSource(callSource) : CLOSING_SOURCE) : undefined} />}
+                {customMetricFields.map((field) => (
+                  <KpiNumberField
+                    key={field.inputMetricKey}
+                    label={`${field.label} (${field.unit})`}
+                    value={draft.acquisitionMetrics?.[field.inputMetricKey] ?? null}
+                    onChange={(value) => update({ acquisitionMetrics: { ...(draft.acquisitionMetrics ?? {}), [field.inputMetricKey]: value } })}
+                  />
+                ))}
               </div>
 
               {error && <p className="text-sm text-state-critical">{error}</p>}

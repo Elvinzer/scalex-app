@@ -4,6 +4,7 @@ import { todayUtc } from "@/lib/date-range";
 import { buildOfferPerformance, buildUpsellPerformance } from "@/lib/business/performance";
 import { getSalesForMonth } from "@/lib/sales/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 
 import { BusinessPageClient } from "./business-page-client";
 
@@ -21,16 +22,18 @@ export default async function BusinessPage() {
         ? true
         : context.permissions.has("ventes:suivi");
   const today = todayUtc();
-  const [profile, monthSales] = await Promise.all([
+  const [profile, monthSales, acquisitionFunnels] = await Promise.all([
     getBusinessProfile(accountId),
     canViewSalesPerformance
       ? getSalesForMonth(accountId, today.getUTCFullYear(), today.getUTCMonth() + 1)
       : Promise.resolve([]),
+    getAcquisitionFunnelCatalog(),
   ]);
 
   return (
     <BusinessPageClient
       initialProfile={profile}
+      acquisitionFunnels={acquisitionFunnels}
       isOwner={isOwner}
       canViewSalesPerformance={canViewSalesPerformance}
       offerPerformance={buildOfferPerformance(profile.sales.offers, monthSales)}

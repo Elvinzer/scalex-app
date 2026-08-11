@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import type { BottleneckFunnelData, BottleneckStage, BottleneckStageId } from "@/lib/dashboard/bottleneck";
+import { METRIC_KEYS } from "@/lib/diagnostic/metric-keys";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { formatPercent } from "@/lib/setting/funnel";
 import { Falco } from "@/components/falco/falco";
@@ -69,14 +70,15 @@ function formatSignedPercent(value: number, locale: string): string {
 }
 
 function stageLabel(t: ReturnType<typeof useTranslations>, stage: BottleneckStage): string {
-  return t(`bottleneckFunnel.${STAGE_LABEL_KEYS[stage.id]}`);
+  return stage.label ?? t(`bottleneckFunnel.${STAGE_LABEL_KEYS[stage.id] ?? "salesClosed"}`);
 }
 
 function stageUnit(t: ReturnType<typeof useTranslations>, stage: BottleneckStage): string {
-  return t(`bottleneckFunnel.${STAGE_UNIT_KEYS[stage.id]}`);
+  return stage.unit ?? t(`bottleneckFunnel.${STAGE_UNIT_KEYS[stage.id] ?? "salesClosedUnit"}`);
 }
 
 function stageSourceHref(stage: BottleneckStage): string {
+  if (stage.sourceHref) return stage.sourceHref;
   switch (stage.id) {
     case "views":
     case "clicks":
@@ -90,6 +92,8 @@ function stageSourceHref(stage: BottleneckStage): string {
       return "/ventes/appels/funnel";
     case "salesClosed":
       return stage.source === "sales" ? "/ventes/suivi" : "/ventes/appels/funnel";
+    default:
+      return "/business#acquisition";
   }
 }
 
@@ -128,7 +132,7 @@ function buildChatContext(stage: BottleneckStage, label: string): ChatContext {
       sourcePage: "dashboard_bottleneck",
     };
   }
-  if (stage.metricKey) {
+  if (stage.metricKey && (METRIC_KEYS as readonly string[]).includes(stage.metricKey)) {
     return {
       topicType: "metric",
       topicKey: stage.metricKey,
@@ -160,7 +164,7 @@ function FunnelShape({
       <div
         className={`flex h-[76px] w-full items-center justify-center font-bold leading-[1.1] text-xl tabular-nums ${index >= 3 ? "text-text-on-dark" : "text-foreground"}`}
         style={{
-          backgroundColor: FUNNEL_SHAPE_COLORS[index],
+          backgroundColor: FUNNEL_SHAPE_COLORS[index % FUNNEL_SHAPE_COLORS.length],
           clipPath: funnelClipPath(index),
         }}
         aria-hidden="true"
@@ -216,14 +220,20 @@ export function BottleneckFunnel({
   const [selectedStageId, setSelectedStageId] = useState<BottleneckStageId | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [chatStageId, setChatStageId] = useState<BottleneckStageId | null>(null);
+  const [selectedFunnelKey, setSelectedFunnelKey] = useState(data.activeFunnelKey ?? data.variants?.[0]?.catalogKey ?? null);
 
-  const selectedStage = data.stages.find((stage) => stage.id === selectedStageId) ?? null;
-  const chatStage = data.stages.find((stage) => stage.id === chatStageId) ?? null;
-  const topStage = data.stages.find((stage) => stage.id === data.bottleneckId) ?? null;
+  const activeData = useMemo(
+    () => data.variants?.find((variant) => variant.catalogKey === selectedFunnelKey) ?? data,
+    [data, selectedFunnelKey]
+  );
+
+  const selectedStage = activeData.stages.find((stage) => stage.id === selectedStageId) ?? null;
+  const chatStage = activeData.stages.find((stage) => stage.id === chatStageId) ?? null;
+  const topStage = activeData.stages.find((stage) => stage.id === activeData.bottleneckId) ?? null;
 
   const stageLabels = useMemo(
-    () => new Map(data.stages.map((stage) => [stage.id, stageLabel(t, stage)])),
-    [data.stages, t]
+    () => new Map(activeData.stages.map((stage) => [stage.id, stageLabel(t, stage)])),
+    [activeData.stages, t]
   );
 
   const openChat = () => {
@@ -250,19 +260,31 @@ export function BottleneckFunnel({
               {t("bottleneckFunnel.subtitle")}
             </p>
           </div>
+          {data.variants && data.variants.length > 1 && (
+            <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+              <span className="sr-only">Parcours d’acquisition</span>
+              <select
+                value={selectedFunnelKey ?? ""}
+                onChange={(event) => setSelectedFunnelKey(event.target.value)}
+                className="rounded-[var(--radius-control)] border border-border bg-card px-3 py-2 text-sm font-bold text-foreground"
+              >
+                {data.variants.map((variant) => <option key={variant.catalogKey} value={variant.catalogKey}>{variant.catalogLabel}</option>)}
+              </select>
+            </label>
+          )}
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-[1fr_1fr_1.4fr]">
           <div className="rounded-[var(--radius-card)] border border-border bg-card px-[18px] py-4">
             <p className="text-xs font-bold tracking-[0.04em] text-muted-foreground uppercase">{t("bottleneckFunnel.sales")}</p>
             <p className="mt-1.5 text-2xl leading-none font-bold tracking-[-0.02em] tabular-nums">
-              {data.sales === null ? "—" : formatNumber(data.sales, locale)}
+              {activeData.sales === null ? "—" : formatNumber(activeData.sales, locale)}
             </p>
           </div>
           <div className="rounded-[var(--radius-card)] border border-border bg-card px-[18px] py-4">
             <p className="text-xs font-bold tracking-[0.04em] text-muted-foreground uppercase">{t("bottleneckFunnel.revenue")}</p>
             <p className="mt-1.5 text-2xl leading-none font-bold tracking-[-0.02em] tabular-nums">
-              {data.revenue === null ? "—" : formatEur(data.revenue, locale)}
+              {activeData.revenue === null ? "—" : formatEur(activeData.revenue, locale)}
             </p>
           </div>
           <div className="flex min-h-[88px] flex-col justify-between rounded-[var(--radius-card)] bg-surface-dark px-[18px] py-4 text-text-on-dark">
@@ -287,7 +309,7 @@ export function BottleneckFunnel({
 
         <div className="mt-7">
           <ol aria-label={t("bottleneckFunnel.funnelLabel")}>
-            {data.stages.map((stage, index) => {
+            {activeData.stages.map((stage, index) => {
               const label = stageLabels.get(stage.id) ?? "";
               const currentPercent = clampPercent(stage.currentRate);
               const benchmarkPercent = clampPercent(stage.benchmarkRate);
@@ -322,7 +344,7 @@ export function BottleneckFunnel({
                           {label}
                           <ArrowRight className="size-3.5 opacity-60 transition-transform duration-[var(--motion-fast)] group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
                         </span>
-                        {data.bottleneckId === stage.id && (
+                        {activeData.bottleneckId === stage.id && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-accent px-[9px] py-[3px] text-[11px] leading-none font-bold tracking-[0.02em] text-primary-foreground uppercase">
                             <Zap className="size-3" aria-hidden="true" />
                             {t("bottleneckFunnel.principal")}
@@ -384,7 +406,7 @@ export function BottleneckFunnel({
 
         <div className="mt-5 flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface-dark px-5 py-5 text-text-on-dark sm:flex-row sm:items-center sm:justify-between sm:px-[26px]">
           <p className="max-w-3xl text-base leading-6 font-semibold">
-            {t("bottleneckFunnel.summaryTotal")}: <span className="text-bottleneck-highlight">{data.totalPotential === null ? "—" : gainLabel(t, data.totalPotential, locale)}</span>
+            {t("bottleneckFunnel.summaryTotal")}: <span className="text-bottleneck-highlight">{activeData.totalPotential === null ? "—" : gainLabel(t, activeData.totalPotential, locale)}</span>
           </p>
           <Button type="button" size="lg" className="px-[18px] text-[13.5px]" data-testid="bottleneck-summary-button" onClick={() => setSummaryOpen(true)}>
             {t("bottleneckFunnel.viewSummary")}
@@ -437,7 +459,7 @@ export function BottleneckFunnel({
           <DialogTitle className="text-lg font-bold">{t("bottleneckFunnel.summaryTitle")}</DialogTitle>
           <p id="bottleneck-summary-description" className="mt-2 text-sm leading-6 text-muted-foreground">{t("bottleneckFunnel.summaryDescription")}</p>
           <div className="mt-5 divide-y divide-border rounded-[var(--radius-control)] border border-border">
-            {data.stages.slice(1).filter((stage) => stage.currentRate !== null && stage.benchmarkRate !== null).map((stage) => (
+            {activeData.stages.slice(1).filter((stage) => stage.currentRate !== null && stage.benchmarkRate !== null).map((stage) => (
               <div key={stage.id} className="flex items-center justify-between gap-4 px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{stageLabels.get(stage.id)}</p>
@@ -451,7 +473,7 @@ export function BottleneckFunnel({
           </div>
           <div className="mt-4 flex items-center justify-between rounded-[var(--radius-control)] bg-surface-dark px-4 py-4 text-text-on-dark">
             <span className="text-sm font-bold">{t("bottleneckFunnel.summaryTotalLabel")}</span>
-            <span className="font-bold text-bottleneck-highlight">{data.totalPotential === null ? "—" : gainLabel(t, data.totalPotential, locale)}</span>
+            <span className="font-bold text-bottleneck-highlight">{activeData.totalPotential === null ? "—" : gainLabel(t, activeData.totalPotential, locale)}</span>
           </div>
           <div className="mt-6">
             <DialogClose asChild>

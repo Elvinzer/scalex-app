@@ -3,6 +3,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { contentRecommendations, funnelStageInsights, insightRecords, users } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { activeContentMetricKeys, activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
@@ -64,11 +66,13 @@ function periodForCurrentDiagnostic(): { start: string; end: string } {
 }
 
 async function diagnosticMetricInsight(accountId: string, sourceId: string): Promise<MaterializedInsight | null> {
-  const [[user], businessProfile, rawData] = await Promise.all([
+  const [[user], businessProfile, rawData, acquisitionCatalog] = await Promise.all([
     db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1),
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
+    getAcquisitionFunnelCatalog(),
   ]);
+  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
   const contentBenchmarks = await getContentDiagnosticBenchmarks(user?.sector ?? null);
   const months = lastCompletedMonths(3);
@@ -91,8 +95,9 @@ async function diagnosticMetricInsight(accountId: string, sourceId: string): Pro
     benchmarks,
     businessProfile,
     cashContractedTotal: totals.cashContractedTotal,
+    activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
   });
-  const summary = computeMetricSummaries({ settingTotals: totals.settingTotals, closingTotals: totals.closingTotals, benchmarks }).find(
+  const summary = computeMetricSummaries({ settingTotals: totals.settingTotals, closingTotals: totals.closingTotals, benchmarks, activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog) }).find(
     (item) => item.key === sourceId,
   );
   const contentSummary = computeContentMetricSummaries({
@@ -102,6 +107,7 @@ async function diagnosticMetricInsight(accountId: string, sourceId: string): Pro
       rawData.allVideoAttributionTotals
     ),
     benchmarks: contentBenchmarks,
+    activeMetricKeys: activeContentMetricKeys(acquisitionSelection, acquisitionCatalog),
   }).find((item) => item.key === sourceId);
   const point = points.find((item) => item.key === sourceId);
   if (!summary && !point && !contentSummary) return null;

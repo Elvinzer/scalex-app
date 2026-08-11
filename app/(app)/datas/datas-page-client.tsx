@@ -16,6 +16,7 @@ import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { formatEur } from "@/lib/currency";
 import { rate, formatPercent } from "@/lib/setting/funnel";
+import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 
 import { MonthCard } from "./month-card";
 import { MonthModal } from "./month-modal";
@@ -40,6 +41,7 @@ export function DatasPageClient({
   allSettingEntries,
   allClosingEntries,
   callSourcesByMonth,
+  activeMetricFields,
 }: {
   year: number;
   monthRows: MonthlyMetricsRow[];
@@ -51,6 +53,7 @@ export function DatasPageClient({
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
   callSourcesByMonth: Record<string, MonthlyCallSource>;
+  activeMetricFields: AcquisitionFunnelStep[];
 }) {
   const t = useTranslations("data");
   const locale = useLocale();
@@ -66,6 +69,7 @@ export function DatasPageClient({
   const featuredMonth = featuredRow?.month ?? currentMonth;
   const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
   const callSource = callSourcesByMonth[monthKey(featuredYear, featuredMonth)] ?? null;
+  const activeInputKeys = new Set(activeMetricFields.map((field) => field.inputMetricKey));
   const hasCallSource = isMonthlyCallSourceAvailable(callSource);
   const settingIsAuthoritative = Boolean(
     featuredRow?.settingManualOverride ||
@@ -89,16 +93,16 @@ export function DatasPageClient({
   const featuredClosingRate = featuredSalesClosed !== null && featuredCallsTaken !== null
     ? rate(featuredSalesClosed, featuredCallsTaken)
     : null;
-  const metrics: Array<{ label: string; description: string; value: string; evolution: string; source: MetricSource }> = [
+  const metrics = ([
     { label: t("metrics.cashCollected"), description: t("metrics.cashCollectedHelp"), value: featuredRow?.cashCollected === null || featuredRow?.cashCollected === undefined ? "—" : formatEur(featuredRow.cashCollected, locale), evolution: t("compare"), source: metricSource(featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
     { label: t("metrics.cashContracted"), description: t("metrics.cashContractedHelp"), value: featuredRow?.cashContracted === null || featuredRow?.cashContracted === undefined ? "—" : formatEur(featuredRow.cashContracted, locale), evolution: t("compare"), source: "Saisie" },
-    { label: t("metrics.leads"), description: t("metrics.leadsHelp"), value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: t("compare"), source: "Pipeline" },
-    { label: t("metrics.conversations"), description: t("metrics.conversationsHelp"), value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: t("compare"), source: "Saisie" },
-    { label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: t("compare"), source: metricSource(!settingIsAuthoritative && hasCallSource ? "Suivi d'appel" : "Saisie") },
-    { label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: t("compare"), source: metricSource(!closingIsAuthoritative && hasCallSource ? "Suivi d'appel" : "Saisie") },
-    { label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: t("compare"), source: metricSource(!closingIsAuthoritative && featuredSalesSummary?.closedCount ? "Stripe + saisie" : hasCallSource ? "Suivi d'appel" : "Saisie") },
-    { label: t("metrics.closingRate"), description: t("metrics.closingRateHelp"), value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate, locale), evolution: t("compare"), source: "Calculé" },
-  ];
+    { inputKey: "new_followers", label: t("metrics.leads"), description: t("metrics.leadsHelp"), value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: t("compare"), source: "Pipeline" },
+    { inputKey: "conversations", label: t("metrics.conversations"), description: t("metrics.conversationsHelp"), value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: t("compare"), source: "Saisie" },
+    { inputKey: "calls_booked", label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: t("compare"), source: metricSource(!settingIsAuthoritative && hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { inputKey: "calls_attended", label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: t("compare"), source: metricSource(!closingIsAuthoritative && hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { inputKey: "sales_closed", label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: t("compare"), source: metricSource(!closingIsAuthoritative && featuredSalesSummary?.closedCount ? "Stripe + saisie" : hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { inputKey: "sales_closed", label: t("metrics.closingRate"), description: t("metrics.closingRateHelp"), value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate, locale), evolution: t("compare"), source: "Calculé" },
+  ] as Array<{ inputKey?: string; label: string; description: string; value: string; evolution: string; source: MetricSource }>).filter((metric) => metric.inputKey === undefined || activeInputKeys.has(metric.inputKey));
 
   return (
     <div className="flex flex-col gap-8">
@@ -179,6 +183,7 @@ export function DatasPageClient({
               allSettingEntries={allSettingEntries}
               allClosingEntries={allClosingEntries}
               callSourcesByMonth={callSourcesByMonth}
+              activeMetricFields={activeMetricFields}
               onOpen={() => setOpen({ year, month })}
             />
           );
@@ -231,6 +236,7 @@ export function DatasPageClient({
           allSettingEntries={allSettingEntries}
           allClosingEntries={allClosingEntries}
           callSource={callSourcesByMonth[monthKey(open.year, open.month)] ?? null}
+          activeMetricFields={activeMetricFields}
           onClose={() => setOpen(null)}
           onNavigate={(nextYear, nextMonth) => setOpen({ year: nextYear, month: nextMonth })}
         />

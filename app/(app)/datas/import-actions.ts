@@ -9,7 +9,7 @@ import { aggregateSalesCallsByMonth, monthKey } from "@/lib/monthly-metrics/call
 import { monthDateRange } from "@/lib/date-range";
 import { commitImportPayloadSchema, type CommitImportPayload } from "@/lib/import/schema";
 import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS } from "@/lib/monthly-metrics/resolve";
-import { EMPTY_MONTHLY_METRICS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
+import { EMPTY_MONTHLY_METRICS, MONTHLY_METRICS_FIELDS, type MonthlyMetricScalarKey, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import { writeMonthlyMetrics } from "@/lib/monthly-metrics/write";
 import { getClosingKpiEntries, getSalesCallKpiRecords, getSettingKpiEntries } from "@/lib/monthly-metrics/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -96,6 +96,7 @@ async function commitMonthlyMetricsMonth(
         callsBooked: existingRow.callsBooked,
         callsTaken: existingRow.callsTaken,
         salesClosed: existingRow.salesClosed,
+        acquisitionMetrics: existingRow.acquisitionMetrics,
       }
     : { ...EMPTY_MONTHLY_METRICS };
 
@@ -103,7 +104,7 @@ async function commitMonthlyMetricsMonth(
   let fieldsWritten = 0;
 
   for (const [field, rawValue] of Object.entries(month.values)) {
-    if (!(field in base)) continue; // not a monthly_metrics field — ignore rather than crash
+    if (!(MONTHLY_METRICS_FIELDS as readonly string[]).includes(field)) continue; // not a scalar monthly_metrics field — ignore rather than crash
     if (PROTECTED_FIELDS.has(field) && protectedFields.has(field)) {
       blocked.push({ field, reason: SOURCE_ROLLUP_REASON });
       continue;
@@ -117,7 +118,7 @@ async function commitMonthlyMetricsMonth(
     }
     const choice = month.conflictChoices?.[field];
     if (choice === "keep") continue;
-    const key = field as keyof MonthlyMetricsInput;
+    const key = field as MonthlyMetricScalarKey;
     base[key] = typeof rawValue === "number" ? rawValue : Number(rawValue);
     fieldsWritten += 1;
   }

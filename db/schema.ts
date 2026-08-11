@@ -40,6 +40,7 @@ import type {
   MetaMetricSnapshot,
   MetaRawObject,
 } from "@/lib/meta-ads/types";
+import type { AcquisitionFunnelCatalogEntry } from "@/lib/acquisition-funnels/types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -1869,6 +1870,38 @@ export const businessProfile = pgTable("business_profile", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 
+// Editable catalogue for the acquisition journeys. Pages never own the list
+// of journeys: they read this table so labels, steps and future journeys can
+// change without a front-end deployment.
+export const acquisitionFunnels = pgTable("acquisition_funnels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  funnelKey: text("funnel_key").notNull().unique(),
+  label: text("label").notNull(),
+  description: text("description").notNull(),
+  steps: jsonb("steps").notNull().$type<AcquisitionFunnelCatalogEntry["steps"]>(),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+// A benchmark is scoped to both the journey and the transition it measures.
+// A null sector is the global fallback; a sector-specific row wins at read
+// time. Missing rows remain missing in the funnel UI instead of borrowing a
+// benchmark from another journey.
+export const acquisitionFunnelBenchmarks = pgTable(
+  "acquisition_funnel_benchmarks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    funnelKey: text("funnel_key").notNull().references(() => acquisitionFunnels.funnelKey, { onDelete: "cascade" }),
+    benchmarkKey: text("benchmark_key").notNull(),
+    sector: prospectionSector("sector"),
+    value: real("value").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("acquisition_funnel_benchmarks_scope_idx").on(table.funnelKey, table.benchmarkKey, table.sector)]
+).enableRLS();
+
 // Every stage a funnel rate can come from — Setting (outreach → booking) and
 // Closing (show-up, closing) combined. See lib/setting/funnel.ts / lib/closing/metrics.ts.
 export const funnelStageEnum = pgEnum("funnel_stage", [
@@ -1983,6 +2016,11 @@ export const monthlyMetrics = pgTable(
     callsBooked: integer("calls_booked"),
     callsTaken: integer("calls_taken"),
     salesClosed: integer("sales_closed"),
+    // Journey-specific counts (quiz completions, webinar attendance, etc.).
+    // Existing scalar columns remain the canonical source for the current
+    // Setting/Closing funnel; this additive bag keeps historical data safe
+    // when a user changes journey.
+    acquisitionMetrics: jsonb("acquisition_metrics").notNull().default({}).$type<Record<string, number | null>>(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

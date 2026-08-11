@@ -8,7 +8,7 @@
     "chooseEn": "English",
     "suggested": "Detected from your browser"
   },
-  "stepProgress": "Step {step} of 3",
+  "stepProgress": "Step {step} of 4",
   "discoveryInvite": "Answer {count} quick question(s) about your levers to go deeper. This is optional, and you can do it later from your diagnostic.",
   "answerQuestionnaire": "Answer the questionnaire (2 min)",
   "finishLater": "Finish later",
@@ -23,6 +23,9 @@
   "nichePlaceholder": "E.g. business coaching for therapists",
   "loading": "…",
   "continue": "Continue →",
+  "acquisitionQuestion": "How do your prospects find their way to you?",
+  "acquisitionHelp": "You can choose several journeys. If you are unsure, keep Lead magnet and change it later.",
+  "primaryFunnel": "Which journey is primary?",
   "skip": "Skip for now",
   "numbersQuestion": "Do you have an export or screenshot of your numbers? Drop it here and I’ll sort it, even if it covers several months. Otherwise, we can enter {month} together.",
   "enterManually": "Enter manually",

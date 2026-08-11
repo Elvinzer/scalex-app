@@ -21,6 +21,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { Button } from "@/components/ui/button";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import {
+  activeContentMetricKeys,
+  activeLegacyMetricKeys,
+  normalizeAcquisitionSelection,
+} from "@/lib/acquisition-funnels/selection";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { track } from "@/lib/analytics";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
@@ -170,11 +176,15 @@ async function renderDiagnosticPage({
     );
   }
 
-  const [businessProfile, rawData, discoveryProgress] = await Promise.all([
+  const [businessProfile, rawData, discoveryProgress, acquisitionCatalog] = await Promise.all([
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
     getDiscoveryProgress(accountId),
+    getAcquisitionFunnelCatalog(),
   ]);
+  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+  const activeLegacyKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
+  const activeContentKeys = activeContentMetricKeys(acquisitionSelection, acquisitionCatalog);
   const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = rawData;
   const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
 
@@ -228,15 +238,20 @@ async function renderDiagnosticPage({
   // content gain and a funnel gain are never priced differently.
   const contentDealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
   const funnelRates = buildRates(settingTotals, closingTotals);
-  const contentSummaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
+  const contentSummaries = computeContentMetricSummaries({
+    totals: contentTotals,
+    benchmarks: contentBenchmarks,
+    activeMetricKeys: activeContentKeys,
+  });
   const points = computeDiagnosticPoints({
     settingTotals,
     closingTotals,
     benchmarks,
     businessProfile,
     cashContractedTotal,
+    activeMetricKeys: activeLegacyKeys,
   });
-  const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks });
+  const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks, activeMetricKeys: activeLegacyKeys });
   const followups = computeFollowupCompliance(businessProfile);
   const { toImplement: discoveryOpportunities, toWatch, strong } = await computeLeverOpportunities({
     accountId,
@@ -353,6 +368,7 @@ async function renderDiagnosticPage({
     benchmarks,
     businessProfile,
     cashContractedTotal,
+    activeMetricKeys: activeLegacyKeys,
   });
 
   const topPoints = points.slice(0, 3);

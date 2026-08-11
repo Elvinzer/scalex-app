@@ -16,6 +16,8 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { chatContextSchema, type ChatContext } from "@/lib/chat-context";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
@@ -131,12 +133,14 @@ export async function POST(request: NextRequest) {
   // data — never trusts a client-sent rate/€ figure, same rule as
   // lib/agent/insight.ts. `agent` is the single unified Falco row (identity/
   // prompt/temperature) — always fetched, regardless of topicType.
-  const [[userRow], businessProfile, rawData, agent] = await Promise.all([
+  const [[userRow], businessProfile, rawData, agent, acquisitionCatalog] = await Promise.all([
     db.select().from(users).where(eq(users.id, accountId)).limit(1),
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
     getAgentByKey("falco"),
+    getAcquisitionFunnelCatalog(),
   ]);
+  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
   const { settingTotals, closingTotals, cashContractedTotal, pipelineTotals, acquisitionTotals } = aggregatePeriodTotals({
@@ -202,6 +206,7 @@ export async function POST(request: NextRequest) {
     benchmarks,
     businessProfile,
     cashContractedTotal,
+    activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
   });
 
   // No silent fallback to "general" when a specific topic was requested —

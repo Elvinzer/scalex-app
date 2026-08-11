@@ -1,6 +1,7 @@
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
+import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
@@ -24,6 +25,7 @@ export function MonthCard({
   allSettingEntries,
   allClosingEntries,
   callSourcesByMonth,
+  activeMetricFields,
   onOpen,
 }: {
   year: number;
@@ -34,6 +36,7 @@ export function MonthCard({
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
   callSourcesByMonth: Record<string, MonthlyCallSource>;
+  activeMetricFields: AcquisitionFunnelStep[];
   onOpen: () => void;
 }) {
   const t = useTranslations("data");
@@ -48,7 +51,8 @@ export function MonthCard({
     closingManualOverride: row?.closingManualOverride,
   }, callSourcesByMonth[monthKey(year, monthIndex)] ?? null);
   const data = { ...(row ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
-  const completion = computeCompletion(data);
+  const activeInputKeys = new Set(activeMetricFields.map((field) => field.inputMetricKey));
+  const completion = computeCompletion(data, activeInputKeys);
   const status = monthStatus(completion);
 
   if (isFuture) {

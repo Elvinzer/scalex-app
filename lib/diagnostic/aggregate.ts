@@ -159,6 +159,9 @@ export function aggregatePeriodTotals({
           monthlyRow.newCustomers,
         ].some((value) => value !== null && value !== undefined)
     );
+    const monthlyAcquisitionHasData = Boolean(
+      monthlyRow && Object.values(monthlyRow.acquisitionMetrics ?? {}).some((value) => typeof value === "number")
+    );
     const monthAcquisitionTotals = aggregateAcquisitionSources({
       range,
       emailCampaigns: allEmailCampaigns,
@@ -235,6 +238,7 @@ export function aggregatePeriodTotals({
 
     if (
       monthlyRowHasData ||
+      monthlyAcquisitionHasData ||
       dailySetting.length > 0 ||
       dailyClosing.length > 0 ||
       callSourceIsAvailable ||
@@ -274,7 +278,7 @@ export function aggregatePeriodTotals({
       monthAcquisitionTotals.native.leads === 0
     ) {
       emptyMonths.push(monthWindow);
-    } else if (monthStatus(computeCompletion(mergedData)) === "empty") {
+    } else if (!monthlyAcquisitionHasData && monthStatus(computeCompletion(mergedData)) === "empty") {
       emptyMonths.push(monthWindow);
     }
   }

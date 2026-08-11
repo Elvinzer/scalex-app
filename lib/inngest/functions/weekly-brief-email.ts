@@ -4,6 +4,8 @@ import { cron } from "inngest";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
@@ -52,6 +54,9 @@ export const weeklyBriefEmail = inngest.createFunction(
           if (user.lastWeeklyBriefSentAt && new Date(user.lastWeeklyBriefSentAt) > sixDaysAgo) return;
 
           const businessProfile = await getBusinessProfile(user.id);
+          const acquisitionCatalog = await getAcquisitionFunnelCatalog();
+          const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+          const activeMetricKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
           const rawData = await getDiagnosticKpiRawData(user.id);
           const { allSettingEntries, allClosingEntries, allMonthlyRows, allSales: sales } = rawData;
 
@@ -72,7 +77,7 @@ export const weeklyBriefEmail = inngest.createFunction(
           if (!hasAnySourceData) return; // nothing to report yet
 
           const benchmarks = await getDiagnosticBenchmarks(user.sector ?? null);
-          const points = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+          const points = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys });
           const { toImplement, toWatch } = await computeLeverOpportunities({
             accountId: user.id,
             businessProfile,
@@ -95,7 +100,7 @@ export const weeklyBriefEmail = inngest.createFunction(
           // Scale Score — same 3-month rolling inputs as the sidebar badge,
           // never a "score for this week" (that model doesn't exist, see the
           // plan's Context section).
-          const scaleScore = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+          const scaleScore = computeScaleScore({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys });
           const scoreDelta = scaleScore.score !== null ? await getScaleScoreDelta(user.id, 7, scaleScore.score) : null;
 
           // Weekly snapshot — the week that just ended, using only tables

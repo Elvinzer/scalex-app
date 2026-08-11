@@ -11,7 +11,7 @@ import type { BusinessProfileData } from "@/lib/business/types";
 import { computeSectionCompletion } from "@/lib/business/completion";
 import { CAUTION_SCORE_MAX, computeMetricHealthCards, type MetricHealthCard } from "./cascade";
 import type { MonthWindow } from "./completed-months";
-import type { MetricKey } from "./metric-keys";
+import { METRIC_KEYS, type MetricKey } from "./metric-keys";
 
 const COVERAGE_THRESHOLD = 0.4; // matches the brief's "couverture < 40 %" -> "À compléter"
 const SETTING_METRIC_COUNT = 3; // responseRate, proposalRate, bookingRate
@@ -73,21 +73,33 @@ export function computeScaleScore({
   benchmarks,
   businessProfile,
   cashContractedTotal,
+  activeMetricKeys,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
   benchmarks: Record<MetricKey, number>;
   businessProfile: BusinessProfileData;
   cashContractedTotal: number;
+  activeMetricKeys?: MetricKey[];
 }): ScaleScoreResult {
-  const cards = computeMetricHealthCards({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+  const cards = computeMetricHealthCards({
+    settingTotals,
+    closingTotals,
+    benchmarks,
+    businessProfile,
+    cashContractedTotal,
+    activeMetricKeys,
+  });
 
   const settingCards = cards.filter((c) => c.category === "Setting");
   const closingCards = cards.filter((c) => c.category === "Closing");
   const deliveryCompletion = computeSectionCompletion("delivery", businessProfile.delivery).percent;
 
-  const acquisitionCoverage = settingCards.length / SETTING_METRIC_COUNT;
-  const venteCoverage = closingCards.length / CLOSING_METRIC_COUNT;
+  const activeKeys = activeMetricKeys ?? METRIC_KEYS;
+  const settingMetricCount = activeKeys.filter((key) => key === "responseRate" || key === "proposalRate" || key === "bookingRate").length || SETTING_METRIC_COUNT;
+  const closingMetricCount = activeKeys.filter((key) => key === "showUpRate" || key === "closingRate").length || CLOSING_METRIC_COUNT;
+  const acquisitionCoverage = settingCards.length / settingMetricCount;
+  const venteCoverage = closingCards.length / closingMetricCount;
   const delivrabiliteCoverage = deliveryCompletion / 100;
 
   const pillars: ScaleScorePillar[] = [

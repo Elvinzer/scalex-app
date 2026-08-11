@@ -37,6 +37,7 @@ export function describeBusinessContext(profile: BusinessProfileData): string {
     `CA actuel : ${identity.mrrCurrent !== null ? formatEur(identity.mrrCurrent) : "non renseigné"}, objectif : ${identity.mrrGoal !== null ? formatEur(identity.mrrGoal) : "non renseigné"}`
   );
   lines.push(`Mode d'acquisition : ${identity.acquisitionMode ?? "non renseigné"}`);
+  lines.push(`Parcours d'acquisition actifs : ${acquisition.funnels.join(", ") || "lead_magnet"} ; parcours principal : ${acquisition.primaryFunnel}`);
 
   if (acquisition.platforms.length > 0) {
     lines.push(

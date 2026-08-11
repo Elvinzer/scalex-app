@@ -8,6 +8,12 @@
   "howCalculated": "How it’s calculated",
   "completeNumbers": "Complete your numbers for your diagnostic",
   "notEnoughData": "Not enough data to calculate a bottleneck yet.",
+  "acquisitionFunnelInferred": {
+    "title": "Your acquisition journey is estimated",
+    "help": "Choose the journeys you use so the funnel, benchmarks and diagnostic match your business.",
+    "cta": "Set up my journey",
+    "dismiss": "Hide this reminder"
+  },
   "monthContext": "This month’s context",
   "monthContextHelp": "Current month compared with the previous month.",
   "weeklyCheckin": "Weekly check-in",

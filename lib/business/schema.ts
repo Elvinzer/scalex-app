@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ACQUISITION_FUNNEL_KEYS } from "@/lib/acquisition-funnels/types";
+
 // One schema per business_profile section — shared by the section's client
 // form and its server action (app/(app)/business/actions.ts), the only place
 // a raw section blob is trusted, per CLAUDE.md's rule against unvalidated
@@ -44,6 +46,13 @@ export const acquisitionSchema = z.object({
     channel: z.string().max(100),
     operator: z.string().max(100),
   }),
+  funnels: z.array(z.enum(ACQUISITION_FUNNEL_KEYS)).min(1).max(10),
+  primaryFunnel: z.enum(ACQUISITION_FUNNEL_KEYS),
+  funnelSelectionInferred: z.boolean().optional(),
+}).superRefine((value, ctx) => {
+  if (!value.funnels.includes(value.primaryFunnel)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["primaryFunnel"], message: "Le parcours principal doit être actif." });
+  }
 });
 
 const offerSchema = z.object({

@@ -35,20 +35,22 @@ export function computeOnboardingGoulot({
   benchmarks,
   businessProfile,
   cashContractedTotal,
+  activeMetricKeys = METRIC_KEYS,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
   benchmarks: Record<MetricKey, number>;
   businessProfile: BusinessProfileData;
   cashContractedTotal: number;
+  activeMetricKeys?: MetricKey[];
 }): OnboardingGoulotResult {
-  const strictPoints = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
+  const strictPoints = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys });
   if (strictPoints.length > 0) {
     return { kind: "point", point: strictPoints[0] };
   }
 
   const rates = buildRates(settingTotals, closingTotals);
-  const measuredKeys = METRIC_KEYS.filter((key) => rates[key] !== null);
+  const measuredKeys = activeMetricKeys.filter((key) => rates[key] !== null);
   if (measuredKeys.length === 0) {
     return { kind: "no_data" };
   }
