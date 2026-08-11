@@ -197,6 +197,48 @@
       "when": 1786438376815,
       "tag": "0027_sleepy_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1786443259491,
+      "tag": "0028_awesome_dexter_bennett",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1786444959535,
+      "tag": "0029_futuristic_grandmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1786445686645,
+      "tag": "0030_bumpy_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1786445737891,
+      "tag": "0031_stale_zombie",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1786446000000,
+      "tag": "0032_fix_native_booking_event_viewer",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1786446153775,
+      "tag": "0033_fuzzy_onslaught",
+      "breakpoints": true
     }
   ]
 }

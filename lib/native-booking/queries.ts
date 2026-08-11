@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, gt, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, gt, ne, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -12,30 +12,54 @@ import {
   nativeBookings,
   users,
 } from "@/db/schema";
-import { getCalendarStatesForClosers, listBusyForConnection } from "@/lib/native-booking/calendar";
+import { listBusyForConnection } from "@/lib/native-booking/calendar";
+import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
+import type { NativeBookingViewer } from "@/lib/native-booking/access";
 
 import { generateBookingSlots, type GeneratedBookingSlot } from "./slots";
 
-export async function listNativeBookingEvents(accountId: string) {
+export async function listNativeBookingEvents(accountId: string, viewer?: NativeBookingViewer) {
+  const conditions = [eq(nativeBookingEvents.userId, accountId)];
+  if (viewer && !viewer.isAccountWide) {
+    conditions.push(
+      exists(
+        db
+          .select({ id: nativeBookingEventClosers.id })
+          .from(nativeBookingEventClosers)
+          .where(and(eq(nativeBookingEventClosers.eventId, nativeBookingEvents.id), eq(nativeBookingEventClosers.closerUserId, viewer.userId)))
+      )
+    );
+  }
   const rows = await db
     .select()
     .from(nativeBookingEvents)
-    .where(eq(nativeBookingEvents.userId, accountId))
+    .where(and(...conditions))
     .orderBy(desc(nativeBookingEvents.createdAt));
   return rows;
 }
 
-export async function getNativeBookingEvent(accountId: string, eventId: string) {
+export async function getNativeBookingEvent(accountId: string, eventId: string, viewer?: NativeBookingViewer) {
+  const conditions = [eq(nativeBookingEvents.id, eventId), eq(nativeBookingEvents.userId, accountId)];
+  if (viewer && !viewer.isAccountWide) {
+    conditions.push(
+      exists(
+        db
+          .select({ id: nativeBookingEventClosers.id })
+          .from(nativeBookingEventClosers)
+          .where(and(eq(nativeBookingEventClosers.eventId, nativeBookingEvents.id), eq(nativeBookingEventClosers.closerUserId, viewer.userId)))
+      )
+    );
+  }
   const [event] = await db
     .select()
     .from(nativeBookingEvents)
-    .where(and(eq(nativeBookingEvents.id, eventId), eq(nativeBookingEvents.userId, accountId)))
+    .where(and(...conditions))
     .limit(1);
   return event ?? null;
 }
 
-export async function getNativeBookingEventDetail(accountId: string, eventId: string) {
-  const event = await getNativeBookingEvent(accountId, eventId);
+export async function getNativeBookingEventDetail(accountId: string, eventId: string, viewer?: NativeBookingViewer) {
+  const event = await getNativeBookingEvent(accountId, eventId, viewer);
   if (!event) return null;
 
   const [availability, exceptions, closers, links, questions, reminders] = await Promise.all([
@@ -53,7 +77,12 @@ export async function getNativeBookingEventDetail(accountId: string, eventId: st
       .select({ assignment: nativeBookingEventClosers, user: users })
       .from(nativeBookingEventClosers)
       .innerJoin(users, eq(nativeBookingEventClosers.closerUserId, users.id))
-      .where(eq(nativeBookingEventClosers.eventId, event.id))
+      .where(
+        and(
+          eq(nativeBookingEventClosers.eventId, event.id),
+          ...(viewer && !viewer.isAccountWide ? [eq(nativeBookingEventClosers.closerUserId, viewer.userId)] : [])
+        )
+      )
       .orderBy(asc(nativeBookingEventClosers.position), asc(users.displayName), asc(users.email)),
     db.select().from(nativeBookingLinks).where(eq(nativeBookingLinks.eventId, event.id)).orderBy(desc(nativeBookingLinks.createdAt)),
     db.select().from(nativeBookingQuestions).where(eq(nativeBookingQuestions.eventId, event.id)).orderBy(asc(nativeBookingQuestions.position)),
@@ -172,9 +201,12 @@ export async function getPublicNativeBookingSlots(
         calendarUnavailable.add(closerUserId);
         return;
       }
-      if (!state.connection) return;
+      if (state.conflictCalendars.length === 0) return;
       try {
-        externalBusyByCloser.set(closerUserId, await listBusyForConnection(state.connection, busyFrom, busyTo));
+        const periods = await Promise.all(
+          state.conflictCalendars.map(({ connection, calendarId }) => listBusyForConnection(connection, busyFrom, busyTo, [calendarId]))
+        );
+        externalBusyByCloser.set(closerUserId, periods.flat());
       } catch (error) {
         console.error("[native-booking] calendar availability failed", { closerUserId, error });
         calendarUnavailable.add(closerUserId);
@@ -227,18 +259,20 @@ export async function hasFutureNativeBooking(accountId: string, phoneNormalized:
   return booking ?? null;
 }
 
-export async function listUpcomingNativeBookings(accountId: string, now = new Date()) {
+export async function listUpcomingNativeBookings(accountId: string, now = new Date(), viewer?: NativeBookingViewer) {
+  const conditions = [
+    eq(nativeBookingEvents.userId, accountId),
+    gte(nativeBookings.startAt, now),
+    or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed")),
+  ];
+  if (viewer && !viewer.isAccountWide) conditions.push(eq(nativeBookings.closerUserId, viewer.userId));
   return db
     .select({ booking: nativeBookings, event: nativeBookingEvents, closer: users })
     .from(nativeBookings)
     .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
     .leftJoin(users, eq(nativeBookings.closerUserId, users.id))
     .where(
-      and(
-        eq(nativeBookingEvents.userId, accountId),
-        gte(nativeBookings.startAt, now),
-        or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed"))
-      )
+      and(...conditions)
     )
     .orderBy(asc(nativeBookings.startAt))
     .limit(100);

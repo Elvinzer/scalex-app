@@ -13,7 +13,7 @@ type Provider = "google" | "outlook";
 export async function GET(request: NextRequest, context: { params: Promise<{ provider: string }> }) {
   const { provider: rawProvider } = await context.params;
   if (rawProvider !== "google" && rawProvider !== "outlook") {
-    return NextResponse.redirect(new URL("/ventes/rdv?calendar_error=provider", request.url));
+    return NextResponse.redirect(new URL("/settings/calendars?calendar_error=provider", request.url));
   }
   const provider = rawProvider as Provider;
   const supabase = await createClient();
@@ -31,8 +31,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
   try {
     const state = randomBytes(24).toString("hex");
     const redirectUri = new URL(`/api/native-calendar/${provider}/callback`, request.url).toString();
+    const returnTo = request.nextUrl.searchParams.get("returnTo") === "/settings/calendars" ? "/settings/calendars" : "/ventes/rdv";
     const response = NextResponse.redirect(calendarAuthorizeUrl(provider, redirectUri, state));
-    response.cookies.set("native_calendar_oauth_state", `${provider}:${state}:${userId}`, {
+    response.cookies.set("native_calendar_oauth_state", `${provider}:${state}:${userId}:${returnTo}`, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -42,6 +43,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
     return response;
   } catch (error) {
     console.error("Native calendar connect not configured", error);
-    return NextResponse.redirect(new URL(`/ventes/rdv?calendar_error=not_configured&provider=${provider}`, request.url));
+    return NextResponse.redirect(new URL(`/settings/calendars?calendar_error=not_configured&provider=${provider}`, request.url));
   }
 }

@@ -612,7 +612,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
         if (payload.code === "slot_unavailable") setManageSlots((current) => current.filter((slot) => slot.startAt !== manageSlot.startAt));
         return;
       }
-      setConfirmation((current) => current ? { ...current, startAt: payload.booking.startAt, endAt: payload.booking.endAt, closerName: payload.booking.closerName, calendarSyncWarning: payload.booking.calendarSyncWarning } : current);
+      setConfirmation((current) => current ? { ...current, startAt: payload.booking.startAt, endAt: payload.booking.endAt, closerName: payload.booking.closerName, meetingUrl: payload.booking.meetingUrl ?? current.meetingUrl, calendarSyncWarning: payload.booking.calendarSyncWarning } : current);
       setManageSlots([]);
       setManageSlot(null);
       setManageMessage(payload.booking.calendarSyncWarning ? "Rendez-vous déplacé. Le calendrier du closer doit être vérifié." : "Rendez-vous déplacé avec succès.");
@@ -715,8 +715,8 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
             <StepIndicator active={stage >= 1} current={stage < 4} label="Tes coordonnées" />
             <StepIndicator active={stage >= 4} current={stage === 4} label="Ton créneau" />
           </div>
-          <div className="grid gap-0 lg:grid-cols-2">
-            <section className="p-6 sm:p-8">
+          <div className="grid min-w-0 gap-0 lg:grid-cols-2">
+            <section className="min-w-0 p-6 sm:p-8">
               <p className="text-sm font-bold text-accent">Une étape avant les créneaux</p>
               <h1 className="mt-2 text-3xl leading-tight font-bold">{event.publicHeading}</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">{event.publicDescription}</p>
@@ -786,7 +786,7 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
               </div>
             </section>
 
-            <section ref={calendarRef} tabIndex={-1} aria-label="Disponibilités" className="relative min-h-[520px] border-t border-border bg-muted/20 p-5 outline-none focus-visible:ring-3 focus-visible:ring-accent/20 lg:border-t-0 lg:border-l sm:p-7">
+            <section ref={calendarRef} tabIndex={-1} aria-label="Disponibilités" className="relative min-w-0 min-h-[520px] border-t border-border bg-muted/20 p-5 outline-none focus-visible:ring-3 focus-visible:ring-accent/20 lg:border-t-0 lg:border-l sm:p-7">
               {stage < 4 ? (
                 <div className="absolute inset-0 flex items-center justify-center p-6">
                   <div aria-hidden="true" className="pointer-events-none w-full select-none opacity-40 blur-[1.4px]"><SlotSkeleton /></div>

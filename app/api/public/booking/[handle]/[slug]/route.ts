@@ -62,7 +62,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       lastName: booking.booking.lastName,
       email: booking.booking.email,
       closerName: booking.closer?.displayName || booking.closer?.email || "ton closer",
-      meetingUrl: booking.event.meetingUrl,
+      meetingUrl: booking.booking.meetingUrl ?? booking.event.meetingUrl,
       cancellationToken: cancellationToken || null,
       rescheduleToken: rescheduleToken || null,
     },
@@ -255,6 +255,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return jsonError("Tu as déjà un rendez-vous à venir. Tu ne peux pas en réserver un second pour le moment.", 409, "existing_booking");
       }
       if (result.error === "slot_unavailable") return jsonError("Ce créneau vient d’être pris. Choisis-en un autre.", 409, "slot_unavailable");
+      if (result.error === "calendar_pending") return jsonError("La réservation n’a pas pu être confirmée. Réessaie.", 409, "calendar_pending");
       return jsonError("La réservation n’a pas pu être confirmée. Réessaie.", 500, "booking_failed");
     }
     if (mode === "hold") {

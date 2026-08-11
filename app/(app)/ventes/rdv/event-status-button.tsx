@@ -22,7 +22,7 @@ export function EventStatusButton({ eventId, status }: { eventId: string; status
           setError(null);
           startTransition(async () => {
             const result = await toggleNativeBookingEventAction(eventId, nextStatus);
-            if (result.error) setError(result.error);
+            if (result.error) setError(result.error === "calendar_setup_required" ? t("calendarSetupRequired") : result.error);
             else router.refresh();
           });
         }}

@@ -69,7 +69,8 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
   const copy = notificationCopy(kind);
   const { booking, event, closerName } = details;
   const dateLine = formatDateTime(booking.startAt, booking.endAt, booking.eventTimeZone);
-  const joinLine = event.meetingUrl ? `Lien pour rejoindre l'appel : ${event.meetingUrl}` : "";
+  const joinUrl = booking.meetingUrl ?? event.meetingUrl;
+  const joinLine = joinUrl ? `Lien pour rejoindre l'appel : ${joinUrl}` : "";
   const management = getManagementUrl(details);
   const icsToken = booking.rescheduleTokenEncrypted ? decrypt(booking.rescheduleTokenEncrypted) : booking.cancellationTokenEncrypted ? decrypt(booking.cancellationTokenEncrypted) : "";
   const ics = icsToken ? `${getAppUrl()}/api/public/booking/${details.ownerHandle}/${event.slug}/ics?token=${encodeURIComponent(icsToken)}` : "";

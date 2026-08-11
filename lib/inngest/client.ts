@@ -95,6 +95,7 @@ export const youtubeBackfillContinue = eventType("youtube/backfill.continue", {
 
 type NativeBookingCalendarSyncRequested = {
   bookingId: string;
+  kind?: "confirmation" | "reschedule";
 };
 
 export const nativeBookingCalendarSyncRequested = eventType("native-booking/calendar.sync-requested", {

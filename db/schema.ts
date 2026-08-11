@@ -17,7 +17,7 @@ import {
   type AnyPgColumn,
   pgPolicy,
 } from "drizzle-orm/pg-core";
-import { sql, type SQL } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 import type {
   BusinessAcquisition,
@@ -1008,18 +1008,31 @@ export type NativeBookingAnswerSnapshot = {
 // migration; keeping the policy expressions here makes Drizzle's schema an
 // accurate description of the RLS contract.
 const nativeBookingEventAccess = (eventId: AnyPgColumn) =>
-  sql`exists (
-    select 1 from public.native_booking_events as event
-    where event.id = ${eventId}
-      and public.native_booking_account_member(event.user_id)
-  )`;
+  sql`public.native_booking_event_viewer(${eventId})`;
 
 const nativeBookingEventForAccountAccess = (eventId: AnyPgColumn, accountId: AnyPgColumn) =>
   sql`exists (
     select 1 from public.native_booking_events as event
     where event.id = ${eventId}
       and event.user_id = ${accountId}
-      and public.native_booking_account_member(event.user_id)
+      and public.native_booking_event_viewer(event.id)
+  )`;
+
+const nativeBookingEventCloserAccess = (eventId: AnyPgColumn, closerUserId: AnyPgColumn) =>
+  sql`exists (
+    select 1 from public.native_booking_events as event
+    where event.id = ${eventId}
+      and public.native_booking_event_viewer(event.id)
+      and (event.user_id = auth.uid() or ${closerUserId} = auth.uid())
+  )`;
+
+const nativeBookingCloserAccess = (eventId: AnyPgColumn, accountId: AnyPgColumn, closerUserId: AnyPgColumn) =>
+  sql`exists (
+    select 1 from public.native_booking_events as event
+    where event.id = ${eventId}
+      and event.user_id = ${accountId}
+      and public.native_booking_event_viewer(event.id)
+      and (event.user_id = auth.uid() or ${closerUserId} = auth.uid())
   )`;
 
 const nativeBookingNotificationAccess = (bookingId: AnyPgColumn) =>
@@ -1040,8 +1053,16 @@ const nativeBookingActivityAccess = (bookingId: AnyPgColumn) =>
       and public.native_booking_account_member(event.user_id)
   )`;
 
-const nativeBookingAccountUserAccess = (accountId: AnyPgColumn | SQL<unknown>, memberId: AnyPgColumn | SQL<unknown>) =>
-  sql`public.native_booking_account_user_member(${accountId}, ${memberId})`;
+const nativeCalendarViewerAccess = (accountId: AnyPgColumn, closerUserId: AnyPgColumn) =>
+  sql`public.native_booking_account_member(${accountId}) and (${accountId} = auth.uid() or ${closerUserId} = auth.uid())`;
+
+const nativeCalendarConnectionReferenceAccess = (connectionId: AnyPgColumn, accountId: AnyPgColumn, closerUserId: AnyPgColumn) =>
+  sql`${nativeCalendarViewerAccess(accountId, closerUserId)} and (${connectionId} is null or exists (
+    select 1 from public.native_calendar_connections as connection
+    where connection.id = ${connectionId}
+      and connection.user_id = ${accountId}
+      and connection.closer_user_id = ${closerUserId}
+  ))`;
 
 export const nativeBookingEvents = pgTable(
   "native_booking_events",
@@ -1082,8 +1103,8 @@ export const nativeBookingEvents = pgTable(
     pgPolicy("native_booking_events_account_access", {
       for: "all",
       to: "authenticated",
-      using: nativeBookingAccountAccess(table.userId),
-      withCheck: nativeBookingAccountAccess(table.userId),
+      using: nativeBookingEventAccess(table.id),
+      withCheck: nativeBookingEventAccess(table.id),
     }),
   ]
 ).enableRLS();
@@ -1214,16 +1235,8 @@ export const nativeBookingEventClosers = pgTable(
     pgPolicy("native_booking_event_closers_event_access", {
       for: "all",
       to: "authenticated",
-      using: sql`${nativeBookingEventAccess(table.eventId)} and exists (
-        select 1 from public.native_booking_events as event
-        where event.id = ${table.eventId}
-          and ${nativeBookingAccountUserAccess(sql`event.user_id`, table.closerUserId)}
-      )`,
-      withCheck: sql`${nativeBookingEventAccess(table.eventId)} and exists (
-        select 1 from public.native_booking_events as event
-        where event.id = ${table.eventId}
-          and ${nativeBookingAccountUserAccess(sql`event.user_id`, table.closerUserId)}
-      )`,
+      using: nativeBookingEventCloserAccess(table.eventId, table.closerUserId),
+      withCheck: nativeBookingEventCloserAccess(table.eventId, table.closerUserId),
     }),
   ]
 ).enableRLS();
@@ -1239,6 +1252,7 @@ export const nativeCalendarConnections = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     provider: nativeCalendarProvider("provider").notNull(),
+    providerAccountSubject: text("provider_account_subject"),
     providerAccountEmail: text("provider_account_email"),
     accessTokenEncrypted: text("access_token_encrypted"),
     refreshTokenEncrypted: text("refresh_token_encrypted"),
@@ -1250,13 +1264,72 @@ export const nativeCalendarConnections = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("native_calendar_connections_closer_provider_idx").on(table.closerUserId, table.provider),
+    uniqueIndex("native_calendar_connections_closer_provider_subject_idx").on(
+      table.closerUserId,
+      table.provider,
+      table.providerAccountSubject
+    ),
     index("native_calendar_connections_user_idx").on(table.userId),
     pgPolicy("native_calendar_connections_account_access", {
       for: "all",
       to: "authenticated",
-      using: sql`${nativeBookingAccountAccess(table.userId)} and ${nativeBookingAccountUserAccess(table.userId, table.closerUserId)}`,
-      withCheck: sql`${nativeBookingAccountAccess(table.userId)} and ${nativeBookingAccountUserAccess(table.userId, table.closerUserId)}`,
+      using: nativeCalendarViewerAccess(table.userId, table.closerUserId),
+      withCheck: nativeCalendarViewerAccess(table.userId, table.closerUserId),
+    }),
+  ]
+).enableRLS();
+
+export const nativeBookingCalendarSettings = pgTable(
+  "native_booking_calendar_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    closerUserId: uuid("closer_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    invitationConnectionId: uuid("invitation_connection_id").references(() => nativeCalendarConnections.id, { onDelete: "set null" }),
+    invitationCalendarId: text("invitation_calendar_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_calendar_settings_closer_idx").on(table.closerUserId),
+    index("native_booking_calendar_settings_user_idx").on(table.userId),
+    pgPolicy("native_booking_calendar_settings_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeCalendarConnectionReferenceAccess(table.invitationConnectionId, table.userId, table.closerUserId),
+      withCheck: nativeCalendarConnectionReferenceAccess(table.invitationConnectionId, table.userId, table.closerUserId),
+    }),
+  ]
+).enableRLS();
+
+export const nativeBookingCalendarConflicts = pgTable(
+  "native_booking_calendar_conflicts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    closerUserId: uuid("closer_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => nativeCalendarConnections.id, { onDelete: "cascade" }),
+    calendarId: text("calendar_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("native_booking_calendar_conflicts_unique_idx").on(table.closerUserId, table.connectionId, table.calendarId),
+    index("native_booking_calendar_conflicts_user_idx").on(table.userId, table.closerUserId),
+    pgPolicy("native_booking_calendar_conflicts_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeCalendarConnectionReferenceAccess(table.connectionId, table.userId, table.closerUserId),
+      withCheck: nativeCalendarConnectionReferenceAccess(table.connectionId, table.userId, table.closerUserId),
     }),
   ]
 ).enableRLS();
@@ -1379,8 +1452,10 @@ export const nativeBookings = pgTable(
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
     closerUserId: uuid("closer_user_id").references(() => users.id, { onDelete: "set null" }),
     calendarConnectionId: uuid("calendar_connection_id").references(() => nativeCalendarConnections.id, { onDelete: "set null" }),
+    calendarId: text("calendar_id"),
     externalEventId: text("external_event_id"),
     externalEventUrl: text("external_event_url"),
+    meetingUrl: text("meeting_url"),
     holdExpiresAt: timestamp("hold_expires_at", { withTimezone: true }),
     cancellationTokenHash: text("cancellation_token_hash"),
     rescheduleTokenHash: text("reschedule_token_hash"),
@@ -1408,8 +1483,8 @@ export const nativeBookings = pgTable(
     pgPolicy("native_bookings_account_access", {
       for: "all",
       to: "authenticated",
-      using: nativeBookingEventForAccountAccess(table.eventId, table.userId),
-      withCheck: nativeBookingEventForAccountAccess(table.eventId, table.userId),
+      using: nativeBookingCloserAccess(table.eventId, table.userId, table.closerUserId),
+      withCheck: nativeBookingCloserAccess(table.eventId, table.userId, table.closerUserId),
     }),
   ]
 ).enableRLS();

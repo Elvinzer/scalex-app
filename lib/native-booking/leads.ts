@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, exists, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { nativeBookingEvents, nativeBookingLeads, nativeBookingLinks, type NativeBookingAnswerSnapshot } from "@/db/schema";
+import { nativeBookingEventClosers, nativeBookingEvents, nativeBookingLeads, nativeBookingLinks, type NativeBookingAnswerSnapshot } from "@/db/schema";
+import type { NativeBookingViewer } from "./access";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 
 import { normalizeEmail, normalizePhone, sanitizeUtm, type PublicContactInput, type PublicLeadCaptureInput, type PublicQualificationInput } from "./validation";
@@ -228,12 +229,23 @@ export async function touchPublicBookingLead(params: {
   return true;
 }
 
-export async function listNativeBookingLeads(accountId: string) {
+export async function listNativeBookingLeads(accountId: string, viewer?: NativeBookingViewer) {
+  const conditions = [eq(nativeBookingLeads.userId, accountId), inArray(nativeBookingLeads.status, ["open", "contacted"] as const)];
+  if (viewer && !viewer.isAccountWide) {
+    conditions.push(
+      exists(
+        db
+          .select({ id: nativeBookingEventClosers.id })
+          .from(nativeBookingEventClosers)
+          .where(and(eq(nativeBookingEventClosers.eventId, nativeBookingEvents.id), eq(nativeBookingEventClosers.closerUserId, viewer.userId)))
+      )
+    );
+  }
   const rows = await db
     .select({ lead: nativeBookingLeads, event: nativeBookingEvents })
     .from(nativeBookingLeads)
     .innerJoin(nativeBookingEvents, eq(nativeBookingLeads.eventId, nativeBookingEvents.id))
-    .where(and(eq(nativeBookingLeads.userId, accountId), inArray(nativeBookingLeads.status, ["open", "contacted"])))
+    .where(and(...conditions))
     .orderBy(desc(nativeBookingLeads.lastSeenAt))
     .limit(100);
 

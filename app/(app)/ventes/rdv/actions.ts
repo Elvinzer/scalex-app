@@ -5,9 +5,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, nativeBookingQuestions, nativeBookingReminderRules, nativeBookings, nativeCalendarConnections, teamMembers, users } from "@/db/schema";
+import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, nativeBookingQuestions, nativeBookingReminderRules, nativeBookings, teamMembers, users } from "@/db/schema";
 import { canCreateNativeBookingEvent, getNativeBookingEntitlements } from "@/lib/billing/plan-gate";
 import { requireUserId } from "@/lib/current-user";
+import { getNativeBookingViewer, type NativeBookingViewer } from "@/lib/native-booking/access";
 import { getNativeBookingEvent, getNativeBookingEventDetail } from "@/lib/native-booking/queries";
 import { bookingHandleSchema, ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { retryNativeBookingCalendarSync } from "@/lib/native-booking/booking";
@@ -16,6 +17,7 @@ import { availabilitySchema, exceptionSchema, nativeBookingEventInputSchema } fr
 import { requirePermission } from "@/lib/team/context";
 import { syncNativeBookingReminderConfiguration } from "@/lib/native-booking/reminders";
 import { getNativeBookingRescheduleSlotsForAccount } from "@/lib/native-booking/agenda";
+import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 const eventActionSchema = z.object({ eventId: z.string().uuid() });
@@ -35,11 +37,6 @@ const bookingLinkActionSchema = eventActionSchema.extend({
   utmTerm: z.string().trim().max(160).optional().default(""),
 });
 const bookingLinkStatusActionSchema = eventActionSchema.extend({ linkId: z.string().uuid(), isActive: z.boolean() });
-const calendarDisconnectActionSchema = eventActionSchema.extend({ provider: z.enum(["google", "outlook"]) });
-const calendarSelectionActionSchema = eventActionSchema.extend({
-  connectionId: z.string().uuid(),
-  selectedCalendarIds: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
-});
 const leadStatusActionSchema = z.object({
   leadId: z.string().uuid(),
   status: z.enum(["open", "contacted", "dismissed"]),
@@ -49,19 +46,26 @@ const rescheduleActionSchema = bookingMutationSchema.extend({ startAt: z.string(
 
 type ActionResult = { error: string | null };
 
-async function getBookingAccess(): Promise<{ accountId: string } | ActionResult> {
+async function getBookingAccess(): Promise<{ accountId: string; viewer: NativeBookingViewer } | ActionResult> {
   const userId = await requireUserId();
   const access = await requirePermission(userId, "ventes:rdv");
-  return access ?? { error: "Tu n’as pas accès à la prise de rendez-vous." };
+  const viewer = await getNativeBookingViewer(userId);
+  return access && viewer ? { ...access, viewer } : { error: "booking_access_forbidden" };
 }
 
 function isActionError(value: { accountId?: string; error?: string | null }): value is ActionResult {
   return !value.accountId;
 }
 
+function requireAccountWideBookingAccess(access: { viewer: NativeBookingViewer }): ActionResult | null {
+  return access.viewer.isAccountWide ? null : { error: "booking_management_forbidden" };
+}
+
 export async function createNativeBookingEventAction(input: unknown): Promise<ActionResult & { eventId?: string }> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
 
   const parsed = nativeBookingEventInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
@@ -143,6 +147,8 @@ export async function createNativeBookingEventAction(input: unknown): Promise<Ac
 export async function updateBookingHandleAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = z.object({ handle: bookingHandleSchema }).safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Lien invalide." };
 
@@ -170,11 +176,13 @@ export async function updateBookingHandleAction(input: unknown): Promise<ActionR
 export async function updateNativeBookingEventAction(eventId: string, input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsedId = eventActionSchema.safeParse({ eventId });
   const parsed = nativeBookingEventInputSchema.safeParse(input);
   if (!parsedId.success || !parsed.success) return { error: "Données invalides" };
 
-  const event = await getNativeBookingEventDetail(access.accountId, eventId);
+  const event = await getNativeBookingEventDetail(access.accountId, eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
   const { questions, reminders, ...eventValues } = parsed.data;
@@ -220,10 +228,12 @@ export async function updateNativeBookingEventAction(eventId: string, input: unk
 export async function saveNativeBookingAvailabilityAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = availabilityActionSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Disponibilités invalides" };
 
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
   const flattened = parsed.data.availability.flatMap((day) =>
@@ -242,9 +252,11 @@ export async function saveNativeBookingAvailabilityAction(input: unknown): Promi
 export async function saveNativeBookingExceptionAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = exceptionActionSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Exception invalide" };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
   await db
@@ -266,9 +278,11 @@ export async function saveNativeBookingExceptionAction(input: unknown): Promise<
 export async function deleteNativeBookingExceptionAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = exceptionDeleteActionSchema.safeParse(input);
   if (!parsed.success) return { error: "Exception invalide." };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
   await db
@@ -281,9 +295,11 @@ export async function deleteNativeBookingExceptionAction(input: unknown): Promis
 export async function toggleNativeBookingEventAction(eventId: string, status: string): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = toggleEventSchema.safeParse({ eventId, status });
   if (!parsed.success) return { error: "État d’événement invalide." };
-  const detail = await getNativeBookingEventDetail(access.accountId, eventId);
+  const detail = await getNativeBookingEventDetail(access.accountId, eventId, access.viewer);
   if (!detail) return { error: "Événement introuvable." };
 
   if (parsed.data.status === "active") {
@@ -293,6 +309,11 @@ export async function toggleNativeBookingEventAction(eventId: string, status: st
     if (detail.closers.filter(({ assignment }) => assignment.isActive && !assignment.isOff).length === 0) {
       return { error: "Ajoute au moins un closer disponible avant d’activer l’événement." };
     }
+    const activeCloserIds = detail.closers
+      .filter(({ assignment }) => assignment.isActive && !assignment.isOff)
+      .map(({ assignment }) => assignment.closerUserId);
+    const calendarStates = await getCalendarStatesForClosers(access.accountId, activeCloserIds);
+    if (activeCloserIds.some((closerId) => !calendarStates.get(closerId)?.ready)) return { error: "calendar_setup_required" };
   }
 
   await db
@@ -307,9 +328,11 @@ export async function toggleNativeBookingEventAction(eventId: string, status: st
 export async function addNativeBookingCloserAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = closerActionSchema.safeParse(input);
   if (!parsed.success) return { error: "Closer invalide." };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
   const [candidate] = await db
@@ -341,9 +364,11 @@ export async function addNativeBookingCloserAction(input: unknown): Promise<Acti
 export async function toggleNativeBookingCloserOffAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = closerActionSchema.extend({ isOff: z.boolean() }).safeParse(input);
   if (!parsed.success) return { error: "Closer invalide." };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
   await db
     .update(nativeBookingEventClosers)
@@ -356,9 +381,11 @@ export async function toggleNativeBookingCloserOffAction(input: unknown): Promis
 export async function rebalanceNativeBookingAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = eventActionSchema.safeParse(input);
   if (!parsed.success) return { error: "Événement invalide." };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
   await db
@@ -369,60 +396,14 @@ export async function rebalanceNativeBookingAction(input: unknown): Promise<Acti
   return { error: null };
 }
 
-export async function disconnectNativeBookingCalendarAction(input: unknown): Promise<ActionResult> {
-  const userId = await requireUserId();
-  const access = await requirePermission(userId, "ventes:rdv");
-  if (!access) return { error: "Tu n’as pas accès à la prise de rendez-vous." };
-  const parsed = calendarDisconnectActionSchema.safeParse(input);
-  if (!parsed.success) return { error: "Calendrier invalide." };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
-  if (!event) return { error: "Événement introuvable." };
-
-  await db
-    .delete(nativeCalendarConnections)
-    .where(
-      and(
-        eq(nativeCalendarConnections.userId, access.accountId),
-        eq(nativeCalendarConnections.closerUserId, userId),
-        eq(nativeCalendarConnections.provider, parsed.data.provider)
-      )
-    );
-  revalidatePath(`/ventes/rdv/${event.id}`);
-  return { error: null };
-}
-
-export async function saveNativeCalendarSelectionAction(input: unknown): Promise<ActionResult> {
-  const userId = await requireUserId();
-  const access = await requirePermission(userId, "ventes:rdv");
-  if (!access) return { error: "Tu n’as pas accès à la prise de rendez-vous." };
-  const parsed = calendarSelectionActionSchema.safeParse(input);
-  if (!parsed.success) return { error: "Sélection de calendriers invalide." };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
-  if (!event) return { error: "Événement introuvable." };
-
-  const [connection] = await db
-    .update(nativeCalendarConnections)
-    .set({ selectedCalendarIds: Array.from(new Set(parsed.data.selectedCalendarIds)), updatedAt: new Date() })
-    .where(
-      and(
-        eq(nativeCalendarConnections.id, parsed.data.connectionId),
-        eq(nativeCalendarConnections.userId, access.accountId),
-        eq(nativeCalendarConnections.closerUserId, userId)
-      )
-    )
-    .returning({ id: nativeCalendarConnections.id });
-  if (!connection) return { error: "Connexion calendrier introuvable." };
-
-  revalidatePath(`/ventes/rdv/${event.id}`);
-  return { error: null };
-}
-
 export async function createNativeBookingLinkAction(input: unknown): Promise<ActionResult & { linkId?: string }> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = bookingLinkActionSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Lien invalide." };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
   const [link] = await db
@@ -449,9 +430,11 @@ export async function createNativeBookingLinkAction(input: unknown): Promise<Act
 export async function toggleNativeBookingLinkAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return managementError;
   const parsed = bookingLinkStatusActionSchema.safeParse(input);
   if (!parsed.success) return { error: "Lien invalide." };
-  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId);
+  const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
   const [link] = await db
@@ -500,12 +483,14 @@ export async function updateNativeBookingLeadStatusAction(input: unknown): Promi
   return { error: null };
 }
 
-async function getAccountBooking(accountId: string, bookingId: string) {
+async function getAccountBooking(accountId: string, bookingId: string, viewer: NativeBookingViewer) {
+  const conditions = [eq(nativeBookings.id, bookingId), eq(nativeBookingEvents.userId, accountId)];
+  if (!viewer.isAccountWide) conditions.push(eq(nativeBookings.closerUserId, viewer.userId));
   const [row] = await db
     .select({ booking: nativeBookings, event: nativeBookingEvents })
     .from(nativeBookings)
     .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
-    .where(and(eq(nativeBookings.id, bookingId), eq(nativeBookingEvents.userId, accountId)))
+    .where(and(...conditions))
     .limit(1);
   return row ?? null;
 }
@@ -515,7 +500,7 @@ export async function cancelNativeBookingAction(input: unknown): Promise<ActionR
   if (isActionError(access)) return access;
   const parsed = bookingMutationSchema.safeParse(input);
   if (!parsed.success) return { error: "Réservation invalide." };
-  const booking = await getAccountBooking(access.accountId, parsed.data.bookingId);
+  const booking = await getAccountBooking(access.accountId, parsed.data.bookingId, access.viewer);
   if (!booking) return { error: "Réservation introuvable." };
 
   const result = await cancelNativeBooking(booking.booking.id);
@@ -526,12 +511,12 @@ export async function cancelNativeBookingAction(input: unknown): Promise<ActionR
   return { error: null, ...(result.calendarSyncWarning ? { warning: true } : {}) };
 }
 
-export async function rescheduleNativeBookingAction(input: unknown): Promise<ActionResult & { warning?: boolean; startAt?: string; endAt?: string; closerName?: string }> {
+export async function rescheduleNativeBookingAction(input: unknown): Promise<ActionResult & { warning?: boolean; startAt?: string; endAt?: string; closerName?: string; meetingUrl?: string | null }> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
   const parsed = rescheduleActionSchema.safeParse(input);
   if (!parsed.success) return { error: "Nouvel horaire invalide." };
-  const booking = await getAccountBooking(access.accountId, parsed.data.bookingId);
+  const booking = await getAccountBooking(access.accountId, parsed.data.bookingId, access.viewer);
   if (!booking) return { error: "Réservation introuvable." };
 
   const result = await rescheduleNativeBooking(booking.booking.id, new Date(parsed.data.startAt));
@@ -546,6 +531,7 @@ export async function rescheduleNativeBookingAction(input: unknown): Promise<Act
     startAt: result.startAt.toISOString(),
     endAt: result.endAt.toISOString(),
     closerName: result.closerName,
+    meetingUrl: result.meetingUrl,
     ...(result.calendarSyncWarning ? { warning: true } : {}),
   };
 }
@@ -555,7 +541,7 @@ export async function getNativeBookingRescheduleSlotsAction(input: unknown): Pro
   if (isActionError(access)) return { error: access.error ?? "Accès refusé.", slots: [] };
   const parsed = bookingMutationSchema.safeParse(input);
   if (!parsed.success) return { error: "Réservation invalide.", slots: [] };
-  const slots = await getNativeBookingRescheduleSlotsForAccount(access.accountId, parsed.data.bookingId);
+  const slots = await getNativeBookingRescheduleSlotsForAccount(access.accountId, parsed.data.bookingId, access.viewer);
   if (!slots) return { error: "Réservation introuvable.", slots: [] };
   return { error: null, slots: slots.map((slot) => ({ startAt: slot.startAt.toISOString(), endAt: slot.endAt.toISOString() })) };
 }
@@ -565,7 +551,7 @@ export async function retryNativeBookingCalendarSyncAction(input: unknown): Prom
   if (isActionError(access)) return access;
   const parsed = bookingMutationSchema.safeParse(input);
   if (!parsed.success) return { error: "Réservation invalide." };
-  const booking = await getAccountBooking(access.accountId, parsed.data.bookingId);
+  const booking = await getAccountBooking(access.accountId, parsed.data.bookingId, access.viewer);
   if (!booking) return { error: "Réservation introuvable." };
   try {
     await retryNativeBookingCalendarSync(booking.booking.id);

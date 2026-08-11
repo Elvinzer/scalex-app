@@ -12,14 +12,15 @@ import {
   salesCalls,
   users,
 } from "@/db/schema";
+import { inngest, nativeBookingCalendarSyncRequested } from "@/lib/inngest/client";
 
 import {
   cancelExternalCalendarEvent,
   createExternalCalendarEvent,
-  getCalendarStatesForClosers,
   listBusyForConnection,
   updateExternalCalendarEvent,
 } from "./calendar";
+import { getCalendarStatesForClosers } from "./settings";
 import { scheduleNativeBookingNotification } from "./notifications";
 import { cancelNativeBookingReminders, rebuildNativeBookingReminders } from "./reminders";
 import { getPublicNativeBookingSlots } from "./queries";
@@ -40,6 +41,7 @@ export type NativeBookingRescheduleResult = {
   endAt: Date;
   closerName: string;
   eventTimeZone: string;
+  meetingUrl: string | null;
   calendarSyncWarning?: boolean;
 };
 
@@ -131,10 +133,10 @@ export async function cancelNativeBooking(bookingId: string): Promise<NativeBook
       .limit(1);
     if (connection) {
       try {
-        await cancelExternalCalendarEvent(connection, row.booking.externalEventId);
+        await cancelExternalCalendarEvent(connection, row.booking.externalEventId, row.booking.calendarId);
         await db
           .update(nativeBookings)
-          .set({ calendarConnectionId: null, externalEventId: null, externalEventUrl: null, syncStatus: "synced", syncError: null, updatedAt: new Date() })
+          .set({ syncStatus: "synced", syncError: null, updatedAt: new Date() })
           .where(eq(nativeBookings.id, bookingId));
       } catch (error) {
         console.error("[native-booking] calendar cancellation failed", { bookingId, error });
@@ -204,16 +206,19 @@ export async function rescheduleNativeBooking(
         unavailableClosers.add(closerUserId);
         return;
       }
-      if (!state.connection) return;
+      if (state.conflictCalendars.length === 0) return;
       try {
-        externalBusyByCloser.set(
-          closerUserId,
-          await listBusyForConnection(
-            state.connection,
-            new Date(requestedStartAt.getTime() - row.event.bufferBeforeMinutes * 60_000),
-            new Date(requestedEndAt.getTime() + row.event.bufferAfterMinutes * 60_000)
+        const periods = await Promise.all(
+          state.conflictCalendars.map(({ connection, calendarId }) =>
+            listBusyForConnection(
+              connection,
+              new Date(requestedStartAt.getTime() - row.event.bufferBeforeMinutes * 60_000),
+              new Date(requestedEndAt.getTime() + row.event.bufferAfterMinutes * 60_000),
+              [calendarId]
+            )
           )
         );
+        externalBusyByCloser.set(closerUserId, periods.flat());
       } catch (error) {
         console.error("[native-booking] calendar reschedule check failed", { closerUserId, error });
         unavailableClosers.add(closerUserId);
@@ -266,7 +271,11 @@ export async function rescheduleNativeBooking(
     const [oldConnection] = current.calendarConnectionId
       ? await tx.select().from(nativeCalendarConnections).where(eq(nativeCalendarConnections.id, current.calendarConnectionId)).limit(1)
       : [];
-    const nextConnection = calendarStates.get(selected.assignment.closerUserId)?.connection ?? null;
+    const nextState = calendarStates.get(selected.assignment.closerUserId);
+    const configuredConnection = nextState?.invitationConnection ?? null;
+    const configuredCalendarId = nextState?.invitationCalendarId ?? null;
+    const nextConnection = current.externalEventId && oldConnection ? oldConnection : configuredConnection;
+    const nextCalendarId = current.externalEventId && oldConnection ? current.calendarId : configuredCalendarId;
     const sameExternalConnection = Boolean(current.externalEventId && oldConnection && nextConnection && oldConnection.id === nextConnection.id);
     await tx
       .update(nativeBookings)
@@ -275,6 +284,7 @@ export async function rescheduleNativeBooking(
         endAt: requestedEndAt,
         closerUserId: selected.assignment.closerUserId,
         calendarConnectionId: current.externalEventId && oldConnection ? oldConnection.id : nextConnection?.id ?? null,
+        calendarId: current.externalEventId && oldConnection ? current.calendarId : nextCalendarId,
         externalEventId: current.externalEventId,
         externalEventUrl: current.externalEventUrl,
         status: "confirmed",
@@ -306,8 +316,11 @@ export async function rescheduleNativeBooking(
       endAt: requestedEndAt,
       closerName: selected.user.displayName || selected.user.email,
       eventTimeZone: row.event.timeZone,
+      meetingUrl: row.booking.meetingUrl ?? row.event.meetingUrl,
       oldConnection: oldConnection ?? null,
+      oldCalendarId: current.calendarId,
       nextConnection,
+      nextCalendarId,
       externalEventId: current.externalEventId,
       sameExternalConnection,
     };
@@ -316,10 +329,12 @@ export async function rescheduleNativeBooking(
   if ("error" in transactionResult) return transactionResult;
 
   let calendarSyncWarning = false;
+  let resolvedMeetingUrl = row.booking.meetingUrl ?? row.event.meetingUrl;
   try {
     if (transactionResult.externalEventId && transactionResult.sameExternalConnection && transactionResult.nextConnection) {
-      await updateExternalCalendarEvent({
+      const externalEvent = await updateExternalCalendarEvent({
         connection: transactionResult.nextConnection,
+        calendarId: transactionResult.nextCalendarId,
         externalEventId: transactionResult.externalEventId,
         title: row.event.meetingLabel,
         description: row.event.description,
@@ -327,14 +342,20 @@ export async function rescheduleNativeBooking(
         endAt: transactionResult.endAt,
         guestName: `${row.booking.firstName} ${row.booking.lastName}`,
         guestEmail: row.booking.email,
-        meetingUrl: row.event.meetingUrl,
+        meetingUrl: row.booking.meetingUrl ?? row.event.meetingUrl,
       });
-      await db.update(nativeBookings).set({ calendarConnectionId: transactionResult.nextConnection.id, syncStatus: "synced", syncError: null, updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
+      const requiresGoogleMeeting = transactionResult.nextConnection.provider === "google";
+      const meetingUrl = externalEvent.meetingUrl ?? row.booking.meetingUrl;
+      const hasRequiredMeeting = !requiresGoogleMeeting || Boolean(meetingUrl);
+      resolvedMeetingUrl = meetingUrl ?? resolvedMeetingUrl;
+      await db.update(nativeBookings).set({ calendarConnectionId: transactionResult.nextConnection.id, calendarId: transactionResult.nextCalendarId, meetingUrl, syncStatus: hasRequiredMeeting ? "synced" : "failed", status: hasRequiredMeeting ? "confirmed" : "sync_failed", syncError: hasRequiredMeeting ? null : "Le lien Google Meet est encore en préparation.", updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
+      if (!hasRequiredMeeting) calendarSyncWarning = true;
     } else if (transactionResult.externalEventId && transactionResult.oldConnection) {
-      await cancelExternalCalendarEvent(transactionResult.oldConnection, transactionResult.externalEventId);
+      await cancelExternalCalendarEvent(transactionResult.oldConnection, transactionResult.externalEventId, transactionResult.oldCalendarId);
       if (transactionResult.nextConnection) {
         const created = await createExternalCalendarEvent({
           connection: transactionResult.nextConnection,
+          calendarId: transactionResult.nextCalendarId,
           idempotencyKey: `${bookingId}:${transactionResult.startAt.toISOString()}`,
           title: row.event.meetingLabel,
           description: row.event.description,
@@ -342,15 +363,21 @@ export async function rescheduleNativeBooking(
           endAt: transactionResult.endAt,
           guestName: `${row.booking.firstName} ${row.booking.lastName}`,
           guestEmail: row.booking.email,
-          meetingUrl: row.event.meetingUrl,
+          meetingUrl: row.booking.meetingUrl ?? row.event.meetingUrl,
         });
-        await db.update(nativeBookings).set({ calendarConnectionId: transactionResult.nextConnection.id, externalEventId: created.id, externalEventUrl: created.url, syncStatus: "synced", syncError: null, updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
+        const requiresGoogleMeeting = transactionResult.nextConnection.provider === "google";
+        const hasRequiredMeeting = !requiresGoogleMeeting || Boolean(created.meetingUrl);
+        resolvedMeetingUrl = created.meetingUrl ?? resolvedMeetingUrl;
+        await db.update(nativeBookings).set({ calendarConnectionId: transactionResult.nextConnection.id, calendarId: transactionResult.nextCalendarId, externalEventId: created.id, externalEventUrl: created.url, meetingUrl: created.meetingUrl, syncStatus: hasRequiredMeeting ? "synced" : "failed", status: hasRequiredMeeting ? "confirmed" : "sync_failed", syncError: hasRequiredMeeting ? null : "Le lien Google Meet est encore en préparation.", updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
+        if (!hasRequiredMeeting) calendarSyncWarning = true;
       } else {
-        await db.update(nativeBookings).set({ calendarConnectionId: null, externalEventId: null, externalEventUrl: null, syncStatus: "not_required", syncError: null, updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
+        resolvedMeetingUrl = row.booking.meetingUrl ?? row.event.meetingUrl;
+        await db.update(nativeBookings).set({ calendarConnectionId: null, calendarId: null, externalEventId: null, externalEventUrl: null, meetingUrl: row.booking.meetingUrl, syncStatus: "not_required", syncError: null, updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
       }
     } else if (transactionResult.nextConnection) {
       const created = await createExternalCalendarEvent({
         connection: transactionResult.nextConnection,
+        calendarId: transactionResult.nextCalendarId,
         idempotencyKey: `${bookingId}:${transactionResult.startAt.toISOString()}`,
         title: row.event.meetingLabel,
         description: row.event.description,
@@ -358,9 +385,13 @@ export async function rescheduleNativeBooking(
         endAt: transactionResult.endAt,
         guestName: `${row.booking.firstName} ${row.booking.lastName}`,
         guestEmail: row.booking.email,
-        meetingUrl: row.event.meetingUrl,
+        meetingUrl: row.booking.meetingUrl ?? row.event.meetingUrl,
       });
-      await db.update(nativeBookings).set({ calendarConnectionId: transactionResult.nextConnection.id, externalEventId: created.id, externalEventUrl: created.url, syncStatus: "synced", syncError: null, updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
+      const requiresGoogleMeeting = transactionResult.nextConnection.provider === "google";
+      const hasRequiredMeeting = !requiresGoogleMeeting || Boolean(created.meetingUrl);
+      resolvedMeetingUrl = created.meetingUrl ?? resolvedMeetingUrl;
+      await db.update(nativeBookings).set({ calendarConnectionId: transactionResult.nextConnection.id, calendarId: transactionResult.nextCalendarId, externalEventId: created.id, externalEventUrl: created.url, meetingUrl: created.meetingUrl, syncStatus: hasRequiredMeeting ? "synced" : "failed", status: hasRequiredMeeting ? "confirmed" : "sync_failed", syncError: hasRequiredMeeting ? null : "Le lien Google Meet est encore en préparation.", updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
+      if (!hasRequiredMeeting) calendarSyncWarning = true;
     } else {
       await db.update(nativeBookings).set({ calendarConnectionId: null, syncStatus: "not_required", syncError: null, updatedAt: new Date() }).where(eq(nativeBookings.id, bookingId));
     }
@@ -370,9 +401,17 @@ export async function rescheduleNativeBooking(
     calendarSyncWarning = true;
   }
 
-  await scheduleNativeBookingNotification(bookingId, "reschedule");
-  await rebuildNativeBookingReminders(bookingId);
-  return { ...transactionResult, ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}) };
+  if (!calendarSyncWarning) {
+    await scheduleNativeBookingNotification(bookingId, "reschedule");
+    await rebuildNativeBookingReminders(bookingId);
+  } else {
+    try {
+      await inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId, kind: "reschedule" }));
+    } catch (scheduleError) {
+      console.error("[native-booking] reschedule calendar retry scheduling failed", { bookingId, scheduleError });
+    }
+  }
+  return { ...transactionResult, meetingUrl: resolvedMeetingUrl, ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}) };
 }
 
 // Résolution d'un lien de gestion namespacé : le token est déjà globalement

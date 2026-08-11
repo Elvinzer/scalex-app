@@ -1054,6 +1054,8 @@
       "closerOnline": "Closer brought online.",
       "closerOff": "Closer set off.",
       "externalCalendar": "External calendar",
+      "calendarSettingsHelp": "Each closer manages their Google accounts and booking calendars in personal settings.",
+      "calendarSettingsLink": "Open calendar settings",
       "connected": "connected",
       "reconnectRequired": "reconnection required",
       "calendarLoadError": "Could not load calendars. Reconnect this account.",
@@ -1117,7 +1119,10 @@
       "update": "Update event",
       "updateHelp": "Configure hours, closers and the page that qualifies prospects before revealing slots.",
       "ready": "Ready to receive bookings",
-      "incomplete": "Configuration incomplete"
+      "incomplete": "Configuration incomplete",
+      "closerAccessHelp": "You are assigned to this event. Use its public link to share or preview the booking page.",
+      "publicLink": "Public booking link",
+      "openBookingLink": "Open booking link"
     },
     "calendarErrors": {
       "notConfigured": "The {provider} connection is not configured in this environment yet.",
@@ -1126,7 +1131,66 @@
       "state": "The {provider} connection attempt expired. Restart it from this screen.",
       "plan": "Connecting an external calendar is not included in your current subscription.",
       "provider": "This calendar provider is not recognized."
-    }
+    },
+    "calendarProviders": {
+      "google": "Google Calendar",
+      "outlook": "Outlook Calendar"
+    },
+    "calendarSettings": {
+      "title": "Your calendars",
+      "providerName": "Google Calendar",
+      "subtitle": "Connect the Google accounts you use for calls, then choose where invitations go and which calendars block availability.",
+      "backToBooking": "Back to appointments",
+      "connectedCalendars": "Connected Google calendars",
+      "googleAccount": "Google account",
+      "addCalendar": "Add another Google calendar",
+      "connectFirst": "Connect a Google account to start receiving native bookings.",
+      "accountStatus": "Account status",
+      "connected": "Connected",
+      "reconnectRequired": "Reconnect required",
+      "revoked": "Disconnected",
+      "reconnect": "Reconnect",
+      "disconnect": "Disconnect",
+      "calendarCount": "{count} calendars available",
+      "calendarLoadError": "We could not load this account’s calendars.",
+      "invitationTitle": "Invitation calendar",
+      "invitationHelp": "New bookings for you will be added here. Google Meet will be created in the same event.",
+      "chooseAccount": "Google account",
+      "chooseCalendar": "Calendar for invitations",
+      "noWritableCalendar": "This account has no writable calendar.",
+      "conflictsTitle": "Conflict calendars",
+      "conflictsHelp": "We check these calendars before showing a slot. Select at least one.",
+      "noConflictCalendars": "Connect a Google account to choose conflict calendars.",
+      "primary": "Primary",
+      "save": "Save calendar settings",
+      "saving": "Saving…",
+      "saved": "Calendar settings saved.",
+      "ready": "Ready for native bookings",
+      "notReady": "Finish this setup before receiving bookings.",
+      "missingTarget": "Choose a writable invitation calendar.",
+      "missingConflict": "Select at least one conflict calendar.",
+      "calendarUnavailable": "Reconnect or refresh a calendar to continue.",
+      "confirmDisconnect": "Disconnect this account? Existing bookings will keep their original calendar reference.",
+      "connectAnotherHelp": "The Google account you add here stays tied to your Scale X user.",
+      "errors": {
+        "calendar_settings_forbidden": "You do not have access to calendar settings.",
+        "calendar_settings_invalid": "Check the selected calendars and try again.",
+        "calendar_target_unavailable": "The invitation account is not connected anymore.",
+        "calendar_connection_unavailable": "Google could not return this account’s calendars. Reconnect and try again.",
+        "calendar_target_not_writable": "Choose a calendar where Scale X can create events.",
+        "calendar_conflict_invalid": "One of the selected conflict calendars is no longer available.",
+        "calendar_connection_not_found": "This calendar connection could not be found.",
+        "calendar_disconnect_failed": "The calendar could not be disconnected. Try again.",
+        "calendar_settings_save_failed": "The calendar settings could not be saved. Try again."
+      }
+    },
+    "calendarSetupWarning": {
+      "title": "Calendar setup needed",
+      "description": "Your Google invitation calendar and conflict calendars must be configured before this closer can receive bookings.",
+      "personalDescription": "Connect and configure a Google calendar before you can receive bookings.",
+      "openSettings": "Open calendar settings"
+    },
+    "calendarSetupRequired": "Configure Google calendars for every active closer before activating this event."
   },
   "calls": {
     "title": "Call tracking",

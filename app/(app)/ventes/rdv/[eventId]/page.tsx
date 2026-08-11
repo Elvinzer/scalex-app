@@ -5,9 +5,9 @@ import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { nativeCalendarConnections, teamMembers, users } from "@/db/schema";
+import { teamMembers, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/current-user";
-import { listCalendarsForConnection } from "@/lib/native-booking/calendar";
+import { getNativeBookingViewer } from "@/lib/native-booking/access";
 import { getNativeBookingEventDetail } from "@/lib/native-booking/queries";
 import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { generateBookingSlots } from "@/lib/native-booking/slots";
@@ -23,9 +23,37 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
   const t = await getTranslations("app.booking.eventPage");
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:rdv");
+  const viewer = await getNativeBookingViewer(userId);
+  if (!viewer) notFound();
   const { eventId } = await params;
-  const detail = await getNativeBookingEventDetail(accountId, eventId);
+  const detail = await getNativeBookingEventDetail(accountId, eventId, viewer);
   if (!detail) notFound();
+
+  const bookingHandle = await ensureAccountBookingHandle(accountId);
+  const publicUrl = `/book/${bookingHandle}/${detail.event.slug}`;
+
+  if (!viewer.isAccountWide) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Button asChild variant="ghost" size="sm" className="w-fit"><Link href="/ventes/rdv"><ArrowLeft className="size-4" /> {t("back")}</Link></Button>
+        <section className="sticker-card flex flex-col gap-5 p-6 sm:p-8">
+          <div>
+            <p className="text-sm font-bold text-accent">{t("update")}</p>
+            <h1 className="mt-1 text-3xl font-bold">{detail.event.name}</h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{t("closerAccessHelp")}</p>
+          </div>
+          <div className="rounded-[var(--radius-control)] bg-muted p-4">
+            <p className="text-xs font-bold text-muted-foreground">{t("publicLink")}</p>
+            <p className="mt-1 break-all font-mono text-sm">{publicUrl}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild size="sm"><a href={publicUrl} target="_blank" rel="noreferrer">{t("openBookingLink")} <ExternalLink className="size-3.5" /></a></Button>
+            <CopyLinkButton url={publicUrl} />
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   const candidates = await db
     .select({ id: users.id, displayName: users.displayName, email: users.email })
@@ -37,47 +65,6 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
     .where(or(eq(users.id, accountId), eq(teamMembers.accountId, accountId)))
     .orderBy(users.displayName, users.email);
 
-  const calendarRows = await db
-    .select({
-      connectionId: nativeCalendarConnections.id,
-      closerUserId: nativeCalendarConnections.closerUserId,
-      provider: nativeCalendarConnections.provider,
-      email: nativeCalendarConnections.providerAccountEmail,
-      status: nativeCalendarConnections.status,
-      selectedCalendarIds: nativeCalendarConnections.selectedCalendarIds,
-    })
-    .from(nativeCalendarConnections)
-    .where(eq(nativeCalendarConnections.userId, accountId));
-
-  const calendarRowsWithOptions = await Promise.all(
-    calendarRows.map(async (row) => {
-      let options: Array<{ id: string; name: string; isPrimary: boolean }> = [];
-      let loadError = false;
-      if (row.status === "connected") {
-        try {
-          const [connection] = await db
-            .select()
-            .from(nativeCalendarConnections)
-            .where(eq(nativeCalendarConnections.id, row.connectionId))
-            .limit(1);
-          if (connection) options = await listCalendarsForConnection(connection);
-        } catch {
-          loadError = true;
-        }
-      }
-      return { ...row, options, loadError };
-    })
-  );
-
-  const calendarsByCloser = new Map<string, typeof calendarRowsWithOptions>();
-  for (const row of calendarRowsWithOptions) {
-    const rows = calendarsByCloser.get(row.closerUserId) ?? [];
-    rows.push(row);
-    calendarsByCloser.set(row.closerUserId, rows);
-  }
-
-  const bookingHandle = await ensureAccountBookingHandle(accountId);
-  const publicUrl = `/book/${bookingHandle}/${detail.event.slug}`;
   const isReady = detail.availability.length > 0 && detail.closers.some(({ assignment }) => assignment.isActive && !assignment.isOff);
   const previewSlots = generateBookingSlots({
     event: detail.event,
@@ -141,18 +128,8 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
           email: user.email,
           isOff: assignment.isOff,
           isActive: assignment.isActive,
-          calendars: (calendarsByCloser.get(assignment.closerUserId) ?? []).map((calendar) => ({
-            connectionId: calendar.connectionId,
-            provider: calendar.provider,
-            email: calendar.email,
-            status: calendar.status,
-            selectedCalendarIds: calendar.selectedCalendarIds,
-            options: calendar.options,
-            loadError: calendar.loadError,
-          })),
         }))}
         candidates={candidates}
-        currentUserId={userId}
         links={detail.links}
         publicUrl={publicUrl}
         previewSlots={previewSlots}

@@ -1,0 +1,1 @@
+ALTER POLICY "native_booking_events_account_access" ON "native_booking_events" TO authenticated USING (public.native_booking_event_viewer("native_booking_events"."id")) WITH CHECK (public.native_booking_event_viewer("native_booking_events"."id"));

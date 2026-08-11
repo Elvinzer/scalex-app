@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarCheck2, ChevronDown, ChevronUp, ExternalLink, GripVertical, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronUp, ExternalLink, GripVertical, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { NativeBookingWindow } from "@/db/schema";
@@ -13,10 +14,8 @@ import {
   addNativeBookingCloserAction,
   createNativeBookingLinkAction,
   deleteNativeBookingExceptionAction,
-  disconnectNativeBookingCalendarAction,
   saveNativeBookingAvailabilityAction,
   saveNativeBookingExceptionAction,
-  saveNativeCalendarSelectionAction,
   rebalanceNativeBookingAction,
   toggleNativeBookingLinkAction,
   toggleNativeBookingCloserOffAction,
@@ -67,16 +66,6 @@ type ReminderDraft = {
 type AvailabilityRow = { weekday: number; startTime: string; endTime: string };
 type TimeWindowDraft = { startTime: string; endTime: string };
 type DayDraft = { enabled: boolean; windows: TimeWindowDraft[] };
-type CalendarOption = { id: string; name: string; isPrimary: boolean };
-type CalendarSummary = {
-  connectionId: string;
-  provider: "google" | "outlook";
-  email: string | null;
-  status: "connected" | "reconnect_required" | "revoked";
-  selectedCalendarIds: string[];
-  options: CalendarOption[];
-  loadError: boolean;
-};
 type BookingLinkSummary = {
   id: string;
   label: string;
@@ -187,7 +176,6 @@ export function EventEditor({
   exceptions,
   closers,
   candidates,
-  currentUserId,
   links,
   publicUrl,
   previewSlots,
@@ -197,9 +185,8 @@ export function EventEditor({
   event: EventData;
   availability: AvailabilityRow[];
   exceptions: Array<{ date: string; type: "closed" | "custom"; windows: NativeBookingWindow[]; reason: string | null }>;
-  closers: Array<{ id: string; name: string; email: string; isOff: boolean; isActive: boolean; calendars: CalendarSummary[] }>;
+  closers: Array<{ id: string; name: string; email: string; isOff: boolean; isActive: boolean }>;
   candidates: Array<{ id: string; displayName: string | null; email: string }>;
-  currentUserId: string;
   links: BookingLinkSummary[];
   publicUrl: string;
   previewSlots: string[];
@@ -228,13 +215,6 @@ export function EventEditor({
   const [exceptionReason, setExceptionReason] = useState("");
   const [selectedCloser, setSelectedCloser] = useState(candidates[0]?.id ?? "");
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
-  const [calendarSelections, setCalendarSelections] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(
-      closers.flatMap((closer) =>
-        closer.calendars.map((calendar) => [`${closer.id}:${calendar.provider}`, calendar.selectedCalendarIds])
-      )
-    )
-  );
   const [questionDrafts, setQuestionDrafts] = useState<QuestionDraft[]>(questions);
   const [reminderDrafts, setReminderDrafts] = useState<ReminderDraft[]>(reminders);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -435,29 +415,6 @@ export function EventEditor({
     run(
       () => toggleNativeBookingLinkAction({ eventId: event.id, linkId: link.id, isActive: !link.isActive }),
       link.isActive ? t("linkDisabled") : t("linkReactivated")
-    );
-  }
-
-  function updateCalendarSelection(calendar: CalendarSummary, closerId: string, option: CalendarOption, checked: boolean) {
-    const key = `${closerId}:${calendar.provider}`;
-    setCalendarSelections((current) => {
-      const selected = current[key] ?? calendar.selectedCalendarIds;
-      const aliases = option.isPrimary ? [option.id, "primary"] : [option.id];
-      const withoutOption = selected.filter((id) => !aliases.includes(id));
-      return { ...current, [key]: checked ? [...withoutOption, option.id] : withoutOption };
-    });
-  }
-
-  function saveCalendarSelection(calendar: CalendarSummary, closerId: string) {
-    const key = `${closerId}:${calendar.provider}`;
-    const selected = calendarSelections[key] ?? calendar.selectedCalendarIds;
-    if (selected.length === 0) {
-      setError(t("chooseCalendar"));
-      return;
-    }
-    run(
-      () => saveNativeCalendarSelectionAction({ eventId: event.id, connectionId: calendar.connectionId, selectedCalendarIds: selected }),
-      t("calendarsSaved")
     );
   }
 
@@ -877,79 +834,13 @@ export function EventEditor({
                 </div>
                 <div className="rounded-[var(--radius-control)] bg-muted/50 p-2.5 text-xs">
                   <p className="flex items-center gap-1.5 font-bold">
-                    <CalendarCheck2 className="size-3.5 text-accent" />
+                    <CalendarDays className="size-3.5 text-accent" />
                     {t("externalCalendar")}
                   </p>
-                  {closer.calendars.length > 0 ? (
-                    <div className="mt-1 flex flex-wrap gap-2 text-muted-foreground">
-                      {closer.calendars.map((calendar) => (
-                        <div key={calendar.provider} className="w-full">
-                          <p className={calendar.status === "connected" ? "text-state-healthy" : "text-state-caution"}>
-                            {calendar.provider === "google" ? "Google" : "Outlook"}: {calendar.status === "connected" ? t("connected") : t("reconnectRequired")}
-                            {calendar.email ? ` · ${calendar.email}` : ""}
-                          </p>
-                          {calendar.loadError && <p className="mt-1 text-state-caution">{t("calendarLoadError")}</p>}
-                          {calendar.status === "connected" && calendar.options.length > 0 && (
-                            <details className="mt-2 rounded-[var(--radius-control)] border border-border bg-background/70 p-2">
-                              <summary className="cursor-pointer font-bold">{t("selectedCalendars")}</summary>
-                              <div className="mt-2 flex flex-col gap-2">
-                                {calendar.options.map((option) => {
-                                  const key = `${closer.id}:${calendar.provider}`;
-                                  const selected = calendarSelections[key] ?? calendar.selectedCalendarIds;
-                                  const isChecked = selected.includes(option.id) || (option.isPrimary && selected.includes("primary"));
-                                  return (
-                                    <label key={option.id} className="flex items-center gap-2 text-muted-foreground">
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={(input) => updateCalendarSelection(calendar, closer.id, option, input.target.checked)}
-                                      />
-                                      <span className="truncate">{option.name}{option.isPrimary ? ` · ${t("primary")}` : ""}</span>
-                                    </label>
-                                  );
-                                })}
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={isPending || (calendarSelections[`${closer.id}:${calendar.provider}`] ?? calendar.selectedCalendarIds).length === 0}
-                                  onClick={() => saveCalendarSelection(calendar, closer.id)}
-                                >
-                                  {t("saveSelection")}
-                                </Button>
-                              </div>
-                            </details>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-1 text-muted-foreground">{t("noCalendar")}</p>
-                  )}
-                  {closer.id === currentUserId && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {(["google", "outlook"] as const).map((provider) => {
-                        const connection = closer.calendars.find((calendar) => calendar.provider === provider);
-                        return (
-                          <div key={provider} className="flex items-center gap-2">
-                            <a href={`/api/native-calendar/${provider}/connect`} className="inline-flex items-center gap-1 font-bold text-accent hover:underline">
-                              {connection ? t("reconnect") : t("link")} {provider === "google" ? "Google" : "Outlook"} <ExternalLink className="size-3" />
-                            </a>
-                            {connection && (
-                              <button
-                                type="button"
-                                disabled={isPending}
-                                onClick={() => run(() => disconnectNativeBookingCalendarAction({ eventId: event.id, provider }), `${provider === "google" ? "Google" : "Outlook"} ${t("disconnected")}`)}
-                                className="text-xs font-bold text-muted-foreground hover:text-state-critical disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                {t("disconnect")}
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <p className="mt-1 text-muted-foreground">{t("calendarSettingsHelp")}</p>
+                  <Button asChild type="button" size="sm" variant="outline" className="mt-3">
+                    <Link href="/settings/calendars">{t("calendarSettingsLink")} <ExternalLink className="size-3" /></Link>
+                  </Button>
                 </div>
               </div>
             ))}

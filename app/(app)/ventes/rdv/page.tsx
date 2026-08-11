@@ -2,14 +2,19 @@ import { CalendarPlus, ExternalLink, Link2 } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { Button } from "@/components/ui/button";
+import { db } from "@/db";
+import { nativeBookingEventClosers } from "@/db/schema";
 import { getNativeBookingEntitlements, getNativeBookingUsage } from "@/lib/billing/plan-gate";
 import { getCurrentUser } from "@/lib/current-user";
+import { getNativeBookingViewer } from "@/lib/native-booking/access";
 import { listNativeBookingLeads } from "@/lib/native-booking/leads";
 import { listUnifiedAgendaAppointments } from "@/lib/native-booking/agenda";
 import { listNativeBookingEvents } from "@/lib/native-booking/queries";
 import { getAccountBookingHandle } from "@/lib/native-booking/handle";
+import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
 import { agendaFiltersSchema } from "@/lib/native-booking/validation";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -34,6 +39,8 @@ export default async function NativeBookingEventsPage({
   const t = await getTranslations("app.booking");
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:rdv");
+  const viewer = await getNativeBookingViewer(userId);
+  if (!viewer) return null;
   const params = await searchParams;
   const fromDashboard = params.from === "dashboard";
   const targetLeadId = z.string().uuid().safeParse(params.lead).success ? params.lead ?? null : null;
@@ -52,7 +59,7 @@ export default async function NativeBookingEventsPage({
   });
   const filters = parsedFilters.success ? parsedFilters.data : agendaFiltersSchema.parse({});
   const periodBounds = dateFromRange(filters.range, filters.from, filters.to);
-  const calendarProvider = params.provider === "outlook" ? "Outlook" : "Google Calendar";
+  const calendarProvider = params.provider === "outlook" ? t("calendarProviders.outlook") : t("calendarProviders.google");
   const calendarErrorMessage = params.calendar_error === "not_configured"
     ? t("calendarErrors.notConfigured", { provider: calendarProvider })
     : params.calendar_error === "oauth"
@@ -69,11 +76,11 @@ export default async function NativeBookingEventsPage({
   const calendarConnected = params.calendar === "connected";
 
   const [events, entitlements, usage, leads, agendaAppointments, bookingHandle] = await Promise.all([
-    listNativeBookingEvents(accountId),
+    listNativeBookingEvents(accountId, viewer),
     getNativeBookingEntitlements(accountId),
     getNativeBookingUsage(accountId),
-    listNativeBookingLeads(accountId),
-    listUnifiedAgendaAppointments(accountId, {
+    listNativeBookingLeads(accountId, viewer),
+    listUnifiedAgendaAppointments(accountId, viewer, {
       from: periodBounds.from,
       to: periodBounds.to,
       sources: filters.source,
@@ -82,6 +89,16 @@ export default async function NativeBookingEventsPage({
     }),
     getAccountBookingHandle(accountId),
   ]);
+  const activeEventIds = events.filter((event) => event.status === "active").map((event) => event.id);
+  const activeAssignments = activeEventIds.length > 0
+    ? await db
+        .select({ closerUserId: nativeBookingEventClosers.closerUserId })
+        .from(nativeBookingEventClosers)
+        .where(and(inArray(nativeBookingEventClosers.eventId, activeEventIds), eq(nativeBookingEventClosers.isActive, true), eq(nativeBookingEventClosers.isOff, false)))
+    : [];
+  const assignedCloserIds = Array.from(new Set(activeAssignments.map(({ closerUserId }) => closerUserId)));
+  const calendarStates = await getCalendarStatesForClosers(accountId, viewer.isAccountWide ? assignedCloserIds : assignedCloserIds.includes(userId) ? [userId] : []);
+  const calendarSetupNeeded = Array.from(calendarStates.values()).some((state) => !state.ready);
   // Un compte avec au moins un event a forcément un handle (posé à la création
   // du 1er event, backfillé pour l'existant) ; ce fallback ne sert que de garde-fou.
   const publicHandle = bookingHandle ?? "";
@@ -150,6 +167,16 @@ export default async function NativeBookingEventsPage({
         </div>
       )}
 
+      {calendarSetupNeeded && (
+        <div className="flex flex-wrap items-start justify-between gap-4 rounded-[var(--radius-card)] border border-state-caution/30 bg-state-caution/10 p-4" role="alert">
+          <div>
+            <p className="font-bold text-state-caution">{t("calendarSetupWarning.title")}</p>
+            <p className="mt-1 max-w-2xl text-sm text-foreground/80">{viewer.isAccountWide ? t("calendarSetupWarning.description") : t("calendarSetupWarning.personalDescription")}</p>
+          </div>
+          <Button asChild size="sm" variant="outline"><Link href="/settings/calendars">{t("calendarSetupWarning.openSettings")}</Link></Button>
+        </div>
+      )}
+
       <AbandonedLeadsPanel leads={leadViews} targetLeadId={targetLeadId} />
       <UnifiedAgenda
         appointments={agendaViews}
@@ -163,6 +190,7 @@ export default async function NativeBookingEventsPage({
           to: filters.to,
           timeZone: filters.timeZone,
         }}
+        isAccountWide={viewer.isAccountWide}
       />
 
       {!entitlements.enabled ? (
@@ -179,7 +207,7 @@ export default async function NativeBookingEventsPage({
         </div>
       ) : (
         <>
-          <CreateEventForm canCreate={entitlements.maxEvents === null || usage < entitlements.maxEvents} />
+          {viewer.isAccountWide && <CreateEventForm canCreate={entitlements.maxEvents === null || usage < entitlements.maxEvents} />}
 
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
@@ -207,7 +235,7 @@ export default async function NativeBookingEventsPage({
                         <p className="truncate text-lg font-bold">{event.name}</p>
                         <p className="mt-1 truncate font-mono text-xs text-muted-foreground">/book/{publicHandle}/{event.slug}</p>
                       </div>
-                      <EventStatusButton eventId={event.id} status={event.status} />
+                      {viewer.isAccountWide && <EventStatusButton eventId={event.id} status={event.status} />}
                     </div>
                     <p className="line-clamp-2 text-sm text-muted-foreground">
                       {event.description || t("noDescription")}
@@ -223,11 +251,11 @@ export default async function NativeBookingEventsPage({
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                      <Button asChild size="sm">
+                      {viewer.isAccountWide && <Button asChild size="sm">
                         <Link href={`/ventes/rdv/${event.id}`}>
                           {t("configure")} <ExternalLink className="size-3.5" />
                         </Link>
-                      </Button>
+                      </Button>}
                       <Button asChild size="sm" variant="outline">
                         <a href={`/book/${publicHandle}/${event.slug}`} target="_blank" rel="noreferrer">
                           {t("viewPage")} <ExternalLink className="size-3.5" />

@@ -7,6 +7,6 @@ import { retryNativeBookingCalendarSync } from "@/lib/native-booking/booking";
 export const syncNativeBookingCalendar = inngest.createFunction(
   { id: "sync-native-booking-calendar", retries: 3, triggers: [nativeBookingCalendarSyncRequested] },
   async ({ event, step }) => {
-    return step.run("sync-calendar", () => retryNativeBookingCalendarSync(event.data.bookingId));
+    return step.run("sync-calendar", () => retryNativeBookingCalendarSync(event.data.bookingId, event.data.kind ?? "confirmation"));
   }
 );

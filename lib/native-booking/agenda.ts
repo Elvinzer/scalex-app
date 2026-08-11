@@ -2,6 +2,7 @@ import { and, asc, eq, gte, inArray, lt, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { nativeBookingActivities, nativeBookingEvents, nativeBookings, salesCalls, users, type NativeBookingAnswerSnapshot } from "@/db/schema";
+import type { NativeBookingViewer } from "./access";
 
 export type UnifiedAgendaSource = "native" | "iclosed" | "calendly";
 export type UnifiedAgendaStatus = "confirmed" | "cancelled" | "past";
@@ -61,10 +62,11 @@ export function resolveExternalAgendaDuration(call: Pick<typeof salesCalls.$infe
   };
 }
 
-export async function listUnifiedAgendaAppointments(accountId: string, query: AgendaQuery, now = new Date()): Promise<UnifiedAgendaAppointment[]> {
+export async function listUnifiedAgendaAppointments(accountId: string, viewer: NativeBookingViewer, query: AgendaQuery, now = new Date()): Promise<UnifiedAgendaAppointment[]> {
   const result: UnifiedAgendaAppointment[] = [];
   const includeNative = query.sources.includes("native");
   const includeExternal = query.sources.includes("iclosed") || query.sources.includes("calendly");
+  const closerIds = viewer.isAccountWide ? query.closerIds : [viewer.userId];
 
   if (includeNative) {
     const nativeRows = await db
@@ -79,7 +81,7 @@ export async function listUnifiedAgendaAppointments(accountId: string, query: Ag
           lt(nativeBookings.startAt, query.to),
           gte(nativeBookings.endAt, query.from),
           or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed"), eq(nativeBookings.status, "cancelled")),
-          ...(query.closerIds.length > 0 ? [inArray(nativeBookings.closerUserId, query.closerIds)] : [])
+          ...(closerIds.length > 0 ? [inArray(nativeBookings.closerUserId, closerIds)] : [])
         )
       )
       .orderBy(asc(nativeBookings.startAt));
@@ -117,7 +119,7 @@ export async function listUnifiedAgendaAppointments(accountId: string, query: Ag
         nativeBookingId: row.booking.id,
         salesCallId: row.call?.id ?? null,
         answers: row.booking.answers,
-        canManage: true,
+        canManage: viewer.isAccountWide || row.booking.closerUserId === viewer.userId,
         attendance: row.call?.attendance ?? null,
         outcome: row.call?.outcome ?? null,
         activities: activitiesByBooking.get(row.booking.id) ?? [],
@@ -137,7 +139,7 @@ export async function listUnifiedAgendaAppointments(accountId: string, query: Ag
           inArray(salesCalls.source, externalSources),
           lt(salesCalls.scheduledAt, query.to),
           gte(salesCalls.scheduledAt, query.from),
-          ...(query.closerIds.length > 0 ? [inArray(salesCalls.closerUserId, query.closerIds)] : [])
+          ...(closerIds.length > 0 ? [inArray(salesCalls.closerUserId, closerIds)] : [])
         )
       )
       .orderBy(asc(salesCalls.scheduledAt));
@@ -175,12 +177,14 @@ export async function listUnifiedAgendaAppointments(accountId: string, query: Ag
   return result.sort((left, right) => left.startAt.getTime() - right.startAt.getTime());
 }
 
-export async function getNativeBookingRescheduleSlotsForAccount(accountId: string, bookingId: string) {
+export async function getNativeBookingRescheduleSlotsForAccount(accountId: string, bookingId: string, viewer: NativeBookingViewer) {
+  const conditions = [eq(nativeBookings.id, bookingId), eq(nativeBookingEvents.userId, accountId)];
+  if (!viewer.isAccountWide) conditions.push(eq(nativeBookings.closerUserId, viewer.userId));
   const [row] = await db
     .select({ booking: nativeBookings, event: nativeBookingEvents })
     .from(nativeBookings)
     .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
-    .where(and(eq(nativeBookings.id, bookingId), eq(nativeBookingEvents.userId, accountId)))
+    .where(and(...conditions))
     .limit(1);
   if (!row || !row.booking.closerUserId) return null;
   const { getPublicNativeBookingSlots } = await import("./queries");

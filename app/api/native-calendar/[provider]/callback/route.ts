@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
 import { nativeCalendarConnections } from "@/db/schema";
-import { exchangeCalendarCode, getCalendarAccountEmail } from "@/lib/native-booking/calendar";
+import { exchangeCalendarCode, getCalendarAccountIdentity } from "@/lib/native-booking/calendar";
 import { encrypt } from "@/lib/crypto";
 import { isRateLimited } from "@/lib/rate-limit";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
@@ -14,20 +14,21 @@ type Provider = "google" | "outlook";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ provider: string }> }) {
   const { provider: rawProvider } = await context.params;
-  if (rawProvider !== "google" && rawProvider !== "outlook") return NextResponse.redirect(new URL("/ventes/rdv?calendar_error=provider", request.url));
+  if (rawProvider !== "google" && rawProvider !== "outlook") return NextResponse.redirect(new URL("/settings/calendars?calendar_error=provider", request.url));
   const provider = rawProvider as Provider;
   const providerError = request.nextUrl.searchParams.get("error");
   if (providerError) {
-    const response = NextResponse.redirect(new URL(`/ventes/rdv?calendar_error=denied&provider=${provider}`, request.url));
+    const response = NextResponse.redirect(new URL(`/settings/calendars?calendar_error=denied&provider=${provider}`, request.url));
     response.cookies.delete("native_calendar_oauth_state");
     return response;
   }
   const code = request.nextUrl.searchParams.get("code");
   const returnedState = request.nextUrl.searchParams.get("state");
   const storedState = request.cookies.get("native_calendar_oauth_state")?.value ?? "";
-  const [storedProvider, storedNonce, storedUserId] = storedState.split(":");
+  const [storedProvider, storedNonce, storedUserId, storedReturnTo] = storedState.split(":");
+  const returnTo = storedReturnTo === "/settings/calendars" ? "/settings/calendars" : "/ventes/rdv";
   if (!code || !returnedState || storedProvider !== provider || returnedState !== storedNonce || !storedUserId) {
-    return NextResponse.redirect(new URL(`/ventes/rdv?calendar_error=state&provider=${provider}`, request.url));
+    return NextResponse.redirect(new URL(`/settings/calendars?calendar_error=state&provider=${provider}`, request.url));
   }
 
   const supabase = await createClient();
@@ -40,20 +41,29 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
   }
 
   const redirectUri = new URL(`/api/native-calendar/${provider}/callback`, request.url).toString();
-  const [existing] = await db
+  const existingRows = await db
     .select()
     .from(nativeCalendarConnections)
-    .where(and(eq(nativeCalendarConnections.closerUserId, userId), eq(nativeCalendarConnections.provider, provider)))
-    .limit(1);
+    .where(and(eq(nativeCalendarConnections.userId, access.accountId), eq(nativeCalendarConnections.closerUserId, userId), eq(nativeCalendarConnections.provider, provider)))
+    .orderBy(nativeCalendarConnections.createdAt);
+  let existingConnection: (typeof existingRows)[number] | undefined;
 
   try {
     const tokens = await exchangeCalendarCode(provider, code, redirectUri);
-    const email = await getCalendarAccountEmail(tokens.accessToken, provider);
+    const identity = await getCalendarAccountIdentity(tokens.accessToken, provider);
+    if (!identity.subject) throw new Error("Calendar account identity is missing");
+    const existing = existingRows.find((row) =>
+      identity.subject
+        ? row.providerAccountSubject === identity.subject || (!row.providerAccountSubject && row.providerAccountEmail === identity.email)
+        : row.providerAccountEmail === identity.email
+    );
+    existingConnection = existing;
     const values = {
       userId: access.accountId,
       closerUserId: userId,
       provider,
-      providerAccountEmail: email,
+      providerAccountSubject: identity.subject,
+      providerAccountEmail: identity.email,
       accessTokenEncrypted: encrypt(tokens.accessToken),
       refreshTokenEncrypted: tokens.refreshToken ? encrypt(tokens.refreshToken) : existing?.refreshTokenEncrypted ?? null,
       tokenExpiresAt: new Date(Date.now() + tokens.expiresInSeconds * 1000),
@@ -63,28 +73,26 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
       updatedAt: new Date(),
     };
 
-    await db
-      .insert(nativeCalendarConnections)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [nativeCalendarConnections.closerUserId, nativeCalendarConnections.provider],
-        set: values,
-      });
+    if (existingConnection) {
+      await db.update(nativeCalendarConnections).set(values).where(eq(nativeCalendarConnections.id, existingConnection.id));
+    } else {
+      await db.insert(nativeCalendarConnections).values(values);
+    }
 
     revalidateBusinessData();
 
-    const response = NextResponse.redirect(new URL("/ventes/rdv?calendar=connected", request.url));
+    const response = NextResponse.redirect(new URL(`${returnTo}?calendar=connected`, request.url));
     response.cookies.delete("native_calendar_oauth_state");
     return response;
   } catch (error) {
     console.error("Native calendar OAuth callback failed", error);
-    if (existing) {
+    if (existingConnection) {
       await db
         .update(nativeCalendarConnections)
         .set({ status: "reconnect_required", lastError: "La reconnexion du calendrier a échoué.", updatedAt: new Date() })
-        .where(eq(nativeCalendarConnections.id, existing.id));
+        .where(eq(nativeCalendarConnections.id, existingConnection.id));
     }
-    const response = NextResponse.redirect(new URL(`/ventes/rdv?calendar_error=oauth&provider=${provider}`, request.url));
+    const response = NextResponse.redirect(new URL(`${returnTo}?calendar_error=oauth&provider=${provider}`, request.url));
     response.cookies.delete("native_calendar_oauth_state");
     return response;
   }

@@ -1054,6 +1054,8 @@
       "closerOnline": "Closer remis en ligne.",
       "closerOff": "Closer mis off.",
       "externalCalendar": "Agenda externe",
+      "calendarSettingsHelp": "Chaque closer gère ses comptes Google et ses calendriers de réservation dans ses paramètres personnels.",
+      "calendarSettingsLink": "Ouvrir les paramètres des calendriers",
       "connected": "connecté",
       "reconnectRequired": "reconnexion requise",
       "calendarLoadError": "Impossible de charger les calendriers. Reconnecte ce compte.",
@@ -1133,7 +1135,10 @@
       "update": "Mise à jour de l’événement",
       "updateHelp": "Configure les horaires, les closers et la page qui qualifiera tes prospects avant de révéler les créneaux.",
       "ready": "Prêt à recevoir des réservations",
-      "incomplete": "Configuration à terminer"
+      "incomplete": "Configuration à terminer",
+      "closerAccessHelp": "Tu es rattaché à cet événement. Utilise son lien public pour partager ou prévisualiser la page de réservation.",
+      "publicLink": "Lien public de réservation",
+      "openBookingLink": "Ouvrir le lien de réservation"
     },
     "calendarErrors": {
       "notConfigured": "La connexion {provider} n'est pas encore configurée sur cet environnement.",
@@ -1142,7 +1147,66 @@
       "state": "La tentative de connexion {provider} a expiré. Relance la connexion depuis cet écran.",
       "plan": "La connexion à un agenda externe n'est pas incluse dans ton abonnement actuel.",
       "provider": "Ce fournisseur de calendrier n'est pas reconnu."
-    }
+    },
+    "calendarProviders": {
+      "google": "Google Agenda",
+      "outlook": "Calendrier Outlook"
+    },
+    "calendarSettings": {
+      "title": "Tes calendriers",
+      "providerName": "Google Agenda",
+      "subtitle": "Connecte les comptes Google utilisés pour tes appels, puis choisis où envoyer les invitations et quels calendriers bloquent les créneaux.",
+      "backToBooking": "Retour aux rendez-vous",
+      "connectedCalendars": "Calendriers Google connectés",
+      "googleAccount": "Compte Google",
+      "addCalendar": "Ajouter un autre calendrier Google",
+      "connectFirst": "Connecte un compte Google pour recevoir des réservations natives.",
+      "accountStatus": "État du compte",
+      "connected": "Connecté",
+      "reconnectRequired": "Reconnexion nécessaire",
+      "revoked": "Déconnecté",
+      "reconnect": "Reconnecter",
+      "disconnect": "Déconnecter",
+      "calendarCount": "{count} calendriers disponibles",
+      "calendarLoadError": "Impossible de charger les calendriers de ce compte.",
+      "invitationTitle": "Calendrier des invitations",
+      "invitationHelp": "Tes nouvelles réservations seront ajoutées ici. Google Meet sera créé dans le même événement.",
+      "chooseAccount": "Compte Google",
+      "chooseCalendar": "Calendrier des invitations",
+      "noWritableCalendar": "Ce compte n'a aucun calendrier accessible en écriture.",
+      "conflictsTitle": "Calendriers de conflits",
+      "conflictsHelp": "Ces calendriers sont vérifiés avant d'afficher un créneau. Sélectionne-en au moins un.",
+      "noConflictCalendars": "Connecte un compte Google pour choisir les calendriers de conflits.",
+      "primary": "Principal",
+      "save": "Enregistrer les calendriers",
+      "saving": "Enregistrement…",
+      "saved": "Paramètres des calendriers enregistrés.",
+      "ready": "Prêt pour les réservations natives",
+      "notReady": "Termine cette configuration avant de recevoir des réservations.",
+      "missingTarget": "Choisis un calendrier d'invitation accessible en écriture.",
+      "missingConflict": "Sélectionne au moins un calendrier de conflits.",
+      "calendarUnavailable": "Reconnecte ou actualise un calendrier pour continuer.",
+      "confirmDisconnect": "Déconnecter ce compte ? Les réservations existantes garderont la référence de leur calendrier d'origine.",
+      "connectAnotherHelp": "Le compte Google ajouté ici reste rattaché à ton utilisateur Scale X.",
+      "errors": {
+        "calendar_settings_forbidden": "Tu n'as pas accès aux paramètres des calendriers.",
+        "calendar_settings_invalid": "Vérifie les calendriers sélectionnés puis réessaie.",
+        "calendar_target_unavailable": "Le compte d'invitation n'est plus connecté.",
+        "calendar_connection_unavailable": "Google n'a pas pu renvoyer les calendriers de ce compte. Reconnecte-le puis réessaie.",
+        "calendar_target_not_writable": "Choisis un calendrier dans lequel Scale X peut créer des événements.",
+        "calendar_conflict_invalid": "Un des calendriers de conflits sélectionnés n'est plus disponible.",
+        "calendar_connection_not_found": "Cette connexion calendrier est introuvable.",
+        "calendar_disconnect_failed": "Le calendrier n'a pas pu être déconnecté. Réessaie.",
+        "calendar_settings_save_failed": "Les paramètres des calendriers n'ont pas pu être enregistrés. Réessaie."
+      }
+    },
+    "calendarSetupWarning": {
+      "title": "Configuration calendrier nécessaire",
+      "description": "Le calendrier Google des invitations et les calendriers de conflits doivent être configurés avant que ce closer puisse recevoir des réservations.",
+      "personalDescription": "Connecte et configure un calendrier Google avant de recevoir des réservations.",
+      "openSettings": "Ouvrir les paramètres des calendriers"
+    },
+    "calendarSetupRequired": "Configure les calendriers Google de chaque closer actif avant d'activer cet événement."
   },
   "calls": {
     "title": "Suivi d'appel",

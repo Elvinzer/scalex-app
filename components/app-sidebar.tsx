@@ -128,6 +128,7 @@ const mobileNavEntries = [
 const profileMenuEntries: LinkEntry[] = [
   { type: "link", href: "/business", labelKey: "business", icon: Store, permission: "business" },
   { type: "link", href: "/settings/equipe", labelKey: "team", icon: Users },
+  { type: "link", href: "/settings/calendars", labelKey: "calendars", icon: CalendarDays, permission: "ventes:rdv" },
   { type: "link", href: "/settings", labelKey: "settings", icon: Settings },
   { type: "link", href: "/integrations", labelKey: "integrations", icon: Plug },
   { type: "link", href: "/parrainage", labelKey: "referral", icon: Gift },

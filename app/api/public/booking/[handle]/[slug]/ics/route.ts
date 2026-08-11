@@ -48,7 +48,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     timeZone: row.booking.eventTimeZone,
     closerName: row.closer?.displayName || row.closer?.email || "Closer",
     instructions: row.event.bookingInstructions,
-    meetingUrl: row.event.meetingUrl,
+    meetingUrl: row.booking.meetingUrl ?? row.event.meetingUrl,
   });
   return new NextResponse(ics, {
     status: 200,

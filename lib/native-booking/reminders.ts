@@ -178,7 +178,7 @@ export async function deliverNativeBookingReminder(deliveryId: string) {
     date: contextDate.date,
     time: contextDate.time,
     timeZone: row.booking.eventTimeZone,
-    meetingUrl: row.event.meetingUrl ?? "",
+    meetingUrl: row.booking.meetingUrl ?? row.event.meetingUrl ?? "",
     managementUrl: managementUrl(ownerHandle, row.event.slug, row.booking.rescheduleTokenEncrypted, row.booking.cancellationTokenEncrypted),
   };
 
