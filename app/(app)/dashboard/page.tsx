@@ -1,8 +1,6 @@
 import { eq } from "drizzle-orm";
-import Link from "next/link";
 import { Suspense } from "react";
 
-import { CheckinTrigger } from "./checkin-trigger";
 import { BottleneckFunnel } from "./bottleneck-funnel";
 import { DashboardLossHero, DashboardLossHeroSkeleton } from "./dashboard-loss-hero";
 import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-action-center";
@@ -11,7 +9,6 @@ import { WeeklyReportDialog } from "./weekly-report-dialog";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { AcquisitionFunnelInferredBanner } from "@/components/acquisition-funnel-inferred-banner";
 import { MetricCard } from "@/components/metric-card";
-import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
@@ -443,35 +440,7 @@ async function renderDashboardPage({
 
       <BottleneckFunnel data={bottleneckFunnel} />
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <TechnicalAlertsSection alerts={technicalAlerts} />
-        <section className="sticker-card p-4" aria-labelledby="checkin-title">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 id="checkin-title" className="text-sm font-bold">{t("weeklyCheckin")}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {checkInDoneThisWeek ? t("weekRecorded") : t("weekNotRecorded")}
-              </p>
-            </div>
-            <span className="rounded-full bg-muted px-2 py-1 text-xs font-bold text-muted-foreground">{checkInDoneThisWeek ? t("upToDate") : t("toDo")}</span>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Suspense fallback={null}>
-              <CheckinTrigger
-                year={currentYear}
-                month={currentMonth}
-                initialData={checkinInitialData}
-                settingSourced={dailySourceOverlay.settingSourced}
-                closingSourced={dailySourceOverlay.closingSourced}
-                activeMetricFields={activeMetricFields}
-              />
-            </Suspense>
-            <Button type="button" variant="link" asChild>
-              <Link href="/dashboard?report=1" prefetch={true}>{t("viewReport")}</Link>
-            </Button>
-          </div>
-        </section>
-      </div>
+      <TechnicalAlertsSection alerts={technicalAlerts} />
 
     </div>
   );

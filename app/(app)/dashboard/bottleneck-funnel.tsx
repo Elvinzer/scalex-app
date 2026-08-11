@@ -250,7 +250,7 @@ export function BottleneckFunnel({
 
   return (
     <>
-      <section data-testid="bottleneck-funnel" className="relative max-w-[1080px] overflow-hidden" aria-labelledby="bottleneck-funnel-title">
+      <section data-testid="bottleneck-funnel" className="relative max-w-[1080px] overflow-hidden pt-6" aria-labelledby="bottleneck-funnel-title">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
           <div>
             <h2 id="bottleneck-funnel-title" className="text-[28px] leading-[1.15] font-bold tracking-[-0.02em]">
@@ -307,7 +307,7 @@ export function BottleneckFunnel({
           </div>
         </div>
 
-        <div className="mt-7">
+        <div className="mt-7 lg:mx-auto lg:w-[calc(100%_-_2rem)] lg:max-w-[1020px]">
           <ol aria-label={t("bottleneckFunnel.funnelLabel")}>
             {activeData.stages.map((stage, index) => {
               const label = stageLabels.get(stage.id) ?? "";
@@ -413,7 +413,6 @@ export function BottleneckFunnel({
             <ArrowRight aria-hidden="true" />
           </Button>
         </div>
-        <p className="mt-3 text-[12.5px] leading-5 text-muted-foreground">{t("bottleneckFunnel.summaryNote")}</p>
       </section>
 
       <Dialog open={selectedStageId !== null} onOpenChange={(open) => !open && setSelectedStageId(null)}>
