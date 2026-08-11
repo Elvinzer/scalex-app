@@ -20,6 +20,7 @@ export const stripeSyncRequested = eventType("stripe/sync.requested", {
 
 type IclosedAccountConnected = {
   userId: string;
+  connectionId: string;
 };
 
 export const iclosedAccountConnected = eventType("iclosed/account.connected", {
@@ -28,6 +29,7 @@ export const iclosedAccountConnected = eventType("iclosed/account.connected", {
 
 type CalendlyAccountConnected = {
   userId: string;
+  connectionId: string;
 };
 
 export const calendlyAccountConnected = eventType("calendly/account.connected", {

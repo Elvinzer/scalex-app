@@ -35,20 +35,24 @@ function verifySignature(rawBody: string, secret: string, signature: string | nu
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-async function markProcessed(eventId: string, type: string): Promise<boolean> {
+function scopedEventId(connectionId: string, eventId: string): string {
+  return `${connectionId}:${eventId}`;
+}
+
+async function markProcessed(connectionId: string, eventId: string, type: string): Promise<boolean> {
   const [inserted] = await db
     .insert(processedIclosedEvents)
-    .values({ id: eventId, type })
+    .values({ id: scopedEventId(connectionId, eventId), type })
     .onConflictDoNothing({ target: processedIclosedEvents.id })
     .returning({ id: processedIclosedEvents.id });
   return Boolean(inserted);
 }
 
-async function hasBeenProcessed(eventId: string): Promise<boolean> {
+async function hasBeenProcessed(connectionId: string, eventId: string): Promise<boolean> {
   const [processed] = await db
     .select({ id: processedIclosedEvents.id })
     .from(processedIclosedEvents)
-    .where(eq(processedIclosedEvents.id, eventId))
+    .where(eq(processedIclosedEvents.id, scopedEventId(connectionId, eventId)))
     .limit(1);
   return Boolean(processed);
 }
@@ -83,7 +87,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // Optional HMAC layer — only enforced when iClosed gave us a secret.
   if (connection.webhookSecretEncrypted) {
-    const secret = decrypt(connection.webhookSecretEncrypted);
+    let secret: string;
+    try {
+      secret = decrypt(connection.webhookSecretEncrypted);
+    } catch {
+      return NextResponse.json({ error: "Webhook connection unavailable" }, { status: 503 });
+    }
     if (!verifySignature(rawBody, secret, request.headers.get(SIGNATURE_HEADER))) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
@@ -101,143 +110,141 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  if (await hasBeenProcessed(envelope.id)) {
+  if (await hasBeenProcessed(connection.id, envelope.id)) {
     return NextResponse.json({ received: true });
   }
 
   try {
-  const userId = connection.userId;
-  const kind = classifyEvent(envelope.type);
-  const call = readCall(envelope as unknown as Record<string, unknown>);
-  const touchpoint = call
-    ? (await resolveMetaTouchpoint(userId, call.metaTouchpointToken)) ??
-      (await resolveMetaTouchpointFromIdentifiers({
-        userId,
-        campaignExternalId: call.metaCampaignExternalId,
-        adSetExternalId: call.metaAdSetExternalId,
-        adExternalId: call.metaAdExternalId,
-      })) ??
-      (await resolveMetaTouchpointFromUtm({
-        userId,
-        utmCampaign: call.utmCampaign,
-        utmContent: call.utmContent,
-      }))
-    : null;
-  const attributionValues = call
-    ? {
-        utmSource: call.utmSource,
-        utmMedium: call.utmMedium,
-        utmCampaign: call.utmCampaign,
-        utmContent: call.utmContent,
-        utmTerm: call.utmTerm,
-        metaTouchpointId: touchpoint?.touchpointId ?? null,
-      }
-    : {};
-  const attributionUpdates = {
-    ...(call?.utmSource ? { utmSource: call.utmSource } : {}),
-    ...(call?.utmMedium ? { utmMedium: call.utmMedium } : {}),
-    ...(call?.utmCampaign ? { utmCampaign: call.utmCampaign } : {}),
-    ...(call?.utmContent ? { utmContent: call.utmContent } : {}),
-    ...(call?.utmTerm ? { utmTerm: call.utmTerm } : {}),
-    ...(touchpoint ? { metaTouchpointId: touchpoint.touchpointId } : {}),
-  };
+    const userId = connection.userId;
+    const kind = classifyEvent(envelope.type);
+    const call = readCall(envelope);
+    const touchpoint = call
+      ? (await resolveMetaTouchpoint(userId, call.metaTouchpointToken)) ??
+        (await resolveMetaTouchpointFromIdentifiers({
+          userId,
+          campaignExternalId: call.metaCampaignExternalId,
+          adSetExternalId: call.metaAdSetExternalId,
+          adExternalId: call.metaAdExternalId,
+        })) ??
+        (await resolveMetaTouchpointFromUtm({
+          userId,
+          utmCampaign: call.utmCampaign,
+          utmContent: call.utmContent,
+        }))
+      : null;
+    const attributionValues = call
+      ? {
+          utmSource: call.utmSource,
+          utmMedium: call.utmMedium,
+          utmCampaign: call.utmCampaign,
+          utmContent: call.utmContent,
+          utmTerm: call.utmTerm,
+          metaTouchpointId: touchpoint?.touchpointId ?? null,
+        }
+      : {};
+    const attributionUpdates = {
+      ...(call?.utmSource ? { utmSource: call.utmSource } : {}),
+      ...(call?.utmMedium ? { utmMedium: call.utmMedium } : {}),
+      ...(call?.utmCampaign ? { utmCampaign: call.utmCampaign } : {}),
+      ...(call?.utmContent ? { utmContent: call.utmContent } : {}),
+      ...(call?.utmTerm ? { utmTerm: call.utmTerm } : {}),
+      ...(touchpoint ? { metaTouchpointId: touchpoint.touchpointId } : {}),
+    };
 
-  switch (kind) {
-    case "booked": {
-      if (!call) break;
-      await db
-        .insert(salesCalls)
-        .values({
-          userId,
-          iclosedCallId: call.iclosedCallId,
-          inviteeName: call.inviteeName,
-          inviteeEmail: call.inviteeEmail,
-          inviteePhone: call.inviteePhone,
-          scheduledAt: call.scheduledAt,
-          durationMinutes: call.durationMinutes,
-          closer: call.closer,
-          eventType: call.eventType,
-          ...attributionValues,
-        })
-        // Already booked (replay / backfill overlap) — only enrich tracking;
-        // never clobber a disposition the closer may have already set.
-        .onConflictDoUpdate({
-          target: [salesCalls.userId, salesCalls.iclosedCallId],
-          set: { ...attributionUpdates, updatedAt: new Date() },
-        });
-      break;
-    }
-    case "rescheduled": {
-      if (!call) break;
-      // Update the schedule but preserve attendance/outcome. Upsert so a
-      // reschedule of a call we never saw still lands.
-      await db
-        .insert(salesCalls)
-        .values({
-          userId,
-          iclosedCallId: call.iclosedCallId,
-          inviteeName: call.inviteeName,
-          inviteeEmail: call.inviteeEmail,
-          inviteePhone: call.inviteePhone,
-          scheduledAt: call.scheduledAt,
-          durationMinutes: call.durationMinutes,
-          closer: call.closer,
-          eventType: call.eventType,
-          ...attributionValues,
-        })
-        .onConflictDoUpdate({
-          target: [salesCalls.userId, salesCalls.iclosedCallId],
-          set: {
+    switch (kind) {
+      case "booked": {
+        if (!call) break;
+        await db
+          .insert(salesCalls)
+          .values({
+            userId,
+            iclosedCallId: call.iclosedCallId,
+            inviteeName: call.inviteeName,
+            inviteeEmail: call.inviteeEmail,
+            inviteePhone: call.inviteePhone,
             scheduledAt: call.scheduledAt,
             durationMinutes: call.durationMinutes,
-            ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
-            ...attributionUpdates,
-            updatedAt: new Date(),
-          },
-        });
-      break;
-    }
-    case "cancelled": {
-      if (!call) break;
-      await db
-        .insert(salesCalls)
-        .values({
-          userId,
-          iclosedCallId: call.iclosedCallId,
-          inviteeName: call.inviteeName,
-          inviteeEmail: call.inviteeEmail,
-          inviteePhone: call.inviteePhone,
-          scheduledAt: call.scheduledAt,
-          durationMinutes: call.durationMinutes,
-          closer: call.closer,
-          eventType: call.eventType,
-          ...attributionValues,
-          attendance: "cancelled",
-        })
-        .onConflictDoUpdate({
-          target: [salesCalls.userId, salesCalls.iclosedCallId],
-          set: {
+            closer: call.closer,
+            eventType: call.eventType,
+            ...attributionValues,
+          })
+          // Already booked (replay / backfill overlap) only enriches tracking;
+          // it never clobbers a disposition the closer may have set.
+          .onConflictDoUpdate({
+            target: [salesCalls.userId, salesCalls.iclosedCallId],
+            set: { ...attributionUpdates, updatedAt: new Date() },
+          });
+        break;
+      }
+      case "rescheduled": {
+        if (!call) break;
+        // Update the schedule but preserve attendance/outcome. Upsert so a
+        // reschedule of a call we never saw still lands.
+        await db
+          .insert(salesCalls)
+          .values({
+            userId,
+            iclosedCallId: call.iclosedCallId,
+            inviteeName: call.inviteeName,
+            inviteeEmail: call.inviteeEmail,
+            inviteePhone: call.inviteePhone,
+            scheduledAt: call.scheduledAt,
+            durationMinutes: call.durationMinutes,
+            closer: call.closer,
+            eventType: call.eventType,
+            ...attributionValues,
+          })
+          .onConflictDoUpdate({
+            target: [salesCalls.userId, salesCalls.iclosedCallId],
+            set: {
+              scheduledAt: call.scheduledAt,
+              durationMinutes: call.durationMinutes,
+              ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+              ...attributionUpdates,
+              updatedAt: new Date(),
+            },
+          });
+        break;
+      }
+      case "cancelled": {
+        if (!call) break;
+        await db
+          .insert(salesCalls)
+          .values({
+            userId,
+            iclosedCallId: call.iclosedCallId,
+            inviteeName: call.inviteeName,
+            inviteeEmail: call.inviteeEmail,
+            inviteePhone: call.inviteePhone,
+            scheduledAt: call.scheduledAt,
+            durationMinutes: call.durationMinutes,
+            closer: call.closer,
+            eventType: call.eventType,
+            ...attributionValues,
             attendance: "cancelled",
-            ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
-            ...attributionUpdates,
-            updatedAt: new Date(),
-          },
-          // Only cancel a still-booked call — never overwrite an attendance/
-          // outcome the closer already set by hand (a late cancel shouldn't
-          // erase "showed + closed").
-          setWhere: eq(salesCalls.attendance, "booked"),
-        });
-      break;
+          })
+          .onConflictDoUpdate({
+            target: [salesCalls.userId, salesCalls.iclosedCallId],
+            set: {
+              attendance: "cancelled",
+              ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+              ...attributionUpdates,
+              updatedAt: new Date(),
+            },
+            // Only cancel a still-booked call. Never overwrite an attendance/
+            // outcome the closer already set by hand.
+            setWhere: eq(salesCalls.attendance, "booked"),
+          });
+        break;
+      }
+      default:
+        // Unknown/other events are acknowledged and ignored in V1. Outcomes
+        // are entered by hand, and failed writes stay retryable.
+        break;
     }
-    default:
-      // Unknown/other event (Call Outcome, Transaction Synced, …) — acked and
-      // ignored in V1 (outcomes are entered by hand). Already marked processed
-      // after the successful switch below so iClosed retries real failures.
-      break;
-  }
 
-  revalidateBusinessData();
-  await markProcessed(envelope.id, envelope.type);
+    revalidateBusinessData();
+    await markProcessed(connection.id, envelope.id, envelope.type);
   } catch {
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }

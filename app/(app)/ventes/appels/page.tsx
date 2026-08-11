@@ -22,7 +22,6 @@ import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/conte
 
 import { CallsTable } from "./calls-table";
 import { ManualCallDialog } from "./manual-call-dialog";
-import { RefreshCallsButton } from "./refresh-calls-button";
 
 function pct(numerator: number, denominator: number): string {
   if (denominator === 0) return "—";
@@ -109,7 +108,6 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
             </Link>
           )}
           {(anyConnected || calls.length > 0) && <PeriodFilter current={period.key} />}
-          {anyConnected && <RefreshCallsButton iclosed={iclosedConnected} calendly={calendlyConnected} />}
           <ManualCallDialog setters={setters} />
         </div>
       </div>

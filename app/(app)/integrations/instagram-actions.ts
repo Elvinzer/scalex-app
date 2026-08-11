@@ -45,8 +45,8 @@ export async function disconnectInstagram(): Promise<{ error: string | null }> {
   return { error: null };
 }
 
-// On-demand pull (idempotent), same role as refreshIclosedCalls/
-// refreshCalendlyCalls. Re-fetches insights for the same recent-media
+// On-demand pull (idempotent), using the same server-side sync pattern as the
+// call integrations' one-time connect sync. Re-fetches insights for the same recent-media
 // window as the recurring cron (see protocol.ts's
 // INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS) so a manual click stays fast for
 // the common case — but backfillInstagramPosts also always picks up any

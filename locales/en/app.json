@@ -1272,7 +1272,6 @@
     "imported": "{count} new call{plural} imported.",
     "upToDate": "Already up to date.",
     "syncing": "Syncing…",
-    "refresh": "Refresh my calls",
     "close": "Close"
   },
   "integrations": {

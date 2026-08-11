@@ -1288,7 +1288,6 @@
     "imported": "{count} nouvel{plural} appel{plural} importé{plural}.",
     "upToDate": "Déjà à jour.",
     "syncing": "Synchronisation…",
-    "refresh": "Rafraîchir mes appels",
     "close": "Fermer"
   },
   "integrations": {

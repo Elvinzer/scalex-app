@@ -15,6 +15,7 @@ import { listUnifiedAgendaAppointments } from "@/lib/native-booking/agenda";
 import { listNativeBookingEvents } from "@/lib/native-booking/queries";
 import { getAccountBookingHandle } from "@/lib/native-booking/handle";
 import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
+import { isCalendarConfigurationComplete } from "@/lib/native-booking/calendar-readiness";
 import { agendaFiltersSchema } from "@/lib/native-booking/validation";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -97,8 +98,12 @@ export default async function NativeBookingEventsPage({
         .where(and(inArray(nativeBookingEventClosers.eventId, activeEventIds), eq(nativeBookingEventClosers.isActive, true), eq(nativeBookingEventClosers.isOff, false)))
     : [];
   const assignedCloserIds = Array.from(new Set(activeAssignments.map(({ closerUserId }) => closerUserId)));
-  const calendarStates = await getCalendarStatesForClosers(accountId, viewer.isAccountWide ? assignedCloserIds : assignedCloserIds.includes(userId) ? [userId] : []);
-  const calendarSetupNeeded = Array.from(calendarStates.values()).some((state) => !state.ready);
+  const calendarCloserIds = viewer.isAccountWide ? assignedCloserIds : assignedCloserIds.includes(userId) ? [userId] : [];
+  const calendarStates = await getCalendarStatesForClosers(accountId, calendarCloserIds);
+  const calendarSetupNeeded = calendarCloserIds.some((closerUserId) => {
+    const state = calendarStates.get(closerUserId);
+    return !state || !isCalendarConfigurationComplete(state);
+  });
   // Un compte avec au moins un event a forcément un handle (posé à la création
   // du 1er event, backfillé pour l'existant) ; ce fallback ne sert que de garde-fou.
   const publicHandle = bookingHandle ?? "";

@@ -14,6 +14,7 @@ type Props = {
   connected: boolean;
   initialSyncStatus?: string | null;
   initialSyncCompletedAt?: Date | null;
+  tokenUnreadable?: boolean;
   subscriptionActive?: boolean;
   primaryCta?: boolean;
 };
@@ -22,6 +23,7 @@ export function CalendlyConnectionCard({
   connected,
   initialSyncStatus,
   initialSyncCompletedAt,
+  tokenUnreadable = false,
   subscriptionActive = true,
   primaryCta = false,
 }: Props) {
@@ -79,6 +81,11 @@ export function CalendlyConnectionCard({
 
       {connected ? (
         <>
+          {tokenUnreadable && (
+            <div className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
+              {t("tokenUnreadable")}
+            </div>
+          )}
           {initialSyncStatus === "pending" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy">
               <span className="font-bold">✅ {t("connected")}</span> {t("syncPending")}

@@ -149,13 +149,13 @@ export default async function ContentE2EFixturePage({
           instagramConnected={instagramConnected}
           instagramUsername={instagramConnected ? "fixturefinance" : null}
           instagramSyncStatus={instagramConnected ? "completed" : null}
-          instagramSyncCompletedAt={instagramConnected ? FIXTURE_SYNCED_AT : null}
+          instagramLastSyncAt={instagramConnected ? FIXTURE_SYNCED_AT : null}
           youtubeVideos={youtubeConnected ? youtubeVideos : []}
           youtubeCommercialStats={youtubeConnected ? youtubeCommercialStats : new Map()}
           youtubeConnected={youtubeConnected}
           youtubeChannelTitle={youtubeConnected ? "Scale X Fixture Channel" : null}
           youtubeSyncStatus={youtubeConnected ? "completed" : null}
-          youtubeSyncCompletedAt={youtubeConnected ? FIXTURE_SYNCED_AT : null}
+          youtubeLastSyncAt={youtubeConnected ? FIXTURE_SYNCED_AT : null}
           youtubeSubscriberCount={youtubeConnected ? 386 : null}
           subscriptionActive
           hasConnectedPlatform={instagramConnected || youtubeConnected}

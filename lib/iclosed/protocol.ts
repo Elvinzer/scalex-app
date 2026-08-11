@@ -14,8 +14,9 @@
 //     bare `{ "message": "Bad request" }` 400 — see validateIclosedKey's
 //     "no_api_access" branch.
 //   - ⚠️ There is NO public webhook-management endpoint. Real-time webhooks are
-//     configured in the iClosed dashboard (Settings → Webhooks), not via API,
-//     so this integration is polling/backfill-based (GET /v1/eventCalls).
+//     configured in the iClosed dashboard (Settings → Developer → Webhooks),
+//     not via API, so the integration uses a one-time backfill followed by the
+//     token-scoped webhook receiver.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const ICLOSED_API_BASE = "https://public.api.iclosed.io";

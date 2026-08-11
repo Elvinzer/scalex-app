@@ -153,13 +153,13 @@ export default async function ContenuPage({
         instagramConnected={instagramConnected}
         instagramUsername={instagramConnection?.username ?? null}
         instagramSyncStatus={instagramConnection?.initialSyncStatus ?? null}
-        instagramSyncCompletedAt={instagramConnection?.initialSyncCompletedAt ?? null}
+        instagramLastSyncAt={instagramConnection?.lastInsightsSyncAt ?? null}
         youtubeVideos={youtubeVideos}
         youtubeCommercialStats={youtubeCommercialStats}
         youtubeConnected={youtubeConnected}
         youtubeChannelTitle={youtubeConnection?.channelTitle ?? null}
         youtubeSyncStatus={youtubeConnection?.initialSyncStatus ?? null}
-        youtubeSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt ?? null}
+        youtubeLastSyncAt={youtubeConnection?.lastAnalyticsSyncAt ?? null}
         youtubeSubscriberCount={youtubeConnection?.subscriberCount ?? null}
         youtubeRecommendations={youtubeRecommendations.map<YoutubeRecommendationCard>((recommendation) => ({
           ...recommendation,

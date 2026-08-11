@@ -17,6 +17,8 @@ type Props = {
   connected: boolean;
   initialSyncStatus?: string | null;
   initialSyncCompletedAt?: Date | null;
+  webhookUrl?: string | null;
+  tokenUnreadable?: boolean;
   // No active subscription — the connect flow is replaced by an upsell note.
   subscriptionActive?: boolean;
   // On a screen where connecting iClosed is THE single priority action
@@ -30,6 +32,8 @@ export function IclosedConnectionCard({
   connected,
   initialSyncStatus,
   initialSyncCompletedAt,
+  webhookUrl = null,
+  tokenUnreadable = false,
   subscriptionActive = true,
   primaryCta = false,
 }: Props) {
@@ -39,6 +43,7 @@ export function IclosedConnectionCard({
   const [step, setStep] = useState<1 | 2>(1);
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function openWizard() {
@@ -72,6 +77,20 @@ export function IclosedConnectionCard({
     });
   }
 
+  async function copyWebhookUrl() {
+    if (!webhookUrl || !navigator.clipboard) {
+      setError(t("copyWebhookFailed"));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setCopiedWebhook(true);
+      window.setTimeout(() => setCopiedWebhook(false), 2000);
+    } catch {
+      setError(t("copyWebhookFailed"));
+    }
+  }
+
   return (
     <div className="sticker-card p-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -91,6 +110,11 @@ export function IclosedConnectionCard({
 
       {connected ? (
         <>
+          {tokenUnreadable && (
+            <div className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
+              {t("tokenUnreadable")}
+            </div>
+          )}
           {initialSyncStatus === "pending" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm text-state-healthy">
               <span className="font-bold">✅ {t("connected")}</span> {t("syncPending")}
@@ -112,6 +136,22 @@ export function IclosedConnectionCard({
           {initialSyncStatus === "failed" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
               {t("syncFailed")}
+            </div>
+          )}
+
+          {webhookUrl && (
+            <div className="mt-4 rounded-[var(--radius-control)] border border-border bg-muted p-4">
+              <p className="text-sm font-bold">{t("webhookTitle")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t("webhookHelp")}</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <code className="min-w-0 flex-1 break-all rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+                  {webhookUrl}
+                </code>
+                <Button type="button" variant="outline" size="sm" onClick={copyWebhookUrl}>
+                  {copiedWebhook ? t("webhookCopied") : t("copyWebhook")}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">{t("webhookEvents")}</p>
             </div>
           )}
 

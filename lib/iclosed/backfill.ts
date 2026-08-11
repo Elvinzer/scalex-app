@@ -8,10 +8,10 @@ import { createSale } from "@/lib/sales/queries";
 import { listCalls, listDeals } from "./client";
 import { buildSaleInput } from "./sale";
 
-// Core iClosed → Scale X sync, shared by the Inngest job (on connect) and the
-// on-demand "Rafraîchir" action. iClosed exposes no webhook-management API, so
-// this pull is how call data enters the app; it's idempotent (onConflictDoNothing
-// on the (userId, iclosedCallId) unique index) so it's safe to run repeatedly.
+// Core iClosed → Scale X sync used by the one-time Inngest job on connect.
+// iClosed exposes no webhook-management API, so the job backfills recent
+// history before the owner configures the token-scoped webhook receiver. It is
+// idempotent (onConflictDoNothing on the (userId, iclosedCallId) unique index).
 // Returns the number of newly-inserted calls.
 export async function backfillIclosedCalls(userId: string, apiKey: string): Promise<number> {
   // Deal amounts live in a separate resource, keyed by eventCallId.

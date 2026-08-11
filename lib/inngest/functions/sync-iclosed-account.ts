@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 
 import { db } from "@/db";
@@ -11,10 +11,10 @@ import { iclosedAccountConnected, inngest } from "@/lib/inngest/client";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Runs once when a user connects iClosed: backfills their calls from
-// GET /v1/eventCalls so /ventes/appels populates. Real-time webhooks are NOT
-// registered here — iClosed exposes no public webhook-management endpoint, so
-// live delivery (if desired) is set up manually in the iClosed dashboard; this
-// integration is otherwise backfill/poll based.
+// GET /v1/eventCalls so /ventes/appels has recent history. iClosed has no public
+// webhook-management endpoint, so the owner configures the token-scoped webhook
+// URL shown in the connected integration card. New calls then arrive through
+// that receiver instead of a recurring pull.
 //
 // Idempotent per CLAUDE.md: the backfill upserts with onConflictDoNothing so a
 // replay never clobbers a call the closer already dispositioned. Any failure
@@ -23,24 +23,27 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 export const syncIclosedAccount = inngest.createFunction(
   { id: "sync-iclosed-account", triggers: [iclosedAccountConnected] },
   async ({ event, step }) => {
-    const { userId } = event.data;
+    const { userId, connectionId } = event.data;
 
     const connection = await step.run("load-connection", async () => {
-      const [row] = await db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, userId)).limit(1);
-      if (!row) throw new NonRetriableError(`No iClosed connection for user ${userId}`);
+      const [row] = await db
+        .select()
+        .from(iclosedConnections)
+        .where(and(eq(iclosedConnections.id, connectionId), eq(iclosedConnections.userId, userId)))
+        .limit(1);
+      if (!row) throw new NonRetriableError(`No iClosed connection for event ${connectionId}`);
       return row;
     });
 
-    const apiKey = decrypt(connection.apiKeyEncrypted);
-
     try {
+      const apiKey = decrypt(connection.apiKeyEncrypted);
       const inserted = await step.run("backfill-calls", () => backfillIclosedCalls(userId, apiKey));
 
       await step.run("mark-sync-completed", async () => {
         await db
           .update(iclosedConnections)
           .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date() })
-          .where(eq(iclosedConnections.userId, userId));
+          .where(eq(iclosedConnections.id, connectionId));
       });
 
       revalidateBusinessData();
@@ -56,7 +59,7 @@ export const syncIclosedAccount = inngest.createFunction(
             initialSyncStatus: noAccess ? "no_api_access" : "failed",
             initialSyncCompletedAt: new Date(),
           })
-          .where(eq(iclosedConnections.userId, userId));
+          .where(eq(iclosedConnections.id, connectionId));
       });
       await track("iclosed_sync_failed", userId, { step: "backfill-calls", reason: noAccess ? "no_api_access" : "error" });
 

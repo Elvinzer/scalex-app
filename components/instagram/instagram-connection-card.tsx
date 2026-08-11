@@ -2,9 +2,10 @@
 
 import { Camera, Check, ChevronDown, ExternalLink, X } from "lucide-react";
 import { useState, useTransition } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 
 import { disconnectInstagram, refreshInstagramPosts } from "@/app/(app)/integrations/instagram-actions";
+import { IntegrationLastSync } from "@/components/integration-last-sync";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -22,7 +23,7 @@ type Props = {
   connected: boolean;
   username?: string | null;
   initialSyncStatus?: string | null;
-  initialSyncCompletedAt?: Date | null;
+  lastSyncAt?: Date | null;
   subscriptionActive?: boolean;
   primaryCta?: boolean;
 };
@@ -31,11 +32,10 @@ export function InstagramConnectionCard({
   connected,
   username,
   initialSyncStatus,
-  initialSyncCompletedAt,
+  lastSyncAt,
   subscriptionActive = true,
   primaryCta = false,
 }: Props) {
-  const locale = useLocale();
   const t = useTranslations("integrations.instagram");
   const [open, setOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -101,12 +101,13 @@ export function InstagramConnectionCard({
             </div>
           )}
           {initialSyncStatus === "completed" && (
-            <div className="mt-4 rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-3 py-2 text-sm font-bold text-state-healthy">
-              {t("postsSynced")}
-              {initialSyncCompletedAt &&
-                ` ${t("onDate")} ${new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(initialSyncCompletedAt))}`}
-              . {t("autoRefresh")}
-            </div>
+            <IntegrationLastSync
+              syncedAt={lastSyncAt}
+              lastUpdatedLabel={(dateTime) => t("lastUpdated", { dateTime })}
+              refreshLabel={t("autoRefresh")}
+              unavailableLabel={t("lastUpdatedUnavailable")}
+              loadingLabel={t("localTimeLoading")}
+            />
           )}
           {initialSyncStatus === "no_api_access" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">

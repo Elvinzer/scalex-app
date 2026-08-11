@@ -36,20 +36,24 @@ function verifySignature(rawBody: string, signingKey: string, header: string | n
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-async function markProcessed(eventId: string, type: string): Promise<boolean> {
+function scopedEventId(connectionId: string, eventId: string): string {
+  return `${connectionId}:${eventId}`;
+}
+
+async function markProcessed(connectionId: string, eventId: string, type: string): Promise<boolean> {
   const [inserted] = await db
     .insert(processedCalendlyEvents)
-    .values({ id: eventId, type })
+    .values({ id: scopedEventId(connectionId, eventId), type })
     .onConflictDoNothing({ target: processedCalendlyEvents.id })
     .returning({ id: processedCalendlyEvents.id });
   return Boolean(inserted);
 }
 
-async function hasBeenProcessed(eventId: string): Promise<boolean> {
+async function hasBeenProcessed(connectionId: string, eventId: string): Promise<boolean> {
   const [processed] = await db
     .select({ id: processedCalendlyEvents.id })
     .from(processedCalendlyEvents)
-    .where(eq(processedCalendlyEvents.id, eventId))
+    .where(eq(processedCalendlyEvents.id, scopedEventId(connectionId, eventId)))
     .limit(1);
   return Boolean(processed);
 }
@@ -80,7 +84,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const rawBody = await request.text();
 
   if (connection.webhookSigningKeyEncrypted) {
-    const signingKey = decrypt(connection.webhookSigningKeyEncrypted);
+    let signingKey: string;
+    try {
+      signingKey = decrypt(connection.webhookSigningKeyEncrypted);
+    } catch {
+      return NextResponse.json({ error: "Webhook connection unavailable" }, { status: 503 });
+    }
     if (!verifySignature(rawBody, signingKey, request.headers.get(CALENDLY_SIGNATURE_HEADER))) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
@@ -100,120 +109,126 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // Idempotency: Calendly has no top-level event id, so key on event + invitee.
   const eventId = `${parsed.eventType}:${parsed.inviteeUri ?? parsed.call?.externalId ?? "unknown"}`;
-  if (await hasBeenProcessed(eventId)) {
+  if (await hasBeenProcessed(connection.id, eventId)) {
     return NextResponse.json({ received: true });
   }
 
   try {
-  const kind = classifyCalendlyEvent(parsed.eventType);
-  let call = parsed.call;
-  if (call && kind !== "other" && parsed.inviteeUri) {
-    const invitee = await fetchInvitee(decrypt(connection.accessTokenEncrypted), parsed.inviteeUri);
-    if (invitee) {
-      const inviteePhone = readCalendlyInviteePhone(invitee);
-      const tracking = readMetaTracking(invitee);
-      call = {
-        ...call,
-        ...(inviteePhone ? { inviteePhone } : {}),
-        utmSource: call.utmSource ?? tracking.utmSource,
-        utmMedium: call.utmMedium ?? tracking.utmMedium,
-        utmCampaign: call.utmCampaign ?? tracking.utmCampaign,
-        utmContent: call.utmContent ?? tracking.utmContent,
-        utmTerm: call.utmTerm ?? tracking.utmTerm,
-        metaTouchpointToken: call.metaTouchpointToken ?? tracking.metaTouchpointToken,
-        metaCampaignExternalId: call.metaCampaignExternalId ?? tracking.metaCampaignExternalId,
-        metaAdSetExternalId: call.metaAdSetExternalId ?? tracking.metaAdSetExternalId,
-        metaAdExternalId: call.metaAdExternalId ?? tracking.metaAdExternalId,
-      };
-    }
-  }
-
-  const touchpoint = call
-    ? (await resolveMetaTouchpoint(connection.userId, call.metaTouchpointToken)) ??
-      (await resolveMetaTouchpointFromIdentifiers({
-        userId: connection.userId,
-        campaignExternalId: call.metaCampaignExternalId,
-        adSetExternalId: call.metaAdSetExternalId,
-        adExternalId: call.metaAdExternalId,
-      })) ??
-      (await resolveMetaTouchpointFromUtm({
-        userId: connection.userId,
-        utmCampaign: call.utmCampaign,
-        utmContent: call.utmContent,
-      }))
-    : null;
-  const attributionValues = call
-    ? {
-        utmSource: call.utmSource,
-        utmMedium: call.utmMedium,
-        utmCampaign: call.utmCampaign,
-        utmContent: call.utmContent,
-        utmTerm: call.utmTerm,
-        metaTouchpointId: touchpoint?.touchpointId ?? null,
+    const kind = classifyCalendlyEvent(parsed.eventType);
+    let call = parsed.call;
+    if (call && kind !== "other" && parsed.inviteeUri) {
+      let accessToken: string;
+      try {
+        accessToken = decrypt(connection.accessTokenEncrypted);
+      } catch {
+        return NextResponse.json({ error: "Webhook connection unavailable" }, { status: 503 });
       }
-    : {};
-  const attributionUpdates = {
-    ...(call?.utmSource ? { utmSource: call.utmSource } : {}),
-    ...(call?.utmMedium ? { utmMedium: call.utmMedium } : {}),
-    ...(call?.utmCampaign ? { utmCampaign: call.utmCampaign } : {}),
-    ...(call?.utmContent ? { utmContent: call.utmContent } : {}),
-    ...(call?.utmTerm ? { utmTerm: call.utmTerm } : {}),
-    ...(touchpoint ? { metaTouchpointId: touchpoint.touchpointId } : {}),
-  };
+      const invitee = await fetchInvitee(accessToken, parsed.inviteeUri);
+      if (invitee) {
+        const inviteePhone = readCalendlyInviteePhone(invitee);
+        const tracking = readMetaTracking(invitee);
+        call = {
+          ...call,
+          ...(inviteePhone ? { inviteePhone } : {}),
+          utmSource: call.utmSource ?? tracking.utmSource,
+          utmMedium: call.utmMedium ?? tracking.utmMedium,
+          utmCampaign: call.utmCampaign ?? tracking.utmCampaign,
+          utmContent: call.utmContent ?? tracking.utmContent,
+          utmTerm: call.utmTerm ?? tracking.utmTerm,
+          metaTouchpointToken: call.metaTouchpointToken ?? tracking.metaTouchpointToken,
+          metaCampaignExternalId: call.metaCampaignExternalId ?? tracking.metaCampaignExternalId,
+          metaAdSetExternalId: call.metaAdSetExternalId ?? tracking.metaAdSetExternalId,
+          metaAdExternalId: call.metaAdExternalId ?? tracking.metaAdExternalId,
+        };
+      }
+    }
 
-  if (call && kind === "created") {
-    await db
-      .insert(salesCalls)
-      .values({
-        userId: connection.userId,
-        source: "calendly",
-        iclosedCallId: call.externalId,
-        inviteeName: call.inviteeName,
-        inviteeEmail: call.inviteeEmail,
-        inviteePhone: call.inviteePhone,
-        scheduledAt: call.scheduledAt,
-        durationMinutes: call.durationMinutes,
-        closer: call.closer,
-        eventType: call.eventType,
-        ...attributionValues,
-      })
-      .onConflictDoUpdate({
-        target: [salesCalls.userId, salesCalls.iclosedCallId],
-        set: { ...attributionUpdates, updatedAt: new Date() },
-      });
-  } else if (call && kind === "canceled") {
-    await db
-      .insert(salesCalls)
-      .values({
-        userId: connection.userId,
-        source: "calendly",
-        iclosedCallId: call.externalId,
-        inviteeName: call.inviteeName,
-        inviteeEmail: call.inviteeEmail,
-        inviteePhone: call.inviteePhone,
-        scheduledAt: call.scheduledAt,
-        durationMinutes: call.durationMinutes,
-        closer: call.closer,
-        eventType: call.eventType,
-        ...attributionValues,
-        attendance: "cancelled",
-      })
-      .onConflictDoUpdate({
-        target: [salesCalls.userId, salesCalls.iclosedCallId],
-        set: {
+    const touchpoint = call
+      ? (await resolveMetaTouchpoint(connection.userId, call.metaTouchpointToken)) ??
+        (await resolveMetaTouchpointFromIdentifiers({
+          userId: connection.userId,
+          campaignExternalId: call.metaCampaignExternalId,
+          adSetExternalId: call.metaAdSetExternalId,
+          adExternalId: call.metaAdExternalId,
+        })) ??
+        (await resolveMetaTouchpointFromUtm({
+          userId: connection.userId,
+          utmCampaign: call.utmCampaign,
+          utmContent: call.utmContent,
+        }))
+      : null;
+    const attributionValues = call
+      ? {
+          utmSource: call.utmSource,
+          utmMedium: call.utmMedium,
+          utmCampaign: call.utmCampaign,
+          utmContent: call.utmContent,
+          utmTerm: call.utmTerm,
+          metaTouchpointId: touchpoint?.touchpointId ?? null,
+        }
+      : {};
+    const attributionUpdates = {
+      ...(call?.utmSource ? { utmSource: call.utmSource } : {}),
+      ...(call?.utmMedium ? { utmMedium: call.utmMedium } : {}),
+      ...(call?.utmCampaign ? { utmCampaign: call.utmCampaign } : {}),
+      ...(call?.utmContent ? { utmContent: call.utmContent } : {}),
+      ...(call?.utmTerm ? { utmTerm: call.utmTerm } : {}),
+      ...(touchpoint ? { metaTouchpointId: touchpoint.touchpointId } : {}),
+    };
+
+    if (call && kind === "created") {
+      await db
+        .insert(salesCalls)
+        .values({
+          userId: connection.userId,
+          source: "calendly",
+          iclosedCallId: call.externalId,
+          inviteeName: call.inviteeName,
+          inviteeEmail: call.inviteeEmail,
+          inviteePhone: call.inviteePhone,
+          scheduledAt: call.scheduledAt,
+          durationMinutes: call.durationMinutes,
+          closer: call.closer,
+          eventType: call.eventType,
+          ...attributionValues,
+        })
+        .onConflictDoUpdate({
+          target: [salesCalls.userId, salesCalls.iclosedCallId],
+          set: { ...attributionUpdates, updatedAt: new Date() },
+        });
+    } else if (call && kind === "canceled") {
+      await db
+        .insert(salesCalls)
+        .values({
+          userId: connection.userId,
+          source: "calendly",
+          iclosedCallId: call.externalId,
+          inviteeName: call.inviteeName,
+          inviteeEmail: call.inviteeEmail,
+          inviteePhone: call.inviteePhone,
+          scheduledAt: call.scheduledAt,
+          durationMinutes: call.durationMinutes,
+          closer: call.closer,
+          eventType: call.eventType,
+          ...attributionValues,
           attendance: "cancelled",
-          ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
-          ...attributionUpdates,
-          updatedAt: new Date(),
-        },
-        // Never overwrite a disposition the closer already set (only cancel a
-        // still-booked call).
-        setWhere: eq(salesCalls.attendance, "booked"),
-    });
-  }
+        })
+        .onConflictDoUpdate({
+          target: [salesCalls.userId, salesCalls.iclosedCallId],
+          set: {
+            attendance: "cancelled",
+            ...(call.inviteePhone ? { inviteePhone: call.inviteePhone } : {}),
+            ...attributionUpdates,
+            updatedAt: new Date(),
+          },
+          // Never overwrite a disposition the closer already set (only cancel a
+          // still-booked call).
+          setWhere: eq(salesCalls.attendance, "booked"),
+        });
+    }
 
-  revalidateBusinessData();
-  await markProcessed(eventId, parsed.eventType);
+    revalidateBusinessData();
+    await markProcessed(connection.id, eventId, parsed.eventType);
   } catch {
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }

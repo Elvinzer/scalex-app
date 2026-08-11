@@ -32,13 +32,13 @@ type ContenuViewProps = {
   instagramConnected: boolean;
   instagramUsername: string | null;
   instagramSyncStatus: string | null;
-  instagramSyncCompletedAt: Date | null;
+  instagramLastSyncAt?: Date | null;
   youtubeVideos: YoutubeVideoInsightRow[];
   youtubeCommercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
   youtubeConnected: boolean;
   youtubeChannelTitle: string | null;
   youtubeSyncStatus: string | null;
-  youtubeSyncCompletedAt: Date | null;
+  youtubeLastSyncAt?: Date | null;
   youtubeSubscriberCount: number | null;
   youtubeRecommendations?: YoutubeRecommendationCard[];
   youtubeAnalyzableVideoCount?: number;
@@ -81,13 +81,13 @@ export function ContenuView({
   instagramConnected,
   instagramUsername,
   instagramSyncStatus,
-  instagramSyncCompletedAt,
+  instagramLastSyncAt,
   youtubeVideos,
   youtubeCommercialStats,
   youtubeConnected,
   youtubeChannelTitle,
   youtubeSyncStatus,
-  youtubeSyncCompletedAt,
+  youtubeLastSyncAt,
   youtubeSubscriberCount,
   youtubeRecommendations = [],
   youtubeAnalyzableVideoCount = 0,
@@ -193,7 +193,7 @@ export function ContenuView({
             connected={instagramConnected}
             username={instagramUsername}
             syncStatus={instagramSyncStatus}
-            syncCompletedAt={instagramSyncCompletedAt}
+            lastSyncAt={instagramLastSyncAt}
             subscriptionActive={subscriptionActive}
             posts={posts}
             instagramInsights={instagramInsights}
@@ -205,7 +205,7 @@ export function ContenuView({
             connected={youtubeConnected}
             channelTitle={youtubeChannelTitle}
             syncStatus={youtubeSyncStatus}
-            syncCompletedAt={youtubeSyncCompletedAt}
+            lastSyncAt={youtubeLastSyncAt}
             subscriberCount={youtubeSubscriberCount}
             subscriptionActive={subscriptionActive}
             videos={youtubeVideos}
@@ -229,7 +229,7 @@ function InstagramPanel({
   connected,
   username,
   syncStatus,
-  syncCompletedAt,
+  lastSyncAt,
   subscriptionActive,
   posts,
   instagramInsights,
@@ -239,7 +239,7 @@ function InstagramPanel({
   connected: boolean;
   username: string | null;
   syncStatus: string | null;
-  syncCompletedAt: Date | null;
+  lastSyncAt?: Date | null;
   subscriptionActive: boolean;
   posts: ContentPostRow[];
   instagramInsights: Map<string, InstagramPostInsightRow>;
@@ -252,7 +252,7 @@ function InstagramPanel({
         connected={connected}
         username={username}
         initialSyncStatus={syncStatus}
-        initialSyncCompletedAt={syncCompletedAt}
+        lastSyncAt={lastSyncAt}
         subscriptionActive={subscriptionActive}
         primaryCta={!connected}
       />
@@ -266,7 +266,7 @@ function YoutubePanel({
   connected,
   channelTitle,
   syncStatus,
-  syncCompletedAt,
+  lastSyncAt,
   subscriberCount,
   subscriptionActive,
   videos,
@@ -281,7 +281,7 @@ function YoutubePanel({
   connected: boolean;
   channelTitle: string | null;
   syncStatus: string | null;
-  syncCompletedAt: Date | null;
+  lastSyncAt?: Date | null;
   subscriberCount: number | null;
   subscriptionActive: boolean;
   videos: YoutubeVideoInsightRow[];
@@ -299,7 +299,7 @@ function YoutubePanel({
         connected={connected}
         channelTitle={channelTitle}
         initialSyncStatus={syncStatus}
-        initialSyncCompletedAt={syncCompletedAt}
+        lastSyncAt={lastSyncAt}
         subscriptionActive={subscriptionActive}
         primaryCta={!connected}
       />

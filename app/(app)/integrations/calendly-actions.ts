@@ -9,13 +9,12 @@ import { z } from "zod";
 import { db } from "@/db";
 import { calendlyConnections, users } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
-import { backfillCalendlyCalls } from "@/lib/calendly/backfill";
-import { CalendlyNoAccessError, deleteWebhook, validateCalendlyToken } from "@/lib/calendly/client";
+import { deleteWebhook, validateCalendlyToken } from "@/lib/calendly/client";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { calendlyAccountConnected, inngest } from "@/lib/inngest/client";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
-import { requireOwner, requirePermission } from "@/lib/team/context";
+import { requireOwner } from "@/lib/team/context";
 
 // Calendly connection handles the client's Personal Access Token (a secret) and
 // registers a webhook — owner-only, never delegable, same boundary as iClosed.
@@ -67,19 +66,20 @@ export async function connectCalendly(formData: FormData): Promise<{ error: stri
     initialSyncStatus: "pending" as const,
   };
 
-  await Promise.all([
-    db
-      .insert(calendlyConnections)
-      .values(values)
-      .onConflictDoUpdate({
-        target: calendlyConnections.userId,
-        set: { ...values, connectedAt: new Date(), initialSyncCompletedAt: null },
-      }),
-    db.update(users).set({ calendlyConnected: true }).where(eq(users.id, access.accountId)),
-  ]);
+  const [connection] = await db
+    .insert(calendlyConnections)
+    .values(values)
+    .onConflictDoUpdate({
+      target: calendlyConnections.userId,
+      set: { ...values, connectedAt: new Date(), initialSyncCompletedAt: null },
+    })
+    .returning({ id: calendlyConnections.id });
+  if (!connection) throw new Error("Calendly connection could not be saved");
+
+  await db.update(users).set({ calendlyConnected: true }).where(eq(users.id, access.accountId));
 
   try {
-    await inngest.send(calendlyAccountConnected.create({ userId: access.accountId }));
+    await inngest.send(calendlyAccountConnected.create({ userId: access.accountId, connectionId: connection.id }));
   } catch (error) {
     console.error("inngest.send(calendlyAccountConnected) failed, Calendly connection saved anyway", error);
   }
@@ -125,55 +125,4 @@ export async function disconnectCalendly(): Promise<{ error: string | null }> {
   revalidatePath("/ventes/appels");
   revalidateBusinessData();
   return { error: null };
-}
-
-// On-demand pull (idempotent) — same role as refreshIclosedCalls. Available to
-// the owner and team members with the ventes:appels permission.
-export async function refreshCalendlyCalls(): Promise<{ error: string | null; imported?: number }> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) {
-    return { error: "Session expirée, reconnecte-toi." };
-  }
-  const userId = data.claims.sub as string;
-
-  const access = await requirePermission(userId, "ventes:appels");
-  if (!access) {
-    return { error: "Tu n'as pas accès à cette section." };
-  }
-  const { accountId } = access;
-
-  const [connection] = await db
-    .select()
-    .from(calendlyConnections)
-    .where(eq(calendlyConnections.userId, accountId))
-    .limit(1);
-  if (!connection || !connection.userUri) {
-    return { error: "Calendly n'est pas connecté." };
-  }
-
-  const token = decrypt(connection.accessTokenEncrypted);
-  try {
-    const imported = await backfillCalendlyCalls(accountId, token, connection.userUri);
-    await db
-      .update(calendlyConnections)
-      .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date() })
-      .where(eq(calendlyConnections.userId, accountId));
-    revalidatePath("/ventes/appels");
-    revalidatePath("/ventes/suivi");
-    revalidateBusinessData();
-    return { error: null, imported };
-  } catch (error) {
-    const noAccess = error instanceof CalendlyNoAccessError;
-    await db
-      .update(calendlyConnections)
-      .set({ initialSyncStatus: noAccess ? "no_api_access" : "failed", initialSyncCompletedAt: new Date() })
-      .where(eq(calendlyConnections.userId, accountId));
-    revalidatePath("/ventes/appels");
-    return {
-      error: noAccess
-        ? "Accès API Calendly non actif (plan Calendly payant requis)."
-        : "La synchronisation a échoué. Réessaie dans un instant.",
-    };
-  }
 }

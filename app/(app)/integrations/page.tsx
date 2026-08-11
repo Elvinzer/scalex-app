@@ -20,8 +20,10 @@ import {
 import { isAdminEmail } from "@/lib/admin";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser, requireUserId } from "@/lib/current-user";
+import { tryDecrypt } from "@/lib/crypto";
 import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
+import { getAppUrl } from "@/lib/utils";
 
 import { StripeDisconnectButton } from "./stripe-disconnect-button";
 
@@ -93,6 +95,11 @@ export default async function IntegrationsPage({
   ]);
   const metaAdsConnected = Boolean(metaAdsConnection && metaAdsConnection.status !== "disconnected");
   const metaAccounts: MetaAdAccountOption[] = metaAdAccountRows;
+  const iclosedTokenUnreadable = Boolean(iclosedConnection && !tryDecrypt(iclosedConnection.apiKeyEncrypted));
+  const calendlyTokenUnreadable = Boolean(calendlyConnection && !tryDecrypt(calendlyConnection.accessTokenEncrypted));
+  const iclosedWebhookUrl = iclosedConnection?.webhookToken
+    ? `${getAppUrl()}/api/webhooks/iclosed/${iclosedConnection.webhookToken}`
+    : null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -208,6 +215,8 @@ export default async function IntegrationsPage({
             connected={iclosedConnected}
             initialSyncStatus={iclosedConnection?.initialSyncStatus}
             initialSyncCompletedAt={iclosedConnection?.initialSyncCompletedAt}
+            webhookUrl={iclosedWebhookUrl}
+            tokenUnreadable={iclosedTokenUnreadable}
             subscriptionActive={subscriptionActive}
           />
         </div>
@@ -216,6 +225,7 @@ export default async function IntegrationsPage({
             connected={calendlyConnected}
             initialSyncStatus={calendlyConnection?.initialSyncStatus}
             initialSyncCompletedAt={calendlyConnection?.initialSyncCompletedAt}
+            tokenUnreadable={calendlyTokenUnreadable}
             subscriptionActive={subscriptionActive}
           />
         </div>
@@ -231,7 +241,7 @@ export default async function IntegrationsPage({
             connected={instagramConnected}
             username={instagramConnection?.username}
             initialSyncStatus={instagramConnection?.initialSyncStatus}
-            initialSyncCompletedAt={instagramConnection?.initialSyncCompletedAt}
+            lastSyncAt={instagramConnection?.lastInsightsSyncAt}
             subscriptionActive={subscriptionActive}
           />
         </div>
@@ -240,7 +250,7 @@ export default async function IntegrationsPage({
             connected={youtubeConnected}
             channelTitle={youtubeConnection?.channelTitle}
             initialSyncStatus={youtubeConnection?.initialSyncStatus}
-            initialSyncCompletedAt={youtubeConnection?.initialSyncCompletedAt}
+            lastSyncAt={youtubeConnection?.lastAnalyticsSyncAt}
             subscriptionActive={subscriptionActive}
           />
         </div>
