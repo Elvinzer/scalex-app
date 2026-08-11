@@ -105,6 +105,30 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/acquisition/pipeline",
+        destination: "/ventes/pipeline",
+        permanent: false,
+      },
+      {
+        source: "/acquisition/pipeline/:path*",
+        destination: "/ventes/pipeline/:path*",
+        permanent: false,
+      },
+      {
+        source: "/acquisition/setters",
+        destination: "/ventes/setters",
+        permanent: false,
+      },
+      {
+        source: "/acquisition/setters/:path*",
+        destination: "/ventes/setters/:path*",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 // Opt-in bundle composition report (docs/perf-audit.md's methodology) — a

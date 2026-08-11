@@ -95,7 +95,7 @@ export async function generateFunnelStageInsight(
   }
 
   // Generating an insight is reachable from the Funnel tab on /diagnostic,
-  // and also as a shortcut from /acquisition/pipeline/funnel or
+  // and also as a shortcut from /ventes/pipeline/funnel or
   // /ventes/appels/funnel — allowed if the caller has the stage-specific
   // permission (matching whichever page they triggered it from), the
   // broader "funnel" permission (kept for any pre-existing custom role,
@@ -244,7 +244,7 @@ export async function generateFunnelStageInsight(
   }
 
   revalidatePath("/diagnostic");
-  revalidatePath("/acquisition/pipeline/funnel");
+  revalidatePath("/ventes/pipeline/funnel");
   revalidatePath("/ventes/appels/funnel");
   revalidateJournalSurfaces();
   return { insightText: result.text, insightId: savedInsight.id, error: null };

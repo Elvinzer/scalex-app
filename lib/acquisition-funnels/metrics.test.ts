@@ -25,7 +25,12 @@ describe("adaptive funnel metrics", () => {
 
     expect(result.stages[1]?.benchmarkRate).toBe(0.25);
     expect(result.stages[1]?.isReliable).toBe(true);
-    expect(result.stages[1]?.monthlyGain).toBe(50000);
+    // The click improvement is propagated through the observed downstream
+    // rates: 50 extra clicks become 0.25 extra sales at the end of the funnel.
+    expect(result.stages[1]?.monthlyGain).toBe(250);
+    // The total is one sequential all-benchmarks scenario, never the sum of
+    // independent gains for every stage.
+    expect(result.totalPotential).toBe(2150);
     expect(result.catalogKey).toBe("lead_magnet");
   });
 

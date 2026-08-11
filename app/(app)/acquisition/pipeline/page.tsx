@@ -53,7 +53,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
   const stats = await computeLeadPipelineStats(accountId, range, previousRange, user?.sector ?? null, leads);
 
   const chatContext: ChatContext = { topicType: "lever", topicKey: "ceo_vision", topicLabel: t("vision"), sourcePage: "acquisition_pipeline" };
-  const falcoSkin = resolveFalcoSkin("/acquisition/pipeline");
+  const falcoSkin = resolveFalcoSkin("/ventes/pipeline");
   const offers = businessProfile.sales.offers;
 
   return (
@@ -69,7 +69,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
               ← {t("backDashboard")}
             </Link>
           )}
-          <Link href="/acquisition/pipeline/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
+          <Link href="/ventes/pipeline/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
             {t("dailyFunnel")} →
           </Link>
           <NewLeadDialog offers={offers} setters={setters} />
@@ -78,14 +78,14 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
 
       <div className="flex w-fit items-center gap-1 rounded-[var(--radius-control)] border border-border bg-muted p-1" role="group" aria-label={t("viewAria")}>
         <Link
-          href="/acquisition/pipeline?view=today"
+          href="/ventes/pipeline?view=today"
           aria-current={view === "today" ? "page" : undefined}
           className={`min-h-11 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold ${view === "today" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
           {t("todayView")}
         </Link>
         <Link
-          href="/acquisition/pipeline?view=stage"
+          href="/ventes/pipeline?view=stage"
           aria-current={view === "stage" ? "page" : undefined}
           className={`min-h-11 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold ${view === "stage" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
         >

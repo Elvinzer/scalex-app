@@ -88,25 +88,21 @@ const topEntries: LinkEntry[] = [
     href: "/acquisition",
     labelKey: "acquisition",
     icon: Megaphone,
-    // All 5 real sub-page permissions (matches lib/nav/pillar-subpages.ts) —
-    // this list previously omitted mail/pipeline/setters, so a team member
-    // granted only e.g. "acquisition:pipeline" (the seeded "Setting" role's
-    // default, see lib/team/permissions.ts's DEFAULT_ROLES) never saw the
-    // "Acquisition" entry at all despite having a real page to reach.
-    anyOfPermissions: ["acquisition:contenu", "acquisition:mail", "acquisition:pipeline", "acquisition:setters", "acquisition:ads"],
+    // All current Acquisition sub-page permissions (matches
+    // lib/nav/pillar-subpages.ts). Pipeline and Setters are intentionally
+    // owned by the Vente pillar now.
+    anyOfPermissions: ["acquisition:contenu", "acquisition:mail", "acquisition:ads"],
   },
   {
     type: "link",
     href: "/ventes",
     labelKey: "sales",
     icon: Handshake,
-    // Same anyOfPermissions gap as Acquisition above, fixed the same way —
-    // this previously listed only suivi/closing, so a member with just
-    // "ventes:appels" (Appels' own permission) never saw the "Vente" entry at
-    // all. ventes:closing/ventes:videos and ventes:upsell are legacy keys (see
-    // lib/team/permissions.ts); the first two still expose nested sales pages,
-    // while offers and upsell configuration now live in Mon business.
+    // Pipeline and Setters keep their acquisition-scoped permission keys so
+    // existing team roles retain access after the navigation move.
     anyOfPermissions: [
+      "acquisition:pipeline",
+      "acquisition:setters",
       "ventes:suivi",
       "ventes:appels",
       "ventes:closing",
@@ -123,7 +119,7 @@ const mobileNavEntries = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { type: "link", href: "/roadmap", labelKey: "roadmap", mobileLabelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
-  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
+  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "acquisition:setters", "ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
   { type: "link", href: "/diagnostic", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
 ] satisfies Array<LinkEntry & { mobileLabelKey: string }>;
 
@@ -151,8 +147,8 @@ const adminEntry: LinkEntry = { type: "link", href: "/admin", labelKey: "admin",
 const subpageLabelKeys: Record<string, string> = {
   "/acquisition/contenu": "content",
   "/acquisition/mail": "mail",
-  "/acquisition/pipeline": "pipeline",
-  "/acquisition/setters": "setters",
+  "/ventes/pipeline": "pipeline",
+  "/ventes/setters": "setters",
   "/acquisition/ads": "ads",
   "/ventes/suivi": "salesTracking",
   "/ventes/appels": "callsTracking",

@@ -423,7 +423,7 @@ function RemindersSection({ reminders, isPending, onComplete }: { reminders: Jou
           <h2 id="journal-reminders-title" className="mt-1 text-lg font-bold tracking-[-0.01em]">{t("todayFollowups")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t("followupsHelp")}</p>
         </div>
-        <Link href="/acquisition/pipeline" className="inline-flex min-h-11 items-center text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">{t("openPipeline")} <ArrowRight className="ml-1 size-3.5" aria-hidden="true" /></Link>
+        <Link href="/ventes/pipeline" className="inline-flex min-h-11 items-center text-xs font-bold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">{t("openPipeline")} <ArrowRight className="ml-1 size-3.5" aria-hidden="true" /></Link>
       </div>
       {reminders.length === 0 ? <p className="mt-5 rounded-[var(--radius-control)] border border-dashed border-border px-4 py-4 text-sm text-muted-foreground">{t("noFollowups")}</p> : (
         <ul className="mt-5 flex flex-col divide-y divide-border">
@@ -677,7 +677,7 @@ export function JournalView({ data, todos, projects, streak = null, fixtureMode 
         overdue: reminder.overdueDays > 0,
         overdueDays: reminder.overdueDays,
         chatContext: { topicType: "metric", topicKey: "followupRecovery", topicLabel: t("followupTitle", { name: reminder.leadName }), sourcePage: "journal_action" },
-        href: "/acquisition/pipeline",
+        href: "/ventes/pipeline",
         isPersisted: true,
       })} />
 

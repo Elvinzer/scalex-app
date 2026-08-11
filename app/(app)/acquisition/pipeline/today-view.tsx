@@ -82,7 +82,7 @@ export function TodayPipelineView({ leads, offers, setters }: { leads: LeadRow[]
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/acquisition/pipeline?lead=${lead.id}`} className="truncate font-bold hover:underline focus-visible:outline-2 focus-visible:outline-accent">
+                    <Link href={`/ventes/pipeline?lead=${lead.id}`} className="truncate font-bold hover:underline focus-visible:outline-2 focus-visible:outline-accent">
                       {lead.firstName} {lead.lastName}
                     </Link>
                     <StatusBadge status={t(`todayStatus.${status}`)} />
@@ -105,7 +105,7 @@ export function TodayPipelineView({ leads, offers, setters }: { leads: LeadRow[]
                   <p className="mt-0.5 text-xs text-muted-foreground">{offer?.name ?? setter?.name ?? t("unassigned")}</p>
                 </div>
                 <Link
-                  href={`/acquisition/pipeline?lead=${lead.id}`}
+                  href={`/ventes/pipeline?lead=${lead.id}`}
                   className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold text-muted-foreground transition-colors hover:border-border-hover hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent"
                 >
                   {t(`todayAction.${actionKey}`)} →

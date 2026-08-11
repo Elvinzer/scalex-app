@@ -138,7 +138,8 @@ export async function recoverFromNoShow(userId: string, id: string): Promise<{ e
   return changeLeadStage(userId, id, "conversation", null);
 }
 
-// Called ONLY from the sale-validation server action (app/(app)/acquisition/pipeline/validate-sale-action.ts)
+// Called ONLY from the sale-validation server action (app/(app)/acquisition/pipeline/validate-sale-action.ts,
+// rendered at the canonical /ventes/pipeline route).
 // — never by the Kanban drag handler directly, which opens the validation
 // modal instead of calling this.
 export async function linkLeadToSale(userId: string, leadId: string, saleId: string): Promise<void> {

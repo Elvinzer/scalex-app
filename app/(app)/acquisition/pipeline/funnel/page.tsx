@@ -115,7 +115,7 @@ export default async function AcquisitionFunnelPage({
       ? t("funnel.bottleneckState", { stage: stageLabel(bottleneck.stage, t).toLowerCase(), rate: Math.round(bottleneck.rate * 100) })
       : t("funnel.noDataState");
   const chatContext: ChatContext = { topicType: "lever", topicKey: "setting", topicLabel: "Setting", sourcePage: "acquisition_pipeline_funnel" };
-  const falcoSkin = resolveFalcoSkin("/acquisition/pipeline");
+  const falcoSkin = resolveFalcoSkin("/ventes/pipeline");
 
   return (
     <div className="flex flex-col gap-8">
@@ -132,7 +132,7 @@ export default async function AcquisitionFunnelPage({
           <h1 className="text-3xl font-bold">{t("funnel.title")}</h1>
           <p className="mt-1 text-muted-foreground">{t("funnel.subtitle")}</p>
         </div>
-        <Link href="/acquisition/pipeline" className="text-sm font-bold text-muted-foreground hover:underline">
+        <Link href="/ventes/pipeline" className="text-sm font-bold text-muted-foreground hover:underline">
           ← {t("funnel.back")}
         </Link>
       </div>

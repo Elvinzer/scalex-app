@@ -25,7 +25,7 @@ import { saveMonthlyMetrics } from "./actions";
 
 const SETTING_SOURCE: KpiFieldSource = {
   text: "Calculé depuis ton suivi quotidien. Modifiable dans Pipeline → Funnel journalier.",
-  href: "/acquisition/pipeline/funnel",
+  href: "/ventes/pipeline/funnel",
   linkLabel: "Aller au suivi quotidien",
 };
 const CLOSING_SOURCE: KpiFieldSource = {
@@ -120,7 +120,7 @@ export function MonthModal({
   const t = useTranslations("data.modal");
   const router = useRouter();
   const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
-  const settingSource: KpiFieldSource = { text: t("settingSource"), href: "/acquisition/pipeline/funnel", linkLabel: t("dailyTracking") };
+  const settingSource: KpiFieldSource = { text: t("settingSource"), href: "/ventes/pipeline/funnel", linkLabel: t("dailyTracking") };
   const persistedSettingManualOverride = initialData?.settingManualOverride ?? false;
   const persistedClosingManualOverride = initialData?.closingManualOverride ?? false;
   const persistedSourceOverrides = useMemo(

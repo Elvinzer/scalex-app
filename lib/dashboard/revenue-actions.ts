@@ -131,7 +131,7 @@ function nativeLeadReason(step: RevenueNativeBookingLeadInput["lastStep"]): stri
 
 function withDestination(action: Omit<RevenueAction, "href" | "destinationLabel">): RevenueAction {
   const destination = {
-    pipeline: { label: "Pipeline", path: "/acquisition/pipeline", queryKey: "lead" },
+    pipeline: { label: "Pipeline", path: "/ventes/pipeline", queryKey: "lead" },
     calls: { label: "Appels", path: "/ventes/appels", queryKey: "call" },
     booking: { label: "Rendez-vous", path: "/ventes/rdv", queryKey: "lead" },
   }[action.destination];
@@ -165,7 +165,7 @@ function toPublicAction(action: SortableRevenueAction): RevenueAction {
  * this function only creates navigation data and never mutates a source.
  *
  * Deep-link contract:
- * - lead actions: /acquisition/pipeline?lead=<leadId>&from=dashboard
+ * - lead actions: /ventes/pipeline?lead=<leadId>&from=dashboard
  * - closing decisions: /ventes/appels?call=<callId>&from=dashboard
  * - native booking leads: /ventes/rdv?lead=<leadId>&from=dashboard
  */

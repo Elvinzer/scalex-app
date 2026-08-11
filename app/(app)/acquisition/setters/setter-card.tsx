@@ -69,7 +69,7 @@ export function SetterCard({
       </div>
 
       <Button type="button" variant="outline" size="sm" className="self-start" asChild>
-        <Link href={`/acquisition/setters/${setter.id}`}>{t("viewDetail")}</Link>
+        <Link href={`/ventes/setters/${setter.id}`}>{t("viewDetail")}</Link>
       </Button>
     </div>
   );

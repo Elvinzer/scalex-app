@@ -9,11 +9,9 @@ import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeFunnelRoutes } from "@/lib/acquisition-funnels/routes";
 import { normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 
-// Setting is gone as its own tab/route — its day-by-day funnel content was
-// folded into Pipeline as a nested page (/acquisition/pipeline/funnel,
-// linked from Pipeline itself, not from this tab bar). Ads is relinked here
-// alongside Pipeline/Setters (it was delinked in an earlier chantier,
-// explicitly brought back for this one).
+// Setting is gone as its own tab/route. Pipeline and Setters now belong to
+// the Vente pillar; the legacy Acquisition URLs redirect there. Ads remains
+// the only operational sub-page in this pillar besides Contenu and Mail.
 export default async function AcquisitionLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("app.acquisition");
   const { userId, accountId } = await getCurrentUser();

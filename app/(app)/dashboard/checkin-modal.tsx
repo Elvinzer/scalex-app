@@ -18,7 +18,7 @@ import { submitWeeklyCheckin, type CheckinFeedback } from "./actions";
 
 const SETTING_SOURCE: KpiFieldSource = {
   text: "Cette valeur vient de ta saisie journalière dans Pipeline. Modifie-la directement là-bas.",
-  href: "/acquisition/pipeline/funnel",
+  href: "/ventes/pipeline/funnel",
   linkLabel: "Aller à Pipeline",
 };
 const CLOSING_SOURCE: KpiFieldSource = {
@@ -65,7 +65,7 @@ export function CheckinModal({
   const [feedback, setFeedback] = useState<CheckinFeedback | "none" | null>(null);
   const settingSource: KpiFieldSource = {
     text: t("checkin.settingSource"),
-    href: "/acquisition/pipeline/funnel",
+    href: "/ventes/pipeline/funnel",
     linkLabel: t("checkin.goToPipeline"),
   };
   const activeInputKeys = new Set(activeMetricFields.map((field) => field.inputMetricKey));

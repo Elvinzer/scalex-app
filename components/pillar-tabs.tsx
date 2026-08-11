@@ -20,8 +20,8 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
   const labelKeyByHref: Record<string, string> = {
     "/acquisition/contenu": "content",
     "/acquisition/mail": "mail",
-    "/acquisition/pipeline": "pipeline",
-    "/acquisition/setters": "setters",
+    "/ventes/pipeline": "pipeline",
+    "/ventes/setters": "setters",
     "/acquisition/ads": "ads",
     "/ventes/suivi": "salesTracking",
     "/ventes/appels": "callsTracking",

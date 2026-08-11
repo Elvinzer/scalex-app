@@ -36,7 +36,7 @@ export default async function SetterDetailPage({ params }: { params: Promise<{ s
             {!setter.active && ` · ${t("inactive")}`}
           </p>
         </div>
-        <Link href="/acquisition/setters" className="text-sm font-bold text-muted-foreground hover:underline">
+        <Link href="/ventes/setters" className="text-sm font-bold text-muted-foreground hover:underline">
           ← {t("backToSetters")}
         </Link>
       </div>

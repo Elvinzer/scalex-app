@@ -281,7 +281,7 @@ export function makeLeadAction(input: LeadActionInput): JournalActionCandidate {
         topicLabel: `Relance ${input.leadName}`,
         sourcePage: "journal_action",
       },
-      href: "/acquisition/pipeline",
+      href: "/ventes/pipeline",
       isPersisted: true,
     },
     input.overdueDays,

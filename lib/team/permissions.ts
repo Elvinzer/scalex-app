@@ -13,7 +13,7 @@ export const PERMISSION_KEYS = [
   "diagnostic",
   "acquisition:contenu",
   // Legacy — Setting was folded into Pipeline (its content now lives at
-  // /acquisition/pipeline/funnel, gated by "acquisition:pipeline"). Kept
+  // /ventes/pipeline/funnel, gated by "acquisition:pipeline"). Kept
   // grantable, same reasoning as "funnel" above, purely for any role that
   // already has it; see lib/funnel-insights/insight-actions.ts for the one
   // remaining place it's still checked.

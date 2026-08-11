@@ -60,7 +60,7 @@ describe("buildRevenueActions", () => {
     expect(actions[0]?.urgencyLabel).toBe("En retard de 1 j");
     expect(actions[1]?.urgencyLabel).toBe("À faire aujourd’hui");
     expect(actions[2]?.reason).toBe("Créneaux consultés sans réservation");
-    expect(actions[1]?.href).toBe("/acquisition/pipeline?lead=lead-1&from=dashboard");
+    expect(actions[1]?.href).toBe("/ventes/pipeline?lead=lead-1&from=dashboard");
   });
 
   it("prioritizes a no-show over the reminder attached to the same manual lead", () => {

@@ -45,7 +45,7 @@ export async function createLeadAction(data: unknown): Promise<{ error: string |
 
   const lead = await createLead(access.accountId, parsed.data);
   after(() => track("lead_created", userId, { source: lead.source }));
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return { error: null };
 }
@@ -60,7 +60,7 @@ export async function updateLeadAction(id: string, data: unknown): Promise<{ err
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
 
   await updateLead(access.accountId, id, parsed.data);
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return { error: null };
 }
@@ -72,7 +72,7 @@ export async function deleteLeadAction(id: string): Promise<{ error: string | nu
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
   await deleteLead(access.accountId, id);
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return { error: null };
 }
@@ -93,7 +93,7 @@ export async function changeStageAction(id: string, data: unknown): Promise<{ er
   if (result.error) return result;
 
   after(() => track("lead_stage_changed", userId, { to_stage: parsed.data.toStage }));
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return { error: null };
 }
@@ -105,7 +105,7 @@ export async function recoverFromNoShowAction(id: string): Promise<{ error: stri
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
   const result = await recoverFromNoShow(access.accountId, id);
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return result;
 }
@@ -117,7 +117,7 @@ export async function setNoShowAction(id: string, value: boolean): Promise<{ err
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
   await setNoShow(access.accountId, id, value);
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return { error: null };
 }
@@ -132,7 +132,7 @@ export async function addCommentAction(leadId: string, data: unknown): Promise<{
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Commentaire invalide" };
 
   await addComment(access.accountId, leadId, parsed.data.body);
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return { error: null };
 }
@@ -147,7 +147,7 @@ export async function setReminderAction(leadId: string, data: unknown): Promise<
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Rappel invalide" };
 
   await setReminder(access.accountId, leadId, parsed.data.reminderDate, parsed.data.reminderNote);
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return { error: null };
 }
@@ -159,7 +159,7 @@ export async function toggleReminderDoneAction(leadId: string, done: boolean): P
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
   await toggleReminderDone(access.accountId, leadId, done);
-  revalidatePath("/acquisition/pipeline");
+  revalidatePath("/ventes/pipeline");
   revalidateBusinessData();
   return { error: null };
 }

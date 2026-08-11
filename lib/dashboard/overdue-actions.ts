@@ -69,7 +69,7 @@ export function buildOverdueActions({
       icon: "lead",
       title: `${lead.firstName} ${lead.lastName}`,
       detail: lead.reminderNote?.trim() || "Relance à faire",
-      href: "/acquisition/pipeline",
+      href: "/ventes/pipeline",
       urgencyLabel: lateLabel(days),
       daysLate: days,
     });

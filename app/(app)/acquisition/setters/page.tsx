@@ -21,7 +21,7 @@ export default async function SettersPage() {
   const summaries = await computeSettersCommissions(accountId, setters, businessProfile.sales.offers);
 
   const chatContext: ChatContext = { topicType: "lever", topicKey: "ceo_vision", topicLabel: "Vision", sourcePage: "acquisition_setters" };
-  const falcoSkin = resolveFalcoSkin("/acquisition/setters");
+  const falcoSkin = resolveFalcoSkin("/ventes/setters");
 
   return (
     <div className="flex flex-col gap-8">

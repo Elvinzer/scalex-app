@@ -45,7 +45,7 @@ function sourceHref(inputMetricKey: string, funnelKey: AcquisitionFunnelKey): st
   if (inputMetricKey.includes("content")) return "/acquisition/contenu";
   if (inputMetricKey.includes("newsletter")) return "/acquisition/mail";
   if (["calls_booked", "calls_proposed", "first_messages", "conversations", "new_followers"].includes(inputMetricKey)) {
-    return "/acquisition/pipeline/funnel";
+    return "/ventes/pipeline/funnel";
   }
   if (inputMetricKey === "calls_attended") return "/ventes/appels/funnel";
   if (inputMetricKey === "sales_closed") return "/ventes/suivi";

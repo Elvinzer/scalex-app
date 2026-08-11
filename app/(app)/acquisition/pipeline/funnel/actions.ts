@@ -57,7 +57,7 @@ export async function saveSettingKpiEntry(
       },
     });
 
-  revalidatePath("/acquisition/pipeline/funnel");
+  revalidatePath("/ventes/pipeline/funnel");
   revalidatePath("/diagnostic");
   revalidatePath("/dashboard");
   revalidateBusinessData();
@@ -98,7 +98,7 @@ export async function updateSettingKpiEntryField(
     return { error: "Entrée introuvable" };
   }
 
-  revalidatePath("/acquisition/pipeline/funnel");
+  revalidatePath("/ventes/pipeline/funnel");
   revalidatePath("/diagnostic");
   revalidateBusinessData();
   return { error: null };
@@ -140,7 +140,7 @@ export async function importSettingKpiCsv(rawCsv: string): Promise<ImportSetting
       },
     });
 
-  revalidatePath("/acquisition/pipeline/funnel");
+  revalidatePath("/ventes/pipeline/funnel");
   revalidatePath("/diagnostic");
   revalidateBusinessData();
   return { imported: rows.length, errors };

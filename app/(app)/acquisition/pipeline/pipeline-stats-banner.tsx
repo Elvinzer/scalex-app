@@ -78,7 +78,7 @@ export function PipelineStatsBanner({ stats, period }: { stats: PipelineStats; p
           {[{ value: "current-month", label: t("currentMonth") }, { value: "3-months", label: t("threeMonths") }].map(({ value, label }) => (
             <Link
               key={value}
-              href={`/acquisition/pipeline?period=${value}`}
+              href={`/ventes/pipeline?period=${value}`}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm font-bold transition-all",
                 period === value ? "border-accent-border bg-accent-soft text-accent-text" : "border-border text-muted-foreground hover:border-border-hover"

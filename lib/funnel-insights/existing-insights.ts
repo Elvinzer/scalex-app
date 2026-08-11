@@ -6,7 +6,7 @@ import type { FunnelStageKey } from "@/lib/agent/knowledge";
 import type { ExistingStageInsight } from "@/components/funnel-insights/stage-insight-panel";
 
 // Shared by the Funnel overview accordion and the Setting/Closing tile grids
-// (now at /acquisition/pipeline/funnel and /ventes/appels/funnel) so all
+// (now at /ventes/pipeline/funnel and /ventes/appels/funnel) so all
 // three read the same per-stage AI insight already generated for this user — the LATEST
 // one, since funnelStageInsights is an append-only history (see
 // app/(app)/funnel/insights/page.tsx for the full history view).

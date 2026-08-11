@@ -103,7 +103,7 @@ export function KanbanBoard({
   // LeadCard's onClick and opens the drawer.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  // Server actions revalidatePath("/acquisition/pipeline") on every mutation,
+  // Server actions revalidatePath("/ventes/pipeline") on every mutation,
   // which re-runs page.tsx and passes a fresh `initialLeads` prop down —
   // useState's initial value is only used on first mount, so this effect is
   // what actually picks up the refreshed data afterwards. Also re-syncs
@@ -201,7 +201,7 @@ export function KanbanBoard({
             // Fires with `false` both on cancel and on a successful confirm
             // (LostReasonDialog closes itself either way) — the `leads`
             // useEffect above picks up the real result once
-            // revalidatePath("/acquisition/pipeline") refreshes page.tsx's
+            // revalidatePath("/ventes/pipeline") refreshes page.tsx's
             // data, so no manual state mutation is needed here.
             if (!open) setLostDialogLeadId(null);
           }}

@@ -27,7 +27,7 @@ export const getSetters = cache(async (userId: string): Promise<SetterRow[]> => 
   return rows.map(toRow);
 });
 
-// For the /acquisition/setters/[setterId] detail page — null both when the
+// For the /ventes/setters/[setterId] detail page — null both when the
 // id doesn't exist and when it belongs to another account (same
 // userId-scoped WHERE as every other query here, no separate ownership check).
 export async function getSetter(userId: string, id: string): Promise<SetterRow | null> {
@@ -113,7 +113,7 @@ function buildCommissions(setterSales: SaleRow[], defaultCommissionPct: number, 
   };
 }
 
-// Single-setter detail page (/acquisition/setters/[setterId]).
+// Single-setter detail page (/ventes/setters/[setterId]).
 export async function computeSetterCommissions(
   userId: string,
   setterId: string,
@@ -124,7 +124,7 @@ export async function computeSetterCommissions(
   return buildCommissions(setterSales, defaultCommissionPct, offers);
 }
 
-// Setters list page (/acquisition/setters) — one batched `sales` query for
+// Setters list page (/ventes/setters) — one batched `sales` query for
 // every setter instead of computeSetterCommissions called in a loop (that
 // was N separate round-trips, one per setter, each also re-fetching the
 // setter row it already had).
