@@ -16,6 +16,7 @@ const baseCharge = {
   customer: "cus_123",
   invoice: "in_123",
   payment_intent: "pi_123",
+  billing_details: { name: "Ada Lovelace" },
 };
 
 describe("Stripe transaction normalizers", () => {
@@ -52,6 +53,16 @@ describe("Stripe transaction normalizers", () => {
     expect(partial?.amountRefundedCents).toBe(2_500);
     expect(full?.status).toBe("refunded");
     expect(full?.id).toBe(partial?.id);
+  });
+
+  it("récupère le nom de facturation quand le Customer Stripe n'est pas exploitable", () => {
+    const normalized = normalizeStripeCharge(
+      { ...baseCharge, customer: null, billing_details: { name: "Grace Hopper" } },
+      { stripeAccountId: "acct_123" },
+    );
+
+    expect(normalized?.customerId).toBeNull();
+    expect(normalized?.customerName).toBe("Grace Hopper");
   });
 
   it("conserve un échec et un remboursement avec leur devise explicite", () => {

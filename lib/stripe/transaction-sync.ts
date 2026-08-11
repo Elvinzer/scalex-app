@@ -24,6 +24,8 @@ const chargeSchema = z
     status: z.enum(["succeeded", "pending", "failed"]),
     refunded: z.boolean().optional(),
     customer: resourceSchema,
+    billing_details: z.object({ name: z.string().nullable().optional() }).nullable().optional(),
+    shipping: z.object({ name: z.string().nullable().optional() }).nullable().optional(),
     invoice: resourceSchema,
     payment_intent: resourceSchema,
     failure_code: z.string().nullable().optional(),
@@ -104,7 +106,7 @@ export function normalizeStripeCharge(
     status,
     paymentType: options.paymentType ?? "unknown",
     customerId: resourceId(charge.customer),
-    customerName: options.customerName ?? null,
+    customerName: options.customerName ?? charge.billing_details?.name?.trim() ?? charge.shipping?.name?.trim() ?? null,
     occurredAt: new Date(charge.created * 1000),
     paymentIntentId: resourceId(charge.payment_intent),
     invoiceId: resourceId(charge.invoice),
@@ -242,20 +244,23 @@ export async function syncStripeTransactions(
     const classification = await classifyCharge(charge, stripe, subscriptionCustomerCache);
     const parsedCharge = chargeSchema.safeParse(charge);
     const customerId = parsedCharge.success ? resourceId(parsedCharge.data.customer) : null;
-    let customerName: string | null = null;
+    let customerName = parsedCharge.success
+      ? parsedCharge.data.billing_details?.name?.trim() || parsedCharge.data.shipping?.name?.trim() || null
+      : null;
     if (customerId) {
       const cachedName = customerNameCache.get(customerId);
       if (cachedName !== undefined) {
-        customerName = cachedName;
+        customerName = cachedName ?? customerName;
       } else {
         try {
           const customer = await stripe.customers.retrieve(customerId);
           const parsedCustomer = customerSchema.safeParse(customer);
-          customerName = parsedCustomer.success ? parsedCustomer.data.name?.trim() || null : null;
+          const retrievedName = parsedCustomer.success ? parsedCustomer.data.name?.trim() || null : null;
+          customerName = retrievedName ?? customerName;
+          customerNameCache.set(customerId, retrievedName);
         } catch {
-          customerName = null;
+          customerNameCache.set(customerId, null);
         }
-        customerNameCache.set(customerId, customerName);
       }
     }
     const normalized = normalizeStripeCharge(charge, { stripeAccountId, paymentType: classification.paymentType, customerName });
