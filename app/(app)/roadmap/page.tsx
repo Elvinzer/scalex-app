@@ -30,5 +30,5 @@ async function renderRoadmapPage() {
     void measureDueJournalActions(accountId, userId);
   });
 
-  return <RoadmapView data={data} streak={streak} weeklyReports={weeklyReports} />;
+  return <RoadmapView accountId={accountId} data={data} streak={streak} weeklyReports={weeklyReports} />;
 }

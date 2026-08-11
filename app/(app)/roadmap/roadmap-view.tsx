@@ -1,6 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -9,6 +21,7 @@ import {
   CheckCircle2,
   Circle,
   CircleAlert,
+  GripVertical,
   Handshake,
   ListChecks,
   Loader2,
@@ -54,6 +67,7 @@ type RoadmapViewProps = {
   data: JournalActionLoopData;
   streak: StreakSnapshot;
   weeklyReports: WeeklyReportRow[];
+  accountId?: string;
   fixtureMode?: boolean;
 };
 
@@ -68,6 +82,14 @@ const STAGE_ICONS: Record<RoadmapStage, LucideIcon> = {
   upcoming: Circle,
   done: CheckCircle2,
 };
+
+function isRoadmapStage(value: unknown): value is RoadmapStage {
+  return value === "upcoming" || value === "in_progress" || value === "done";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function numberLabel(value: number, locale: string): string {
   return new Intl.NumberFormat(locale === "en" ? "en-US" : "fr-FR", { maximumFractionDigits: 0 }).format(value);
@@ -133,35 +155,49 @@ function impactLabel(
   return translate("impact.views", { amount: numberLabel(action.impact.value, locale) });
 }
 
-function itemTitle(
+function itemElementTitle(
   item: RoadmapItem,
   translate: (key: string, values?: Record<string, string | number>) => string,
   translateDiagnostic: (key: string) => string,
 ): string {
   if (item.type === "bottleneck") {
-    return translate("actionTitles.bottleneck", {
-      label: translateDiagnostic(`metrics.${item.sourceId}`),
-    });
+    return translateDiagnostic(`metrics.${item.sourceId}`);
   }
   if (item.type === "content") {
-    if (item.contentKind === "email") return translate("journey.emailTitle");
-    return item.title ? translate("journey.contentTitle", { title: item.title }) : translate("journey.genericContentTitle");
+    if (item.contentKind === "email") return translate("journey.emailElement");
+    return item.title || translate("journey.genericContentElement");
   }
-  return item.title;
+  try {
+    return translate(`journey.leverTitles.${item.sourceId}`);
+  } catch {
+    return item.description || item.title;
+  }
 }
 
-function itemDescription(
+function itemActionLabel(
   item: RoadmapItem,
   translate: (key: string, values?: Record<string, string | number>) => string,
-  translateDiagnostic: (key: string) => string,
 ): string {
   if (item.type === "bottleneck") {
-    return translate("origins.bottleneck", { label: translateDiagnostic(`metrics.${item.sourceId}`) });
+    return translate("journey.bottleneckAction");
   }
   if (item.type === "content") {
-    return item.staleDays === null ? translate("journey.noActivity") : translate("journey.stale", { days: item.staleDays ?? 0 });
+    return translate(item.contentKind === "email" ? "journey.emailAction" : "journey.contentAction");
   }
-  return translate("journey.leverSource");
+  try {
+    return translate(`journey.leverActions.${item.sourceId}`);
+  } catch {
+    return translate("journey.leverActionFallback", { label: item.description || item.title });
+  }
+}
+
+function itemContextLabel(
+  item: RoadmapItem,
+  translate: (key: string, values?: Record<string, string | number>) => string,
+): string | null {
+  if (item.type !== "content" || item.staleDays === undefined) return null;
+  if (item.staleDays === null) return translate("journey.noActivity");
+  return translate("journey.stale", { days: item.staleDays });
 }
 
 function Delta({ direction, label }: { direction: "up" | "down" | null; label: string | null }) {
@@ -351,19 +387,229 @@ function BottleneckBlock({
   );
 }
 
-function RoadmapJourney({
+function RoadmapCard({
+  item,
+  stage,
+  translate,
+  translateDiagnostic,
+  locale,
+  isOverlay = false,
+}: {
+  item: RoadmapItem;
+  stage: RoadmapStage;
+  translate: (key: string, values?: Record<string, string | number>) => string;
+  translateDiagnostic: (key: string) => string;
+  locale: string;
+  isOverlay?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: item.id,
+    data: { stage },
+    attributes: {
+      role: "link",
+      roleDescription: translate("journey.dragRole"),
+    },
+  });
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  const title = itemElementTitle(item, translate, translateDiagnostic);
+  const actionLabel = itemActionLabel(item, translate);
+  const contextLabel = itemContextLabel(item, translate);
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 text-sm font-bold leading-5">{title}</p>
+        <div className="flex shrink-0 items-center gap-1">
+          <GripVertical className="size-4 text-muted-foreground" aria-hidden="true" />
+          <ArrowRight className="mt-0.5 size-4 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+        </div>
+      </div>
+      <p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">{actionLabel}</p>
+      {contextLabel && <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{contextLabel}</p>}
+      {item.impactAmountEur !== null && (
+        <p className="mt-2 text-xs font-bold tabular-nums text-accent-text">
+          {translate("journey.monthlyImpact", { amount: formatEur(item.impactAmountEur, locale === "en" ? "en-US" : "fr-FR") })}
+        </p>
+      )}
+      <div className="mt-3 flex items-center gap-2">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+          <div className={cn("h-full rounded-full transition-[width] duration-300", stage === "done" ? "bg-state-healthy" : "bg-accent-2")} style={{ width: `${item.progress}%` }} />
+        </div>
+        <span className="text-[11px] font-bold tabular-nums text-muted-foreground">{item.progress}%</span>
+      </div>
+    </>
+  );
+
+  if (isOverlay) {
+    return (
+      <div className="sticker-card w-[min(22rem,calc(100vw-2rem))] cursor-grabbing p-3 shadow-[var(--shadow-card-hover)]">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      ref={setNodeRef}
+      href={item.href}
+      style={style}
+      {...listeners}
+      {...attributes}
+      title={translate("journey.dragHint")}
+      data-testid={`roadmap-item-${item.id}`}
+      onClick={() => void recordRoadmapItemClicked(stage)}
+      className={cn(
+        "group block cursor-grab rounded-[var(--radius-control)] border border-border bg-card p-3 outline-none transition-colors duration-200 hover:border-border-hover hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:cursor-grabbing",
+        isDragging && "invisible",
+      )}
+    >
+      {content}
+    </Link>
+  );
+}
+
+function RoadmapColumn({
+  stage,
   items,
   translate,
   translateDiagnostic,
   locale,
 }: {
+  stage: RoadmapStage;
   items: RoadmapItem[];
   translate: (key: string, values?: Record<string, string | number>) => string;
   translateDiagnostic: (key: string) => string;
   locale: string;
 }) {
+  const Icon = STAGE_ICONS[stage];
+  const { setNodeRef, isOver } = useDroppable({ id: stage });
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid={`roadmap-column-${stage}`}
+      className={cn(
+        "sticker-card flex min-h-44 min-w-0 flex-col overflow-hidden p-0 transition-colors duration-200",
+        isOver && "border-accent-2-border bg-accent-2-soft/40",
+      )}
+    >
+      <div className="flex items-center gap-2 border-b border-border bg-surface-sunken/60 px-4 py-3">
+        <Icon className={cn("size-4", stage === "done" ? "text-state-healthy" : "text-accent-2")} aria-hidden="true" />
+        <h3 className="text-sm font-bold">{translate(`journey.${stage}`)}</h3>
+        <span className="ml-auto text-xs font-bold tabular-nums text-muted-foreground">{items.length}</span>
+      </div>
+      {items.length > 0 ? (
+        <div className="flex flex-1 flex-col gap-2 p-3">
+          {items.map((item) => (
+            <RoadmapCard
+              key={item.id}
+              item={item}
+              stage={stage}
+              translate={translate}
+              translateDiagnostic={translateDiagnostic}
+              locale={locale}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="flex min-h-28 flex-1 items-center justify-center px-4 py-6 text-center text-xs leading-5 text-muted-foreground">{translate("journey.empty")}</p>
+      )}
+    </div>
+  );
+}
+
+function RoadmapJourney({
+  items,
+  translate,
+  translateDiagnostic,
+  locale,
+  storageKey,
+}: {
+  items: RoadmapItem[];
+  translate: (key: string, values?: Record<string, string | number>) => string;
+  translateDiagnostic: (key: string) => string;
+  locale: string;
+  storageKey: string | null;
+}) {
   const stages: RoadmapStage[] = ["upcoming", "in_progress", "done"];
-  const visibleStages = stages.filter((stage) => items.some((item) => item.stage === stage));
+  const itemKey = items.map((item) => item.id).join("|");
+  const [stageOverrides, setStageOverrides] = useState<Record<string, RoadmapStage>>({});
+  const [hydratedStorageKey, setHydratedStorageKey] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  useEffect(() => {
+    setHydratedStorageKey(null);
+    if (!storageKey) {
+      setStageOverrides({});
+      setHydratedStorageKey("memory");
+      return;
+    }
+
+    const validIds = new Set(itemKey ? itemKey.split("|") : []);
+    const nextOverrides: Record<string, RoadmapStage> = {};
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (isRecord(parsed)) {
+          for (const [id, value] of Object.entries(parsed)) {
+            if (validIds.has(id) && isRoadmapStage(value)) nextOverrides[id] = value;
+          }
+        }
+      }
+    } catch {
+      // A blocked or malformed browser storage should not prevent the
+      // roadmap from remaining interactive in memory.
+    }
+    setStageOverrides(nextOverrides);
+    setHydratedStorageKey(storageKey);
+  }, [itemKey, storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || hydratedStorageKey !== storageKey) return;
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(stageOverrides));
+    } catch {
+      // Storage is an enhancement; drag-and-drop remains usable in memory.
+    }
+  }, [hydratedStorageKey, stageOverrides, storageKey]);
+
+  const resolvedItems = items.map((item) => ({
+    ...item,
+    stage: stageOverrides[item.id] ?? item.stage,
+  }));
+  const activeItem = activeId ? resolvedItems.find((item) => item.id === activeId) ?? null : null;
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+  }
+
+  function handleDragCancel() {
+    setActiveId(null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
+    if (!event.over) return;
+
+    const itemId = String(event.active.id);
+    const targetStageId = String(event.over.id);
+    if (!isRoadmapStage(targetStageId)) return;
+
+    const item = resolvedItems.find((candidate) => candidate.id === itemId);
+    if (!item || item.stage === targetStageId) return;
+
+    const originalItem = items.find((candidate) => candidate.id === itemId);
+    setStageOverrides((current) => {
+      const next = { ...current };
+      if (originalItem?.stage === targetStageId) delete next[itemId];
+      else next[itemId] = targetStageId;
+      return next;
+    });
+  }
 
   return (
     <section aria-labelledby="roadmap-journey-title">
@@ -376,52 +622,33 @@ function RoadmapJourney({
         <ListChecks className="size-5 text-accent-2" aria-hidden="true" />
       </div>
 
-      <div className={cn("mt-4 grid gap-3", visibleStages.length === 1 ? "md:grid-cols-1" : visibleStages.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3")}>
-        {visibleStages.map((stage) => {
-          const Icon = STAGE_ICONS[stage];
-          const stageItems = items.filter((item) => item.stage === stage);
-          return (
-            <div key={stage} className="sticker-card min-w-0 p-4">
-              <div className="flex items-center gap-2 border-b border-border pb-3">
-                <Icon className={cn("size-4", stage === "done" ? "text-state-healthy" : "text-accent-2")} aria-hidden="true" />
-                <h3 className="text-sm font-bold">{translate(`journey.${stage}`)}</h3>
-                <span className="ml-auto text-xs font-bold tabular-nums text-muted-foreground">{stageItems.length}</span>
-              </div>
-              {stageItems.length > 0 ? (
-                <div className="mt-3 flex flex-col gap-2">
-                  {stageItems.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      onClick={() => void recordRoadmapItemClicked(item.stage)}
-                      className="group rounded-[var(--radius-control)] border border-border bg-card p-3 transition-colors duration-200 hover:border-border-hover hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-bold leading-5">{itemTitle(item, translate, translateDiagnostic)}</p>
-                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
-                      </div>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{itemDescription(item, translate, translateDiagnostic)}</p>
-                      {item.impactAmountEur !== null && (
-                        <p className="mt-2 text-xs font-bold tabular-nums text-accent-text">
-                          {translate("journey.monthlyImpact", { amount: formatEur(item.impactAmountEur, locale === "en" ? "en-US" : "fr-FR") })}
-                        </p>
-                      )}
-                      <div className="mt-3 flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                          <div className={cn("h-full rounded-full transition-[width] duration-300", stage === "done" ? "bg-state-healthy" : "bg-accent-2")} style={{ width: `${item.progress}%` }} />
-                        </div>
-                        <span className="text-[11px] font-bold tabular-nums text-muted-foreground">{item.progress}%</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-4 text-xs leading-5 text-muted-foreground">{translate("journey.empty")}</p>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragCancel={handleDragCancel} onDragEnd={handleDragEnd}>
+        <div className="mt-4 grid gap-3 md:grid-cols-3" data-testid="roadmap-kanban">
+          {stages.map((stage) => (
+            <RoadmapColumn
+              key={stage}
+              stage={stage}
+              items={resolvedItems.filter((item) => item.stage === stage)}
+              translate={translate}
+              translateDiagnostic={translateDiagnostic}
+              locale={locale}
+            />
+          ))}
+        </div>
+
+        <DragOverlay>
+          {activeItem ? (
+            <RoadmapCard
+              item={activeItem}
+              stage={activeItem.stage}
+              translate={translate}
+              translateDiagnostic={translateDiagnostic}
+              locale={locale}
+              isOverlay
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </section>
   );
 }
@@ -498,7 +725,7 @@ function WeeklySummary({
   );
 }
 
-export function RoadmapView({ data, streak, weeklyReports, fixtureMode = false }: RoadmapViewProps) {
+export function RoadmapView({ data, streak, weeklyReports, accountId, fixtureMode = false }: RoadmapViewProps) {
   const locale = useLocale();
   const translate = useTranslations("roadmap");
   const translateDiagnostic = useTranslations("diagnostic");
@@ -654,7 +881,15 @@ export function RoadmapView({ data, streak, weeklyReports, fixtureMode = false }
         locale={locale}
       />
 
-      {data.roadmapVisible && <RoadmapJourney items={data.roadmapItems} translate={translate} translateDiagnostic={translateDiagnostic} locale={locale} />}
+      {data.roadmapVisible && (
+        <RoadmapJourney
+          items={data.roadmapItems}
+          translate={translate}
+          translateDiagnostic={translateDiagnostic}
+          locale={locale}
+          storageKey={accountId ? `scalex:roadmap-stages:${accountId}` : null}
+        />
+      )}
 
       <WeeklySummary reports={weeklyReports} actionsDone={data.momentum.actionsDoneThisWeek} checkInDone={data.checkInDoneThisWeek} translate={translate} locale={locale} />
 
