@@ -17,6 +17,7 @@ import { lastCompletedMonths, monthWindowFor } from "@/lib/diagnostic/completed-
 import { computeOnboardingGoulot, type OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // The manual-entry form (screen 2's "Saisir à la main" path) still asks for
 // one specific month — lastCompletedMonths(1) is that window. The import
@@ -102,6 +103,7 @@ async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingG
   revalidatePath("/dashboard");
   revalidatePath("/roadmap");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
 
   return { result };
 }

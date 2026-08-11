@@ -1,4 +1,5 @@
 import { desc, eq, sql } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { sales, salesCallComments, salesCalls } from "@/db/schema";
@@ -37,7 +38,7 @@ export type SalesCallRow = {
   commentCount: number;
 };
 
-export async function getSalesCalls(accountId: string): Promise<SalesCallRow[]> {
+export const getSalesCalls = cache(async (accountId: string): Promise<SalesCallRow[]> => {
   const [rows, counts] = await Promise.all([
     db
       .select({ call: salesCalls, sale: sales })
@@ -77,4 +78,4 @@ export async function getSalesCalls(accountId: string): Promise<SalesCallRow[]> 
     decisionDueAt: call.decisionDueAt ? call.decisionDueAt.toISOString() : null,
     commentCount: countMap.get(call.id) ?? 0,
   }));
-}
+});

@@ -1,13 +1,10 @@
-import { and, desc, eq, inArray, isNotNull, ne, or } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import {
   improvementEvents,
   improvementInitiatives,
   initiativeMeasurements,
   insightRecords,
-  leads,
-  sales,
-  setters,
   settingKpiEntries,
   closingKpiEntries,
   users,
@@ -33,6 +30,7 @@ import { recordInitiativeMeasured } from "@/lib/insight-execution/service";
 import { getScaleScoreDelta } from "@/lib/scale-score-history/queries";
 import { track } from "@/lib/analytics";
 import { currentIsoWeekRange, inRange } from "@/lib/dashboard/metrics";
+import { getSetters } from "@/lib/setters/queries";
 
 import {
   makeCheckinAction,
@@ -408,21 +406,12 @@ function buildResult(
 export async function getJournalActionLoopData(accountId: string): Promise<JournalActionLoopData> {
   const now = todayUtc();
   const today = toIsoDate(now);
-  const [businessProfile, [user], rawData, contentRows, leadRows, setterRows, salesTeamRows, records, initiatives, measurements, events, priorityRules, leverCatalog] = await Promise.all([
+  const [businessProfile, [user], rawData, contentRows, setterRows, records, initiatives, measurements, events, priorityRules, leverCatalog] = await Promise.all([
     getBusinessProfile(accountId),
     db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1),
     getDiagnosticKpiRawData(accountId),
     getContentRecommendations(accountId),
-    db
-      .select({ id: leads.id, firstName: leads.firstName, lastName: leads.lastName, reminderDate: leads.reminderDate, reminderNote: leads.reminderNote, reminderDone: leads.reminderDone, setterId: leads.setterId, closer: leads.closer })
-      .from(leads)
-      .where(eq(leads.userId, accountId)),
-    db.select({ id: setters.id }).from(setters).where(eq(setters.userId, accountId)).limit(1),
-    db
-      .select({ id: sales.id })
-      .from(sales)
-      .where(and(eq(sales.userId, accountId), or(isNotNull(sales.setterId), and(isNotNull(sales.closer), ne(sales.closer, "")))))
-      .limit(1),
+    getSetters(accountId),
     db.select().from(insightRecords).where(eq(insightRecords.userId, accountId)).orderBy(desc(insightRecords.createdAt)),
     db.select().from(improvementInitiatives).where(eq(improvementInitiatives.userId, accountId)).orderBy(desc(improvementInitiatives.createdAt)),
     db.select().from(initiativeMeasurements).where(eq(initiativeMeasurements.userId, accountId)).orderBy(desc(initiativeMeasurements.version)),
@@ -430,6 +419,9 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     getPriorityRules(),
     getLeversCatalog(),
   ]);
+
+  const leadRows = rawData.allLeads;
+  const salesTeamRows = rawData.allSales.filter((sale) => Boolean(sale.setterId || sale.closer?.trim()));
 
   const months = lastCompletedMonths(3);
   const totals = aggregatePeriodTotals({

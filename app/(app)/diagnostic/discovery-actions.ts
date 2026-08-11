@@ -1,7 +1,6 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -13,6 +12,7 @@ import { getLeversCatalog, resolveFromBusinessProfile } from "@/lib/levers/catal
 import { setLeverStatus } from "@/lib/levers/status";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 const saveLeverAnswerSchema = z.object({
   leverKey: z.string().min(1),
@@ -64,7 +64,7 @@ export async function saveLeverAnswer(
     await track("discovery_completed", userId);
   }
 
-  revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -105,6 +105,6 @@ export async function updateLeverStats(leverKey: string, stats: Record<string, n
     .set({ stats: parsed.data.stats, updatedAt: new Date() })
     .where(and(eq(businessLevers.userId, accountId), eq(businessLevers.leverKey, parsed.data.leverKey)));
 
-  revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }

@@ -1,7 +1,6 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -14,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 import { addDays } from "@/lib/insight-execution/week";
 import { JOURNAL_ACTION_TYPES, type JournalActionType } from "@/lib/journal/action-generator";
+import { revalidateJournalSurfaces } from "@/lib/revalidate-data";
 
 type JournalAccess = { userId: string; accountId: string };
 
@@ -43,13 +43,6 @@ async function materializeJournalSource(accountId: string, input: z.infer<typeof
   const sourceType = sourceTypeForAction(input.type);
   if (!sourceType) return null;
   return materializeSourceInsight(accountId, { sourceType, sourceId: input.sourceId });
-}
-
-function revalidateJournalSurfaces(): void {
-  revalidatePath("/journal");
-  revalidatePath("/roadmap");
-  revalidatePath("/dashboard");
-  revalidatePath("/diagnostic");
 }
 
 export async function startJournalAction(input: unknown): Promise<{ error: string | null; initiativeId?: string }> {

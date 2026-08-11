@@ -4,7 +4,7 @@ import { formatEur } from "@/lib/currency";
 import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
-import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import {
   CLOSING_FIELDS,
   SETTING_FIELDS,
@@ -169,7 +169,7 @@ export function buildMetricCards({
       monthlyRow?.closingManualOverride ||
         (monthlyRow && CLOSING_FIELDS.some((field) => monthlyRow[field] !== null))
     );
-    const callSourceIsAvailable = callSource !== null && callSource.callCount > 0;
+    const callSourceIsAvailable = isMonthlyCallSourceAvailable(callSource);
     const settingTotals = callSourceIsAvailable && !monthlySettingIsAuthoritative
       ? { ...baseSettingTotals, callsBooked: callSource.callsBooked }
       : baseSettingTotals;
@@ -199,10 +199,10 @@ export function buildMetricCards({
   const previous = resolved[resolved.length - 2];
 
   const hasAnySettingData = allSettingEntries.length > 0 || allMonthlyRows.some((row) => row.newFollowers !== null || row.callsBooked !== null);
-  const hasAnyBookingsData = hasAnySettingData || Object.keys(callSourcesByMonth).length > 0;
+  const hasAnyBookingsData = hasAnySettingData || Object.values(callSourcesByMonth).some(isMonthlyCallSourceAvailable);
   const hasAnyClosingData =
     allClosingEntries.length > 0 ||
-    Object.keys(callSourcesByMonth).length > 0 ||
+    Object.values(callSourcesByMonth).some(isMonthlyCallSourceAvailable) ||
     allMonthlyRows.some((row) => row.callsTaken !== null || row.salesClosed !== null) ||
     allSales.some((sale) => !sale.isOrphan);
   const directSalePage = businessProfile.acquisition.setting.enabled === "no";

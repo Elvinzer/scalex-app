@@ -1,11 +1,8 @@
-import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
 import type { ChatContext } from "@/lib/chat-context";
 import { computeClosingRates, findClosingBottleneck } from "@/lib/closing/metrics";
@@ -13,8 +10,8 @@ import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
-import { aggregateSalesCallsInRange, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
-import { getMonthlyMetrics, getSalesCallKpiRecords } from "@/lib/monthly-metrics/queries";
+import { aggregateSalesCallsInRange, isMonthlyCallSourceAvailable, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
+import { getClosingKpiEntries, getMonthlyMetrics, getSalesCallKpiRecords, getSettingKpiEntries } from "@/lib/monthly-metrics/queries";
 import {
   CLOSING_FIELDS,
   isExactCalendarMonth,
@@ -45,7 +42,7 @@ function resolveCanonicalSettingTotals(
   );
   const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
 
-  return !monthlyIsAuthoritative && callSource.callCount > 0
+  return !monthlyIsAuthoritative && isMonthlyCallSourceAvailable(callSource)
     ? { ...baseTotals, callsBooked: callSource.callsBooked }
     : baseTotals;
 }
@@ -71,10 +68,10 @@ function resolveCanonicalClosingTotals(
 
   if (monthlyIsAuthoritative) return baseTotals;
   return {
-    callsAttended: callSource.callCount > 0 ? callSource.callsTaken : baseTotals.callsAttended,
+    callsAttended: isMonthlyCallSourceAvailable(callSource) ? callSource.callsTaken : baseTotals.callsAttended,
     salesClosed: validSales.length > 0
       ? validSales.length
-      : callSource.callCount > 0
+      : isMonthlyCallSourceAvailable(callSource)
         ? callSource.salesClosed
         : baseTotals.salesClosed,
   };
@@ -101,12 +98,8 @@ export default async function VentesFunnelPage({
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
   const [allEntries, allSettingEntries, callRecords, allSales, existingInsights] = await Promise.all([
-    db
-      .select()
-      .from(closingKpiEntries)
-      .where(eq(closingKpiEntries.userId, accountId))
-      .orderBy(desc(closingKpiEntries.date)),
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)),
+    getClosingKpiEntries(accountId),
+    getSettingKpiEntries(accountId),
     getSalesCallKpiRecords(accountId),
     getSales(accountId),
     getExistingStageInsights(accountId),
@@ -120,7 +113,7 @@ export default async function VentesFunnelPage({
     : allEntries;
   const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
   const validSalesInRange = allSales.filter((sale) => !sale.isOrphan && (!range || (sale.saleDate >= range.from && sale.saleDate <= range.to)));
-  const hasEntriesInRange = entries.length > 0 || callSource.callCount > 0 || validSalesInRange.length > 0;
+  const hasEntriesInRange = entries.length > 0 || isMonthlyCallSourceAvailable(callSource) || validSalesInRange.length > 0;
 
   // When the selected range is exactly one calendar month, a monthly_metrics
   // row for it (if any closing/setting field is filled) wins wholesale over

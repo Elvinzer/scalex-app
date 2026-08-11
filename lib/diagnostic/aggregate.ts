@@ -6,8 +6,7 @@ import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay, resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
 import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
-import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
-import { monthKey } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import type { SaleRow } from "@/lib/sales/types";
 import type { LeadRow } from "@/lib/leads/types";
 import { aggregateAcquisitionSources, emptyAcquisitionSourceTotals, type AcquisitionSourceTotals } from "@/lib/diagnostic/acquisition-sources";
@@ -202,7 +201,7 @@ export function aggregatePeriodTotals({
       monthlyRow?.closingManualOverride ||
         (monthlyRow && ["callsTaken", "salesClosed"].some((field) => monthlyRow[field as keyof typeof monthlyRow] !== null))
     );
-    const callSourceIsAvailable = callSource !== null && callSource.callCount > 0;
+    const callSourceIsAvailable = isMonthlyCallSourceAvailable(callSource);
 
     // Integration data wins over a daily/manual call count when it exists.
     // The other Setting fields stay on their existing source, so adding a

@@ -27,6 +27,7 @@ import { computeFunnelRates } from "@/lib/setting/funnel";
 import { getAccountContext } from "@/lib/team/context";
 import type { PermissionKey } from "@/lib/team/permissions";
 import { materializeSourceInsight } from "@/lib/insight-execution/source-adapters";
+import { revalidateJournalSurfaces } from "@/lib/revalidate-data";
 
 const stageSchema = z.enum([
   "outreachRate",
@@ -245,6 +246,7 @@ export async function generateFunnelStageInsight(
   revalidatePath("/diagnostic");
   revalidatePath("/acquisition/pipeline/funnel");
   revalidatePath("/ventes/appels/funnel");
+  revalidateJournalSurfaces();
   return { insightText: result.text, insightId: savedInsight.id, error: null };
 }
 
@@ -330,5 +332,6 @@ export async function setInsightImplemented(
   }
 
   revalidatePath("/diagnostic");
+  revalidateJournalSurfaces();
   return { error: null };
 }

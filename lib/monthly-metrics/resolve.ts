@@ -4,7 +4,7 @@ import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { aggregateEntries, type FunnelTotals } from "@/lib/setting/funnel";
 
 import { toClosingTotals, toFunnelTotals } from "./rates";
-import type { MonthlyCallSource } from "./call-source";
+import { isMonthlyCallSourceAvailable, type MonthlyCallSource } from "./call-source";
 import type { MonthlyMetricsInput } from "./types";
 import type { MonthlyMetricsRow } from "./queries";
 
@@ -86,8 +86,9 @@ export function resolveDailySourceOverlay(
   const closingThisMonth = dailyClosingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
 
   const settingSourced = settingThisMonth.length > 0 && !monthlySourceOverrides.settingManualOverride;
-  const callsBookedSourced = Boolean(monthlyCallSource && monthlyCallSource.callCount > 0) && !monthlySourceOverrides.settingManualOverride;
-  const callsSourced = Boolean(monthlyCallSource && monthlyCallSource.callCount > 0) && !monthlySourceOverrides.closingManualOverride;
+  const callSourceAvailable = isMonthlyCallSourceAvailable(monthlyCallSource);
+  const callsBookedSourced = callSourceAvailable && !monthlySourceOverrides.settingManualOverride;
+  const callsSourced = callSourceAvailable && !monthlySourceOverrides.closingManualOverride;
   const dailyClosingSourced = closingThisMonth.length > 0 && !monthlySourceOverrides.closingManualOverride;
   const closingSourced = callsSourced || dailyClosingSourced;
   const overrides: Partial<MonthlyMetricsInput> = {};

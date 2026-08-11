@@ -1,11 +1,11 @@
 import { cache } from "react";
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { closingKpiEntries, emailCampaigns, leadStageHistory, leads, metaAdMetricsDaily, nativeBookingLeads, settingKpiEntries } from "@/db/schema";
-import { getAllMonthlyMetrics, getSalesCallKpiRecords } from "@/lib/monthly-metrics/queries";
+import { emailCampaigns, metaAdMetricsDaily, nativeBookingLeads } from "@/db/schema";
+import { getClosingKpiEntries, getAllMonthlyMetrics, getSalesCallKpiRecords, getSettingKpiEntries } from "@/lib/monthly-metrics/queries";
 import { aggregateSalesCallsByMonth } from "@/lib/monthly-metrics/call-source";
-import { getLeads } from "@/lib/leads/queries";
+import { getLeadStageHistory, getLeads } from "@/lib/leads/queries";
 import { getSales } from "@/lib/sales/queries";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
@@ -24,17 +24,13 @@ import { measureAsync } from "@/lib/perf/timing";
 async function fetchDiagnosticKpiRawData(accountId: string) {
   return measureAsync("db.diagnostic.raw", async () => {
     const [allSettingEntries, allClosingEntries, allMonthlyRows, allCallRecords, allSales, allLeads, allLeadStageHistory, youtubeInsightsMap, instagramInsightsMap, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads] = await Promise.all([
-      measureAsync("db.diagnostic.setting", () => db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date))),
-      measureAsync("db.diagnostic.closing", () => db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date))),
+      measureAsync("db.diagnostic.setting", () => getSettingKpiEntries(accountId)),
+      measureAsync("db.diagnostic.closing", () => getClosingKpiEntries(accountId)),
       measureAsync("db.diagnostic.monthly", () => getAllMonthlyMetrics(accountId)),
       measureAsync("db.diagnostic.call-records", () => getSalesCallKpiRecords(accountId)),
       measureAsync("db.diagnostic.sales", () => getSales(accountId)),
       measureAsync("db.diagnostic.leads", () => getLeads(accountId)),
-      measureAsync("db.diagnostic.lead-history", () => db
-        .select({ leadId: leadStageHistory.leadId, toStage: leadStageHistory.toStage, changedAt: leadStageHistory.changedAt })
-        .from(leadStageHistory)
-        .innerJoin(leads, eq(leadStageHistory.leadId, leads.id))
-        .where(eq(leads.userId, accountId))),
+      measureAsync("db.diagnostic.lead-history", () => getLeadStageHistory(accountId)),
       measureAsync("db.diagnostic.youtube", () => getYoutubeVideoInsightsMap(accountId)),
       measureAsync("db.diagnostic.instagram", () => getInstagramPostInsightsMap(accountId)),
       measureAsync("db.diagnostic.content", () => getContentPosts(accountId)),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { aggregateSalesCallsByMonth } from "./call-source";
+import { aggregateSalesCallsByMonth, isMonthlyCallSourceAvailable } from "./call-source";
 
 describe("aggregateSalesCallsByMonth", () => {
   it("counts reserved, attended and closed calls independently", () => {
@@ -9,7 +9,7 @@ describe("aggregateSalesCallsByMonth", () => {
         { scheduledAt: "2026-08-02T10:00:00.000Z", attendance: "showed", outcome: "closed" },
         { scheduledAt: "2026-08-03T10:00:00.000Z", attendance: "showed", outcome: "not_closed" },
         { scheduledAt: "2026-08-04T10:00:00.000Z", attendance: "no_show", outcome: "pending" },
-        { scheduledAt: "2026-08-05T10:00:00.000Z", attendance: "cancelled", outcome: "pending" },
+        { scheduledAt: "2026-08-05T10:00:00.000Z", attendance: "cancelled", outcome: "closed" },
       ])
     ).toEqual({
       "2026-08": { callsBooked: 3, callsTaken: 2, salesClosed: 1, callCount: 4 },
@@ -27,5 +27,17 @@ describe("aggregateSalesCallsByMonth", () => {
       "2026-07": { callsBooked: 1, callsTaken: 1, salesClosed: 1, callCount: 1 },
       "2026-08": { callsBooked: 1, callsTaken: 0, salesClosed: 0, callCount: 1 },
     });
+  });
+
+  it("does not mark a cancelled-only month as an available source", () => {
+    const [month] = Object.values(
+      aggregateSalesCallsByMonth([
+        { scheduledAt: "2026-08-05T10:00:00.000Z", attendance: "cancelled", outcome: "pending" },
+      ])
+    );
+
+    expect(month).toEqual({ callsBooked: 0, callsTaken: 0, salesClosed: 0, callCount: 1 });
+    expect(isMonthlyCallSourceAvailable(month)).toBe(false);
+    expect(isMonthlyCallSourceAvailable({ callsBooked: 1, callsTaken: 0, salesClosed: 0, callCount: 1 })).toBe(true);
   });
 });

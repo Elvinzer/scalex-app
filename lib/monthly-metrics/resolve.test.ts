@@ -40,4 +40,30 @@ describe("monthly source overlay", () => {
       overrides: {},
     });
   });
+
+  it("falls back to daily values when the only connected calls were cancelled", () => {
+    const overlay = resolveDailySourceOverlay(
+      RANGE,
+      [],
+      [{
+        id: "closing-1",
+        userId: "user-1",
+        date: "2026-08-12",
+        callsAttended: 3,
+        salesClosed: 1,
+        enteredByUserId: null,
+        createdAt: new Date("2026-08-12T00:00:00.000Z"),
+        updatedAt: new Date("2026-08-12T00:00:00.000Z"),
+      }],
+      {},
+      { callsBooked: 0, callsTaken: 0, salesClosed: 0, callCount: 2 }
+    );
+
+    expect(overlay).toMatchObject({
+      callsBookedSourced: false,
+      closingSourced: true,
+      closingSource: "daily",
+      overrides: { callsTaken: 3, salesClosed: 1 },
+    });
+  });
 });

@@ -12,7 +12,7 @@ import { SourceBadge, type MetricSource } from "@/components/source-badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
-import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { formatEur } from "@/lib/currency";
 import { rate, formatPercent } from "@/lib/setting/funnel";
@@ -66,7 +66,7 @@ export function DatasPageClient({
   const featuredMonth = featuredRow?.month ?? currentMonth;
   const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
   const callSource = callSourcesByMonth[monthKey(featuredYear, featuredMonth)] ?? null;
-  const hasCallSource = Boolean(callSource && callSource.callCount > 0);
+  const hasCallSource = isMonthlyCallSourceAvailable(callSource);
   const settingIsAuthoritative = Boolean(
     featuredRow?.settingManualOverride ||
       (featuredRow && ["newFollowers", "firstMessages", "conversations", "callsProposed", "callsBooked"].some((field) => featuredRow[field as keyof typeof featuredRow] !== null))

@@ -11,6 +11,14 @@ export type MonthlyCallSource = {
   callCount: number;
 };
 
+// A source is available only when it contains a meaningful business event.
+// `callCount` also includes cancelled appointments so it must not be used as
+// the precedence signal: a month containing only cancellations must still
+// fall back to the manual/daily KPI source.
+export function isMonthlyCallSourceAvailable(source: MonthlyCallSource | null | undefined): boolean {
+  return Boolean(source && (source.callsBooked > 0 || source.callsTaken > 0 || source.salesClosed > 0));
+}
+
 export function monthKey(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
@@ -32,7 +40,7 @@ export function aggregateSalesCallsByMonth(records: readonly SalesCallKpiRecord[
     totals.callCount += 1;
     if (record.attendance !== "cancelled") totals.callsBooked += 1;
     if (record.attendance === "showed") totals.callsTaken += 1;
-    if (record.outcome === "closed") totals.salesClosed += 1;
+    if (record.attendance !== "cancelled" && record.outcome === "closed") totals.salesClosed += 1;
     byMonth[key] = totals;
   }
 

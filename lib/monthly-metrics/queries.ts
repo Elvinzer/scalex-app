@@ -1,8 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { monthlyMetrics, salesCalls } from "@/db/schema";
+import { closingKpiEntries, monthlyMetrics, salesCalls, settingKpiEntries } from "@/db/schema";
 
 import { aggregateSalesCallsByMonth, type MonthlyCallSource } from "./call-source";
 import { EMPTY_MONTHLY_METRICS, type MonthlyMetricsInput } from "./types";
@@ -52,11 +52,11 @@ function toRow(row: typeof monthlyMetrics.$inferSelect): MonthlyMetricsRow {
   };
 }
 
-export async function getMonthlyMetrics(
+export const getMonthlyMetrics = cache(async (
   userId: string,
   year: number,
   month: number
-): Promise<MonthlyMetricsRow | null> {
+): Promise<MonthlyMetricsRow | null> => {
   const [row] = await db
     .select()
     .from(monthlyMetrics)
@@ -64,23 +64,39 @@ export async function getMonthlyMetrics(
     .limit(1);
 
   return row ? toRow(row) : null;
-}
+});
 
-export async function getMonthlyMetricsForYear(userId: string, year: number): Promise<MonthlyMetricsRow[]> {
+export const getMonthlyMetricsForYear = cache(async (userId: string, year: number): Promise<MonthlyMetricsRow[]> => {
   const rows = await db
     .select()
     .from(monthlyMetrics)
     .where(and(eq(monthlyMetrics.userId, userId), eq(monthlyMetrics.year, year)));
 
   return rows.map(toRow);
-}
+});
 
 // Small table, fetched whole — used by the Dashboard/Funnel merge resolver
 // and the 8-month sparkline, which both span across year boundaries.
-export async function getAllMonthlyMetrics(userId: string): Promise<MonthlyMetricsRow[]> {
+export const getAllMonthlyMetrics = cache(async (userId: string): Promise<MonthlyMetricsRow[]> => {
   const rows = await db.select().from(monthlyMetrics).where(eq(monthlyMetrics.userId, userId));
   return rows.map(toRow);
-}
+});
+
+export const getSettingKpiEntries = cache(async (userId: string) => {
+  return db
+    .select()
+    .from(settingKpiEntries)
+    .where(eq(settingKpiEntries.userId, userId))
+    .orderBy(desc(settingKpiEntries.date));
+});
+
+export const getClosingKpiEntries = cache(async (userId: string) => {
+  return db
+    .select()
+    .from(closingKpiEntries)
+    .where(eq(closingKpiEntries.userId, userId))
+    .orderBy(desc(closingKpiEntries.date));
+});
 
 export const getSalesCallKpiRecords = cache(async (userId: string) => {
   return db

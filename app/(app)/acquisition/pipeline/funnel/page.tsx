@@ -1,20 +1,16 @@
-import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { db } from "@/db";
-import { settingKpiEntries } from "@/db/schema";
 import { getBenchmark } from "@/lib/benchmarks";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
-import { aggregateSalesCallsInRange, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
-import { getSalesCallKpiRecords } from "@/lib/monthly-metrics/queries";
-import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { aggregateSalesCallsInRange, isMonthlyCallSourceAvailable, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
+import { getMonthlyMetrics, getSalesCallKpiRecords, getSettingKpiEntries } from "@/lib/monthly-metrics/queries";
 import { isExactCalendarMonth, resolveMonthSettingTotals, SETTING_FIELDS } from "@/lib/monthly-metrics/resolve";
 import { computeFunnelRates, findBottleneck, type FunnelStage } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
@@ -47,7 +43,7 @@ function resolveCanonicalSettingTotals(
   );
   const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
 
-  return !monthlyIsAuthoritative && callSource.callCount > 0
+  return !monthlyIsAuthoritative && isMonthlyCallSourceAvailable(callSource)
     ? { ...baseTotals, callsBooked: callSource.callsBooked }
     : baseTotals;
 }
@@ -75,11 +71,7 @@ export default async function AcquisitionFunnelPage({
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
   const [allEntries, callRecords, existingInsights] = await Promise.all([
-    db
-      .select()
-      .from(settingKpiEntries)
-      .where(eq(settingKpiEntries.userId, accountId))
-      .orderBy(desc(settingKpiEntries.date)),
+    getSettingKpiEntries(accountId),
     getSalesCallKpiRecords(accountId),
     getExistingStageInsights(accountId),
   ]);
@@ -91,7 +83,7 @@ export default async function AcquisitionFunnelPage({
     ? allEntries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
     : allEntries;
   const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
-  const hasEntriesInRange = entries.length > 0 || callSource.callCount > 0;
+  const hasEntriesInRange = entries.length > 0 || isMonthlyCallSourceAvailable(callSource);
 
   // When the selected range is exactly one calendar month, a monthly_metrics
   // row for it (if any setting field is filled) wins wholesale over that

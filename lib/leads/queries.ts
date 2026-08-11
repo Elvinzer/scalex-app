@@ -1,4 +1,5 @@
 import { and, asc, desc, eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { leadComments, leadStageHistory, leads } from "@/db/schema";
@@ -36,14 +37,26 @@ function toHistoryRow(row: typeof leadStageHistory.$inferSelect): LeadStageHisto
   return { id: row.id, leadId: row.leadId, fromStage: row.fromStage, toStage: row.toStage, changedAt: row.changedAt.toISOString() };
 }
 
-export async function getLeads(userId: string): Promise<LeadRow[]> {
+export const getLeads = cache(async (userId: string): Promise<LeadRow[]> => {
   const rows = await db.select().from(leads).where(eq(leads.userId, userId)).orderBy(desc(leads.createdAt));
   return rows.map(toRow);
-}
+});
+
+export const getLeadStageHistory = cache(async (userId: string) => {
+  return db
+    .select({
+      leadId: leadStageHistory.leadId,
+      toStage: leadStageHistory.toStage,
+      changedAt: leadStageHistory.changedAt,
+    })
+    .from(leadStageHistory)
+    .innerJoin(leads, eq(leadStageHistory.leadId, leads.id))
+    .where(eq(leads.userId, userId));
+});
 
 // Bulk comment counts for the board's cards — one query instead of N,
 // keyed by leadId (missing key = 0 comments).
-export async function getCommentCounts(userId: string): Promise<Record<string, number>> {
+export const getCommentCounts = cache(async (userId: string): Promise<Record<string, number>> => {
   const rows = await db
     .select({ leadId: leadComments.leadId })
     .from(leadComments)
@@ -55,7 +68,7 @@ export async function getCommentCounts(userId: string): Promise<Record<string, n
     counts[row.leadId] = (counts[row.leadId] ?? 0) + 1;
   }
   return counts;
-}
+});
 
 export async function getLead(userId: string, id: string): Promise<LeadWithRelations | null> {
   const [row] = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.userId, userId))).limit(1);

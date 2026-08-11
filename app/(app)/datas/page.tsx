@@ -7,6 +7,7 @@ import { periodToMonths } from "@/lib/diagnostic/completed-months";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { getLeadPipelineVolumesByMonth } from "@/lib/leads/stats";
 import { getMonthlyMetricsForYear } from "@/lib/monthly-metrics/queries";
+import { isMonthlyCallSourceAvailable } from "@/lib/monthly-metrics/call-source";
 import { resolveMonthCashCollected } from "@/lib/monthly-metrics/resolve";
 import { todayUtc } from "@/lib/date-range";
 import { summarize } from "@/lib/sales/installments";
@@ -75,9 +76,9 @@ export default async function DatasPage({
       dailySetting.length > 0 ||
       (monthlyRow?.newFollowers !== null && monthlyRow?.newFollowers !== undefined) ||
       (monthlyRow?.callsBooked !== null && monthlyRow?.callsBooked !== undefined) ||
-      (callSource?.callCount ?? 0) > 0;
+      isMonthlyCallSourceAvailable(callSource);
     const hasClosing =
-      (callSource?.callCount ?? 0) > 0 ||
+      isMonthlyCallSourceAvailable(callSource) ||
       dailyClosing.length > 0 ||
       (monthlyRow?.callsTaken !== null && monthlyRow?.callsTaken !== undefined) ||
       (monthlyRow?.salesClosed !== null && monthlyRow?.salesClosed !== undefined) ||

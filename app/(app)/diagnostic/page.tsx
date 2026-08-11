@@ -29,6 +29,7 @@ import {
   aggregateContentTotals,
   computeContentMetricSummaries,
 } from "@/lib/diagnostic/content-metrics";
+import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
 import { computeContentRetentionSummary } from "@/lib/diagnostic/content-retention";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
@@ -216,7 +217,8 @@ async function renderDiagnosticPage({
     getPriorityRules(),
   ]);
 
-  const contentTotals = aggregateContentTotals(months, allContentPosts, allVideoAttributionTotals);
+  const visibleContentPosts = filterVisibleContentPosts(allContentPosts, rawData.allYoutubeVideoInsights);
+  const contentTotals = aggregateContentTotals(months, visibleContentPosts, allVideoAttributionTotals);
   const contentRetention = computeContentRetentionSummary({
     months,
     youtubeVideos: rawData.allYoutubeVideoInsights,

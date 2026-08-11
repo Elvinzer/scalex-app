@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { contentPosts } from "@/db/schema";
@@ -28,7 +29,7 @@ function toRow(row: typeof contentPosts.$inferSelect): ContentPostRow {
   };
 }
 
-export async function getContentPosts(userId: string): Promise<ContentPostRow[]> {
+export const getContentPosts = cache(async (userId: string): Promise<ContentPostRow[]> => {
   const rows = await db
     .select()
     .from(contentPosts)
@@ -36,7 +37,7 @@ export async function getContentPosts(userId: string): Promise<ContentPostRow[]>
     .orderBy(desc(contentPosts.publishedAt));
 
   return rows.map(toRow);
-}
+});
 
 export async function getPostsForMonth(userId: string, year: number, month: number): Promise<ContentPostRow[]> {
   const from = `${year}-${String(month).padStart(2, "0")}-01`;

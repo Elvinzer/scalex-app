@@ -22,13 +22,14 @@ import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchma
 import { getPipelineDiagnosticBenchmark } from "@/lib/diagnostic/pipeline-metrics";
 import { computeContentRetentionSummary } from "@/lib/diagnostic/content-retention";
 import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
+import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { buildBottleneckFunnel } from "@/lib/dashboard/bottleneck";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { getCurrentUser } from "@/lib/current-user";
-import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
@@ -174,13 +175,14 @@ async function renderDashboardPage({
   const bottleneckSettingEntries = allSettingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
   const bottleneckClosingEntries = allClosingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
   const bottleneckCallSource = allCallSourcesByMonth[monthKey(bottleneckMonth.year, bottleneckMonth.month)];
-  const bottleneckContentTotals = aggregateContentTotals(bottleneckMonths, allContentPosts, allVideoAttributionTotals);
+  const visibleContentPosts = filterVisibleContentPosts(allContentPosts, allYoutubeVideoInsights);
+  const bottleneckContentTotals = aggregateContentTotals(bottleneckMonths, visibleContentPosts, allVideoAttributionTotals);
   const bottleneckRetention = computeContentRetentionSummary({
     months: bottleneckMonths,
     youtubeVideos: allYoutubeVideoInsights,
     instagramPosts: allInstagramPostInsights,
   });
-  const bottleneckPostsInPeriod = allContentPosts.filter((post) => inRange(post.publishedAt, bottleneckMonth.range)).length;
+  const bottleneckPostsInPeriod = visibleContentPosts.filter((post) => inRange(post.publishedAt, bottleneckMonth.range)).length;
   const hasBottleneckSettingData =
     bottleneckSettingEntries.length > 0 ||
     [
@@ -190,13 +192,13 @@ async function renderDashboardPage({
       bottleneckMonthlyRow?.callsProposed,
       bottleneckMonthlyRow?.callsBooked,
     ].some((value) => value !== null && value !== undefined) ||
-    bottleneckCallSource !== undefined;
+    isMonthlyCallSourceAvailable(bottleneckCallSource);
   const hasBottleneckClosingData =
     bottleneckClosingEntries.length > 0 ||
     [bottleneckMonthlyRow?.callsTaken, bottleneckMonthlyRow?.salesClosed].some(
       (value) => value !== null && value !== undefined
     ) ||
-    bottleneckCallSource !== undefined ||
+    isMonthlyCallSourceAvailable(bottleneckCallSource) ||
     allSales.some((sale) => !sale.isOrphan && inRange(sale.saleDate, bottleneckMonth.range));
   const hasBottleneckRevenueData = bottleneckCashContractedTotal > 0 || typeof bottleneckMonthlyRow?.cashContracted === "number";
 

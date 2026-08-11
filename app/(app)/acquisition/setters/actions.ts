@@ -1,12 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { track } from "@/lib/analytics";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
 import { createSetter, updateSetter } from "@/lib/setters/queries";
 import { setterInputSchema } from "@/lib/setters/schema";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 export async function saveSetter(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
@@ -28,7 +27,7 @@ export async function saveSetter(id: string | null, data: unknown): Promise<{ er
     await track("setter_added", userId, { setter_id: setter.id });
   }
 
-  revalidatePath("/acquisition/setters");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -39,6 +38,6 @@ export async function toggleSetterActive(id: string, active: boolean): Promise<{
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
   await updateSetter(access.accountId, id, { active });
-  revalidatePath("/acquisition/setters");
+  revalidateBusinessData();
   return { error: null };
 }

@@ -3,7 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { contentRecommendations, funnelStageInsights, insightRecords, users } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
-import { getContentPosts } from "@/lib/content-posts/queries";
+import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { computeDiagnosticPoints, computeMetricSummaries } from "@/lib/diagnostic/cascade";
@@ -64,11 +64,10 @@ function periodForCurrentDiagnostic(): { start: string; end: string } {
 }
 
 async function diagnosticMetricInsight(accountId: string, sourceId: string): Promise<MaterializedInsight | null> {
-  const [[user], businessProfile, rawData, allContentPosts] = await Promise.all([
+  const [[user], businessProfile, rawData] = await Promise.all([
     db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1),
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
-    getContentPosts(accountId),
   ]);
   const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
   const contentBenchmarks = await getContentDiagnosticBenchmarks(user?.sector ?? null);
@@ -97,7 +96,11 @@ async function diagnosticMetricInsight(accountId: string, sourceId: string): Pro
     (item) => item.key === sourceId,
   );
   const contentSummary = computeContentMetricSummaries({
-    totals: aggregateContentTotals(months, allContentPosts, rawData.allVideoAttributionTotals),
+    totals: aggregateContentTotals(
+      months,
+      filterVisibleContentPosts(rawData.allContentPosts, rawData.allYoutubeVideoInsights),
+      rawData.allVideoAttributionTotals
+    ),
     benchmarks: contentBenchmarks,
   }).find((item) => item.key === sourceId);
   const point = points.find((item) => item.key === sourceId);

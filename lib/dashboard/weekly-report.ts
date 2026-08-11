@@ -6,7 +6,7 @@ import { computeClosingRates } from "@/lib/closing/metrics";
 import { formatEur } from "@/lib/currency";
 import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { countDelta, inRange, rateDelta } from "@/lib/dashboard/metrics";
-import { aggregateSalesCallsInRange, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
+import { aggregateSalesCallsInRange, isMonthlyCallSourceAvailable, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
 import { formatPercent } from "@/lib/setting/funnel";
 import type { SaleRow } from "@/lib/sales/types";
 
@@ -78,22 +78,22 @@ export function computeWeeklyStatCards({
   const leadsThisWeek = settingThisWeek.reduce((sum, entry) => sum + entry.newSubscribers, 0);
   const leadsPreviousWeek = settingPreviousWeek.reduce((sum, entry) => sum + entry.newSubscribers, 0);
 
-  const rdvThisWeek = callsThisWeek.callCount > 0 ? callsThisWeek.callsBooked : settingThisWeek.reduce((sum, entry) => sum + entry.callsBooked, 0);
-  const rdvPreviousWeek = callsPreviousWeek.callCount > 0 ? callsPreviousWeek.callsBooked : settingPreviousWeek.reduce((sum, entry) => sum + entry.callsBooked, 0);
+  const rdvThisWeek = isMonthlyCallSourceAvailable(callsThisWeek) ? callsThisWeek.callsBooked : settingThisWeek.reduce((sum, entry) => sum + entry.callsBooked, 0);
+  const rdvPreviousWeek = isMonthlyCallSourceAvailable(callsPreviousWeek) ? callsPreviousWeek.callsBooked : settingPreviousWeek.reduce((sum, entry) => sum + entry.callsBooked, 0);
 
   const closingTotalsThisWeek = {
-    callsAttended: callsThisWeek.callCount > 0 ? callsThisWeek.callsTaken : closingThisWeek.reduce((sum, entry) => sum + entry.callsAttended, 0),
+    callsAttended: isMonthlyCallSourceAvailable(callsThisWeek) ? callsThisWeek.callsTaken : closingThisWeek.reduce((sum, entry) => sum + entry.callsAttended, 0),
     salesClosed: salesThisWeek.length > 0
       ? salesThisWeek.length
-      : callsThisWeek.callCount > 0
+      : isMonthlyCallSourceAvailable(callsThisWeek)
         ? callsThisWeek.salesClosed
         : closingThisWeek.reduce((sum, entry) => sum + entry.salesClosed, 0),
   };
   const closingTotalsPreviousWeek = {
-    callsAttended: callsPreviousWeek.callCount > 0 ? callsPreviousWeek.callsTaken : closingPreviousWeek.reduce((sum, entry) => sum + entry.callsAttended, 0),
+    callsAttended: isMonthlyCallSourceAvailable(callsPreviousWeek) ? callsPreviousWeek.callsTaken : closingPreviousWeek.reduce((sum, entry) => sum + entry.callsAttended, 0),
     salesClosed: salesPreviousWeek.length > 0
       ? salesPreviousWeek.length
-      : callsPreviousWeek.callCount > 0
+      : isMonthlyCallSourceAvailable(callsPreviousWeek)
         ? callsPreviousWeek.salesClosed
         : closingPreviousWeek.reduce((sum, entry) => sum + entry.salesClosed, 0),
   };

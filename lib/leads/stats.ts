@@ -1,14 +1,10 @@
-import { and, eq, gte, lte } from "drizzle-orm";
-
-import { db } from "@/db";
-import { leadStageHistory, leads } from "@/db/schema";
 import type { SectorKey } from "@/lib/benchmarks";
 import type { DateRange } from "@/lib/date-range";
 import { computeMetricStatus, type MetricStatus } from "@/lib/diagnostic/cascade";
 import { inRange } from "@/lib/dashboard/metrics";
 import { getPipelineDiagnosticBenchmark } from "@/lib/diagnostic/pipeline-metrics";
 
-import { getLeads } from "./queries";
+import { getLeadStageHistory, getLeads } from "./queries";
 import { getSales } from "@/lib/sales/queries";
 import { LEAD_SOURCES, type LeadRow, type LeadSource, type LeadStage } from "./types";
 
@@ -51,25 +47,22 @@ function computeInvertedMetricStatus(current: number | null, benchmarkMax: numbe
   return relativeGap < CAUTION_THRESHOLD ? "caution" : "critical";
 }
 
-// toStages filtering happens in JS rather than a drizzle `inArray` so every
-// caller below (worked/conversation/closed/lost sets) can share one simple
-// query shape — none of these sets are large enough for this to matter.
-async function distinctLeadIdsWithTransition(userId: string, toStages: LeadStage[], range: DateRange): Promise<Set<string>> {
-  const rows = await db
-    .select({ leadId: leadStageHistory.leadId, toStage: leadStageHistory.toStage })
-    .from(leadStageHistory)
-    .innerJoin(leads, eq(leadStageHistory.leadId, leads.id))
-    .where(
-      and(
-        eq(leads.userId, userId),
-        gte(leadStageHistory.changedAt, new Date(`${range.from}T00:00:00Z`)),
-        lte(leadStageHistory.changedAt, new Date(`${range.to}T23:59:59Z`))
-      )
-    );
+type LeadStageEvent = Awaited<ReturnType<typeof getLeadStageHistory>>[number];
 
+// All pipeline projections use the same stage-history snapshot. Filtering is
+// intentionally done in memory so a diagnostic request never runs one full
+// history query per stage bucket.
+function distinctLeadIdsWithTransition(
+  rows: readonly LeadStageEvent[],
+  toStages: readonly LeadStage[],
+  range: DateRange
+): Set<string> {
+  const from = new Date(`${range.from}T00:00:00Z`).getTime();
+  const to = new Date(`${range.to}T23:59:59Z`).getTime();
   const ids = new Set<string>();
   for (const row of rows) {
-    if (toStages.includes(row.toStage)) ids.add(row.leadId);
+    const changedAt = row.changedAt.getTime();
+    if (changedAt >= from && changedAt <= to && toStages.includes(row.toStage)) ids.add(row.leadId);
   }
   return ids;
 }
@@ -85,16 +78,20 @@ export async function computeLeadPipelineStats(
   sector: SectorKey | null,
   preloadedLeads?: LeadRow[],
 ): Promise<PipelineStats> {
-  const [allLeads, workedIds, conversationIds, closedIds, lostIds, previousConversationIds, benchmarkValue, allSales] = await Promise.all([
+  const [allLeads, stageHistory, benchmarkValue, allSales] = await Promise.all([
     preloadedLeads ? Promise.resolve(preloadedLeads) : getLeads(userId),
-    distinctLeadIdsWithTransition(userId, WORKED_STAGES, range),
-    distinctLeadIdsWithTransition(userId, ["conversation"], range),
-    distinctLeadIdsWithTransition(userId, ["close"], range),
-    distinctLeadIdsWithTransition(userId, ["perdu"], range),
-    previousRange ? distinctLeadIdsWithTransition(userId, ["conversation"], previousRange) : Promise.resolve(null),
+    getLeadStageHistory(userId),
     getPipelineDiagnosticBenchmark(sector),
     getSales(userId),
   ]);
+
+  const workedIds = distinctLeadIdsWithTransition(stageHistory, WORKED_STAGES, range);
+  const conversationIds = distinctLeadIdsWithTransition(stageHistory, ["conversation"], range);
+  const closedIds = distinctLeadIdsWithTransition(stageHistory, ["close"], range);
+  const lostIds = distinctLeadIdsWithTransition(stageHistory, ["perdu"], range);
+  const previousConversationIds = previousRange
+    ? distinctLeadIdsWithTransition(stageHistory, ["conversation"], previousRange)
+    : null;
 
   // A sale linked to a pipeline lead is the canonical commercial close even
   // when the lead-stage history was not updated. Fold that event into the
@@ -163,17 +160,12 @@ export async function getLeadPipelineVolumesByMonth(
   userId: string,
   year: number
 ): Promise<Record<number, { conversations: number; callsBooked: number; callsTaken: number }>> {
-  const rows = await db
-    .select({ leadId: leadStageHistory.leadId, toStage: leadStageHistory.toStage, changedAt: leadStageHistory.changedAt })
-    .from(leadStageHistory)
-    .innerJoin(leads, eq(leadStageHistory.leadId, leads.id))
-    .where(
-      and(
-        eq(leads.userId, userId),
-        gte(leadStageHistory.changedAt, new Date(`${year}-01-01T00:00:00Z`)),
-        lte(leadStageHistory.changedAt, new Date(`${year}-12-31T23:59:59Z`))
-      )
-    );
+  const from = new Date(`${year}-01-01T00:00:00Z`).getTime();
+  const to = new Date(`${year}-12-31T23:59:59Z`).getTime();
+  const rows = (await getLeadStageHistory(userId)).filter((row) => {
+    const changedAt = row.changedAt.getTime();
+    return changedAt >= from && changedAt <= to;
+  });
 
   const byMonth: Record<number, { conversations: Set<string>; callsBooked: Set<string>; callsTaken: Set<string> }> = {};
   for (const row of rows) {

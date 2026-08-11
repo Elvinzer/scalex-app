@@ -3,10 +3,12 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { youtubeConnections } from "@/db/schema";
 import { getContentPosts } from "@/lib/content-posts/queries";
+import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { getWinningPatterns } from "@/lib/youtube/recommendations";
+import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
 
 import type { LeverAgentData, LeverAgentDataContext } from "./lever-agent-data";
 import { resolveLeverAgentData } from "./lever-agent-data";
@@ -27,10 +29,11 @@ function average(values: number[]): number | null {
 // useless for a page that only shows one channel — this is YouTube alone,
 // with the channel-level figures the page itself displays.
 async function buildYoutubeContentData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
-  const [insights, posts, [connection]] = await Promise.all([
+  const [insights, rawPosts, [connection], attributions] = await Promise.all([
     getYoutubeVideoInsightsMap(ctx.accountId),
     getContentPosts(ctx.accountId),
     db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, ctx.accountId)).limit(1),
+    getVideoAttributionTotals(ctx.accountId),
   ]);
   const winning = await getWinningPatterns(ctx.accountId);
 
@@ -44,10 +47,18 @@ async function buildYoutubeContentData(ctx: LeverAgentDataContext): Promise<Leve
     };
   }
 
+  const posts = filterVisibleContentPosts(rawPosts, Array.from(insights.values()));
   const commercial = new Map(
     posts
       .filter((post) => post.source === "youtube" && post.externalId)
-      .map((post) => [post.externalId as string, { bookings: post.bookings, dealsClosed: post.dealsClosed }])
+      .map((post) => {
+        const attribution = attributions.get(post.externalId as string);
+        const attributedDeals = attribution ? attribution.declaredSales + attribution.estimatedSales : 0;
+        return [post.externalId as string, {
+          bookings: post.bookings,
+          dealsClosed: attributedDeals > 0 ? attributedDeals : post.dealsClosed,
+        }] as const;
+      })
   );
 
   const totalViews = videos.reduce((sum, video) => sum + (video.views ?? 0), 0);

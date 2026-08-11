@@ -1,16 +1,17 @@
 "use server";
 
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { closingKpiEntries, dataImports, monthlyMetrics, sales, salesCalls, settingKpiEntries } from "@/db/schema";
+import { dataImports, monthlyMetrics, sales } from "@/db/schema";
 import { aggregateSalesCallsByMonth, monthKey } from "@/lib/monthly-metrics/call-source";
 import { monthDateRange } from "@/lib/date-range";
 import { commitImportPayloadSchema, type CommitImportPayload } from "@/lib/import/schema";
 import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS } from "@/lib/monthly-metrics/resolve";
 import { EMPTY_MONTHLY_METRICS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import { writeMonthlyMetrics } from "@/lib/monthly-metrics/write";
+import { getClosingKpiEntries, getSalesCallKpiRecords, getSettingKpiEntries } from "@/lib/monthly-metrics/queries";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
@@ -42,26 +43,19 @@ async function resolveAuth(): Promise<{ accountId: string } | { error: string }>
 // explication").
 async function protectedFieldsForMonth(accountId: string, year: number, month: number): Promise<Set<string>> {
   const range = monthDateRange(year, month);
-  const [dailySetting, dailyClosing, calls] = await Promise.all([
-    db
-      .select()
-      .from(settingKpiEntries)
-      .where(and(eq(settingKpiEntries.userId, accountId), gte(settingKpiEntries.date, range.from), lte(settingKpiEntries.date, range.to))),
-    db
-      .select()
-      .from(closingKpiEntries)
-      .where(and(eq(closingKpiEntries.userId, accountId), gte(closingKpiEntries.date, range.from), lte(closingKpiEntries.date, range.to))),
-    db
-      .select({ scheduledAt: salesCalls.scheduledAt, attendance: salesCalls.attendance, outcome: salesCalls.outcome })
-      .from(salesCalls)
-      .where(
-        and(
-          eq(salesCalls.userId, accountId),
-          gte(salesCalls.scheduledAt, new Date(Date.UTC(year, month - 1, 1))),
-          lte(salesCalls.scheduledAt, new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)))
-        )
-      ),
+  const [allSetting, allClosing, allCalls] = await Promise.all([
+    getSettingKpiEntries(accountId),
+    getClosingKpiEntries(accountId),
+    getSalesCallKpiRecords(accountId),
   ]);
+  const dailySetting = allSetting.filter((entry) => entry.date >= range.from && entry.date <= range.to);
+  const dailyClosing = allClosing.filter((entry) => entry.date >= range.from && entry.date <= range.to);
+  const from = Date.UTC(year, month - 1, 1);
+  const to = Date.UTC(year, month, 0, 23, 59, 59, 999);
+  const calls = allCalls.filter((call) => {
+    const scheduledAt = new Date(call.scheduledAt).getTime();
+    return scheduledAt >= from && scheduledAt <= to;
+  });
 
   const callSource = aggregateSalesCallsByMonth(calls)[monthKey(year, month)] ?? null;
   const overlay = resolveDailySourceOverlay(range, dailySetting, dailyClosing, {}, callSource);

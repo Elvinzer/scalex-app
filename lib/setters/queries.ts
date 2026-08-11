@@ -1,9 +1,12 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
-import { sales, setters } from "@/db/schema";
+import { setters } from "@/db/schema";
 import type { Offer } from "@/lib/business/types";
 import { summarize } from "@/lib/sales/installments";
+import { getSales } from "@/lib/sales/queries";
+import type { SaleRow } from "@/lib/sales/types";
 
 import type { SetterInput } from "./schema";
 import type { SetterCommissions, SetterMonthlyCommission, SetterRow, SetterSaleDetail } from "./types";
@@ -19,10 +22,10 @@ function toRow(row: typeof setters.$inferSelect): SetterRow {
   };
 }
 
-export async function getSetters(userId: string): Promise<SetterRow[]> {
+export const getSetters = cache(async (userId: string): Promise<SetterRow[]> => {
   const rows = await db.select().from(setters).where(eq(setters.userId, userId)).orderBy(setters.name);
   return rows.map(toRow);
-}
+});
 
 // For the /acquisition/setters/[setterId] detail page — null both when the
 // id doesn't exist and when it belongs to another account (same
@@ -55,7 +58,7 @@ export async function updateSetter(
 // defaultCommissionPct is passed in rather than re-queried: every caller
 // already has the SetterRow in hand (getSetter/getSetters), so re-fetching
 // it here was a redundant round-trip on top of the sales query below.
-function buildCommissions(setterSales: (typeof sales.$inferSelect)[], defaultCommissionPct: number, offers: Offer[]): SetterCommissions {
+function buildCommissions(setterSales: SaleRow[], defaultCommissionPct: number, offers: Offer[]): SetterCommissions {
   let commissionPaidEur = 0;
   let commissionUpcomingEur = 0;
   let validatedRevenueEur = 0;
@@ -117,10 +120,7 @@ export async function computeSetterCommissions(
   defaultCommissionPct: number,
   offers: Offer[]
 ): Promise<SetterCommissions> {
-  const setterSales = await db
-    .select()
-    .from(sales)
-    .where(and(eq(sales.userId, userId), eq(sales.setterId, setterId), eq(sales.isOrphan, false)));
+  const setterSales = (await getSales(userId)).filter((sale) => sale.setterId === setterId && !sale.isOrphan);
   return buildCommissions(setterSales, defaultCommissionPct, offers);
 }
 
@@ -131,13 +131,10 @@ export async function computeSetterCommissions(
 export async function computeSettersCommissions(userId: string, settersList: SetterRow[], offers: Offer[]): Promise<SetterCommissions[]> {
   if (settersList.length === 0) return [];
 
-  const setterIds = settersList.map((setter) => setter.id);
-  const allSales = await db
-    .select()
-    .from(sales)
-    .where(and(eq(sales.userId, userId), inArray(sales.setterId, setterIds), eq(sales.isOrphan, false)));
+  const setterIds = new Set(settersList.map((setter) => setter.id));
+  const allSales = (await getSales(userId)).filter((sale) => sale.setterId !== null && setterIds.has(sale.setterId) && !sale.isOrphan);
 
-  const salesBySetterId = new Map<string, (typeof sales.$inferSelect)[]>();
+  const salesBySetterId = new Map<string, SaleRow[]>();
   for (const sale of allSales) {
     if (!sale.setterId) continue;
     const bucket = salesBySetterId.get(sale.setterId) ?? [];

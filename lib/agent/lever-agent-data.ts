@@ -11,6 +11,7 @@ import {
 import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
 import type { DiagnosticPoint } from "@/lib/diagnostic/cascade";
 import { getContentPosts } from "@/lib/content-posts/queries";
+import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { getEmailCampaigns } from "@/lib/email-campaigns/queries";
 import { computeEmailCampaignMetrics } from "@/lib/email-campaigns/metrics";
 import { getLeversCatalog } from "@/lib/levers/catalog";
@@ -20,6 +21,7 @@ import type { FunnelTotals } from "@/lib/setting/funnel";
 import { getSales } from "@/lib/sales/queries";
 import { todayUtc } from "@/lib/date-range";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
+import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 
 export type LeverAgentData = {
   metricsBlock: string;
@@ -145,11 +147,13 @@ async function buildUpsellData(ctx: LeverAgentDataContext): Promise<LeverAgentDa
 }
 
 async function buildContentData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
-  const [contentBenchmarks, allPosts, attributions] = await Promise.all([
+  const [contentBenchmarks, rawPosts, attributions, youtubeInsights] = await Promise.all([
     getContentDiagnosticBenchmarks(ctx.sector),
     getContentPosts(ctx.accountId),
     getVideoAttributionTotals(ctx.accountId),
+    getYoutubeVideoInsightsMap(ctx.accountId),
   ]);
+  const allPosts = filterVisibleContentPosts(rawPosts, Array.from(youtubeInsights.values()));
   const totals = aggregateContentTotals(ctx.months, allPosts, attributions);
   const summaries = computeContentMetricSummaries({ totals, benchmarks: contentBenchmarks });
   const summaryLines = summaries

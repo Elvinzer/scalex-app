@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { emailCampaigns } from "@/db/schema";
@@ -22,7 +23,7 @@ function toRow(row: typeof emailCampaigns.$inferSelect): EmailCampaignRow {
   };
 }
 
-export async function getEmailCampaigns(userId: string): Promise<EmailCampaignRow[]> {
+export const getEmailCampaigns = cache(async (userId: string): Promise<EmailCampaignRow[]> => {
   const rows = await db
     .select()
     .from(emailCampaigns)
@@ -30,7 +31,7 @@ export async function getEmailCampaigns(userId: string): Promise<EmailCampaignRo
     .orderBy(desc(emailCampaigns.sentAt));
 
   return rows.map(toRow);
-}
+});
 
 export async function createEmailCampaign(userId: string, data: EmailCampaignInput): Promise<void> {
   await db.insert(emailCampaigns).values({ userId, ...data });

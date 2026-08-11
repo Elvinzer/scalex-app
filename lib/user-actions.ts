@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { SECTOR_KEYS } from "@/lib/benchmarks";
 import { requireUserId } from "@/lib/current-user";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 const sectorSchema = z.enum(SECTOR_KEYS).nullable();
 
@@ -32,5 +33,6 @@ export async function updateSector(sector: string | null): Promise<{ error: stri
   revalidatePath("/acquisition/pipeline");
   revalidatePath("/acquisition/pipeline/funnel");
   revalidatePath("/ventes/appels/funnel");
+  revalidateBusinessData();
   return { error: null };
 }

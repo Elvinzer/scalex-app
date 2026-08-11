@@ -14,7 +14,9 @@ import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getCurrentUser } from "@/lib/current-user";
 import { getSalesCalls } from "@/lib/iclosed/calls";
-import { isInPeriod, resolvePeriod } from "@/lib/period";
+import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
+import { summarize } from "@/lib/sales/installments";
+import { getSales } from "@/lib/sales/queries";
 import { getSetters } from "@/lib/setters/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -53,7 +55,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
   const calendlyConnected = Boolean(user?.calendlyConnected);
   const anyConnected = iclosedConnected || calendlyConnected;
 
-  const [[iclosedConnection], [calendlyConnection], subscriptionActive, calls, setters] = await Promise.all([
+  const [[iclosedConnection], [calendlyConnection], subscriptionActive, calls, setters, sales] = await Promise.all([
     iclosedConnected
       ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -63,18 +65,23 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
     hasActiveSubscription(accountId),
     getSalesCalls(accountId),
     getSetters(accountId),
+    getSales(accountId),
   ]);
 
   // Funnel for the selected period, computed in code (never pre-aggregated).
   const periodCalls = calls.filter((c) => isInPeriod(period, new Date(c.scheduledAt)));
-  const reserved = periodCalls.filter((c) => c.attendance !== "cancelled").length;
-  const shown = periodCalls.filter((c) => c.attendance === "showed").length;
-  const noShow = periodCalls.filter((c) => c.attendance === "no_show").length;
-  const closed = periodCalls.filter((c) => c.outcome === "closed").length;
-  const notClosed = periodCalls.filter((c) => c.outcome === "not_closed").length;
-  const cashCollected = periodCalls
-    .filter((c) => c.outcome === "closed")
-    .reduce((sum, c) => sum + (c.collected ?? 0), 0);
+  const activePeriodCalls = periodCalls.filter((c) => c.attendance !== "cancelled");
+  const periodSales = sales.filter((sale) => !sale.isOrphan && isInPeriod(period, dateFromDayString(sale.saleDate)));
+  const reserved = activePeriodCalls.length;
+  const shown = activePeriodCalls.filter((c) => c.attendance === "showed").length;
+  const noShow = activePeriodCalls.filter((c) => c.attendance === "no_show").length;
+  const closed = periodSales.length > 0 ? periodSales.length : activePeriodCalls.filter((c) => c.outcome === "closed").length;
+  const notClosed = Math.max(shown - closed, 0);
+  const cashCollected = periodSales.length > 0
+    ? periodSales.reduce((sum, sale) => sum + summarize(sale.totalPrice, sale.installments).paidTotal, 0)
+    : activePeriodCalls
+      .filter((c) => c.outcome === "closed")
+      .reduce((sum, c) => sum + (c.collected ?? 0), 0);
 
   // Awaiting-decision calls are the live relance to-do — surfaced across ALL
   // periods (a due date is forward-looking), not just the selected one.

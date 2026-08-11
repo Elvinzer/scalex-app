@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { sales, videoAttributions } from "@/db/schema";
@@ -51,7 +52,7 @@ export async function getSaleAttribution(userId: string, saleId: string): Promis
 // Per-video revenue, split by how it was attributed. Joins to `sales` for the
 // real amount rather than multiplying by an average basket — the actual sale
 // price is known, so estimating it would be gratuitous.
-export async function getVideoAttributionTotals(userId: string): Promise<Map<string, VideoAttributionTotals>> {
+export const getVideoAttributionTotals = cache(async (userId: string): Promise<Map<string, VideoAttributionTotals>> => {
   const rows = await db
     .select({
       videoId: videoAttributions.videoId,
@@ -83,4 +84,4 @@ export async function getVideoAttributionTotals(userId: string): Promise<Map<str
     totals.set(row.videoId, current);
   }
   return totals;
-}
+});

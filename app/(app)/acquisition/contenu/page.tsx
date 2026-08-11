@@ -7,10 +7,12 @@ import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import type { ChatContext } from "@/lib/chat-context";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import type { ContentPostRow } from "@/lib/content-posts/types";
+import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { getContentRecommendations } from "@/lib/youtube/recommendations";
@@ -56,6 +58,7 @@ export default async function ContenuPage({
     instagramInsights,
     [youtubeConnection],
     youtubeInsights,
+    videoAttributionTotals,
     youtubeRecommendations,
     subscriptionActive,
   ] = await Promise.all([
@@ -68,6 +71,7 @@ export default async function ContenuPage({
       ? db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
     getYoutubeVideoInsightsMap(accountId),
+    getVideoAttributionTotals(accountId),
     getContentRecommendations(accountId),
     hasActiveSubscription(accountId),
   ]);
@@ -77,12 +81,7 @@ export default async function ContenuPage({
   // views the public channel never earned. content_posts has no privacy
   // column of its own, so the public set is resolved through the insights
   // map (externalId == videoId for source="youtube" rows).
-  const publicVideoIds = new Set(
-    Array.from(youtubeInsights.values())
-      .filter(isPublicVideo)
-      .map((video) => video.videoId)
-  );
-  const visiblePosts = posts.filter((post) => post.source !== "youtube" || (post.externalId !== null && publicVideoIds.has(post.externalId)));
+  const visiblePosts = filterVisibleContentPosts(posts, Array.from(youtubeInsights.values()));
 
   const instagramPosts = visiblePosts.filter((post) => post.source === "instagram");
   const youtubeVideos = Array.from(youtubeInsights.values()).filter(isPublicVideo);
@@ -90,7 +89,17 @@ export default async function ContenuPage({
   const youtubeCommercialStats = new Map(
     posts
       .filter((post) => post.source === "youtube" && post.externalId)
-      .map((post) => [post.externalId as string, { bookings: post.bookings, dealsClosed: post.dealsClosed }])
+      .map((post) => {
+        const attribution = videoAttributionTotals.get(post.externalId as string);
+        const attributedDeals = attribution ? attribution.declaredSales + attribution.estimatedSales : 0;
+        return [post.externalId as string, {
+          bookings: post.bookings,
+          // The same precedence rule as Diagnostic/content-metrics: a real
+          // sale attribution wins; old/manual post annotations remain the
+          // fallback when no attribution exists.
+          dealsClosed: attributedDeals > 0 ? attributedDeals : post.dealsClosed,
+        }] as const;
+      })
   );
 
   // Always derive this from the current insight rows. The winning-patterns

@@ -27,6 +27,7 @@ const BUSINESS_DATA_PATHS = [
   "/ventes/rdv",
   "/ventes/suivi",
   "/business",
+  "/integrations",
 ] as const;
 
 export function revalidateBusinessData(): void {
@@ -36,4 +37,10 @@ export function revalidateBusinessData(): void {
   // navigation.
   revalidateTag(DIAGNOSTIC_DATA_CACHE_TAG, "max");
   for (const path of BUSINESS_DATA_PATHS) revalidatePath(path);
+}
+
+// Journal mutations affect the action loop shown on Roadmap and can change
+// the improvement context displayed on Dashboard and Diagnostic.
+export function revalidateJournalSurfaces(): void {
+  for (const path of ["/journal", "/roadmap", "/dashboard", "/diagnostic"] as const) revalidatePath(path);
 }
