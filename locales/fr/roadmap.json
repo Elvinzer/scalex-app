@@ -86,11 +86,17 @@
   "journey": {
     "eyebrow": "TA TRAJECTOIRE",
     "title": "Une roadmap, pas une liste de tâches",
-    "subtitle": "Tes leviers passent de l’intention à l’exécution, puis à la preuve.",
+    "subtitle": "Trois repères liés à tes données : le prochain goulot, le canal laissé au repos et un levier encore inexploité.",
     "in_progress": "En cours",
     "upcoming": "À venir",
     "done": "Fait",
-    "leverSource": "Vient de tes données de levier",
+    "contentTitle": "Crée « {title} »",
+    "genericContentTitle": "Crée un nouveau contenu",
+    "emailTitle": "Envoie un email à ta liste",
+    "stale": "Aucune activité sur ce canal depuis {days} jours.",
+    "noActivity": "Aucune activité enregistrée sur ce canal.",
+    "leverSource": "Levier jamais activé · recommandé par le diagnostic.",
+    "monthlyImpact": "+{amount}/mois potentiel",
     "empty": "Rien à afficher dans cet horizon pour l’instant."
   },
   "weekly": {

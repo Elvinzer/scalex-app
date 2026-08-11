@@ -144,8 +144,8 @@ export function buildFixtureData(): JournalActionLoopData {
     },
     roadmapItems: [
       { id: todayAction.id, stage: "in_progress", type: "bottleneck", sourceId: todayAction.sourceId, title: todayAction.title, description: todayAction.sourceInsight, progress: 50, impactAmountEur: 3200, href: todayAction.href },
+      { id: "roadmap:content", stage: "upcoming", type: "content", sourceId: contentAction.sourceId, title: contentAction.title.replace(/^Tourne la vidéo « /, "").replace(/ »$/, ""), description: "", progress: 0, impactAmountEur: null, href: "/acquisition/contenu", contentKind: "content", staleDays: 21 },
       { id: leverAction.id, stage: "upcoming", type: "lever", sourceId: leverAction.sourceId, title: leverAction.title, description: leverAction.sourceInsight, progress: 0, impactAmountEur: 1400, href: leverAction.href },
-      { id: "done-demo", stage: "done", type: "lever", sourceId: "onboarding_structure", title: "Formalise ton onboarding", description: "Délivrabilité · onboarding", progress: 100, impactAmountEur: null, href: "/demarrer/onboarding_structure" },
     ],
     roadmapVisible: true,
     checkInDoneThisWeek: true,

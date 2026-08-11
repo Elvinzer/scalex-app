@@ -21,7 +21,7 @@ import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
 import { scoreCandidates, type LeverCandidateInput } from "@/lib/diagnostic/priority";
 import { toIsoDate, todayUtc } from "@/lib/date-range";
 import { getContentRecommendations } from "@/lib/youtube/recommendations";
-import { computeLeverOpportunities } from "@/lib/levers/opportunities";
+import { computeLeverOpportunities, type LeverOpportunity } from "@/lib/levers/opportunities";
 import { getLeversCatalog } from "@/lib/levers/catalog";
 import { getStarterPlan } from "@/lib/levers/starter-plan";
 import type { MetricKey } from "@/lib/diagnostic/metric-keys";
@@ -111,17 +111,20 @@ export type RoadmapBottleneck = {
 };
 
 export type RoadmapStage = "in_progress" | "upcoming" | "done";
+export type RoadmapContentKind = "email" | "content";
 
 export type RoadmapItem = {
   id: string;
   stage: RoadmapStage;
-  type: "bottleneck" | "lever";
+  type: "bottleneck" | "lever" | "content";
   sourceId: string;
   title: string;
   description: string;
   progress: number;
   impactAmountEur: number | null;
   href: string;
+  contentKind?: RoadmapContentKind;
+  staleDays?: number | null;
 };
 
 export type JournalActionLoopData = {
@@ -351,23 +354,123 @@ function buildDailyActions(actions: JournalActionCandidate[], hasTeamMember: boo
   ];
 }
 
-function buildRoadmapItems(actions: JournalActionCandidate[]): RoadmapItem[] {
-  return sortJournalActions(actions)
-    .filter((action): action is JournalActionCandidate & { type: "bottleneck" | "lever" } =>
-      (action.type === "bottleneck" || action.type === "lever") && action.status !== "dismissed" && action.status !== "snoozed",
-    )
-    .slice(0, 12)
-    .map((action) => ({
-      id: action.id,
-      stage: action.status === "done" ? "done" : action.status === "doing" ? "in_progress" : "upcoming",
-      type: action.type,
-      sourceId: action.sourceId,
-      title: action.title,
-      description: action.sourceInsight,
-      progress: action.status === "done" ? 100 : action.status === "doing" ? 50 : 0,
-      impactAmountEur: action.impact?.unit === "eur_month" ? action.impact.value : null,
-      href: action.href,
-    }));
+type RoadmapStaleActivity = {
+  kind: RoadmapContentKind;
+  title: string | null;
+  staleDays: number | null;
+  sourceId: string;
+  href: string;
+};
+
+function latestIsoDate(values: string[]): string | null {
+  return values.reduce<string | null>((latest, value) => {
+    if (!value) return latest;
+    return latest === null || value > latest ? value : latest;
+  }, null);
+}
+
+function chooseStaleRoadmapActivity(
+  today: string,
+  emailCampaigns: Array<{ id: string; sentAt: string }>,
+  contentPosts: Array<{ publishedAt: string }>,
+  contentRecommendations: Array<{ id: string; title: string; status: string }>,
+): RoadmapStaleActivity {
+  const latestEmail = latestIsoDate(emailCampaigns.map((campaign) => campaign.sentAt));
+  const latestContent = latestIsoDate(contentPosts.map((post) => post.publishedAt));
+  const contentRecommendation = contentRecommendations.find((recommendation) => recommendation.status === "new" || recommendation.status === "building");
+
+  const candidates = [
+    {
+      kind: "email" as const,
+      title: null,
+      staleDays: latestEmail === null ? null : Math.max(1, dateDifference(today, latestEmail)),
+      sourceId: emailCampaigns.find((campaign) => campaign.sentAt === latestEmail)?.id ?? "email-gap",
+      href: "/acquisition/mail",
+      ageScore: latestEmail === null ? Number.MAX_SAFE_INTEGER : dateDifference(today, latestEmail),
+      preference: 0,
+    },
+    {
+      kind: "content" as const,
+      title: contentRecommendation?.title ?? null,
+      staleDays: latestContent === null ? null : Math.max(1, dateDifference(today, latestContent)),
+      sourceId: contentRecommendation?.id ?? "content-gap",
+      href: "/acquisition/contenu",
+      ageScore: latestContent === null ? Number.MAX_SAFE_INTEGER : dateDifference(today, latestContent),
+      preference: contentRecommendation ? 1 : 0,
+    },
+  ];
+
+  candidates.sort((left, right) => right.ageScore - left.ageScore || right.preference - left.preference);
+  return candidates[0];
+}
+
+function progressForAction(action: JournalActionCandidate | undefined): number {
+  if (!action || action.status === "pending" || action.status === "snoozed" || action.status === "dismissed") return 0;
+  return action.status === "done" ? 100 : 50;
+}
+
+function buildFocusedRoadmapItems({
+  actions,
+  bottleneck,
+  staleActivity,
+  absentLevers,
+  starterByLever,
+}: {
+  actions: JournalActionCandidate[];
+  bottleneck: RoadmapBottleneck | null;
+  staleActivity: RoadmapStaleActivity;
+  absentLevers: LeverOpportunity[];
+  starterByLever: Map<string, string | null>;
+}): RoadmapItem[] {
+  const items: RoadmapItem[] = [];
+
+  if (bottleneck) {
+    const action = actions.find((candidate) => candidate.type === "bottleneck" && candidate.sourceId === bottleneck.key);
+    items.push({
+      id: action?.id ?? `diagnostic_metric:${bottleneck.key}`,
+      stage: "in_progress",
+      type: "bottleneck",
+      sourceId: bottleneck.key,
+      title: action?.title ?? "",
+      description: bottleneck.label,
+      progress: progressForAction(action),
+      impactAmountEur: bottleneck.monthlyGain,
+      href: bottleneck.href,
+    });
+  }
+
+  items.push({
+    id: `roadmap:${staleActivity.kind}`,
+    stage: "upcoming",
+    type: "content",
+    sourceId: staleActivity.sourceId,
+    title: staleActivity.title ?? "",
+    description: "",
+    progress: 0,
+    impactAmountEur: null,
+    href: staleActivity.href,
+    contentKind: staleActivity.kind,
+    staleDays: staleActivity.staleDays,
+  });
+
+  const reasonableEffort = absentLevers.find((item) => effort(item.effort) !== "eleve" && item.impactAmountEur !== null);
+  const bestAbsentLever = reasonableEffort ?? absentLevers.find((item) => item.impactAmountEur !== null) ?? absentLevers[0];
+  if (bestAbsentLever) {
+    const action = actions.find((candidate) => candidate.type === "lever" && candidate.sourceId === bestAbsentLever.leverKey);
+    items.push({
+      id: action?.id ?? `diagnostic_lever:${bestAbsentLever.leverKey}`,
+      stage: "upcoming",
+      type: "lever",
+      sourceId: bestAbsentLever.leverKey,
+      title: action?.title ?? starterByLever.get(bestAbsentLever.leverKey) ?? bestAbsentLever.label,
+      description: bestAbsentLever.label,
+      progress: progressForAction(action),
+      impactAmountEur: bestAbsentLever.impactAmountEur,
+      href: action?.href ?? `/demarrer/${encodeURIComponent(bestAbsentLever.leverKey)}`,
+    });
+  }
+
+  return items;
 }
 
 function buildResult(
@@ -642,7 +745,14 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     leadRows.some((lead) => Boolean(lead.setterId || lead.closer?.trim())) ||
     salesTeamRows.length > 0;
   const dailyActions = buildDailyActions(actions, hasTeamMember);
-  const roadmapItems = buildRoadmapItems(actions);
+  const staleActivity = chooseStaleRoadmapActivity(today, rawData.allEmailCampaigns, rawData.allContentPosts, contentRows);
+  const roadmapItems = buildFocusedRoadmapItems({
+    actions,
+    bottleneck,
+    staleActivity,
+    absentLevers: opportunities.toImplement,
+    starterByLever,
+  });
   const weekRange = currentIsoWeekRange();
   const currentYear = now.getUTCFullYear();
   const currentMonth = now.getUTCMonth() + 1;

@@ -86,11 +86,17 @@
   "journey": {
     "eyebrow": "YOUR JOURNEY",
     "title": "A roadmap, not a task list",
-    "subtitle": "Your levers move from intent to execution, then to proof.",
+    "subtitle": "Three data-backed markers: the next bottleneck, the channel left quiet, and one untapped lever.",
     "in_progress": "In progress",
     "upcoming": "Upcoming",
     "done": "Done",
-    "leverSource": "From your lever data",
+    "contentTitle": "Create “{title}”",
+    "genericContentTitle": "Create a new piece of content",
+    "emailTitle": "Send an email to your list",
+    "stale": "No activity on this channel for {days} days.",
+    "noActivity": "No activity recorded on this channel.",
+    "leverSource": "Lever never activated · recommended by Diagnostic.",
+    "monthlyImpact": "+{amount}/month potential",
     "empty": "Nothing to show in this horizon yet."
   },
   "weekly": {

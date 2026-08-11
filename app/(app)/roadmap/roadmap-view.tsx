@@ -143,6 +143,10 @@ function itemTitle(
       label: translateDiagnostic(`metrics.${item.sourceId}`),
     });
   }
+  if (item.type === "content") {
+    if (item.contentKind === "email") return translate("journey.emailTitle");
+    return item.title ? translate("journey.contentTitle", { title: item.title }) : translate("journey.genericContentTitle");
+  }
   return item.title;
 }
 
@@ -153,6 +157,9 @@ function itemDescription(
 ): string {
   if (item.type === "bottleneck") {
     return translate("origins.bottleneck", { label: translateDiagnostic(`metrics.${item.sourceId}`) });
+  }
+  if (item.type === "content") {
+    return item.staleDays === null ? translate("journey.noActivity") : translate("journey.stale", { days: item.staleDays ?? 0 });
   }
   return translate("journey.leverSource");
 }
@@ -209,7 +216,7 @@ function DailyActionRow({
   const isOverdue = Boolean(action?.overdue);
 
   return (
-    <article className={cn("flex flex-col gap-3 px-4 py-4 sm:px-5", completed && "bg-surface-sunken/60")}>
+    <article className={cn("flex min-w-0 flex-col gap-3 p-3 sm:p-4", completed && "bg-surface-sunken/60")}>
       <div className="flex items-start gap-3">
         <button
           type="button"
@@ -244,20 +251,20 @@ function DailyActionRow({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 pl-14">
+      <div className="flex flex-wrap gap-1.5 pl-14">
         {action ? (
           <>
-            <Button type="button" size="sm" variant="outline" className="min-h-11" disabled={pending || completed} onClick={() => onStart(action)}>
+            <Button type="button" size="sm" variant="outline" className="min-h-10 px-2.5 text-xs" disabled={pending || completed} onClick={() => onStart(action)}>
               {pending ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles className="size-3.5 text-accent-2" aria-hidden="true" />}
               {translate("actions.withFalco")}
             </Button>
-            <Button type="button" size="sm" variant="secondary" className="min-h-11" disabled={pending || completed} onClick={() => onComplete(item)}>
+            <Button type="button" size="sm" variant="secondary" className="min-h-10 px-2.5 text-xs" disabled={pending || completed} onClick={() => onComplete(item)}>
               {pending ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
               {completed ? translate("actions.completed") : translate("actions.done")}
             </Button>
           </>
         ) : (
-          <Button type="button" size="sm" variant="outline" className="min-h-11" asChild>
+          <Button type="button" size="sm" variant="outline" className="min-h-10 px-2.5 text-xs" asChild>
             <Link href="/diagnostic">
               {translate("fallback.openDiagnostic")}
               <ArrowRight className="size-3.5" aria-hidden="true" />
@@ -348,12 +355,15 @@ function RoadmapJourney({
   items,
   translate,
   translateDiagnostic,
+  locale,
 }: {
   items: RoadmapItem[];
   translate: (key: string, values?: Record<string, string | number>) => string;
   translateDiagnostic: (key: string) => string;
+  locale: string;
 }) {
-  const stages: RoadmapStage[] = ["in_progress", "upcoming", "done"];
+  const stages: RoadmapStage[] = ["upcoming", "in_progress", "done"];
+  const visibleStages = stages.filter((stage) => items.some((item) => item.stage === stage));
 
   return (
     <section aria-labelledby="roadmap-journey-title">
@@ -366,8 +376,8 @@ function RoadmapJourney({
         <ListChecks className="size-5 text-accent-2" aria-hidden="true" />
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        {stages.map((stage) => {
+      <div className={cn("mt-4 grid gap-3", visibleStages.length === 1 ? "md:grid-cols-1" : visibleStages.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3")}>
+        {visibleStages.map((stage) => {
           const Icon = STAGE_ICONS[stage];
           const stageItems = items.filter((item) => item.stage === stage);
           return (
@@ -391,6 +401,11 @@ function RoadmapJourney({
                         <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
                       </div>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">{itemDescription(item, translate, translateDiagnostic)}</p>
+                      {item.impactAmountEur !== null && (
+                        <p className="mt-2 text-xs font-bold tabular-nums text-accent-text">
+                          {translate("journey.monthlyImpact", { amount: formatEur(item.impactAmountEur, locale === "en" ? "en-US" : "fr-FR") })}
+                        </p>
+                      )}
                       <div className="mt-3 flex items-center gap-2">
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
                           <div className={cn("h-full rounded-full transition-[width] duration-300", stage === "done" ? "bg-state-healthy" : "bg-accent-2")} style={{ width: `${item.progress}%` }} />
@@ -571,7 +586,7 @@ export function RoadmapView({ data, streak, weeklyReports, fixtureMode = false }
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">{translate("eyebrow")}</p>
+            <p className="text-xs font-bold tracking-[0.14em] text-accent-text uppercase">{translate("eyebrow")}</p>
             <h1 className="mt-1 text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{translate("title")}</h1>
             <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground">{translate("subtitle")}</p>
           </div>
@@ -606,7 +621,7 @@ export function RoadmapView({ data, streak, weeklyReports, fixtureMode = false }
           <ListChecks className="size-5 text-accent-2" aria-hidden="true" />
         </div>
 
-        <div className="sticker-card mt-4 divide-y divide-border overflow-hidden">
+        <div className="sticker-card mt-4 grid overflow-hidden divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
           {data.dailyActions.map((item) => (
             <DailyActionRow
               key={item.category}
@@ -639,7 +654,7 @@ export function RoadmapView({ data, streak, weeklyReports, fixtureMode = false }
         locale={locale}
       />
 
-      {data.roadmapVisible && <RoadmapJourney items={data.roadmapItems} translate={translate} translateDiagnostic={translateDiagnostic} />}
+      {data.roadmapVisible && <RoadmapJourney items={data.roadmapItems} translate={translate} translateDiagnostic={translateDiagnostic} locale={locale} />}
 
       <WeeklySummary reports={weeklyReports} actionsDone={data.momentum.actionsDoneThisWeek} checkInDone={data.checkInDoneThisWeek} translate={translate} locale={locale} />
 
