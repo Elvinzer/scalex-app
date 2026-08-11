@@ -67,7 +67,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
       accessTokenEncrypted: encrypt(tokens.accessToken),
       refreshTokenEncrypted: tokens.refreshToken ? encrypt(tokens.refreshToken) : existing?.refreshTokenEncrypted ?? null,
       tokenExpiresAt: new Date(Date.now() + tokens.expiresInSeconds * 1000),
-      selectedCalendarIds: existing?.selectedCalendarIds?.length ? existing.selectedCalendarIds : ["primary"],
+      selectedCalendarIds: provider === "google"
+        ? ["primary"]
+        : existing?.selectedCalendarIds?.length
+          ? existing.selectedCalendarIds
+          : ["primary"],
       status: "connected" as const,
       lastError: null,
       updatedAt: new Date(),

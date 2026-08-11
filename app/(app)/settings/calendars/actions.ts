@@ -52,27 +52,30 @@ export async function saveNativeBookingCalendarSettingsAction(input: unknown): P
     return { error: "calendar_target_unavailable" };
   }
 
-  const optionsByConnection = new Map<string, Awaited<ReturnType<typeof listCalendarsForConnection>>>();
+  const primaryCalendarsByConnection = new Map<string, NonNullable<ReturnType<typeof getPrimaryCalendarOption>>>();
   for (const connection of connections) {
     if (connection.status !== "connected") continue;
     try {
-      optionsByConnection.set(connection.id, await listCalendarsForConnection(connection));
+      const primaryCalendar = getPrimaryCalendarOption(await listCalendarsForConnection(connection));
+      if (primaryCalendar) primaryCalendarsByConnection.set(connection.id, primaryCalendar);
     } catch {
       return { error: "calendar_connection_unavailable" };
     }
   }
 
   const invitationCalendar = invitationConnection
-    ? getPrimaryCalendarOption(optionsByConnection.get(invitationConnection.id) ?? [])
+    ? primaryCalendarsByConnection.get(invitationConnection.id) ?? null
     : null;
   if (invitationConnection && !invitationCalendar?.canWrite) return { error: "calendar_target_not_writable" };
 
+  const conflictCalendarSelections: Array<{ connectionId: string; calendarId: string }> = [];
   for (const connectionId of conflictConnectionIds) {
     const connection = connectionById.get(connectionId);
-    const calendar = getPrimaryCalendarOption(optionsByConnection.get(connectionId) ?? []);
+    const calendar = primaryCalendarsByConnection.get(connectionId) ?? null;
     if (!connection || connection.provider !== "google" || connection.status !== "connected" || !calendar) {
       return { error: "calendar_conflict_invalid" };
     }
+    conflictCalendarSelections.push({ connectionId, calendarId: calendar.id });
   }
 
   try {
@@ -98,13 +101,13 @@ export async function saveNativeBookingCalendarSettingsAction(input: unknown): P
       await tx
         .delete(nativeBookingCalendarConflicts)
         .where(and(eq(nativeBookingCalendarConflicts.userId, access.accountId), eq(nativeBookingCalendarConflicts.closerUserId, userId)));
-      if (conflictConnectionIds.length > 0) {
+      if (conflictCalendarSelections.length > 0) {
         await tx.insert(nativeBookingCalendarConflicts).values(
-          conflictConnectionIds.map((connectionId) => ({
-          userId: access.accountId,
-          closerUserId: userId,
-          connectionId,
-            calendarId: getPrimaryCalendarOption(optionsByConnection.get(connectionId) ?? [])?.id ?? "primary",
+          conflictCalendarSelections.map(({ connectionId, calendarId }) => ({
+            userId: access.accountId,
+            closerUserId: userId,
+            connectionId,
+            calendarId,
           }))
         );
       }
