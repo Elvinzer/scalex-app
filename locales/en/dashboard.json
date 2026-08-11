@@ -118,6 +118,8 @@
     "unavailable": "To measure",
     "retentionUnavailable": "Missing source: VSL retention events",
     "volumeInsufficient": "Volume is still too low for a reliable estimate",
+    "sourceIncomplete": "An upstream source is missing or from another period, so no gain is estimated",
+    "gainCapped": "Conservative estimate: capped at the value of measured sales",
     "gainUnavailable": "Add the offer price and the downstream stage data to quantify the gain",
     "gainUnavailableShort": "a gain that cannot be quantified yet",
     "perMonth": "/month",
@@ -133,9 +135,9 @@
     "summaryEyebrow": "FUNNEL DETAILS",
     "summaryTitle": "Your total potential",
     "summaryDescription": "Each improvement is carried through to final sales using the funnel’s observed downstream rates.",
-    "summaryTotal": "Potential if the whole funnel reaches its benchmarks",
-    "summaryTotalLabel": "Sequential projection",
-    "summaryNote": "Each stage is simulated separately with the rest of the funnel unchanged. The total applies benchmarks successively and never counts the same sale twice.",
+    "summaryTotal": "Conservative potential based on measured sales",
+    "summaryTotalLabel": "Measured ceiling",
+    "summaryNote": "The projection follows observed rates and never exceeds the value of measured sales when direct attribution is missing.",
     "viewSummary": "View details"
   },
   "metrics": {

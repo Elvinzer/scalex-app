@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { currentMonthWindow, monthWindowFor } from "@/lib/diagnostic/completed-months";
 
-import { resolveContentReportingMonth } from "./reporting-period";
+import { isSameReportingMonth, resolveContentReportingMonth } from "./reporting-period";
 
 describe("resolveContentReportingMonth", () => {
   it("uses the current month when imported content exists in it", () => {
@@ -24,5 +24,10 @@ describe("resolveContentReportingMonth", () => {
     const current = currentMonthWindow();
 
     expect(resolveContentReportingMonth([], current)).toEqual(current);
+  });
+
+  it("does not treat a fallback content month as the current reporting month", () => {
+    expect(isSameReportingMonth(monthWindowFor(2026, 6), monthWindowFor(2026, 8))).toBe(false);
+    expect(isSameReportingMonth(monthWindowFor(2026, 8), monthWindowFor(2026, 8))).toBe(true);
   });
 });

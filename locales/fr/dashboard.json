@@ -118,6 +118,8 @@
     "unavailable": "À mesurer",
     "retentionUnavailable": "Source manquante : événements de rétention VSL",
     "volumeInsufficient": "Volume encore trop faible pour une estimation fiable",
+    "sourceIncomplete": "Donnée amont manquante ou période non alignée : aucun gain n’est chiffré",
+    "gainCapped": "Estimation prudente : plafonnée à la valeur des ventes déjà mesurées",
     "gainUnavailable": "Ajoute le prix de l’offre et les données des étapes suivantes pour chiffrer le gain",
     "gainUnavailableShort": "un gain encore non chiffrable",
     "perMonth": "/mois",
@@ -133,9 +135,9 @@
     "summaryEyebrow": "DÉTAIL DU FUNNEL",
     "summaryTitle": "Ton potentiel total",
     "summaryDescription": "Chaque amélioration est propagée jusqu’aux ventes finales avec les taux réels des étapes suivantes.",
-    "summaryTotal": "Potentiel si tout le funnel atteint ses benchmarks",
-    "summaryTotalLabel": "Projection séquentielle",
-    "summaryNote": "Chaque étape est simulée séparément avec le reste du funnel inchangé. Le total applique les benchmarks successivement et ne double-compte pas les mêmes ventes.",
+    "summaryTotal": "Potentiel prudent basé sur les ventes mesurées",
+    "summaryTotalLabel": "Plafond mesuré",
+    "summaryNote": "La projection suit les taux observés et ne dépasse pas la valeur des ventes mesurées lorsqu’une attribution directe manque.",
     "viewSummary": "Voir le détail"
   },
   "metrics": {

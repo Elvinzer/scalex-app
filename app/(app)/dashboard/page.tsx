@@ -21,7 +21,7 @@ import { getPipelineDiagnosticBenchmark } from "@/lib/diagnostic/pipeline-metric
 import { computeContentRetentionSummary } from "@/lib/diagnostic/content-retention";
 import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
-import { resolveContentReportingMonth } from "@/lib/content-posts/reporting-period";
+import { isSameReportingMonth, resolveContentReportingMonth } from "@/lib/content-posts/reporting-period";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { buildBottleneckFunnel } from "@/lib/dashboard/bottleneck";
 import type { BottleneckFunnelVariant } from "@/lib/dashboard/bottleneck";
@@ -163,9 +163,9 @@ async function renderDashboardPage({
   // The visual handoff deliberately says “ce mois” and “/mois”. Keep the
   // existing diagnostic hero on its stable three-completed-month window, and
   // keep the operational/revenue cards on the current month. Content APIs
-  // expose per-post totals rather than a monthly series, so the content
-  // projection below falls back to the latest imported month when the current
-  // month has no visible posts (notably just after an Instagram sync).
+  // expose per-post totals rather than a monthly series. A latest imported
+  // month can be shown on the content page, but it is never used as the
+  // funnel denominator when the current month has no visible posts.
   const bottleneckMonth = currentMonthWindow();
   const bottleneckMonths = [bottleneckMonth];
   const {
@@ -195,14 +195,20 @@ async function renderDashboardPage({
   const bottleneckCallSource = allCallSourcesByMonth[monthKey(bottleneckMonth.year, bottleneckMonth.month)];
   const visibleContentPosts = filterVisibleContentPosts(allContentPosts, allYoutubeVideoInsights);
   const bottleneckContentMonth = resolveContentReportingMonth(visibleContentPosts, bottleneckMonth);
-  const bottleneckContentMonths = [bottleneckContentMonth];
+  // A fallback month keeps the content page useful after a sync, but it is
+  // not a valid denominator for an in-progress funnel whose other metrics
+  // were entered this month. Using it here made June's audience multiply
+  // August's VSL clicks/calls/sales and produced fictional six-figure gains.
+  const bottleneckContentIsAligned = isSameReportingMonth(bottleneckContentMonth, bottleneckMonth);
+  const bottleneckContentMetricMonth = bottleneckContentIsAligned ? bottleneckContentMonth : bottleneckMonth;
+  const bottleneckContentMonths = [bottleneckContentMetricMonth];
   const bottleneckContentTotals = aggregateContentTotals(bottleneckContentMonths, visibleContentPosts, allVideoAttributionTotals);
   const bottleneckRetention = computeContentRetentionSummary({
     months: bottleneckContentMonths,
     youtubeVideos: allYoutubeVideoInsights,
     instagramPosts: allInstagramPostInsights,
   });
-  const bottleneckPostsInPeriod = visibleContentPosts.filter((post) => inRange(post.publishedAt, bottleneckContentMonth.range)).length;
+  const bottleneckPostsInPeriod = visibleContentPosts.filter((post) => inRange(post.publishedAt, bottleneckContentMetricMonth.range)).length;
   const hasBottleneckSettingData =
     bottleneckSettingEntries.length > 0 ||
     [
@@ -352,6 +358,7 @@ async function renderDashboardPage({
           hasAnyData={hasAnySourceData}
           months={months}
           points={points}
+          bottleneckGain={bottleneckFunnel.totalPotential}
           locale={locale}
           bottleneckLabel={bottleneckLabel}
         />

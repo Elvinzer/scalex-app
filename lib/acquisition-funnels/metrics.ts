@@ -12,7 +12,7 @@ export type AdaptiveFunnelStage = {
   metricKey: string | null;
   benchmarkKey: string | null;
   isReliable: boolean;
-  noteKey: "volumeInsufficient" | "gainUnavailable" | null;
+  noteKey: "volumeInsufficient" | "gainUnavailable" | "sourceIncomplete" | "gainCapped" | null;
   sourceHref: string;
   source: "content" | "pipeline" | "calls" | "sales" | "manual";
 };
@@ -136,6 +136,13 @@ export function buildAdaptiveFunnel({ entry, stageVolumes, benchmarks, dealPrice
 
   const effectiveDealPrice = typeof dealPrice === "number" && Number.isFinite(dealPrice) && dealPrice > 0 ? dealPrice : null;
   const currentFinalVolume = stages.at(-1)?.volume ?? null;
+  // Sales/calls are shared account-level totals unless the source explicitly
+  // attributes them to this journey. Do not turn a large top-of-funnel gap
+  // into hundreds of unobserved sales: the conservative euro ceiling is the
+  // value of the final sales that are actually measured in this funnel.
+  const measuredBaselineValue = effectiveDealPrice !== null && currentFinalVolume !== null
+    ? Math.round(currentFinalVolume * effectiveDealPrice)
+    : null;
   const projectedCurrentFinal = projectFinalVolume(stages, null, false);
   const baselineFinalVolume = projectedCurrentFinal ?? currentFinalVolume;
   const completeFunnel = stages.every((stage, index) => stage.volume !== null && (index === 0 || stage.currentRate !== null));
@@ -146,23 +153,32 @@ export function buildAdaptiveFunnel({ entry, stageVolumes, benchmarks, dealPrice
   // that count the same future sale several times.
   const estimatedStages = stages.map((stage, index) => {
     let monthlyGain: number | null = null;
+    let gainWasCapped = false;
 
     if (stage.benchmarkRate !== null && stage.currentRate !== null && stage.isReliable) {
       if (stage.currentRate >= stage.benchmarkRate) {
         monthlyGain = 0;
       } else if (effectiveDealPrice !== null && baselineFinalVolume !== null) {
         const projectedFinal = projectFinalVolume(stages, index, false);
-        monthlyGain = projectedFinal === null
-          ? null
-          : Math.round(Math.max(0, projectedFinal - baselineFinalVolume) * effectiveDealPrice);
+        if (projectedFinal !== null) {
+          const theoreticalGain = Math.round(Math.max(0, projectedFinal - baselineFinalVolume) * effectiveDealPrice);
+          monthlyGain = measuredBaselineValue === null
+            ? theoreticalGain
+            : Math.min(theoreticalGain, measuredBaselineValue);
+          gainWasCapped = monthlyGain < theoreticalGain;
+        }
       }
     }
 
     return {
       ...stage,
       monthlyGain,
-      noteKey: stage.currentRate !== null && !stage.isReliable
+      noteKey: gainWasCapped
+        ? "gainCapped"
+        : stage.currentRate !== null && !stage.isReliable
         ? "volumeInsufficient"
+        : monthlyGain === null && stage.benchmarkRate !== null && stages.slice(0, index).some((upstreamStage) => upstreamStage.volume === null)
+          ? "sourceIncomplete"
         : monthlyGain === null && stage.benchmarkRate !== null
           ? "gainUnavailable"
           : null,
@@ -173,9 +189,12 @@ export function buildAdaptiveFunnel({ entry, stageVolumes, benchmarks, dealPrice
   // benchmark once, then the resulting final sales are compared with the
   // current final sales. It is deliberately not the sum of stage gains.
   const benchmarkFinalVolume = completeFunnel ? projectFinalVolume(estimatedStages, null, true) : null;
-  const totalPotential = effectiveDealPrice !== null && currentFinalVolume !== null && benchmarkFinalVolume !== null
+  const theoreticalTotalPotential = effectiveDealPrice !== null && currentFinalVolume !== null && benchmarkFinalVolume !== null
     ? Math.round(Math.max(0, benchmarkFinalVolume - currentFinalVolume) * effectiveDealPrice)
     : null;
+  const totalPotential = theoreticalTotalPotential === null || measuredBaselineValue === null
+    ? theoreticalTotalPotential
+    : Math.min(theoreticalTotalPotential, measuredBaselineValue);
 
   const topStage = estimatedStages.reduce<AdaptiveFunnelStage | null>((top, stage) => {
     if (stage.monthlyGain === null || stage.monthlyGain <= 0) return top;

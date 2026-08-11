@@ -10,7 +10,7 @@ import { AcquisitionFunnelMini } from "@/components/acquisition-funnel-mini";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { formatEur } from "@/lib/currency";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
-import { resolveContentReportingMonth } from "@/lib/content-posts/reporting-period";
+import { isSameReportingMonth, resolveContentReportingMonth } from "@/lib/content-posts/reporting-period";
 import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { currentMonthWindow, lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
@@ -183,6 +183,11 @@ export default async function AcquisitionFunnelPage({ params }: FunnelPageProps)
   const visibleContentPosts = filterVisibleContentPosts(rawData.allContentPosts, rawData.allYoutubeVideoInsights);
   const currentMonth = currentMonthWindow();
   const importedContentMonth = resolveContentReportingMonth(visibleContentPosts, currentMonth);
+  // Keep the fallback for content-only reporting, but never let a stale
+  // imported audience become the denominator for current-month funnel data.
+  const currentContentMonth = isSameReportingMonth(importedContentMonth, currentMonth)
+    ? importedContentMonth
+    : currentMonth;
 
   function buildSnapshot(month: MonthWindow, contentMonth: MonthWindow): { month: MonthWindow; variant: AdaptiveFunnelVariant } {
     const monthlyRow = rawData.allMonthlyRows.find((row) => row.year === month.year && row.month === month.month) ?? null;
@@ -237,7 +242,7 @@ export default async function AcquisitionFunnelPage({ params }: FunnelPageProps)
     };
   }
 
-  const currentSnapshot = buildSnapshot(currentMonth, importedContentMonth);
+  const currentSnapshot = buildSnapshot(currentMonth, currentContentMonth);
   const previousMonth = lastCompletedMonths(1)[0];
   const previousSnapshot = buildSnapshot(previousMonth, previousMonth);
   const historySnapshots = lastCompletedMonths(8).map((month) => buildSnapshot(month, month));

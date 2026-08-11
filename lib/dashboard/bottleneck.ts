@@ -38,7 +38,7 @@ export type BottleneckStage = {
   monthlyGain: number | null;
   metricKey: string | null;
   isReliable: boolean;
-  noteKey: "retentionUnavailable" | "volumeInsufficient" | "gainUnavailable" | null;
+  noteKey: "retentionUnavailable" | "volumeInsufficient" | "gainUnavailable" | "sourceIncomplete" | "gainCapped" | null;
   source?: "content" | "pipeline" | "calls" | "sales" | "manual";
   label?: string;
   unit?: string;

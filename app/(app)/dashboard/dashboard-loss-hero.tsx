@@ -22,6 +22,7 @@ export async function DashboardLossHero({
   hasAnyData,
   months,
   points,
+  bottleneckGain,
   locale,
   bottleneckLabel,
 }: {
@@ -33,6 +34,7 @@ export async function DashboardLossHero({
   hasAnyData: boolean;
   months: MonthWindow[];
   points: DiagnosticPoint[];
+  bottleneckGain: number | null;
   locale: string;
   bottleneckLabel: string;
 }) {
@@ -52,10 +54,14 @@ export async function DashboardLossHero({
   const totalMonthlyLoss = !hasAnyData
     ? null
     : sumChiffrableMonthlyGains([
-        ...points.map((point) => point.monthlyGain),
-        ...topActiveLevers.map((lever) => lever.impactAmountEur),
-        ...toImplement.map((lever) => lever.impactAmountEur),
-      ]);
+      ...points.map((point) => point.monthlyGain),
+      ...topActiveLevers.map((lever) => lever.impactAmountEur),
+      ...toImplement.map((lever) => lever.impactAmountEur),
+      // The adaptive funnel is calculated separately from the legacy
+      // diagnostic points. Add it only when the funnel has a complete,
+      // measured monetary projection; null stays invisible.
+      bottleneckGain,
+    ]);
   const heroFalco = !hasAnyData
     ? { pose: "sleeping" as const, line: t("completeNumbers") }
     : points.length > 0
