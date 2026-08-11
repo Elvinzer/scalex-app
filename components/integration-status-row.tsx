@@ -28,7 +28,7 @@ export function IntegrationStatusRow({
   showStatusLabel?: boolean;
   className?: string;
 }) {
-  const t = useTranslations("common.shared");
+  const t = useTranslations("common");
   const copy = statusCopy[status];
   const Icon = copy.Icon;
 

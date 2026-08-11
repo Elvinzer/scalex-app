@@ -1157,8 +1157,6 @@
     "closingRate": "Taux de closing",
     "cashCollected": "Cash encaissé",
     "periodDetail": "Sur la période",
-    "shownCount": "{count} présent{plural}",
-    "closedCount": "{count} vente{plural} conclue{plural}",
     "automatePrompt": "Envie d'automatiser la réservation de tes appels ?",
     "chooseToolPrompt": "Choisis ton outil de prise d'appel, ou ajoute tes appels manuellement ci-dessus",
     "noToolConnected": "Aucun outil de prise d'appel n'est connecté",

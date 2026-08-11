@@ -1,6 +1,5 @@
 import { cache } from "react";
 import { desc, eq } from "drizzle-orm";
-import { unstable_cache } from "next/cache";
 
 import { db } from "@/db";
 import { closingKpiEntries, emailCampaigns, leadStageHistory, leads, metaAdMetricsDaily, nativeBookingLeads, settingKpiEntries } from "@/db/schema";
@@ -12,15 +11,15 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
-import { DIAGNOSTIC_DATA_CACHE_TAG } from "@/lib/diagnostic/cache-tags";
 import { measureAsync } from "@/lib/perf/timing";
 
-// The React `cache()` wrapper deduplicates calls inside one render, while the
-// Next `unstable_cache` wrapper below reuses the account snapshot across
-// navigations. app/(app)/layout.tsx (Scale Score badge, mounted on every
-// page) and the page itself (Dashboard, Diagnostic, Roadmap, Copilote, Ads)
-// can therefore share one fresh source read. Downstream math
-// (aggregatePeriodTotals, computeDiagnosticPoints, computeScaleScore...)
+// The React `cache()` wrapper deduplicates calls inside one render. The
+// snapshot intentionally stays out of Next's persistent Data Cache: it grows
+// with an account's historical content and insight rows, and one cache entry
+// can exceed Next's 2 MB limit. app/(app)/layout.tsx (Scale Score badge,
+// mounted on every page) and the page itself (Dashboard, Diagnostic, Roadmap,
+// Copilote, Ads) still share one source read during the request. Downstream
+// math (aggregatePeriodTotals, computeDiagnosticPoints, computeScaleScore...)
 // stays pure and cheap, so it is intentionally recomputed per projection.
 async function fetchDiagnosticKpiRawData(accountId: string) {
   return measureAsync("db.diagnostic.raw", async () => {
@@ -64,25 +63,16 @@ async function fetchDiagnosticKpiRawData(accountId: string) {
   });
 }
 
-// `unstable_cache` is the correct Next.js cache for Drizzle reads. The cache
-// key is account-scoped, the TTL is deliberately short, and every business
-// mutation invalidates DIAGNOSTIC_DATA_CACHE_TAG. That gives fast repeated
-// navigation without making a saved number wait for a long stale window.
-const getCachedDiagnosticKpiRawData = (accountId: string) =>
-  unstable_cache(
-    async () => {
-      const snapshot = await fetchDiagnosticKpiRawData(accountId);
-
-      // `unstable_cache` persists JSON. Keep the cache payload serializable and
-      // rebuild the Map at the public boundary for the pure aggregation code.
-      return {
-        ...snapshot,
-        allVideoAttributionTotals: Array.from(snapshot.allVideoAttributionTotals.entries()),
-      };
-    },
-    ["diagnostic-kpi-raw", accountId],
-    { revalidate: 30, tags: [DIAGNOSTIC_DATA_CACHE_TAG] },
-  )();
+// Keep the Map serializable inside the request-level memoized value. Unlike
+// `unstable_cache`, React `cache()` does not persist this potentially large
+// snapshot in Next's Data Cache.
+const getCachedDiagnosticKpiRawData = cache(async (accountId: string) => {
+  const snapshot = await fetchDiagnosticKpiRawData(accountId);
+  return {
+    ...snapshot,
+    allVideoAttributionTotals: Array.from(snapshot.allVideoAttributionTotals.entries()),
+  };
+});
 
 type CachedDiagnosticKpiRawData = Awaited<ReturnType<typeof getCachedDiagnosticKpiRawData>>;
 

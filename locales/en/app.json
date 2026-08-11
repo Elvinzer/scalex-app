@@ -1141,8 +1141,6 @@
     "closingRate": "Closing rate",
     "cashCollected": "Cash collected",
     "periodDetail": "For the period",
-    "shownCount": "{count} shown",
-    "closedCount": "{count} closed sale{plural}",
     "automatePrompt": "Want to automate your call bookings?",
     "chooseToolPrompt": "Choose your booking tool, or add calls manually above",
     "noToolConnected": "No booking tool is connected",
