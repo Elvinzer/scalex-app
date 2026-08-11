@@ -1154,7 +1154,6 @@
     },
     "calendarSettings": {
       "title": "Tes calendriers",
-      "providerName": "Google Agenda",
       "subtitle": "Connecte les comptes Google utilisés pour tes appels, puis choisis où envoyer les invitations et quels calendriers bloquent les créneaux.",
       "backToBooking": "Retour aux rendez-vous",
       "connectedCalendars": "Calendriers Google connectés",

@@ -1138,7 +1138,6 @@
     },
     "calendarSettings": {
       "title": "Your calendars",
-      "providerName": "Google Calendar",
       "subtitle": "Connect the Google accounts you use for calls, then choose where invitations go and which calendars block availability.",
       "backToBooking": "Back to appointments",
       "connectedCalendars": "Connected Google calendars",

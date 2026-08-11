@@ -19,6 +19,7 @@ function conflictKey(connectionId: string, calendarId: string) {
 
 export function CalendarSettings({ initial, notice }: { initial: CalendarSettingsView; notice: { tone: "success" | "error"; text: string } | null }) {
   const t = useTranslations("app.booking.calendarSettings");
+  const tBooking = useTranslations("app.booking");
   const [isPending, startTransition] = useTransition();
   const [invitationConnectionId, setInvitationConnectionId] = useState(initial.invitationConnectionId ?? "");
   const [invitationCalendarId, setInvitationCalendarId] = useState(initial.invitationCalendarId ?? "");
@@ -100,7 +101,7 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-bold text-accent">{t("providerName")}</p>
+          <p className="text-sm font-bold text-accent-text">{tBooking("calendarProviders.google")}</p>
           <h1 className="mt-1 text-3xl font-bold">{t("title")}</h1>
           <p className="mt-2 max-w-3xl text-muted-foreground">{t("subtitle")}</p>
         </div>
@@ -139,7 +140,7 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="mt-0.5 rounded-full bg-muted p-2" aria-hidden="true"><CalendarDays className="size-5 text-accent" /></span>
                   <div className="min-w-0">
-                    <p className="truncate font-bold">{t("providerName")}</p>
+                    <p className="truncate font-bold">{tBooking("calendarProviders.google")}</p>
                     <p className="truncate text-sm text-muted-foreground">{connection.email ?? t("googleAccount")}</p>
                     <p className={`mt-1 text-xs font-bold ${connection.status === "connected" ? "text-state-healthy" : "text-state-caution"}`}>
                       {connection.status === "connected" ? t("connected") : connection.status === "revoked" ? t("revoked") : t("reconnectRequired")}
