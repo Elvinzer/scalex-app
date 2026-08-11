@@ -375,6 +375,10 @@ export const iclosedConnections = pgTable("iclosed_connections", {
   // lib/inngest/functions/sync-iclosed-account.ts) — "pending" until done.
   initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
   initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
+  // Last automatic UPCOMING reconciliation attempt. The Inngest worker uses
+  // this as an atomic per-account cooldown so opening the calls page cannot
+  // fan out repeated iClosed API requests.
+  lastUpcomingSyncAttemptAt: timestamp("last_upcoming_sync_attempt_at", { withTimezone: true }),
 }).enableRLS();
 
 // Calendly connection — the other supported call-booking tool. Like iClosed it

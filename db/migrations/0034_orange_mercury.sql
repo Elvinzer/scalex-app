@@ -1,0 +1,1 @@
+ALTER TABLE "iclosed_connections" ADD COLUMN "last_upcoming_sync_attempt_at" timestamp with time zone;

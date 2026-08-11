@@ -27,6 +27,15 @@ export const iclosedAccountConnected = eventType("iclosed/account.connected", {
   schema: staticSchema<IclosedAccountConnected>(),
 });
 
+type IclosedUpcomingSyncRequested = {
+  userId: string;
+  connectionId: string;
+};
+
+export const iclosedUpcomingSyncRequested = eventType("iclosed/upcoming.sync-requested", {
+  schema: staticSchema<IclosedUpcomingSyncRequested>(),
+});
+
 type CalendlyAccountConnected = {
   userId: string;
   connectionId: string;

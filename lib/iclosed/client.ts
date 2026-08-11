@@ -65,13 +65,30 @@ export async function validateIclosedKey(apiKey: string): Promise<KeyCheck> {
   }
 }
 
+type CallEventType = "ALL" | "UPCOMING" | "PAST";
+
 // Backfill: pulls calls (paginated) from GET /v1/eventCalls. Response shape:
 // { data: { eventCalls: [...], count } }. Normalizes each item via readCall.
 export async function listCalls(apiKey: string, maxPages = 10, pageSize = 100): Promise<NormalizedCall[]> {
+  return listCallsByEventType(apiKey, "ALL", maxPages, pageSize);
+}
+
+// Lightweight reconciliation source: UPCOMING excludes the historical call
+// volume and lets the page-open check stay bounded even for a busy account.
+export async function listUpcomingCalls(apiKey: string, maxPages = 10, pageSize = 100): Promise<NormalizedCall[]> {
+  return listCallsByEventType(apiKey, "UPCOMING", maxPages, pageSize);
+}
+
+async function listCallsByEventType(
+  apiKey: string,
+  eventType: CallEventType,
+  maxPages: number,
+  pageSize: number,
+): Promise<NormalizedCall[]> {
   const calls: NormalizedCall[] = [];
   for (let page = 0; page < maxPages; page++) {
     const { status, body } = await request(apiKey, ICLOSED_ENDPOINTS.eventCalls, {
-      query: { eventType: "ALL", limit: String(pageSize), page: String(page) },
+      query: { eventType, limit: String(pageSize), page: String(page) },
     });
     if (status === 400 || status === 403) {
       throw new IclosedNoApiAccessError();

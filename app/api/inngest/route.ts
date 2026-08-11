@@ -10,6 +10,7 @@ import { refreshStreaks } from "@/lib/inngest/functions/refresh-streaks";
 import { snapshotScaleScore } from "@/lib/inngest/functions/snapshot-scale-score";
 import { syncCalendlyAccount } from "@/lib/inngest/functions/sync-calendly-account";
 import { syncIclosedAccount } from "@/lib/inngest/functions/sync-iclosed-account";
+import { syncIclosedUpcoming } from "@/lib/inngest/functions/sync-iclosed-upcoming";
 import { syncNativeBookingCalendar } from "@/lib/inngest/functions/sync-native-booking-calendar";
 import { sendNativeBookingNotification } from "@/lib/inngest/functions/send-native-booking-notification";
 import { sendNativeBookingReminder } from "@/lib/inngest/functions/send-native-booking-reminder";
@@ -39,6 +40,7 @@ export const { GET, POST, PUT } = serve({
   functions: [
     syncStripeAccount,
     syncIclosedAccount,
+    syncIclosedUpcoming,
     syncNativeBookingCalendar,
     sendNativeBookingNotification,
     sendNativeBookingReminder,

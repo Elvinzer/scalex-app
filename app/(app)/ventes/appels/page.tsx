@@ -21,6 +21,7 @@ import { getSetters } from "@/lib/setters/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { CallsTable } from "./calls-table";
+import { CallsFreshnessProbe } from "./calls-freshness-probe";
 import { ManualCallDialog } from "./manual-call-dialog";
 
 function pct(numerator: number, denominator: number): string {
@@ -88,6 +89,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
 
   return (
     <div className="flex flex-col gap-8">
+      <CallsFreshnessProbe enabled={Boolean(iclosedConnection)} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>

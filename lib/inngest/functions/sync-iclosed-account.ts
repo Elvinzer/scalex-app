@@ -13,8 +13,9 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // Runs once when a user connects iClosed: backfills their calls from
 // GET /v1/eventCalls so /ventes/appels has recent history. iClosed has no public
 // webhook-management endpoint, so the owner configures the token-scoped webhook
-// URL shown in the connected integration card. New calls then arrive through
-// that receiver instead of a recurring pull.
+// URL shown in the connected integration card. New calls normally arrive
+// through that receiver. The calls page also requests a small UPCOMING-only
+// reconciliation in a separate worker when it needs a freshness check.
 //
 // Idempotent per CLAUDE.md: the backfill upserts with onConflictDoNothing so a
 // replay never clobbers a call the closer already dispositioned. Any failure

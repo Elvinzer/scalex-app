@@ -10,12 +10,13 @@ import { db } from "@/db";
 import { iclosedConnections, users } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { encrypt } from "@/lib/crypto";
+import { requireUserId } from "@/lib/current-user";
 import { validateIclosedKey } from "@/lib/iclosed/client";
 import { ICLOSED_KEY_PREFIX } from "@/lib/iclosed/protocol";
-import { iclosedAccountConnected, inngest } from "@/lib/inngest/client";
+import { iclosedAccountConnected, iclosedUpcomingSyncRequested, inngest } from "@/lib/inngest/client";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
-import { requireOwner } from "@/lib/team/context";
+import { requireOwner, requirePermission } from "@/lib/team/context";
 
 // Connecting/disconnecting iClosed handles the client's API key (a secret) and
 // registers a webhook on their account — owner-only, never delegable to a role,
@@ -78,6 +79,7 @@ export async function connectIclosed(formData: FormData): Promise<{ error: strin
     webhookId: null,
     webhookSecretEncrypted: null,
     initialSyncStatus: "pending" as const,
+    lastUpcomingSyncAttemptAt: null,
   };
 
   const [connection] = await db
@@ -105,6 +107,41 @@ export async function connectIclosed(formData: FormData): Promise<{ error: strin
   revalidatePath("/ventes/appels");
   revalidateBusinessData();
   return { error: null };
+}
+
+// Called automatically by the calls page. It only enqueues a scoped Inngest
+// event; the worker owns the five-minute database cooldown and the provider
+// request, so a tab refresh never blocks on iClosed or exposes a BYOK secret.
+export async function requestIclosedUpcomingSync(): Promise<{ queued: boolean }> {
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return { queued: false };
+  }
+
+  const access = await requirePermission(userId, "ventes:appels");
+  if (!access) return { queued: false };
+
+  const [connection] = await db
+    .select({ id: iclosedConnections.id })
+    .from(iclosedConnections)
+    .where(eq(iclosedConnections.userId, access.accountId))
+    .limit(1);
+  if (!connection) return { queued: false };
+
+  try {
+    await inngest.send(
+      iclosedUpcomingSyncRequested.create({
+        userId: access.accountId,
+        connectionId: connection.id,
+      }),
+    );
+    return { queued: true };
+  } catch (error) {
+    console.error("inngest.send(iclosedUpcomingSyncRequested) failed", error);
+    return { queued: false };
+  }
 }
 
 export async function disconnectIclosed(): Promise<{ error: string | null }> {
