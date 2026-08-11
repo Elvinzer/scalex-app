@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, TrendingUp, Zap } from "lucide-react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
@@ -73,6 +74,23 @@ function stageLabel(t: ReturnType<typeof useTranslations>, stage: BottleneckStag
 
 function stageUnit(t: ReturnType<typeof useTranslations>, stage: BottleneckStage): string {
   return t(`bottleneckFunnel.${STAGE_UNIT_KEYS[stage.id]}`);
+}
+
+function stageSourceHref(stage: BottleneckStage): string {
+  switch (stage.id) {
+    case "views":
+    case "clicks":
+    case "retention":
+      return "/acquisition/contenu";
+    case "leads":
+      return stage.source === "pipeline" ? "/acquisition/pipeline?view=stage" : "/acquisition/contenu";
+    case "bookedCalls":
+      return "/acquisition/pipeline/funnel";
+    case "attendedCalls":
+      return "/ventes/appels/funnel";
+    case "salesClosed":
+      return stage.source === "sales" ? "/ventes/suivi" : "/ventes/appels/funnel";
+  }
 }
 
 function gainLabel(t: ReturnType<typeof useTranslations>, gain: number | null, locale: string): string {
@@ -289,68 +307,75 @@ export function BottleneckFunnel({
                   className="flex flex-col items-center gap-4 py-[7px] motion-safe:animate-rise motion-reduce:animate-none lg:flex-row lg:items-center lg:gap-6"
                   style={{ animationDelay: `${index * 45}ms` }}
                 >
-                  <FunnelShape stage={stage} index={index} t={t} locale={locale} />
+                  <Link
+                    href={stageSourceHref(stage)}
+                    aria-label={t("bottleneckFunnel.detailFor", { label })}
+                    title={t("bottleneckFunnel.detailFor", { label })}
+                    className="group flex w-full min-w-0 flex-1 flex-col items-center gap-4 rounded-[var(--radius-control)] p-1 outline-none transition-colors duration-[var(--motion-fast)] hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-accent/20 motion-reduce:transition-none lg:flex-row lg:items-center lg:gap-6"
+                  >
+                    <FunnelShape stage={stage} index={index} t={t} locale={locale} />
 
-                  <div className="min-w-0 flex-1 self-stretch lg:self-auto">
-                    <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="text-xs font-bold text-muted-foreground tabular-nums">{index + 1}</span>
-                    <h3 className="text-[15px] leading-5 font-semibold tracking-[-0.005em]">{label}</h3>
-                    {data.bottleneckId === stage.id && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-accent px-[9px] py-[3px] text-[11px] leading-none font-bold tracking-[0.02em] text-primary-foreground uppercase">
-                        <Zap className="size-3" aria-hidden="true" />
-                        {t("bottleneckFunnel.principal")}
-                      </span>
-                    )}
-                    </div>
-
-                    {index === 0 ? (
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-[12.5px] text-muted-foreground">{t("bottleneckFunnel.startingPoint")}</p>
-                        {falcoButton}
+                    <div className="min-w-0 flex-1 self-stretch lg:self-auto">
+                      <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-xs font-bold text-muted-foreground tabular-nums">{index + 1}</span>
+                        <span className="inline-flex items-center gap-1 text-[15px] leading-5 font-semibold tracking-[-0.005em] group-hover:text-accent-text group-hover:underline group-hover:underline-offset-4">
+                          {label}
+                          <ArrowRight className="size-3.5 opacity-60 transition-transform duration-[var(--motion-fast)] group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+                        </span>
+                        {data.bottleneckId === stage.id && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-accent px-[9px] py-[3px] text-[11px] leading-none font-bold tracking-[0.02em] text-primary-foreground uppercase">
+                            <Zap className="size-3" aria-hidden="true" />
+                            {t("bottleneckFunnel.principal")}
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <>
-                        <div
-                          className="relative h-2 max-w-[480px] overflow-visible rounded-full bg-muted"
-                          role={hasRate ? "meter" : "img"}
-                          aria-label={hasRate ? `${label}: ${rateLabel(stage.currentRate, locale)}` : `${label}: ${t("bottleneckFunnel.unavailable")}`}
-                          aria-valuemin={hasRate ? 0 : undefined}
-                          aria-valuemax={hasRate ? 100 : undefined}
-                          aria-valuenow={hasRate ? currentPercent : undefined}
-                        >
-                          {hasRate && (
-                            <div
-                              className="h-full rounded-full bg-accent transition-[width] duration-[var(--motion-slow)] ease-[var(--ease-out)] motion-reduce:transition-none"
-                              style={{ width: `${currentPercent}%` }}
-                            />
-                          )}
-                          {hasRate && (
-                            <span
-                              className="absolute top-1/2 block h-10 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-surface-dark"
-                              style={{ left: `${benchmarkPercent}%` }}
-                              aria-hidden="true"
-                            />
-                          )}
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[12.5px] leading-5">
-                          <span className="font-bold text-accent-text">
-                            {t("bottleneckFunnel.you")}: {rateLabel(stage.currentRate, locale)}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {t("bottleneckFunnel.benchmark")}: {rateLabel(stage.benchmarkRate, locale)}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {t("bottleneckFunnel.gap")}: {hasRate ? formatSignedPercent((stage.currentRate! - stage.benchmarkRate!) * 100, locale) : "—"}
-                          </span>
-                          <span className="ml-auto font-bold text-accent-text tabular-nums">
-                            {gainLabel(t, stage.monthlyGain, locale)}
-                          </span>
-                          {falcoButton}
-                        </div>
-                        {stage.noteKey && <p className="mt-2 text-xs text-muted-foreground">{t(`bottleneckFunnel.${stage.noteKey}`)}</p>}
-                      </>
-                    )}
-                  </div>
+
+                      {index === 0 ? (
+                        <p className="text-[12.5px] text-muted-foreground">{t("bottleneckFunnel.startingPoint")}</p>
+                      ) : (
+                        <>
+                          <div
+                            className="relative h-2 max-w-[480px] overflow-visible rounded-full bg-muted"
+                            role={hasRate ? "meter" : "img"}
+                            aria-label={hasRate ? `${label}: ${rateLabel(stage.currentRate, locale)}` : `${label}: ${t("bottleneckFunnel.unavailable")}`}
+                            aria-valuemin={hasRate ? 0 : undefined}
+                            aria-valuemax={hasRate ? 100 : undefined}
+                            aria-valuenow={hasRate ? currentPercent : undefined}
+                          >
+                            {hasRate && (
+                              <div
+                                className="h-full rounded-full bg-accent transition-[width] duration-[var(--motion-slow)] ease-[var(--ease-out)] motion-reduce:transition-none"
+                                style={{ width: `${currentPercent}%` }}
+                              />
+                            )}
+                            {hasRate && (
+                              <span
+                                className="absolute top-1/2 block h-10 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-surface-dark"
+                                style={{ left: `${benchmarkPercent}%` }}
+                                aria-hidden="true"
+                              />
+                            )}
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[12.5px] leading-5">
+                            <span className="font-bold text-accent-text">
+                              {t("bottleneckFunnel.you")}: {rateLabel(stage.currentRate, locale)}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {t("bottleneckFunnel.benchmark")}: {rateLabel(stage.benchmarkRate, locale)}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {t("bottleneckFunnel.gap")}: {hasRate ? formatSignedPercent((stage.currentRate! - stage.benchmarkRate!) * 100, locale) : "—"}
+                            </span>
+                            <span className="ml-auto font-bold text-accent-text tabular-nums">
+                              {gainLabel(t, stage.monthlyGain, locale)}
+                            </span>
+                          </div>
+                          {stage.noteKey && <p className="mt-2 text-xs text-muted-foreground">{t(`bottleneckFunnel.${stage.noteKey}`)}</p>}
+                        </>
+                      )}
+                    </div>
+                  </Link>
+                  <div className="self-end lg:self-auto">{falcoButton}</div>
                 </li>
               );
             })}
