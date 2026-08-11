@@ -18,12 +18,19 @@ export type CheckinFeedback = { key: string; label: string; beforePercent: numbe
 // Same 3-month aggregation window as lib/improve-chat-tracking.ts's
 // snapshot, so the before/after comparison is apples-to-apples.
 async function currentRateFor(userId: string, metricKey: string): Promise<number | null> {
-  const { allSettingEntries, allClosingEntries, allMonthlyRows } = await getDiagnosticKpiRawData(userId);
+  const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = await getDiagnosticKpiRawData(userId);
   const { settingTotals, closingTotals } = aggregatePeriodTotals({
     months: lastCompletedMonths(3),
     allMonthlyRows,
     allSettingEntries,
     allClosingEntries,
+    callSourcesByMonth: allCallSourcesByMonth,
+    allSales,
+    allLeads,
+    allLeadStageHistory,
+    allEmailCampaigns,
+    allMetaMetrics,
+    allNativeBookingLeads,
   });
   const rates = buildRates(settingTotals, closingTotals);
   return rates[metricKey as keyof typeof rates] ?? null;

@@ -10,6 +10,7 @@ import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagra
 import { fetchProfile, InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS } from "@/lib/instagram/protocol";
 import { instagramBackfillContinue, inngest } from "@/lib/inngest/client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner, requirePermission } from "@/lib/team/context";
 
@@ -40,6 +41,7 @@ export async function disconnectInstagram(): Promise<{ error: string | null }> {
 
   revalidatePath("/integrations");
   revalidatePath("/acquisition/contenu");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -96,6 +98,7 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
     }
 
     revalidatePath("/acquisition/contenu");
+    revalidateBusinessData();
     return { error: null, imported: result.processed, completed: result.completed };
   } catch (error) {
     const notProfessional = error instanceof InstagramNotProfessionalAccountError;

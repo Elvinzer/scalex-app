@@ -54,6 +54,11 @@
   "viewDetail": "Voir le détail",
   "benchmarkEstimate": "Estimation : une partie du parcours n'est pas encore mesurée.",
   "contentLabel": "Contenu",
+  "retention": {
+    "title": "Rétention du contenu",
+    "help": "Vues YouTube/Instagram pondérées par le nombre de vues.",
+    "benchmark": "Benchmark indicatif : {value}%"
+  },
   "strongPoints": "Tes points forts ({count})",
   "simulationSummary": "{real} → {possible}{gain}",
   "simulationGain": ", soit +{amount}/mois",

@@ -6,6 +6,7 @@ import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { contentPostCommercialStatsSchema } from "@/lib/content-posts/schema";
 import { updateContentPostCommercialStats } from "@/lib/content-posts/queries";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // externalId is the platform's own id (youtube_video_insights.videoId for
 // source="youtube") — the UI never needs the content_posts row's own id,
@@ -21,5 +22,6 @@ export async function updatePostCommercialStats(source: string, externalId: stri
 
   await updateContentPostCommercialStats(access.accountId, source, externalId, parsed.data);
   revalidatePath("/acquisition/contenu");
+  revalidateBusinessData();
   return { error: null };
 }

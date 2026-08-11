@@ -27,6 +27,7 @@ import { isMetaTokenExpiredError } from "@/lib/meta-ads/sync-state";
 import { campaignTypeNeedsConversionGoal, META_CAMPAIGN_TYPES, META_CONVERSION_GOALS, type MetaEntityLevel } from "@/lib/meta-ads/types";
 import { metaActionSchema } from "@/lib/meta-ads/action-validation";
 import { requireOwner } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 export type MetaActionResult = {
   error: string | null;
@@ -378,6 +379,7 @@ export async function setMetaCampaignProfile(input: unknown): Promise<{ error: s
   await refreshCurrentMetaInsights(access.accountId);
 
   revalidatePath("/acquisition/ads");
+  revalidateBusinessData();
   revalidatePath(`/acquisition/ads/meta/${campaign.id}`);
   return { error: null };
 }
@@ -440,6 +442,7 @@ export async function setMetaCampaignTargets(input: unknown): Promise<{ error: s
 
   revalidatePath(`/acquisition/ads/meta/${campaign.id}`);
   revalidatePath("/acquisition/ads");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -814,7 +817,8 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
     await recordMetaActionInJournal({ accountId: access.accountId, logId, campaignName: target.name, actionType: parsed.data.actionType, status: "succeeded" });
     await updateMetaActionTargetCache(target, access.accountId, resultState, desiredStatus, requestedBudget, verifiedBudget, completedAt);
     revalidatePath("/acquisition/ads");
-    revalidatePath(`/acquisition/ads/meta/${target.campaignId}`);
+  revalidatePath(`/acquisition/ads/meta/${target.campaignId}`);
+  revalidateBusinessData();
     return { error: null, status: "succeeded" };
   } catch (error) {
     const message = error instanceof MetaApiError ? error.message : "La modification Meta a échoué.";

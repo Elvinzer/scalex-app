@@ -7,10 +7,8 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import {
-  closingKpiEntries,
   funnelStageInsights,
   improvementEvents,
-  settingKpiEntries,
   users,
 } from "@/db/schema";
 import { resolveAgentKey } from "@/lib/agent/client";
@@ -20,12 +18,12 @@ import {
   STAGE_TITLES,
   type FunnelStageKey,
 } from "@/lib/agent/knowledge";
-import {
-  aggregateClosingEntries,
-  computeClosingRates,
-} from "@/lib/closing/metrics";
+import { computeClosingRates } from "@/lib/closing/metrics";
+import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
+import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { requireUserId } from "@/lib/current-user";
-import { aggregateEntries, computeFunnelRates } from "@/lib/setting/funnel";
+import { computeFunnelRates } from "@/lib/setting/funnel";
 import { getAccountContext } from "@/lib/team/context";
 import type { PermissionKey } from "@/lib/team/permissions";
 import { materializeSourceInsight } from "@/lib/insight-execution/source-adapters";
@@ -142,23 +140,25 @@ export async function generateFunnelStageInsight(
   }
 
   // Recompute the real rate server-side — never trust a client-sent number.
-  const [settingEntries, closingEntries] = await Promise.all([
-    db
-      .select()
-      .from(settingKpiEntries)
-      .where(eq(settingKpiEntries.userId, accountId)),
-    db
-      .select()
-      .from(closingKpiEntries)
-      .where(eq(closingKpiEntries.userId, accountId)),
-  ]);
-  const settingTotals = aggregateEntries(settingEntries);
+  // The insight must use the same canonical snapshot as Dashboard/Diagnostic,
+  // including connected calls and the sales ledger.
+  const rawData = await getDiagnosticKpiRawData(accountId);
+  const totals = aggregatePeriodTotals({
+    months: lastCompletedMonths(3),
+    allMonthlyRows: rawData.allMonthlyRows,
+    allSettingEntries: rawData.allSettingEntries,
+    allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
+  });
+  const settingTotals = totals.settingTotals;
   const settingRates = computeFunnelRates(settingTotals);
-  const closingTotals = aggregateClosingEntries(closingEntries);
-  const closingRates = computeClosingRates(
-    closingTotals,
-    settingTotals.callsBooked,
-  );
+  const closingRates = computeClosingRates(totals.closingTotals, settingTotals.callsBooked);
 
   const rate = isSettingStage(stage)
     ? settingRates[stage]

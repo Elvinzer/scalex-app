@@ -1,12 +1,12 @@
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
 import { buildRates } from "@/lib/diagnostic/cascade";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import type { MetricKey } from "@/lib/diagnostic/metric-keys";
 
 import type { BaselineSnapshot, MeasurementSnapshot } from "./types";
@@ -49,29 +49,33 @@ function rateValue(metricKey: SupportedRateMetric, rates: Record<MetricKey, numb
   return rates[metricKey] ?? null;
 }
 
-type KpiData = {
-  allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
-  allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
-  allMonthlyRows: Awaited<ReturnType<typeof getAllMonthlyMetrics>>;
-};
+type KpiData = Awaited<ReturnType<typeof getDiagnosticKpiRawData>>;
 
 async function loadKpiData(accountId: string): Promise<KpiData> {
-  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(accountId),
-  ]);
-  return { allSettingEntries, allClosingEntries, allMonthlyRows };
+  return getDiagnosticKpiRawData(accountId);
 }
 
 export async function calculateRateSnapshot(accountId: string, metricKey: string, months = lastCompletedMonths(MEASUREMENT_MONTHS)): Promise<BaselineSnapshot | null> {
   if (!isSupportedRateMetric(metricKey)) return null;
   const period = periodForMonths(months);
   if (!period) return null;
-  const { allSettingEntries, allClosingEntries, allMonthlyRows } = await loadKpiData(accountId);
+  const data = await loadKpiData(accountId);
+  const { allSettingEntries, allClosingEntries, allMonthlyRows } = data;
   const [user] = await db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1);
   const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
-  const totals = aggregatePeriodTotals({ months, allMonthlyRows, allSettingEntries, allClosingEntries });
+  const totals = aggregatePeriodTotals({
+    months,
+    allMonthlyRows,
+    allSettingEntries,
+    allClosingEntries,
+    callSourcesByMonth: data.allCallSourcesByMonth,
+    allSales: data.allSales,
+    allLeads: data.allLeads,
+    allLeadStageHistory: data.allLeadStageHistory,
+    allEmailCampaigns: data.allEmailCampaigns,
+    allMetaMetrics: data.allMetaMetrics,
+    allNativeBookingLeads: data.allNativeBookingLeads,
+  });
   const value = rateValue(metricKey, buildRates(totals.settingTotals, totals.closingTotals));
   const sampleSize = volumeFor(metricKey, totals.settingTotals, totals.closingTotals);
   if (value === null || sampleSize <= 0) return null;
@@ -86,17 +90,22 @@ export async function calculateRateSnapshot(accountId: string, metricKey: string
     source: "diagnostic_kpi",
     freshness: new Date().toISOString(),
     benchmarkValue: benchmarks[metricKey] ?? null,
-    cashValueEur: cashValueForMonths(allMonthlyRows, months),
+    cashValueEur: cashValueForMonths(allMonthlyRows, months, data.allSales),
   };
 }
 
-function cashValueForMonths(allMonthlyRows: Awaited<ReturnType<typeof getAllMonthlyMetrics>>, months: MonthWindow[]): number | null {
+function cashValueForMonths(allMonthlyRows: KpiData["allMonthlyRows"], months: MonthWindow[], allSales: KpiData["allSales"]): number | null {
   let seen = false;
   let total = 0;
   for (const month of months) {
+    const salesTotal = allSales
+      .filter((sale) => !sale.isOrphan && sale.saleDate >= month.range.from && sale.saleDate <= month.range.to)
+      .reduce((sum, sale) => sum + sale.totalPrice, 0);
     const row = allMonthlyRows.find((item) => item.year === month.year && item.month === month.month);
-    if (!row) continue;
-    if (row.cashContracted !== null) {
+    if (salesTotal > 0) {
+      seen = true;
+      total += salesTotal;
+    } else if (row?.cashContracted !== null && row?.cashContracted !== undefined) {
       seen = true;
       total += row.cashContracted;
     }
@@ -107,10 +116,14 @@ function cashValueForMonths(allMonthlyRows: Awaited<ReturnType<typeof getAllMont
 export async function calculateCashSnapshot(accountId: string, months = lastCompletedMonths(MEASUREMENT_MONTHS)): Promise<BaselineSnapshot | null> {
   const period = periodForMonths(months);
   if (!period) return null;
-  const rows = await getAllMonthlyMetrics(accountId);
-  const value = cashValueForMonths(rows, months);
+  const data = await loadKpiData(accountId);
+  const value = cashValueForMonths(data.allMonthlyRows, months, data.allSales);
   if (value === null) return null;
-  const sampleSize = months.filter((month) => rows.some((row) => row.year === month.year && row.month === month.month && row.cashContracted !== null)).length;
+  const sampleSize = months.filter((month) => {
+    const hasSale = data.allSales.some((sale) => !sale.isOrphan && sale.saleDate >= month.range.from && sale.saleDate <= month.range.to);
+    const row = data.allMonthlyRows.find((item) => item.year === month.year && item.month === month.month);
+    return hasSale || row?.cashContracted !== null;
+  }).length;
   return {
     metricKey: "cashContracted",
     unit: "eur",
@@ -118,7 +131,7 @@ export async function calculateCashSnapshot(accountId: string, months = lastComp
     periodStart: period.start,
     periodEnd: period.end,
     sampleSize,
-    source: "monthly_metrics.cash_contracted",
+    source: "sales_or_monthly_metrics.cash_contracted",
     freshness: new Date().toISOString(),
     cashValueEur: value,
   };

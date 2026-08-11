@@ -11,6 +11,7 @@ import { YoutubeChannelNotFoundError, YoutubeTokenRevokedError } from "@/lib/you
 import { YOUTUBE_INSIGHTS_REFRESH_WINDOW_DAYS } from "@/lib/youtube/protocol";
 import { insightsRefreshSinceDate } from "@/lib/youtube/backfill";
 import { runYoutubeSync } from "@/lib/youtube/sync";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Connecting/disconnecting YouTube grants OAuth access to the channel's real
 // analytics data — owner-only, never delegable, same boundary as Stripe/
@@ -39,6 +40,7 @@ export async function disconnectYoutube(): Promise<{ error: string | null }> {
 
   revalidatePath("/integrations");
   revalidatePath("/acquisition/contenu");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -76,6 +78,7 @@ export async function refreshYoutubeVideos(): Promise<{ error: string | null; im
       .where(eq(youtubeConnections.userId, accountId));
 
     revalidatePath("/acquisition/contenu");
+    revalidateBusinessData();
     return { error: null, imported: result.processed, completed: result.completed };
   } catch (error) {
     const revoked = error instanceof YoutubeTokenRevokedError;

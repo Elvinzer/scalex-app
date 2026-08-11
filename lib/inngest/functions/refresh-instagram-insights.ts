@@ -8,6 +8,7 @@ import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagra
 import { fetchProfile, InstagramNotProfessionalAccountError, refreshLongLivedToken } from "@/lib/instagram/client";
 import { INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS, INSTAGRAM_TOKEN_REFRESH_MARGIN_DAYS } from "@/lib/instagram/protocol";
 import { instagramBackfillContinue, inngest } from "@/lib/inngest/client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Recurring job (every 6h) — unlike iClosed/Calendly's call data (finalized
 // at booking time), Instagram's organic insight numbers (reach, likes,
@@ -98,6 +99,7 @@ export const refreshInstagramInsights = inngest.createFunction(
     }
 
     const refreshed = results.filter((r) => !r.skipped).length;
+    if (refreshed > 0) revalidateBusinessData();
     return { total: connections.length, refreshed };
   }
 );

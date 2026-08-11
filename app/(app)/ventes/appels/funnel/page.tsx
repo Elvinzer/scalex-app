@@ -13,12 +13,17 @@ import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
-import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { aggregateSalesCallsInRange, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
+import { getMonthlyMetrics, getSalesCallKpiRecords } from "@/lib/monthly-metrics/queries";
 import {
+  CLOSING_FIELDS,
   isExactCalendarMonth,
   resolveMonthClosingTotals,
   resolveMonthSettingTotals,
+  SETTING_FIELDS,
 } from "@/lib/monthly-metrics/resolve";
+import { getSales } from "@/lib/sales/queries";
+import type { SaleRow } from "@/lib/sales/types";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { ClosingBottleneckCard } from "./closing-bottleneck-card";
@@ -26,6 +31,54 @@ import { ClosingTiles } from "./closing-tiles";
 import { CsvImport } from "./csv-import";
 import { EntriesTable } from "./entries-table";
 import { EntryForm } from "./entry-form";
+
+function resolveCanonicalSettingTotals(
+  monthlyRow: Awaited<ReturnType<typeof getMonthlyMetrics>>,
+  entries: Parameters<typeof resolveMonthSettingTotals>[1],
+  callRecords: readonly SalesCallKpiRecord[],
+  range: { from: string; to: string } | null
+) {
+  const baseTotals = resolveMonthSettingTotals(monthlyRow, entries);
+  const monthlyIsAuthoritative = Boolean(
+    monthlyRow?.settingManualOverride ||
+      (monthlyRow && SETTING_FIELDS.some((field) => monthlyRow[field] !== null))
+  );
+  const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
+
+  return !monthlyIsAuthoritative && callSource.callCount > 0
+    ? { ...baseTotals, callsBooked: callSource.callsBooked }
+    : baseTotals;
+}
+
+function resolveCanonicalClosingTotals(
+  monthlyRow: Awaited<ReturnType<typeof getMonthlyMetrics>>,
+  entries: Parameters<typeof resolveMonthClosingTotals>[1],
+  callRecords: readonly SalesCallKpiRecord[],
+  sales: SaleRow[],
+  range: { from: string; to: string } | null
+) {
+  const baseTotals = resolveMonthClosingTotals(monthlyRow, entries);
+  const monthlyIsAuthoritative = Boolean(
+    monthlyRow?.closingManualOverride ||
+      (monthlyRow && CLOSING_FIELDS.some((field) => monthlyRow[field] !== null))
+  );
+  const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
+  const validSales = sales.filter((sale) => {
+    if (sale.isOrphan) return false;
+    if (!range) return true;
+    return sale.saleDate >= range.from && sale.saleDate <= range.to;
+  });
+
+  if (monthlyIsAuthoritative) return baseTotals;
+  return {
+    callsAttended: callSource.callCount > 0 ? callSource.callsTaken : baseTotals.callsAttended,
+    salesClosed: validSales.length > 0
+      ? validSales.length
+      : callSource.callCount > 0
+        ? callSource.salesClosed
+        : baseTotals.salesClosed,
+  };
+}
 
 // The day-by-day view of the closing funnel — was its own page
 // (/ventes/closing), folded in here as a nested route rather than a
@@ -47,23 +100,27 @@ export default async function VentesFunnelPage({
   const benchmark = getBenchmark(sector);
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
-  const [allEntries, allSettingEntries, existingInsights] = await Promise.all([
+  const [allEntries, allSettingEntries, callRecords, allSales, existingInsights] = await Promise.all([
     db
       .select()
       .from(closingKpiEntries)
       .where(eq(closingKpiEntries.userId, accountId))
       .orderBy(desc(closingKpiEntries.date)),
     db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)),
+    getSalesCallKpiRecords(accountId),
+    getSales(accountId),
     getExistingStageInsights(accountId),
   ]);
 
-  const hasAnyEntries = allEntries.length > 0;
+  const hasAnyEntries = allEntries.length > 0 || callRecords.length > 0 || allSales.some((sale) => !sale.isOrphan);
 
   const range = resolveDateRange(paramValue(params.range), paramValue(params.from), paramValue(params.to));
   const entries = range
     ? allEntries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
     : allEntries;
-  const hasEntriesInRange = entries.length > 0;
+  const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
+  const validSalesInRange = allSales.filter((sale) => !sale.isOrphan && (!range || (sale.saleDate >= range.from && sale.saleDate <= range.to)));
+  const hasEntriesInRange = entries.length > 0 || callSource.callCount > 0 || validSalesInRange.length > 0;
 
   // When the selected range is exactly one calendar month, a monthly_metrics
   // row for it (if any closing/setting field is filled) wins wholesale over
@@ -83,8 +140,8 @@ export default async function VentesFunnelPage({
   const settingEntriesInRange = range
     ? allSettingEntries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
     : allSettingEntries;
-  const callsBooked = resolveMonthSettingTotals(monthlyRow, settingEntriesInRange).callsBooked;
-  const totals = resolveMonthClosingTotals(monthlyRow, entries);
+  const callsBooked = resolveCanonicalSettingTotals(monthlyRow, settingEntriesInRange, callRecords, range).callsBooked;
+  const totals = resolveCanonicalClosingTotals(monthlyRow, entries, callRecords, allSales, range);
   const rates = computeClosingRates(totals, callsBooked);
   const bottleneck = findClosingBottleneck(rates);
 
@@ -94,9 +151,11 @@ export default async function VentesFunnelPage({
   const previousSettingEntries = previousRange
     ? allSettingEntries.filter((entry) => entry.date >= previousRange.from && entry.date <= previousRange.to)
     : [];
-  const previousTotals = previousRange ? resolveMonthClosingTotals(previousMonthlyRow, previousEntries) : null;
+  const previousTotals = previousRange
+    ? resolveCanonicalClosingTotals(previousMonthlyRow, previousEntries, callRecords, allSales, previousRange)
+    : null;
   const previousRates = previousTotals
-    ? computeClosingRates(previousTotals, resolveMonthSettingTotals(previousMonthlyRow, previousSettingEntries).callsBooked)
+    ? computeClosingRates(previousTotals, resolveCanonicalSettingTotals(previousMonthlyRow, previousSettingEntries, callRecords, previousRange).callsBooked)
     : null;
 
   const stateText =

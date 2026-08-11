@@ -20,6 +20,7 @@ import {
 } from "@/lib/leads/queries";
 import { commentInputSchema, leadInputSchema, reminderInputSchema, stageChangeSchema } from "@/lib/leads/schema";
 import type { LeadWithRelations } from "@/lib/leads/types";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Lazily fetches comments/history for the drawer (not needed by the board
 // itself, which only renders LeadRow — avoids fetching every lead's full
@@ -45,6 +46,7 @@ export async function createLeadAction(data: unknown): Promise<{ error: string |
   const lead = await createLead(access.accountId, parsed.data);
   after(() => track("lead_created", userId, { source: lead.source }));
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -59,6 +61,7 @@ export async function updateLeadAction(id: string, data: unknown): Promise<{ err
 
   await updateLead(access.accountId, id, parsed.data);
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -70,6 +73,7 @@ export async function deleteLeadAction(id: string): Promise<{ error: string | nu
 
   await deleteLead(access.accountId, id);
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -90,6 +94,7 @@ export async function changeStageAction(id: string, data: unknown): Promise<{ er
 
   after(() => track("lead_stage_changed", userId, { to_stage: parsed.data.toStage }));
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -101,6 +106,7 @@ export async function recoverFromNoShowAction(id: string): Promise<{ error: stri
 
   const result = await recoverFromNoShow(access.accountId, id);
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return result;
 }
 
@@ -112,6 +118,7 @@ export async function setNoShowAction(id: string, value: boolean): Promise<{ err
 
   await setNoShow(access.accountId, id, value);
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -126,6 +133,7 @@ export async function addCommentAction(leadId: string, data: unknown): Promise<{
 
   await addComment(access.accountId, leadId, parsed.data.body);
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -140,6 +148,7 @@ export async function setReminderAction(leadId: string, data: unknown): Promise<
 
   await setReminder(access.accountId, leadId, parsed.data.reminderDate, parsed.data.reminderNote);
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -151,5 +160,6 @@ export async function toggleReminderDoneAction(leadId: string, done: boolean): P
 
   await toggleReminderDone(access.accountId, leadId, done);
   revalidatePath("/acquisition/pipeline");
+  revalidateBusinessData();
   return { error: null };
 }

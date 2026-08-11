@@ -13,6 +13,7 @@ import { EMPTY_MONTHLY_METRICS, type MonthlyMetricsInput } from "@/lib/monthly-m
 import { writeMonthlyMetrics } from "@/lib/monthly-metrics/write";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 export type BlockedField = { field: string; reason: string };
 
@@ -201,6 +202,7 @@ export async function commitImport(payload: unknown): Promise<CommitImportResult
   revalidatePath("/datas");
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
 
   return { status: "committed", fieldsWritten, monthsCount: data.months.length, blockedFields: [...blockedFieldsByName.values()] };
 }

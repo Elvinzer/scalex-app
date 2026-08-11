@@ -1,17 +1,17 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { closingKpiEntries, contentRecommendations, improvementEvents, settingKpiEntries, users } from "@/db/schema";
+import { contentRecommendations, improvementEvents, users } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { chatContextSchema, type ChatContext } from "@/lib/chat-context";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { METRIC_KEYS, type MetricKey } from "@/lib/diagnostic/benchmarks";
 import { buildRates, labelFor } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -76,17 +76,20 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
   if (safeContext.topicType !== "metric" || !safeContext.topicKey || !isMetricKey(safeContext.topicKey)) return;
   const metricKey = safeContext.topicKey;
 
-  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(userId),
-  ]);
+  const rawData = await getDiagnosticKpiRawData(userId);
 
   const { settingTotals, closingTotals } = aggregatePeriodTotals({
     months: lastCompletedMonths(3),
-    allMonthlyRows,
-    allSettingEntries,
-    allClosingEntries,
+    allMonthlyRows: rawData.allMonthlyRows,
+    allSettingEntries: rawData.allSettingEntries,
+    allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
   });
 
   const rate = buildRates(settingTotals, closingTotals)[metricKey];

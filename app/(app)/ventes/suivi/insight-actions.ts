@@ -133,7 +133,7 @@ export async function generateStripeTransactionInsight(
   const period = resolvePeriod(parsed.data.period);
   const plannedAmountCents = parsed.data.currency.toLowerCase() === "eur"
     ? (await getSales(accountId))
-        .filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)))
+        .filter((sale) => !sale.isOrphan && isInPeriod(period, dateFromDayString(sale.saleDate)))
         .reduce((sum, sale) => sum + summarize(sale.totalPrice, sale.installments).pendingTotal * 100, 0)
     : 0;
   const data = await getStripeInsightData(

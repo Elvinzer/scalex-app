@@ -19,9 +19,10 @@ import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
+import { getPipelineDiagnosticBenchmark } from "@/lib/diagnostic/pipeline-metrics";
+import { computeContentRetentionSummary } from "@/lib/diagnostic/content-retention";
 import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
-import { getContentPosts } from "@/lib/content-posts/queries";
 import { buildBottleneckFunnel } from "@/lib/dashboard/bottleneck";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
@@ -74,13 +75,13 @@ export default async function DashboardPage({
   // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
   // per request, so this is deduped against app/(app)/layout.tsx's own call
   // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth }, benchmarks, contentBenchmarks, allContentPosts, weeklyReports] =
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, contentBenchmarks, pipelineBenchmark, weeklyReports] =
     await Promise.all([
       getBusinessProfile(accountId),
       getDiagnosticKpiRawData(accountId),
       getDiagnosticBenchmarks(user?.sector ?? null),
       getContentDiagnosticBenchmarks(user?.sector ?? null),
-      getContentPosts(accountId),
+      getPipelineDiagnosticBenchmark(user?.sector ?? null),
       getRecentWeeklyReports(accountId),
     ]);
 
@@ -113,6 +114,7 @@ export default async function DashboardPage({
     allSettingEntries,
     allClosingEntries,
     allMonthlyRows,
+    allSales,
     callSourcesByMonth: allCallSourcesByMonth,
     isStripeConnected: Boolean(user?.stripeConnectId),
     locale,
@@ -121,11 +123,18 @@ export default async function DashboardPage({
   // Same engine and same default period as /diagnostic, so "the goulot
   // actuel" is identical on both pages — see lib/diagnostic/cascade.ts.
   const months = lastCompletedMonths(PERIOD_MONTHS);
-  const { settingTotals, closingTotals, cashContractedTotal, hasAnyMonthlyRow } = aggregatePeriodTotals({
+  const { settingTotals, closingTotals, cashContractedTotal, hasAnySourceData } = aggregatePeriodTotals({
     months,
     allMonthlyRows,
     allSettingEntries,
     allClosingEntries,
+    callSourcesByMonth: allCallSourcesByMonth,
+    allSales,
+    allLeads,
+    allLeadStageHistory,
+    allEmailCampaigns,
+    allMetaMetrics,
+    allNativeBookingLeads,
   });
 
   // The visual handoff deliberately says “ce mois” and “/mois”. Keep the
@@ -138,11 +147,19 @@ export default async function DashboardPage({
     settingTotals: bottleneckSettingTotals,
     closingTotals: bottleneckClosingTotals,
     cashContractedTotal: bottleneckCashContractedTotal,
+    pipelineTotals: bottleneckPipelineTotals,
   } = aggregatePeriodTotals({
     months: bottleneckMonths,
     allMonthlyRows,
     allSettingEntries,
     allClosingEntries,
+    callSourcesByMonth: allCallSourcesByMonth,
+    allSales,
+    allLeads,
+    allLeadStageHistory,
+    allEmailCampaigns,
+    allMetaMetrics,
+    allNativeBookingLeads,
   });
   const bottleneckMonthlyRow = allMonthlyRows.find(
     (row) => row.year === bottleneckMonth.year && row.month === bottleneckMonth.month
@@ -150,7 +167,12 @@ export default async function DashboardPage({
   const bottleneckSettingEntries = allSettingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
   const bottleneckClosingEntries = allClosingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
   const bottleneckCallSource = allCallSourcesByMonth[monthKey(bottleneckMonth.year, bottleneckMonth.month)];
-  const bottleneckContentTotals = aggregateContentTotals(bottleneckMonths, allContentPosts);
+  const bottleneckContentTotals = aggregateContentTotals(bottleneckMonths, allContentPosts, allVideoAttributionTotals);
+  const bottleneckRetention = computeContentRetentionSummary({
+    months: bottleneckMonths,
+    youtubeVideos: allYoutubeVideoInsights,
+    instagramPosts: allInstagramPostInsights,
+  });
   const bottleneckPostsInPeriod = allContentPosts.filter((post) => inRange(post.publishedAt, bottleneckMonth.range)).length;
   const hasBottleneckSettingData =
     bottleneckSettingEntries.length > 0 ||
@@ -167,14 +189,15 @@ export default async function DashboardPage({
     [bottleneckMonthlyRow?.callsTaken, bottleneckMonthlyRow?.salesClosed].some(
       (value) => value !== null && value !== undefined
     ) ||
-    bottleneckCallSource !== undefined;
-  const hasBottleneckRevenueData = typeof bottleneckMonthlyRow?.cashContracted === "number";
+    bottleneckCallSource !== undefined ||
+    allSales.some((sale) => !sale.isOrphan && inRange(sale.saleDate, bottleneckMonth.range));
+  const hasBottleneckRevenueData = bottleneckCashContractedTotal > 0 || typeof bottleneckMonthlyRow?.cashContracted === "number";
 
-  const allPoints = hasAnyMonthlyRow
+  const allPoints = hasAnySourceData
     ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal })
     : [];
   const points = allPoints.slice(0, 3);
-  const bottleneckPoints = hasBottleneckSettingData || hasBottleneckClosingData
+  const bottleneckPoints = hasBottleneckSettingData || hasBottleneckClosingData || hasBottleneckRevenueData
     ? computeDiagnosticPoints({
         settingTotals: bottleneckSettingTotals,
         closingTotals: bottleneckClosingTotals,
@@ -196,6 +219,9 @@ export default async function DashboardPage({
     hasSettingData: hasBottleneckSettingData,
     hasClosingData: hasBottleneckClosingData,
     hasRevenueData: hasBottleneckRevenueData,
+    retention: bottleneckRetention,
+    pipelineTotals: bottleneckPipelineTotals,
+    pipelineBenchmarkRate: pipelineBenchmark,
     locale,
   });
   const bottleneckLabel = points[0] ? tDiagnostic(`metrics.${points[0].key}`) : t("there");
@@ -204,9 +230,7 @@ export default async function DashboardPage({
   const currentYear = new Date().getUTCFullYear();
   const currentMonth = new Date().getUTCMonth() + 1;
   const currentMonthlyRow = allMonthlyRows.find((row) => row.year === currentYear && row.month === currentMonth);
-  const currentCallSource: MonthlyCallSource | null = currentMonthlyRow?.closingManualOverride
-    ? null
-    : allCallSourcesByMonth[monthKey(currentYear, currentMonth)] ?? null;
+  const currentCallSource: MonthlyCallSource | null = allCallSourcesByMonth[monthKey(currentYear, currentMonth)] ?? null;
   const dailySourceOverlay = resolveDailySourceOverlay(
     monthDateRange(currentYear, currentMonth),
     allSettingEntries,
@@ -257,7 +281,7 @@ export default async function DashboardPage({
           settingTotals={settingTotals}
           closingTotals={closingTotals}
           cashContractedTotal={cashContractedTotal}
-          hasAnyMonthlyRow={hasAnyMonthlyRow}
+          hasAnyData={hasAnySourceData}
           months={months}
           points={points}
           locale={locale}

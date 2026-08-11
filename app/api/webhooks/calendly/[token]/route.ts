@@ -12,6 +12,7 @@ import { decrypt } from "@/lib/crypto";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 import { readMetaTracking } from "@/lib/meta-ads/tracking";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Calendly webhook receiver. Auth: the [token] path segment resolves + authenticates
 // the connection; when a signing key was returned at subscription time, the
@@ -191,8 +192,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // Never overwrite a disposition the closer already set (only cancel a
         // still-booked call).
         setWhere: eq(salesCalls.attendance, "booked"),
-      });
+    });
   }
 
+  revalidateBusinessData();
   return NextResponse.json({ received: true });
 }

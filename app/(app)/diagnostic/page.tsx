@@ -30,6 +30,7 @@ import {
   computeContentMetricSummaries,
 } from "@/lib/diagnostic/content-metrics";
 import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
+import { computeContentRetentionSummary } from "@/lib/diagnostic/content-retention";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import {
   buildRates,
@@ -45,7 +46,6 @@ import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
 import { formatEur } from "@/lib/currency";
-import { getContentPosts } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { cn } from "@/lib/utils";
@@ -162,24 +162,31 @@ export default async function DiagnosticPage({
     );
   }
 
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows }, allContentPosts, discoveryProgress] = await Promise.all([
+  const [businessProfile, rawData, discoveryProgress] = await Promise.all([
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
-    getContentPosts(accountId),
     getDiscoveryProgress(accountId),
   ]);
+  const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = rawData;
   const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
 
-  const { settingTotals, closingTotals, cashContractedTotal, hasAnyMonthlyRow } = aggregatePeriodTotals({
+  const { settingTotals, closingTotals, cashContractedTotal, hasAnySourceData } = aggregatePeriodTotals({
     months,
     allMonthlyRows,
     allSettingEntries,
     allClosingEntries,
+    callSourcesByMonth: allCallSourcesByMonth,
+    allSales,
+    allLeads,
+    allLeadStageHistory,
+    allEmailCampaigns,
+    allMetaMetrics,
+    allNativeBookingLeads,
   });
 
-  if (!hasAnyMonthlyRow) {
+  if (!hasAnySourceData) {
     return (
       <div className="flex flex-col gap-8">
         {overviewHeader}
@@ -202,7 +209,12 @@ export default async function DiagnosticPage({
     getPriorityRules(),
   ]);
 
-  const contentTotals = aggregateContentTotals(months, allContentPosts);
+  const contentTotals = aggregateContentTotals(months, allContentPosts, allVideoAttributionTotals);
+  const contentRetention = computeContentRetentionSummary({
+    months,
+    youtubeVideos: rawData.allYoutubeVideoInsights,
+    instagramPosts: rawData.allInstagramPostInsights,
+  });
   // Same price the cascade points are valued with — one resolution, so a
   // content gain and a funnel gain are never priced differently.
   const contentDealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
@@ -771,6 +783,17 @@ export default async function DiagnosticPage({
               measureHintLabel={t("goToContent")}
             />
           ))}
+
+          <div className="sticker-card p-5">
+            <p className="text-sm font-bold">{t("retention.title")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("retention.help")}</p>
+            <p className="mt-3 font-display text-2xl font-bold tabular-nums">
+              {contentRetention.currentRate === null ? "—" : `${Math.round(contentRetention.currentRate * 100)}%`}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("retention.benchmark", { value: Math.round(contentRetention.benchmarkRate * 100) })}
+            </p>
+          </div>
 
           {followups.map((followup) => (
             <div key={followup.key} className="sticker-card p-5">

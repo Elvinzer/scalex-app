@@ -33,6 +33,7 @@ import {
 import { validateAnthropicKey } from "@/lib/agent/validate-key";
 import { encrypt } from "@/lib/crypto";
 import { getPlatformStripeClient } from "@/lib/stripe/platform-client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
@@ -187,6 +188,7 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
   revalidatePath("/dashboard");
   revalidatePath("/datas");
   revalidatePath("/ventes/suivi");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -252,6 +254,7 @@ export async function resetAccountData(): Promise<{ error: string | null }> {
 
   revalidatePath("/dashboard");
   revalidatePath("/settings");
+  revalidateBusinessData();
   return { error: null };
 }
 

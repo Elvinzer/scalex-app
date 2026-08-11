@@ -19,6 +19,7 @@ import { formatPercent } from "@/lib/setting/funnel";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import { getSales } from "@/lib/sales/queries";
 import { todayUtc } from "@/lib/date-range";
+import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
 
 export type LeverAgentData = {
   metricsBlock: string;
@@ -122,9 +123,9 @@ async function buildAdsData(ctx: LeverAgentDataContext): Promise<LeverAgentData>
 
 async function buildUpsellData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
   const [opportunity, allSales] = await Promise.all([resolveOpportunityBlock("upsell_ascension", ctx), getSales(ctx.accountId)]);
-  const periodSales = allSales.filter((s) => ctx.months.some(({ range }) => inRange(s.saleDate, range)));
+  const periodSales = allSales.filter((s) => !s.isOrphan && ctx.months.some(({ range }) => inRange(s.saleDate, range)));
   const takeRate = periodSales.length > 0 ? periodSales.filter((s) => s.hasUpsell).length / periodSales.length : null;
-  const recent = allSales.filter((s) => s.hasUpsell).slice(0, 3);
+  const recent = allSales.filter((s) => !s.isOrphan && s.hasUpsell).slice(0, 3);
   const offerName = (offerId: string | null) => ctx.businessProfile.sales.offers.find((o) => o.id === offerId)?.name ?? "offre non précisée";
   const recentLines =
     recent.length > 0
@@ -144,11 +145,12 @@ async function buildUpsellData(ctx: LeverAgentDataContext): Promise<LeverAgentDa
 }
 
 async function buildContentData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
-  const [contentBenchmarks, allPosts] = await Promise.all([
+  const [contentBenchmarks, allPosts, attributions] = await Promise.all([
     getContentDiagnosticBenchmarks(ctx.sector),
     getContentPosts(ctx.accountId),
+    getVideoAttributionTotals(ctx.accountId),
   ]);
-  const totals = aggregateContentTotals(ctx.months, allPosts);
+  const totals = aggregateContentTotals(ctx.months, allPosts, attributions);
   const summaries = computeContentMetricSummaries({ totals, benchmarks: contentBenchmarks });
   const summaryLines = summaries
     .map((s) => `- ${s.label} : ${s.currentRatePercent === null ? "non mesurable" : `${s.currentRatePercent}%`} vs benchmark ${s.benchmarkRatePercent}% (${s.status}).`)
@@ -201,7 +203,7 @@ async function buildSettingData(ctx: LeverAgentDataContext): Promise<LeverAgentD
 async function buildClosingData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
   const points = ctx.points.filter((p) => p.category === "Closing");
   const base = buildDiagnosticPointsData(points, "Tous tes taux de closing sont actuellement au niveau du benchmark.");
-  const recentSales = (await getSales(ctx.accountId)).slice(0, 3);
+  const recentSales = (await getSales(ctx.accountId)).filter((sale) => !sale.isOrphan).slice(0, 3);
   const recentLines =
     recentSales.length > 0
       ? recentSales.map((s) => `- ${s.clientName} (${s.saleDate}) : ${formatEur(s.totalPrice)}, closer ${s.closer ?? "non précisé"}.`).join("\n")
@@ -212,7 +214,7 @@ async function buildClosingData(ctx: LeverAgentDataContext): Promise<LeverAgentD
 async function buildProduitsData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
   const offers = ctx.businessProfile.sales.offers;
   const today = todayUtc();
-  const monthSales = (await getSales(ctx.accountId)).filter((s) => ctx.months.some(({ range }) => inRange(s.saleDate, range)) || (s.saleDate.startsWith(`${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`)));
+  const monthSales = (await getSales(ctx.accountId)).filter((s) => !s.isOrphan && (ctx.months.some(({ range }) => inRange(s.saleDate, range)) || (s.saleDate.startsWith(`${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`))));
 
   const lines =
     offers.length > 0

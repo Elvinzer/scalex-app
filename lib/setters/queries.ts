@@ -120,7 +120,7 @@ export async function computeSetterCommissions(
   const setterSales = await db
     .select()
     .from(sales)
-    .where(and(eq(sales.userId, userId), eq(sales.setterId, setterId)));
+    .where(and(eq(sales.userId, userId), eq(sales.setterId, setterId), eq(sales.isOrphan, false)));
   return buildCommissions(setterSales, defaultCommissionPct, offers);
 }
 
@@ -135,7 +135,7 @@ export async function computeSettersCommissions(userId: string, settersList: Set
   const allSales = await db
     .select()
     .from(sales)
-    .where(and(eq(sales.userId, userId), inArray(sales.setterId, setterIds)));
+    .where(and(eq(sales.userId, userId), inArray(sales.setterId, setterIds), eq(sales.isOrphan, false)));
 
   const salesBySetterId = new Map<string, (typeof sales.$inferSelect)[]>();
   for (const sale of allSales) {

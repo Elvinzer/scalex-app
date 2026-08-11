@@ -90,11 +90,22 @@ function clampPercent(rate: number | null): number {
 }
 
 function buildChatContext(stage: BottleneckStage, label: string): ChatContext {
-  const isContentStage = stage.id === "views" || stage.id === "clicks" || stage.id === "retention" || stage.id === "leads";
+  const isContentStage = stage.source === "content" || stage.id === "views" || stage.id === "clicks" || stage.id === "retention";
   if (isContentStage) {
     return {
       topicType: "lever",
       topicKey: "content",
+      topicLabel: label,
+      sourcePage: "dashboard_bottleneck",
+    };
+  }
+  // Pipeline closing is a dashboard-only diagnostic stage. It is not one of
+  // the six metric topics accepted by /api/improve-chat, so opening Falco for
+  // it must use the general context instead of sending an invalid key.
+  if (stage.source === "pipeline") {
+    return {
+      topicType: "general",
+      topicKey: null,
       topicLabel: label,
       sourcePage: "dashboard_bottleneck",
     };

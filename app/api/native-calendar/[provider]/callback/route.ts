@@ -6,6 +6,7 @@ import { nativeCalendarConnections } from "@/db/schema";
 import { exchangeCalendarCode, getCalendarAccountEmail } from "@/lib/native-booking/calendar";
 import { encrypt } from "@/lib/crypto";
 import { isRateLimited } from "@/lib/rate-limit";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -69,6 +70,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
         target: [nativeCalendarConnections.closerUserId, nativeCalendarConnections.provider],
         set: values,
       });
+
+    revalidateBusinessData();
 
     const response = NextResponse.redirect(new URL("/ventes/rdv?calendar=connected", request.url));
     response.cookies.delete("native_calendar_oauth_state");

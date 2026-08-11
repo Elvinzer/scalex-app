@@ -16,6 +16,7 @@ import { availabilitySchema, exceptionSchema, nativeBookingEventInputSchema } fr
 import { requirePermission } from "@/lib/team/context";
 import { syncNativeBookingReminderConfiguration } from "@/lib/native-booking/reminders";
 import { getNativeBookingRescheduleSlotsForAccount } from "@/lib/native-booking/agenda";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 const eventActionSchema = z.object({ eventId: z.string().uuid() });
 const closerActionSchema = eventActionSchema.extend({ closerUserId: z.string().uuid() });
@@ -162,6 +163,7 @@ export async function updateBookingHandleAction(input: unknown): Promise<ActionR
   }
 
   revalidatePath("/ventes/rdv");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -494,6 +496,7 @@ export async function updateNativeBookingLeadStatusAction(input: unknown): Promi
     .where(and(eq(nativeBookingLeads.id, lead.id), eq(nativeBookingLeads.userId, access.accountId)));
 
   revalidatePath("/ventes/rdv");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -519,6 +522,7 @@ export async function cancelNativeBookingAction(input: unknown): Promise<ActionR
   if ("error" in result) return { error: "La réservation n’a pas pu être annulée." };
   revalidatePath("/ventes/rdv");
   revalidatePath(`/ventes/rdv/${booking.event.id}`);
+  revalidateBusinessData();
   return { error: null, ...(result.calendarSyncWarning ? { warning: true } : {}) };
 }
 
@@ -536,6 +540,7 @@ export async function rescheduleNativeBookingAction(input: unknown): Promise<Act
   }
   revalidatePath("/ventes/rdv");
   revalidatePath(`/ventes/rdv/${booking.event.id}`);
+  revalidateBusinessData();
   return {
     error: null,
     startAt: result.startAt.toISOString(),
@@ -568,5 +573,6 @@ export async function retryNativeBookingCalendarSyncAction(input: unknown): Prom
     return { error: "La reprise de synchronisation a encore échoué. Reconnecte le calendrier puis réessaie." };
   }
   revalidatePath("/ventes/rdv");
+  revalidateBusinessData();
   return { error: null };
 }

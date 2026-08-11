@@ -2391,8 +2391,9 @@ export const closingVideoOutcome = pgEnum("closing_video_outcome", ["closed", "n
 // transcript/notes are pasted in by hand (no Whisper/audio-upload pipeline
 // in this codebase — url is an external link to wherever the recording is
 // hosted). Feeds lib/call-analysis-prompt-builder.ts for the "Analyser cet
-// appel" AI chat; deliberately not wired into Diagnostic (see plan doc —
-// an outcome win-rate tile would duplicate the existing closingRate metric).
+// appel" AI chat. `salesCallId` is an optional qualitative link to the
+// canonical call row: it lets Falco connect objections/transcript context to
+// the right call without counting the video as another call or sale.
 export const closingVideos = pgTable(
   "closing_videos",
   {
@@ -2400,6 +2401,7 @@ export const closingVideos = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    salesCallId: uuid("sales_call_id").references(() => salesCalls.id, { onDelete: "set null" }),
     clientName: text("client_name").notNull(),
     callDate: date("call_date", { mode: "string" }).notNull(),
     url: text("url"),
@@ -2408,7 +2410,10 @@ export const closingVideos = pgTable(
     outcome: closingVideoOutcome("outcome").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("closing_videos_user_call_date_idx").on(table.userId, table.callDate)]
+  (table) => [
+    index("closing_videos_user_call_date_idx").on(table.userId, table.callDate),
+    index("closing_videos_sales_call_idx").on(table.salesCallId),
+  ]
 ).enableRLS();
 
 // Legacy storage for historical/manual ad campaign rows. The Ads UI is now

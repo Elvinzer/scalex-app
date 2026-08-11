@@ -11,6 +11,7 @@ import { syncStripeSales } from "@/lib/stripe/failed-payments";
 import { createReadOnlyStripeClient } from "@/lib/stripe/read-only-client";
 import { syncStripeMonthlyMetrics } from "@/lib/stripe/sync-write";
 import { syncStripeTransactions } from "@/lib/stripe/transaction-sync";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 const STRIPE_SYNC_MONTHS_BACK = 12;
 
@@ -139,6 +140,7 @@ export const syncStripeAccount = inngest.createFunction(
         invalid_transaction_rows: transactionProjection.invalidCharges,
         invalid_refund_rows: transactionProjection.invalidRefunds,
       });
+      revalidateBusinessData();
     } catch (error) {
       await step.run("mark-sync-failed", async () => {
         await db

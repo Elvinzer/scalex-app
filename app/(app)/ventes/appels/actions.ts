@@ -11,6 +11,7 @@ import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { buildSaleInput } from "@/lib/iclosed/sale";
 import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Inline disposition — no modal. `setCallResult` is the one-click outcome
 // (no-show / non closé / closé); `setCallAmounts` handles the two inline number
@@ -74,6 +75,7 @@ export async function createManualCallAction(data: unknown): Promise<{ error: st
   });
 
   revalidatePath("/ventes/appels");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -122,6 +124,7 @@ export async function setCallResult(callId: string, result: unknown): Promise<{ 
   revalidatePath("/ventes/appels");
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -154,6 +157,7 @@ export async function setCallDecisionDue(callId: string, dueDate: unknown): Prom
     .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)));
 
   revalidatePath("/ventes/appels");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -226,5 +230,6 @@ export async function setCallAmounts(
   revalidatePath("/ventes/appels");
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }

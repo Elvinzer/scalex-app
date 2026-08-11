@@ -65,12 +65,26 @@ export function DatasPageClient({
   const featuredYear = featuredRow?.year ?? currentYear;
   const featuredMonth = featuredRow?.month ?? currentMonth;
   const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
-  const featuredCallSource = featuredRow?.closingManualOverride
-    ? null
-    : callSourcesByMonth[monthKey(featuredYear, featuredMonth)] ?? null;
-  const featuredCallsBooked = featuredCallSource?.callsBooked ?? featuredRow?.callsBooked ?? null;
-  const featuredCallsTaken = featuredCallSource?.callsTaken ?? featuredRow?.callsTaken ?? null;
-  const featuredSalesClosed = featuredCallSource?.salesClosed ?? featuredRow?.salesClosed ?? null;
+  const callSource = callSourcesByMonth[monthKey(featuredYear, featuredMonth)] ?? null;
+  const hasCallSource = Boolean(callSource && callSource.callCount > 0);
+  const settingIsAuthoritative = Boolean(
+    featuredRow?.settingManualOverride ||
+      (featuredRow && ["newFollowers", "firstMessages", "conversations", "callsProposed", "callsBooked"].some((field) => featuredRow[field as keyof typeof featuredRow] !== null))
+  );
+  const closingIsAuthoritative = Boolean(
+    featuredRow?.closingManualOverride ||
+      (featuredRow && ["callsTaken", "salesClosed"].some((field) => featuredRow[field as keyof typeof featuredRow] !== null))
+  );
+  const featuredSalesSummary = salesByMonth[featuredMonth];
+  const featuredCallsBooked = !settingIsAuthoritative && hasCallSource ? callSource.callsBooked : featuredRow?.callsBooked ?? null;
+  const featuredCallsTaken = !closingIsAuthoritative && hasCallSource ? callSource.callsTaken : featuredRow?.callsTaken ?? null;
+  const featuredSalesClosed = !closingIsAuthoritative
+    ? featuredSalesSummary?.closedCount && featuredSalesSummary.closedCount > 0
+      ? featuredSalesSummary.closedCount
+      : hasCallSource
+        ? callSource.salesClosed
+        : featuredRow?.salesClosed ?? null
+    : featuredRow?.salesClosed ?? null;
   const metricSource = (source: MetricSource): MetricSource => source;
   const featuredClosingRate = featuredSalesClosed !== null && featuredCallsTaken !== null
     ? rate(featuredSalesClosed, featuredCallsTaken)
@@ -80,9 +94,9 @@ export function DatasPageClient({
     { label: t("metrics.cashContracted"), description: t("metrics.cashContractedHelp"), value: featuredRow?.cashContracted === null || featuredRow?.cashContracted === undefined ? "—" : formatEur(featuredRow.cashContracted, locale), evolution: t("compare"), source: "Saisie" },
     { label: t("metrics.leads"), description: t("metrics.leadsHelp"), value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: t("compare"), source: "Pipeline" },
     { label: t("metrics.conversations"), description: t("metrics.conversationsHelp"), value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: t("compare"), source: "Saisie" },
-    { label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: t("compare"), source: metricSource(featuredCallSource ? "Suivi d'appel" : "Calendly") },
-    { label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: t("compare"), source: metricSource(featuredCallSource ? "Suivi d'appel" : "iClosed") },
-    { label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: t("compare"), source: metricSource(featuredCallSource ? "Suivi d'appel" : "Stripe + saisie") },
+    { label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: t("compare"), source: metricSource(!settingIsAuthoritative && hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: t("compare"), source: metricSource(!closingIsAuthoritative && hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: t("compare"), source: metricSource(!closingIsAuthoritative && featuredSalesSummary?.closedCount ? "Stripe + saisie" : hasCallSource ? "Suivi d'appel" : "Saisie") },
     { label: t("metrics.closingRate"), description: t("metrics.closingRateHelp"), value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate, locale), evolution: t("compare"), source: "Calculé" },
   ];
 

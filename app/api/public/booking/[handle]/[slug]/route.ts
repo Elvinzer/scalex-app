@@ -12,6 +12,7 @@ import { touchPublicBookingLead, upsertPublicBookingLead } from "@/lib/native-bo
 import { validateNativeBookingAnswers } from "@/lib/native-booking/questions";
 import { hashBookingManagementToken } from "@/lib/native-booking/tokens";
 import { normalizePhone, publicBookingCancelSchema, publicBookingRequestSchema, publicBookingRescheduleSchema, publicBookingRescheduleSlotsSchema, publicBookingRouteSchema, publicQualificationSchema, publicLeadCaptureSchema, publicLeadTouchSchema, publicPhoneStageSchema, sanitizeUtm } from "@/lib/native-booking/validation";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 type RouteContext = { params: Promise<{ handle: string; slug: string }> };
 
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       step: "contact_submitted",
     });
     if (!leadId) return jsonError("Impossible d’enregistrer cette information. Réessaie dans un instant.", 500, "lead_capture_failed");
+    revalidateBusinessData();
 
     return NextResponse.json({ leadId });
   }
@@ -168,6 +170,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       answers: answerValidation.snapshot,
     });
     if (!leadId) return jsonError("Impossible d’enregistrer ta demande. Réessaie dans un instant.", 500, "lead_capture_failed");
+    revalidateBusinessData();
 
     return NextResponse.json({
       leadId,
@@ -197,6 +200,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       selectedStartAt: startAt,
       selectedEndAt: endAt,
     });
+    revalidateBusinessData();
     return NextResponse.json({ ok: true });
   }
 
@@ -205,6 +209,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!parsed.success) return jsonError("Lien de gestion invalide.", 422, "invalid_token");
     const result = await cancelNativeBookingByToken(handle, slug, parsed.data.token);
     if ("error" in result) return jsonError("Ce lien de gestion n’est plus valide.", 404, "not_found");
+    revalidateBusinessData();
     return NextResponse.json({ ok: true, calendarSyncWarning: result.calendarSyncWarning ?? false });
   }
 
@@ -225,6 +230,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (result.error === "slot_unavailable") return jsonError("Ce créneau n’est plus disponible.", 409, "slot_unavailable");
       return jsonError("Le rendez-vous n’a pas pu être déplacé.", 500, "reschedule_failed");
     }
+    revalidateBusinessData();
     return NextResponse.json({ booking: { ...result, startAt: result.startAt.toISOString(), endAt: result.endAt.toISOString() } });
   }
 
@@ -257,6 +263,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         },
       });
     }
+    revalidateBusinessData();
     return NextResponse.json({ booking: { ...result, startAt: result.startAt.toISOString(), endAt: result.endAt.toISOString() } });
   }
 

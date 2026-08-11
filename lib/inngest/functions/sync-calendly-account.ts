@@ -10,6 +10,7 @@ import { backfillCalendlyCalls } from "@/lib/calendly/backfill";
 import { CalendlyNoAccessError, registerWebhook } from "@/lib/calendly/client";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { calendlyAccountConnected, inngest } from "@/lib/inngest/client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { getAppUrl } from "@/lib/utils";
 
 // Runs once when a user connects Calendly: registers a real-time webhook
@@ -67,6 +68,7 @@ export const syncCalendlyAccount = inngest.createFunction(
           .where(eq(calendlyConnections.userId, userId));
       });
 
+      revalidateBusinessData();
       await track("calendly_sync_completed", userId, { calls_backfilled: inserted });
     } catch (error) {
       const noAccess = error instanceof CalendlyNoAccessError;

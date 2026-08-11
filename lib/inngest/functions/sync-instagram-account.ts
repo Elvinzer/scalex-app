@@ -8,6 +8,7 @@ import { decrypt } from "@/lib/crypto";
 import { backfillInstagramPosts } from "@/lib/instagram/backfill";
 import { InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { instagramAccountConnected, instagramBackfillContinue, inngest } from "@/lib/inngest/client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Runs once when a user connects Instagram: backfills their recent media +
 // insights so /acquisition/contenu populates. Idempotent (the backfill
@@ -50,6 +51,7 @@ export const syncInstagramAccount = inngest.createFunction(
         await step.sendEvent("continue-backfill", instagramBackfillContinue.create({ userId }));
       }
 
+      revalidateBusinessData();
       await track("instagram_sync_completed", userId, { posts_backfilled: result.processed });
     } catch (error) {
       const notProfessional = error instanceof InstagramNotProfessionalAccountError;

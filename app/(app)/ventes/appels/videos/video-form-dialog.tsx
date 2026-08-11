@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import type { ClosingVideoOutcome, ClosingVideoRow } from "@/lib/closing-videos/types";
+import type { ClosingVideoCallOption, ClosingVideoOutcome, ClosingVideoRow } from "@/lib/closing-videos/types";
 
 import { saveClosingVideo } from "./actions";
 
@@ -13,7 +13,7 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; trigger: React.ReactNode }) {
+export function VideoFormDialog({ video, callOptions, trigger }: { video?: ClosingVideoRow; callOptions: ClosingVideoCallOption[]; trigger: React.ReactNode }) {
   const t = useTranslations("sales.closingVideos");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +25,7 @@ export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; t
     setError(null);
 
     const data = {
+      salesCallId: String(formData.get("salesCallId") ?? "") || null,
       clientName: String(formData.get("clientName") ?? ""),
       callDate: String(formData.get("callDate") ?? today()),
       url: String(formData.get("url") ?? "") || null,
@@ -52,6 +53,23 @@ export function VideoFormDialog({ video, trigger }: { video?: ClosingVideoRow; t
         </DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
+          {callOptions.length > 0 && (
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-muted-foreground">{t("linkToCall")}</span>
+              <select
+                name="salesCallId"
+                defaultValue={video?.salesCallId ?? ""}
+                className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+              >
+                <option value="">{t("noLinkedCall")}</option>
+                {callOptions.map((call) => (
+                  <option key={call.id} value={call.id}>
+                    {call.label} · {new Date(call.scheduledAt).toLocaleDateString()}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">{t("client")}</span>

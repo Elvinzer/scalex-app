@@ -71,6 +71,7 @@ export async function getSalesSummaryByMonth(
   const byMonth: Record<number, { contracted: number; collected: number; closedCount: number }> = {};
 
   for (const row of rows) {
+    if (row.isOrphan) continue;
     const [rowYear, rowMonth] = row.saleDate.split("-").map(Number);
     if (rowYear !== year) continue;
 

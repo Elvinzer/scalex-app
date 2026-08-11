@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -13,7 +13,7 @@ import { createSseAccumulatorStream } from "@/lib/agent/sse-accumulator";
 import { extractFalcoInsightEvent } from "@/lib/agent/falco-insight-proposal";
 import { track } from "@/lib/analytics";
 import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { chatContextSchema, type ChatContext } from "@/lib/chat-context";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
@@ -21,8 +21,10 @@ import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
+import { computeContentRetentionSummary } from "@/lib/diagnostic/content-retention";
+import { formatUnifiedSourceContext } from "@/lib/diagnostic/unified-context";
 import { buildImprovePrompt, type LeverMode } from "@/lib/improve-prompt-builder";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
@@ -129,21 +131,40 @@ export async function POST(request: NextRequest) {
   // data — never trusts a client-sent rate/€ figure, same rule as
   // lib/agent/insight.ts. `agent` is the single unified Falco row (identity/
   // prompt/temperature) — always fetched, regardless of topicType.
-  const [[userRow], businessProfile, allSettingEntries, allClosingEntries, allMonthlyRows, agent] = await Promise.all([
+  const [[userRow], businessProfile, rawData, agent] = await Promise.all([
     db.select().from(users).where(eq(users.id, accountId)).limit(1),
     getBusinessProfile(accountId),
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(accountId),
+    getDiagnosticKpiRawData(accountId),
     getAgentByKey("falco"),
   ]);
 
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
-  const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
+  const { settingTotals, closingTotals, cashContractedTotal, pipelineTotals, acquisitionTotals } = aggregatePeriodTotals({
     months,
-    allMonthlyRows,
-    allSettingEntries,
-    allClosingEntries,
+    allMonthlyRows: rawData.allMonthlyRows,
+    allSettingEntries: rawData.allSettingEntries,
+    allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
+  });
+  const retention = computeContentRetentionSummary({
+    months,
+    youtubeVideos: rawData.allYoutubeVideoInsights,
+    instagramPosts: rawData.allInstagramPostInsights,
+  });
+  const unifiedSourceContext = formatUnifiedSourceContext({
+    periodLabel: period === "current-month" ? "mois en cours" : `${months.length} mois terminés`,
+    settingTotals,
+    closingTotals,
+    cashContractedTotal,
+    pipelineTotals,
+    acquisitionTotals,
+    retention,
   });
 
   // Falco addresses the PERSON, so the name comes from the logged-in user's
@@ -299,6 +320,7 @@ export async function POST(request: NextRequest) {
     userName,
     contentRecommendation,
     winningPatterns: contentWinningPatterns,
+    unifiedSourceContext,
   });
 
   // "messages" already includes the just-submitted user message — nothing

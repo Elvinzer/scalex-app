@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { CallAnalysisChat } from "@/components/call-analysis-chat";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import type { ClosingVideoOutcome, ClosingVideoRow } from "@/lib/closing-videos/types";
+import type { ClosingVideoCallOption, ClosingVideoOutcome, ClosingVideoRow } from "@/lib/closing-videos/types";
 import { cn } from "@/lib/utils";
 
 import { removeClosingVideo } from "./actions";
@@ -19,7 +19,7 @@ const OUTCOME_BADGE: Record<ClosingVideoOutcome, string> = {
   pending: "bg-warning-soft text-warning-text",
 };
 
-export function VideosTable({ videos }: { videos: ClosingVideoRow[] }) {
+export function VideosTable({ videos, callOptions }: { videos: ClosingVideoRow[]; callOptions: ClosingVideoCallOption[] }) {
   const locale = useLocale();
   const t = useTranslations("sales.closingVideos");
   const [analyzing, setAnalyzing] = useState<ClosingVideoRow | null>(null);
@@ -87,6 +87,7 @@ export function VideosTable({ videos }: { videos: ClosingVideoRow[] }) {
                       </Button>
                       <VideoFormDialog
                         video={video}
+                        callOptions={callOptions}
                         trigger={
                           <Button type="button" variant="ghost" size="icon-sm" aria-label={t("edit")}>
                             <Pencil className="size-3.5" />

@@ -8,6 +8,7 @@ import { insightsRefreshSinceDate } from "@/lib/youtube/backfill";
 import { YOUTUBE_INSIGHTS_REFRESH_WINDOW_DAYS } from "@/lib/youtube/protocol";
 import { youtubeBackfillContinue, inngest } from "@/lib/inngest/client";
 import { runYoutubeSync } from "@/lib/youtube/sync";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Recurring job (every 6h, same cadence as refresh-instagram-insights) —
 // watch-time/retention numbers keep evolving for days after a video goes
@@ -57,6 +58,7 @@ export const refreshYoutubeInsights = inngest.createFunction(
     }
 
     const refreshed = results.filter((r) => !r.skipped).length;
+    if (refreshed > 0) revalidateBusinessData();
     return { total: connections.length, refreshed };
   }
 );

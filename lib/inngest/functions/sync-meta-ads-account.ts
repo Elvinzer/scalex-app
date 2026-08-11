@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { metaAdsConnections } from "@/db/schema";
 import { metaAdsAccountConnected, inngest } from "@/lib/inngest/client";
 import { syncMetaAdAccounts } from "@/lib/meta-ads/sync";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 export const syncMetaAdsAccount = inngest.createFunction(
   { id: "sync-meta-ads-account", triggers: [metaAdsAccountConnected] },
@@ -20,6 +21,7 @@ export const syncMetaAdsAccount = inngest.createFunction(
     });
 
     const result = await step.run("import-ad-accounts", () => syncMetaAdAccounts(event.data.userId));
+    revalidateBusinessData();
     return { connectionId: connection.id, ...result };
   },
 );

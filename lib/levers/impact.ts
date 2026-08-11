@@ -1,11 +1,7 @@
-import { desc, eq } from "drizzle-orm";
-
-import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 
 import { computeLeverOpportunities } from "./opportunities";
 
@@ -26,18 +22,20 @@ export async function getLeverImpactEstimate(
 } | null> {
   const months = lastCompletedMonths(3);
 
-  const [allSettingEntries, allClosingEntries, allMonthlyRows, businessProfile] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(accountId),
-    getBusinessProfile(accountId),
-  ]);
+  const [rawData, businessProfile] = await Promise.all([getDiagnosticKpiRawData(accountId), getBusinessProfile(accountId)]);
 
   const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
     months,
-    allMonthlyRows,
-    allSettingEntries,
-    allClosingEntries,
+    allMonthlyRows: rawData.allMonthlyRows,
+    allSettingEntries: rawData.allSettingEntries,
+    allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
   });
 
   const { toImplement } = await computeLeverOpportunities({

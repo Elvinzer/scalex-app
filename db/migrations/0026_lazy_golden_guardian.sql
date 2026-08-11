@@ -1,0 +1,3 @@
+ALTER TABLE "closing_videos" ADD COLUMN "sales_call_id" uuid;--> statement-breakpoint
+ALTER TABLE "closing_videos" ADD CONSTRAINT "closing_videos_sales_call_id_sales_calls_id_fk" FOREIGN KEY ("sales_call_id") REFERENCES "public"."sales_calls"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "closing_videos_sales_call_idx" ON "closing_videos" USING btree ("sales_call_id");

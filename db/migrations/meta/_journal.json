@@ -183,6 +183,13 @@
       "when": 1786373042054,
       "tag": "0025_careful_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1786405490498,
+      "tag": "0026_lazy_golden_guardian",
+      "breakpoints": true
     }
   ]
 }

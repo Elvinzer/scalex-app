@@ -11,6 +11,7 @@ import { computeGlobalCompletion } from "@/lib/business/completion";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { businessProfileSectionSchemas } from "@/lib/business/schema";
 import { EMPTY_BUSINESS_PROFILE, type BusinessSection } from "@/lib/business/types";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 
@@ -64,5 +65,6 @@ export async function saveBusinessSection(
   revalidatePath("/business");
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }

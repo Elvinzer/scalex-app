@@ -6,6 +6,7 @@ import { computeClosingRates } from "@/lib/closing/metrics";
 import { formatEur } from "@/lib/currency";
 import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { countDelta, inRange, rateDelta } from "@/lib/dashboard/metrics";
+import { aggregateSalesCallsInRange, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
 import { formatPercent } from "@/lib/setting/funnel";
 import type { SaleRow } from "@/lib/sales/types";
 
@@ -51,21 +52,25 @@ export function computeWeeklyStatCards({
   sales,
   settingEntries,
   closingEntries,
+  callRecords = [],
 }: {
   weekRange: DateRange;
   previousWeekRange: DateRange;
   sales: SaleRow[];
   settingEntries: SettingEntry[];
   closingEntries: ClosingEntry[];
+  callRecords?: SalesCallKpiRecord[];
 }): WeeklyReportStatCard[] {
-  const salesThisWeek = sales.filter((sale) => inRange(sale.saleDate, weekRange));
-  const salesPreviousWeek = sales.filter((sale) => inRange(sale.saleDate, previousWeekRange));
+  const salesThisWeek = sales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, weekRange));
+  const salesPreviousWeek = sales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, previousWeekRange));
 
   const settingThisWeek = settingEntries.filter((entry) => inRange(entry.date, weekRange));
   const settingPreviousWeek = settingEntries.filter((entry) => inRange(entry.date, previousWeekRange));
 
   const closingThisWeek = closingEntries.filter((entry) => inRange(entry.date, weekRange));
   const closingPreviousWeek = closingEntries.filter((entry) => inRange(entry.date, previousWeekRange));
+  const callsThisWeek = aggregateSalesCallsInRange(callRecords, weekRange);
+  const callsPreviousWeek = aggregateSalesCallsInRange(callRecords, previousWeekRange);
 
   const caThisWeek = salesThisWeek.reduce((sum, sale) => sum + sale.totalPrice, 0);
   const caPreviousWeek = salesPreviousWeek.reduce((sum, sale) => sum + sale.totalPrice, 0);
@@ -73,16 +78,24 @@ export function computeWeeklyStatCards({
   const leadsThisWeek = settingThisWeek.reduce((sum, entry) => sum + entry.newSubscribers, 0);
   const leadsPreviousWeek = settingPreviousWeek.reduce((sum, entry) => sum + entry.newSubscribers, 0);
 
-  const rdvThisWeek = settingThisWeek.reduce((sum, entry) => sum + entry.callsBooked, 0);
-  const rdvPreviousWeek = settingPreviousWeek.reduce((sum, entry) => sum + entry.callsBooked, 0);
+  const rdvThisWeek = callsThisWeek.callCount > 0 ? callsThisWeek.callsBooked : settingThisWeek.reduce((sum, entry) => sum + entry.callsBooked, 0);
+  const rdvPreviousWeek = callsPreviousWeek.callCount > 0 ? callsPreviousWeek.callsBooked : settingPreviousWeek.reduce((sum, entry) => sum + entry.callsBooked, 0);
 
   const closingTotalsThisWeek = {
-    callsAttended: closingThisWeek.reduce((sum, entry) => sum + entry.callsAttended, 0),
-    salesClosed: closingThisWeek.reduce((sum, entry) => sum + entry.salesClosed, 0),
+    callsAttended: callsThisWeek.callCount > 0 ? callsThisWeek.callsTaken : closingThisWeek.reduce((sum, entry) => sum + entry.callsAttended, 0),
+    salesClosed: salesThisWeek.length > 0
+      ? salesThisWeek.length
+      : callsThisWeek.callCount > 0
+        ? callsThisWeek.salesClosed
+        : closingThisWeek.reduce((sum, entry) => sum + entry.salesClosed, 0),
   };
   const closingTotalsPreviousWeek = {
-    callsAttended: closingPreviousWeek.reduce((sum, entry) => sum + entry.callsAttended, 0),
-    salesClosed: closingPreviousWeek.reduce((sum, entry) => sum + entry.salesClosed, 0),
+    callsAttended: callsPreviousWeek.callCount > 0 ? callsPreviousWeek.callsTaken : closingPreviousWeek.reduce((sum, entry) => sum + entry.callsAttended, 0),
+    salesClosed: salesPreviousWeek.length > 0
+      ? salesPreviousWeek.length
+      : callsPreviousWeek.callCount > 0
+        ? callsPreviousWeek.salesClosed
+        : closingPreviousWeek.reduce((sum, entry) => sum + entry.salesClosed, 0),
   };
   const closingRateThisWeek = computeClosingRates(closingTotalsThisWeek, rdvThisWeek).closingRate;
   const closingRatePreviousWeek = computeClosingRates(closingTotalsPreviousWeek, rdvPreviousWeek).closingRate;

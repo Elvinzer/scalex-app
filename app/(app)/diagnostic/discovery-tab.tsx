@@ -1,14 +1,11 @@
-import { desc, eq } from "drizzle-orm";
 import { getLocale, getTranslations } from "next-intl/server";
 
-import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { Falco } from "@/components/falco/falco";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getDiscoveryState } from "@/lib/levers/discovery";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { localizeLeverCategory, localizeLeverLabel } from "@/lib/levers/locale";
 
 import { DiscoveryConversation } from "./discovery-conversation";
@@ -21,16 +18,9 @@ export async function DiscoveryTab({ accountId }: { accountId: string }) {
   const t = await getTranslations("diagnostic.discovery");
   const tDiagnostic = await getTranslations("diagnostic");
   const locale = await getLocale();
-  const [
-    { businessProfile, catalog, remainingLevers, answered: resolvedCount, total, answeredByKey },
-    allSettingEntries,
-    allClosingEntries,
-    allMonthlyRows,
-  ] = await Promise.all([
+  const [{ businessProfile, catalog, remainingLevers, answered: resolvedCount, total, answeredByKey }, rawData] = await Promise.all([
     getDiscoveryState(accountId),
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, accountId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(accountId),
+    getDiagnosticKpiRawData(accountId),
   ]);
 
   if (remainingLevers.length > 0) {
@@ -40,9 +30,16 @@ export async function DiscoveryTab({ accountId }: { accountId: string }) {
   // Parcours terminé — cartes d'opportunité + vue liste éditable.
   const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
     months: lastCompletedMonths(PERIOD_MONTHS),
-    allMonthlyRows,
-    allSettingEntries,
-    allClosingEntries,
+    allMonthlyRows: rawData.allMonthlyRows,
+    allSettingEntries: rawData.allSettingEntries,
+    allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
   });
 
   const { toImplement, toWatch } = await computeLeverOpportunities({

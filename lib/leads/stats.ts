@@ -5,9 +5,11 @@ import { leadStageHistory, leads } from "@/db/schema";
 import type { SectorKey } from "@/lib/benchmarks";
 import type { DateRange } from "@/lib/date-range";
 import { computeMetricStatus, type MetricStatus } from "@/lib/diagnostic/cascade";
+import { inRange } from "@/lib/dashboard/metrics";
 import { getPipelineDiagnosticBenchmark } from "@/lib/diagnostic/pipeline-metrics";
 
 import { getLeads } from "./queries";
+import { getSales } from "@/lib/sales/queries";
 import { LEAD_SOURCES, type LeadRow, type LeadSource, type LeadStage } from "./types";
 
 // Mirrors lib/diagnostic/cascade.ts's own MIN_VOLUME (not exported from
@@ -83,7 +85,7 @@ export async function computeLeadPipelineStats(
   sector: SectorKey | null,
   preloadedLeads?: LeadRow[],
 ): Promise<PipelineStats> {
-  const [allLeads, workedIds, conversationIds, closedIds, lostIds, previousConversationIds, benchmarkValue] = await Promise.all([
+  const [allLeads, workedIds, conversationIds, closedIds, lostIds, previousConversationIds, benchmarkValue, allSales] = await Promise.all([
     preloadedLeads ? Promise.resolve(preloadedLeads) : getLeads(userId),
     distinctLeadIdsWithTransition(userId, WORKED_STAGES, range),
     distinctLeadIdsWithTransition(userId, ["conversation"], range),
@@ -91,7 +93,18 @@ export async function computeLeadPipelineStats(
     distinctLeadIdsWithTransition(userId, ["perdu"], range),
     previousRange ? distinctLeadIdsWithTransition(userId, ["conversation"], previousRange) : Promise.resolve(null),
     getPipelineDiagnosticBenchmark(sector),
+    getSales(userId),
   ]);
+
+  // A sale linked to a pipeline lead is the canonical commercial close even
+  // when the lead-stage history was not updated. Fold that event into the
+  // same denominator/numerator used by the pipeline view, while leaving
+  // standalone sales to the closing funnel (there is no lead to attribute).
+  for (const sale of allSales) {
+    if (sale.isOrphan || sale.leadId === null || !inRange(sale.saleDate, range)) continue;
+    workedIds.add(sale.leadId);
+    closedIds.add(sale.leadId);
+  }
 
   const volume = workedIds.size;
   const benchmarkPercent = Math.round(benchmarkValue * 100);

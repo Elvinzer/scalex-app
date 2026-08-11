@@ -17,6 +17,7 @@ import { classifyMetaOAuthError } from "@/lib/meta-ads/oauth-errors";
 import { verifyMetaOAuthState } from "@/lib/meta-ads/oauth-state";
 import { inngest, metaAdsAccountConnected } from "@/lib/inngest/client";
 import { isRateLimited } from "@/lib/rate-limit";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
 
@@ -169,6 +170,7 @@ export async function GET(request: NextRequest) {
     }
 
     const writeStatus = isWriteStepUp ? (scopes.includes("ads_management") ? "write_ready" : "write_declined") : "connected";
+    revalidateBusinessData();
     const destination = new URL(returnTo ?? "/integrations", origin);
     destination.searchParams.set("meta_ads", writeStatus);
     const response = NextResponse.redirect(destination);

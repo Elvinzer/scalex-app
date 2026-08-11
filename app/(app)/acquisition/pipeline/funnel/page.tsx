@@ -12,8 +12,10 @@ import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
+import { aggregateSalesCallsInRange, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
+import { getSalesCallKpiRecords } from "@/lib/monthly-metrics/queries";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
-import { isExactCalendarMonth, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
+import { isExactCalendarMonth, resolveMonthSettingTotals, SETTING_FIELDS } from "@/lib/monthly-metrics/resolve";
 import { computeFunnelRates, findBottleneck, type FunnelStage } from "@/lib/setting/funnel";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -30,6 +32,24 @@ import { StatTiles } from "./stat-tiles";
 function stageLabel(stage: FunnelStage, t: (key: string) => string): string {
   if (stage === "outreachRate") return t("funnel.outreachRate");
   return t(`funnel.${stage}`);
+}
+
+function resolveCanonicalSettingTotals(
+  monthlyRow: Awaited<ReturnType<typeof getMonthlyMetrics>>,
+  entries: Parameters<typeof resolveMonthSettingTotals>[1],
+  callRecords: readonly SalesCallKpiRecord[],
+  range: { from: string; to: string } | null
+) {
+  const baseTotals = resolveMonthSettingTotals(monthlyRow, entries);
+  const monthlyIsAuthoritative = Boolean(
+    monthlyRow?.settingManualOverride ||
+      (monthlyRow && SETTING_FIELDS.some((field) => monthlyRow[field] !== null))
+  );
+  const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
+
+  return !monthlyIsAuthoritative && callSource.callCount > 0
+    ? { ...baseTotals, callsBooked: callSource.callsBooked }
+    : baseTotals;
 }
 
 // The day-by-day view of Acquisition's funnel — was its own page
@@ -54,22 +74,24 @@ export default async function AcquisitionFunnelPage({
   const benchmark = getBenchmark(sector);
   const hasWorkingKey = Boolean(user?.anthropicApiKeyEncrypted) && !user?.anthropicApiKeyInvalid;
 
-  const [allEntries, existingInsights] = await Promise.all([
+  const [allEntries, callRecords, existingInsights] = await Promise.all([
     db
       .select()
       .from(settingKpiEntries)
       .where(eq(settingKpiEntries.userId, accountId))
       .orderBy(desc(settingKpiEntries.date)),
+    getSalesCallKpiRecords(accountId),
     getExistingStageInsights(accountId),
   ]);
 
-  const hasAnyEntries = allEntries.length > 0;
+  const hasAnyEntries = allEntries.length > 0 || callRecords.length > 0;
 
   const range = resolveDateRange(paramValue(params.range), paramValue(params.from), paramValue(params.to));
   const entries = range
     ? allEntries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
     : allEntries;
-  const hasEntriesInRange = entries.length > 0;
+  const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
+  const hasEntriesInRange = entries.length > 0 || callSource.callCount > 0;
 
   // When the selected range is exactly one calendar month, a monthly_metrics
   // row for it (if any setting field is filled) wins wholesale over that
@@ -85,14 +107,16 @@ export default async function AcquisitionFunnelPage({
     previousExactMonth ? getMonthlyMetrics(accountId, previousExactMonth.year, previousExactMonth.month) : Promise.resolve(null),
   ]);
 
-  const totals = resolveMonthSettingTotals(monthlyRow, entries);
+  const totals = resolveCanonicalSettingTotals(monthlyRow, entries, callRecords, range);
   const rates = computeFunnelRates(totals);
   const bottleneck = findBottleneck(rates);
 
   const previousEntries = previousRange
     ? allEntries.filter((entry) => entry.date >= previousRange.from && entry.date <= previousRange.to)
     : [];
-  const previousTotals = previousRange ? resolveMonthSettingTotals(previousMonthlyRow, previousEntries) : null;
+  const previousTotals = previousRange
+    ? resolveCanonicalSettingTotals(previousMonthlyRow, previousEntries, callRecords, previousRange)
+    : null;
 
   const stateText =
     hasEntriesInRange && bottleneck
@@ -145,7 +169,7 @@ export default async function AcquisitionFunnelPage({
         <>
           <div className="sticker-card p-8">
             <p className="text-sm font-bold">{t("funnel.funnel")}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{t("funnel.cumulative", { count: entries.length, plural: entries.length > 1 ? "s" : "", suffix: range ? ` — ${formatRangeDates(range, locale)}` : ` ${t("funnel.history").toLowerCase()}` })}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t("funnel.cumulative", { count: entries.length || callSource.callsBooked, plural: (entries.length || callSource.callsBooked) > 1 ? "s" : "", suffix: range ? ` — ${formatRangeDates(range, locale)}` : ` ${t("funnel.history").toLowerCase()}` })}</p>
             <div className="mt-6">
               <FunnelChart totals={totals} rates={rates} bottleneckStage={bottleneck?.stage ?? null} />
             </div>

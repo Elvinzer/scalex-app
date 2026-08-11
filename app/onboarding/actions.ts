@@ -1,13 +1,13 @@
 "use server";
 
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { saveBusinessSection } from "@/app/(app)/business/actions";
 import { saveMonthlyMetrics } from "@/app/(app)/datas/actions";
 import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { Offer, SaleMode } from "@/lib/business/types";
@@ -15,7 +15,7 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths, monthWindowFor } from "@/lib/diagnostic/completed-months";
 import { computeOnboardingGoulot, type OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 
 // The manual-entry form (screen 2's "Saisir à la main" path) still asks for
@@ -72,18 +72,22 @@ export async function saveOnboardingOffer(data: {
 async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingGoulotResult }> {
   const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const businessProfile = await getBusinessProfile(userId);
-  const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-    db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, userId)).orderBy(desc(settingKpiEntries.date)),
-    db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, userId)).orderBy(desc(closingKpiEntries.date)),
-    getAllMonthlyMetrics(userId),
-  ]);
+  const rawData = await getDiagnosticKpiRawData(userId);
+  const allMonthlyRows = rawData.allMonthlyRows;
 
   const months = allMonthlyRows.map((row) => monthWindowFor(row.year, row.month));
   const { settingTotals, closingTotals, cashContractedTotal } = aggregatePeriodTotals({
     months,
     allMonthlyRows,
-    allSettingEntries,
-    allClosingEntries,
+    allSettingEntries: rawData.allSettingEntries,
+    allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
   });
 
   const benchmarks = await getDiagnosticBenchmarks(userRow?.sector ?? null);

@@ -112,9 +112,21 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   const falcoSkin = resolveFalcoSkin("/acquisition/ads");
 
   if (mode === "demarrer") {
-    const { allSettingEntries, allClosingEntries, allMonthlyRows } = await getDiagnosticKpiRawData(accountId);
+    const rawData = await getDiagnosticKpiRawData(accountId);
     const months = lastCompletedMonths(3);
-    const { cashContractedTotal } = aggregatePeriodTotals({ months, allMonthlyRows, allSettingEntries, allClosingEntries });
+    const { cashContractedTotal } = aggregatePeriodTotals({
+      months,
+      allMonthlyRows: rawData.allMonthlyRows,
+      allSettingEntries: rawData.allSettingEntries,
+      allClosingEntries: rawData.allClosingEntries,
+      callSourcesByMonth: rawData.allCallSourcesByMonth,
+      allSales: rawData.allSales,
+      allLeads: rawData.allLeads,
+      allLeadStageHistory: rawData.allLeadStageHistory,
+      allEmailCampaigns: rawData.allEmailCampaigns,
+      allMetaMetrics: rawData.allMetaMetrics,
+      allNativeBookingLeads: rawData.allNativeBookingLeads,
+    });
     const avgMonthlyRevenue = cashContractedTotal / months.length;
 
     if (avgMonthlyRevenue < ADS_MIN_MONTHLY_REVENUE_EUR && !metaDashboard) {

@@ -6,12 +6,16 @@ import { computeClosingRates } from "@/lib/closing/metrics";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import {
+  CLOSING_FIELDS,
+  SETTING_FIELDS,
   resolveMonthCashCollected,
   resolveMonthClosingTotals,
   resolveMonthNewCustomers,
   resolveMonthSettingTotals,
 } from "@/lib/monthly-metrics/resolve";
 import { formatPercent } from "@/lib/setting/funnel";
+import { summarize } from "@/lib/sales/installments";
+import type { SaleRow } from "@/lib/sales/types";
 
 type SettingEntry = typeof settingKpiEntries.$inferSelect;
 type ClosingEntry = typeof closingKpiEntries.$inferSelect;
@@ -125,6 +129,7 @@ export function buildMetricCards({
   allSettingEntries,
   allClosingEntries,
   allMonthlyRows,
+  allSales = [],
   callSourcesByMonth = {},
   isStripeConnected,
   locale = "fr-FR",
@@ -133,6 +138,7 @@ export function buildMetricCards({
   allSettingEntries: SettingEntry[];
   allClosingEntries: ClosingEntry[];
   allMonthlyRows: MonthlyMetricsRow[];
+  allSales?: SaleRow[];
   callSourcesByMonth?: Record<string, MonthlyCallSource>;
   // Whether stripeConnections has a row for this account — no longer a live
   // fetch (lib/stripe/sync-write.ts persists straight into monthlyRow, see
@@ -148,17 +154,42 @@ export function buildMetricCards({
     const monthlyRow = allMonthlyRows.find((row) => row.year === bucket.year && row.month === bucket.month) ?? null;
     const dailySetting = allSettingEntries.filter((entry) => inRange(entry.date, bucket.range));
     const dailyClosing = allClosingEntries.filter((entry) => inRange(entry.date, bucket.range));
-    const callSource = monthlyRow?.closingManualOverride ? null : callSourcesByMonth[monthKey(bucket.year, bucket.month)] ?? null;
+    // Closing overrides only protect calls-taken/sales-closed. A manual
+    // closing correction must not hide the same month's canonical booked-call
+    // source from the acquisition cards.
+    const callSource = callSourcesByMonth[monthKey(bucket.year, bucket.month)] ?? null;
+    const validSalesInMonth = allSales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, bucket.range));
 
     const baseSettingTotals = resolveMonthSettingTotals(monthlyRow, dailySetting);
-    const settingTotals = callSource && !monthlyRow?.settingManualOverride
+    const monthlySettingIsAuthoritative = Boolean(
+      monthlyRow?.settingManualOverride ||
+        (monthlyRow && SETTING_FIELDS.some((field) => monthlyRow[field] !== null))
+    );
+    const monthlyClosingIsAuthoritative = Boolean(
+      monthlyRow?.closingManualOverride ||
+        (monthlyRow && CLOSING_FIELDS.some((field) => monthlyRow[field] !== null))
+    );
+    const callSourceIsAvailable = callSource !== null && callSource.callCount > 0;
+    const settingTotals = callSourceIsAvailable && !monthlySettingIsAuthoritative
       ? { ...baseSettingTotals, callsBooked: callSource.callsBooked }
       : baseSettingTotals;
-    const closingTotals = callSource
-      ? { callsAttended: callSource.callsTaken, salesClosed: callSource.salesClosed }
-      : resolveMonthClosingTotals(monthlyRow, dailyClosing);
+    const baseClosingTotals = resolveMonthClosingTotals(monthlyRow, dailyClosing);
+    const closingTotals = monthlyClosingIsAuthoritative
+      ? baseClosingTotals
+      : {
+          callsAttended: callSourceIsAvailable ? callSource.callsTaken : baseClosingTotals.callsAttended,
+          salesClosed: validSalesInMonth.length > 0
+            ? validSalesInMonth.length
+            : callSourceIsAvailable
+              ? callSource.salesClosed
+              : baseClosingTotals.salesClosed,
+        };
     const closingRates = computeClosingRates(closingTotals, settingTotals.callsBooked);
-    const cash = resolveMonthCashCollected(monthlyRow);
+    const salesCollected = allSales
+      .filter((sale) => !sale.isOrphan && inRange(sale.saleDate, bucket.range))
+      .reduce((sum, sale) => sum + summarize(sale.totalPrice, sale.installments).paidTotal, 0);
+    const stripeOrManualCash = resolveMonthCashCollected(monthlyRow);
+    const cash = salesCollected > 0 ? { amount: salesCollected, source: "sales" as const } : stripeOrManualCash;
     const newCustomers = resolveMonthNewCustomers(monthlyRow);
 
     return { bucket, monthlyRow, settingTotals, closingTotals, closingRates, cash, newCustomers };
@@ -169,7 +200,11 @@ export function buildMetricCards({
 
   const hasAnySettingData = allSettingEntries.length > 0 || allMonthlyRows.some((row) => row.newFollowers !== null || row.callsBooked !== null);
   const hasAnyBookingsData = hasAnySettingData || Object.keys(callSourcesByMonth).length > 0;
-  const hasAnyClosingData = allClosingEntries.length > 0 || Object.keys(callSourcesByMonth).length > 0 || allMonthlyRows.some((row) => row.callsTaken !== null || row.salesClosed !== null);
+  const hasAnyClosingData =
+    allClosingEntries.length > 0 ||
+    Object.keys(callSourcesByMonth).length > 0 ||
+    allMonthlyRows.some((row) => row.callsTaken !== null || row.salesClosed !== null) ||
+    allSales.some((sale) => !sale.isOrphan);
   const directSalePage = businessProfile.acquisition.setting.enabled === "no";
 
   const cards: MetricCard[] = [];

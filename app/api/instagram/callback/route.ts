@@ -7,6 +7,7 @@ import { encrypt } from "@/lib/crypto";
 import { exchangeCodeForToken, exchangeForLongLivedToken, fetchProfile, InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { inngest, instagramAccountConnected } from "@/lib/inngest/client";
 import { isRateLimited } from "@/lib/rate-limit";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
 import { requireEnv } from "@/lib/utils";
@@ -88,6 +89,8 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       console.error("inngest.send(instagramAccountConnected) failed, Instagram connection saved anyway", error);
     }
+
+    revalidateBusinessData();
 
     const response = NextResponse.redirect(new URL("/acquisition/contenu", origin));
     response.cookies.delete("instagram_oauth_state");

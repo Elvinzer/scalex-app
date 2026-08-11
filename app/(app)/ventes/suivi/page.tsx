@@ -169,9 +169,10 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
   );
 
   const periodSales = sales.filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)));
+  const validPeriodSales = periodSales.filter((sale) => !sale.isOrphan);
 
-  const cashContracted = periodSales.reduce((sum, sale) => sum + sale.totalPrice, 0);
-  const summaries = periodSales.map((sale) => summarize(sale.totalPrice, sale.installments));
+  const cashContracted = validPeriodSales.reduce((sum, sale) => sum + sale.totalPrice, 0);
+  const summaries = validPeriodSales.map((sale) => summarize(sale.totalPrice, sale.installments));
   const cashCollected = summaries.reduce((sum, summary) => sum + summary.paidTotal, 0);
   const pending = summaries.reduce((sum, summary) => sum + summary.pendingTotal, 0);
   const failed = summaries.reduce((sum, summary) => sum + summary.failedTotal, 0);
@@ -223,8 +224,8 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiTile label={t("contractedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashContracted)} €`} detail={t("salesCount", { count: periodSales.length })} />
-        <KpiTile label={t("collectedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashCollected)} €`} detail={t("salesCount", { count: periodSales.length })} tone="positive" />
+        <KpiTile label={t("contractedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashContracted)} €`} detail={t("salesCount", { count: validPeriodSales.length })} />
+        <KpiTile label={t("collectedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashCollected)} €`} detail={t("salesCount", { count: validPeriodSales.length })} tone="positive" />
         <KpiTile label={t("upcomingPayments")} value={`${new Intl.NumberFormat(locale).format(pending)} €`} detail={t("toCollect")} tone="accent2" />
         <KpiTile label={t("failedPayments")} value={`${new Intl.NumberFormat(locale).format(failed)} €`} detail={t("toProcess")} tone={failed > 0 ? "negative" : "default"} />
       </div>

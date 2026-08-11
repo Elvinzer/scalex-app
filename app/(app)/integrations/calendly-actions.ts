@@ -13,6 +13,7 @@ import { backfillCalendlyCalls } from "@/lib/calendly/backfill";
 import { CalendlyNoAccessError, deleteWebhook, validateCalendlyToken } from "@/lib/calendly/client";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { calendlyAccountConnected, inngest } from "@/lib/inngest/client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner, requirePermission } from "@/lib/team/context";
 
@@ -85,6 +86,7 @@ export async function connectCalendly(formData: FormData): Promise<{ error: stri
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -121,6 +123,7 @@ export async function disconnectCalendly(): Promise<{ error: string | null }> {
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -158,6 +161,7 @@ export async function refreshCalendlyCalls(): Promise<{ error: string | null; im
       .where(eq(calendlyConnections.userId, accountId));
     revalidatePath("/ventes/appels");
     revalidatePath("/ventes/suivi");
+    revalidateBusinessData();
     return { error: null, imported };
   } catch (error) {
     const noAccess = error instanceof CalendlyNoAccessError;

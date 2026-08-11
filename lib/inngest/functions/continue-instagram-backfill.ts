@@ -6,6 +6,7 @@ import { decrypt } from "@/lib/crypto";
 import { backfillInstagramPosts } from "@/lib/instagram/backfill";
 import { InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { instagramBackfillContinue, inngest } from "@/lib/inngest/client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Resumes a backfill that stopped early because it hit its time budget (see
 // protocol.ts's INSTAGRAM_BACKFILL_TIME_BUDGET_MS) — triggered by
@@ -40,6 +41,7 @@ export const continueInstagramBackfill = inngest.createFunction(
         await step.sendEvent("chain-continue", instagramBackfillContinue.create({ userId }));
       }
 
+      revalidateBusinessData();
       return result;
     } catch (error) {
       const notProfessional = error instanceof InstagramNotProfessionalAccountError;

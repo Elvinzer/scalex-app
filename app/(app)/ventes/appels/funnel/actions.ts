@@ -13,6 +13,7 @@ import {
 } from "@/lib/closing/schema";
 import { requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 export async function saveClosingKpiEntry(
   formData: FormData
@@ -53,6 +54,7 @@ export async function saveClosingKpiEntry(
   revalidatePath("/ventes/appels/funnel");
   revalidatePath("/diagnostic");
   revalidatePath("/dashboard");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -92,6 +94,7 @@ export async function updateClosingKpiEntryField(
 
   revalidatePath("/ventes/appels/funnel");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -130,5 +133,6 @@ export async function importClosingKpiCsv(rawCsv: string): Promise<ImportClosing
 
   revalidatePath("/ventes/appels/funnel");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { imported: rows.length, errors };
 }

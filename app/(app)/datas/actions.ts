@@ -10,6 +10,7 @@ import { monthlyMetricsInputSchema } from "@/lib/monthly-metrics/schema";
 import { writeMonthlyMetrics } from "@/lib/monthly-metrics/write";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 const monthlyImportUsageSchema = z.object({
   fileHashes: z.array(z.string().regex(/^[a-f0-9]{64}$/i)).min(1).max(5),
@@ -87,5 +88,6 @@ export async function saveMonthlyMetrics(
   revalidatePath("/acquisition/pipeline");
   revalidatePath("/acquisition/pipeline/funnel");
   revalidatePath("/ventes/appels/funnel");
+  revalidateBusinessData();
   return { error: null };
 }

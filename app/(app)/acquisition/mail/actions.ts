@@ -8,6 +8,7 @@ import { emailCampaignInputSchema } from "@/lib/email-campaigns/schema";
 import { setLeverStatus } from "@/lib/levers/status";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 const LEVER_KEY = "email_marketing";
 
@@ -30,6 +31,7 @@ export async function saveEmailCampaign(id: string | null, data: unknown): Promi
   }
 
   revalidatePath("/acquisition/mail");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -41,6 +43,7 @@ export async function removeEmailCampaign(id: string): Promise<{ error: string |
 
   await deleteEmailCampaign(access.accountId, id);
   revalidatePath("/acquisition/mail");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -60,5 +63,6 @@ export async function saveMailDiscoveryAnswer(
   if (justActivated) await track("lever_started", userId, { lever: LEVER_KEY, source: "discovery" });
 
   revalidatePath("/acquisition/mail");
+  revalidateBusinessData();
   return { error: null };
 }

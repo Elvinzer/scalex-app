@@ -177,6 +177,7 @@ export function buildImprovePrompt({
   userName,
   contentRecommendation,
   winningPatterns,
+  unifiedSourceContext,
 }: {
   context: ChatContext;
   businessProfile: BusinessProfileData;
@@ -201,6 +202,10 @@ export function buildImprovePrompt({
   // reloaded server-side from the account that owns the conversation.
   contentRecommendation?: YoutubeRecommendationRecord | null;
   winningPatterns?: YoutubeWinningPatternsSnapshot | null;
+  // One server-computed snapshot shared by the Dashboard, Diagnostic and
+  // Copilot. Keeping it as a formatted block prevents the model from
+  // re-adding or reconciling raw source rows itself.
+  unifiedSourceContext?: string | null;
 }): string {
   const isGeneral = context.topicType === "general";
   const isLever = context.topicType === "lever";
@@ -242,6 +247,7 @@ export function buildImprovePrompt({
     "",
     "# DONNÉES RÉELLES (3 derniers mois)",
     describeRealNumbers(settingTotals, closingTotals),
+    ...(unifiedSourceContext ? ["", "# SNAPSHOT UNIFIÉ DES SOURCES", unifiedSourceContext] : []),
     "",
     isGeneral
       ? "# LES POINTS À AMÉLIORER (classés par impact)"

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { metaAdsConnections } from "@/db/schema";
 import { inngest, metaAdsSyncRequested } from "@/lib/inngest/client";
 import { syncSelectedMetaAdAccount } from "@/lib/meta-ads/sync";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 export const refreshMetaAds = inngest.createFunction(
   { id: "refresh-meta-ads", triggers: [cron("30 */6 * * *")] },
@@ -33,6 +34,7 @@ export const refreshMetaAds = inngest.createFunction(
       if (!("result" in result) || result.result.completed || !result.result.nextPhase) continue;
       await step.sendEvent(`continue-meta-refresh-${result.userId}-${result.result.nextPhase}`, metaAdsSyncRequested.create({ userId: result.userId, phase: result.result.nextPhase }));
     }
+    if (results.some((result) => result.refreshed)) revalidateBusinessData();
     return { total: connections.length, refreshed: results.filter((result) => result.refreshed).length };
   },
 );

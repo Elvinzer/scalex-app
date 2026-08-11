@@ -9,6 +9,7 @@ import { contentRecommendations, improvementEvents, todos, youtubeVideoInsights 
 import { track } from "@/lib/analytics";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { rebuildYoutubeContentRecommendations } from "@/lib/youtube/recommendations";
 
@@ -40,6 +41,7 @@ export async function regenerateYoutubeRecommendations(): Promise<Recommendation
 
   revalidatePath("/acquisition/contenu");
   revalidatePath("/acquisition/contenu/youtube");
+  revalidateBusinessData();
   return {
     error: result.state === "generation_failed" ? "Falco n'a pas pu régénérer les idées. Réessaie dans un instant." : null,
     state: result.state,
@@ -89,6 +91,7 @@ export async function acceptYoutubeRecommendation(recommendationId: string): Pro
   revalidatePath("/acquisition/contenu");
   revalidatePath("/acquisition/contenu/youtube");
   revalidatePath("/roadmap");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -119,5 +122,6 @@ export async function linkYoutubeRecommendationToVideo(
   await track("content_reco_published", access.userId, { reco_id: parsedRecommendationId.data });
   revalidatePath("/acquisition/contenu");
   revalidatePath("/acquisition/contenu/youtube");
+  revalidateBusinessData();
   return { error: null };
 }

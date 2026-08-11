@@ -437,9 +437,16 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     allMonthlyRows: rawData.allMonthlyRows,
     allSettingEntries: rawData.allSettingEntries,
     allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
   });
   const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
-  const points = totals.hasAnyMonthlyRow
+  const points = totals.hasAnySourceData
     ? computeDiagnosticPoints({
         settingTotals: totals.settingTotals,
         closingTotals: totals.closingTotals,
@@ -448,7 +455,7 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
         cashContractedTotal: totals.cashContractedTotal,
       })
     : [];
-  const opportunities = totals.hasAnyMonthlyRow
+  const opportunities = totals.hasAnySourceData
     ? await computeLeverOpportunities({
         accountId,
         businessProfile,
@@ -575,14 +582,14 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     }));
   }
 
-  const missingData = !totals.hasAnyMonthlyRow || totals.emptyMonths.length > 0;
+  const missingData = !totals.hasAnySourceData || totals.emptyMonths.length > 0;
   if (missingData) {
     const missingMonth = totals.emptyMonths[0];
     const missingMonthLabel = missingMonth ? `${missingMonth.month}/${missingMonth.year}` : "ce mois-ci";
     actions.push(makeCheckinAction({
       monthLabel: missingMonthLabel,
       sourceInsight: `Check-in · données de ${missingMonthLabel.toLowerCase()} manquantes`,
-      priorityScore: totals.hasAnyMonthlyRow ? 84 : 110,
+      priorityScore: totals.hasAnySourceData ? 84 : 110,
     }));
   }
 

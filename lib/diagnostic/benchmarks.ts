@@ -23,23 +23,29 @@ import { METRIC_KEYS, type MetricKey } from "./metric-keys";
 // table only changes via a seed script, never from in-app writes, so there's
 // no revalidateTag call site — every user on every request was otherwise
 // re-querying the same handful of rows).
-const getDiagnosticBenchmarksCached = unstable_cache(
-  async (sector: SectorKey | null): Promise<Record<MetricKey, number>> => {
+const getBenchmarkSnapshotCached = unstable_cache(
+  async (sector: SectorKey | null): Promise<Record<string, number>> => {
     const [rows, globalRows] = await Promise.all([
       sector ? db.select().from(benchmarks).where(eq(benchmarks.sector, sector)) : Promise.resolve([]),
       db.select().from(benchmarks).where(isNull(benchmarks.sector)),
     ]);
 
-    const result = {} as Record<MetricKey, number>;
-    for (const key of METRIC_KEYS) {
-      const sectorRow = rows.find((row) => row.metricKey === key);
-      const globalRow = globalRows.find((row) => row.metricKey === key);
-      result[key] = sectorRow?.value ?? globalRow?.value ?? 0;
-    }
+    const result: Record<string, number> = {};
+    for (const row of globalRows) result[row.metricKey] = row.value;
+    for (const row of rows) result[row.metricKey] = row.value;
     return result;
   },
-  ["diagnostic-benchmarks"],
+  ["diagnostic-benchmark-snapshot"],
   { revalidate: 3600 }
 );
 
-export const getDiagnosticBenchmarks = cache(getDiagnosticBenchmarksCached);
+export const getBenchmarkSnapshot = cache(getBenchmarkSnapshotCached);
+
+export const getDiagnosticBenchmarks = cache(async (sector: SectorKey | null): Promise<Record<MetricKey, number>> => {
+  const snapshot = await getBenchmarkSnapshot(sector);
+  const result = {} as Record<MetricKey, number>;
+  for (const key of METRIC_KEYS) {
+    result[key] = snapshot[key] ?? 0;
+  }
+  return result;
+});

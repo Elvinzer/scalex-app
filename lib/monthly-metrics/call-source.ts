@@ -38,3 +38,26 @@ export function aggregateSalesCallsByMonth(records: readonly SalesCallKpiRecord[
 
   return byMonth;
 }
+
+export function aggregateSalesCallsInRange(
+  records: readonly SalesCallKpiRecord[],
+  range?: { from: string; to: string }
+): MonthlyCallSource {
+  const inRange = range
+    ? records.filter((record) => {
+        const date = record.scheduledAt instanceof Date
+          ? record.scheduledAt.toISOString().slice(0, 10)
+          : new Date(record.scheduledAt).toISOString().slice(0, 10);
+        return date >= range.from && date <= range.to;
+      })
+    : records;
+  return Object.values(aggregateSalesCallsByMonth(inRange)).reduce(
+    (sum, month) => ({
+      callsBooked: sum.callsBooked + month.callsBooked,
+      callsTaken: sum.callsTaken + month.callsTaken,
+      salesClosed: sum.salesClosed + month.salesClosed,
+      callCount: sum.callCount + month.callCount,
+    }),
+    { callsBooked: 0, callsTaken: 0, salesClosed: 0, callCount: 0 }
+  );
+}

@@ -310,6 +310,8 @@
     },
     "editCall": "Edit call",
     "addCallTitle": "Add a call",
+    "linkToCall": "Link to a tracked call (optional)",
+    "noLinkedCall": "No linked call",
     "callDate": "Call date",
     "link": "Link (recording)",
     "transcript": "Transcript (optional, for AI analysis)",

@@ -555,7 +555,7 @@ export async function getMetaAdsDashboard(accountId: string, requestedPeriod: un
     db
       .select({ totalPrice: sales.totalPrice, metaTouchpointId: sales.metaTouchpointId, saleDate: sales.saleDate })
       .from(sales)
-      .where(and(eq(sales.userId, accountId), gte(sales.saleDate, previousPeriod.start), lte(sales.saleDate, currentPeriod.end))),
+      .where(and(eq(sales.userId, accountId), eq(sales.isOrphan, false), gte(sales.saleDate, previousPeriod.start), lte(sales.saleDate, currentPeriod.end))),
   ]);
 
   const campaignExternalIds = new Set(campaignRows.map(({ campaign }) => campaign.externalId));
@@ -887,13 +887,13 @@ export async function getMetaCampaignDetail(accountId: string, campaignId: strin
         db
           .select({ id: sales.id, totalPrice: sales.totalPrice })
           .from(sales)
-          .where(and(eq(sales.userId, accountId), inArray(sales.metaTouchpointId, touchpointIds), gte(sales.saleDate, dashboard.period.start), lte(sales.saleDate, dashboard.period.end))),
+          .where(and(eq(sales.userId, accountId), eq(sales.isOrphan, false), inArray(sales.metaTouchpointId, touchpointIds), gte(sales.saleDate, dashboard.period.start), lte(sales.saleDate, dashboard.period.end))),
       ])
     : [[], [], []] as const;
   const allSalesInPeriod = await db
     .select({ id: sales.id, metaTouchpointId: sales.metaTouchpointId })
     .from(sales)
-    .where(and(eq(sales.userId, accountId), gte(sales.saleDate, dashboard.period.start), lte(sales.saleDate, dashboard.period.end)));
+    .where(and(eq(sales.userId, accountId), eq(sales.isOrphan, false), gte(sales.saleDate, dashboard.period.start), lte(sales.saleDate, dashboard.period.end)));
   const revenueCentsRaw = saleRows.reduce((total, sale) => total + sale.totalPrice * 100, 0);
   const coverageRate = selectedCampaign.cash?.coverageRate ?? null;
   const unattributedSalesInPeriod = countUnattributedMetaSales(allSalesInPeriod, knownTouchpointIds);

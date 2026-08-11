@@ -9,6 +9,7 @@ import { decrypt } from "@/lib/crypto";
 import { classifyEvent, parseEnvelope, readCall } from "@/lib/iclosed/events";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // iClosed webhook receiver. Auth model (iClosed uses static API keys, not
 // OAuth, and its public docs don't spell out a signing scheme):
@@ -218,5 +219,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       break;
   }
 
+  revalidateBusinessData();
   return NextResponse.json({ received: true });
 }

@@ -7,6 +7,7 @@ import { track } from "@/lib/analytics";
 import { YoutubeChannelNotFoundError, YoutubeTokenRevokedError } from "@/lib/youtube/client";
 import { youtubeAccountConnected, youtubeBackfillContinue, inngest } from "@/lib/inngest/client";
 import { runYoutubeSync } from "@/lib/youtube/sync";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Runs once when a user connects YouTube: backfills their uploaded videos +
 // analytics so /acquisition/contenu populates. Idempotent (the backfill
@@ -45,6 +46,7 @@ export const syncYoutubeAccount = inngest.createFunction(
         await step.sendEvent("continue-backfill", youtubeBackfillContinue.create({ userId }));
       }
 
+      revalidateBusinessData();
       await track("youtube_sync_completed", userId, { videos_backfilled: result.processed });
     } catch (error) {
       const revoked = error instanceof YoutubeTokenRevokedError;

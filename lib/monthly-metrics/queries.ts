@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import { monthlyMetrics, salesCalls } from "@/db/schema";
@@ -81,8 +82,8 @@ export async function getAllMonthlyMetrics(userId: string): Promise<MonthlyMetri
   return rows.map(toRow);
 }
 
-export async function getMonthlyCallSources(userId: string): Promise<Record<string, MonthlyCallSource>> {
-  const rows = await db
+export const getSalesCallKpiRecords = cache(async (userId: string) => {
+  return db
     .select({
       scheduledAt: salesCalls.scheduledAt,
       attendance: salesCalls.attendance,
@@ -90,6 +91,10 @@ export async function getMonthlyCallSources(userId: string): Promise<Record<stri
     })
     .from(salesCalls)
     .where(eq(salesCalls.userId, userId));
+});
+
+export async function getMonthlyCallSources(userId: string): Promise<Record<string, MonthlyCallSource>> {
+  const rows = await getSalesCallKpiRecords(userId);
 
   return aggregateSalesCallsByMonth(rows);
 }

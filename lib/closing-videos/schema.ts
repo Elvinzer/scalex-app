@@ -4,6 +4,7 @@ import { z } from "zod";
 // the only place a raw call blob is trusted, per CLAUDE.md's rule against
 // unvalidated `as` on external input.
 export const closingVideoInputSchema = z.object({
+  salesCallId: z.string().uuid().nullable().or(z.literal("").transform(() => null)),
   clientName: z.string().min(1, "Le nom du client est requis"),
   callDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   url: z.string().url().nullable().or(z.literal("").transform(() => null)),

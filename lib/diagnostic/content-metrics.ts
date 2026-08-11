@@ -1,6 +1,7 @@
 import { inRange } from "@/lib/dashboard/metrics";
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import { rate } from "@/lib/setting/funnel";
+import type { VideoAttributionTotals } from "@/lib/youtube/attribution-rules";
 
 import { computeMetricStatus, type MetricStatus } from "./cascade";
 import type { MonthWindow } from "./completed-months";
@@ -75,7 +76,11 @@ export type ContentTotals = {
 
 const EMPTY_SAMPLE = (): ContentMetricSample => ({ numerator: 0, denominator: 0, posts: 0 });
 
-export function aggregateContentTotals(months: MonthWindow[], allPosts: ContentPostRow[]): ContentTotals {
+export function aggregateContentTotals(
+  months: MonthWindow[],
+  allPosts: ContentPostRow[],
+  attributions: ReadonlyMap<string, VideoAttributionTotals> = new Map()
+): ContentTotals {
   const inWindow = allPosts.filter((post) => months.some(({ range }) => inRange(post.publishedAt, range)));
 
   const samples: Record<ContentMetricKey, ContentMetricSample> = {
@@ -95,18 +100,24 @@ export function aggregateContentTotals(months: MonthWindow[], allPosts: ContentP
   const totals = { views: 0, clicks: 0, leads: 0, bookings: 0, dealsClosed: 0 };
 
   for (const post of inWindow) {
+    const attribution = post.externalId ? attributions.get(post.externalId) : undefined;
+    const attributedDeals = attribution ? attribution.declaredSales + attribution.estimatedSales : 0;
+    // A directly linked sale is the stronger commercial fact. Manual
+    // post-level annotations remain the fallback for content that predates
+    // the attribution table; the two are never added together.
+    const dealsClosed = attributedDeals > 0 ? attributedDeals : post.dealsClosed;
     totals.views += post.views;
     totals.clicks += post.clicks ?? 0;
     totals.leads += post.leads ?? 0;
     totals.bookings += post.bookings ?? 0;
-    totals.dealsClosed += post.dealsClosed ?? 0;
+    totals.dealsClosed += dealsClosed ?? 0;
 
     accumulate("content_click_rate", post.clicks, post.views);
     // leads are denominated by that same post's clicks — a post with leads
     // but no click count can't contribute a rate to either side.
     accumulate("content_lead_rate", post.clicks === null ? null : post.leads, post.clicks ?? 0);
     accumulate("content_booking_rate", post.bookings, post.views);
-    accumulate("content_close_rate", post.bookings === null ? null : post.dealsClosed, post.bookings ?? 0);
+    accumulate("content_close_rate", post.bookings === null ? null : dealsClosed, post.bookings ?? 0);
   }
 
   return { ...totals, samples };

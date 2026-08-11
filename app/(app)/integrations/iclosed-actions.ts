@@ -14,6 +14,7 @@ import { backfillIclosedCalls } from "@/lib/iclosed/backfill";
 import { IclosedNoApiAccessError, validateIclosedKey } from "@/lib/iclosed/client";
 import { ICLOSED_KEY_PREFIX } from "@/lib/iclosed/protocol";
 import { iclosedAccountConnected, inngest } from "@/lib/inngest/client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner, requirePermission } from "@/lib/team/context";
 
@@ -102,6 +103,7 @@ export async function connectIclosed(formData: FormData): Promise<{ error: strin
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -125,6 +127,7 @@ export async function disconnectIclosed(): Promise<{ error: string | null }> {
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -165,6 +168,7 @@ export async function refreshIclosedCalls(): Promise<{ error: string | null; imp
       .where(eq(iclosedConnections.userId, accountId));
     revalidatePath("/ventes/appels");
     revalidatePath("/ventes/suivi");
+    revalidateBusinessData();
     return { error: null, imported };
   } catch (error) {
     const noAccess = error instanceof IclosedNoApiAccessError;

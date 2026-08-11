@@ -1,11 +1,12 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { cron } from "inngest";
 
 import { db } from "@/db";
-import { closingKpiEntries, settingKpiEntries, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
+import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { sumChiffrableMonthlyGains } from "@/lib/diagnostic/monthly-gap";
@@ -15,9 +16,7 @@ import { computeWeeklyStatCards, lastCompleteWeekRange, upsertWeeklyReport } fro
 import { currentIsoWeekRange, inRange } from "@/lib/dashboard/metrics";
 import { inngest } from "@/lib/inngest/client";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
-import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 import { getResendClient } from "@/lib/resend-client";
-import { getSales } from "@/lib/sales/queries";
 import { getScaleScoreDelta } from "@/lib/scale-score-history/queries";
 import { getAppUrl } from "@/lib/utils";
 import { signUnsubscribeToken } from "@/lib/unsubscribe-token";
@@ -53,21 +52,24 @@ export const weeklyBriefEmail = inngest.createFunction(
           if (user.lastWeeklyBriefSentAt && new Date(user.lastWeeklyBriefSentAt) > sixDaysAgo) return;
 
           const businessProfile = await getBusinessProfile(user.id);
-          const [allSettingEntries, allClosingEntries, allMonthlyRows, sales] = await Promise.all([
-            db.select().from(settingKpiEntries).where(eq(settingKpiEntries.userId, user.id)).orderBy(desc(settingKpiEntries.date)),
-            db.select().from(closingKpiEntries).where(eq(closingKpiEntries.userId, user.id)).orderBy(desc(closingKpiEntries.date)),
-            getAllMonthlyMetrics(user.id),
-            getSales(user.id),
-          ]);
+          const rawData = await getDiagnosticKpiRawData(user.id);
+          const { allSettingEntries, allClosingEntries, allMonthlyRows, allSales: sales } = rawData;
 
           const months = lastCompletedMonths(3);
-          const { settingTotals, closingTotals, cashContractedTotal, hasAnyMonthlyRow } = aggregatePeriodTotals({
+          const { settingTotals, closingTotals, cashContractedTotal, hasAnySourceData } = aggregatePeriodTotals({
             months,
             allMonthlyRows,
             allSettingEntries,
             allClosingEntries,
+            callSourcesByMonth: rawData.allCallSourcesByMonth,
+            allSales: sales,
+            allLeads: rawData.allLeads,
+            allLeadStageHistory: rawData.allLeadStageHistory,
+            allEmailCampaigns: rawData.allEmailCampaigns,
+            allMetaMetrics: rawData.allMetaMetrics,
+            allNativeBookingLeads: rawData.allNativeBookingLeads,
           });
-          if (!hasAnyMonthlyRow) return; // nothing to report yet
+          if (!hasAnySourceData) return; // nothing to report yet
 
           const benchmarks = await getDiagnosticBenchmarks(user.sector ?? null);
           const points = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal });
@@ -109,6 +111,7 @@ export const weeklyBriefEmail = inngest.createFunction(
             sales,
             settingEntries: allSettingEntries,
             closingEntries: allClosingEntries,
+            callRecords: rawData.allCallRecords,
           });
 
           await upsertWeeklyReport({

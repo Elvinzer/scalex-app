@@ -32,6 +32,23 @@
   "trend6": "Last 6 months",
   "trend12": "12 months",
   "trendYear": "Year to date",
+  "sync": {
+    "title": "Source synchronization",
+    "help": "These sources feed your numbers, diagnostic and bottleneck without double counting.",
+    "active": "{active}/{total} sources active",
+    "records": "{count} record(s) available",
+    "sources": {
+      "monthly": { "label": "Monthly metrics", "empty": "No monthly entry" },
+      "calls": { "label": "Calls", "empty": "No tracked call" },
+      "sales": { "label": "Sales / Stripe", "empty": "No non-orphan sale" },
+      "pipeline": { "label": "Pipeline", "empty": "No lead" },
+      "content": { "label": "Content", "empty": "No content insight" },
+      "email": { "label": "Email", "empty": "No campaign" },
+      "meta": { "label": "Meta Ads", "empty": "No Meta metric" },
+      "bookings": { "label": "Native bookings", "empty": "No booking prospect" },
+      "delivery": { "label": "Delivery / churn", "not_tracked": "Needs instrumentation: no customer-retention source" }
+    }
+  },
   "modal": {
     "settingSource": "Calculated from your daily tracking. Editable in Pipeline → Daily funnel.",
     "closingSource": "Calculated from your daily tracking. Editable in Call tracking → Closing funnel.",

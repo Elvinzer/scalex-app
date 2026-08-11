@@ -13,6 +13,7 @@ import {
 } from "@/lib/setting/schema";
 import { requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 export async function saveSettingKpiEntry(
   formData: FormData
@@ -59,6 +60,7 @@ export async function saveSettingKpiEntry(
   revalidatePath("/acquisition/pipeline/funnel");
   revalidatePath("/diagnostic");
   revalidatePath("/dashboard");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -98,6 +100,7 @@ export async function updateSettingKpiEntryField(
 
   revalidatePath("/acquisition/pipeline/funnel");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -139,5 +142,6 @@ export async function importSettingKpiCsv(rawCsv: string): Promise<ImportSetting
 
   revalidatePath("/acquisition/pipeline/funnel");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { imported: rows.length, errors };
 }

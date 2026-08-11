@@ -13,6 +13,8 @@ import {
 } from "@/lib/diagnostic/cascade";
 import type { MetricKey } from "@/lib/diagnostic/metric-keys";
 import type { FunnelTotals } from "@/lib/setting/funnel";
+import type { ContentRetentionSummary } from "@/lib/diagnostic/content-retention";
+import type { PipelinePeriodTotals } from "@/lib/diagnostic/aggregate";
 
 export const BOTTLENECK_STAGE_IDS = [
   "views",
@@ -35,6 +37,7 @@ export type BottleneckStage = {
   metricKey: string | null;
   isReliable: boolean;
   noteKey: "retentionUnavailable" | "volumeInsufficient" | "gainUnavailable" | null;
+  source?: "content" | "pipeline" | "calls" | "sales";
 };
 
 export type BottleneckFunnelData = {
@@ -152,6 +155,7 @@ function contentStage(
     metricKey: id === "clicks" ? "content_click_rate" : "content_lead_rate",
     isReliable: gain.isReliable,
     noteKey: gain.noteKey,
+    source: "content",
   };
 }
 
@@ -168,6 +172,9 @@ export function buildBottleneckFunnel({
   hasSettingData,
   hasClosingData,
   hasRevenueData,
+  retention,
+  pipelineTotals,
+  pipelineBenchmarkRate,
   locale,
 }: {
   contentTotals: ContentTotals;
@@ -182,6 +189,9 @@ export function buildBottleneckFunnel({
   hasSettingData: boolean;
   hasClosingData: boolean;
   hasRevenueData: boolean;
+  retention?: ContentRetentionSummary | null;
+  pipelineTotals?: PipelinePeriodTotals;
+  pipelineBenchmarkRate?: number | null;
   locale: string;
 }): BottleneckFunnelData {
   const summaries = computeContentMetricSummaries({ totals: contentTotals, benchmarks: contentBenchmarks });
@@ -207,6 +217,7 @@ export function buildBottleneckFunnel({
       metricKey,
       isReliable: gain.isReliable,
       noteKey: gain.noteKey,
+      source: id === "salesClosed" ? "sales" : "calls",
     };
   };
 
@@ -220,6 +231,7 @@ export function buildBottleneckFunnel({
       metricKey: null,
       isReliable: contentPostsCount > 0,
       noteKey: null,
+      source: "content",
     },
     contentStage(
       "clicks",
@@ -232,27 +244,61 @@ export function buildBottleneckFunnel({
       dealPrice,
       locale
     ),
-    {
-      id: "retention",
-      volume: null,
-      currentRate: null,
-      benchmarkRate: null,
-      monthlyGain: null,
-      metricKey: null,
-      isReliable: false,
-      noteKey: "retentionUnavailable",
-    },
-    contentStage(
-      "leads",
-      "content_lead_rate",
-      summaries,
-      contentTotals,
-      contentBenchmarks,
-      funnelRates,
-      funnelBenchmarks,
-      dealPrice,
-      locale
-    ),
+    retention
+      ? {
+          id: "retention" as const,
+          volume: retention.views > 0 ? retention.views : null,
+          currentRate: retention.currentRate,
+          benchmarkRate: retention.currentRate === null ? null : retention.benchmarkRate,
+          monthlyGain: null,
+          metricKey: null,
+          isReliable: retention.currentRate !== null,
+          noteKey: retention.currentRate === null ? "retentionUnavailable" : "gainUnavailable",
+          source: "content" as const,
+        }
+      : {
+          id: "retention" as const,
+          volume: null,
+          currentRate: null,
+          benchmarkRate: null,
+          monthlyGain: null,
+          metricKey: null,
+          isReliable: false,
+          noteKey: "retentionUnavailable" as const,
+          source: "content" as const,
+        },
+    pipelineTotals && pipelineTotals.worked > 0
+      ? (() => {
+          const benchmarkRate = pipelineBenchmarkRate && pipelineBenchmarkRate > 0 ? pipelineBenchmarkRate : null;
+          const currentRate = pipelineTotals.closed / pipelineTotals.worked;
+          const monthlyGain = benchmarkRate !== null && currentRate < benchmarkRate && dealPrice.price !== null
+            ? Math.round((benchmarkRate - currentRate) * pipelineTotals.worked * dealPrice.price)
+            : benchmarkRate !== null && currentRate < benchmarkRate
+              ? null
+              : 0;
+          return {
+            id: "leads" as const,
+            volume: pipelineTotals.worked,
+            currentRate,
+            benchmarkRate,
+            monthlyGain,
+            metricKey: "pipeline_closing_rate",
+            isReliable: pipelineTotals.worked >= 30,
+            noteKey: benchmarkRate === null || monthlyGain === null ? "gainUnavailable" as const : null,
+            source: "pipeline" as const,
+          };
+        })()
+      : contentStage(
+          "leads",
+          "content_lead_rate",
+          summaries,
+          contentTotals,
+          contentBenchmarks,
+          funnelRates,
+          funnelBenchmarks,
+          dealPrice,
+          locale
+        ),
     cascadeStage("bookedCalls", hasSettingData ? settingTotals.callsBooked : -1, "bookingRate"),
     cascadeStage("attendedCalls", hasClosingData ? closingTotals.callsAttended : -1, "showUpRate"),
     cascadeStage("salesClosed", hasClosingData ? closingTotals.salesClosed : -1, "closingRate"),

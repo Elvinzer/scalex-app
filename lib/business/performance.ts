@@ -37,8 +37,9 @@ function scoreAgainstBenchmark(current: number, benchmark: number): number {
 }
 
 export function buildOfferPerformance(offers: Offer[], monthSales: SaleRow[]): OfferPerformance[] {
+  const validSales = monthSales.filter((sale) => !sale.isOrphan);
   return offers.map((offer) => {
-    const offerSales = monthSales.filter((sale) => sale.offerId === offer.id);
+    const offerSales = validSales.filter((sale) => sale.offerId === offer.id);
     const revenue = offerSales.reduce((sum, sale) => sum + sale.totalPrice, 0);
 
     return {
@@ -51,8 +52,9 @@ export function buildOfferPerformance(offers: Offer[], monthSales: SaleRow[]): O
 }
 
 export function buildUpsellPerformance(offers: Offer[], monthSales: SaleRow[]): UpsellPerformance {
-  const upsellSales = monthSales.filter((sale) => sale.hasUpsell);
-  const saleCount = monthSales.length;
+  const validSales = monthSales.filter((sale) => !sale.isOrphan);
+  const upsellSales = validSales.filter((sale) => sale.hasUpsell);
+  const saleCount = validSales.length;
   const takeRate = saleCount > 0 ? upsellSales.length / saleCount : null;
   const revenue = upsellSales.reduce((sum, sale) => sum + (sale.upsellAmount ?? 0), 0);
   const upsellOffers = offers.filter((offer) => offer.isUpsell);
@@ -62,7 +64,7 @@ export function buildUpsellPerformance(offers: Offer[], monthSales: SaleRow[]): 
     takeRate,
     revenue,
     avgWithUpsell: average(upsellSales.map((sale) => sale.totalPrice + (sale.upsellAmount ?? 0))),
-    avgWithoutUpsell: average(monthSales.filter((sale) => !sale.hasUpsell).map((sale) => sale.totalPrice)),
+    avgWithoutUpsell: average(validSales.filter((sale) => !sale.hasUpsell).map((sale) => sale.totalPrice)),
     offers: upsellOffers.map((offer) => {
       const offerSales = monthSales.filter((sale) => sale.upsellOfferId === offer.id);
       const offerTakeRate = saleCount > 0 ? offerSales.length / saleCount : null;

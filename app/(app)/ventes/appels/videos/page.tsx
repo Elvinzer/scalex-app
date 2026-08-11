@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
-import { getClosingVideos } from "@/lib/closing-videos/queries";
+import { getClosingVideoCallOptions, getClosingVideos } from "@/lib/closing-videos/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -21,7 +21,7 @@ export default async function VentesVideosPage() {
   const t = await getTranslations("sales.closingVideos");
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "ventes:videos");
-  const videos = await getClosingVideos(accountId);
+  const [videos, callOptions] = await Promise.all([getClosingVideos(accountId), getClosingVideoCallOptions(accountId)]);
   const closedCount = videos.filter((v) => v.outcome === "closed").length;
 
   return (
@@ -36,6 +36,7 @@ export default async function VentesVideosPage() {
             {t("back")}
           </Link>
           <VideoFormDialog
+            callOptions={callOptions}
             trigger={
               <Button type="button">
                 <Plus className="size-4" />
@@ -57,7 +58,7 @@ export default async function VentesVideosPage() {
         </div>
       </div>
 
-      <VideosTable videos={videos} />
+      <VideosTable videos={videos} callOptions={callOptions} />
     </div>
   );
 }

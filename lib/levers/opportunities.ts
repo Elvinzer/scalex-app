@@ -586,7 +586,7 @@ export async function computeLeverOpportunities({
     // on a rate that a couple of sales could swing wildly.
     if (status === "active" && lever.leverKey === "upsell_ascension") {
       const allSales = await getSales(accountId);
-      const periodSales = allSales.filter((sale) => months.some(({ range }) => inRange(sale.saleDate, range)));
+      const periodSales = allSales.filter((sale) => !sale.isOrphan && months.some(({ range }) => inRange(sale.saleDate, range)));
       if (periodSales.length >= UPSELL_MIN_SALES) {
         const takeRate = periodSales.filter((sale) => sale.hasUpsell).length / periodSales.length;
         const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);

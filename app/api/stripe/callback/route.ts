@@ -7,6 +7,7 @@ import { stripeConnections, users } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { inngest, stripeAccountConnected } from "@/lib/inngest/client";
 import { isRateLimited } from "@/lib/rate-limit";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
 
@@ -100,6 +101,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("inngest.send(stripeAccountConnected) failed, Stripe connection saved anyway", error);
   }
+
+  revalidateBusinessData();
 
   const response = NextResponse.redirect(new URL("/integrations", origin));
   response.cookies.delete("stripe_oauth_state");

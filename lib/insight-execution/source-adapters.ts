@@ -78,6 +78,13 @@ async function diagnosticMetricInsight(accountId: string, sourceId: string): Pro
     allMonthlyRows: rawData.allMonthlyRows,
     allSettingEntries: rawData.allSettingEntries,
     allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
   });
   const points = computeDiagnosticPoints({
     settingTotals: totals.settingTotals,
@@ -90,7 +97,7 @@ async function diagnosticMetricInsight(accountId: string, sourceId: string): Pro
     (item) => item.key === sourceId,
   );
   const contentSummary = computeContentMetricSummaries({
-    totals: aggregateContentTotals(months, allContentPosts),
+    totals: aggregateContentTotals(months, allContentPosts, rawData.allVideoAttributionTotals),
     benchmarks: contentBenchmarks,
   }).find((item) => item.key === sourceId);
   const point = points.find((item) => item.key === sourceId);
@@ -132,6 +139,13 @@ async function diagnosticLeverInsight(accountId: string, sourceId: string): Prom
     allMonthlyRows: rawData.allMonthlyRows,
     allSettingEntries: rawData.allSettingEntries,
     allClosingEntries: rawData.allClosingEntries,
+    callSourcesByMonth: rawData.allCallSourcesByMonth,
+    allSales: rawData.allSales,
+    allLeads: rawData.allLeads,
+    allLeadStageHistory: rawData.allLeadStageHistory,
+    allEmailCampaigns: rawData.allEmailCampaigns,
+    allMetaMetrics: rawData.allMetaMetrics,
+    allNativeBookingLeads: rawData.allNativeBookingLeads,
   });
   const { toImplement, toWatch } = await computeLeverOpportunities({
     accountId,

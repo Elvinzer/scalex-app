@@ -54,6 +54,11 @@
   "viewDetail": "See details",
   "benchmarkEstimate": "Estimate: part of this funnel is not measured yet.",
   "contentLabel": "Content",
+  "retention": {
+    "title": "Content retention",
+    "help": "YouTube/Instagram views weighted by view volume.",
+    "benchmark": "Indicative benchmark: {value}%"
+  },
   "strongPoints": "Your strengths ({count})",
   "simulationSummary": "{real} → {possible}{gain}",
   "simulationGain": ", or +{amount}/month",

@@ -14,6 +14,7 @@ import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
 import type { InstallmentStatus } from "@/lib/sales/types";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // The video credited for this sale, declared by the coach at closing time.
 // Kept OUT of saleInputSchema on purpose: it isn't a column on `sales`, it's
@@ -65,6 +66,7 @@ export async function saveSale(id: string | null, data: unknown): Promise<{ erro
   revalidatePath("/ventes/suivi");
   revalidatePath("/acquisition/contenu/youtube");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -98,6 +100,7 @@ export async function createSaleFromOrphan(saleId: string, data: unknown): Promi
 
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -110,6 +113,7 @@ export async function removeSale(id: string): Promise<{ error: string | null }> 
   await deleteSale(access.accountId, id);
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -149,6 +153,7 @@ export async function setInstallmentStatus(
 
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
 
@@ -183,5 +188,6 @@ export async function acknowledgeFailedInstallment(saleId: string, installmentIn
   await db.update(sales).set({ installments }).where(and(eq(sales.id, saleId), eq(sales.userId, accountId)));
 
   revalidatePath("/ventes/suivi");
+  revalidateBusinessData();
   return { error: null };
 }

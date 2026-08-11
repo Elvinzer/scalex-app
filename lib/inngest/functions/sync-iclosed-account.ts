@@ -8,6 +8,7 @@ import { decrypt } from "@/lib/crypto";
 import { backfillIclosedCalls } from "@/lib/iclosed/backfill";
 import { IclosedNoApiAccessError } from "@/lib/iclosed/client";
 import { iclosedAccountConnected, inngest } from "@/lib/inngest/client";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Runs once when a user connects iClosed: backfills their calls from
 // GET /v1/eventCalls so /ventes/appels populates. Real-time webhooks are NOT
@@ -42,6 +43,7 @@ export const syncIclosedAccount = inngest.createFunction(
           .where(eq(iclosedConnections.userId, userId));
       });
 
+      revalidateBusinessData();
       await track("iclosed_sync_completed", userId, { calls_backfilled: inserted });
     } catch (error) {
       const noAccess = error instanceof IclosedNoApiAccessError;

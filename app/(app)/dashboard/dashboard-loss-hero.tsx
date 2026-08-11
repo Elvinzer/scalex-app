@@ -19,7 +19,7 @@ export async function DashboardLossHero({
   settingTotals,
   closingTotals,
   cashContractedTotal,
-  hasAnyMonthlyRow,
+  hasAnyData,
   months,
   points,
   locale,
@@ -30,14 +30,14 @@ export async function DashboardLossHero({
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
   cashContractedTotal: number;
-  hasAnyMonthlyRow: boolean;
+  hasAnyData: boolean;
   months: MonthWindow[];
   points: DiagnosticPoint[];
   locale: string;
   bottleneckLabel: string;
 }) {
   const t = await getTranslations("dashboard");
-  const { toImplement, toWatch } = hasAnyMonthlyRow
+  const { toImplement, toWatch } = hasAnyData
     ? await computeLeverOpportunities({
         accountId,
         businessProfile,
@@ -49,14 +49,14 @@ export async function DashboardLossHero({
       })
     : { toImplement: [], toWatch: [] };
   const topActiveLevers = [...toWatch].sort((a, b) => b.score - a.score).slice(0, 3);
-  const totalMonthlyLoss = !hasAnyMonthlyRow
+  const totalMonthlyLoss = !hasAnyData
     ? null
     : sumChiffrableMonthlyGains([
         ...points.map((point) => point.monthlyGain),
         ...topActiveLevers.map((lever) => lever.impactAmountEur),
         ...toImplement.map((lever) => lever.impactAmountEur),
       ]);
-  const heroFalco = !hasAnyMonthlyRow
+  const heroFalco = !hasAnyData
     ? { pose: "sleeping" as const, line: t("completeNumbers") }
     : points.length > 0
       ? { pose: "alert" as const, line: t("bottleneck", { label: bottleneckLabel }) }

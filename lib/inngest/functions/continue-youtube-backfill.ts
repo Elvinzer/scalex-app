@@ -5,6 +5,7 @@ import { youtubeConnections } from "@/db/schema";
 import { YoutubeChannelNotFoundError, YoutubeTokenRevokedError } from "@/lib/youtube/client";
 import { youtubeBackfillContinue, inngest } from "@/lib/inngest/client";
 import { runYoutubeSync } from "@/lib/youtube/sync";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Resumes a backfill that stopped early because it hit its time budget (see
 // protocol.ts's YOUTUBE_BACKFILL_TIME_BUDGET_MS) — triggered by
@@ -36,6 +37,7 @@ export const continueYoutubeBackfill = inngest.createFunction(
         await step.sendEvent("chain-continue", youtubeBackfillContinue.create({ userId }));
       }
 
+      revalidateBusinessData();
       return result;
     } catch (error) {
       const revoked = error instanceof YoutubeTokenRevokedError;

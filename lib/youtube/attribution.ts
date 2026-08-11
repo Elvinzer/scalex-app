@@ -60,7 +60,13 @@ export async function getVideoAttributionTotals(userId: string): Promise<Map<str
     })
     .from(videoAttributions)
     .innerJoin(sales, eq(videoAttributions.saleId, sales.id))
-    .where(eq(videoAttributions.userId, userId));
+    .where(
+      and(
+        eq(videoAttributions.userId, userId),
+        eq(sales.userId, userId),
+        eq(sales.isOrphan, false)
+      )
+    );
 
   const totals = new Map<string, VideoAttributionTotals>();
   for (const row of rows) {

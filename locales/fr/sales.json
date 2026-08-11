@@ -310,6 +310,8 @@
     },
     "editCall": "Modifier l’appel",
     "addCallTitle": "Ajouter un appel",
+    "linkToCall": "Relier à un appel suivi (facultatif)",
+    "noLinkedCall": "Aucun appel relié",
     "callDate": "Date de l’appel",
     "link": "Lien (enregistrement)",
     "transcript": "Transcription (optionnel, pour l’analyse IA)",

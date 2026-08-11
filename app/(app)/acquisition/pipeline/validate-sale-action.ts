@@ -9,6 +9,7 @@ import { linkLeadToSale } from "@/lib/leads/queries";
 import { createSale } from "@/lib/sales/queries";
 import { saleInputSchema } from "@/lib/sales/schema";
 import { requirePermission } from "@/lib/team/context";
+import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Thin wrapper around the exact same validation/creation path as
 // /ventes/suivi (saleInputSchema + createSale) — no new sale logic, just
@@ -40,5 +41,6 @@ export async function validateSaleFromLead(leadId: string, data: unknown): Promi
   revalidatePath("/acquisition/pipeline");
   revalidatePath("/acquisition/setters");
   revalidatePath("/diagnostic");
+  revalidateBusinessData();
   return { error: null };
 }
