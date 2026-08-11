@@ -5,7 +5,6 @@ import { inRange } from "@/lib/dashboard/metrics";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { periodToMonths } from "@/lib/diagnostic/completed-months";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
-import { buildDataQualitySummary } from "@/lib/diagnostic/data-quality";
 import { getLeadPipelineVolumesByMonth } from "@/lib/leads/stats";
 import { getMonthlyMetricsForYear } from "@/lib/monthly-metrics/queries";
 import { resolveMonthCashCollected } from "@/lib/monthly-metrics/resolve";
@@ -17,7 +16,6 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
 
 import { DatasPageClient } from "./datas-page-client";
-import { DataSyncStatus } from "./data-sync-status";
 import { RevenueTrend } from "./revenue-trend";
 
 const TREND_PERIODS = ["3", "6", "12", "year"];
@@ -102,20 +100,8 @@ export default async function DatasPage({
     rdv: monthlySeries.map((m) => ({ label: m.label, value: m.rdv })),
     ventes: monthlySeries.map((m) => ({ label: m.label, value: m.ventes })),
   };
-  const dataQuality = buildDataQualitySummary({
-    monthlyRows: rawData.allMonthlyRows.length,
-    calls: rawData.allCallRecords.length,
-    sales: rawData.allSales.filter((sale) => !sale.isOrphan).length,
-    leads: rawData.allLeads.length,
-    content: rawData.allContentPosts.length,
-    emailCampaigns: rawData.allEmailCampaigns.length,
-    metaMetricRows: rawData.allMetaMetrics.length,
-    nativeBookingLeads: rawData.allNativeBookingLeads.length,
-  });
-
   return (
     <div className="flex flex-col gap-8">
-      <DataSyncStatus summary={dataQuality} />
       <DatasPageClient
         year={year}
         monthRows={monthRows}

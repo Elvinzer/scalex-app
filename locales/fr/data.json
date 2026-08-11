@@ -32,23 +32,6 @@
   "trend6": "6 derniers mois",
   "trend12": "12 mois",
   "trendYear": "Année en cours",
-  "sync": {
-    "title": "Synchronisation des sources",
-    "help": "Ces sources alimentent les chiffres, le diagnostic et le goulot d’étranglement sans double comptage.",
-    "active": "{active}/{total} sources actives",
-    "records": "{count} enregistrement(s) disponibles",
-    "sources": {
-      "monthly": { "label": "Métriques mensuelles", "empty": "Aucune saisie mensuelle" },
-      "calls": { "label": "Appels", "empty": "Aucun appel suivi" },
-      "sales": { "label": "Ventes / Stripe", "empty": "Aucune vente non orpheline" },
-      "pipeline": { "label": "Pipeline", "empty": "Aucun lead" },
-      "content": { "label": "Contenu", "empty": "Aucun insight contenu" },
-      "email": { "label": "Email", "empty": "Aucune campagne" },
-      "meta": { "label": "Meta Ads", "empty": "Aucune métrique Meta" },
-      "bookings": { "label": "Réservations natives", "empty": "Aucun prospect de réservation" },
-      "delivery": { "label": "Livraison / churn", "not_tracked": "À instrumenter : aucune source de rétention client" }
-    }
-  },
   "modal": {
     "settingSource": "Calculé depuis ton suivi quotidien. Modifiable dans Pipeline → Funnel journalier.",
     "closingSource": "Calculé depuis ton suivi quotidien. Modifiable dans Suivi d'appel → Funnel de closing.",

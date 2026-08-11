@@ -765,6 +765,8 @@
     "filterCompleted": "Terminé",
     "filterDismissed": "Écarté",
     "historyHelp": "Garde la mémoire de tes décisions et reprends une action sans repartir de zéro.",
+    "expandHistory": "Dérouler tes insights suivis",
+    "collapseHistory": "Enrouler tes insights suivis",
     "fallbackProblem": "Problème identifié dans la conversation.",
     "fallbackCriterion": "Critère à préciser dans le suivi.",
     "resumeOn": "Reprise le {date}",

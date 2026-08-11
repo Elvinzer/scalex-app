@@ -765,6 +765,8 @@
     "filterCompleted": "Completed",
     "filterDismissed": "Dismissed",
     "historyHelp": "Keep the memory of your decisions and resume an action without starting over.",
+    "expandHistory": "Expand tracked insights",
+    "collapseHistory": "Collapse tracked insights",
     "fallbackProblem": "Problem identified in the conversation.",
     "fallbackCriterion": "Criterion to clarify in the follow-up.",
     "resumeOn": "Resume on {date}",

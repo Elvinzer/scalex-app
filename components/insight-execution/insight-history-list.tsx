@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -389,6 +390,7 @@ export function InsightHistoryList({
   const [decisionFilter, setDecisionFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [showAll, setShowAll] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [localItems, setLocalItems] = useState(items);
 
   useEffect(() => {
@@ -434,7 +436,7 @@ export function InsightHistoryList({
 
   return (
     <div id="insight-history" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 id="insight-history-heading" className="text-lg font-bold">
             {locale === "en" ? "Insights you are tracking" : "Tes insights suivis"}
@@ -443,71 +445,91 @@ export function InsightHistoryList({
             {t("historyHelp")}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <label className="sr-only" htmlFor="insight-decision-filter">
-            {locale === "en" ? "Filter by status" : "Filtrer par statut"}
-          </label>
-          <select
-            id="insight-decision-filter"
-            value={decisionFilter}
-            onChange={(event) => setDecisionFilter(event.target.value)}
-            className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-xs font-bold outline-none focus-visible:border-accent"
-          >
-            <option value="all">{t("filterAll")}</option>
-            <option value="todo">{t("filterTodo")}</option>
-            <option value="launched">{t("filterLaunched")}</option>
-            <option value="later">{t("filterLater")}</option>
-            <option value="completed">{t("filterCompleted")}</option>
-            <option value="dismissed">{t("filterDismissed")}</option>
-          </select>
-          <label className="sr-only" htmlFor="insight-source-filter">
-            {locale === "en" ? "Filter by source" : "Filtrer par source"}
-          </label>
-          <select
-            id="insight-source-filter"
-            value={sourceFilter}
-            onChange={(event) => setSourceFilter(event.target.value)}
-            className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-xs font-bold outline-none focus-visible:border-accent"
-          >
-            <option value="all">{locale === "en" ? "All sources" : "Toutes les sources"}</option>
-            {sources.map((source) => (
-              <option key={source} value={source}>
-                {sourceLabel(source, locale)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {visible.length === 0 ? (
-        <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
-          {t("noFilterMatches")}
-        </div>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {visible.map((item) => (
-            <HistoryCard
-              key={`${item.sourceType}:${item.sourceId}:${item.id}`}
-              insight={item}
-              members={members}
-              projects={projects}
-              canAssign={canAssign}
-              onLaunched={handleLaunched}
-            />
-          ))}
-        </div>
-      )}
-
-      {filtered.length > 6 && (
         <Button
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => setShowAll((value) => !value)}
-          className="self-start"
+          className="min-h-11 shrink-0 gap-2"
+          aria-expanded={isExpanded}
+          aria-controls="insight-history-content"
+          onClick={() => setIsExpanded((value) => !value)}
         >
-          {showAll ? t("showFewer") : t("otherInsights", { count: filtered.length - 6 })}
+          <ChevronDown
+            className={`size-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+          {isExpanded ? t("collapseHistory") : t("expandHistory")}
         </Button>
+      </div>
+
+      {isExpanded && (
+        <div id="insight-history-content" className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            <label className="sr-only" htmlFor="insight-decision-filter">
+              {locale === "en" ? "Filter by status" : "Filtrer par statut"}
+            </label>
+            <select
+              id="insight-decision-filter"
+              value={decisionFilter}
+              onChange={(event) => setDecisionFilter(event.target.value)}
+              className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-xs font-bold outline-none focus-visible:border-accent"
+            >
+              <option value="all">{t("filterAll")}</option>
+              <option value="todo">{t("filterTodo")}</option>
+              <option value="launched">{t("filterLaunched")}</option>
+              <option value="later">{t("filterLater")}</option>
+              <option value="completed">{t("filterCompleted")}</option>
+              <option value="dismissed">{t("filterDismissed")}</option>
+            </select>
+            <label className="sr-only" htmlFor="insight-source-filter">
+              {locale === "en" ? "Filter by source" : "Filtrer par source"}
+            </label>
+            <select
+              id="insight-source-filter"
+              value={sourceFilter}
+              onChange={(event) => setSourceFilter(event.target.value)}
+              className="rounded-[var(--radius-control)] border border-border bg-background px-2.5 py-1.5 text-xs font-bold outline-none focus-visible:border-accent"
+            >
+              <option value="all">{locale === "en" ? "All sources" : "Toutes les sources"}</option>
+              {sources.map((source) => (
+                <option key={source} value={source}>
+                  {sourceLabel(source, locale)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {visible.length === 0 ? (
+            <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
+              {t("noFilterMatches")}
+            </div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {visible.map((item) => (
+                <HistoryCard
+                  key={`${item.sourceType}:${item.sourceId}:${item.id}`}
+                  insight={item}
+                  members={members}
+                  projects={projects}
+                  canAssign={canAssign}
+                  onLaunched={handleLaunched}
+                />
+              ))}
+            </div>
+          )}
+
+          {filtered.length > 6 && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAll((value) => !value)}
+              className="self-start"
+            >
+              {showAll ? t("showFewer") : t("otherInsights", { count: filtered.length - 6 })}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
