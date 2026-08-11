@@ -67,6 +67,22 @@ export async function requestStripeInsightsRefresh(): Promise<{ error: string | 
   return { error: null };
 }
 
+export async function getStripeSyncStatus(): Promise<{ status: string | null; error: string | null }> {
+  const userId = await requireUserIdOrError();
+  if (typeof userId !== "string") return { status: null, error: userId.error };
+
+  const access = await requirePermission(userId, "ventes:suivi");
+  if (!access) return { status: null, error: "Tu n'as pas accès à cette section." };
+
+  const [connection] = await db
+    .select({ initialSyncStatus: stripeConnections.initialSyncStatus })
+    .from(stripeConnections)
+    .where(eq(stripeConnections.userId, access.accountId))
+    .limit(1);
+
+  return { status: connection?.initialSyncStatus ?? null, error: null };
+}
+
 function snapshotJson(snapshot: NonNullable<Awaited<ReturnType<typeof getStripeInsightData>>["snapshot"]>): Record<string, unknown> {
   return {
     version: snapshot.version,

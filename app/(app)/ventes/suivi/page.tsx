@@ -30,6 +30,11 @@ import type { ResolvedPeriod } from "@/lib/period";
 import { SaleFormDialog } from "./sale-form-dialog";
 import { SalesTable } from "./sales-table";
 
+// Stripe syncs write fresh rows from an asynchronous Inngest job. This page
+// must always read the current projection when router.refresh() requests a
+// new server render instead of reusing a cached route result.
+export const dynamic = "force-dynamic";
+
 type StripeConnectionPreview = {
   initialSyncStatus: string;
   lastSyncStartedAt: string | null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/stripe/transaction-insights";
 
 import {
+  getStripeSyncStatus,
   generateStripeTransactionInsight,
   requestStripeInsightsRefresh,
 } from "./insight-actions";
@@ -164,10 +165,45 @@ export function StripeInsightsSection({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackIsError, setFeedbackIsError] = useState(false);
   const [insightText, setInsightText] = useState(initialInsightText);
+  const [syncRequested, setSyncRequested] = useState(false);
   const [activeSignal, setActiveSignal] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<PaymentTypeFilter>("all");
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+
+  const isSyncing = connection?.initialSyncStatus === "pending";
+  const shouldPollSync = syncRequested || isSyncing;
+
+  useEffect(() => {
+    if (!shouldPollSync) return;
+
+    let stopped = false;
+    const checkSyncStatus = async () => {
+      let result: Awaited<ReturnType<typeof getStripeSyncStatus>>;
+      try {
+        result = await getStripeSyncStatus();
+      } catch {
+        // A transient network failure must not crash the page. The next
+        // polling cycle will retry the status check.
+        return;
+      }
+      if (stopped || result.error) return;
+
+      if (result.status === "completed" || result.status === "failed") {
+        setSyncRequested(false);
+        router.refresh();
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void checkSyncStatus();
+    }, 2000);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(intervalId);
+    };
+  }, [router, shouldPollSync]);
 
   const sync = connection ? syncMessage(connection, locale, t("unknownDate")) : null;
   const delta = (value: StripeInsightSnapshot["comparison"]["netCents"], inverse = false) => {
@@ -206,6 +242,7 @@ export function StripeInsightsSection({
       }
       setFeedback(t("syncRequest"));
       setFeedbackIsError(false);
+      setSyncRequested(true);
       router.refresh();
     });
   }
@@ -278,7 +315,7 @@ export function StripeInsightsSection({
                 <option key={currency} value={currency}>{currency.toUpperCase()}</option>
               ))}
             </select>
-            <Button type="button" variant="outline" size="sm" onClick={refresh} disabled={isPending} className="min-h-9">
+            <Button type="button" variant="outline" size="sm" onClick={refresh} disabled={isPending || isSyncing} className="min-h-9">
               <RefreshCw className={cn("size-4", isPending && "motion-safe:animate-spin")} aria-hidden="true" />
               {t("refresh")}
             </Button>
@@ -300,7 +337,7 @@ export function StripeInsightsSection({
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
             {t("syncInstruction")}
           </p>
-          <Button type="button" variant="outline" onClick={refresh} disabled={isPending} className="mt-4 min-h-9">
+          <Button type="button" variant="outline" onClick={refresh} disabled={isPending || isSyncing} className="mt-4 min-h-9">
             <RefreshCw className={cn("size-4", isPending && "motion-safe:animate-spin")} aria-hidden="true" />
             {t("requestSync")}
           </Button>
