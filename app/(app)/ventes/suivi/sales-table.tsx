@@ -121,14 +121,14 @@ export function SalesTable({
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {setters.length > 0 && (
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">{t("filterSetter")}</span>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm">
+            <span className="text-xs font-bold text-muted-foreground">{t("filterSetter")}</span>
             <select
               value={setterFilter}
               onChange={(event) => setSetterFilter(event.target.value)}
-              className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+              className="min-h-11 w-full rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             >
               <option value="">{t("all")}</option>
               {setters.map((setter) => (
@@ -139,24 +139,24 @@ export function SalesTable({
             </select>
           </label>
         )}
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">{t("paymentMethod")}</span>
+        <label className="flex min-w-0 flex-col gap-1.5 text-sm">
+          <span className="text-xs font-bold text-muted-foreground">{t("paymentMethod")}</span>
           <select
             value={paymentMethodFilter}
             onChange={(event) => setPaymentMethodFilter(event.target.value)}
-            className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            className="min-h-11 w-full rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           >
             <option value="">{t("all")}</option>
             <option value="stripe">Stripe</option>
             <option value="virement">{t("transfer")}</option>
           </select>
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">{t("nature")}</span>
+        <label className="flex min-w-0 flex-col gap-1.5 text-sm">
+          <span className="text-xs font-bold text-muted-foreground">{t("nature")}</span>
           <select
             value={paymentTypeFilter}
             onChange={(event) => setPaymentTypeFilter(event.target.value)}
-            className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            className="min-h-11 w-full rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           >
             <option value="">{t("allFeminine")}</option>
             <option value="one_shot">{t("paymentTypes.one_shot")}</option>
@@ -164,12 +164,12 @@ export function SalesTable({
             <option value="subscription">{t("paymentTypes.subscription")}</option>
           </select>
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">{t("status")}</span>
+        <label className="flex min-w-0 flex-col gap-1.5 text-sm">
+          <span className="text-xs font-bold text-muted-foreground">{t("status")}</span>
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            className="min-h-11 w-full rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           >
             <option value="">{t("all")}</option>
             <option value="paid">{t("paid")}</option>

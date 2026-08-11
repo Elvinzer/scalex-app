@@ -18,12 +18,14 @@ export function IntegrationStatusRow({
   status,
   detail,
   action,
+  showStatusLabel = true,
   className,
 }: {
   name: string;
   status: IntegrationStatus;
   detail: string;
   action?: React.ReactNode;
+  showStatusLabel?: boolean;
   className?: string;
 }) {
   const t = useTranslations("common.shared");
@@ -34,7 +36,7 @@ export function IntegrationStatusRow({
     <div className={cn("flex min-w-0 items-center gap-3 rounded-[var(--radius-control)] border border-border bg-card px-3 py-2.5 sm:px-4", className)}>
       <Icon className={cn("size-4 shrink-0", copy.tone, status === "syncing" && "animate-spin motion-reduce:animate-none")} aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold">{name} · {t(`integration.${status}`)}</p>
+        <p className="truncate text-sm font-bold">{showStatusLabel ? `${name} · ${t(`integration.${status}`)}` : name}</p>
         <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{detail}</p>
       </div>
       {action && <div className="shrink-0">{action}</div>}

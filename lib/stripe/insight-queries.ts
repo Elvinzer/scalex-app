@@ -34,6 +34,7 @@ function toInsightTransaction(row: typeof stripeTransactions.$inferSelect): Stri
     status: status.data,
     paymentType: paymentType.data,
     customerId: row.customerId,
+    customerName: row.customerName,
     occurredAt: row.occurredAt,
   };
 }

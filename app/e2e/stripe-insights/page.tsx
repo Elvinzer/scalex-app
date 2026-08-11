@@ -12,12 +12,12 @@ import {
 } from "@/lib/stripe/transaction-insights";
 
 const transactions: StripeInsightTransaction[] = [
-  { id: "ch_fixture_001", stripeAccountId: "acct_fixture", amountCents: 18_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "subscription", customerId: "cus_fixture_repeat", occurredAt: "2026-08-01T09:00:00Z" },
-  { id: "ch_fixture_002", stripeAccountId: "acct_fixture", amountCents: 12_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "one_shot", customerId: "cus_fixture_other", occurredAt: "2026-07-28T09:00:00Z" },
-  { id: "ch_fixture_003", stripeAccountId: "acct_fixture", amountCents: 18_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "subscription", customerId: "cus_fixture_repeat", occurredAt: "2026-07-18T09:00:00Z" },
-  { id: "ch_fixture_004", stripeAccountId: "acct_fixture", amountCents: 9_000, amountRefundedCents: 0, currency: "eur", status: "failed", paymentType: "one_shot", customerId: "cus_fixture_failed", occurredAt: "2026-07-15T09:00:00Z" },
-  { id: "ch_fixture_005", stripeAccountId: "acct_fixture", amountCents: 8_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "one_shot", customerId: "cus_fixture_other", occurredAt: "2026-07-10T09:00:00Z" },
-  { id: "ch_fixture_006", stripeAccountId: "acct_fixture", amountCents: 7_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "one_shot", customerId: null, occurredAt: "2026-07-05T09:00:00Z" },
+  { id: "ch_fixture_001", stripeAccountId: "acct_fixture", amountCents: 18_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "subscription", customerId: "cus_fixture_repeat", customerName: "Lydia Martin", occurredAt: "2026-08-01T09:00:00Z" },
+  { id: "ch_fixture_002", stripeAccountId: "acct_fixture", amountCents: 12_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "one_shot", customerId: "cus_fixture_other", customerName: "Atelier Nova", occurredAt: "2026-07-28T09:00:00Z" },
+  { id: "ch_fixture_003", stripeAccountId: "acct_fixture", amountCents: 18_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "subscription", customerId: "cus_fixture_repeat", customerName: "Lydia Martin", occurredAt: "2026-07-18T09:00:00Z" },
+  { id: "ch_fixture_004", stripeAccountId: "acct_fixture", amountCents: 9_000, amountRefundedCents: 0, currency: "eur", status: "failed", paymentType: "one_shot", customerId: "cus_fixture_failed", customerName: null, occurredAt: "2026-07-15T09:00:00Z" },
+  { id: "ch_fixture_005", stripeAccountId: "acct_fixture", amountCents: 8_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "one_shot", customerId: "cus_fixture_other", customerName: "Atelier Nova", occurredAt: "2026-07-10T09:00:00Z" },
+  { id: "ch_fixture_006", stripeAccountId: "acct_fixture", amountCents: 7_000, amountRefundedCents: 0, currency: "eur", status: "succeeded", paymentType: "one_shot", customerId: null, customerName: null, occurredAt: "2026-07-05T09:00:00Z" },
 ];
 
 const refunds: StripeInsightRefund[] = [

@@ -20,7 +20,7 @@ const baseCharge = {
 
 describe("Stripe transaction normalizers", () => {
   it("normalise une charge sans conserver de donnée carte", () => {
-    const normalized = normalizeStripeCharge(baseCharge, { stripeAccountId: "acct_123", paymentType: "subscription" });
+    const normalized = normalizeStripeCharge(baseCharge, { stripeAccountId: "acct_123", paymentType: "subscription", customerName: "Ada Lovelace" });
 
     expect(normalized).toMatchObject({
       stripeChargeId: "ch_123",
@@ -29,6 +29,7 @@ describe("Stripe transaction normalizers", () => {
       currency: "eur",
       paymentType: "subscription",
       customerId: "cus_123",
+      customerName: "Ada Lovelace",
       invoiceId: "in_123",
       paymentIntentId: "pi_123",
       status: "succeeded",

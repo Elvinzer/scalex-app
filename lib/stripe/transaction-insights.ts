@@ -16,6 +16,7 @@ export type StripeInsightTransaction = {
   status: StripeTransactionStatus;
   paymentType: StripePaymentType;
   customerId: string | null;
+  customerName?: string | null;
   occurredAt: Date | string;
 };
 

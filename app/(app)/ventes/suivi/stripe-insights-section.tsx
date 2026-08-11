@@ -32,10 +32,10 @@ type SyncState = {
 };
 
 type StatusFilter = "all" | "succeeded" | "pending" | "failed" | "refunded";
-type PaymentTypeFilter = "all" | "one_shot" | "subscription" | "unknown";
+type PaymentTypeFilter = "all" | "one_shot" | "subscription";
 
 const STATUS_FILTER_OPTIONS: StatusFilter[] = ["all", "succeeded", "pending", "failed", "refunded"];
-const PAYMENT_TYPE_FILTER_OPTIONS: PaymentTypeFilter[] = ["all", "one_shot", "subscription", "unknown"];
+const PAYMENT_TYPE_FILTER_OPTIONS: PaymentTypeFilter[] = ["all", "one_shot", "subscription"];
 
 function parseStatusFilter(value: string): StatusFilter {
   for (const option of STATUS_FILTER_OPTIONS) if (option === value) return option;
@@ -62,7 +62,7 @@ function formatMoney(cents: number, currency: string, locale: string): string {
 function formatDate(value: string | Date, locale: string, unknownDate: string): string {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return unknownDate;
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function formatPercent(value: number | null, locale: string): string {
@@ -102,10 +102,9 @@ function transactionStatusKey(transaction: StripeInsightTransaction): "succeeded
   }
 }
 
-function paymentTypeKey(paymentType: StripeInsightTransaction["paymentType"]): "subscription" | "one_shot" | "unknown" {
+function paymentTypeKey(paymentType: StripeInsightTransaction["paymentType"]): "subscription" | "one_shot" {
   if (paymentType === "subscription") return "subscription";
-  if (paymentType === "one_shot") return "one_shot";
-  return "unknown";
+  return "one_shot";
 }
 
 function priorityKey(priority: StripeInsightSignal["priority"]): "highPriority" | "mediumPriority" | "watch" {
@@ -387,7 +386,6 @@ export function StripeInsightsSection({
                 <h3 id="stripe-signals-title" className="text-lg font-bold">{t("signalsTitle")}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{t("signalsHelp")}</p>
               </div>
-              <p className="text-xs font-bold text-muted-foreground">{t("signalCount", { count: signals.length, plural: signals.length > 1 ? "x" : "", sample: snapshot.successfulTransactions + snapshot.failedTransactions })}</p>
             </div>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               {signals.map((signal) => (
@@ -449,14 +447,13 @@ export function StripeInsightsSection({
             {selectedTransaction ? (
               <aside className="mt-4 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft p-4" aria-labelledby="stripe-transaction-detail-title">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div><p id="stripe-transaction-detail-title" className="text-sm font-bold">{t("transactionDetail")}</p><p className="mt-1 break-all text-xs text-muted-foreground">{t("charge")} {selectedTransaction.id}</p></div>
+                  <div><p id="stripe-transaction-detail-title" className="text-sm font-bold">{t("transactionDetail")}</p>{selectedTransaction.customerName ? <p className="mt-1 text-xs text-muted-foreground">{selectedTransaction.customerName}</p> : null}</div>
                   <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedTransactionId(null)}>{t("closeDetail")}</Button>
                 </div>
                 <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-4">
                   <div><dt className="text-xs text-muted-foreground">{t("date")}</dt><dd className="font-bold">{formatDate(selectedTransaction.occurredAt, locale, t("unknownDate"))}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">{t("amount")}</dt><dd className="font-bold">{formatMoney(selectedTransaction.amountCents, activeCurrency, locale)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">{t("refunded")}</dt><dd className="font-bold">{formatMoney(selectedTransaction.amountRefundedCents, activeCurrency, locale)}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">{t("stripeCustomer")}</dt><dd className="break-all font-bold">{selectedTransaction.customerId ?? t("notProvided")}</dd></div>
                 </dl>
               </aside>
             ) : null}
@@ -466,7 +463,7 @@ export function StripeInsightsSection({
               <caption className="sr-only">{t("caption")}</caption>
                 <thead className="bg-surface-sunken text-xs text-muted-foreground">
                   <tr>
-                    <th scope="col" className="px-3 py-3 font-bold">{t("charge")}</th>
+                    <th scope="col" className="px-3 py-3 font-bold">{t("client")}</th>
                     <th scope="col" className="px-3 py-3 font-bold">{t("date")}</th>
                     <th scope="col" className="px-3 py-3 font-bold">{t("amount")}</th>
                     <th scope="col" className="px-3 py-3 font-bold">{t("type")}</th>
@@ -477,7 +474,7 @@ export function StripeInsightsSection({
                 <tbody className="divide-y divide-border">
                   {filteredTransactions.map((transaction) => (
                     <tr key={transaction.id} className="transition-colors hover:bg-muted/40">
-                      <th scope="row" className="max-w-[170px] truncate px-3 py-3 font-mono text-xs font-bold" title={transaction.id}>{transaction.id.slice(-12)}</th>
+                      <th scope="row" className="max-w-[170px] truncate px-3 py-3 font-bold" title={transaction.customerName ?? undefined}>{transaction.customerName ?? ""}</th>
                       <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">{formatDate(transaction.occurredAt, locale, t("unknownDate"))}</td>
                       <td className="whitespace-nowrap px-3 py-3 font-bold tabular-nums">
                         {formatMoney(transaction.amountCents, activeCurrency, locale)}

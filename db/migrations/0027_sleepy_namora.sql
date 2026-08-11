@@ -1,0 +1,1 @@
+ALTER TABLE "stripe_transactions" ADD COLUMN "customer_name" text;

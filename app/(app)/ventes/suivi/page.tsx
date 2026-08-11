@@ -204,6 +204,7 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
               name={t("stripe")}
               status={stripeConnected ? "connected" : "not_connected"}
               detail={stripeConnected ? t("stripeConnected") : t("stripeDisconnected")}
+              showStatusLabel={false}
               action={
                 <Button asChild variant="outline" size="sm" className="min-h-11">
                   <Link href="/integrations#stripe">{stripeConnected ? t("manage") : t("connect")}</Link>

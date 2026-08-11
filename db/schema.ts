@@ -237,6 +237,7 @@ export const stripeTransactions = pgTable(
     stripeChargeId: text("stripe_charge_id").notNull(),
     paymentIntentId: text("payment_intent_id"),
     customerId: text("customer_id"),
+    customerName: text("customer_name"),
     invoiceId: text("invoice_id"),
     subscriptionId: text("subscription_id"),
     amountCents: integer("amount_cents").notNull(),

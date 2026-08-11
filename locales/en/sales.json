@@ -170,7 +170,6 @@
     "allCustomersKnown": "All successful payments have a usable Stripe customer.",
     "signalsTitle": "Signals to handle",
     "signalsHelp": "Each card shows the measured evidence and the next action. The diagnosis comes from your data.",
-    "signalCount": "{count} signal{plural} · sample {sample}",
     "highPriority": "High priority",
     "mediumPriority": "Medium priority",
     "watch": "Watch",
@@ -180,17 +179,15 @@
     "nextAction": "Next action: {action}",
     "agentWording": "Agent wording",
     "transactionsTitle": "Transactions for the period",
-    "transactionsHelp": "Complete, searchable table: identifiers are truncated and no card data is displayed.",
+    "transactionsHelp": "Full table with filters. Card details are not shown.",
     "transactionFilters": "Transaction filters",
     "statusFilter": "Filter by status",
     "typeFilter": "Filter by payment type",
     "transactionDetail": "Transaction details",
-    "charge": "Charge",
+    "client": "Customer",
     "date": "Date",
     "amount": "Amount",
     "refunded": "Refunded",
-    "stripeCustomer": "Stripe customer",
-    "notProvided": "Not provided",
     "closeDetail": "Close",
     "caption": "Filtered Stripe transactions for the period",
     "type": "Type",
@@ -219,8 +216,7 @@
     "paymentTypeLabels": {
       "all": "All payments",
       "one_shot": "One-time",
-      "subscription": "Recurring",
-      "unknown": "To classify"
+      "subscription": "Recurring"
     },
     "transactionStatuses": {
       "succeeded": "Paid",
@@ -231,8 +227,7 @@
     },
     "paymentTypes": {
       "subscription": "Recurring",
-      "one_shot": "One-time",
-      "unknown": "To classify"
+      "one_shot": "One-time"
     }
   },
   "closingFunnel": {

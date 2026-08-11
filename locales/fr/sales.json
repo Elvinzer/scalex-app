@@ -170,7 +170,6 @@
     "allCustomersKnown": "Tous les paiements réussis ont un customer Stripe exploitable.",
     "signalsTitle": "Signaux à traiter",
     "signalsHelp": "Chaque carte affiche la preuve chiffrée et l’action suivante, sans laisser l’IA inventer le diagnostic.",
-    "signalCount": "{count} signal{plural} · échantillon {sample}",
     "highPriority": "Priorité haute",
     "mediumPriority": "Priorité moyenne",
     "watch": "À surveiller",
@@ -180,17 +179,15 @@
     "nextAction": "Prochaine action : {action}",
     "agentWording": "Formulation de l’agent",
     "transactionsTitle": "Transactions de la période",
-    "transactionsHelp": "Table complète et consultable : les identifiants sont tronqués, aucune donnée carte n’est affichée.",
+    "transactionsHelp": "Table complète et filtrable. Les données de carte ne sont pas affichées.",
     "transactionFilters": "Filtres des transactions",
     "statusFilter": "Filtrer par statut",
     "typeFilter": "Filtrer par type de paiement",
     "transactionDetail": "Détail de la transaction",
-    "charge": "Charge",
+    "client": "Client",
     "date": "Date",
     "amount": "Montant",
     "refunded": "Remboursé",
-    "stripeCustomer": "Customer Stripe",
-    "notProvided": "Non renseigné",
     "closeDetail": "Fermer",
     "caption": "Transactions Stripe filtrées de la période",
     "type": "Type",
@@ -218,9 +215,8 @@
     },
     "paymentTypeLabels": {
       "all": "Tous les paiements",
-      "one_shot": "Ponctuels",
-      "subscription": "Récurrents",
-      "unknown": "À classer"
+      "one_shot": "Uniques",
+      "subscription": "Récurrents"
     },
     "transactionStatuses": {
       "succeeded": "Payé",
@@ -231,8 +227,7 @@
     },
     "paymentTypes": {
       "subscription": "Récurrent",
-      "one_shot": "Ponctuel",
-      "unknown": "À classer"
+      "one_shot": "Unique"
     }
   },
   "closingFunnel": {

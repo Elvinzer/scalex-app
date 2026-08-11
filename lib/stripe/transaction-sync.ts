@@ -42,6 +42,12 @@ const refundSchema = z
   })
   .passthrough();
 
+const customerSchema = z
+  .object({
+    name: z.string().nullable().optional(),
+  })
+  .passthrough();
+
 const invoiceClassificationSchema = z
   .object({
     billing_reason: z.string().nullable().optional(),
@@ -75,7 +81,7 @@ export type StripeNormalizedRefund = Omit<StripeInsightRefund, "occurredAt"> & {
 
 export function normalizeStripeCharge(
   input: unknown,
-  options: { stripeAccountId: string; paymentType?: StripePaymentType },
+  options: { stripeAccountId: string; paymentType?: StripePaymentType; customerName?: string | null },
 ): StripeNormalizedCharge | null {
   const parsed = chargeSchema.safeParse(input);
   if (!parsed.success) return null;
@@ -98,6 +104,7 @@ export function normalizeStripeCharge(
     status,
     paymentType: options.paymentType ?? "unknown",
     customerId: resourceId(charge.customer),
+    customerName: options.customerName ?? null,
     occurredAt: new Date(charge.created * 1000),
     paymentIntentId: resourceId(charge.payment_intent),
     invoiceId: resourceId(charge.invoice),
@@ -228,11 +235,30 @@ export async function syncStripeTransactions(
 
   const syncedAt = new Date();
   const subscriptionCustomerCache = new Map<string, string | null>();
+  const customerNameCache = new Map<string, string | null>();
   let transactionsUpserted = 0;
   let invalidCharges = 0;
   for (const charge of charges) {
     const classification = await classifyCharge(charge, stripe, subscriptionCustomerCache);
-    const normalized = normalizeStripeCharge(charge, { stripeAccountId, paymentType: classification.paymentType });
+    const parsedCharge = chargeSchema.safeParse(charge);
+    const customerId = parsedCharge.success ? resourceId(parsedCharge.data.customer) : null;
+    let customerName: string | null = null;
+    if (customerId) {
+      const cachedName = customerNameCache.get(customerId);
+      if (cachedName !== undefined) {
+        customerName = cachedName;
+      } else {
+        try {
+          const customer = await stripe.customers.retrieve(customerId);
+          const parsedCustomer = customerSchema.safeParse(customer);
+          customerName = parsedCustomer.success ? parsedCustomer.data.name?.trim() || null : null;
+        } catch {
+          customerName = null;
+        }
+        customerNameCache.set(customerId, customerName);
+      }
+    }
+    const normalized = normalizeStripeCharge(charge, { stripeAccountId, paymentType: classification.paymentType, customerName });
     if (!normalized) {
       invalidCharges += 1;
       continue;
@@ -245,6 +271,7 @@ export async function syncStripeTransactions(
         stripeChargeId: normalized.stripeChargeId,
         paymentIntentId: normalized.paymentIntentId,
         customerId: normalized.customerId,
+        customerName: normalized.customerName,
         invoiceId: normalized.invoiceId,
         subscriptionId: classification.subscriptionId,
         amountCents: normalized.amountCents,
@@ -262,6 +289,7 @@ export async function syncStripeTransactions(
         set: {
           paymentIntentId: normalized.paymentIntentId,
           customerId: normalized.customerId,
+          customerName: normalized.customerName,
           invoiceId: normalized.invoiceId,
           subscriptionId: classification.subscriptionId,
           amountCents: normalized.amountCents,
