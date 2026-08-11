@@ -21,8 +21,8 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 //      HMAC-SHA256 signature over the raw body as defense in depth.
 //      ⚠️ The header name/format below is a best-effort guess — confirm against
 //      the authenticated developer portal and adjust SIGNATURE_HEADER only.
-// Idempotent per CLAUDE.md: event.id is checked against processed_iclosed_events
-// before acting (same ledger pattern as the Stripe billing webhook).
+// Idempotent: event.id is checked before acting and written to the ledger only
+// after the business write succeeds, so a failed delivery can be retried.
 
 const SIGNATURE_HEADER = "x-iclosed-signature";
 
@@ -44,6 +44,15 @@ async function markProcessed(eventId: string, type: string): Promise<boolean> {
   return Boolean(inserted);
 }
 
+async function hasBeenProcessed(eventId: string): Promise<boolean> {
+  const [processed] = await db
+    .select({ id: processedIclosedEvents.id })
+    .from(processedIclosedEvents)
+    .where(eq(processedIclosedEvents.id, eventId))
+    .limit(1);
+  return Boolean(processed);
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   // Rate-limit per IP: a public endpoint, protect against abuse/floods.
   if (isRateLimited(`iclosed-webhook:${getClientIp(request)}`, 120)) {
@@ -51,6 +60,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const { token } = await params;
+  if (!/^[a-f0-9]{48}$/i.test(token)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const [connection] = await db
     .select()
@@ -62,6 +74,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const contentLengthHeader = request.headers.get("content-length");
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
+  if (contentLength !== null && Number.isFinite(contentLength) && contentLength > 2_000_000) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
   const rawBody = await request.text();
 
   // Optional HMAC layer — only enforced when iClosed gave us a secret.
@@ -84,11 +101,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const isNew = await markProcessed(envelope.id, envelope.type);
-  if (!isNew) {
+  if (await hasBeenProcessed(envelope.id)) {
     return NextResponse.json({ received: true });
   }
 
+  try {
   const userId = connection.userId;
   const kind = classifyEvent(envelope.type);
   const call = readCall(envelope as unknown as Record<string, unknown>);
@@ -215,10 +232,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     default:
       // Unknown/other event (Call Outcome, Transaction Synced, …) — acked and
       // ignored in V1 (outcomes are entered by hand). Already marked processed
-      // above so iClosed won't retry it.
+      // after the successful switch below so iClosed retries real failures.
       break;
   }
 
   revalidateBusinessData();
+  await markProcessed(envelope.id, envelope.type);
+  } catch {
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  }
+
   return NextResponse.json({ received: true });
 }

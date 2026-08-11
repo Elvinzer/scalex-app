@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 
@@ -5,6 +6,10 @@ import { ensureUserRow } from "@/lib/current-user";
 import { getRequestLocale } from "@/lib/i18n/locale";
 import { loadMessagesFor } from "@/lib/i18n/messages";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 // Top-level route (sibling to (app)/(auth)/(marketing)), not inside (app) —
 // the 3-screen wizard must render without the product sidebar/floating

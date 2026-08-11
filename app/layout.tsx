@@ -6,9 +6,7 @@ import "./globals.css";
 import { LOCALE_HTML_LANG } from "@/lib/i18n/config";
 import { getRequestLocale } from "@/lib/i18n/locale";
 import { loadMessagesFor } from "@/lib/i18n/messages";
-
-import { PostHogInit } from "@/components/posthog-init";
-import { MetaTouchpointCapture } from "@/components/meta-ads/meta-touchpoint-capture";
+import { getPublicSiteUrl } from "@/lib/seo/site";
 
 // Design system "Hybride" — Inter everywhere (titles, body, numbers,
 // sidebar, buttons, inputs). Mapped in globals.css's @theme block onto
@@ -25,9 +23,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Scale X: Find and fix your business bottleneck",
+  metadataBase: new URL(getPublicSiteUrl()),
+  title: "Scale X | Scaling coach for online businesses",
   description:
-    "Scale X finds the main bottleneck in your info business and deploys an AI agent to help fix it.",
+    "Scale X helps coaches and info businesses doing $10k to $100k per month find and fix the constraint slowing growth.",
 };
 
 export default async function RootLayout({
@@ -55,8 +54,6 @@ export default async function RootLayout({
     <html lang={LOCALE_HTML_LANG[locale]} className={`${inter.variable} overflow-x-clip`}>
       <body className="antialiased overflow-x-clip">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <PostHogInit />
-          <MetaTouchpointCapture />
           {children}
         </NextIntlClientProvider>
       </body>

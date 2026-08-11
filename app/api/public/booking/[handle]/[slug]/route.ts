@@ -11,7 +11,7 @@ import { getPublicNativeBookingEvent, getPublicNativeBookingSlots, hasFutureNati
 import { touchPublicBookingLead, upsertPublicBookingLead } from "@/lib/native-booking/leads";
 import { validateNativeBookingAnswers } from "@/lib/native-booking/questions";
 import { hashBookingManagementToken } from "@/lib/native-booking/tokens";
-import { normalizePhone, publicBookingCancelSchema, publicBookingRequestSchema, publicBookingRescheduleSchema, publicBookingRescheduleSlotsSchema, publicBookingRouteSchema, publicQualificationSchema, publicLeadCaptureSchema, publicLeadTouchSchema, publicPhoneStageSchema, sanitizeUtm } from "@/lib/native-booking/validation";
+import { bookingManagementTokenSchema, normalizePhone, publicBookingCancelSchema, publicBookingRequestSchema, publicBookingRescheduleSchema, publicBookingRescheduleSlotsSchema, publicBookingRouteSchema, publicQualificationSchema, publicLeadCaptureSchema, publicLeadTouchSchema, publicPhoneStageSchema, sanitizeUtm } from "@/lib/native-booking/validation";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 type RouteContext = { params: Promise<{ handle: string; slug: string }> };
@@ -22,8 +22,13 @@ function jsonError(message: string, status = 400, code?: string) {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const { handle, slug } = await context.params;
-  const rescheduleToken = request.nextUrl.searchParams.get("manage")?.trim() ?? "";
-  const cancellationToken = request.nextUrl.searchParams.get("cancel")?.trim() ?? "";
+  if (isRateLimited("native-booking-manage:" + getClientIp(request) + ":" + handle + ":" + slug, 60, 60_000)) {
+    return jsonError("Trop de demandes. Réessaie dans un instant.", 429, "rate_limited");
+  }
+  const rawRescheduleToken = request.nextUrl.searchParams.get("manage")?.trim() ?? "";
+  const rawCancellationToken = request.nextUrl.searchParams.get("cancel")?.trim() ?? "";
+  const rescheduleToken = bookingManagementTokenSchema.safeParse(rawRescheduleToken).success ? rawRescheduleToken : "";
+  const cancellationToken = bookingManagementTokenSchema.safeParse(rawCancellationToken).success ? rawCancellationToken : "";
   if (!rescheduleToken && !cancellationToken) return jsonError("Lien de gestion invalide.", 400, "invalid_token");
   const rescheduleHash = rescheduleToken ? hashBookingManagementToken(rescheduleToken) : null;
   const cancellationHash = cancellationToken ? hashBookingManagementToken(cancellationToken) : null;

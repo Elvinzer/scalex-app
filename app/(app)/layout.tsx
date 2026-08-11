@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
@@ -5,6 +6,7 @@ import { Suspense } from "react";
 
 import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
 import { AppSidebarWithScaleScore } from "@/components/app-sidebar-with-scale-score";
+import { PostHogInit } from "@/components/posthog-init";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
 import { FloatingChatBubble } from "@/components/floating-chat-bubble";
 import { isAdminEmail } from "@/lib/admin";
@@ -16,6 +18,10 @@ import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { getUserById } from "@/lib/current-user";
 import { getAccountContext } from "@/lib/team/context";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 type SidebarBaseProps = Pick<AppSidebarProps, "email" | "isOwner" | "permissions" | "isAdmin"> & {
   displayName: string | null;
@@ -118,6 +124,7 @@ export default async function AppLayout({
   return (
     <NextIntlClientProvider messages={messages}>
       <FalcoPreferencesProvider reduceAnimations={currentUserRow?.reduceFalcoAnimations ?? false}>
+      <PostHogInit />
       {/* Portraits are tiny (<20 Ko each) — preloaded once globally so the
           floating chat bubble's crossfade never waits on a first fetch,
           wherever navigation lands first. */}

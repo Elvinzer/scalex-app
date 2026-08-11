@@ -6,13 +6,20 @@ import { db } from "@/db";
 import { nativeBookingEvents, nativeBookings, users } from "@/db/schema";
 import { createNativeBookingIcs } from "@/lib/native-booking/ics";
 import { hashBookingManagementToken } from "@/lib/native-booking/tokens";
+import { bookingManagementTokenSchema } from "@/lib/native-booking/validation";
+import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
 type RouteContext = { params: Promise<{ handle: string; slug: string }> };
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const { handle, slug } = await context.params;
-  const token = request.nextUrl.searchParams.get("token")?.trim();
-  if (!token) return NextResponse.json({ error: "Lien de calendrier invalide." }, { status: 400 });
+  if (isRateLimited("native-booking-ics:" + getClientIp(request) + ":" + handle + ":" + slug, 60, 60_000)) {
+    return NextResponse.json({ error: "Trop de demandes. Réessaie dans un instant." }, { status: 429 });
+  }
+  const rawToken = request.nextUrl.searchParams.get("token")?.trim() ?? "";
+  const parsedToken = bookingManagementTokenSchema.safeParse(rawToken);
+  if (!parsedToken.success) return NextResponse.json({ error: "Lien de calendrier invalide." }, { status: 400 });
+  const token = parsedToken.data;
 
   const tokenHash = hashBookingManagementToken(token);
   const owner = alias(users, "owner");

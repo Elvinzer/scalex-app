@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { getTranslations } from "next-intl/server";
 
 import { SiteFooter } from "../site-footer";
 import { SiteHeader } from "../site-header";
+import { getPublicSiteUrl, toJsonLd } from "@/lib/seo/site";
 
 const LAST_UPDATED = "4 août 2026";
 const CONTACT_EMAIL = "contact@scalex.app";
@@ -305,9 +307,48 @@ const SECTIONS: Section[] = [
   },
 ];
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  const t = await getTranslations("marketing");
+  const siteUrl = getPublicSiteUrl();
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Scale X",
+    url: siteUrl,
+    logo: siteUrl + "/icon.png",
+  };
+  const softwareApplicationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Scale X",
+    applicationCategory: "BusinessApplication",
+    applicationSubCategory: "Scaling coach software",
+    operatingSystem: "Web",
+    url: siteUrl,
+  };
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: t("privacy.faqQuestion"),
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: t("privacy.faqAnswer"),
+        },
+      },
+    ],
+  };
+
   return (
     <div className="bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: toJsonLd(organizationJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: toJsonLd(softwareApplicationJsonLd) }}
+      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: toJsonLd(faqJsonLd) }} />
       <SiteHeader />
 
       <main className="px-6 py-16 sm:px-10 sm:py-24">

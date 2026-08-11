@@ -1,0 +1,241 @@
+{
+  "metadata": {
+    "title": "Scale X | The all in one scaling coach for coaches",
+    "description": "Scale X helps coaches and info businesses doing $10k to $100k per month find the constraint slowing growth and turn it into a weekly action plan.",
+    "keywords": "scaling coach, coaching business software, coaching business scaling, all in one coach platform, business bottleneck analysis"
+  },
+  "nav": {
+    "features": "What it fixes",
+    "product": "Inside the platform",
+    "process": "How it works",
+    "pricing": "Pricing",
+    "useCases": "Who it helps",
+    "resources": "Resources",
+    "signIn": "Sign in",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "home": "Scale X home"
+  },
+  "hero": {
+    "eyebrow": "For coaches and info businesses doing $10k to $100k per month.",
+    "title": "Your business is growing. Your bottleneck is hiding.",
+    "accent": "Find it. Fix it.",
+    "description": "Scale X is an all in one scaling coach for coaches and info businesses. It maps acquisition, sales and delivery, finds the constraint costing you the most, and gives you one action to run this week.",
+    "primaryCta": "Start with your business",
+    "secondaryCta": "See how it works",
+    "proof": "One clear priority for the week, backed by your business data",
+    "mockupAlt": "Scale X dashboard showing a prioritized business bottleneck"
+  },
+  "benefits": {
+    "heading": "Scaling gets simpler when the constraint is visible",
+    "intro": "Scale X brings the operating questions that matter into one place.",
+    "bottleneck": {
+      "title": "Find the constraint",
+      "description": "See where acquisition, sales or delivery is limiting the next stage of growth."
+    },
+    "priority": {
+      "title": "Choose one priority",
+      "description": "Focus the week on the action with the clearest path to more revenue or more capacity."
+    },
+    "execution": {
+      "title": "Run the next move",
+      "description": "Turn the diagnosis into a practical plan and track what changed after you ran it."
+    }
+  },
+  "stats": {
+    "one": {
+      "value": "1",
+      "label": "constraint to work on at a time"
+    },
+    "range": {
+      "value": "$10k to $100k",
+      "label": "monthly revenue range"
+    },
+    "weekly": {
+      "value": "1",
+      "label": "weekly action plan"
+    }
+  },
+  "product": {
+    "heading": "One operating view for the work that drives growth",
+    "description": "Connect the data you already use, then keep the decision in one place. The product is built to help you act on a diagnosis, not study another dashboard.",
+    "bullet1": "A clear view of the constraint and the evidence behind it",
+    "bullet2": "A weekly action plan with an owner and a measurable outcome",
+    "cta": "Explore the platform",
+    "chartTitle": "Illustrative performance view",
+    "chartSubtitle": "Example data, not a customer result",
+    "chartTooltip": "Potential revenue at risk",
+    "chartDate1": "May 1",
+    "chartDate2": "May 8",
+    "chartDate3": "May 15",
+    "chartDate4": "May 22",
+    "chartDate5": "May 29",
+    "actionsTitle": "Priority actions",
+    "impact": "Illustrative impact",
+    "high": "High",
+    "medium": "Medium",
+    "action1": "Review campaign to call conversion",
+    "action2": "Tighten qualification before the sales call",
+    "action3": "Document the delivery handoff"
+  },
+  "process": {
+    "heading": "From numbers to a next move",
+    "intro": "A short loop for coaches who need useful answers before adding more complexity.",
+    "measure": {
+      "title": "Measure",
+      "description": "Connect revenue, acquisition, sales and delivery signals that already exist in your tools."
+    },
+    "diagnose": {
+      "title": "Diagnose",
+      "description": "Scale X calculates the rates, deltas and gaps in code before explaining the constraint."
+    },
+    "execute": {
+      "title": "Execute",
+      "description": "Get one practical move for the week, then compare the next data point with the baseline."
+    }
+  },
+  "pricing": {
+    "heading": "Choose the level of focus you need",
+    "description": "Plans are designed around the amount of operating context you want in one place. Cancel when you want.",
+    "popular": "Most popular",
+    "choose": "Choose",
+    "perMonth": "/month",
+    "starter": {
+      "name": "Starter",
+      "tagline": "A focused bottleneck diagnosis.",
+      "feature1": "Stripe revenue diagnosis",
+      "feature2": "Weekly bottleneck brief",
+      "feature3": "Bring your own Anthropic API key",
+      "feature4": "Email support"
+    },
+    "growth": {
+      "name": "Growth",
+      "tagline": "A complete operating view for the next stage.",
+      "feature1": "Stripe, acquisition and sales views",
+      "feature2": "Copilot for your action plan",
+      "feature3": "iClosed and Calendly call tracking",
+      "feature4": "Priority support"
+    },
+    "scale": {
+      "name": "Scale",
+      "tagline": "Shared context for a team that is scaling.",
+      "feature1": "Everything in Growth",
+      "feature2": "Instagram and YouTube content analytics",
+      "feature3": "Team workflows and permissions",
+      "feature4": "Priority access to new features"
+    }
+  },
+  "useCases": {
+    "heading": "Built for the stage where focus matters",
+    "intro": "Different business models, same problem: too many possible improvements and no clear order.",
+    "coach": {
+      "label": "Coach",
+      "title": "Turn client delivery into a repeatable operating system",
+      "description": "See where leads, calls and delivery are creating friction before the team adds another process."
+    },
+    "infobusiness": {
+      "label": "Info business",
+      "title": "Connect marketing activity to revenue",
+      "description": "Bring Stripe, content and sales signals together so the next campaign decision has context."
+    },
+    "smallTeam": {
+      "label": "Small team",
+      "title": "Give everyone the same weekly priority",
+      "description": "Make ownership visible and keep decisions tied to the business data the team can verify."
+    }
+  },
+  "faq": {
+    "heading": "Questions coaches ask before they scale",
+    "whatIs": {
+      "question": "What is Scale X?",
+      "answer": "Scale X is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It combines business data, bottleneck diagnosis and a weekly action plan."
+    },
+    "whoFor": {
+      "question": "Who is Scale X for?",
+      "answer": "It is built for founders and small teams who already have sales activity but need a clearer order of operations across acquisition, sales and delivery."
+    },
+    "data": {
+      "question": "Which data can Scale X use?",
+      "answer": "The core diagnosis starts with Stripe. Depending on the workflow, you can also connect iClosed or Calendly for calls, and Instagram or YouTube for content analytics."
+    },
+    "replace": {
+      "question": "Does Scale X replace a business coach?",
+      "answer": "No. Scale X gives a coach or founder a shared operating view and a concrete next move. It supports judgment and execution rather than pretending to replace either one."
+    },
+    "byok": {
+      "question": "How does the AI key work?",
+      "answer": "Scale X supports bring your own key. Your Anthropic key is encrypted and used for your account's agent calls. It is never returned to the browser after setup."
+    }
+  },
+  "finalCta": {
+    "heading": "Give your next growth decision a clear starting point",
+    "description": "Start with the data you already have and leave with one priority worth running this week.",
+    "cta": "Start with your business",
+    "falcoAlt": "Falco, the Scale X coaching assistant"
+  },
+  "footer": {
+    "features": "What it fixes",
+    "product": "Inside the platform",
+    "pricing": "Pricing",
+    "resources": "Resources",
+    "contact": "Contact",
+    "privacy": "Privacy policy",
+    "copyright": "© 2026 Scale X. All rights reserved."
+  },
+  "dashboard": {
+    "overview": "Illustrative dashboard",
+    "dateRange": "May 1 to May 31, 2026",
+    "exampleLabel": "Illustrative example",
+    "losses": "Potential revenue at risk",
+    "recoverable": "Potential recovery",
+    "actions": "Active actions",
+    "total": "Example total",
+    "breakdown": "Constraint mix",
+    "topLosses": "Priority signals",
+    "acquisition": "Acquisition",
+    "conversion": "Conversion",
+    "delivery": "Delivery",
+    "other": "Other",
+    "meta": "Campaign to call conversion",
+    "checkout": "Checkout drop off",
+    "qualification": "Lead qualification",
+    "high": "High",
+    "medium": "Medium",
+    "valueLosses": "$128,540",
+    "valueRecoverable": "$96,320",
+    "valueActions": "3",
+    "valueMeta": "$32,460",
+    "valueCheckout": "$24,890",
+    "valueQualification": "$18,220"
+  },
+  "privacy": {
+    "faqQuestion": "How can I exercise my rights over personal data?",
+    "faqAnswer": "Email contact@scalex.app to request access, correction, deletion, restriction or portability of your personal data."
+  },
+  "resource": {
+    "eyebrow": "Scale X resource",
+    "title": "How to scale a coaching business from $10k to $100k per month",
+    "intro": "A coaching business between $10k and $100k per month usually does not need ten more tools. It needs a clear view of where demand, sales or delivery stops compounding. This guide gives you a practical way to diagnose that constraint and choose the next move.",
+    "answerHeading": "The short answer",
+    "answer": "Scale a coaching business by measuring the full path from lead to cash, finding the one stage with the largest avoidable gap, and running one focused improvement for seven days before adding more complexity.",
+    "frameworkHeading": "A simple scaling framework",
+    "framework1Title": "1. Start with cash, not activity",
+    "framework1": "Begin with paid revenue and cash collected. Then work backward through calls, qualified opportunities, conversations and leads. Activity is useful only when it explains a revenue outcome.",
+    "framework2Title": "2. Compare stages with the same period",
+    "framework2": "Use the same completed month or rolling period for every rate. Calculate totals and deltas in a spreadsheet or application before asking for an interpretation. This keeps the decision anchored in numbers.",
+    "framework3Title": "3. Pick the constraint with the clearest leverage",
+    "framework3": "The first improvement is not always the lowest rate. Choose the gap that can change this month, has a clear owner and is large enough to matter to the business.",
+    "weeklyHeading": "Turn the diagnosis into a weekly operating loop",
+    "weekly": "Write down the baseline, the single action, the owner and the number that should move. Review the next data point after seven days. Keep the action if the signal improves, change it if it does not, and only then choose another constraint.",
+    "toolHeading": "Where an all in one scaling coach helps",
+    "tool": "A scaling coach application is useful when acquisition, sales and delivery data live in separate tools. Scale X brings those signals into one operating view, calculates the underlying rates in code and turns the result into a focused weekly plan.",
+    "cta": "See how Scale X works",
+    "faqHeading": "Scaling questions",
+    "faq1Question": "What should a coaching business fix first?",
+    "faq1Answer": "Fix the stage with the largest controllable gap that can move within the current month. That may be lead quality, call conversion, show rate or delivery capacity depending on the data.",
+    "faq2Question": "How much data does a coach need to start?",
+    "faq2Answer": "Start with one completed month of revenue and the closest available sales or delivery signals. More history helps, but a clear first baseline is more useful than waiting for a perfect dataset.",
+    "faq3Question": "Why avoid adding more tools during a scaling problem?",
+    "faq3Answer": "More tools can create more activity without clarifying the constraint. First connect the decisions to a shared baseline. Add a tool only when it removes a known bottleneck."
+  }
+}

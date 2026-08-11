@@ -1,63 +1,42 @@
-import { Star } from "lucide-react";
-
 import { Falco } from "@/components/falco/falco";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "next-intl";
 
 import { DashboardMockup } from "./dashboard-mockup";
 
-const AVATAR_INITIALS = ["A", "S", "M"];
-
 export function HeroSection() {
+  const t = useTranslations("marketing");
+
   return (
     <section className="px-6 pt-14 pb-20 sm:px-10 sm:pt-20 sm:pb-28">
       <div className="mx-auto grid max-w-[1360px] items-center gap-14 lg:grid-cols-2 lg:gap-10">
         <div className="flex flex-col items-start gap-6">
           <span className="inline-flex items-center gap-2 rounded-full border border-accent-border bg-accent-soft px-4 py-2 text-[13px] font-semibold text-accent-text">
-            Augmenter de 20 % ton acquisition, c&apos;est faire x3 sur ton CA.
+            {t("hero.eyebrow")}
           </span>
 
           <h1 className="text-[clamp(2.3rem,4.6vw,3.4rem)] leading-[1.08] font-bold tracking-tight text-foreground">
-            Ton business perd de l&apos;argent chaque mois.
+            {t("hero.title")}
             <br />
-            On te dit <span className="text-accent">où</span>.
-            <br />
-            On t&apos;aide à le <span className="text-accent">corriger</span>.
+            <span className="text-accent">{t("hero.accent")}</span>
           </h1>
 
           <p className="max-w-lg text-[17px] leading-relaxed text-muted-foreground">
-            Scale X analyse tout ton funnel d&apos;infoproduit pour identifier là où tu perds du temps et de l&apos;argent.
+            {t("hero.description")}
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
-              <a href="/sign-in">Se connecter</a>
+              <a href="/sign-in">{t("hero.primaryCta")}</a>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
-              <a href="#produit">Voir la plateforme</a>
+              <a href="#produit">{t("hero.secondaryCta")}</a>
             </Button>
           </div>
 
           <div className="flex items-center gap-3 pt-2">
-            <div className="flex -space-x-2.5">
-              {AVATAR_INITIALS.map((initial) => (
-                <div
-                  key={initial}
-                  className="flex size-8 items-center justify-center rounded-full border-2 border-white bg-accent-soft text-[12px] font-bold text-accent-text"
-                >
-                  {initial}
-                </div>
-              ))}
-            </div>
-            <div>
-              <div className="flex gap-0.5 text-accent" aria-hidden>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="size-3.5 fill-current" />
-                ))}
-              </div>
-              <p className="text-[12.5px] font-semibold text-muted-foreground">
-                Déjà adopté par plus de 2 500 entrepreneurs
-              </p>
-            </div>
+            <span className="size-2 rounded-full bg-accent" aria-hidden />
+            <p className="text-[12.5px] font-semibold text-muted-foreground">{t("hero.proof")}</p>
           </div>
         </div>
 
@@ -66,7 +45,7 @@ export function HeroSection() {
             aria-hidden
             className="absolute -bottom-6 left-1/2 size-56 -translate-x-1/2 rounded-full bg-accent/15 blur-3xl"
           />
-          <DashboardMockup />
+          <DashboardMockup ariaLabel={t("hero.mockupAlt")} />
           <Falco
             variant="dashboard"
             size="xl"

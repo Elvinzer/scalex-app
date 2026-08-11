@@ -13,6 +13,14 @@ const supabaseOrigin = (() => {
   }
 })();
 
+const posthogOrigin = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_POSTHOG_HOST ? new URL(process.env.NEXT_PUBLIC_POSTHOG_HOST).origin : "";
+  } catch {
+    return "";
+  }
+})();
+
 // React's development build uses eval() for debugging features (rebuilding
 // callstacks across environments), and Turbopack's HMR client opens a
 // websocket back to the dev server. Both are blocked by the production policy
@@ -39,7 +47,7 @@ const csp = [
   // unlike script-src/connect-src above which stay locked to 'self'.
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' https://*.posthog.com${supabaseOrigin ? ` ${supabaseOrigin}` : ""}${isDev ? " ws: wss:" : ""}`,
+  `connect-src 'self' https://*.posthog.com${posthogOrigin ? ` ${posthogOrigin}` : ""}${supabaseOrigin ? ` ${supabaseOrigin}` : ""}${isDev ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -76,6 +84,13 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+      {
+        source: "/api/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
         ],
       },
     ];

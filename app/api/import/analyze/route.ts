@@ -10,7 +10,14 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { db } from "@/db";
 import { monthlyMetrics, users } from "@/db/schema";
 import { enrichMapping, groupValuesByMonth } from "@/lib/import/aggregate";
-import { ImportParseError, MAX_FILES_PER_IMPORT, parseImportFile, type ParsedFile } from "@/lib/import/parse";
+import {
+  ImportParseError,
+  MAX_FILE_SIZE_BYTES,
+  MAX_FILES_PER_IMPORT,
+  MAX_ROWS_PER_FILE,
+  parseImportFile,
+  type ParsedFile,
+} from "@/lib/import/parse";
 import type { AnalyzeSheetResult } from "@/lib/import/schema";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -37,6 +44,14 @@ function buildBusinessContext(businessProfile: Awaited<ReturnType<typeof getBusi
     lines.push(`Offre principale : "${mainOffer.name || "sans nom"}" à ${mainOffer.price ?? "?"}€.`);
   }
   return lines.join("\n");
+}
+
+const headerOverridesSchema = z
+  .record(z.string().trim().min(1).max(255), z.number().int().min(0).max(MAX_ROWS_PER_FILE - 1))
+  .refine((value) => Object.keys(value).length <= MAX_FILES_PER_IMPORT * 20, "Trop de feuilles.");
+
+function sanitizeImportFileName(fileName: string): string {
+  return fileName.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 255) || "fichier-import";
 }
 
 // A table-kind file becomes one mappable unit PER SHEET (each sheet gets
@@ -70,6 +85,13 @@ export async function POST(request: Request): Promise<Response> {
   }
   const { accountId } = access;
 
+  const contentLengthHeader = request.headers.get("content-length");
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
+  const maxRequestBytes = MAX_FILES_PER_IMPORT * MAX_FILE_SIZE_BYTES + 1_048_576;
+  if (contentLength !== null && Number.isFinite(contentLength) && contentLength > maxRequestBytes) {
+    return NextResponse.json({ error: "La requête d'import est trop volumineuse." }, { status: 413 });
+  }
+
   const formData = await request.formData();
   const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
   const targetTableHint = z.enum(["monthly_metrics"]).safeParse(formData.get("targetTableHint")).data;
@@ -93,10 +115,17 @@ export async function POST(request: Request): Promise<Response> {
   const headerOverridesRaw = formData.get("headerOverrides");
   let headerOverrides: Record<string, number> | undefined;
   if (typeof headerOverridesRaw === "string") {
+    if (headerOverridesRaw.length > 20_000) {
+      return NextResponse.json({ error: "Les paramètres d'import sont trop volumineux." }, { status: 422 });
+    }
     try {
-      headerOverrides = JSON.parse(headerOverridesRaw);
+      const parsedHeaderOverrides = headerOverridesSchema.safeParse(JSON.parse(headerOverridesRaw));
+      if (!parsedHeaderOverrides.success) {
+        return NextResponse.json({ error: "Paramètres de ligne d'en-tête invalides." }, { status: 422 });
+      }
+      headerOverrides = parsedHeaderOverrides.data;
     } catch {
-      // Malformed override payload — ignored, falls back to normal detection.
+      return NextResponse.json({ error: "Paramètres de ligne d'en-tête invalides." }, { status: 422 });
     }
   }
 
@@ -105,6 +134,10 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (files.length > MAX_FILES_PER_IMPORT) {
     return NextResponse.json({ error: `Maximum ${MAX_FILES_PER_IMPORT} fichiers par import.` }, { status: 400 });
+  }
+
+  if (files.some((file) => file.size > MAX_FILE_SIZE_BYTES || file.name.length > 255)) {
+    return NextResponse.json({ error: "Chaque fichier doit faire au maximum 10 Mo et avoir un nom valide." }, { status: 413 });
   }
 
   const [accountRow] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
@@ -137,18 +170,19 @@ export async function POST(request: Request): Promise<Response> {
   let totalOutputTokens = 0;
 
   for (const file of files) {
+    const fileName = sanitizeImportFileName(file.name);
     let buffer: Buffer;
     let parsed: ParsedFile;
     try {
       buffer = Buffer.from(await file.arrayBuffer());
-      parsed = await parseImportFile(file.name, buffer, headerOverrides);
+      parsed = await parseImportFile(fileName, buffer, headerOverrides);
     } catch (error) {
       if (error instanceof ImportParseError) {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }
-      console.error("Import parse failed", file.name, error);
+      console.error("Import parse failed", fileName, error);
       return NextResponse.json(
-        { error: buildUnexpectedErrorMessage(file.name, error) },
+        { error: buildUnexpectedErrorMessage(fileName, error) },
         { status: 500 }
       );
     }
@@ -166,7 +200,7 @@ export async function POST(request: Request): Promise<Response> {
 
         const sheet = unit.kind === "sheet" ? unit.sheet : null;
         results.push({
-          fileName: file.name,
+          fileName,
           sheetName: result.sheetName,
           fileHash,
           headerRowConfident: sheet?.headerRowConfident ?? true,
@@ -175,7 +209,7 @@ export async function POST(request: Request): Promise<Response> {
         });
       } catch (error) {
         const sheetName = unit.kind === "sheet" ? unit.sheet.name : unit.fileName;
-        console.error("Import mapping failed", file.name, sheetName, error);
+        console.error("Import mapping failed", fileName, sheetName, error);
         // One sheet failing to analyze (a model hiccup, a malformed tool
         // response) must never abort the whole import — the OTHER sheets
         // in the same workbook are independent and still worth showing.
@@ -183,7 +217,7 @@ export async function POST(request: Request): Promise<Response> {
         // ignored sheet — never a silent drop.
         const detail = process.env.NODE_ENV === "production" ? "" : ` [dev] ${error instanceof Error ? error.message : String(error)}`;
         results.push({
-          fileName: file.name,
+          fileName,
           sheetName,
           fileHash: createHash("sha256").update(buffer).digest("hex"),
           headerRowConfident: true,

@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
@@ -78,6 +79,15 @@ async function markProcessed(eventId: string, type: string): Promise<boolean> {
   return Boolean(inserted);
 }
 
+async function hasBeenProcessed(eventId: string): Promise<boolean> {
+  const [processed] = await db
+    .select({ id: processedStripeEvents.id })
+    .from(processedStripeEvents)
+    .where(eq(processedStripeEvents.id, eventId))
+    .limit(1);
+  return Boolean(processed);
+}
+
 async function upsertFromSubscription(subscription: unknown): Promise<void> {
   const result = await syncStripeSubscriptionProjection(subscription);
   if (!result.ok && result.code === "invalid") {
@@ -89,6 +99,11 @@ async function upsertFromSubscription(subscription: unknown): Promise<void> {
 }
 
 export async function POST(request: NextRequest) {
+  const contentLengthHeader = request.headers.get("content-length");
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
+  if (contentLength !== null && Number.isFinite(contentLength) && contentLength > 2_000_000) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
   const signature = request.headers.get("stripe-signature");
   const body = await request.text();
   if (!signature) {
@@ -103,44 +118,51 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const isNewEvent = await markProcessed(event.id, event.type);
-  if (!isNewEvent) {
+  if (await hasBeenProcessed(event.id)) {
     return NextResponse.json({ received: true });
   }
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = z
-        .object({ subscription: z.union([z.string().min(1), z.object({ id: z.string().min(1) })]).nullable().optional() })
-        .safeParse(event.data.object);
-      const subscriptionId =
-        session.success && session.data.subscription
-          ? typeof session.data.subscription === "string"
-            ? session.data.subscription
-            : session.data.subscription.id
-          : null;
-      if (subscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
-        await upsertFromSubscription(subscription);
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = z
+          .object({ subscription: z.union([z.string().min(1), z.object({ id: z.string().min(1) })]).nullable().optional() })
+          .safeParse(event.data.object);
+        const subscriptionId =
+          session.success && session.data.subscription
+            ? typeof session.data.subscription === "string"
+              ? session.data.subscription
+              : session.data.subscription.id
+            : null;
+        if (subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
+          await upsertFromSubscription(subscription);
+        }
+        break;
       }
-      break;
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        await upsertFromSubscription(event.data.object);
+        break;
+      }
+      case "invoice.paid": {
+        await recordInvoiceCommission(stripe, event.data.object);
+        break;
+      }
+      case "invoice.voided": {
+        await reverseInvoiceCommission(event.data.object);
+        break;
+      }
+      default:
+        break;
     }
-    case "customer.subscription.created":
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted": {
-      await upsertFromSubscription(event.data.object);
-      break;
-    }
-    case "invoice.paid": {
-      await recordInvoiceCommission(stripe, event.data.object);
-      break;
-    }
-    case "invoice.voided": {
-      await reverseInvoiceCommission(event.data.object);
-      break;
-    }
-    default:
-      break;
+
+    await markProcessed(event.id, event.type);
+  } catch {
+    // Do not write the idempotency ledger on failure. Stripe will retry the
+    // event and the business operations are themselves upsert/idempotent.
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

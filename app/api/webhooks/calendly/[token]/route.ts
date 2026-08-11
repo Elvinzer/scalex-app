@@ -45,12 +45,24 @@ async function markProcessed(eventId: string, type: string): Promise<boolean> {
   return Boolean(inserted);
 }
 
+async function hasBeenProcessed(eventId: string): Promise<boolean> {
+  const [processed] = await db
+    .select({ id: processedCalendlyEvents.id })
+    .from(processedCalendlyEvents)
+    .where(eq(processedCalendlyEvents.id, eventId))
+    .limit(1);
+  return Boolean(processed);
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   if (isRateLimited(`calendly-webhook:${getClientIp(request)}`, 120)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   const { token } = await params;
+  if (!/^[a-f0-9]{48}$/i.test(token)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const [connection] = await db
     .select()
     .from(calendlyConnections)
@@ -60,6 +72,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const contentLengthHeader = request.headers.get("content-length");
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
+  if (contentLength !== null && Number.isFinite(contentLength) && contentLength > 2_000_000) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
   const rawBody = await request.text();
 
   if (connection.webhookSigningKeyEncrypted) {
@@ -83,11 +100,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // Idempotency: Calendly has no top-level event id, so key on event + invitee.
   const eventId = `${parsed.eventType}:${parsed.inviteeUri ?? parsed.call?.externalId ?? "unknown"}`;
-  const isNew = await markProcessed(eventId, parsed.eventType);
-  if (!isNew) {
+  if (await hasBeenProcessed(eventId)) {
     return NextResponse.json({ received: true });
   }
 
+  try {
   const kind = classifyCalendlyEvent(parsed.eventType);
   let call = parsed.call;
   if (call && kind !== "other" && parsed.inviteeUri) {
@@ -196,5 +213,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   revalidateBusinessData();
+  await markProcessed(eventId, parsed.eventType);
+  } catch {
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  }
+
   return NextResponse.json({ received: true });
 }

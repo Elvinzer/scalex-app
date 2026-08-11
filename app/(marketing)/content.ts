@@ -1,145 +1,74 @@
 import { Search, Target, Zap, type LucideIcon } from "lucide-react";
 
-// All copy/data for the marketing homepage lives here — every section
-// component reads from this file instead of hardcoding strings, so the
-// numbers (visual examples, not real product metrics yet) and testimonials
-// (placeholder content, clearly swappable) can be updated in one place.
+export const NAV_LINKS = [
+  { labelKey: "nav.features", href: "#fonctionnalites" },
+  { labelKey: "nav.product", href: "#produit" },
+  { labelKey: "nav.process", href: "#comment-ca-marche" },
+  { labelKey: "nav.pricing", href: "#tarifs" },
+  { labelKey: "nav.useCases", href: "#cas-usage" },
+  { labelKey: "nav.resources", href: "/ressources/coach-business-scaling" },
+] as const;
 
-export const NAV_LINKS: { label: string; href: string }[] = [
-  { label: "Fonctionnalités", href: "#fonctionnalites" },
-  { label: "Produit", href: "#produit" },
-  { label: "Tarifs", href: "#tarifs" },
-  { label: "Avis", href: "#avis" },
+export const BENEFITS: { key: "bottleneck" | "priority" | "execution"; icon: LucideIcon }[] = [
+  { key: "bottleneck", icon: Search },
+  { key: "priority", icon: Target },
+  { key: "execution", icon: Zap },
 ];
 
-export const BENEFITS: { title: string; description: string; icon: LucideIcon }[] = [
-  {
-    title: "Détecte les pertes",
-    description: "Identifie précisément où ton business perd de l'argent chaque mois.",
-    icon: Search,
-  },
-  {
-    title: "Priorise les actions",
-    description: "Concentre-toi sur les leviers qui auront le plus d'impact sur ton chiffre d'affaires.",
-    icon: Target,
-  },
-  {
-    title: "Passe à l'exécution",
-    description: "Reçois un plan clair pour corriger les fuites et mesurer les résultats.",
-    icon: Zap,
-  },
-];
+export const RESULT_METRICS = [
+  { valueKey: "stats.one.value", labelKey: "stats.one.label" },
+  { valueKey: "stats.range.value", labelKey: "stats.range.label" },
+  { valueKey: "stats.weekly.value", labelKey: "stats.weekly.label" },
+] as const;
 
-// Visual examples — structured as data specifically so these can be swapped
-// for real aggregate numbers later without touching ResultsStrip's markup.
-export const RESULT_METRICS: { value: string; label: string }[] = [
-  { value: "+28 %", label: "de chiffre d'affaires en moyenne" },
-  { value: "16 h", label: "économisées par semaine" },
-  { value: "96 320 €", label: "de CA récupérable détecté" },
-];
+export const HOW_IT_WORKS_STEPS = [
+  { n: "01", key: "measure" },
+  { n: "02", key: "diagnose" },
+  { n: "03", key: "execute" },
+] as const;
 
-export const HOW_IT_WORKS_STEPS: { n: string; title: string; description: string }[] = [
-  {
-    n: "01",
-    title: "Diagnostique",
-    description: "Scale X analyse les données de ton business et repère les fuites",
-  },
-  {
-    n: "02",
-    title: "Solutions",
-    description: "On te donne les solutions à implémenter dans TON business",
-  },
-  {
-    n: "03",
-    title: "Implémentation",
-    description: "Tu exécutes et tu track les résultats.",
-  },
-];
+export const USE_CASES = [
+  { key: "coach" },
+  { key: "infobusiness" },
+  { key: "smallTeam" },
+] as const;
 
-// Placeholder testimonials — no real client names/companies exist yet.
-// Swap this array for real quotes as they come in.
-export const TESTIMONIALS: { quote: string; name: string; role: string }[] = [
-  {
-    quote: "Scale X nous a permis d'identifier des pertes que nous ne voyions pas.",
-    name: "Antoine D.",
-    role: "Fondateur, Agence Nova",
-  },
-  {
-    quote: "Les recommandations sont claires, prioritaires et directement actionnables.",
-    name: "Sophie L.",
-    role: "CEO, Studio Bloom",
-  },
-  {
-    quote: "Nous savons enfin quoi corriger en premier chaque semaine.",
-    name: "Marc T.",
-    role: "Fondateur, Peak Digital",
-  },
-];
+export const PRICING_TIERS = [
+  { key: "starter", price: "49", highlight: false },
+  { key: "growth", price: "149", highlight: true },
+  { key: "scale", price: "399", highlight: false },
+] as const;
 
-export const PRICING_TIERS: {
-  key: string;
-  name: string;
-  price: string;
-  tagline: string;
-  features: string[];
-  highlight?: boolean;
-}[] = [
-  {
-    key: "starter",
-    name: "Starter",
-    price: "49",
-    tagline: "Pour valider où tu perds de l'argent.",
-    features: ["Diagnostic Stripe complet", "1 catégorie active", "Insights hebdomadaires", "Support email"],
-  },
-  {
-    key: "growth",
-    name: "Growth",
-    price: "149",
-    tagline: "Pour corriger activement chaque mois.",
-    features: ["Toutes les catégories", "Copilote IA illimité", "Alertes en temps réel", "Support prioritaire"],
-    highlight: true,
-  },
-  {
-    key: "scale",
-    name: "Scale",
-    price: "399",
-    tagline: "Pour les équipes qui délèguent.",
-    features: [
-      "Tout Growth inclus",
-      "Intégrations Ads (Meta, TikTok)",
-      "Accès prioritaire aux features",
-      "Account manager dédié",
-    ],
-  },
-];
+export const LOSS_BREAKDOWN = [
+  { key: "acquisition", percent: 40 },
+  { key: "conversion", percent: 25 },
+  { key: "delivery", percent: 20 },
+  { key: "other", percent: 15 },
+] as const;
 
-// Hero-side mockup: loss breakdown donut + top losses list.
-export const LOSS_BREAKDOWN: { label: string; percent: number }[] = [
-  { label: "Acquisition", percent: 40 },
-  { label: "Conversion", percent: 25 },
-  { label: "Funnel", percent: 20 },
-  { label: "Autres", percent: 15 },
-];
+export const TOP_LOSSES = [
+  { key: "meta", valueKey: "dashboard.valueMeta", severity: "high" as const },
+  { key: "checkout", valueKey: "dashboard.valueCheckout", severity: "high" as const },
+  { key: "qualification", valueKey: "dashboard.valueQualification", severity: "medium" as const },
+] as const;
 
-export const TOP_LOSSES: { label: string; value: string; severity: "Élevé" | "Moyen" }[] = [
-  { label: "Campagnes Meta", value: "32 460 €", severity: "Élevé" },
-  { label: "Abandon panier", value: "24 890 €", severity: "Élevé" },
-  { label: "Leads non qualifiés", value: "18 220 €", severity: "Moyen" },
-];
+export const PERFORMANCE_TREND = [
+  { labelKey: "product.chartDate1", value: 52_000 },
+  { labelKey: "product.chartDate2", value: 71_000 },
+  { labelKey: "product.chartDate3", value: 64_000 },
+  { labelKey: "product.chartDate4", value: 128_540 },
+  { labelKey: "product.chartDate5", value: 96_000 },
+] as const;
 
-// ProductOverview's own mockup — deliberately different cards from the hero
-// (performance trend + actions in progress) per the brief's "don't repeat
-// the same cards as the hero" rule.
-export const PERFORMANCE_TREND: { label: string; value: number }[] = [
-  { label: "1 mai", value: 52000 },
-  { label: "8 mai", value: 71000 },
-  { label: "15 mai", value: 64000 },
-  { label: "22 mai", value: 128540 },
-  { label: "29 mai", value: 96000 },
-];
+export const PRIORITY_ACTIONS = [
+  { labelKey: "product.action1", impactKey: "dashboard.valueMeta", severity: "high" as const },
+  { labelKey: "product.action2", impactKey: "dashboard.valueCheckout", severity: "high" as const },
+  { labelKey: "product.action3", impactKey: "dashboard.valueQualification", severity: "medium" as const },
+] as const;
 
-export const PRIORITY_ACTIONS: { label: string; impact: string; severity: "Élevé" | "Moyen" }[] = [
-  { label: "Optimiser campagnes Meta", impact: "32 460 €", severity: "Élevé" },
-  { label: "Réduire abandon panier", impact: "24 890 €", severity: "Élevé" },
-  { label: "Améliorer qualification leads", impact: "18 220 €", severity: "Moyen" },
-];
+export const FAQ_KEYS = ["whatIs", "whoFor", "data", "replace", "byok"] as const;
+export const RESOURCE_FAQ_KEYS = ["faq1", "faq2", "faq3"] as const;
+
+export type MarketingBenefitKey = (typeof BENEFITS)[number]["key"];
+export type MarketingStepKey = (typeof HOW_IT_WORKS_STEPS)[number]["key"];
+export type MarketingUseCaseKey = (typeof USE_CASES)[number]["key"];

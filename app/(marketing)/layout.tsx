@@ -1,19 +1,16 @@
-import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 
+import { MetaTouchpointCapture } from "@/components/meta-ads/meta-touchpoint-capture";
 import { getRequestLocale } from "@/lib/i18n/locale";
 import { loadMessagesFor } from "@/lib/i18n/messages";
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: false, nocache: true },
-};
-
-export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale();
-  const messages = await loadMessagesFor(locale, ["common", "auth"]);
+  const messages = await loadMessagesFor(locale, ["marketing"]);
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
+      <MetaTouchpointCapture />
       {children}
     </NextIntlClientProvider>
   );

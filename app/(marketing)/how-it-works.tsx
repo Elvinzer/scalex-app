@@ -1,12 +1,18 @@
 import { HOW_IT_WORKS_STEPS } from "./content";
+import { useTranslations } from "next-intl";
 
 export function HowItWorks() {
+  const t = useTranslations("marketing");
+
   return (
     <section id="comment-ca-marche" className="scroll-mt-20 bg-[var(--surface-sunken)] px-6 py-16 sm:px-10 sm:py-24">
       <div className="mx-auto max-w-[1360px]">
         <h2 className="mb-14 text-center text-[clamp(1.9rem,3.4vw,2.6rem)] font-bold text-foreground">
-          Comment ça marche ?
+          {t("process.heading")}
         </h2>
+        <p className="mx-auto -mt-8 mb-12 max-w-2xl text-center text-[15.5px] text-muted-foreground">
+          {t("process.intro")}
+        </p>
 
         <div className="relative grid gap-10 sm:grid-cols-3 sm:gap-6">
           <div aria-hidden className="absolute top-6 right-0 left-0 hidden h-px bg-border sm:block" />
@@ -15,8 +21,12 @@ export function HowItWorks() {
               <div className="relative z-10 mb-5 flex size-12 items-center justify-center rounded-full border border-border bg-white font-display text-[15px] font-bold text-accent">
                 {step.n}
               </div>
-              <p className="mb-2 text-[17px] font-bold text-foreground">{step.title}</p>
-              <p className="max-w-[240px] text-[14.5px] leading-relaxed text-muted-foreground">{step.description}</p>
+              <p className="mb-2 text-[17px] font-bold text-foreground">
+                {t("process." + step.key + ".title")}
+              </p>
+              <p className="max-w-[240px] text-[14.5px] leading-relaxed text-muted-foreground">
+                {t("process." + step.key + ".description")}
+              </p>
             </div>
           ))}
         </div>

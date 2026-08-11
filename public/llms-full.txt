@@ -1,0 +1,57 @@
+# Scale X reference
+
+## Positioning
+
+Scale X is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It helps a founder or small team answer a practical question: what is the one constraint slowing growth right now, and what should we run this week to move it?
+
+Scale X is designed for businesses that have activity and data but too many possible improvements. It joins the operating context across acquisition, sales and delivery so a decision is connected to the number it should change.
+
+## How the product works
+
+1. Connect the business data already used by the team.
+2. Calculate totals, rates and deltas in application code.
+3. Identify the largest controllable gap with a clear owner.
+4. Explain the diagnosis with the user's own context.
+5. Turn the diagnosis into one weekly action and compare the next data point with the baseline.
+
+The product is AI assisted. Deterministic calculations happen before the model is called. The model explains and helps execute a diagnosis; it does not invent the underlying totals.
+
+## Data connections
+
+- Stripe is the core source for payments and revenue diagnosis through Stripe Connect.
+- iClosed and Calendly can provide booked call and sales call tracking.
+- Instagram and YouTube can provide content analytics.
+- The active product integrations are limited to these sources. Scale X does not claim support for Kajabi, Brevo or TikTok.
+
+## Security and privacy
+
+- Anthropic BYOK keys are encrypted at rest.
+- A key is never returned to the frontend after its initial setup.
+- Server routes check the authenticated Supabase session and account permissions.
+- User scoped data is protected with Postgres row level security.
+- Stripe, iClosed and Calendly webhooks validate their configured signatures or connection tokens and use an idempotency ledger.
+- API routes validate external input with schemas and apply rate limits on public entry points.
+
+## Audience questions
+
+### Who is Scale X for?
+
+It is for coaches, info businesses and small teams with roughly $10k to $100k in monthly revenue who need a shared operating view and a clearer order of action.
+
+### What does an all in one scaling coach mean?
+
+It means the application connects the decisions around acquisition, sales and delivery in one workflow. It is not a collection of isolated charts. The useful output is a constraint and a next action.
+
+### Does Scale X replace a coach?
+
+No. Scale X supports a coach or founder with shared evidence, calculations and an execution loop. Human judgment remains part of the decision.
+
+### What is BYOK?
+
+BYOK means bring your own key. A customer can provide an Anthropic API key for agent calls. The key is encrypted and protected from the browser after setup.
+
+## Public resources
+
+- Homepage: https://scalex.app/
+- Guide to scaling a coaching business from $10k to $100k per month: https://scalex.app/ressources/coach-business-scaling
+- Privacy policy: https://scalex.app/politique-de-confidentialite

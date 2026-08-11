@@ -111,7 +111,19 @@ export const nativeBookingEventInputSchema = z.object({
   bookingHorizonDays: z.number().int().min(1).max(365),
   timeZone: z.string().refine(isValidTimeZone, "Fuseau horaire invalide"),
   meetingLabel: z.string().trim().min(1).max(120),
-  meetingUrl: z.string().trim().url("Lien de réunion invalide").nullable(),
+  meetingUrl: z
+    .string()
+    .trim()
+    .url("Lien de réunion invalide")
+    .refine((value) => {
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }, "Le lien de réunion doit commencer par http:// ou https://")
+    .nullable(),
   publicHeading: z.string().trim().min(2).max(120),
   publicDescription: z.string().trim().max(300),
   confirmationTitle: z.string().trim().min(2).max(120).default("Rendez-vous confirmé"),
@@ -195,7 +207,7 @@ export const publicBookingRequestSchema = publicQualificationSchema.extend({
   leadId: z.string().uuid().nullable().default(null),
 });
 
-const bookingManagementTokenSchema = z.string().trim().min(32).max(128);
+export const bookingManagementTokenSchema = z.string().trim().min(32).max(128);
 
 export const publicBookingCancelSchema = z.object({ token: bookingManagementTokenSchema });
 

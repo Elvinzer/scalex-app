@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/current-user";
 import { isAdminEmail } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 // First role-gated route in this codebase — no `role` column exists on
 // `users`, so this is a simple email allowlist (ADMIN_EMAILS, comma

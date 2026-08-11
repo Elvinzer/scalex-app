@@ -7,10 +7,12 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 import { NAV_LINKS } from "./content";
 
 export function SiteHeader() {
+  const t = useTranslations("marketing");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeId, setActiveId] = useState<string>("");
 
@@ -44,7 +46,15 @@ export function SiteHeader() {
     >
       <div className="mx-auto flex h-24 max-w-[1360px] items-center justify-between px-6 sm:px-10">
         <Link href="/" className="flex shrink-0 items-center" onClick={() => setMobileOpen(false)}>
-          <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-14 w-auto" />
+          <Image
+            src="/scalex-wordmark.png"
+            alt={t("nav.home")}
+            width={398}
+            height={100}
+            priority
+            sizes="199px"
+            className="h-14 w-auto"
+          />
         </Link>
 
         <nav className="hidden items-center gap-9 text-[14.5px] font-semibold text-mist/75 md:flex">
@@ -57,21 +67,21 @@ export function SiteHeader() {
                 activeId === link.href.slice(1) && "text-accent",
               )}
             >
-              {link.label}
+              {t(link.labelKey)}
             </a>
           ))}
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
           <Button asChild className="rounded-[12px] px-6">
-            <a href="/sign-in">Se connecter</a>
+            <a href="/sign-in">{t("nav.signIn")}</a>
           </Button>
         </div>
 
         <button
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
-          aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
+          aria-label={mobileOpen ? t("nav.closeMenu") : t("nav.openMenu")}
           aria-expanded={mobileOpen}
           className="flex size-10 items-center justify-center rounded-[10px] border border-white/20 text-mist md:hidden"
         >
@@ -92,12 +102,12 @@ export function SiteHeader() {
                   activeId === link.href.slice(1) && "text-accent",
                 )}
               >
-                {link.label}
+                {t(link.labelKey)}
               </a>
             ))}
           </nav>
           <Button asChild className="mt-5 w-full rounded-[12px]">
-            <a href="/sign-in">Se connecter</a>
+            <a href="/sign-in">{t("nav.signIn")}</a>
           </Button>
         </div>
       )}
