@@ -22,6 +22,7 @@ export const NAMESPACES = [
   "settings",
   "falco",
   "app",
+  "funnelBlocks",
   "marketing",
 ] as const;
 

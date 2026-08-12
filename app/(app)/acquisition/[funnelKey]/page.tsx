@@ -7,6 +7,7 @@ import { AgentBanner } from "@/components/agent-banner";
 import { AcquisitionFunnelConfigForm, type ConfigurationField } from "@/components/acquisition-funnel-config-form";
 import { AcquisitionFunnelDataForm, type MetricField } from "@/components/acquisition-funnel-data-form";
 import { AcquisitionFunnelMini } from "@/components/acquisition-funnel-mini";
+import { FunnelBlockPage } from "@/components/funnel-block-page";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { formatEur } from "@/lib/currency";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
@@ -17,6 +18,10 @@ import { currentMonthWindow, lastCompletedMonths, type MonthWindow } from "@/lib
 import { resolveDealPrice } from "@/lib/diagnostic/cascade";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { getAcquisitionFunnelBenchmarks, getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { getFunnelBlockBenchmarks, getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { funnelBlockKeyFromSlug } from "@/lib/funnel-blocks/routes";
+import { isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
+import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { acquisitionFunnelHref, acquisitionFunnelKeyFromSlug } from "@/lib/acquisition-funnels/routes";
 import { buildAdaptiveFunnel, type AdaptiveFunnelVariant } from "@/lib/acquisition-funnels/metrics";
 import { buildAcquisitionStageVolumes } from "@/lib/acquisition-funnels/stage-volumes";
@@ -28,9 +33,11 @@ import { inRange } from "@/lib/dashboard/metrics";
 import { isMonthlyCallSourceAvailable, monthKey } from "@/lib/monthly-metrics/call-source";
 import { getAccountContext } from "@/lib/team/context";
 import { track } from "@/lib/analytics";
+import { getAllMonthlyMetrics } from "@/lib/monthly-metrics/queries";
 
 type FunnelPageProps = {
   params: Promise<{ funnelKey: string }>;
+  searchParams: Promise<{ source?: string }>;
 };
 
 const ACQUISITION_PERMISSIONS = [
@@ -150,10 +157,9 @@ function configurationFields(
   }
 }
 
-export default async function AcquisitionFunnelPage({ params }: FunnelPageProps) {
+export default async function AcquisitionFunnelPage({ params, searchParams }: FunnelPageProps) {
   const { funnelKey: slug } = await params;
-  const funnelKey = acquisitionFunnelKeyFromSlug(slug);
-  if (!funnelKey) notFound();
+  const query = await searchParams;
 
   const locale = await getLocale();
   const t = await getTranslations("app.acquisition.journey");
@@ -163,6 +169,42 @@ export default async function AcquisitionFunnelPage({ params }: FunnelPageProps)
     context && (context.isOwner || ACQUISITION_PERMISSIONS.some((permission) => context.permissions.has(permission)))
   );
   if (!context || !hasAcquisitionAccess) redirect("/dashboard");
+
+  const [blockCatalog, blockProfile, monthlyRows] = await Promise.all([
+    getFunnelBlockCatalog(),
+    getBusinessProfile(accountId),
+    getAllMonthlyMetrics(accountId),
+  ]);
+  const blockKey = funnelBlockKeyFromSlug(slug, blockCatalog);
+  if (blockKey) {
+    const blockSelection = normalizeFunnelBlockSelection(blockProfile.acquisition, blockCatalog);
+    const blockEntry = blockCatalog.find((entry) => entry.blockKey === blockKey);
+    if (!blockEntry) notFound();
+    if (!blockSelection.blocks.some((item) => item.blockKey === blockKey)) {
+      after(() => track("acquisition_page_blocked", userId, { block_key: blockKey }));
+      redirect(`/acquisition?blocked=${encodeURIComponent(blockKey)}`);
+    }
+    const currentMonth = currentMonthWindow();
+    const currentRow = monthlyRows.find((row) => row.year === currentMonth.year && row.month === currentMonth.month) ?? null;
+    const source: FunnelSourceKey | "total" = isFunnelSourceKey(query.source) ? query.source : "total";
+    if (source !== "total") after(() => track("source_filter_used", userId, { source, page: "acquisition_block" }));
+    const benchmarks = await getFunnelBlockBenchmarks([blockKey], user?.sector ?? null);
+    return (
+      <FunnelBlockPage
+        entry={blockEntry}
+        selection={blockSelection}
+        catalog={blockCatalog}
+        benchmarks={benchmarks}
+        currentRow={currentRow}
+        monthlyRows={monthlyRows}
+        source={source}
+        profile={blockProfile}
+      />
+    );
+  }
+
+  const funnelKey = acquisitionFunnelKeyFromSlug(slug);
+  if (!funnelKey) notFound();
 
   const [profile, catalog, rawData] = await Promise.all([
     getBusinessProfile(accountId),

@@ -25,6 +25,8 @@
   "continue": "Continuer →",
   "acquisitionQuestion": "Comment tes prospects arrivent jusqu’à toi ?",
   "acquisitionHelp": "Tu peux choisir plusieurs parcours. Si tu hésites, garde Lead magnet : tu pourras le modifier ensuite.",
+  "trafficSources": "Comment amènes-tu du trafic ?",
+  "trafficSourcesHelp": "Les sources filtrent tes chiffres. Elles ne sont pas des étapes de ton parcours.",
   "primaryFunnel": "Quel est ton parcours principal ?",
   "skip": "Passer pour l’instant",
   "numbersQuestion": "Tes chiffres : tu as un export ou une capture ? Glisse-le ici, je m’occupe du tri, même si ça couvre plusieurs mois. Sinon on les remplit ensemble pour {month}.",

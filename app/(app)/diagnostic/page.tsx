@@ -60,6 +60,10 @@ import { measureAsync } from "@/lib/perf/timing";
 import { InsightHistorySection } from "@/components/insight-execution/insight-history-section";
 import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
 import { getLocale, getTranslations } from "next-intl/server";
+import { FunnelSequenceOverview } from "@/components/funnel-sequence-overview";
+import { getFunnelBlockBenchmarks, getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+import { isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
 
 type DiagnosticTab = "overview" | "discovery";
 
@@ -115,6 +119,7 @@ type DiagnosticPageProps = {
   searchParams: Promise<{
     period?: string;
     tab?: string;
+    source?: string;
     // Set by clicking Section 1's "Améliorer ça →" CTA (components/priority-item.tsx's
     // pattern, reused inline below) — read here only to detect the click
     // server-side for diagnostic_optimize_clicked; AutoOpenImprove still
@@ -176,13 +181,18 @@ async function renderDiagnosticPage({
     );
   }
 
-  const [businessProfile, rawData, discoveryProgress, acquisitionCatalog] = await Promise.all([
+  const [businessProfile, rawData, discoveryProgress, acquisitionCatalog, funnelBlockCatalog] = await Promise.all([
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
     getDiscoveryProgress(accountId),
     getAcquisitionFunnelCatalog(),
+    getFunnelBlockCatalog(),
   ]);
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+  const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
+  const funnelBlockBenchmarks = await getFunnelBlockBenchmarks(funnelBlockSelection.blocks.map((item) => item.blockKey), user?.sector ?? null);
+  const source: FunnelSourceKey | "total" = isFunnelSourceKey(params.source) ? params.source : "total";
+  if (source !== "total") after(() => track("source_filter_used", userId, { source, page: "diagnostic" }));
   const activeLegacyKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
   const activeContentKeys = activeContentMetricKeys(acquisitionSelection, acquisitionCatalog);
   const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = rawData;
@@ -453,6 +463,15 @@ async function renderDiagnosticPage({
           ))}
         </div>
       </div>
+
+      <FunnelSequenceOverview
+        selection={funnelBlockSelection}
+        catalog={funnelBlockCatalog}
+        benchmarks={funnelBlockBenchmarks}
+        currentRow={allMonthlyRows.find((row) => row.year === currentMonthWindow().year && row.month === currentMonthWindow().month) ?? null}
+        monthlyRows={allMonthlyRows}
+        source={source}
+      />
 
       {isThin && <BusinessNudgeBanner />}
 

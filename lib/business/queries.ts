@@ -6,6 +6,8 @@ import { businessProfile } from "@/db/schema";
 
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
+import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { EMPTY_BUSINESS_PROFILE, type BusinessProfileData } from "./types";
 
 // No row is created at signup — this returns an all-blank default when none
@@ -28,8 +30,12 @@ export const getBusinessProfile = cache(async (userId: string): Promise<Business
   if (!row) return EMPTY_BUSINESS_PROFILE;
 
   const acquisition = row.acquisition;
-  const catalog = await getAcquisitionFunnelCatalog();
+  const [catalog, blockCatalog] = await Promise.all([
+    getAcquisitionFunnelCatalog(),
+    getFunnelBlockCatalog(),
+  ]);
   const selection = normalizeAcquisitionSelection(acquisition, catalog);
+  const blockSelection = normalizeFunnelBlockSelection(acquisition, blockCatalog);
   const hasExplicitSelection = Object.prototype.hasOwnProperty.call(acquisition, "funnels") && Object.prototype.hasOwnProperty.call(acquisition, "primaryFunnel");
   const defaultConfigurations = EMPTY_BUSINESS_PROFILE.acquisition.configurations;
   const storedConfigurations = acquisition.configurations ?? {};
@@ -40,6 +46,8 @@ export const getBusinessProfile = cache(async (userId: string): Promise<Business
       ...acquisition,
       funnels: selection.funnels,
       primaryFunnel: selection.primaryFunnel,
+      blocks: blockSelection.blocks,
+      sources: blockSelection.sources,
       configurations: {
         quiz: { ...defaultConfigurations.quiz, ...storedConfigurations.quiz },
         appel_direct: { ...defaultConfigurations.appel_direct, ...storedConfigurations.appel_direct },
@@ -49,7 +57,9 @@ export const getBusinessProfile = cache(async (userId: string): Promise<Business
         vente_directe: { ...defaultConfigurations.vente_directe, ...storedConfigurations.vente_directe },
         communaute: { ...defaultConfigurations.communaute, ...storedConfigurations.communaute },
       },
+      blockConfigurations: acquisition.blockConfigurations ?? {},
       funnelSelectionInferred: !hasExplicitSelection,
+      blockSelectionInferred: acquisition.blockSelectionInferred ?? blockSelection.inferred,
     },
     sales: row.sales,
     delivery: row.delivery,

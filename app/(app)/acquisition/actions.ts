@@ -8,11 +8,14 @@ import { businessProfile } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { ACQUISITION_FUNNEL_KEYS, type AcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+import { FUNNEL_SOURCE_KEYS, isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { businessProfileSectionSchemas } from "@/lib/business/schema";
 import { EMPTY_BUSINESS_PROFILE, type BusinessAcquisition } from "@/lib/business/types";
 import { getMonthlyMetrics } from "@/lib/monthly-metrics/queries";
-import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
+import { EMPTY_MONTHLY_METRICS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import { writeMonthlyMetrics } from "@/lib/monthly-metrics/write";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { requirePermission } from "@/lib/team/context";
@@ -101,6 +104,7 @@ function monthlyInputFromRow(row: Awaited<ReturnType<typeof getMonthlyMetrics>>)
     callsTaken: row?.callsTaken ?? null,
     salesClosed: row?.salesClosed ?? null,
     acquisitionMetrics: row?.acquisitionMetrics ?? {},
+    acquisitionSourceMetrics: row?.acquisitionSourceMetrics ?? {},
   };
 }
 
@@ -211,4 +215,146 @@ export async function saveAcquisitionFunnelMetrics(
   }));
   revalidateBusinessData();
   return { error: null };
+}
+
+const funnelBlockMetricsSchema = z.object({
+  blockKey: z.string().min(1).max(100),
+  year: z.number().int().min(2000).max(2200),
+  month: z.number().int().min(1).max(12),
+  metrics: z.record(z.string().max(100), nullableCount).default({}),
+  bySource: z.record(
+    z.enum(FUNNEL_SOURCE_KEYS),
+    z.record(z.string().max(100), nullableCount)
+  ).default({}),
+});
+
+const BLOCK_SCALAR_FIELDS: Record<string, keyof Pick<MonthlyMetricsInput, "newFollowers" | "firstMessages" | "conversations" | "callsProposed" | "callsBooked" | "callsTaken" | "salesClosed">> = {
+  new_followers: "newFollowers",
+  first_messages: "firstMessages",
+  conversations: "conversations",
+  calls_proposed: "callsProposed",
+  calls_booked: "callsBooked",
+  calls_attended: "callsTaken",
+  sales_closed: "salesClosed",
+};
+
+export async function saveFunnelBlockMetrics(data: unknown): Promise<{ error: string | null }> {
+  const parsed = funnelBlockMetricsSchema.safeParse(data);
+  if (!parsed.success) return { error: "Les chiffres saisis sont invalides." };
+
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getClaims();
+  if (!authData?.claims) return { error: "Session expirée, reconnecte-toi." };
+  const userId = authData.claims.sub as string;
+  const access = await requirePermission(userId, "datas");
+  if (!access) return { error: "Tu n'as pas accès à Mes chiffres." };
+
+  const [catalog, profile, existing] = await Promise.all([
+    getFunnelBlockCatalog(),
+    getBusinessProfile(access.accountId),
+    getMonthlyMetrics(access.accountId, parsed.data.year, parsed.data.month),
+  ]);
+  const selection = normalizeFunnelBlockSelection(profile.acquisition, catalog);
+  const entry = catalog.find((candidate) => candidate.blockKey === parsed.data.blockKey);
+  if (!entry || !selection.blocks.some((item) => item.blockKey === parsed.data.blockKey)) {
+    return { error: "Cette brique n'appartient pas à ton parcours actif." };
+  }
+  const allowedMetricKeys = new Set(entry.steps.map((step) => step.metricKey));
+  const unknownMetric = Object.keys(parsed.data.metrics).find((key) => !allowedMetricKeys.has(key));
+  if (unknownMetric) return { error: "Cette métrique n'appartient pas à cette brique." };
+  for (const [source, metrics] of Object.entries(parsed.data.bySource)) {
+    if (!isFunnelSourceKey(source)) return { error: "Cette source n'est pas reconnue." };
+    if (!selection.sources.includes(source)) return { error: "Cette source n'est pas active dans ton parcours." };
+    const unknownSourceMetric = Object.keys(metrics).find((key) => !allowedMetricKeys.has(key));
+    if (unknownSourceMetric) return { error: "Cette métrique source n'appartient pas à cette brique." };
+  }
+
+  const current = monthlyInputFromRow(existing);
+  const scalarPatch: Partial<Pick<MonthlyMetricsInput, "newFollowers" | "firstMessages" | "conversations" | "callsProposed" | "callsBooked" | "callsTaken" | "salesClosed">> = {};
+  const acquisitionMetrics = { ...current.acquisitionMetrics };
+  for (const [metricKey, value] of Object.entries(parsed.data.metrics)) {
+    const scalarKey = BLOCK_SCALAR_FIELDS[metricKey];
+    if (scalarKey) scalarPatch[scalarKey] = value;
+    else acquisitionMetrics[metricKey] = value;
+  }
+  const acquisitionSourceMetrics = mergeSourceMetrics(current.acquisitionSourceMetrics ?? {}, parsed.data.bySource);
+  for (const entryStep of entry.steps) {
+    const sourceValues = Object.values(acquisitionSourceMetrics)
+      .map((sourceMetrics) => sourceMetrics[entryStep.metricKey])
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    const explicitTotal = parsed.data.metrics[entryStep.metricKey];
+    if (sourceValues.length === 0 || (explicitTotal !== undefined && explicitTotal !== null)) continue;
+    const total = sourceValues.reduce((sum, value) => sum + value, 0);
+    const scalarKey = BLOCK_SCALAR_FIELDS[entryStep.metricKey];
+    if (scalarKey) scalarPatch[scalarKey] = total;
+    else acquisitionMetrics[entryStep.metricKey] = total;
+  }
+  await writeMonthlyMetrics(access.accountId, parsed.data.year, parsed.data.month, {
+    ...current,
+    ...scalarPatch,
+    acquisitionMetrics,
+    acquisitionSourceMetrics,
+  });
+  after(() => track("acquisition_data_saved", userId, {
+    block_key: parsed.data.blockKey,
+    fields: Object.keys(parsed.data.metrics),
+    source_fields: Object.fromEntries(Object.entries(parsed.data.bySource).map(([source, values]) => [source, Object.keys(values)])),
+    kind: "metrics",
+    month: `${parsed.data.year}-${String(parsed.data.month).padStart(2, "0")}`,
+  }));
+  revalidateBusinessData();
+  return { error: null };
+}
+
+const blockConfigurationSchema = z.object({
+  blockKey: z.string().min(1).max(100),
+  values: z.record(z.string().max(100), z.union([z.string().max(1000), z.number().nonnegative(), z.null()])),
+});
+
+export async function saveFunnelBlockConfiguration(data: unknown): Promise<{ error: string | null }> {
+  const parsed = blockConfigurationSchema.safeParse(data);
+  if (!parsed.success) return { error: "La configuration de cette brique est invalide." };
+  const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getClaims();
+  if (!authData?.claims) return { error: "Session expirée, reconnecte-toi." };
+  const userId = authData.claims.sub as string;
+  const access = await requirePermission(userId, "business");
+  if (!access) return { error: "Tu n'as pas accès à cette section." };
+
+  const [catalog, profile] = await Promise.all([getFunnelBlockCatalog(), getBusinessProfile(access.accountId)]);
+  const selection = normalizeFunnelBlockSelection(profile.acquisition, catalog);
+  if (!catalog.some((entry) => entry.blockKey === parsed.data.blockKey) || !selection.blocks.some((item) => item.blockKey === parsed.data.blockKey)) {
+    return { error: "Cette brique n'appartient pas à ton parcours actif." };
+  }
+  const nextAcquisition: BusinessAcquisition = {
+    ...profile.acquisition,
+    blockConfigurations: {
+      ...profile.acquisition.blockConfigurations,
+      [parsed.data.blockKey]: parsed.data.values,
+    },
+  };
+  const validated = businessProfileSectionSchemas.acquisition.safeParse(nextAcquisition);
+  if (!validated.success) return { error: validated.error.issues[0]?.message ?? "Configuration invalide." };
+  const persisted = { ...validated.data };
+  delete persisted.funnelSelectionInferred;
+  delete persisted.blockSelectionInferred;
+  await db
+    .insert(businessProfile)
+    .values({ userId: access.accountId, ...EMPTY_BUSINESS_PROFILE, acquisition: persisted })
+    .onConflictDoUpdate({ target: businessProfile.userId, set: { acquisition: persisted, updatedAt: new Date() } });
+  after(() => track("acquisition_data_saved", userId, { block_key: parsed.data.blockKey, fields: Object.keys(parsed.data.values), kind: "configuration" }));
+  revalidateBusinessData();
+  return { error: null };
+}
+
+function mergeSourceMetrics(
+  current: Record<string, Record<string, number | null>>,
+  updates: Record<string, Record<string, number | null>>
+): Record<string, Record<string, number | null>> {
+  const merged = { ...current };
+  for (const [source, metrics] of Object.entries(updates)) {
+    const sourceKey = source as FunnelSourceKey;
+    merged[sourceKey] = { ...(current[sourceKey] ?? {}), ...metrics };
+  }
+  return merged;
 }

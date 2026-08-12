@@ -3,6 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import { saveBusinessSection } from "@/app/(app)/business/actions";
 import { saveMonthlyMetrics } from "@/app/(app)/datas/actions";
@@ -21,6 +22,13 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { isAcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
 import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
+import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { activeLegacyMetricKeysFromBlocks, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+
+const onboardingBlocksSchema = z.object({
+  blocks: z.array(z.object({ blockKey: z.string().min(1).max(100), order: z.number().int().min(1).max(5) })).min(2).max(4),
+  sources: z.array(z.enum(["organique", "ads", "newsletter", "bouche_a_oreille", "communaute_externe"])).min(1).max(5),
+});
 
 // The manual-entry form (screen 2's "Saisir à la main" path) still asks for
 // one specific month — lastCompletedMonths(1) is that window. The import
@@ -87,6 +95,30 @@ export async function saveOnboardingFunnels(data: { funnels: string[]; primaryFu
   return { error: null };
 }
 
+export async function saveOnboardingBlocks(data: unknown): Promise<{ error: string | null }> {
+  const userId = await requireUserId();
+  if (typeof userId !== "string") return userId;
+  const parsed = onboardingBlocksSchema.safeParse(data);
+  if (!parsed.success) return { error: "Ton parcours d'acquisition est invalide." };
+  const profile = await getBusinessProfile(userId);
+  const result = await saveBusinessSection("acquisition", {
+    ...profile.acquisition,
+    ...parsed.data,
+    blockSelectionInferred: false,
+  }, "onboarding");
+  if (result.error) return result;
+
+  const blockCatalog = await getFunnelBlockCatalog();
+  const selection = normalizeFunnelBlockSelection({ ...profile.acquisition, ...parsed.data }, blockCatalog);
+  await track("funnel_blocks_selected", userId, {
+    blocks: selection.blocks,
+    sources: selection.sources,
+    from: "onboarding",
+    used_builder: true,
+  });
+  return { error: null };
+}
+
 // Shared tail end of onboarding screen 2, regardless of HOW the data got
 // there (manual entry writes exactly one month; a smart import can write
 // several at once — see completeOnboardingAfterImport below). Deliberately
@@ -98,7 +130,10 @@ export async function saveOnboardingFunnels(data: { funnels: string[]; primaryFu
 async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingGoulotResult }> {
   const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const businessProfile = await getBusinessProfile(userId);
-  const acquisitionCatalog = await getAcquisitionFunnelCatalog();
+  const [acquisitionCatalog, blockCatalog] = await Promise.all([
+    getAcquisitionFunnelCatalog(),
+    getFunnelBlockCatalog(),
+  ]);
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const rawData = await getDiagnosticKpiRawData(userId);
   const allMonthlyRows = rawData.allMonthlyRows;
@@ -125,7 +160,12 @@ async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingG
     benchmarks,
     businessProfile,
     cashContractedTotal,
-    activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+    activeMetricKeys: activeLegacyMetricKeysFromBlocks(
+      normalizeFunnelBlockSelection(businessProfile.acquisition, blockCatalog),
+      blockCatalog
+    ).length > 0
+      ? activeLegacyMetricKeysFromBlocks(normalizeFunnelBlockSelection(businessProfile.acquisition, blockCatalog), blockCatalog)
+      : activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
   });
 
   if (result.kind === "point" && userRow) {

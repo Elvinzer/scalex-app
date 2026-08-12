@@ -41,6 +41,7 @@ import type {
   MetaRawObject,
 } from "@/lib/meta-ads/types";
 import type { AcquisitionFunnelCatalogEntry } from "@/lib/acquisition-funnels/types";
+import type { FunnelBlockCatalogEntry } from "@/lib/funnel-blocks/types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -1902,6 +1903,35 @@ export const acquisitionFunnelBenchmarks = pgTable(
   (table) => [uniqueIndex("acquisition_funnel_benchmarks_scope_idx").on(table.funnelKey, table.benchmarkKey, table.sector)]
 ).enableRLS();
 
+// Composable acquisition catalogue. Source entries live here as well, but
+// they never belong to the ordered journey stored on business_profile.
+export const funnelBlocks = pgTable("funnel_blocks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  blockKey: text("block_key").notNull().unique(),
+  family: text("family").notNull(),
+  label: text("label").notNull(),
+  description: text("description").notNull(),
+  steps: jsonb("steps").notNull().$type<FunnelBlockCatalogEntry["steps"]>(),
+  example: text("example").notNull().default(""),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+export const funnelBlockBenchmarks = pgTable(
+  "funnel_block_benchmarks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    blockKey: text("block_key").notNull().references(() => funnelBlocks.blockKey, { onDelete: "cascade" }),
+    benchmarkKey: text("benchmark_key").notNull(),
+    sector: prospectionSector("sector"),
+    value: real("value").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("funnel_block_benchmarks_scope_idx").on(table.blockKey, table.benchmarkKey, table.sector)]
+).enableRLS();
+
 // Every stage a funnel rate can come from — Setting (outreach → booking) and
 // Closing (show-up, closing) combined. See lib/setting/funnel.ts / lib/closing/metrics.ts.
 export const funnelStageEnum = pgEnum("funnel_stage", [
@@ -2021,6 +2051,9 @@ export const monthlyMetrics = pgTable(
     // Setting/Closing funnel; this additive bag keeps historical data safe
     // when a user changes journey.
     acquisitionMetrics: jsonb("acquisition_metrics").notNull().default({}).$type<Record<string, number | null>>(),
+    // Optional attribution for the same canonical monthly metrics. A source
+    // filter is available only when this bag contains measured values.
+    acquisitionSourceMetrics: jsonb("acquisition_source_metrics").notNull().default({}).$type<Record<string, Record<string, number | null>>>(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

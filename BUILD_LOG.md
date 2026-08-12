@@ -105,6 +105,14 @@ référence brute `scalePoint` désactive l'auto-inférence du domaine de la
 lib — tout l'axe X rendait `NaN`. Ce genre de piège d'API non documenté est
 exactement le risque qu'on paie en échange de la nouveauté de la lib.
 
+## 2026-08-12
+
+Le parcours d'acquisition devient une séquence de briques stockée en base,
+pas un choix de funnel figé. La source reste transversale : les métriques
+ventilées vivent dans `monthly_metrics`, le filtre reste désactivé tant
+qu'aucune ventilation réelle n'existe, et les anciens comptes sont préremplis
+par migration sans effacer leurs chiffres.
+
 ## 2026-07-15
 
 Scaffold initial : Next.js 15 + Tailwind + shadcn/ui (thème neutre), structure

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { computeGlobalCompletion } from "@/lib/business/completion";
 import type { OfferPerformance, UpsellPerformance } from "@/lib/business/performance";
 import type { BusinessProfileData } from "@/lib/business/types";
-import type { AcquisitionFunnelCatalogEntry } from "@/lib/acquisition-funnels/types";
+import type { FunnelBlockCatalogEntry } from "@/lib/funnel-blocks/types";
 
 import { AcquisitionSection } from "./acquisition-section";
 import { DeliverySection } from "./delivery-section";
@@ -25,14 +25,14 @@ import { SalesSection } from "./sales-section";
 // this wrapper only mirrors state for display math.
 export function BusinessPageClient({
   initialProfile,
-  acquisitionFunnels,
+  funnelBlocks,
   isOwner,
   canViewSalesPerformance,
   offerPerformance,
   upsellPerformance,
 }: {
   initialProfile: BusinessProfileData;
-  acquisitionFunnels: AcquisitionFunnelCatalogEntry[];
+  funnelBlocks: FunnelBlockCatalogEntry[];
   isOwner: boolean;
   canViewSalesPerformance: boolean;
   offerPerformance: OfferPerformance[];
@@ -150,7 +150,7 @@ export function BusinessPageClient({
       <section id="acquisition" className="scroll-mt-28">
         <AcquisitionSection
           value={profile.acquisition}
-          catalog={acquisitionFunnels}
+          blockCatalog={funnelBlocks}
           onChange={(acquisition) => setProfile((prev) => ({ ...prev, acquisition }))}
         />
       </section>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { ACQUISITION_FUNNEL_KEYS } from "@/lib/acquisition-funnels/types";
+import { FUNNEL_SOURCE_KEYS } from "@/lib/funnel-blocks/types";
 
 // One schema per business_profile section — shared by the section's client
 // form and its server action (app/(app)/business/actions.ts), the only place
@@ -10,6 +11,11 @@ import { ACQUISITION_FUNNEL_KEYS } from "@/lib/acquisition-funnels/types";
 // and nudges completion via empty states instead of blocking forms).
 
 const enabledFlag = z.enum(["yes", "no"]).nullable();
+const funnelBlockSelectionItemSchema = z.object({
+  blockKey: z.string().min(1).max(100),
+  order: z.number().int().min(1).max(5),
+});
+const funnelBlockConfigurationValueSchema = z.union([z.string().max(1000), z.number().nonnegative(), z.null()]);
 
 export const identitySchema = z.object({
   businessName: z.string().max(200),
@@ -87,6 +93,11 @@ export const acquisitionSchema = z.object({
   }),
   funnels: z.array(z.enum(ACQUISITION_FUNNEL_KEYS)).min(1).max(10),
   primaryFunnel: z.enum(ACQUISITION_FUNNEL_KEYS),
+  blocks: z.array(funnelBlockSelectionItemSchema).min(2).max(4).default([
+    { blockKey: "lead_magnet", order: 1 },
+    { blockKey: "appel", order: 3 },
+  ]),
+  sources: z.array(z.enum(FUNNEL_SOURCE_KEYS)).min(1).max(FUNNEL_SOURCE_KEYS.length).default(["organique"]),
   configurations: z.object({
     quiz: quizConfigurationSchema.default({}),
     appel_direct: directCallConfigurationSchema.default({}),
@@ -96,7 +107,9 @@ export const acquisitionSchema = z.object({
     vente_directe: directSalesConfigurationSchema.default({}),
     communaute: communityConfigurationSchema.default({}),
   }).default({}),
+  blockConfigurations: z.record(z.string().max(100), z.record(z.string().max(100), funnelBlockConfigurationValueSchema)).default({}),
   funnelSelectionInferred: z.boolean().optional(),
+  blockSelectionInferred: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   if (!value.funnels.includes(value.primaryFunnel)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["primaryFunnel"], message: "Le parcours principal doit être actif." });

@@ -5,20 +5,21 @@ import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import { getAccountContext } from "@/lib/team/context";
 import { getBusinessProfile } from "@/lib/business/queries";
-import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
-import { activeFunnelRoutes } from "@/lib/acquisition-funnels/routes";
-import { normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
+import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { activeFunnelBlockRoutes } from "@/lib/funnel-blocks/routes";
+import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 
 // Setting is gone as its own tab/route. Pipeline and Setters now belong to
 // the Vente pillar; the legacy Acquisition URLs redirect there. Ads remains
 // the only operational sub-page in this pillar besides Contenu and Mail.
 export default async function AcquisitionLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("app.acquisition");
+  const tCatalog = await getTranslations("funnelBlocks.catalog");
   const { userId, accountId } = await getCurrentUser();
-  const [context, businessProfile, catalog] = await Promise.all([
+  const [context, businessProfile, blockCatalog] = await Promise.all([
     getAccountContext(userId),
     getBusinessProfile(accountId),
-    getAcquisitionFunnelCatalog(),
+    getFunnelBlockCatalog(),
   ]);
   const isOwner = context?.isOwner ?? false;
   const permissions: ReadonlySet<string> = context && !context.isOwner ? context.permissions : new Set();
@@ -31,15 +32,18 @@ export default async function AcquisitionLayout({ children }: { children: React.
 
   const canAccessAcquisition = isOwner || visibleTabs.length > 0;
   const activeJourneyTabs: PillarTab[] = canAccessAcquisition
-    ? activeFunnelRoutes(
-        normalizeAcquisitionSelection(businessProfile.acquisition, catalog),
-        catalog
-      ).map((route) => ({ href: route.href, label: route.primary ? `${route.label} · principal` : route.label }))
+    ? activeFunnelBlockRoutes(
+        normalizeFunnelBlockSelection(businessProfile.acquisition, blockCatalog),
+        blockCatalog
+      ).map((route) => ({
+        href: route.href,
+        label: tCatalog.has(`${route.key}.label`) ? tCatalog(`${route.key}.label`) : route.label,
+      }))
     : [];
   const tabs: PillarTab[] = [
     ...visibleTabs.map(({ href, label }) => ({ href, label })),
     ...activeJourneyTabs,
-    ...(canAccessAcquisition ? [{ href: "/business#acquisition", label: t("addFunnel") }] : []),
+    ...(canAccessAcquisition ? [{ href: "/business#acquisition", label: t("editJourney") }] : []),
   ];
 
   // Prefetch this pillar's own tabs' skins — switching tabs shouldn't

@@ -3,6 +3,7 @@
 // in the Zod schemas — schema.ts imports these types, not the other way
 // around.
 import type { AcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
+import type { FunnelBlockSelectionItem, FunnelSourceKey } from "@/lib/funnel-blocks/types";
 
 export type AcquisitionMode = "organique" | "ads" | "hybride";
 
@@ -101,6 +102,9 @@ export type AcquisitionFunnelConfigurations = {
   communaute: CommunityConfiguration;
 };
 
+export type FunnelBlockConfigurationValue = string | number | null;
+export type FunnelBlockConfigurations = Record<string, Record<string, FunnelBlockConfigurationValue>>;
+
 export type BusinessAcquisition = {
   platforms: Platform[];
   leadMagnet: LeadMagnet;
@@ -108,10 +112,17 @@ export type BusinessAcquisition = {
   setting: BusinessAcquisitionSetting;
   funnels: AcquisitionFunnelKey[];
   primaryFunnel: AcquisitionFunnelKey;
+  // Canonical acquisition journey. The legacy funnel fields above stay in
+  // the JSON for backward compatibility with older diagnostic projections;
+  // all new UI and calculations read blocks/sources first.
+  blocks: FunnelBlockSelectionItem[];
+  sources: FunnelSourceKey[];
   configurations: AcquisitionFunnelConfigurations;
+  blockConfigurations: FunnelBlockConfigurations;
   // Read-only runtime hint for existing accounts. It is stripped before a
   // profile save and lets Dashboard show the one-time confirmation nudge.
   funnelSelectionInferred?: boolean;
+  blockSelectionInferred?: boolean;
 };
 
 export type OfferType = "formation" | "coaching" | "accompagnement" | "saas" | "autre";
@@ -199,6 +210,11 @@ export const EMPTY_BUSINESS_PROFILE: BusinessProfileData = {
     setting: { enabled: null, channel: "", operator: "" },
     funnels: ["lead_magnet"],
     primaryFunnel: "lead_magnet",
+    blocks: [
+      { blockKey: "lead_magnet", order: 1 },
+      { blockKey: "appel", order: 3 },
+    ],
+    sources: ["organique"],
     configurations: {
       quiz: { url: "", questionCount: null, tool: "" },
       appel_direct: { bookingUrl: "", calendarTool: "" },
@@ -208,7 +224,9 @@ export const EMPTY_BUSINESS_PROFILE: BusinessProfileData = {
       vente_directe: { url: "", displayedPrice: null },
       communaute: { platform: "", memberCount: null },
     },
+    blockConfigurations: {},
     funnelSelectionInferred: false,
+    blockSelectionInferred: false,
   },
   sales: {
     offers: [],

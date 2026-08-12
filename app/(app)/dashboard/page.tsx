@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { Suspense } from "react";
 
-import { BottleneckFunnel } from "./bottleneck-funnel";
 import { DashboardLossHero, DashboardLossHeroSkeleton } from "./dashboard-loss-hero";
 import { RevenueActionCenter, RevenueActionCenterSkeleton } from "./revenue-action-center";
 import { TechnicalAlertsSection } from "./technical-alerts-section";
@@ -39,7 +39,12 @@ import { monthDateRange } from "@/lib/date-range";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 import { measureAsync } from "@/lib/perf/timing";
 import { getLocale, getTranslations } from "next-intl/server";
+import { track } from "@/lib/analytics";
 import { buildAcquisitionStageVolumes } from "@/lib/acquisition-funnels/stage-volumes";
+import { FunnelSequenceOverview } from "@/components/funnel-sequence-overview";
+import { getFunnelBlockBenchmarks, getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+import { isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
 
 const PERIOD_MONTHS = 3;
 // buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
@@ -55,7 +60,7 @@ const DASHBOARD_METRIC_CARD_KEYS = [
 ];
 
 type DashboardPageProps = {
-  searchParams: Promise<{ checkin?: string; bandeau?: string }>;
+  searchParams: Promise<{ checkin?: string; bandeau?: string; source?: string }>;
 };
 
 export default function DashboardPage(props: DashboardPageProps) {
@@ -87,7 +92,7 @@ async function renderDashboardPage({
   // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
   // per request, so this is deduped against app/(app)/layout.tsx's own call
   // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, contentBenchmarks, pipelineBenchmark, weeklyReports, acquisitionCatalog] =
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, contentBenchmarks, pipelineBenchmark, weeklyReports, acquisitionCatalog, funnelBlockCatalog] =
     await Promise.all([
       getBusinessProfile(accountId),
       getDiagnosticKpiRawData(accountId),
@@ -96,9 +101,18 @@ async function renderDashboardPage({
       getPipelineDiagnosticBenchmark(user?.sector ?? null),
       getRecentWeeklyReports(accountId),
       getAcquisitionFunnelCatalog(),
+      getFunnelBlockCatalog(),
     ]);
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+  const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
+  const source: FunnelSourceKey | "total" = isFunnelSourceKey(params.source) ? params.source : "total";
+  if (source !== "total") {
+    // The client filter also tracks the interaction. This server-side event
+    // keeps the event reliable when navigation is interrupted.
+    after(() => track("source_filter_used", userId, { source, page: "dashboard" }));
+  }
   const acquisitionBenchmarks = await getAcquisitionFunnelBenchmarks(acquisitionSelection.funnels, user?.sector ?? null);
+  const funnelBlockBenchmarks = await getFunnelBlockBenchmarks(funnelBlockSelection.blocks.map((item) => item.blockKey), user?.sector ?? null);
   const activeLegacyKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
   const activeMetricFields = Array.from(
     new Map(
@@ -388,7 +402,14 @@ async function renderDashboardPage({
         </div>
       </div>
 
-      <BottleneckFunnel data={bottleneckFunnel} />
+      <FunnelSequenceOverview
+        selection={funnelBlockSelection}
+        catalog={funnelBlockCatalog}
+        benchmarks={funnelBlockBenchmarks}
+        currentRow={bottleneckMonthlyRow}
+        monthlyRows={allMonthlyRows}
+        source={source}
+      />
 
       <TechnicalAlertsSection alerts={technicalAlerts} />
 

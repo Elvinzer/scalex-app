@@ -42,6 +42,7 @@ function toRow(row: typeof monthlyMetrics.$inferSelect): MonthlyMetricsRow {
     callsTaken: row.callsTaken,
     salesClosed: row.salesClosed,
     acquisitionMetrics: row.acquisitionMetrics,
+    acquisitionSourceMetrics: row.acquisitionSourceMetrics,
     cashCollectedSource: row.cashCollectedSource as StripeFieldSource,
     cashCollectedSyncedAt: row.cashCollectedSyncedAt,
     cashCollectedManualBackup: row.cashCollectedManualBackup,
@@ -129,5 +130,6 @@ export function emptyMonthRow(year: number, month: number): MonthlyMetricsRow {
     newCustomersSyncedAt: null,
     settingManualOverride: false,
     closingManualOverride: false,
+    acquisitionSourceMetrics: {},
   };
 }

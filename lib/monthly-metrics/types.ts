@@ -14,9 +14,10 @@ export type MonthlyMetricsInput = {
   // Counts that only exist for some acquisition journeys. Kept separate from
   // the legacy scalar columns so changing journey never deletes history.
   acquisitionMetrics?: Record<string, number | null>;
+  acquisitionSourceMetrics?: Record<string, Record<string, number | null>>;
 };
 
-export type MonthlyMetricScalarKey = Exclude<keyof MonthlyMetricsInput, "acquisitionMetrics">;
+export type MonthlyMetricScalarKey = Exclude<keyof MonthlyMetricsInput, "acquisitionMetrics" | "acquisitionSourceMetrics">;
 
 export const EMPTY_MONTHLY_METRICS: MonthlyMetricsInput = {
   cashCollected: null,
@@ -29,6 +30,7 @@ export const EMPTY_MONTHLY_METRICS: MonthlyMetricsInput = {
   callsTaken: null,
   salesClosed: null,
   acquisitionMetrics: {},
+  acquisitionSourceMetrics: {},
 };
 
 export const MONTHLY_METRICS_FIELDS = [

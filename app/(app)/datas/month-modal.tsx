@@ -62,6 +62,7 @@ function toDraft(row: MonthlyMetricsRow | null): MonthlyMetricsInput {
     callsTaken: row?.callsTaken ?? null,
     salesClosed: row?.salesClosed ?? null,
     acquisitionMetrics: row?.acquisitionMetrics ?? {},
+    acquisitionSourceMetrics: row?.acquisitionSourceMetrics ?? {},
   };
 }
 

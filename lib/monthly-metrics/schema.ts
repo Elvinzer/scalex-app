@@ -17,4 +17,8 @@ export const monthlyMetricsInputSchema = z.object({
   callsTaken: nonNegativeIntOrNull,
   salesClosed: nonNegativeIntOrNull,
   acquisitionMetrics: z.record(z.string().max(100), nonNegativeIntOrNull).optional().default({}),
+  acquisitionSourceMetrics: z.record(
+    z.string().max(100),
+    z.record(z.string().max(100), nonNegativeIntOrNull)
+  ).optional().default({}),
 });

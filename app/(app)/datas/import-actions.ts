@@ -97,6 +97,7 @@ async function commitMonthlyMetricsMonth(
         callsTaken: existingRow.callsTaken,
         salesClosed: existingRow.salesClosed,
         acquisitionMetrics: existingRow.acquisitionMetrics,
+        acquisitionSourceMetrics: existingRow.acquisitionSourceMetrics,
       }
     : { ...EMPTY_MONTHLY_METRICS };
 

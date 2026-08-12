@@ -25,6 +25,8 @@
   "continue": "Continue →",
   "acquisitionQuestion": "How do your prospects find their way to you?",
   "acquisitionHelp": "You can choose several journeys. If you are unsure, keep Lead magnet and change it later.",
+  "trafficSources": "How do you bring in traffic?",
+  "trafficSourcesHelp": "Sources filter your numbers. They are not steps in your journey.",
   "primaryFunnel": "Which journey is primary?",
   "skip": "Skip for now",
   "numbersQuestion": "Do you have an export or screenshot of your numbers? Drop it here and I’ll sort it, even if it covers several months. Otherwise, we can enter {month} together.",

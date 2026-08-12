@@ -11,16 +11,18 @@ import { FalcoBubble } from "@/components/falco/falco-bubble";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { Button } from "@/components/ui/button";
 import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
+import { FunnelBlockBuilder, type FunnelBlockBuilderPayload } from "@/components/funnel-block-builder";
+import { FunnelPresetCards, type FunnelPresetKey } from "@/components/funnel-preset-cards";
 import { formatEur } from "@/lib/currency";
 import type { Locale } from "@/lib/i18n/config";
 import type { SaleMode } from "@/lib/business/types";
-import { isAcquisitionFunnelKey, type AcquisitionFunnelCatalogEntry, type AcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
+import type { FunnelBlockCatalogEntry, FunnelBlockSelectionItem, FunnelSourceKey } from "@/lib/funnel-blocks/types";
 import type { LeverCatalogEntry } from "@/lib/levers/catalog";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
 import { cn } from "@/lib/utils";
 
-import { completeOnboardingAfterImport, saveOnboardingFunnels, saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
+import { completeOnboardingAfterImport, saveOnboardingBlocks, saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
 import { LanguageStep } from "./language-step";
 
 // Same reasoning as app/(app)/datas/datas-page-client.tsx: ImportFlow pulls
@@ -127,7 +129,7 @@ export function OnboardingFlow({
   discoveryLevers,
   discoveryTotal,
   discoveryAnswered,
-  acquisitionFunnels,
+  funnelBlocks,
   needsLanguageChoice,
   suggestedLocale,
 }: {
@@ -137,7 +139,7 @@ export function OnboardingFlow({
   discoveryLevers: LeverCatalogEntry[];
   discoveryTotal: number;
   discoveryAnswered: number;
-  acquisitionFunnels: AcquisitionFunnelCatalogEntry[];
+  funnelBlocks: FunnelBlockCatalogEntry[];
   needsLanguageChoice: boolean;
   suggestedLocale: Locale;
 }) {
@@ -145,6 +147,8 @@ export function OnboardingFlow({
   const locale = useLocale();
   const t = useTranslations("onboarding");
   const tDiagnostic = useTranslations("diagnostic");
+  const tMetric = useTranslations("funnelBlocks.metrics");
+  const tSource = useTranslations("funnelBlocks.sources");
   // Step 0 (§B): shown only to accounts that have never chosen. An existing
   // user reaching the wizard again never sees it — `needsLanguageChoice` is
   // false as soon as users.locale holds a value.
@@ -158,8 +162,13 @@ export function OnboardingFlow({
   const [offerName, setOfferName] = useState("");
   const [price, setPrice] = useState<number | null>(null);
   const [saleMode, setSaleMode] = useState<SaleMode>("appel_closing");
-  const [selectedFunnels, setSelectedFunnels] = useState<AcquisitionFunnelKey[]>(["lead_magnet"]);
-  const [primaryFunnel, setPrimaryFunnel] = useState<AcquisitionFunnelKey>("lead_magnet");
+  const [selectedBlocks, setSelectedBlocks] = useState<FunnelBlockSelectionItem[]>([
+    { blockKey: "lead_magnet", order: 1 },
+    { blockKey: "appel", order: 2 },
+  ]);
+  const [sources, setSources] = useState<FunnelSourceKey[]>(["organique"]);
+  const [selectedPreset, setSelectedPreset] = useState<FunnelPresetKey | null>("leadMagnetCall");
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const [monthDraft, setMonthDraft] = useState<MonthlyMetricsInput>(EMPTY_MONTH);
   const [result, setResult] = useState<OnboardingGoulotResult | null>(null);
@@ -191,23 +200,37 @@ export function OnboardingFlow({
     setStep(2);
   }
 
-  function toggleFunnel(key: AcquisitionFunnelKey) {
-    setSelectedFunnels((current) => {
-      if (current.includes(key)) {
-        if (current.length === 1) return current;
-        const next = current.filter((item) => item !== key);
-        if (primaryFunnel === key) setPrimaryFunnel(next[0]);
-        return next;
-      }
-      return [...current, key];
-    });
+  function handlePresetSelect(key: FunnelPresetKey, blocks: FunnelBlockSelectionItem[]) {
+    setSelectedPreset(key);
+    if (key === "different") {
+      setBuilderOpen(true);
+      return;
+    }
+    setBuilderOpen(false);
+    setSelectedBlocks(blocks);
+  }
+
+  function toggleSource(source: FunnelSourceKey) {
+    setSources((current) => current.includes(source)
+      ? (current.length === 1 ? current : current.filter((item) => item !== source))
+      : [...current, source]);
+  }
+
+  async function handleBuilderSave(payload: FunnelBlockBuilderPayload) {
+    const result = await saveOnboardingBlocks(payload);
+    if (!result.error) {
+      setSelectedBlocks(payload.blocks);
+      setSources(payload.sources);
+      setSelectedPreset("different");
+    }
+    return result;
   }
 
   async function handleFunnelSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     setIsPending(true);
-    const res = await saveOnboardingFunnels({ funnels: selectedFunnels, primaryFunnel });
+    const res = await saveOnboardingBlocks({ blocks: selectedBlocks, sources });
     setIsPending(false);
     if (res.error) {
       setError(res.error);
@@ -312,17 +335,22 @@ export function OnboardingFlow({
         ? result.point.explanation
         : null;
 
-  const selectedEntries = acquisitionFunnels.filter((entry) => selectedFunnels.includes(entry.funnelKey));
-  const activeInputKeys = new Set(selectedEntries.flatMap((entry) => entry.steps.map((stage) => stage.inputMetricKey)));
+  const selectedEntries = selectedBlocks
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map((item) => funnelBlocks.find((entry) => entry.blockKey === item.blockKey))
+    .filter((entry): entry is FunnelBlockCatalogEntry => entry !== undefined);
+  const activeInputKeys = new Set(selectedEntries.flatMap((entry) => entry.steps.map((stage) => stage.metricKey)));
   const hasInput = (key: string) => activeInputKeys.has(key);
   const customMetricFields = Array.from(
     new Map(
       selectedEntries
         .flatMap((entry) => entry.steps)
-        .filter((stage) => !["new_followers", "first_messages", "conversations", "calls_proposed", "calls_booked", "calls_attended", "sales_closed"].includes(stage.inputMetricKey))
-        .map((stage) => [stage.inputMetricKey, stage] as const)
+        .filter((stage) => !["new_followers", "first_messages", "conversations", "calls_proposed", "calls_booked", "calls_attended", "sales_closed"].includes(stage.metricKey))
+        .map((stage) => [stage.metricKey, stage] as const)
     ).values()
   );
+  const sourceEntries = funnelBlocks.filter((entry) => entry.family === "source");
 
   if (!languageChosen) {
     return (
@@ -426,37 +454,51 @@ export function OnboardingFlow({
         <form onSubmit={handleFunnelSubmit} className="flex flex-col gap-4">
           <Bubble index={0}>{t("acquisitionQuestion")}</Bubble>
           <p className="text-sm text-muted-foreground">{t("acquisitionHelp")}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {acquisitionFunnels.map((entry) => {
-              const selected = selectedFunnels.includes(entry.funnelKey);
-              return (
-                <button
-                  key={entry.funnelKey}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => toggleFunnel(entry.funnelKey)}
-                  className={selected ? "rounded-xl border-2 border-accent bg-accent-soft p-4 text-left" : "rounded-xl border border-border bg-card p-4 text-left hover:border-accent/50"}
-                >
-                  <span className="text-sm font-bold">{entry.label}</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">{entry.description}</span>
-                </button>
-              );
-            })}
-          </div>
-          {selectedFunnels.length > 1 && (
-            <label className="flex flex-col gap-2 text-sm font-bold">
-              {t("primaryFunnel")}
-              <select
-                value={primaryFunnel}
-                onChange={(event) => {
-                  if (isAcquisitionFunnelKey(event.target.value)) setPrimaryFunnel(event.target.value);
-                }}
-                className={inputClass}
-              >
-                {selectedFunnels.map((key) => <option key={key} value={key}>{acquisitionFunnels.find((entry) => entry.funnelKey === key)?.label ?? key}</option>)}
-              </select>
-            </label>
+          {!builderOpen && (
+            <FunnelPresetCards
+              selectedKey={selectedPreset}
+              onSelect={handlePresetSelect}
+            />
           )}
+
+          {builderOpen && (
+            <div className="rounded-[var(--radius-control)] border border-border bg-card p-4">
+              <FunnelBlockBuilder
+                catalog={funnelBlocks}
+                initialBlocks={selectedBlocks}
+                initialSources={sources}
+                simplified
+                showSources={false}
+                onSave={handleBuilderSave}
+              />
+            </div>
+          )}
+
+          <div className="rounded-[var(--radius-control)] border border-border p-4">
+            <div>
+              <p className="text-sm font-bold">{t("trafficSources")}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("trafficSourcesHelp")}</p>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {sourceEntries.filter((entry) => entry.blockKey !== "communaute_externe").map((entry) => {
+                const source = entry.blockKey as FunnelSourceKey;
+                const selected = sources.includes(source);
+                return (
+                  <button
+                    key={entry.blockKey}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => toggleSource(source)}
+                    className={selected
+                      ? "min-h-11 rounded-full border-2 border-accent bg-accent-soft px-4 py-2 text-sm font-bold text-accent-text"
+                      : "min-h-11 rounded-full border border-border bg-card px-4 py-2 text-sm font-bold text-muted-foreground transition-colors hover:border-accent/50"}
+                  >
+                    {tSource(source)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {error && <p className="text-sm text-state-critical">{error}</p>}
           <Button type="submit" size="lg" disabled={isPending} className="w-full">
             {isPending ? t("loading") : t("continue")}
@@ -507,10 +549,10 @@ export function OnboardingFlow({
             <div className="grid gap-3 sm:grid-cols-2">
               {customMetricFields.map((field) => (
                 <NumberField
-                  key={field.inputMetricKey}
-                  label={`${field.label} (${field.unit})`}
-                  value={monthDraft.acquisitionMetrics?.[field.inputMetricKey] ?? null}
-                  onChange={(value) => updateMonth({ acquisitionMetrics: { ...(monthDraft.acquisitionMetrics ?? {}), [field.inputMetricKey]: value } })}
+                  key={field.metricKey}
+                  label={`${tMetric.has(`${field.metricKey}.label`) ? tMetric(`${field.metricKey}.label`) : field.label} (${tMetric.has(`${field.metricKey}.unit`) ? tMetric(`${field.metricKey}.unit`) : field.unit})`}
+                  value={monthDraft.acquisitionMetrics?.[field.metricKey] ?? null}
+                  onChange={(value) => updateMonth({ acquisitionMetrics: { ...(monthDraft.acquisitionMetrics ?? {}), [field.metricKey]: value } })}
                 />
               ))}
             </div>

@@ -3,11 +3,11 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
-import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
-import { acquisitionFunnelHref } from "@/lib/acquisition-funnels/routes";
-import { normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getCurrentUser } from "@/lib/current-user";
+import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { funnelBlockHref } from "@/lib/funnel-blocks/routes";
+import { activeFunnelBlockEntries, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 
 // Bare /acquisition always lands on its first tab — Contenu is the one
 // every account can reach regardless of the Avancé gate (Setting/Ads may
@@ -34,10 +34,11 @@ export default async function AcquisitionIndexPage({
   }
 
   const { accountId } = await getCurrentUser();
-  const [businessProfile, catalog] = await Promise.all([
+  const [businessProfile, blockCatalog] = await Promise.all([
     getBusinessProfile(accountId),
-    getAcquisitionFunnelCatalog(),
+    getFunnelBlockCatalog(),
   ]);
-  const selection = normalizeAcquisitionSelection(businessProfile.acquisition, catalog);
-  redirect(acquisitionFunnelHref(selection.primaryFunnel));
+  const selection = normalizeFunnelBlockSelection(businessProfile.acquisition, blockCatalog);
+  const firstBlock = activeFunnelBlockEntries(selection, blockCatalog)[0];
+  redirect(firstBlock ? funnelBlockHref(firstBlock.blockKey) : "/business#acquisition");
 }

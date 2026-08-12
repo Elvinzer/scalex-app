@@ -3,9 +3,10 @@
     "title": "Acquisition",
     "subtitle": "Comprends ce qui attire des prospects, puis transforme chaque source en prochaine action mesurable.",
     "addFunnel": "+ Ajouter un parcours",
+    "editJourney": "Modifier le parcours",
     "blockedTitle": "Parcours non activé",
-    "blockedBody": "Ce parcours n'est pas activé — tu peux l'ajouter dans Mon business.",
-    "goToBusiness": "Configurer mes parcours",
+    "blockedBody": "Ce parcours n'est pas activé. Tu peux l'ajouter dans Mon business.",
+    "goToBusiness": "Configurer mon parcours",
     "journey": {
       "active": "Parcours actif",
       "primary": "principal",

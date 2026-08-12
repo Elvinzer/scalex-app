@@ -3,9 +3,10 @@
     "title": "Acquisition",
     "subtitle": "Understand what attracts prospects, then turn every source into a measurable next action.",
     "addFunnel": "+ Add a journey",
+    "editJourney": "Edit journey",
     "blockedTitle": "Journey not enabled",
-    "blockedBody": "This journey is not enabled — you can add it in My business.",
-    "goToBusiness": "Configure my journeys",
+    "blockedBody": "This journey is not enabled. You can add it in My business.",
+    "goToBusiness": "Configure my journey",
     "journey": {
       "active": "Active journey",
       "primary": "primary",
