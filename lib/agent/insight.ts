@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { falcoLanguageInstruction } from "./language-instruction";
 import { STAGE_KNOWLEDGE } from "./knowledge";
 import type { FunnelStageKey } from "./knowledge/types";
 
@@ -15,11 +17,16 @@ const SYSTEM_PROMPT =
   "une cause ou un chiffre qui n'y figure pas. Si plusieurs causes correspondent, priorise la " +
   "plus actionnable et mentionne les autres brièvement.";
 
+function systemPromptFor(locale: Locale): string {
+  return `${SYSTEM_PROMPT}\n\n${falcoLanguageInstruction(locale)}`;
+}
+
 export type GenerateStageInsightInput = {
   stage: FunnelStageKey;
   ratePercent: number;
   answers: Record<string, string>;
   apiKey: string;
+  locale?: Locale;
 };
 
 export type GenerateStageInsightResult = {
@@ -36,6 +43,7 @@ export async function generateStageInsight({
   ratePercent,
   answers,
   apiKey,
+  locale,
 }: GenerateStageInsightInput): Promise<GenerateStageInsightResult> {
   const knowledge = STAGE_KNOWLEDGE[stage];
   const matchingRules = knowledge.rules.filter((rule) => rule.when(answers));
@@ -59,7 +67,7 @@ export async function generateStageInsight({
   const message = await client.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: SYSTEM_PROMPT,
+    system: systemPromptFor(locale ?? DEFAULT_LOCALE),
     messages: [
       {
         role: "user",

@@ -5,6 +5,7 @@ import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
+import type { MonthlySalesSummary } from "@/lib/sales/queries";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { formatEur } from "@/lib/currency";
 import { rate, formatPercent } from "@/lib/setting/funnel";
@@ -25,6 +26,8 @@ export function MonthCard({
   allSettingEntries,
   allClosingEntries,
   callSourcesByMonth,
+  salesByMonth,
+  callTrackingConnected,
   activeMetricFields,
   onOpen,
 }: {
@@ -36,6 +39,8 @@ export function MonthCard({
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
   callSourcesByMonth: Record<string, MonthlyCallSource>;
+  salesByMonth: Record<number, MonthlySalesSummary>;
+  callTrackingConnected: boolean;
   activeMetricFields: AcquisitionFunnelStep[];
   onOpen: () => void;
 }) {
@@ -46,11 +51,19 @@ export function MonthCard({
   // entries are shown there pre-filled (greyed, read-only) rather than from
   // the monthly row itself — the completion badge must count them too, or
   // it under-reports "X/9" for months filled via daily check-ins.
+  const salesThisMonth = salesByMonth[monthIndex];
   const overlay = resolveDailySourceOverlay(monthDateRange(year, monthIndex), allSettingEntries, allClosingEntries, {
     settingManualOverride: row?.settingManualOverride,
     closingManualOverride: row?.closingManualOverride,
-  }, callSourcesByMonth[monthKey(year, monthIndex)] ?? null);
-  const data = { ...(row ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
+  }, callSourcesByMonth[monthKey(year, monthIndex)] ?? null, {
+    callTrackingConnected,
+    salesClosed: salesThisMonth?.closedCount,
+  });
+  const data = {
+    ...(row ?? EMPTY_MONTHLY_METRICS),
+    ...overlay.overrides,
+    ...(salesThisMonth ? { cashCollected: salesThisMonth.collected } : {}),
+  };
   const activeInputKeys = new Set(activeMetricFields.map((field) => field.inputMetricKey));
   const completion = computeCompletion(data, activeInputKeys);
   const status = monthStatus(completion);

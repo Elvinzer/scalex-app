@@ -4,10 +4,8 @@ import { formatEur } from "@/lib/currency";
 import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { computeClosingRates } from "@/lib/closing/metrics";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
-import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAuthoritative, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import {
-  CLOSING_FIELDS,
-  SETTING_FIELDS,
   resolveMonthCashCollected,
   resolveMonthClosingTotals,
   resolveMonthNewCustomers,
@@ -131,6 +129,7 @@ export function buildMetricCards({
   allMonthlyRows,
   allSales = [],
   callSourcesByMonth = {},
+  callTrackingConnected = false,
   isStripeConnected,
   locale = "fr-FR",
 }: {
@@ -140,6 +139,7 @@ export function buildMetricCards({
   allMonthlyRows: MonthlyMetricsRow[];
   allSales?: SaleRow[];
   callSourcesByMonth?: Record<string, MonthlyCallSource>;
+  callTrackingConnected?: boolean;
   // Whether stripeConnections has a row for this account — no longer a live
   // fetch (lib/stripe/sync-write.ts persists straight into monthlyRow, see
   // resolveMonthCashCollected/resolveMonthNewCustomers below), just gates the
@@ -161,36 +161,27 @@ export function buildMetricCards({
     const validSalesInMonth = allSales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, bucket.range));
 
     const baseSettingTotals = resolveMonthSettingTotals(monthlyRow, dailySetting);
-    const monthlySettingIsAuthoritative = Boolean(
-      monthlyRow?.settingManualOverride ||
-        (monthlyRow && SETTING_FIELDS.some((field) => monthlyRow[field] !== null))
-    );
-    const monthlyClosingIsAuthoritative = Boolean(
-      monthlyRow?.closingManualOverride ||
-        (monthlyRow && CLOSING_FIELDS.some((field) => monthlyRow[field] !== null))
-    );
-    const callSourceIsAvailable = isMonthlyCallSourceAvailable(callSource);
-    const settingTotals = callSourceIsAvailable && !monthlySettingIsAuthoritative
-      ? { ...baseSettingTotals, callsBooked: callSource.callsBooked }
+    const callSourceIsAvailable = isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected);
+    const settingTotals = callSourceIsAvailable
+      ? { ...baseSettingTotals, callsBooked: callSource?.callsBooked ?? 0 }
       : baseSettingTotals;
     const baseClosingTotals = resolveMonthClosingTotals(monthlyRow, dailyClosing);
-    const closingTotals = monthlyClosingIsAuthoritative
-      ? baseClosingTotals
-      : {
-          callsAttended: callSourceIsAvailable ? callSource.callsTaken : baseClosingTotals.callsAttended,
-          salesClosed: validSalesInMonth.length > 0
-            ? validSalesInMonth.length
-            : callSourceIsAvailable
-              ? callSource.salesClosed
-              : baseClosingTotals.salesClosed,
-        };
+    const closingTotals = {
+      callsAttended: callSourceIsAvailable ? callSource?.callsTaken ?? 0 : baseClosingTotals.callsAttended,
+      salesClosed: validSalesInMonth.length > 0
+        ? validSalesInMonth.length
+        : callSourceIsAvailable
+          ? callSource?.salesClosed ?? 0
+          : baseClosingTotals.salesClosed,
+    };
     const closingRates = computeClosingRates(closingTotals, settingTotals.callsBooked);
     const salesCollected = allSales
       .filter((sale) => !sale.isOrphan && inRange(sale.saleDate, bucket.range))
       .reduce((sum, sale) => sum + summarize(sale.totalPrice, sale.installments).paidTotal, 0);
     const stripeOrManualCash = resolveMonthCashCollected(monthlyRow);
     const cash = salesCollected > 0 ? { amount: salesCollected, source: "sales" as const } : stripeOrManualCash;
-    const newCustomers = resolveMonthNewCustomers(monthlyRow);
+    const bankTransferCustomers = validSalesInMonth.filter((sale) => sale.paymentMethod === "virement").length;
+    const newCustomers = resolveMonthNewCustomers(monthlyRow, bankTransferCustomers);
 
     return { bucket, monthlyRow, settingTotals, closingTotals, closingRates, cash, newCustomers };
   });
@@ -199,10 +190,10 @@ export function buildMetricCards({
   const previous = resolved[resolved.length - 2];
 
   const hasAnySettingData = allSettingEntries.length > 0 || allMonthlyRows.some((row) => row.newFollowers !== null || row.callsBooked !== null);
-  const hasAnyBookingsData = hasAnySettingData || Object.values(callSourcesByMonth).some(isMonthlyCallSourceAvailable);
+  const hasAnyBookingsData = hasAnySettingData || Object.values(callSourcesByMonth).some((source) => isMonthlyCallSourceAuthoritative(source, callTrackingConnected));
   const hasAnyClosingData =
     allClosingEntries.length > 0 ||
-    Object.values(callSourcesByMonth).some(isMonthlyCallSourceAvailable) ||
+    Object.values(callSourcesByMonth).some((source) => isMonthlyCallSourceAuthoritative(source, callTrackingConnected)) ||
     allMonthlyRows.some((row) => row.callsTaken !== null || row.salesClosed !== null) ||
     allSales.some((sale) => !sale.isOrphan);
   const directSalePage = businessProfile.acquisition.setting.enabled === "no";
@@ -237,12 +228,13 @@ export function buildMetricCards({
     });
   }
 
-  // 2. Nouveaux clients — Stripe only, no manual equivalent in Datas.
+  // 2. New customers combines Stripe's paying-customer projection with
+  // valid bank-transfer sales from the sales ledger.
   if (current.newCustomers.amount === null) {
     cards.push({
       key: "new-customers",
       label: "Nouveaux clients",
-      href: "/integrations",
+      href: current.newCustomers.source === "sales" || current.newCustomers.source === "combined" ? "/ventes/suivi" : "/integrations",
       status: "missing",
       reason: !isStripeConnected ? "Stripe non connecté" : "Synchronisation en cours",
       ctaLabel: "Connecte Stripe",
@@ -253,14 +245,19 @@ export function buildMetricCards({
     cards.push({
       key: "new-customers",
       label: "Nouveaux clients",
-      href: "/integrations",
+      href: current.newCustomers.source === "sales" || current.newCustomers.source === "combined" ? "/ventes/suivi" : "/integrations",
       status: "ok",
       valueLabel: formatNumber(current.newCustomers.amount, intlLocale),
       deltaLabel: delta.label,
       deltaDirection: delta.direction,
       sparklineValues: resolved.map((r) => r.newCustomers.amount ?? 0),
       sparklineLabels: resolved.map((r) => r.bucket.label),
-      sourceHint: "Stripe",
+      sourceHint:
+        current.newCustomers.source === "combined"
+          ? "Stripe + ventes"
+          : current.newCustomers.source === "sales"
+            ? "Suivi des ventes"
+            : "Stripe",
     });
   }
 

@@ -6,7 +6,9 @@ import { getBusinessProfile } from "@/lib/business/queries";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { contentRecommendations, users, winningPatterns } from "@/db/schema";
 import { requestFalcoJson, resolveFalcoProvider } from "@/lib/agent/falco-provider";
+import { falcoLanguageInstruction } from "@/lib/agent/language-instruction";
 import { describeBusinessContext } from "@/lib/improve-prompt-builder";
+import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n/config";
 import { materializeSourceInsight } from "@/lib/insight-execution/source-adapters";
 
 import { getVideoAttributionTotals } from "./attribution";
@@ -334,7 +336,7 @@ function parseJsonText(content: string): unknown {
 
 async function callFalcoJson(providerUserId: string, prompt: string): Promise<ModelResult> {
   const [user] = await db
-    .select({ id: users.id, anthropicApiKeyEncrypted: users.anthropicApiKeyEncrypted })
+    .select({ id: users.id, anthropicApiKeyEncrypted: users.anthropicApiKeyEncrypted, locale: users.locale })
     .from(users)
     .where(eq(users.id, providerUserId))
     .limit(1);
@@ -342,10 +344,12 @@ async function callFalcoJson(providerUserId: string, prompt: string): Promise<Mo
     id: providerUserId,
     anthropicApiKeyEncrypted: user?.anthropicApiKeyEncrypted ?? null,
   });
+  const locale = isLocale(user?.locale) ? user.locale : DEFAULT_LOCALE;
   const response = await requestFalcoJson(
     provider,
     "Tu es l'analyste contenu de Scale X. Tu travailles uniquement sur les données de la chaîne YouTube fournies. " +
-      "Tu ne cites jamais une autre chaîne et tu n'inventes jamais de chiffre. Réponds uniquement avec le JSON demandé.",
+      "Tu ne cites jamais une autre chaîne et tu n'inventes jamais de chiffre. Réponds uniquement avec le JSON demandé." +
+      `\n\n${falcoLanguageInstruction(locale)}`,
     prompt,
     0.25
   );

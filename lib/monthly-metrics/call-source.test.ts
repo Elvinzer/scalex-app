@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { aggregateSalesCallsByMonth, isMonthlyCallSourceAvailable } from "./call-source";
+import { aggregateSalesCallsByMonth, isMonthlyCallSourceAuthoritative, isMonthlyCallSourceAvailable } from "./call-source";
 
 describe("aggregateSalesCallsByMonth", () => {
   it("counts reserved, attended and closed calls independently", () => {
@@ -38,6 +38,7 @@ describe("aggregateSalesCallsByMonth", () => {
 
     expect(month).toEqual({ callsBooked: 0, callsTaken: 0, salesClosed: 0, callCount: 1 });
     expect(isMonthlyCallSourceAvailable(month)).toBe(false);
+    expect(isMonthlyCallSourceAuthoritative(month, true)).toBe(true);
     expect(isMonthlyCallSourceAvailable({ callsBooked: 1, callsTaken: 0, salesClosed: 0, callCount: 1 })).toBe(true);
   });
 });

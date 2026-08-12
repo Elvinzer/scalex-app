@@ -2,11 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 import { track } from "@/lib/analytics";
 import { db } from "@/db";
-import { dataImports } from "@/db/schema";
+import { dataImports, sales } from "@/db/schema";
+import { getUserById } from "@/lib/current-user";
+import { monthDateRange } from "@/lib/date-range";
+import { aggregateSalesCallsByMonth, monthKey } from "@/lib/monthly-metrics/call-source";
 import { monthlyMetricsInputSchema } from "@/lib/monthly-metrics/schema";
+import { getSalesCallKpiRecords } from "@/lib/monthly-metrics/queries";
+import { resolveDailySourceOverlay, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import { writeMonthlyMetrics } from "@/lib/monthly-metrics/write";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
@@ -55,7 +61,20 @@ export async function saveMonthlyMetrics(
     return { error: "Le mode de pilotage des KPI est invalide. Recharge la fenêtre puis réessaie." };
   }
 
-  await writeMonthlyMetrics(accountId, year, month, parsed.data, parsedSourceOverrides?.success ? parsedSourceOverrides.data : undefined);
+  const overrides = parsedSourceOverrides?.success ? parsedSourceOverrides.data : undefined;
+  const [monthlyCallSource, salesRows] = await Promise.all([
+    getSalesCallKpiRecords(accountId),
+    db.select({ saleDate: sales.saleDate, isOrphan: sales.isOrphan }).from(sales).where(eq(sales.userId, accountId)),
+  ]);
+  const range = monthDateRange(year, month);
+  const callSource = aggregateSalesCallsByMonth(monthlyCallSource)[monthKey(year, month)] ?? null;
+  const salesClosedRows = salesRows.filter((row) => !row.isOrphan && row.saleDate >= range.from && row.saleDate <= range.to);
+  const currentUser = await getUserById(accountId);
+  const saveOverlay = resolveDailySourceOverlay(range, [], [], overrides ?? {}, callSource, {
+    callTrackingConnected: Boolean(currentUser?.iclosedConnected || currentUser?.calendlyConnected),
+    salesClosed: salesClosedRows.length > 0 ? salesClosedRows.length : undefined,
+  });
+  await writeMonthlyMetrics(accountId, year, month, stripDailySourcedFields(parsed.data, saveOverlay), overrides);
 
   if (parsedImportUsage?.success) {
     await Promise.all(

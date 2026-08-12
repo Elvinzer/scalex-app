@@ -295,12 +295,19 @@
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
   h1,
   h2,
   h3 {
     @apply font-display font-bold tracking-tight;
     line-height: 1.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }
 

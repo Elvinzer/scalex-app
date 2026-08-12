@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ResolvedPeriod } from "@/lib/period";
 
 import {
+  buildStripeFailureSignal,
   buildStripeInsightSignals,
   buildStripeInsightSnapshot,
   buildStripeTrend,
@@ -116,6 +117,21 @@ describe("buildStripeInsightSnapshot", () => {
 });
 
 describe("buildStripeInsightSignals", () => {
+  it("expose un avertissement pour un échec même avant le seuil d’un signal", () => {
+    const snapshot = buildStripeInsightSnapshot(
+      [transaction({ id: "ch_failed", amountCents: 20_000, status: "failed" })],
+      [],
+      julyPeriod,
+      "eur",
+    );
+
+    const signal = buildStripeFailureSignal(snapshot, "en");
+
+    expect(signal?.type).toBe("failures");
+    expect(signal?.title).toBe("Failed payments need attention");
+    expect(signal?.actionHref).toBe("#failed-payments");
+  });
+
   it("retient les signaux avec preuve et garde d'échantillon", () => {
     const transactions = Array.from({ length: 6 }, (_, index) =>
       transaction({ id: `ch_${index}`, amountCents: 10_000, status: index === 0 ? "failed" : "succeeded" }),

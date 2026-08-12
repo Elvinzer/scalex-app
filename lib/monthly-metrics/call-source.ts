@@ -19,6 +19,17 @@ export function isMonthlyCallSourceAvailable(source: MonthlyCallSource | null | 
   return Boolean(source && (source.callsBooked > 0 || source.callsTaken > 0 || source.salesClosed > 0));
 }
 
+// A connected integration is authoritative even when the selected month has
+// no call yet. In that case the correct value is zero, not an older manual
+// override. For a disconnected account, keep the existing meaningful-event
+// rule so a cancellation-only history does not erase a daily entry.
+export function isMonthlyCallSourceAuthoritative(
+  source: MonthlyCallSource | null | undefined,
+  connected = false
+): boolean {
+  return connected || isMonthlyCallSourceAvailable(source);
+}
+
 export function monthKey(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}`;
 }

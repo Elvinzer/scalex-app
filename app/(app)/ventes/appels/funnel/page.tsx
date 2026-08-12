@@ -10,14 +10,12 @@ import { getCurrentUser } from "@/lib/current-user";
 import { formatRangeDates, paramValue, previousEquivalentRange, resolveDateRange } from "@/lib/date-range";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getExistingStageInsights } from "@/lib/funnel-insights/existing-insights";
-import { aggregateSalesCallsInRange, isMonthlyCallSourceAvailable, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
+import { aggregateSalesCallsInRange, isMonthlyCallSourceAuthoritative, isMonthlyCallSourceAvailable, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
 import { getClosingKpiEntries, getMonthlyMetrics, getSalesCallKpiRecords, getSettingKpiEntries } from "@/lib/monthly-metrics/queries";
 import {
-  CLOSING_FIELDS,
   isExactCalendarMonth,
   resolveMonthClosingTotals,
   resolveMonthSettingTotals,
-  SETTING_FIELDS,
 } from "@/lib/monthly-metrics/resolve";
 import { getSales } from "@/lib/sales/queries";
 import type { SaleRow } from "@/lib/sales/types";
@@ -33,16 +31,13 @@ function resolveCanonicalSettingTotals(
   monthlyRow: Awaited<ReturnType<typeof getMonthlyMetrics>>,
   entries: Parameters<typeof resolveMonthSettingTotals>[1],
   callRecords: readonly SalesCallKpiRecord[],
-  range: { from: string; to: string } | null
+  range: { from: string; to: string } | null,
+  callTrackingConnected: boolean
 ) {
   const baseTotals = resolveMonthSettingTotals(monthlyRow, entries);
-  const monthlyIsAuthoritative = Boolean(
-    monthlyRow?.settingManualOverride ||
-      (monthlyRow && SETTING_FIELDS.some((field) => monthlyRow[field] !== null))
-  );
   const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
 
-  return !monthlyIsAuthoritative && isMonthlyCallSourceAvailable(callSource)
+  return isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected)
     ? { ...baseTotals, callsBooked: callSource.callsBooked }
     : baseTotals;
 }
@@ -52,13 +47,10 @@ function resolveCanonicalClosingTotals(
   entries: Parameters<typeof resolveMonthClosingTotals>[1],
   callRecords: readonly SalesCallKpiRecord[],
   sales: SaleRow[],
-  range: { from: string; to: string } | null
+  range: { from: string; to: string } | null,
+  callTrackingConnected: boolean
 ) {
   const baseTotals = resolveMonthClosingTotals(monthlyRow, entries);
-  const monthlyIsAuthoritative = Boolean(
-    monthlyRow?.closingManualOverride ||
-      (monthlyRow && CLOSING_FIELDS.some((field) => monthlyRow[field] !== null))
-  );
   const callSource = aggregateSalesCallsInRange(callRecords, range ?? undefined);
   const validSales = sales.filter((sale) => {
     if (sale.isOrphan) return false;
@@ -66,12 +58,12 @@ function resolveCanonicalClosingTotals(
     return sale.saleDate >= range.from && sale.saleDate <= range.to;
   });
 
-  if (monthlyIsAuthoritative) return baseTotals;
+  const callSourceAuthoritative = isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected);
   return {
-    callsAttended: isMonthlyCallSourceAvailable(callSource) ? callSource.callsTaken : baseTotals.callsAttended,
+    callsAttended: callSourceAuthoritative ? callSource.callsTaken : baseTotals.callsAttended,
     salesClosed: validSales.length > 0
       ? validSales.length
-      : isMonthlyCallSourceAvailable(callSource)
+      : callSourceAuthoritative
         ? callSource.salesClosed
         : baseTotals.salesClosed,
   };
@@ -133,8 +125,9 @@ export default async function VentesFunnelPage({
   const settingEntriesInRange = range
     ? allSettingEntries.filter((entry) => entry.date >= range.from && entry.date <= range.to)
     : allSettingEntries;
-  const callsBooked = resolveCanonicalSettingTotals(monthlyRow, settingEntriesInRange, callRecords, range).callsBooked;
-  const totals = resolveCanonicalClosingTotals(monthlyRow, entries, callRecords, allSales, range);
+  const callTrackingConnected = Boolean(user?.iclosedConnected || user?.calendlyConnected);
+  const callsBooked = resolveCanonicalSettingTotals(monthlyRow, settingEntriesInRange, callRecords, range, callTrackingConnected).callsBooked;
+  const totals = resolveCanonicalClosingTotals(monthlyRow, entries, callRecords, allSales, range, callTrackingConnected);
   const rates = computeClosingRates(totals, callsBooked);
   const bottleneck = findClosingBottleneck(rates);
 
@@ -145,10 +138,10 @@ export default async function VentesFunnelPage({
     ? allSettingEntries.filter((entry) => entry.date >= previousRange.from && entry.date <= previousRange.to)
     : [];
   const previousTotals = previousRange
-    ? resolveCanonicalClosingTotals(previousMonthlyRow, previousEntries, callRecords, allSales, previousRange)
+    ? resolveCanonicalClosingTotals(previousMonthlyRow, previousEntries, callRecords, allSales, previousRange, callTrackingConnected)
     : null;
   const previousRates = previousTotals
-    ? computeClosingRates(previousTotals, resolveCanonicalSettingTotals(previousMonthlyRow, previousSettingEntries, callRecords, previousRange).callsBooked)
+    ? computeClosingRates(previousTotals, resolveCanonicalSettingTotals(previousMonthlyRow, previousSettingEntries, callRecords, previousRange, callTrackingConnected).callsBooked)
     : null;
 
   const stateText =

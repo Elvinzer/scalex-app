@@ -6,7 +6,7 @@ import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay, resolveMonthClosingTotals, resolveMonthSettingTotals } from "@/lib/monthly-metrics/resolve";
 import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
-import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAuthoritative, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import type { SaleRow } from "@/lib/sales/types";
 import type { LeadRow } from "@/lib/leads/types";
 import { aggregateAcquisitionSources, emptyAcquisitionSourceTotals, type AcquisitionSourceTotals } from "@/lib/diagnostic/acquisition-sources";
@@ -83,6 +83,7 @@ export function aggregatePeriodTotals({
   allSettingEntries,
   allClosingEntries,
   callSourcesByMonth = {},
+  callTrackingConnected = false,
   allSales = [],
   allLeads = [],
   allLeadStageHistory = [],
@@ -95,6 +96,7 @@ export function aggregatePeriodTotals({
   allSettingEntries: SettingEntry[];
   allClosingEntries: ClosingEntry[];
   callSourcesByMonth?: Record<string, MonthlyCallSource>;
+  callTrackingConnected?: boolean;
   allSales?: SaleRow[];
   allLeads?: LeadRow[];
   allLeadStageHistory?: LeadStageEvent[];
@@ -196,36 +198,25 @@ export function aggregatePeriodTotals({
 
     const baseSettingTotals = resolveMonthSettingTotals(monthlyRow, dailySetting);
     const baseClosingTotals = resolveMonthClosingTotals(monthlyRow, dailyClosing);
-    const monthlySettingIsAuthoritative = Boolean(
-      monthlyRow?.settingManualOverride ||
-        (monthlyRow && ["newFollowers", "firstMessages", "conversations", "callsProposed", "callsBooked"].some((field) => monthlyRow[field as keyof typeof monthlyRow] !== null))
-    );
-    const monthlyClosingIsAuthoritative = Boolean(
-      monthlyRow?.closingManualOverride ||
-        (monthlyRow && ["callsTaken", "salesClosed"].some((field) => monthlyRow[field as keyof typeof monthlyRow] !== null))
-    );
-    const callSourceIsAvailable = isMonthlyCallSourceAvailable(callSource);
+    const callSourceIsAvailable = isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected);
 
     // Integration data wins over a daily/manual call count when it exists.
     // The other Setting fields stay on their existing source, so adding a
     // connected scheduler never overwrites manually tracked acquisition data.
-    const settingTotals = !monthlySettingIsAuthoritative && callSourceIsAvailable
-      ? { ...baseSettingTotals, callsBooked: callSource.callsBooked }
+    const settingTotals = callSourceIsAvailable
+      ? { ...baseSettingTotals, callsBooked: callSource?.callsBooked ?? 0 }
       : baseSettingTotals;
-    const closingTotals = monthlyClosingIsAuthoritative
-      ? baseClosingTotals
-      : {
-          callsAttended: callSourceIsAvailable ? callSource.callsTaken : baseClosingTotals.callsAttended,
-          // The Sales ledger is the canonical commercial event. It wins when
-          // present; otherwise the call source/daily entry remains the
-          // fallback. This prevents a closed call and its sale from being
-          // counted twice while still making a standalone sale visible.
-          salesClosed: hasSalesSource
-            ? validSalesInMonth.length
-            : callSourceIsAvailable
-              ? callSource.salesClosed
-              : baseClosingTotals.salesClosed,
-        };
+    const closingTotals = {
+      callsAttended: callSourceIsAvailable ? callSource?.callsTaken ?? 0 : baseClosingTotals.callsAttended,
+      // The Sales ledger is the canonical commercial event. It wins when
+      // present; otherwise the call source/daily entry remains the fallback.
+      // Monthly overrides never hide an external source.
+      salesClosed: hasSalesSource
+        ? validSalesInMonth.length
+        : callSourceIsAvailable
+          ? callSource?.salesClosed ?? 0
+          : baseClosingTotals.salesClosed,
+    };
 
     // A manually entered sale is the canonical contracted-revenue event. The
     // monthly value remains a fallback for accounts that have not yet moved
@@ -257,6 +248,9 @@ export function aggregatePeriodTotals({
     const overlay = resolveDailySourceOverlay(range, allSettingEntries, allClosingEntries, {
       settingManualOverride: monthlyRow?.settingManualOverride,
       closingManualOverride: monthlyRow?.closingManualOverride,
+    }, callSource, {
+      callTrackingConnected,
+      salesClosed: hasSalesSource ? validSalesInMonth.length : undefined,
     });
     const mergedData = {
       ...(monthlyRow ?? EMPTY_MONTHLY_METRICS),

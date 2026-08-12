@@ -46,7 +46,7 @@ const snapshot = {
 const signal = {
   type: "failures" as const,
   priority: "high" as const,
-  title: "Des paiements échouent encore",
+  title: "Des paiements sont échoués",
   summary: "Les échecs créent du CA à risque.",
   evidence: ["Taux d’échec : 20 %", "Montant à risque : 200 EUR"],
   action: "Traiter les impayés",

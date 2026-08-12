@@ -70,7 +70,10 @@
     "pipeline": "Pipeline",
     "manual": "Saisie",
     "calculated": "Calculé",
-    "stripeManual": "Stripe + saisie"
+    "stripeManual": "Stripe + saisie",
+    "salesTracking": "Suivi des ventes",
+    "callTrackingSales": "Suivi d'appel + ventes",
+    "stripeSales": "Stripe + ventes"
   },
   "streak": {
     "openDetails": "Ouvrir le détail de ta série",

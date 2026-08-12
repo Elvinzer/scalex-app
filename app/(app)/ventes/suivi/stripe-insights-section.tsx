@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertCircle, CheckCircle2, Clock3, Filter, RefreshCw, Sparkles } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, Filter, RefreshCw } from "lucide-react";
 
 import { KpiTile } from "@/components/kpi-tile";
 import { StatusBadge } from "@/components/status-badge";
@@ -19,7 +19,6 @@ import {
 
 import {
   getStripeSyncStatus,
-  generateStripeTransactionInsight,
   requestStripeInsightsRefresh,
 } from "./insight-actions";
 import { StripeTrendChart } from "./stripe-trend-chart";
@@ -135,25 +134,21 @@ function syncToneClass(tone: "healthy" | "caution" | "critical"): string {
 export function StripeInsightsSection({
   connected,
   connection,
-  periodKey,
   availableCurrencies,
   activeCurrency,
   snapshot,
   signals,
   trend,
   visibleTransactions,
-  initialInsightText,
 }: {
   connected: boolean;
   connection: SyncState | null;
-  periodKey: string;
   availableCurrencies: string[];
   activeCurrency: string | null;
   snapshot: StripeInsightSnapshot | null;
   signals: StripeInsightSignal[];
   trend: StripeTrendPoint[];
   visibleTransactions: StripeInsightTransaction[];
-  initialInsightText: string | null;
 }) {
   const locale = useLocale();
   const t = useTranslations("sales.insights");
@@ -163,9 +158,7 @@ export function StripeInsightsSection({
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackIsError, setFeedbackIsError] = useState(false);
-  const [insightText, setInsightText] = useState(initialInsightText);
   const [syncRequested, setSyncRequested] = useState(false);
-  const [activeSignal, setActiveSignal] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<PaymentTypeFilter>("all");
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
@@ -242,29 +235,6 @@ export function StripeInsightsSection({
       setFeedback(t("syncRequest"));
       setFeedbackIsError(false);
       setSyncRequested(true);
-      router.refresh();
-    });
-  }
-
-  function generate(signal: StripeInsightSignal) {
-    if (!activeCurrency) return;
-    setActiveSignal(signal.type);
-    setFeedback(null);
-    startTransition(async () => {
-      const result = await generateStripeTransactionInsight({
-        period: periodKey,
-        currency: activeCurrency,
-        signalType: signal.type,
-      });
-      setActiveSignal(null);
-      if (result.error) {
-        setFeedback(result.error);
-        setFeedbackIsError(true);
-        return;
-      }
-      setInsightText(result.insightText);
-      setFeedback(t("agentWording"));
-      setFeedbackIsError(false);
       router.refresh();
     });
   }
@@ -379,56 +349,42 @@ export function StripeInsightsSection({
             </article>
           </div>
 
-          <section className="min-w-0" aria-labelledby="stripe-signals-title">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h3 id="stripe-signals-title" className="text-lg font-bold">{t("signalsTitle")}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{t("signalsHelp")}</p>
+          {signals.length > 0 ? (
+            <section className="min-w-0" aria-labelledby="stripe-signals-title">
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 id="stripe-signals-title" className="text-lg font-bold">{t("signalsTitle")}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("signalsHelp")}</p>
+                </div>
               </div>
-            </div>
-            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-              {signals.map((signal) => (
-                <article key={signal.type} className="sticker-card min-w-0 p-5" aria-labelledby={`stripe-signal-${signal.type}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span className={cn("mt-0.5 rounded-full px-2.5 py-1 text-[11px] font-bold", priorityClass(signal.priority))}>{t(priorityKey(signal.priority))}</span>
-                      <h4 id={`stripe-signal-${signal.type}`} className="min-w-0 text-base font-bold">{signal.title}</h4>
+              <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                {signals.map((signal) => (
+                  <article key={signal.type} className="sticker-card min-w-0 p-5" aria-labelledby={`stripe-signal-${signal.type}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className={cn("mt-0.5 rounded-full px-2.5 py-1 text-[11px] font-bold", priorityClass(signal.priority))}>{t(priorityKey(signal.priority))}</span>
+                        <h4 id={`stripe-signal-${signal.type}`} className="min-w-0 text-base font-bold">{signal.title}</h4>
+                      </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-9 border-accent-2-border text-accent-2-text hover:border-accent-2-border hover:bg-accent-2-soft"
-                      onClick={() => generate(signal)}
-                      disabled={isPending || activeSignal !== null || signal.type === "insufficient_data"}
-                      aria-label={t("makeAction", { title: signal.title })}
-                    >
-                      <Sparkles className="size-4" aria-hidden="true" />
-                      {activeSignal === signal.type ? t("formulating") : t("formulate")}
-                    </Button>
-                  </div>
-                  <p className="mt-3 text-sm text-muted-foreground">{signal.summary}</p>
-                  <ul className="mt-3 space-y-1.5 text-sm font-bold">
-                    {signal.evidence.map((evidence) => <li key={evidence} className="flex gap-2"><span className="text-accent-2-text" aria-hidden="true">•</span><span>{evidence}</span></li>)}
-                  </ul>
-                  <p className="mt-4 border-t border-border pt-3 text-sm font-bold text-accent-2-text">{t("nextAction", { action: signal.action })}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          {insightText ? (
-            <article className="rounded-[var(--radius-card)] border border-accent-2-border bg-accent-2-soft p-5" aria-labelledby="stripe-ai-insight-title" aria-live="polite">
-              <div className="flex items-center gap-2 text-accent-2-text"><Sparkles className="size-4" aria-hidden="true" /><h3 id="stripe-ai-insight-title" className="text-sm font-bold">{t("agentWording")}</h3></div>
-              <p className="mt-3 max-w-3xl whitespace-pre-line text-sm leading-6 text-foreground">{insightText}</p>
-            </article>
+                    <p className="mt-3 text-sm text-muted-foreground">{signal.summary}</p>
+                    <ul className="mt-3 space-y-1.5 text-sm font-bold">
+                      {signal.evidence.map((evidence) => <li key={evidence} className="flex gap-2"><span className="text-accent-2-text" aria-hidden="true">•</span><span>{evidence}</span></li>)}
+                    </ul>
+                    <p className="mt-4 border-t border-border pt-3 text-sm font-bold text-accent-2-text">
+                      <Link href={signal.actionHref} className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
+                        {t("nextAction", { action: signal.action })}
+                      </Link>
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
           ) : null}
 
-          <section id="stripe-transactions" className="sticker-card min-w-0 p-5 sm:p-6" aria-labelledby="stripe-transactions-title">
+          <section id="stripe-transactions" className="sticker-card min-w-0 scroll-mt-6 p-5 sm:p-6" aria-labelledby="stripe-transactions-title">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h3 id="stripe-transactions-title" className="text-lg font-bold">{t("transactionsTitle")}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{t("transactionsHelp")}</p>
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-2" role="group" aria-label={t("transactionFilters")}>
                 <Filter className="size-4 text-muted-foreground" aria-hidden="true" />

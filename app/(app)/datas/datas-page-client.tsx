@@ -12,8 +12,10 @@ import { SourceBadge, type MetricSource } from "@/components/source-badge";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
-import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAuthoritative, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
+import { resolveMonthCashCollected, resolveMonthNewCustomers } from "@/lib/monthly-metrics/resolve";
+import type { MonthlySalesSummary } from "@/lib/sales/queries";
 import { formatEur } from "@/lib/currency";
 import { rate, formatPercent } from "@/lib/setting/funnel";
 import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
@@ -27,8 +29,13 @@ import { MonthModal } from "./month-modal";
 // ssr: false is correct: never needed for the first server-rendered paint.
 const ImportFlow = dynamic(() => import("@/components/import/import-flow").then((m) => m.ImportFlow), {
   ssr: false,
-  loading: () => <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">Chargement…</div>,
+  loading: () => <ImportFlowLoading />,
 });
+
+function ImportFlowLoading() {
+  const t = useTranslations("data");
+  return <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">{t("loadingImport")}</div>;
+}
 
 export function DatasPageClient({
   year,
@@ -41,6 +48,7 @@ export function DatasPageClient({
   allSettingEntries,
   allClosingEntries,
   callSourcesByMonth,
+  callTrackingConnected,
   activeMetricFields,
 }: {
   year: number;
@@ -48,11 +56,12 @@ export function DatasPageClient({
   currentYear: number;
   currentMonth: number;
   postLeadsByMonth: Record<number, number>;
-  salesByMonth: Record<number, { contracted: number; collected: number; closedCount: number }>;
+  salesByMonth: Record<number, MonthlySalesSummary>;
   pipelineVolumesByMonth: Record<number, { conversations: number; callsBooked: number; callsTaken: number }>;
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
   callSourcesByMonth: Record<string, MonthlyCallSource>;
+  callTrackingConnected: boolean;
   activeMetricFields: AcquisitionFunnelStep[];
 }) {
   const t = useTranslations("data");
@@ -70,38 +79,49 @@ export function DatasPageClient({
   const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
   const callSource = callSourcesByMonth[monthKey(featuredYear, featuredMonth)] ?? null;
   const activeInputKeys = new Set(activeMetricFields.map((field) => field.inputMetricKey));
-  const hasCallSource = isMonthlyCallSourceAvailable(callSource);
-  const settingIsAuthoritative = Boolean(
-    featuredRow?.settingManualOverride ||
-      (featuredRow && ["newFollowers", "firstMessages", "conversations", "callsProposed", "callsBooked"].some((field) => featuredRow[field as keyof typeof featuredRow] !== null))
-  );
-  const closingIsAuthoritative = Boolean(
-    featuredRow?.closingManualOverride ||
-      (featuredRow && ["callsTaken", "salesClosed"].some((field) => featuredRow[field as keyof typeof featuredRow] !== null))
-  );
+  const hasCallSource = isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected);
   const featuredSalesSummary = salesByMonth[featuredMonth];
-  const featuredCallsBooked = !settingIsAuthoritative && hasCallSource ? callSource.callsBooked : featuredRow?.callsBooked ?? null;
-  const featuredCallsTaken = !closingIsAuthoritative && hasCallSource ? callSource.callsTaken : featuredRow?.callsTaken ?? null;
-  const featuredSalesClosed = !closingIsAuthoritative
-    ? featuredSalesSummary?.closedCount && featuredSalesSummary.closedCount > 0
-      ? featuredSalesSummary.closedCount
-      : hasCallSource
-        ? callSource.salesClosed
-        : featuredRow?.salesClosed ?? null
-    : featuredRow?.salesClosed ?? null;
+  const salesSourceAvailable = featuredSalesSummary !== undefined;
+  const featuredCallsBooked = hasCallSource ? callSource?.callsBooked ?? 0 : featuredRow?.callsBooked ?? null;
+  const featuredCallsTaken = hasCallSource ? callSource?.callsTaken ?? 0 : featuredRow?.callsTaken ?? null;
+  const featuredSalesClosed = salesSourceAvailable
+    ? featuredSalesSummary.closedCount
+    : hasCallSource
+      ? callSource?.salesClosed ?? 0
+      : featuredRow?.salesClosed ?? null;
+  const featuredCashCollected = salesSourceAvailable
+    ? featuredSalesSummary.collected
+    : resolveMonthCashCollected(featuredRow).amount;
+  const featuredCashContracted = salesSourceAvailable
+    ? featuredSalesSummary.contracted
+    : featuredRow?.cashContracted ?? null;
+  const featuredNewCustomers = resolveMonthNewCustomers(featuredRow, featuredSalesSummary?.bankTransferCustomers ?? 0);
+  const salesClosedSource: MetricSource = salesSourceAvailable
+    ? hasCallSource ? "Suivi d'appel + ventes" : "Suivi des ventes"
+    : hasCallSource ? "Suivi d'appel" : "Saisie";
+  const newCustomersSource: MetricSource | null = featuredNewCustomers.source === "combined"
+    ? "Stripe + ventes"
+    : featuredNewCustomers.source === "sales"
+      ? "Suivi des ventes"
+      : featuredNewCustomers.source === "stripe" || featuredNewCustomers.source === "stripe_stale"
+        ? "Stripe"
+        : null;
   const metricSource = (source: MetricSource): MetricSource => source;
   const featuredClosingRate = featuredSalesClosed !== null && featuredCallsTaken !== null
     ? rate(featuredSalesClosed, featuredCallsTaken)
     : null;
   const metrics = ([
-    { label: t("metrics.cashCollected"), description: t("metrics.cashCollectedHelp"), value: featuredRow?.cashCollected === null || featuredRow?.cashCollected === undefined ? "—" : formatEur(featuredRow.cashCollected, locale), evolution: t("compare"), source: metricSource(featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
-    { label: t("metrics.cashContracted"), description: t("metrics.cashContractedHelp"), value: featuredRow?.cashContracted === null || featuredRow?.cashContracted === undefined ? "—" : formatEur(featuredRow.cashContracted, locale), evolution: t("compare"), source: "Saisie" },
+    { label: t("metrics.cashCollected"), description: t("metrics.cashCollectedHelp"), value: featuredCashCollected === null ? "—" : formatEur(featuredCashCollected, locale), evolution: t("compare"), source: metricSource(salesSourceAvailable ? "Suivi des ventes" : featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
+    { label: t("metrics.cashContracted"), description: t("metrics.cashContractedHelp"), value: featuredCashContracted === null ? "—" : formatEur(featuredCashContracted, locale), evolution: t("compare"), source: salesSourceAvailable ? "Suivi des ventes" : "Saisie" },
     { inputKey: "new_followers", label: t("metrics.leads"), description: t("metrics.leadsHelp"), value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: t("compare"), source: "Pipeline" },
     { inputKey: "conversations", label: t("metrics.conversations"), description: t("metrics.conversationsHelp"), value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: t("compare"), source: "Saisie" },
-    { inputKey: "calls_booked", label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: t("compare"), source: metricSource(!settingIsAuthoritative && hasCallSource ? "Suivi d'appel" : "Saisie") },
-    { inputKey: "calls_attended", label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: t("compare"), source: metricSource(!closingIsAuthoritative && hasCallSource ? "Suivi d'appel" : "Saisie") },
-    { inputKey: "sales_closed", label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: t("compare"), source: metricSource(!closingIsAuthoritative && featuredSalesSummary?.closedCount ? "Stripe + saisie" : hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { inputKey: "calls_booked", label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: t("compare"), source: metricSource(hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { inputKey: "calls_attended", label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: t("compare"), source: metricSource(hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { inputKey: "sales_closed", label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: t("compare"), source: salesClosedSource },
     { inputKey: "sales_closed", label: t("metrics.closingRate"), description: t("metrics.closingRateHelp"), value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate, locale), evolution: t("compare"), source: "Calculé" },
+    ...(featuredNewCustomers.amount !== null && newCustomersSource
+      ? [{ label: t("metrics.newCustomers"), description: t("metrics.newCustomersHelp"), value: String(featuredNewCustomers.amount), evolution: t("compare"), source: newCustomersSource }]
+      : []),
   ] as Array<{ inputKey?: string; label: string; description: string; value: string; evolution: string; source: MetricSource }>).filter((metric) => metric.inputKey === undefined || activeInputKeys.has(metric.inputKey));
 
   return (
@@ -184,6 +204,8 @@ export function DatasPageClient({
               allSettingEntries={allSettingEntries}
               allClosingEntries={allClosingEntries}
               callSourcesByMonth={callSourcesByMonth}
+              salesByMonth={salesByMonth}
+              callTrackingConnected={callTrackingConnected}
               activeMetricFields={activeMetricFields}
               onOpen={() => setOpen({ year, month })}
             />
@@ -217,7 +239,7 @@ export function DatasPageClient({
       <section className="sticker-card-dashed flex flex-wrap items-center justify-between gap-4 p-5" aria-labelledby="manual-metrics-title">
         <div>
           <h2 id="manual-metrics-title" className="text-sm font-bold">{t("manualTitle")}</h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("manualHelp")}</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t(callTrackingConnected ? "manualHelpConnected" : "manualHelp")}</p>
         </div>
         <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setOpen({ year, month: featuredMonth })}>{t("enter")}</Button><Button type="button" variant="outline" onClick={() => setImportOpen(true)}>{t("import")}</Button></div>
       </section>
@@ -237,6 +259,7 @@ export function DatasPageClient({
           allSettingEntries={allSettingEntries}
           allClosingEntries={allClosingEntries}
           callSource={callSourcesByMonth[monthKey(open.year, open.month)] ?? null}
+          callTrackingConnected={callTrackingConnected}
           activeMetricFields={activeMetricFields}
           onClose={() => setOpen(null)}
           onNavigate={(nextYear, nextMonth) => setOpen({ year: nextYear, month: nextMonth })}

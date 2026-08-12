@@ -16,30 +16,24 @@ import { monthDateRange } from "@/lib/date-range";
 import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
-import { CLOSING_FIELDS, resolveDailySourceOverlay, SETTING_FIELDS, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
+import { CLOSING_FIELDS, resolveDailySourceOverlay, resolveMonthNewCustomers, SETTING_FIELDS, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import { revenuePerCall, toClosingTotals, toFunnelTotals } from "@/lib/monthly-metrics/rates";
+import type { MonthlySalesSummary } from "@/lib/sales/queries";
 import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 
 import { saveMonthlyMetrics } from "./actions";
 
-const SETTING_SOURCE: KpiFieldSource = {
-  text: "Calculé depuis ton suivi quotidien. Modifiable dans Pipeline → Funnel journalier.",
-  href: "/ventes/pipeline/funnel",
-  linkLabel: "Aller au suivi quotidien",
-};
-const CLOSING_SOURCE: KpiFieldSource = {
-  text: "Calculé depuis ton suivi quotidien. Modifiable dans Suivi d'appel → Funnel de closing.",
-  href: "/ventes/appels/funnel",
-  linkLabel: "Aller au suivi quotidien",
-};
-
-function callsSource(source: MonthlyCallSource): KpiFieldSource {
+function callsSource(source: MonthlyCallSource, text: string, linkLabel: string): KpiFieldSource {
   return {
-    text: `Ces valeurs viennent de Suivi d'appel : ${source.callsBooked} appel${source.callsBooked > 1 ? "s" : ""} réservé${source.callsBooked > 1 ? "s" : ""}, ${source.callsTaken} honoré${source.callsTaken > 1 ? "s" : ""} et ${source.salesClosed} vente${source.salesClosed > 1 ? "s" : ""} conclue${source.salesClosed > 1 ? "s" : ""}. Tu peux les corriger pour ce mois, mais vérifie d'abord la source avant de les remplacer.`,
+    text,
     href: "/ventes/appels",
-    linkLabel: "Vérifier le suivi d'appel",
+    linkLabel,
   };
+}
+
+function salesSource(text: string, linkLabel: string): KpiFieldSource {
+  return { text, href: "/ventes/suivi", linkLabel };
 }
 
 function stripeSource(syncedAt: Date | null, locale: string, text: string, linkLabel: string): KpiFieldSource {
@@ -75,12 +69,12 @@ function sameDraft(a: MonthlyMetricsInput, b: MonthlyMetricsInput): boolean {
 // overwriting Datas numbers. (Doesn't apply to Setting/Closing daily entries
 // below — those measure the exact same field, not an independent estimate
 // from another module, so KpiNumberField's disabledReason auto-fills instead.)
-function SuggestionBanner({ text, onApply }: { text: string; onApply: () => void }) {
+function SuggestionBanner({ text, actionLabel, onApply }: { text: string; actionLabel: string; onApply: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-xs text-accent-text">
       <span>{text}</span>
       <button type="button" onClick={onApply} className="font-bold underline underline-offset-2">
-        Utiliser
+        {actionLabel}
       </button>
     </div>
   );
@@ -99,6 +93,7 @@ export function MonthModal({
   allSettingEntries,
   allClosingEntries,
   callSource = null,
+  callTrackingConnected,
   activeMetricFields,
   onClose,
   onNavigate,
@@ -108,11 +103,12 @@ export function MonthModal({
   initialData: MonthlyMetricsRow | null;
   monthRowsThisYear: MonthlyMetricsRow[];
   postLeadsThisMonth: number;
-  salesThisMonth: { contracted: number; collected: number; closedCount: number } | undefined;
+  salesThisMonth: MonthlySalesSummary | undefined;
   pipelineVolumesThisMonth: { conversations: number; callsBooked: number; callsTaken: number } | undefined;
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
   callSource?: MonthlyCallSource | null;
+  callTrackingConnected: boolean;
   activeMetricFields: AcquisitionFunnelStep[];
   onClose: () => void;
   onNavigate: (nextYear: number, nextMonth: number) => void;
@@ -122,6 +118,7 @@ export function MonthModal({
   const router = useRouter();
   const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
   const settingSource: KpiFieldSource = { text: t("settingSource"), href: "/ventes/pipeline/funnel", linkLabel: t("dailyTracking") };
+  const closingDailySource: KpiFieldSource = { text: t("closingSource"), href: "/ventes/appels/funnel", linkLabel: t("dailyTracking") };
   const persistedSettingManualOverride = initialData?.settingManualOverride ?? false;
   const persistedClosingManualOverride = initialData?.closingManualOverride ?? false;
   const persistedSourceOverrides = useMemo(
@@ -139,22 +136,83 @@ export function MonthModal({
   // Recomputed on every month navigation (no server round-trip) — same
   // pattern as monthRowsThisYear, which is also sliced client-side already.
   const dailySourceOverlay = useMemo(
-    () => resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, sourceOverrides, callSource),
-    [year, month, allSettingEntries, allClosingEntries, sourceOverrides, callSource]
+    () => resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, sourceOverrides, callSource, {
+      callTrackingConnected,
+      salesClosed: salesThisMonth?.closedCount,
+    }),
+    [year, month, allSettingEntries, allClosingEntries, sourceOverrides, callSource, callTrackingConnected, salesThisMonth]
   );
-  const { settingSourced, callsBookedSourced, closingSourced } = dailySourceOverlay;
+  const { settingSourced, callsBookedSourced, callsTakenSourced, salesClosedSourced, closingSourced } = dailySourceOverlay;
   const activeInputKeys = useMemo(() => new Set(activeMetricFields.map((field) => field.inputMetricKey)), [activeMetricFields]);
   const hasSettingMetrics = ["new_followers", "first_messages", "conversations", "calls_proposed", "calls_booked"].some((key) => activeInputKeys.has(key));
   const customMetricFields = useMemo(
     () => Array.from(new Map(activeMetricFields.filter((field) => !["new_followers", "first_messages", "conversations", "calls_proposed", "calls_booked", "calls_attended", "sales_closed"].includes(field.inputMetricKey)).map((field) => [field.inputMetricKey, field] as const)).values()),
     [activeMetricFields]
   );
-  const closingFieldSource = dailySourceOverlay.closingSource === "calls" && callSource ? callsSource(callSource) : CLOSING_SOURCE;
-  const settingCallsBookedSource = callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE;
+  const callSourceForCopy = callSource ?? { callsBooked: 0, callsTaken: 0, salesClosed: 0, callCount: 0 };
+  const callTrackingFieldSource = callsSource(
+    callSourceForCopy,
+    t("callTrackingSource", {
+      booked: callSourceForCopy.callsBooked,
+      bookedPlural: callSourceForCopy.callsBooked > 1 ? "s" : "",
+      attended: callSourceForCopy.callsTaken,
+      attendedPlural: callSourceForCopy.callsTaken > 1 ? "s" : "",
+      closed: callSourceForCopy.salesClosed,
+      closedPlural: callSourceForCopy.salesClosed > 1 ? "s" : "",
+    }),
+    t("callTrackingLink")
+  );
+  const salesLedgerFieldSource = salesSource(
+    t("salesSource", { count: salesThisMonth?.closedCount ?? 0, plural: (salesThisMonth?.closedCount ?? 0) > 1 ? "s" : "" }),
+    t("salesSourceLink")
+  );
+  const settingCallsBookedSource = callsBookedSourced ? callTrackingFieldSource : settingSource;
+  const callsTakenFieldSource = callsTakenSourced ? callTrackingFieldSource : dailySourceOverlay.closingSource === "daily" && !sourceEditMode.closing ? closingDailySource : undefined;
+  const salesClosedFieldSource = salesClosedSourced
+    ? salesThisMonth !== undefined
+      ? salesLedgerFieldSource
+      : dailySourceOverlay.closingSource === "calls"
+        ? callTrackingFieldSource
+        : dailySourceOverlay.closingSource === "daily" && !sourceEditMode.closing
+          ? closingDailySource
+          : undefined
+    : undefined;
+  const closingExternallySourced = callsTakenSourced || dailySourceOverlay.closingSource === "calls" || dailySourceOverlay.closingSource === "sales";
   const initial = { ...toDraft(initialData), ...dailySourceOverlay.overrides };
   const cashCollectedSynced = initialData?.cashCollectedSource === "stripe";
   const cashCollectedStale = initialData?.cashCollectedSource === "stripe_stale";
-  const newCustomersSynced = initialData?.newCustomersSource === "stripe" || initialData?.newCustomersSource === "stripe_stale";
+  const bankTransferCustomers = salesThisMonth?.bankTransferCustomers ?? 0;
+  const stripeNewCustomers = initialData?.newCustomersSource === "stripe" || initialData?.newCustomersSource === "stripe_stale"
+    ? initialData.newCustomers
+    : null;
+  const resolvedNewCustomers = resolveMonthNewCustomers(initialData, bankTransferCustomers);
+  const newCustomersFieldSource: KpiFieldSource | undefined = resolvedNewCustomers.amount === null
+    ? undefined
+    : stripeNewCustomers !== null && bankTransferCustomers > 0
+      ? {
+          text: t("newCustomersCombinedSource", {
+            stripeCount: stripeNewCustomers,
+            stripePlural: stripeNewCustomers > 1 ? "s" : "",
+            salesCount: bankTransferCustomers,
+            salesPlural: bankTransferCustomers > 1 ? "s" : "",
+          }),
+          href: "/ventes/suivi",
+          linkLabel: t("salesSourceLink"),
+        }
+      : stripeNewCustomers !== null
+        ? {
+          text: t("newCustomersStripeSource", {
+              count: stripeNewCustomers,
+              plural: stripeNewCustomers > 1 ? "s" : "",
+            }),
+            href: "/integrations",
+            linkLabel: t("viewIntegrations"),
+          }
+        : {
+            text: t("newCustomersSalesSource", { count: bankTransferCustomers, plural: bankTransferCustomers > 1 ? "s" : "" }),
+            href: "/ventes/suivi",
+            linkLabel: t("salesSourceLink"),
+          };
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initial);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -164,7 +222,10 @@ export function MonthModal({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    const persistedOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource);
+    const persistedOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource, {
+      callTrackingConnected,
+      salesClosed: salesThisMonth?.closedCount,
+    });
     setSourceOverrides(persistedSourceOverrides);
     setSourceEditMode({
       setting: persistedSourceOverrides.settingManualOverride,
@@ -174,7 +235,7 @@ export function MonthModal({
     setImportAppliedCount(null);
     setImportUsage(null);
     setEntryMode("import");
-  }, [year, month, initialData, allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource]);
+  }, [year, month, initialData, allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource, callTrackingConnected, salesThisMonth]);
 
   const isDirty =
     !sameDraft(draft, initial) ||
@@ -200,7 +261,10 @@ export function MonthModal({
       const dailyValues = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, {
         settingManualOverride: false,
         closingManualOverride: false,
-      }, callSource).overrides;
+      }, callSource, {
+        callTrackingConnected,
+        salesClosed: salesThisMonth?.closedCount,
+      }).overrides;
       const fields = section === "setting" ? SETTING_FIELDS : CLOSING_FIELDS;
       const patch = Object.fromEntries(fields.map((field) => [field, dailyValues[field] ?? null])) as Partial<MonthlyMetricsInput>;
       update(patch);
@@ -209,7 +273,14 @@ export function MonthModal({
 
   function updateSourceField(section: "setting" | "closing", field: keyof MonthlyMetricsInput, value: number | null) {
     const sourceValue = dailySourceOverlay.overrides[field] ?? null;
-    if (value !== sourceValue) {
+    const externallySourced = field === "callsBooked"
+      ? callsBookedSourced
+      : field === "callsTaken"
+        ? callsTakenSourced
+        : field === "salesClosed"
+          ? salesClosedSourced
+          : false;
+    if (!externallySourced && value !== sourceValue) {
       setSourceOverrides((current) => ({
         ...current,
         ...(section === "setting" ? { settingManualOverride: true } : { closingManualOverride: true }),
@@ -243,30 +314,25 @@ export function MonthModal({
 
   function handleSave(after?: () => void) {
     const nextSourceOverrides = { ...sourceOverrides };
-    if (
-      settingSourced &&
-      sourceEditMode.setting &&
-      SETTING_FIELDS.some((field) => draft[field] !== (dailySourceOverlay.overrides[field] ?? null))
-    ) {
+    if (settingSourced && sourceEditMode.setting && SETTING_FIELDS.some((field) => {
+      if (field === "callsBooked" && callsBookedSourced) return false;
+      return draft[field] !== (dailySourceOverlay.overrides[field] ?? null);
+    })) {
       nextSourceOverrides.settingManualOverride = true;
     }
-    if (
-      callsBookedSourced &&
-      sourceEditMode.setting &&
-      draft.callsBooked !== (dailySourceOverlay.overrides.callsBooked ?? null)
-    ) {
-      nextSourceOverrides.settingManualOverride = true;
-    }
-    if (
-      closingSourced &&
-      sourceEditMode.closing &&
-      CLOSING_FIELDS.some((field) => draft[field] !== (dailySourceOverlay.overrides[field] ?? null))
-    ) {
+    if (closingSourced && sourceEditMode.closing && CLOSING_FIELDS.some((field) => {
+      if (field === "callsTaken" && callsTakenSourced) return false;
+      if (field === "salesClosed" && salesClosedSourced) return false;
+      return draft[field] !== (dailySourceOverlay.overrides[field] ?? null);
+    })) {
       nextSourceOverrides.closingManualOverride = true;
     }
     setSourceOverrides(nextSourceOverrides);
     startTransition(async () => {
-      const saveOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, nextSourceOverrides, callSource);
+      const saveOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, nextSourceOverrides, callSource, {
+        callTrackingConnected,
+        salesClosed: salesThisMonth?.closedCount,
+      });
       const payload = stripDailySourcedFields(draft, saveOverlay);
       const result = await saveMonthlyMetrics(year, month, payload, importUsage ?? undefined, nextSourceOverrides);
       if (result.error) {
@@ -322,10 +388,15 @@ export function MonthModal({
   const sourceImportFields = useMemo(() => {
     const settingFields = SETTING_FIELDS.filter((field) => activeInputKeys.has(field === "newFollowers" ? "new_followers" : field === "firstMessages" ? "first_messages" : field === "conversations" ? "conversations" : field === "callsProposed" ? "calls_proposed" : "calls_booked"));
     const closingFields = CLOSING_FIELDS.filter((field) => activeInputKeys.has(field === "callsTaken" ? "calls_attended" : "sales_closed"));
-    const fields = [...(settingSourced ? settingFields : []), ...(closingSourced ? closingFields : [])];
-    if (callsBookedSourced && activeInputKeys.has("calls_booked") && !fields.includes("callsBooked")) fields.push("callsBooked");
+    const fields = [
+      ...(settingSourced ? settingFields : []),
+      ...(callsBookedSourced && activeInputKeys.has("calls_booked") ? ["callsBooked" as const] : []),
+      ...(closingSourced
+        ? closingFields.filter((field) => field === "callsTaken" ? callsTakenSourced : salesClosedSourced)
+        : []),
+    ];
     return fields;
-  }, [activeInputKeys, callsBookedSourced, closingSourced, settingSourced]);
+  }, [activeInputKeys, callsBookedSourced, callsTakenSourced, closingSourced, salesClosedSourced, settingSourced]);
   const nonOverridableImportFields = useMemo(() => (cashCollectedSynced ? (["cashCollected"] as const) : []), [cashCollectedSynced]);
 
   return (
@@ -431,19 +502,22 @@ export function MonthModal({
                   sourceManagedFields={sourceImportFields}
                   nonOverridableFields={nonOverridableImportFields}
                   onApply={(values, count, usage) => {
+                    const sourceManaged = new Set<string>([
+                      ...(callsBookedSourced ? ["callsBooked"] : []),
+                      ...(callsTakenSourced ? ["callsTaken"] : []),
+                      ...(salesClosedSourced ? ["salesClosed"] : []),
+                    ]);
+                    const safeValues = Object.fromEntries(Object.entries(values).filter(([field]) => !sourceManaged.has(field))) as Partial<MonthlyMetricsInput>;
                     const nextOverrides = { ...sourceOverrides };
                     if (
                       settingSourced &&
-                      SETTING_FIELDS.some((field) => values[field] !== undefined && values[field] !== dailySourceOverlay.overrides[field])
+                      SETTING_FIELDS.some((field) => field !== "callsBooked" && values[field] !== undefined && values[field] !== dailySourceOverlay.overrides[field])
                     ) {
-                      nextOverrides.settingManualOverride = true;
-                    }
-                    if (callsBookedSourced && values.callsBooked !== undefined && values.callsBooked !== dailySourceOverlay.overrides.callsBooked) {
                       nextOverrides.settingManualOverride = true;
                     }
                     if (
                       closingSourced &&
-                      CLOSING_FIELDS.some((field) => values[field] !== undefined && values[field] !== dailySourceOverlay.overrides[field])
+                      CLOSING_FIELDS.some((field) => !sourceManaged.has(field) && values[field] !== undefined && values[field] !== dailySourceOverlay.overrides[field])
                     ) {
                       nextOverrides.closingManualOverride = true;
                     }
@@ -452,7 +526,7 @@ export function MonthModal({
                       setting: current.setting || settingSourced || callsBookedSourced,
                       closing: current.closing || closingSourced,
                     }));
-                    update(values);
+                    update(safeValues);
                     setImportAppliedCount(count);
                     setImportUsage(usage ?? null);
                     setEntryMode("manual");
@@ -494,12 +568,12 @@ export function MonthModal({
                     value={draft.cashContracted}
                     onChange={(v) => update({ cashContracted: v })}
                   />
-                  {newCustomersSynced && (
+                  {newCustomersFieldSource && (
                     <KpiNumberField
                       label={t("newCustomers")}
-                      value={initialData?.newCustomers ?? null}
+                      value={resolvedNewCustomers.amount}
                       onChange={() => {}}
-                      disabledReason={stripeSource(initialData?.newCustomersSyncedAt ?? null, locale, t("stripeSynced"), t("viewIntegrations"))}
+                      disabledReason={newCustomersFieldSource}
                     />
                   )}
                 </div>
@@ -509,6 +583,7 @@ export function MonthModal({
                 {salesThisMonth && salesThisMonth.contracted > 0 && salesThisMonth.contracted !== draft.cashContracted && (
                   <SuggestionBanner
                     text={t("salesSuggestion", { contracted: formatEur(salesThisMonth.contracted, locale), collected: formatEur(salesThisMonth.collected, locale) })}
+                    actionLabel={t("useValue")}
                     onApply={() =>
                       update({ cashContracted: salesThisMonth.contracted, cashCollected: salesThisMonth.collected })
                     }
@@ -548,7 +623,7 @@ export function MonthModal({
                     {activeInputKeys.has("first_messages") && <KpiNumberField label={t("firstMessages")} value={draft.firstMessages} onChange={(v) => updateSourceField("setting", "firstMessages", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
                     {activeInputKeys.has("conversations") && <KpiNumberField label={t("conversations")} value={draft.conversations} onChange={(v) => updateSourceField("setting", "conversations", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
                     {activeInputKeys.has("calls_proposed") && <KpiNumberField label={t("callsProposed")} value={draft.callsProposed} onChange={(v) => updateSourceField("setting", "callsProposed", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
-                    {activeInputKeys.has("calls_booked") && <KpiNumberField label={t("callsBooked")} value={draft.callsBooked} onChange={(v) => updateSourceField("setting", "callsBooked", v)} disabledReason={(settingSourced || callsBookedSourced) && !sourceEditMode.setting ? settingCallsBookedSource : undefined} />}
+                    {activeInputKeys.has("calls_booked") && <KpiNumberField label={t("callsBooked")} value={draft.callsBooked} onChange={(v) => updateSourceField("setting", "callsBooked", v)} disabledReason={callsBookedSourced ? settingCallsBookedSource : settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
                   </div>
                 ) : null}
                 {customMetricFields.length > 0 && (
@@ -580,6 +655,7 @@ export function MonthModal({
                 {!settingSourced && postLeadsThisMonth > 0 && postLeadsThisMonth !== draft.newFollowers && (
                   <SuggestionBanner
                     text={t("contentSuggestion", { count: postLeadsThisMonth })}
+                    actionLabel={t("useValue")}
                     onApply={() => update({ newFollowers: postLeadsThisMonth })}
                   />
                 )}
@@ -589,6 +665,7 @@ export function MonthModal({
                   pipelineVolumesThisMonth.conversations !== draft.conversations && (
                     <SuggestionBanner
                       text={t("pipelineConversationsSuggestion", { count: pipelineVolumesThisMonth.conversations, plural: pipelineVolumesThisMonth.conversations > 1 ? "s" : "" })}
+                      actionLabel={t("useValue")}
                       onApply={() => update({ conversations: pipelineVolumesThisMonth.conversations })}
                     />
                   )}
@@ -598,6 +675,7 @@ export function MonthModal({
                   pipelineVolumesThisMonth.callsBooked !== draft.callsBooked && (
                     <SuggestionBanner
                       text={t("pipelineBookedSuggestion", { count: pipelineVolumesThisMonth.callsBooked, plural: pipelineVolumesThisMonth.callsBooked > 1 ? "s" : "" })}
+                      actionLabel={t("useValue")}
                       onApply={() => update({ callsBooked: pipelineVolumesThisMonth.callsBooked })}
                     />
                   )}
@@ -610,18 +688,20 @@ export function MonthModal({
                 </p>
                 {closingSourced && !sourceEditMode.closing && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
-                    <span>{t("closingCalculated")}</span>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", true)}>
-                      {t("editMonth")}
-                    </Button>
+                    <span>{closingExternallySourced ? t("closingConnected") : t("closingCalculated")}</span>
+                    {!closingExternallySourced && (
+                      <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", true)}>
+                        {t("editMonth")}
+                      </Button>
+                    )}
                   </div>
                 )}
-                {closingSourced && sourceEditMode.closing && !sourceOverrides.closingManualOverride && (
+                {closingSourced && sourceEditMode.closing && !sourceOverrides.closingManualOverride && !closingExternallySourced && (
                   <p className="rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution-bg px-3 py-2 text-xs text-state-caution">
                     {t("overrideHint")}
                   </p>
                 )}
-                {sourceOverrides.closingManualOverride && (
+                {sourceOverrides.closingManualOverride && !closingExternallySourced && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/60 px-3 py-2 text-xs text-accent-2-text">
                     <span>{t("overrideActive")}</span>
                     <Button type="button" size="sm" variant="outline" onClick={() => setSectionOverride("closing", false)}>
@@ -630,8 +710,8 @@ export function MonthModal({
                   </div>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {activeInputKeys.has("calls_attended") && <KpiNumberField label={t("callsTaken")} value={draft.callsTaken} onChange={(v) => updateSourceField("closing", "callsTaken", v)} warning={callsTakenWarning} disabledReason={closingSourced && !sourceEditMode.closing ? closingFieldSource : undefined} />}
-                  {activeInputKeys.has("sales_closed") && <KpiNumberField label={t("salesClosed")} value={draft.salesClosed} onChange={(v) => updateSourceField("closing", "salesClosed", v)} warning={salesClosedWarning} disabledReason={closingSourced && !sourceEditMode.closing ? closingFieldSource : undefined} />}
+                  {activeInputKeys.has("calls_attended") && <KpiNumberField label={t("callsTaken")} value={draft.callsTaken} onChange={(v) => updateSourceField("closing", "callsTaken", v)} warning={callsTakenWarning} disabledReason={callsTakenSourced ? callTrackingFieldSource : callsTakenFieldSource} />}
+                  {activeInputKeys.has("sales_closed") && <KpiNumberField label={t("salesClosed")} value={draft.salesClosed} onChange={(v) => updateSourceField("closing", "salesClosed", v)} warning={salesClosedWarning} disabledReason={salesClosedFieldSource} />}
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span>
@@ -651,6 +731,7 @@ export function MonthModal({
                 {!closingSourced && salesThisMonth && salesThisMonth.closedCount > 0 && salesThisMonth.closedCount !== draft.salesClosed && (
                   <SuggestionBanner
                     text={t("salesClosedSuggestion", { count: salesThisMonth.closedCount, plural: salesThisMonth.closedCount > 1 ? "s" : "" })}
+                    actionLabel={t("useValue")}
                     onApply={() => update({ salesClosed: salesThisMonth.closedCount })}
                   />
                 )}
@@ -660,6 +741,7 @@ export function MonthModal({
                   pipelineVolumesThisMonth.callsTaken !== draft.callsTaken && (
                     <SuggestionBanner
                       text={t("pipelineTakenSuggestion", { count: pipelineVolumesThisMonth.callsTaken, plural: pipelineVolumesThisMonth.callsTaken > 1 ? "s" : "" })}
+                      actionLabel={t("useValue")}
                       onApply={() => update({ callsTaken: pipelineVolumesThisMonth.callsTaken })}
                     />
                   )}

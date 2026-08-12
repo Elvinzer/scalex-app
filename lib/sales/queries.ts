@@ -8,6 +8,13 @@ import { summarize } from "./installments";
 import type { SaleInput } from "./schema";
 import type { SaleRow } from "./types";
 
+export type MonthlySalesSummary = {
+  contracted: number;
+  collected: number;
+  closedCount: number;
+  bankTransferCustomers: number;
+};
+
 function toRow(row: typeof sales.$inferSelect): SaleRow {
   return {
     id: row.id,
@@ -66,19 +73,20 @@ export async function getSalesForMonth(userId: string, year: number, month: numb
 export async function getSalesSummaryByMonth(
   userId: string,
   year: number
-): Promise<Record<number, { contracted: number; collected: number; closedCount: number }>> {
+): Promise<Record<number, MonthlySalesSummary>> {
   const rows = await getSales(userId);
-  const byMonth: Record<number, { contracted: number; collected: number; closedCount: number }> = {};
+  const byMonth: Record<number, MonthlySalesSummary> = {};
 
   for (const row of rows) {
     if (row.isOrphan) continue;
     const [rowYear, rowMonth] = row.saleDate.split("-").map(Number);
     if (rowYear !== year) continue;
 
-    const entry = byMonth[rowMonth] ?? { contracted: 0, collected: 0, closedCount: 0 };
+    const entry = byMonth[rowMonth] ?? { contracted: 0, collected: 0, closedCount: 0, bankTransferCustomers: 0 };
     entry.contracted += row.totalPrice;
     entry.collected += summarize(row.totalPrice, row.installments).paidTotal;
     entry.closedCount += 1;
+    if (row.paymentMethod === "virement") entry.bankTransferCustomers += 1;
     byMonth[rowMonth] = entry;
   }
 

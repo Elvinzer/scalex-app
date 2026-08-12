@@ -70,7 +70,10 @@
     "pipeline": "Pipeline",
     "manual": "Manual",
     "calculated": "Calculated",
-    "stripeManual": "Stripe + manual"
+    "stripeManual": "Stripe + manual",
+    "salesTracking": "Sales tracking",
+    "callTrackingSales": "Call tracking + sales",
+    "stripeSales": "Stripe + sales"
   },
   "streak": {
     "openDetails": "Open streak details",

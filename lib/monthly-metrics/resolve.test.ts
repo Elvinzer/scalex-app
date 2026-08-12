@@ -29,15 +29,30 @@ describe("monthly source overlay", () => {
     }, overlay)).toMatchObject({ callsBooked: null, callsTaken: null, salesClosed: null });
   });
 
-  it("allows a deliberate monthly override to take back control", () => {
+  it("keeps call and sales sources authoritative despite a monthly override", () => {
     const overlay = resolveDailySourceOverlay(RANGE, [], [], { settingManualOverride: true, closingManualOverride: true }, CALL_SOURCE);
 
     expect(overlay).toMatchObject({
       settingSourced: false,
-      callsBookedSourced: false,
-      closingSourced: false,
-      closingSource: null,
-      overrides: {},
+      callsBookedSourced: true,
+      callsTakenSourced: true,
+      salesClosedSourced: true,
+      closingSourced: true,
+      closingSource: "calls",
+      overrides: { callsBooked: 7, callsTaken: 5, salesClosed: 2 },
+    });
+  });
+
+  it("uses zeroes when a connected call source has no events in the month", () => {
+    const overlay = resolveDailySourceOverlay(RANGE, [], [], { settingManualOverride: true, closingManualOverride: true }, null, {
+      callTrackingConnected: true,
+    });
+
+    expect(overlay).toMatchObject({
+      callsBookedSourced: true,
+      callsTakenSourced: true,
+      salesClosedSourced: true,
+      overrides: { callsBooked: 0, callsTaken: 0, salesClosed: 0 },
     });
   });
 

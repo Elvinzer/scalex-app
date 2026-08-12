@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getRequestLocale } from "@/lib/i18n/locale";
 import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai-provider";
@@ -57,8 +58,9 @@ export async function POST(request: NextRequest) {
   // id server-side — never trusts a client-sent offer blob.
   const businessProfile = await getBusinessProfile(accountId);
   const offer = offerId ? (businessProfile.sales.offers.find((o) => o.id === offerId) ?? null) : null;
+  const locale = await getRequestLocale();
 
-  const systemPrompt = buildAdCopyPrompt({ businessProfile, offer });
+  const systemPrompt = buildAdCopyPrompt({ businessProfile, offer, locale });
 
   let provider;
   try {

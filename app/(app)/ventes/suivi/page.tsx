@@ -20,8 +20,8 @@ import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
 import { getSetters } from "@/lib/setters/queries";
-import { getLatestStripeInsightRun, getStripeInsightData } from "@/lib/stripe/insight-queries";
-import { buildStripeInsightSignals, buildStripeInsightSnapshot, buildStripeTrend } from "@/lib/stripe/transaction-insights";
+import { getStripeInsightData } from "@/lib/stripe/insight-queries";
+import { buildStripeFailureSignal, buildStripeInsightSignals, buildStripeInsightSnapshot, buildStripeTrend } from "@/lib/stripe/transaction-insights";
 import { isPublicVideo } from "@/lib/youtube/format";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
@@ -42,39 +42,22 @@ type StripeConnectionPreview = {
   lastSyncError: string | null;
 };
 
-async function StripeInsightsLoader({
+async function loadStripeInsightData({
   accountId,
   connection,
   period,
-  periodKey,
   requestedCurrency,
   pending,
   locale,
 }: {
   accountId: string;
-  connection: { stripeAccountId: string; preview: StripeConnectionPreview } | null;
+  connection: { stripeAccountId: string } | null;
   period: ResolvedPeriod;
-  periodKey: string;
   requestedCurrency: string | null | undefined;
   pending: number;
   locale: string;
 }) {
-  if (!connection) {
-    return (
-      <StripeInsightsSection
-        connected={false}
-        connection={null}
-        periodKey={periodKey}
-        availableCurrencies={[]}
-        activeCurrency={null}
-        snapshot={null}
-        signals={[]}
-        trend={[]}
-        visibleTransactions={[]}
-        initialInsightText={null}
-      />
-    );
-  }
+  if (!connection) return null;
 
   let stripeInsight = await getStripeInsightData(accountId, connection.stripeAccountId, period, requestedCurrency);
   if (stripeInsight.snapshot && stripeInsight.activeCurrency === "eur" && pending > 0) {
@@ -88,8 +71,8 @@ async function StripeInsightsLoader({
     stripeInsight = {
       ...stripeInsight,
       snapshot,
-      signals: buildStripeInsightSignals(snapshot),
-      trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency),
+      signals: buildStripeInsightSignals(snapshot, locale),
+      trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency, locale),
     };
   }
   if (stripeInsight.snapshot && stripeInsight.activeCurrency) {
@@ -99,24 +82,89 @@ async function StripeInsightsLoader({
       trend: buildStripeTrend(stripeInsight.transactions, stripeInsight.refunds, period, stripeInsight.activeCurrency, locale),
     };
   }
-  const latestStripeInsight = stripeInsight.activeCurrency
-    ? await getLatestStripeInsightRun(accountId, stripeInsight.activeCurrency, period)
-    : null;
+  return stripeInsight;
+}
 
+async function StripeInsightsLoader({
+  accountId,
+  connection,
+  period,
+  requestedCurrency,
+  pending,
+  locale,
+}: {
+  accountId: string;
+  connection: { stripeAccountId: string; preview: StripeConnectionPreview } | null;
+  period: ResolvedPeriod;
+  requestedCurrency: string | null | undefined;
+  pending: number;
+  locale: string;
+}) {
+  if (!connection) {
+    return (
+      <StripeInsightsSection
+        connected={false}
+        connection={null}
+        availableCurrencies={[]}
+        activeCurrency={null}
+        snapshot={null}
+        signals={[]}
+        trend={[]}
+        visibleTransactions={[]}
+      />
+    );
+  }
+
+  const stripeInsight = await loadStripeInsightData({ accountId, connection, period, requestedCurrency, pending, locale });
+  if (!stripeInsight) return null;
   return (
     <StripeInsightsSection
       connected
       connection={connection.preview}
-      periodKey={periodKey}
       availableCurrencies={stripeInsight.availableCurrencies}
       activeCurrency={stripeInsight.activeCurrency}
       snapshot={stripeInsight.snapshot}
-      signals={stripeInsight.signals}
+      signals={stripeInsight.signals.filter((signal) => signal.type !== "failures")}
       trend={stripeInsight.trend}
       visibleTransactions={stripeInsight.visibleTransactions}
-      initialInsightText={latestStripeInsight?.insightText ?? null}
     />
   );
+}
+
+async function FailedPaymentsAttentionLoader({
+  accountId,
+  connection,
+  period,
+  requestedCurrency,
+  pending,
+  locale,
+  items,
+  acknowledgedStripeChargeIds,
+}: {
+  accountId: string;
+  connection: { stripeAccountId: string } | null;
+  period: ResolvedPeriod;
+  requestedCurrency: string | null | undefined;
+  pending: number;
+  locale: string;
+  items: FailedPaymentItem[];
+  acknowledgedStripeChargeIds: readonly string[];
+}) {
+  const stripeInsight = await loadStripeInsightData({ accountId, connection, period, requestedCurrency, pending, locale });
+  const acknowledgedCharges = new Set(acknowledgedStripeChargeIds);
+  const unprocessedTransactions = stripeInsight?.transactions.filter(
+    (transaction) => transaction.status !== "failed" || !acknowledgedCharges.has(transaction.id),
+  ) ?? [];
+  const unprocessedSnapshot = stripeInsight?.snapshot && stripeInsight.activeCurrency
+    ? buildStripeInsightSnapshot(
+        unprocessedTransactions,
+        stripeInsight.refunds,
+        period,
+        stripeInsight.activeCurrency,
+      )
+    : null;
+  const stripeFailureSignal = unprocessedSnapshot ? buildStripeFailureSignal(unprocessedSnapshot, locale) : null;
+  return <FailedPaymentsPanel items={items} signal={stripeFailureSignal} />;
 }
 
 function StripeInsightsSkeleton() {
@@ -162,15 +210,23 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
   const failedPaymentItems: FailedPaymentItem[] = sales.flatMap((sale) =>
     (sale.installments ?? [])
       .map((installment, index) => ({ installment, index }))
-      .filter(({ installment }) => installment.status === "failed" && Boolean(installment.stripeChargeId))
+      .filter(({ installment }) => installment.status === "failed" && !installment.acknowledgedAt)
       .map(({ installment, index }) => ({
         id: `${sale.id}-${index}`,
+        saleId: sale.id,
+        installmentIndex: index,
         client: sale.isOrphan ? t("paymentToAttach") : sale.clientName,
         amount: installment.amount,
-        reason: installment.failureReason ?? t("stripePaymentDeclined"),
+        reason: installment.failureReason ?? t("paymentFailed"),
         dueDate: installment.dueDate,
         attempts: 1,
       }))
+  );
+  const acknowledgedStripeChargeIds = sales.flatMap((sale) =>
+    (sale.installments ?? [])
+      .filter((installment) => installment.status === "failed" && Boolean(installment.acknowledgedAt))
+      .map((installment) => installment.stripeChargeId)
+      .filter((chargeId): chargeId is string => Boolean(chargeId)),
   );
 
   const periodSales = sales.filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)));
@@ -191,27 +247,12 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
 
   return (
     <div className="flex flex-col gap-8">
-      {stripeConnected && <FailedPaymentsPanel items={failedPaymentItems} />}
-
       <AgentBanner stateText={stateText} ctaLabel={t("improve")} chatContext={chatContext} />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <h2 className="text-3xl font-bold">{t("title")}</h2>
           <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
-          <div className="mt-3">
-            <IntegrationStatusRow
-              name={t("stripe")}
-              status={stripeConnected ? "connected" : "not_connected"}
-              detail={stripeConnected ? t("stripeConnected") : t("stripeDisconnected")}
-              showStatusLabel={false}
-              action={
-                <Button asChild variant="outline" size="sm" className="min-h-11">
-                  <Link href="/integrations#stripe">{stripeConnected ? t("manage") : t("connect")}</Link>
-                </Button>
-              }
-            />
-          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <PeriodFilter current={period.key} />
@@ -229,40 +270,83 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiTile label={t("contractedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashContracted)} €`} detail={t("salesCount", { count: validPeriodSales.length })} />
-        <KpiTile label={t("collectedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashCollected)} €`} detail={t("salesCount", { count: validPeriodSales.length })} tone="positive" />
-        <KpiTile label={t("upcomingPayments")} value={`${new Intl.NumberFormat(locale).format(pending)} €`} detail={t("toCollect")} tone="accent2" />
-        <KpiTile label={t("failedPayments")} value={`${new Intl.NumberFormat(locale).format(failed)} €`} detail={t("toProcess")} tone={failed > 0 ? "negative" : "default"} />
-      </div>
-
-      <Suspense fallback={<StripeInsightsSkeleton />}>
-        <StripeInsightsLoader
+      <Suspense fallback={failedPaymentItems.length > 0 ? <FailedPaymentsPanel items={failedPaymentItems} /> : null}>
+        <FailedPaymentsAttentionLoader
           accountId={accountId}
-          connection={connection ? {
-            stripeAccountId: connection.stripeAccountId,
-            preview: {
-              initialSyncStatus: connection.initialSyncStatus,
-              lastSyncStartedAt: connection.lastSyncStartedAt?.toISOString() ?? null,
-              lastSyncCompletedAt: connection.lastSyncCompletedAt?.toISOString() ?? null,
-              lastSyncError: connection.lastSyncError,
-            },
-          } : null}
+          connection={connection ? { stripeAccountId: connection.stripeAccountId } : null}
           period={period}
-          periodKey={period.key}
           requestedCurrency={query.currency}
           pending={pending}
           locale={locale}
+          items={failedPaymentItems}
+          acknowledgedStripeChargeIds={acknowledgedStripeChargeIds}
         />
       </Suspense>
 
-      <SalesTable
-        sales={periodSales}
-        allSales={sales}
-        setters={setters}
-        offers={offers}
-        stripeConnection={connection ? { accountId: connection.stripeAccountId, livemode: connection.livemode } : null}
-      />
+      <section aria-labelledby="sales-overview-title">
+        <div className="mb-3">
+          <h3 id="sales-overview-title" className="text-lg font-bold">{t("overviewTitle")}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{t("overviewHelp")}</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiTile label={t("contractedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashContracted)} €`} detail={t("salesCount", { count: validPeriodSales.length })} />
+          <KpiTile label={t("collectedRevenue")} value={`${new Intl.NumberFormat(locale).format(cashCollected)} €`} detail={t("salesCount", { count: validPeriodSales.length })} tone="positive" />
+          <KpiTile label={t("upcomingPayments")} value={`${new Intl.NumberFormat(locale).format(pending)} €`} detail={t("toCollect")} tone="accent2" />
+          <KpiTile label={t("failedPayments")} value={`${new Intl.NumberFormat(locale).format(failed)} €`} detail={t("toProcess")} tone={failed > 0 ? "negative" : "default"} />
+        </div>
+      </section>
+
+      <section id="sales-ledger" className="scroll-mt-6" aria-labelledby="sales-ledger-title">
+        <div className="mb-3">
+          <h3 id="sales-ledger-title" className="text-lg font-bold">{t("ledgerTitle")}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{t("ledgerHelp")}</p>
+        </div>
+        <SalesTable
+          sales={periodSales}
+          allSales={sales}
+          setters={setters}
+          offers={offers}
+          stripeConnection={connection ? { accountId: connection.stripeAccountId, livemode: connection.livemode } : null}
+        />
+      </section>
+
+      <section aria-labelledby="sales-sources-title">
+        <div className="mb-3">
+          <h3 id="sales-sources-title" className="text-lg font-bold">{t("dataSourcesTitle")}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{t("dataSourcesHelp")}</p>
+        </div>
+        <IntegrationStatusRow
+          name={t("stripe")}
+          status={stripeConnected ? "connected" : "not_connected"}
+          detail={stripeConnected ? t("stripeConnected") : t("stripeDisconnected")}
+          showStatusLabel={false}
+          action={
+            <Button asChild variant="outline" size="sm" className="min-h-11">
+              <Link href="/integrations#stripe">{stripeConnected ? t("manage") : t("connect")}</Link>
+            </Button>
+          }
+        />
+        <div className="mt-4">
+          <Suspense fallback={<StripeInsightsSkeleton />}>
+            <StripeInsightsLoader
+              accountId={accountId}
+              connection={connection ? {
+                stripeAccountId: connection.stripeAccountId,
+                preview: {
+                  initialSyncStatus: connection.initialSyncStatus,
+                  lastSyncStartedAt: connection.lastSyncStartedAt?.toISOString() ?? null,
+                  lastSyncCompletedAt: connection.lastSyncCompletedAt?.toISOString() ?? null,
+                  lastSyncError: connection.lastSyncError,
+                },
+              } : null}
+              period={period}
+              requestedCurrency={query.currency}
+              pending={pending}
+              locale={locale}
+            />
+          </Suspense>
+        </div>
+      </section>
     </div>
   );
 }

@@ -162,6 +162,9 @@
     "fillDatas": "Remplir dans Datas",
     "viewBusiness": "Voir Mon business",
     "manualEntry": "Saisie manuelle",
+    "salesTracking": "Suivi des ventes",
+    "stripeSales": "Stripe + ventes",
+    "callTrackingSales": "Suivi d'appel + ventes",
     "previousMonth": "mois précédent",
     "observed": "Observé"
   },

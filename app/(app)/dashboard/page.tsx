@@ -32,7 +32,7 @@ import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/
 import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { getCurrentUser } from "@/lib/current-user";
-import { isMonthlyCallSourceAvailable, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAuthoritative, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { monthDateRange } from "@/lib/date-range";
@@ -76,6 +76,7 @@ async function renderDashboardPage({
   const tDiagnostic = await getTranslations("diagnostic");
   const { userId, accountId, user, currentUser } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
+  const callTrackingConnected = Boolean(user?.iclosedConnected || user?.calendlyConnected);
   const accountContext = await getAccountContext(userId);
   const hasDestinationPermission = (permission: "acquisition:pipeline" | "ventes:appels" | "ventes:rdv") => {
     if (!accountContext) return false;
@@ -153,6 +154,7 @@ async function renderDashboardPage({
     allMonthlyRows,
     allSales,
     callSourcesByMonth: allCallSourcesByMonth,
+    callTrackingConnected,
     isStripeConnected: Boolean(user?.stripeConnectId),
     locale,
   }).filter((card) => DASHBOARD_METRIC_CARD_KEYS.includes(card.key));
@@ -166,6 +168,7 @@ async function renderDashboardPage({
     allSettingEntries,
     allClosingEntries,
     callSourcesByMonth: allCallSourcesByMonth,
+    callTrackingConnected,
     allSales,
     allLeads,
     allLeadStageHistory,
@@ -194,6 +197,7 @@ async function renderDashboardPage({
     allSettingEntries,
     allClosingEntries,
     callSourcesByMonth: allCallSourcesByMonth,
+    callTrackingConnected: Boolean(user?.iclosedConnected || user?.calendlyConnected),
     allSales,
     allLeads,
     allLeadStageHistory,
@@ -232,13 +236,13 @@ async function renderDashboardPage({
       bottleneckMonthlyRow?.callsProposed,
       bottleneckMonthlyRow?.callsBooked,
     ].some((value) => value !== null && value !== undefined) ||
-    isMonthlyCallSourceAvailable(bottleneckCallSource);
+    isMonthlyCallSourceAuthoritative(bottleneckCallSource, callTrackingConnected);
   const hasBottleneckClosingData =
     bottleneckClosingEntries.length > 0 ||
     [bottleneckMonthlyRow?.callsTaken, bottleneckMonthlyRow?.salesClosed].some(
       (value) => value !== null && value !== undefined
     ) ||
-    isMonthlyCallSourceAvailable(bottleneckCallSource) ||
+    isMonthlyCallSourceAuthoritative(bottleneckCallSource, callTrackingConnected) ||
     allSales.some((sale) => !sale.isOrphan && inRange(sale.saleDate, bottleneckMonth.range));
   const hasBottleneckRevenueData = bottleneckCashContractedTotal > 0 || typeof bottleneckMonthlyRow?.cashContracted === "number";
 
@@ -309,6 +313,9 @@ async function renderDashboardPage({
   const currentMonth = new Date().getUTCMonth() + 1;
   const currentMonthlyRow = allMonthlyRows.find((row) => row.year === currentYear && row.month === currentMonth);
   const currentCallSource: MonthlyCallSource | null = allCallSourcesByMonth[monthKey(currentYear, currentMonth)] ?? null;
+  const currentSalesCount = allSales.filter(
+    (sale) => !sale.isOrphan && inRange(sale.saleDate, monthDateRange(currentYear, currentMonth))
+  ).length;
   const dailySourceOverlay = resolveDailySourceOverlay(
     monthDateRange(currentYear, currentMonth),
     allSettingEntries,
@@ -317,7 +324,11 @@ async function renderDashboardPage({
       settingManualOverride: currentMonthlyRow?.settingManualOverride,
       closingManualOverride: currentMonthlyRow?.closingManualOverride,
     },
-    currentCallSource
+    currentCallSource,
+    {
+      callTrackingConnected,
+      salesClosed: currentSalesCount > 0 ? currentSalesCount : undefined,
+    }
   );
   const checkinInitialData = {
     ...(currentMonthlyRow ?? emptyMonthRow(currentYear, currentMonth)),

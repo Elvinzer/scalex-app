@@ -4,7 +4,7 @@ import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { aggregateEntries, type FunnelTotals } from "@/lib/setting/funnel";
 
 import { toClosingTotals, toFunnelTotals } from "./rates";
-import { isMonthlyCallSourceAvailable, type MonthlyCallSource } from "./call-source";
+import { isMonthlyCallSourceAuthoritative, type MonthlyCallSource } from "./call-source";
 import type { MonthlyMetricsInput } from "./types";
 import type { MonthlyMetricsRow } from "./queries";
 
@@ -60,8 +60,10 @@ export function resolveMonthClosingTotals(
 export type DailySourceOverlay = {
   settingSourced: boolean;
   callsBookedSourced: boolean;
+  callsTakenSourced: boolean;
+  salesClosedSourced: boolean;
   closingSourced: boolean;
-  closingSource: "calls" | "daily" | null;
+  closingSource: "calls" | "sales" | "daily" | null;
   overrides: Partial<MonthlyMetricsInput>;
 };
 
@@ -70,27 +72,36 @@ export type MonthlySourceOverrides = {
   closingManualOverride?: boolean;
 };
 
-// Every field the check-in/month form asks for that's already covered by a
-// connected call or daily Setting/Closing source this month — the default
-// remains the source roll-up. An explicit monthly override is the one
-// deliberate exception and is persisted on the monthly row, so a user edit
-// is never silently dropped.
+export type MonthlySourceResolutionOptions = {
+  callTrackingConnected?: boolean;
+  salesClosed?: number;
+};
+
+// Every field the check-in/month form asks for that is already covered by a
+// connected call or daily Setting/Closing source this month stays on that
+// source. Monthly overrides still apply to daily Setting/Closing fields, but
+// they never take back control from a connected call source or the sales
+// ledger.
 export function resolveDailySourceOverlay(
   monthRange: DateRange,
   dailySettingEntries: SettingEntry[],
   dailyClosingEntries: ClosingEntry[],
   monthlySourceOverrides: MonthlySourceOverrides = {},
-  monthlyCallSource: MonthlyCallSource | null = null
+  monthlyCallSource: MonthlyCallSource | null = null,
+  options: MonthlySourceResolutionOptions = {}
 ): DailySourceOverlay {
   const settingThisMonth = dailySettingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
   const closingThisMonth = dailyClosingEntries.filter((entry) => entry.date >= monthRange.from && entry.date <= monthRange.to);
 
   const settingSourced = settingThisMonth.length > 0 && !monthlySourceOverrides.settingManualOverride;
-  const callSourceAvailable = isMonthlyCallSourceAvailable(monthlyCallSource);
-  const callsBookedSourced = callSourceAvailable && !monthlySourceOverrides.settingManualOverride;
-  const callsSourced = callSourceAvailable && !monthlySourceOverrides.closingManualOverride;
+  const callSourceAvailable = isMonthlyCallSourceAuthoritative(monthlyCallSource, options.callTrackingConnected);
+  const salesSourceAvailable = options.salesClosed !== undefined;
+  const callsBookedSourced = callSourceAvailable;
+  const callsSourced = callSourceAvailable;
   const dailyClosingSourced = closingThisMonth.length > 0 && !monthlySourceOverrides.closingManualOverride;
-  const closingSourced = callsSourced || dailyClosingSourced;
+  const callsTakenSourced = callsSourced;
+  const salesClosedSourced = callsSourced || salesSourceAvailable || dailyClosingSourced;
+  const closingSourced = callsTakenSourced || salesClosedSourced;
   const overrides: Partial<MonthlyMetricsInput> = {};
 
   if (settingSourced) {
@@ -101,23 +112,31 @@ export function resolveDailySourceOverlay(
     overrides.callsProposed = totals.callsProposed;
     overrides.callsBooked = totals.callsBooked;
   }
-  if (callsBookedSourced && monthlyCallSource) {
-    overrides.callsBooked = monthlyCallSource.callsBooked;
+  if (callsBookedSourced) {
+    overrides.callsBooked = monthlyCallSource?.callsBooked ?? 0;
   }
-  if (callsSourced && monthlyCallSource) {
-    overrides.callsTaken = monthlyCallSource.callsTaken;
-    overrides.salesClosed = monthlyCallSource.salesClosed;
+  if (callsSourced) {
+    overrides.callsTaken = monthlyCallSource?.callsTaken ?? 0;
   } else if (dailyClosingSourced) {
     const totals = aggregateClosingEntries(closingThisMonth);
     overrides.callsTaken = totals.callsAttended;
+  }
+  if (salesSourceAvailable) {
+    overrides.salesClosed = options.salesClosed;
+  } else if (callsSourced) {
+    overrides.salesClosed = monthlyCallSource?.salesClosed ?? 0;
+  } else if (dailyClosingSourced) {
+    const totals = aggregateClosingEntries(closingThisMonth);
     overrides.salesClosed = totals.salesClosed;
   }
 
   return {
     settingSourced,
     callsBookedSourced,
+    callsTakenSourced,
+    salesClosedSourced,
     closingSourced,
-    closingSource: callsSourced ? "calls" : dailyClosingSourced ? "daily" : null,
+    closingSource: callsSourced ? "calls" : salesSourceAvailable ? "sales" : dailyClosingSourced ? "daily" : null,
     overrides,
   };
 }
@@ -127,21 +146,31 @@ export function resolveDailySourceOverlay(
 // authoritative going forward.
 export function stripDailySourcedFields(
   input: MonthlyMetricsInput,
-  overlay: Pick<DailySourceOverlay, "settingSourced" | "closingSourced"> &
-    Partial<Pick<DailySourceOverlay, "callsBookedSourced">>
+  overlay: Pick<DailySourceOverlay, "settingSourced"> &
+    Partial<Pick<DailySourceOverlay, "callsBookedSourced" | "callsTakenSourced" | "salesClosedSourced" | "closingSourced">>
 ): MonthlyMetricsInput {
   const result = { ...input };
   if (overlay.settingSourced) {
     for (const field of SETTING_FIELDS) result[field] = null;
   }
-  if (overlay.closingSourced) {
-    for (const field of CLOSING_FIELDS) result[field] = null;
+  if (overlay.callsBookedSourced) result.callsBooked = null;
+  // Older callers only supplied `closingSourced`, which meant both closing
+  // fields came from the same daily roll-up. New callers provide granular
+  // flags so a sales-ledger source can protect salesClosed without freezing
+  // callsTaken, and a daily closing source can still be overridden monthly.
+  if (overlay.callsTakenSourced === true || (overlay.callsTakenSourced === undefined && overlay.closingSourced === true)) {
+    result.callsTaken = null;
   }
-  if (overlay.callsBookedSourced && !overlay.settingSourced) result.callsBooked = null;
+  if (overlay.salesClosedSourced === true || (overlay.salesClosedSourced === undefined && overlay.closingSourced === true)) {
+    result.salesClosed = null;
+  }
   return result;
 }
 
-export type ResolvedField = { amount: number | null; source: "stripe" | "stripe_stale" | "manual" | null };
+export type ResolvedField = {
+  amount: number | null;
+  source: "stripe" | "stripe_stale" | "manual" | "sales" | "combined" | null;
+};
 
 // Stripe wins whenever the field is Stripe-sourced (fresh or stale) — manual
 // entry is the fallback only, never added together. No live Stripe fetch
@@ -156,13 +185,25 @@ export function resolveMonthCashCollected(monthlyRow: MonthlyMetricsRow | null):
   return { amount: null, source: null };
 }
 
-// "Nouveaux clients" (Stripe-only, see db/schema.ts's newCustomers comment)
-// — distinct from resolveMonthSettingTotals' newSubscribers/newFollowers,
-// which stays purely manual/daily-rollup and untouched by Stripe.
-export function resolveMonthNewCustomers(monthlyRow: MonthlyMetricsRow | null): ResolvedField {
-  if (!monthlyRow) return { amount: null, source: null };
-  if (monthlyRow.newCustomersSource === "stripe" || monthlyRow.newCustomersSource === "stripe_stale") {
-    return { amount: monthlyRow.newCustomers, source: monthlyRow.newCustomersSource };
+// Stripe stores the paying-customer projection. Bank-transfer sales are not in
+// that projection, so add valid non-Stripe sales at read time instead of
+// writing a second counter into monthly_metrics.
+export function resolveMonthNewCustomers(
+  monthlyRow: MonthlyMetricsRow | null,
+  bankTransferCustomers = 0
+): ResolvedField {
+  const stripeSource = monthlyRow?.newCustomersSource === "stripe" || monthlyRow?.newCustomersSource === "stripe_stale";
+  const stripeCustomers = stripeSource && monthlyRow?.newCustomers !== null && monthlyRow?.newCustomers !== undefined
+    ? monthlyRow.newCustomers
+    : null;
+  const hasBankTransferCustomers = bankTransferCustomers > 0;
+
+  if (stripeCustomers === null && !hasBankTransferCustomers) return { amount: null, source: null };
+  if (stripeCustomers !== null && hasBankTransferCustomers) {
+    return { amount: stripeCustomers + bankTransferCustomers, source: "combined" };
   }
-  return { amount: null, source: null };
+  if (stripeCustomers !== null) {
+    return { amount: stripeCustomers, source: monthlyRow?.newCustomersSource ?? null };
+  }
+  return { amount: bankTransferCustomers, source: "sales" };
 }

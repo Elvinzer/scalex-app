@@ -162,6 +162,9 @@
     "fillDatas": "Fill in My numbers",
     "viewBusiness": "View My business",
     "manualEntry": "Manual entry",
+    "salesTracking": "Sales tracking",
+    "stripeSales": "Stripe + sales",
+    "callTrackingSales": "Call tracking + sales",
     "previousMonth": "previous month",
     "observed": "Observed"
   },

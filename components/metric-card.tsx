@@ -92,6 +92,9 @@ function translateMetricCopy(value: string, t: ReturnType<typeof useTranslations
     "Remplir dans Datas": "fillDatas",
     "Voir Mon business": "viewBusiness",
     "Saisie manuelle": "manualEntry",
+    "Suivi des ventes": "salesTracking",
+    "Stripe + ventes": "stripeSales",
+    "Suivi d'appel + ventes": "callTrackingSales",
   };
   return keyByFrench[value] ? t(`metrics.${keyByFrench[value]}`) : value;
 }

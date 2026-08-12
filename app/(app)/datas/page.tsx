@@ -7,7 +7,7 @@ import { periodToMonths } from "@/lib/diagnostic/completed-months";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { getLeadPipelineVolumesByMonth } from "@/lib/leads/stats";
 import { getMonthlyMetricsForYear } from "@/lib/monthly-metrics/queries";
-import { isMonthlyCallSourceAvailable } from "@/lib/monthly-metrics/call-source";
+import { isMonthlyCallSourceAuthoritative } from "@/lib/monthly-metrics/call-source";
 import { resolveMonthCashCollected } from "@/lib/monthly-metrics/resolve";
 import { todayUtc } from "@/lib/date-range";
 import { summarize } from "@/lib/sales/installments";
@@ -28,12 +28,13 @@ export default async function DatasPage({
 }: {
   searchParams: Promise<{ year?: string; trendPeriod?: string }>;
 }) {
-  const { userId, accountId } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "datas");
   const params = await searchParams;
   const today = todayUtc();
   const currentYear = today.getUTCFullYear();
   const currentMonth = today.getUTCMonth() + 1;
+  const callTrackingConnected = Boolean(user?.iclosedConnected || user?.calendlyConnected);
 
   const year = params.year ? Number(params.year) : currentYear;
   const trendPeriod = params.trendPeriod && TREND_PERIODS.includes(params.trendPeriod) ? params.trendPeriod : "6";
@@ -76,6 +77,7 @@ export default async function DatasPage({
       allSettingEntries: rawData.allSettingEntries,
       allClosingEntries: rawData.allClosingEntries,
       callSourcesByMonth: rawData.allCallSourcesByMonth,
+      callTrackingConnected,
       allSales: rawData.allSales,
       allLeads: rawData.allLeads,
       allLeadStageHistory: rawData.allLeadStageHistory,
@@ -87,15 +89,15 @@ export default async function DatasPage({
       dailySetting.length > 0 ||
       (monthlyRow?.newFollowers !== null && monthlyRow?.newFollowers !== undefined) ||
       (monthlyRow?.callsBooked !== null && monthlyRow?.callsBooked !== undefined) ||
-      isMonthlyCallSourceAvailable(callSource);
+      isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected);
     const hasClosing =
-      isMonthlyCallSourceAvailable(callSource) ||
+      isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected) ||
       dailyClosing.length > 0 ||
       (monthlyRow?.callsTaken !== null && monthlyRow?.callsTaken !== undefined) ||
       (monthlyRow?.salesClosed !== null && monthlyRow?.salesClosed !== undefined) ||
       validSales.length > 0;
     const salesCollected = validSales.reduce((sum, sale) => sum + summarize(sale.totalPrice, sale.installments).paidTotal, 0);
-    const cash = salesCollected > 0 ? { amount: salesCollected } : resolveMonthCashCollected(monthlyRow);
+    const cash = validSales.length > 0 ? { amount: salesCollected } : resolveMonthCashCollected(monthlyRow);
     const label = new Date(Date.UTC(mYear, mMonth - 1, 1)).toLocaleDateString("fr-FR", { month: "short", timeZone: "UTC" });
 
     return {
@@ -125,6 +127,7 @@ export default async function DatasPage({
         allSettingEntries={rawData.allSettingEntries}
         allClosingEntries={rawData.allClosingEntries}
         callSourcesByMonth={rawData.allCallSourcesByMonth}
+        callTrackingConnected={callTrackingConnected}
         activeMetricFields={activeMetricFields}
       />
       <RevenueTrend year={year} trendPeriod={trendPeriod} chartSeries={chartSeries} goalValue={businessProfile.identity.mrrGoal} />

@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { dataImports, monthlyMetrics, sales } from "@/db/schema";
+import { getUserById } from "@/lib/current-user";
+import { getSales } from "@/lib/sales/queries";
 import { aggregateSalesCallsByMonth, monthKey } from "@/lib/monthly-metrics/call-source";
 import { monthDateRange } from "@/lib/date-range";
 import { commitImportPayloadSchema, type CommitImportPayload } from "@/lib/import/schema";
@@ -16,7 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 
-export type BlockedField = { field: string; reason: string };
+export type BlockedField = { field: string; reason: "sourceRollup" | "stripeSourced" };
 
 export type CommitImportResult =
   | { status: "duplicate_warning"; previousImport: { targetYear: number | null; targetMonth: number | null; createdAt: Date } }
@@ -24,8 +26,8 @@ export type CommitImportResult =
   | { status: "error"; error: string };
 
 const PROTECTED_FIELDS = new Set<string>([...SETTING_FIELDS, ...CLOSING_FIELDS]);
-const SOURCE_ROLLUP_REASON = "Ce chiffre vient de ton suivi d'appel ou de ton suivi quotidien, il est déjà à jour.";
-const STRIPE_SOURCED_REASON = "Ce chiffre vient de Stripe, il est déjà à jour.";
+const SOURCE_ROLLUP_REASON: BlockedField["reason"] = "sourceRollup";
+const STRIPE_SOURCED_REASON: BlockedField["reason"] = "stripeSourced";
 
 async function resolveAuth(): Promise<{ accountId: string } | { error: string }> {
   const supabase = await createClient();
@@ -41,13 +43,14 @@ async function resolveAuth(): Promise<{ accountId: string } | { error: string }>
 // datas/month-modal.tsx already uses, reused here so an import can never
 // silently overwrite a connected roll-up (brief §C: "import bloqué avec
 // explication").
-async function protectedFieldsForMonth(accountId: string, year: number, month: number): Promise<Set<string>> {
+async function protectedFieldsForMonth(accountId: string, year: number, month: number): Promise<{ fields: Set<string>; overlay: ReturnType<typeof resolveDailySourceOverlay> }> {
   const range = monthDateRange(year, month);
   const [allSetting, allClosing, allCalls] = await Promise.all([
     getSettingKpiEntries(accountId),
     getClosingKpiEntries(accountId),
     getSalesCallKpiRecords(accountId),
   ]);
+  const [accountUser, allSales] = await Promise.all([getUserById(accountId), getSales(accountId)]);
   const dailySetting = allSetting.filter((entry) => entry.date >= range.from && entry.date <= range.to);
   const dailyClosing = allClosing.filter((entry) => entry.date >= range.from && entry.date <= range.to);
   const from = Date.UTC(year, month - 1, 1);
@@ -58,19 +61,27 @@ async function protectedFieldsForMonth(accountId: string, year: number, month: n
   });
 
   const callSource = aggregateSalesCallsByMonth(calls)[monthKey(year, month)] ?? null;
-  const overlay = resolveDailySourceOverlay(range, dailySetting, dailyClosing, {}, callSource);
+  const validSalesCount = allSales.filter((sale) => !sale.isOrphan && sale.saleDate >= range.from && sale.saleDate <= range.to).length;
+  const overlay = resolveDailySourceOverlay(range, dailySetting, dailyClosing, {}, callSource, {
+    callTrackingConnected: Boolean(accountUser?.iclosedConnected || accountUser?.calendlyConnected),
+    salesClosed: validSalesCount > 0 ? validSalesCount : undefined,
+  });
   const protectedFields = new Set<string>();
   if (overlay.settingSourced) for (const field of SETTING_FIELDS) protectedFields.add(field);
   if (overlay.callsBookedSourced) protectedFields.add("callsBooked");
-  if (overlay.closingSourced) for (const field of CLOSING_FIELDS) protectedFields.add(field);
-  return protectedFields;
+  if (overlay.callsTakenSourced) protectedFields.add("callsTaken");
+  if (overlay.salesClosedSourced) protectedFields.add("salesClosed");
+  if (overlay.closingSourced && !overlay.callsTakenSourced && !overlay.salesClosedSourced) {
+    for (const field of CLOSING_FIELDS) protectedFields.add(field);
+  }
+  return { fields: protectedFields, overlay };
 }
 
 async function commitMonthlyMetricsMonth(
   accountId: string,
   month: CommitImportPayload["months"][number]
 ): Promise<{ fieldsWritten: number; blocked: BlockedField[] }> {
-  const [protectedFields, [existingRow]] = await Promise.all([
+  const [{ fields: protectedFields, overlay }, [existingRow]] = await Promise.all([
     protectedFieldsForMonth(accountId, month.year, month.month),
     db
       .select()
@@ -79,11 +90,21 @@ async function commitMonthlyMetricsMonth(
       .limit(1),
   ]);
 
-  // An explicit monthly override is the user's opt-in to replace the daily
-  // roll-up for that section. Keep the generic import path aligned with the
-  // month modal instead of blocking a choice the user already made there.
-  if (existingRow?.settingManualOverride) for (const field of SETTING_FIELDS) protectedFields.delete(field);
-  if (existingRow?.closingManualOverride) for (const field of CLOSING_FIELDS) protectedFields.delete(field);
+  // Monthly overrides can take back daily roll-ups, but they cannot take back
+  // an external call or sales source.
+  if (existingRow?.settingManualOverride) {
+    for (const field of SETTING_FIELDS) {
+      if (!(field === "callsBooked" && overlay.callsBookedSourced)) protectedFields.delete(field);
+    }
+  }
+  if (existingRow?.closingManualOverride) {
+    for (const field of CLOSING_FIELDS) {
+      const externallySourced = field === "callsTaken"
+        ? overlay.callsTakenSourced
+        : overlay.closingSource === "calls" || overlay.closingSource === "sales";
+      if (!externallySourced) protectedFields.delete(field);
+    }
+  }
 
   const base: MonthlyMetricsInput = existingRow
     ? {

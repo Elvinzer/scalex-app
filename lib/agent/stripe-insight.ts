@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { falcoLanguageInstruction } from "./language-instruction";
 import type { StripeInsightSignal, StripeInsightSnapshot } from "@/lib/stripe/transaction-insights";
 
 const MODEL = "claude-sonnet-5";
@@ -14,12 +16,17 @@ const SYSTEM_PROMPT =
   "ou de recommandation fondée sur une donnée absente. Ne demande jamais de clé API et ne mentionne pas " +
   "les détails techniques du traitement.";
 
+function systemPromptFor(locale: Locale): string {
+  return `${SYSTEM_PROMPT}\n\n${falcoLanguageInstruction(locale)}`;
+}
+
 const insightTextSchema = z.string().trim().min(1).max(4_000);
 
 export type GenerateStripeInsightInput = {
   snapshot: StripeInsightSnapshot;
   signal: StripeInsightSignal;
   apiKey: string;
+  locale?: Locale;
 };
 
 export type GenerateStripeInsightResult = {
@@ -39,6 +46,7 @@ export async function generateStripeInsight({
   snapshot,
   signal,
   apiKey,
+  locale,
 }: GenerateStripeInsightInput): Promise<GenerateStripeInsightResult> {
   const client = new Anthropic({ apiKey });
   const validatedContext = {
@@ -69,7 +77,7 @@ export async function generateStripeInsight({
   const message = await client.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: SYSTEM_PROMPT,
+    system: systemPromptFor(locale ?? DEFAULT_LOCALE),
     messages: [
       {
         role: "user",
@@ -94,4 +102,3 @@ export async function generateStripeInsight({
     outputTokens: message.usage.output_tokens,
   };
 }
-

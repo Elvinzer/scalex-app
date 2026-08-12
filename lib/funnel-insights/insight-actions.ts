@@ -23,6 +23,7 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { requireUserId } from "@/lib/current-user";
+import { getRequestLocale } from "@/lib/i18n/locale";
 import { computeFunnelRates } from "@/lib/setting/funnel";
 import { getAccountContext } from "@/lib/team/context";
 import type { PermissionKey } from "@/lib/team/permissions";
@@ -184,11 +185,13 @@ export async function generateFunnelStageInsight(
 
   let result;
   try {
+    const locale = await getRequestLocale();
     result = await generateStageInsight({
       stage,
       ratePercent: Math.round(rate * 100),
       answers,
       apiKey: agentKey.apiKey,
+      locale,
     });
   } catch (error) {
     // Only a confirmed 401 on the user's own key means the key is dead —

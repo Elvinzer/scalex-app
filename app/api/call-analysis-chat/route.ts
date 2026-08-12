@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getRequestLocale } from "@/lib/i18n/locale";
 import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai-provider";
@@ -62,8 +63,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Appel introuvable." }, { status: 404 });
   }
   const businessProfile = await getBusinessProfile(accountId);
+  const locale = await getRequestLocale();
 
-  const systemPrompt = buildCallAnalysisPrompt({ businessProfile, video });
+  const systemPrompt = buildCallAnalysisPrompt({ businessProfile, video, locale });
 
   let provider;
   try {

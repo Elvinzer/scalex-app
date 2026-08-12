@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
+import { NextIntlClientProvider } from "next-intl";
 
 import { StripeInsightsSection } from "@/app/(app)/ventes/suivi/stripe-insights-section";
+import { getRequestLocale } from "@/lib/i18n/locale";
+import { loadMessagesFor } from "@/lib/i18n/messages";
 import { resolvePeriod, isInPeriod } from "@/lib/period";
 import {
   buildStripeInsightSignals,
@@ -32,6 +35,8 @@ export default async function StripeInsightsE2EFixturePage({
   if (process.env.NODE_ENV === "production") notFound();
 
   const { state } = await searchParams;
+  const locale = await getRequestLocale();
+  const messages = await loadMessagesFor(locale, ["common", "sales"]);
   const isEmpty = state === "empty";
   const period = resolvePeriod("last_30d");
   const fixtureTransactions = isEmpty ? [] : transactions;
@@ -42,30 +47,30 @@ export default async function StripeInsightsE2EFixturePage({
   const visibleTransactions = fixtureTransactions.filter((transaction) => isInPeriod(period, new Date(transaction.occurredAt)));
 
   return (
-    <main className="min-h-screen overflow-x-clip bg-panel px-4 py-8 md:px-16">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <div>
-          <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Fixture locale uniquement</p>
-          <h1 className="mt-1 text-3xl font-bold">Stripe Insights — {isEmpty ? "empty" : "fixture"}</h1>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <main className="min-h-screen overflow-x-clip bg-panel px-4 py-8 md:px-16">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6">
+          <div>
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Fixture locale uniquement</p>
+            <h1 className="mt-1 text-3xl font-bold">Stripe Insights — {isEmpty ? "empty" : "fixture"}</h1>
+          </div>
+          <StripeInsightsSection
+            connected
+            connection={{
+              initialSyncStatus: isEmpty ? "pending" : "completed",
+              lastSyncStartedAt: "2026-08-07T08:00:00.000Z",
+              lastSyncCompletedAt: isEmpty ? null : "2026-08-07T08:02:00.000Z",
+              lastSyncError: null,
+            }}
+            availableCurrencies={listStripeCurrencies(fixtureTransactions, fixtureRefunds)}
+            activeCurrency={isEmpty ? null : "eur"}
+            snapshot={snapshot}
+            signals={signals}
+            trend={trend}
+            visibleTransactions={visibleTransactions}
+          />
         </div>
-        <StripeInsightsSection
-          connected
-          connection={{
-            initialSyncStatus: isEmpty ? "pending" : "completed",
-            lastSyncStartedAt: "2026-08-07T08:00:00.000Z",
-            lastSyncCompletedAt: isEmpty ? null : "2026-08-07T08:02:00.000Z",
-            lastSyncError: null,
-          }}
-          periodKey={period.key}
-          availableCurrencies={listStripeCurrencies(fixtureTransactions, fixtureRefunds)}
-          activeCurrency={isEmpty ? null : "eur"}
-          snapshot={snapshot}
-          signals={signals}
-          trend={trend}
-          visibleTransactions={visibleTransactions}
-          initialInsightText="Le taux d’échec mérite une relance cette semaine : traite d’abord le paiement à risque avant d’augmenter l’acquisition."
-        />
-      </div>
-    </main>
+      </main>
+    </NextIntlClientProvider>
   );
 }

@@ -280,6 +280,29 @@ function priorityForRate(value: number, highThreshold: number): StripeInsightPri
   return value >= highThreshold * 2 ? "high" : "medium";
 }
 
+export function buildStripeFailureSignal(
+  snapshot: StripeInsightSnapshot,
+  locale = "fr",
+): StripeInsightSignal | null {
+  if (snapshot.failedTransactions === 0 || snapshot.failureRatePct === null) return null;
+
+  const isEnglish = locale === "en";
+  return {
+    type: "failures",
+    priority: priorityForRate(snapshot.failureRatePct, FAILURE_THRESHOLD_PCT),
+    title: isEnglish ? "Failed payments need attention" : "Des paiements sont échoués",
+    summary: isEnglish
+      ? "Failed payments put revenue at risk. Follow up with those customers before acquiring more."
+      : "Les échecs créent du CA à risque : relance les clients concernés avant d’acquérir davantage.",
+    evidence: [
+      `${isEnglish ? "Failure rate" : "Taux d’échec"} : ${formatPct(snapshot.failureRatePct, locale)}`,
+      `${isEnglish ? "Amount at risk" : "Montant à risque"} : ${formatAmount(snapshot.amountAtRiskCents, snapshot.currency, locale)}`,
+    ],
+    action: isEnglish ? "Handle failed payments" : "Traiter les impayés",
+    actionHref: "#failed-payments",
+  };
+}
+
 export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot, locale = "fr"): StripeInsightSignal[] {
   const isEnglish = locale === "en";
   const totalSample = snapshot.successfulTransactions + snapshot.failedTransactions;
@@ -345,18 +368,8 @@ export function buildStripeInsightSignals(snapshot: StripeInsightSnapshot, local
     snapshot.failureRatePct !== null &&
     snapshot.failureRatePct >= FAILURE_THRESHOLD_PCT
   ) {
-    signals.push({
-      type: "failures",
-      priority: priorityForRate(snapshot.failureRatePct, FAILURE_THRESHOLD_PCT),
-      title: isEnglish ? "Failed payments need attention" : "Des paiements échouent encore",
-      summary: isEnglish ? "Failed payments put revenue at risk. Follow up with those customers before acquiring more." : "Les échecs créent du CA à risque : relance les clients concernés avant d’acquérir davantage.",
-      evidence: [
-        `${isEnglish ? "Failure rate" : "Taux d’échec"} : ${formatPct(snapshot.failureRatePct, locale)}`,
-        `${isEnglish ? "Amount at risk" : "Montant à risque"} : ${formatAmount(snapshot.amountAtRiskCents, snapshot.currency, locale)}`,
-      ],
-      action: isEnglish ? "Handle failed payments" : "Traiter les impayés",
-      actionHref: "#failed-payments",
-    });
+    const failureSignal = buildStripeFailureSignal(snapshot, locale);
+    if (failureSignal) signals.push(failureSignal);
   }
 
   if (

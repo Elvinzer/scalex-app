@@ -1,5 +1,7 @@
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { ClosingVideoRow } from "@/lib/closing-videos/types";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { falcoLanguageInstruction } from "@/lib/agent/language-instruction";
 import { describeBusinessContext } from "@/lib/improve-prompt-builder";
 
 const OUTCOME_LABELS: Record<ClosingVideoRow["outcome"], string> = {
@@ -29,9 +31,11 @@ function describeCall(video: ClosingVideoRow): string {
 export function buildCallAnalysisPrompt({
   businessProfile,
   video,
+  locale = DEFAULT_LOCALE,
 }: {
   businessProfile: BusinessProfileData;
   video: ClosingVideoRow;
+  locale?: Locale;
 }): string {
   return [
     "# RÔLE",
@@ -56,5 +60,7 @@ export function buildCallAnalysisPrompt({
     "- N'invente jamais un détail qui ne figure pas dans la transcription/les notes ci-dessus.",
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : commence par un " +
       "résumé en une phrase de ce qui ressort le plus de cet appel, positif ou négatif.",
+    "",
+    falcoLanguageInstruction(locale),
   ].join("\n");
 }

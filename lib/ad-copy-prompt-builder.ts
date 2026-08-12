@@ -1,5 +1,7 @@
 import { formatEur } from "@/lib/currency";
 import type { BusinessProfileData, Offer } from "@/lib/business/types";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { falcoLanguageInstruction } from "@/lib/agent/language-instruction";
 import { describeBusinessContext } from "@/lib/improve-prompt-builder";
 
 function describeOffer(offer: Offer | null): string {
@@ -19,9 +21,11 @@ function describeOffer(offer: Offer | null): string {
 export function buildAdCopyPrompt({
   businessProfile,
   offer,
+  locale = DEFAULT_LOCALE,
 }: {
   businessProfile: BusinessProfileData;
   offer: Offer | null;
+  locale?: Locale;
 }): string {
   return [
     "# RÔLE",
@@ -45,5 +49,7 @@ export function buildAdCopyPrompt({
     "- N'invente jamais un prix ou un détail d'offre qui ne figure pas ci-dessus.",
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : propose une " +
       "première accroche concrète pour cette offre.",
+    "",
+    falcoLanguageInstruction(locale),
   ].join("\n");
 }

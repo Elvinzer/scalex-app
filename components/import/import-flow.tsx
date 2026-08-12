@@ -242,7 +242,9 @@ export function ImportFlow({
           {step.blockedFields.length > 0 && (
             <div className="flex flex-col gap-1 text-xs text-muted-foreground">
               {step.blockedFields.map((blocked) => (
-                <p key={blocked.field}>{blocked.reason}</p>
+                <p key={blocked.field}>
+                  {blocked.reason === "stripeSourced" ? t("blockedStripeSourced") : t("blockedSourceRollup")}
+                </p>
               ))}
             </div>
           )}
