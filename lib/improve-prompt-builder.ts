@@ -11,6 +11,8 @@ import type { BusinessProfileData } from "@/lib/business/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import type { YoutubeRecommendationRecord, YoutubeWinningPatternsSnapshot } from "@/lib/youtube/recommendation-types";
 import { falcoInsightProtocol } from "@/lib/agent/falco-insight-proposal";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
+import { falcoLanguageInstruction } from "@/lib/agent/language-instruction";
 
 export type ImproveMetricKey = MetricKey | "followupRecovery" | "general";
 
@@ -179,6 +181,7 @@ export function buildImprovePrompt({
   contentRecommendation,
   winningPatterns,
   unifiedSourceContext,
+  locale,
 }: {
   context: ChatContext;
   businessProfile: BusinessProfileData;
@@ -207,6 +210,7 @@ export function buildImprovePrompt({
   // Copilot. Keeping it as a formatted block prevents the model from
   // re-adding or reconciling raw source rows itself.
   unifiedSourceContext?: string | null;
+  locale?: Locale;
 }): string {
   const isGeneral = context.topicType === "general";
   const isLever = context.topicType === "lever";
@@ -237,6 +241,7 @@ export function buildImprovePrompt({
 
   const topicLabel = context.topicLabel ?? "";
   const leverMode: LeverMode = mode ?? "optimiser";
+  const resolvedLocale = locale ?? DEFAULT_LOCALE;
 
   return [
     "# RÔLE",
@@ -318,8 +323,8 @@ export function buildImprovePrompt({
     ...(isContentIdea
       ? [
           "- Tu es Falco Créateur : tu aides à produire la vidéo, pas seulement à discuter de stratégie.",
-          "- Ne transforme jamais une estimation de vues en promesse. Utilise « ≈ » et rappelle que l'impact est estimé.",
-        ]
+        "- Ne transforme jamais une estimation de vues en promesse. Utilise « ≈ » et rappelle que l'impact est estimé.",
+      ]
       : []),
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : " +
       (pageContext
@@ -329,5 +334,7 @@ export function buildImprovePrompt({
             ? `reprends le titre proposé « ${contentRecommendation?.title ?? "cette idée"} », rappelle en une phrase la donnée qui l'ancre, puis propose de construire le hook et le plan.`
             : "commence par un message qui résume en une phrase le problème et propose une première piste concrète."
           : "commence par un résumé en une phrase de l'état général du business et demande sur quoi on bosse aujourd'hui."),
+    "",
+    falcoLanguageInstruction(resolvedLocale),
   ].join("\n");
 }

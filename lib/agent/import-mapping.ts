@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import { ALL_TARGET_FIELDS, IMPORT_TARGET_TABLES, modelMappingSchema, type ImportMappingResult } from "@/lib/import/schema";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import type { RawSheet } from "@/lib/import/parse";
+import { falcoLanguageInstruction } from "@/lib/agent/language-instruction";
 
 // Bump here when the model needs updating — single point of change, same
 // convention as lib/agent/insight.ts.
@@ -116,6 +118,7 @@ export type MappableUnit =
 export type ImportMappingOptions = {
   targetTableHint?: "monthly_metrics";
   targetPeriod?: { year: number; month: number };
+  locale?: Locale;
 };
 
 function unitLabel(unit: MappableUnit): string {
@@ -240,7 +243,7 @@ export async function mapImportedFile(
     message = await client.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: `${buildSystemPrompt(options)}\n\nContexte business de l'utilisateur :\n${businessContext}`,
+      system: `${buildSystemPrompt(options)}\n\nContexte business de l'utilisateur :\n${businessContext}\n\n${falcoLanguageInstruction(options?.locale ?? DEFAULT_LOCALE)}`,
       tools: [MAP_COLUMNS_TOOL],
       tool_choice: { type: "tool", name: "map_columns" },
       messages: [{ role: "user", content: buildFileContent(unit) }],

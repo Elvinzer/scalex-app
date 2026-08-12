@@ -32,6 +32,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 import { getContentRecommendation, getWinningPatterns } from "@/lib/youtube/recommendations";
 import type { YoutubeWinningPatternsSnapshot } from "@/lib/youtube/recommendation-types";
+import { getRequestLocale } from "@/lib/i18n/locale";
 
 const MAX_MESSAGES = 20;
 
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });
   }
   const { accountId } = access;
+  const locale = await getRequestLocale();
 
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -326,6 +328,7 @@ export async function POST(request: NextRequest) {
     contentRecommendation,
     winningPatterns: contentWinningPatterns,
     unifiedSourceContext,
+    locale,
   });
 
   // "messages" already includes the just-submitted user message — nothing

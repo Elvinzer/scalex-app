@@ -22,6 +22,7 @@ import type { AnalyzeSheetResult } from "@/lib/import/schema";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
+import { getRequestLocale } from "@/lib/i18n/locale";
 
 // Dev-only detail appended to the generic message — never in production
 // (CLAUDE.md: no internal detail in client-facing errors), but "Une erreur
@@ -84,6 +85,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });
   }
   const { accountId } = access;
+  const locale = await getRequestLocale();
 
   const contentLengthHeader = request.headers.get("content-length");
   const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
@@ -194,6 +196,7 @@ export async function POST(request: Request): Promise<Response> {
         const { result, inputTokens, outputTokens } = await mapImportedFile(unit, businessContext, apiKey, {
           targetTableHint,
           targetPeriod,
+          locale,
         });
         totalInputTokens += inputTokens;
         totalOutputTokens += outputTokens;
