@@ -50,6 +50,7 @@ export async function FunnelSequenceOverview({
           availableSources={availableSources}
           value={effectiveSource}
           sourceHref={entries[0] ? funnelBlockHref(entries[0].blockKey) : "/acquisition"}
+          showUnavailableHelp={false}
         />
       </div>
 

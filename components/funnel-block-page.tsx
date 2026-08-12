@@ -35,12 +35,14 @@ export async function FunnelBlockPage({
   const locale = await getLocale();
   const t = await getTranslations("funnelBlocks.page");
   const tCatalog = await getTranslations("funnelBlocks.catalog");
+  const tFamily = await getTranslations("funnelBlocks.families");
   const tMetric = await getTranslations("funnelBlocks.metrics");
   const tSource = await getTranslations("funnelBlocks.sources");
   const blockLabel = tCatalog.has(`${entry.blockKey}.label`) ? tCatalog(`${entry.blockKey}.label`) : entry.label;
   const blockDescription = tCatalog.has(`${entry.blockKey}.description`) ? tCatalog(`${entry.blockKey}.description`) : entry.description;
   const metricLabel = (metricKey: string, fallback: string) => tMetric.has(`${metricKey}.label`) ? tMetric(`${metricKey}.label`) : fallback;
   const metricUnit = (metricKey: string, fallback: string) => tMetric.has(`${metricKey}.unit`) ? tMetric(`${metricKey}.unit`) : fallback;
+  const blockLabelFor = (blockKey: string, fallback: string) => tCatalog.has(`${blockKey}.label`) ? tCatalog(`${blockKey}.label`) : fallback;
   const activeSources = selection.sources;
   const availableSources = availableFunnelSources(monthlyRows, activeSources);
   const effectiveSource = source !== "total" && availableSources.includes(source) ? source : "total";
@@ -57,7 +59,7 @@ export async function FunnelBlockPage({
           <Link href="/acquisition" className="text-xs font-bold text-accent-text hover:underline">← {t("back")}</Link>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold tracking-[-0.02em]">{blockLabel}</h1>
-            <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">{t(`families.${entry.family}`)}</span>
+            <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">{tFamily(entry.family)}</span>
           </div>
           <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground">{blockDescription}</p>
         </div>
@@ -81,7 +83,7 @@ export async function FunnelBlockPage({
             <div key={candidate.blockKey} className="flex items-center gap-2">
               {index > 0 && <span className="text-muted-foreground" aria-hidden="true">→</span>}
               <Link href={funnelBlockHref(candidate.blockKey)} className={candidate.blockKey === entry.blockKey ? "rounded-full border-2 border-accent bg-accent-soft px-3 py-1.5 text-xs font-bold text-accent-text" : "rounded-full border border-border bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground hover:border-border-hover"}>
-                {candidate.label}
+                {blockLabelFor(candidate.blockKey, candidate.label)}
               </Link>
             </div>
           ))}

@@ -1,4 +1,5 @@
 import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
+import { getTranslations } from "next-intl/server";
 import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
@@ -51,14 +52,18 @@ export async function AppSidebarWithScaleScore({
     canSeeScaleScore ? getDiagnosticKpiRawData(accountId) : Promise.resolve(null),
     canSeeScaleScore ? getDiagnosticBenchmarks(sector) : Promise.resolve(null),
   ]);
+  const tAcquisition = await getTranslations("app.acquisition");
+  const tCatalog = await getTranslations("funnelBlocks.catalog");
 
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const acquisitionSubpages = [
     ...activeFunnelRoutes(acquisitionSelection, acquisitionCatalog).map((route) => ({
       href: route.href,
-      label: route.primary ? `${route.label} · principal` : route.label,
+      label: route.primary
+        ? `${tCatalog.has(`${route.key}.label`) ? tCatalog(`${route.key}.label`) : route.label} · ${tAcquisition("journey.primary")}`
+        : tCatalog.has(`${route.key}.label`) ? tCatalog(`${route.key}.label`) : route.label,
     })),
-    { href: "/business#acquisition", label: "+ Ajouter un parcours" },
+    { href: "/business#acquisition", label: tAcquisition("addFunnel") },
   ];
 
   if (canSeeScaleScore && scaleScoreInputs && benchmarks && acquisitionCatalog) {

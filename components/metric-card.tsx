@@ -9,7 +9,15 @@ import { cn } from "@/lib/utils";
 export function MetricCard({ data }: { data: MetricCardData }) {
   const t = useTranslations("dashboard");
   const tStates = useTranslations("common.states");
-  const metricKey = data.key === "new-customers" ? "newCustomers" : data.key === "average-sale" ? "averageSale" : data.key;
+  const metricKey = data.key === "new-customers"
+    ? "newCustomers"
+    : data.key === "average-sale"
+      ? "averageSale"
+      : data.key === "closing-rate"
+        ? "closingRate"
+        : data.key === "show-up-rate"
+          ? "showUpRate"
+          : data.key;
   const metricLabel = t(`metrics.${metricKey}`);
   const translatedReason = data.status === "missing" ? translateMetricCopy(data.reason, t) : null;
   const translatedCta = data.status === "missing" ? translateMetricCopy(data.ctaLabel, t) : null;

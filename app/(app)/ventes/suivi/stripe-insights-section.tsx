@@ -294,7 +294,6 @@ export function StripeInsightsSection({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-bold tracking-[0.12em] text-accent-2-text uppercase">{t("analysis")}</p>
-            <h2 id="stripe-insights-title" className="mt-1 text-xl font-bold">{t("transactionsExplain")}</h2>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
               {t("snapshotHelp")}
             </p>

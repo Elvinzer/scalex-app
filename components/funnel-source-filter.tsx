@@ -12,11 +12,13 @@ export function FunnelSourceFilter({
   availableSources,
   value,
   sourceHref,
+  showUnavailableHelp = true,
 }: {
   sources: FunnelSourceKey[];
   availableSources: FunnelSourceKey[];
   value: FunnelSourceKey | "total";
   sourceHref?: string;
+  showUnavailableHelp?: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -37,13 +39,12 @@ export function FunnelSourceFilter({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="funnel-source-filter" aria-label={t("sourceBreakdown")}>
-      <span className="mr-1 text-xs font-bold text-muted-foreground">{t("total")}:</span>
+    <div className="ml-auto flex flex-wrap items-center justify-end gap-2" data-testid="funnel-source-filter" role="group" aria-label={t("sourceBreakdown")}>
       <Link
         href={href("total")}
         onClick={() => select("total")}
         aria-current={value === "total" ? "page" : undefined}
-        className={value === "total" ? "min-h-11 rounded-full border-2 border-accent bg-accent-soft px-4 py-2 text-xs font-bold text-accent-text" : "min-h-11 rounded-full border border-border bg-card px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:border-border-hover"}
+        className={value === "total" ? "inline-flex min-h-11 items-center justify-center rounded-full border-2 border-accent bg-accent-soft px-4 py-2 text-xs font-bold text-accent-text" : "inline-flex min-h-11 items-center justify-center rounded-full border border-border bg-card px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:border-border-hover"}
       >
         {t("total")}
       </Link>
@@ -63,13 +64,13 @@ export function FunnelSourceFilter({
             href={href(source)}
             onClick={() => select(source)}
             aria-current={value === source ? "page" : undefined}
-            className={value === source ? "min-h-11 rounded-full border-2 border-accent bg-accent-soft px-4 py-2 text-xs font-bold text-accent-text" : "min-h-11 rounded-full border border-border bg-card px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:border-border-hover"}
+            className={value === source ? "inline-flex min-h-11 items-center justify-center rounded-full border-2 border-accent bg-accent-soft px-4 py-2 text-xs font-bold text-accent-text" : "inline-flex min-h-11 items-center justify-center rounded-full border border-border bg-card px-4 py-2 text-xs font-bold text-muted-foreground transition-colors hover:border-border-hover"}
           >
             {tSource(source)}
           </Link>
         );
       })}
-      {availableSources.length === 0 && <span className="text-xs text-muted-foreground">{t("sourceUnavailable")}</span>}
+      {showUnavailableHelp && availableSources.length === 0 && <span className="text-xs text-muted-foreground">{t("sourceUnavailable")}</span>}
     </div>
   );
 }
