@@ -24,7 +24,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(getPublicSiteUrl()),
-  title: "Scale X | Scaling coach for online businesses",
+  title: "Minaly",
+  applicationName: "Minaly",
   description:
     "Scale X helps coaches and info businesses doing $10k to $100k per month find and fix the constraint slowing growth.",
 };
