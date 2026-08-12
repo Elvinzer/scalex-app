@@ -134,7 +134,7 @@ export function AcquisitionSection({
             {t("editFunnel")}
           </Button>
           </div>
-          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="mt-5 flex flex-col gap-4">
             <div className="rounded-xl border border-border bg-background p-4" aria-labelledby="business-journey-preview-title">
               <p id="business-journey-preview-title" className="text-xs font-bold tracking-[0.08em] text-accent-text uppercase">
                 {t("journeyPreviewEyebrow")}
@@ -175,14 +175,20 @@ export function AcquisitionSection({
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">{t("sourcePreviewTitle")}</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("sourcePreviewHelp")}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {value.sources.map((source) => (
-                  <span key={source} className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">
-                    {tSource(source as FunnelSourceKey)}
-                  </span>
-                ))}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">{t("sourcePreviewTitle")}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("sourcePreviewHelp")}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  {value.sources.length > 0 ? value.sources.map((source) => (
+                    <span key={source} className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">
+                      {tSource(source as FunnelSourceKey)}
+                    </span>
+                  )) : (
+                    <span className="text-xs text-muted-foreground">{t("noSources")}</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

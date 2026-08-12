@@ -506,7 +506,7 @@ export function AppSidebar({
       {/* Mobile-only app chrome. On desktop the sidebar owns the complete
           navigation and there is no empty horizontal bar above the content. */}
       <header
-        className="fixed top-0 right-0 left-0 z-50 flex h-18 min-w-0 items-center gap-3 border-b border-border bg-card/95 px-3 text-foreground shadow-sm backdrop-blur-sm md:hidden"
+        className="fixed top-0 right-0 left-0 z-50 flex h-20 min-w-0 items-center gap-3 border-b border-border bg-card/95 px-3 text-foreground shadow-sm backdrop-blur-sm md:hidden"
       >
         <button
           type="button"
@@ -520,8 +520,8 @@ export function AppSidebar({
         </button>
 
         <div className="flex min-w-0 items-center gap-2 md:hidden">
-          <Image src="/scalex-wordmark.png" alt="Scale X" width={120} height={30} priority className="h-6 w-auto" />
-          <span className="truncate text-sm font-bold">{mobilePageTitle ? t(mobilePageTitle.mobileLabelKey) : "Scale X"}</span>
+          <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} priority className="mt-5 mb-3 h-auto w-[112px] max-w-full object-contain object-left" />
+          <span className="truncate text-sm font-bold">{mobilePageTitle ? t(mobilePageTitle.mobileLabelKey) : t("logoAlt")}</span>
         </div>
 
       </header>
@@ -546,12 +546,11 @@ export function AppSidebar({
         )}
         style={{ background: "var(--gradient-dark)" }}
       >
-        {/* h-18 mirrors the fixed app header, so the wordmark's vertical
-            center lands exactly on that header's midline (36px). Keep the two
-            in sync if either height changes. */}
-        <div className="flex h-18 shrink-0 items-center px-3">
+        {/* The taller brand area gives the wordmark breathing room above and
+            below without changing the navigation item's touch targets. */}
+        <div className="flex h-24 shrink-0 items-center px-3">
           <Link href="/dashboard" prefetch={true} className="flex items-center transition-opacity hover:opacity-80">
-            <Image src="/scalex-wordmark.png" alt="Scale X" width={398} height={100} priority className="h-9 w-auto" />
+            <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} priority className="mt-5 mb-3 h-auto w-[140px] max-w-full object-contain object-left" />
           </Link>
         </div>
 
