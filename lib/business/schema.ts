@@ -13,7 +13,7 @@ import { FUNNEL_SOURCE_KEYS } from "@/lib/funnel-blocks/types";
 const enabledFlag = z.enum(["yes", "no"]).nullable();
 const funnelBlockSelectionItemSchema = z.object({
   blockKey: z.string().min(1).max(100),
-  order: z.number().int().min(1).max(5),
+  order: z.number().int().min(1).max(20),
 });
 const funnelBlockConfigurationValueSchema = z.union([z.string().max(1000), z.number().nonnegative(), z.null()]);
 
@@ -93,7 +93,7 @@ export const acquisitionSchema = z.object({
   }),
   funnels: z.array(z.enum(ACQUISITION_FUNNEL_KEYS)).min(1).max(10),
   primaryFunnel: z.enum(ACQUISITION_FUNNEL_KEYS),
-  blocks: z.array(funnelBlockSelectionItemSchema).min(2).max(4).default([
+  blocks: z.array(funnelBlockSelectionItemSchema).min(2).max(11).default([
     { blockKey: "lead_magnet", order: 1 },
     { blockKey: "appel", order: 3 },
   ]),

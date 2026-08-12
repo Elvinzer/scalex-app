@@ -52,8 +52,8 @@ const FUNNEL_SHAPE_COLORS = [
 ] as const;
 
 function funnelClipPath(index: number): string {
-  const top = FUNNEL_BOUNDARY_WIDTHS[index] ?? FUNNEL_BOUNDARY_WIDTHS[0];
-  const bottom = index < FUNNEL_BOUNDARY_WIDTHS.length - 1 ? FUNNEL_BOUNDARY_WIDTHS[index + 1] : top - 12;
+  const top = FUNNEL_BOUNDARY_WIDTHS[index] ?? Math.max(12, 22 - (index - FUNNEL_BOUNDARY_WIDTHS.length + 1) * 5);
+  const bottom = index < FUNNEL_BOUNDARY_WIDTHS.length - 1 ? FUNNEL_BOUNDARY_WIDTHS[index + 1] : Math.max(8, top - 8);
   const topLeft = (100 - top) / 2;
   const bottomLeft = (100 - bottom) / 2;
   return `polygon(${topLeft}% 0%, ${100 - topLeft}% 0%, ${100 - bottomLeft}% 100%, ${bottomLeft}% 100%)`;
@@ -164,7 +164,7 @@ function FunnelShape({
       <div
         className={`flex h-[76px] w-full items-center justify-center font-bold leading-[1.1] text-xl tabular-nums ${index >= 3 ? "text-text-on-dark" : "text-foreground"}`}
         style={{
-          backgroundColor: FUNNEL_SHAPE_COLORS[index % FUNNEL_SHAPE_COLORS.length],
+          backgroundColor: FUNNEL_SHAPE_COLORS[Math.min(index, FUNNEL_SHAPE_COLORS.length - 1)],
           clipPath: funnelClipPath(index),
         }}
         aria-hidden="true"
@@ -314,14 +314,14 @@ export function BottleneckFunnel({
               const currentPercent = clampPercent(stage.currentRate);
               const benchmarkPercent = clampPercent(stage.benchmarkRate);
               const hasRate = stage.currentRate !== null && stage.benchmarkRate !== null;
-              const falcoButton = (
+              const falcoButton = index > 0 ? (
                 <StageFalcoButton
                   stageId={stage.id}
                   label={label}
                   t={t}
                   onClick={() => setSelectedStageId(stage.id)}
                 />
-              );
+              ) : null;
 
               return (
                 <li

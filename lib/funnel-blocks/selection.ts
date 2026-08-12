@@ -84,33 +84,34 @@ export function normalizeFunnelBlockSelection(
         setting: acquisition.setting ?? { enabled: null, channel: "", operator: "" },
       }).filter((item) => byKey.has(item.blockKey));
 
-  const normalized: FunnelBlockSelectionItem[] = [];
-  let captureFound = false;
-  let conversionFound = false;
-  let nurturingCount = 0;
+  const capture: FunnelBlockSelectionItem[] = [];
+  const nurturing: FunnelBlockSelectionItem[] = [];
+  const conversion: FunnelBlockSelectionItem[] = [];
   for (const item of sourceBlocks) {
     const entry = byKey.get(item.blockKey);
     if (!entry || entry.family === "source") continue;
     if (entry.family === "capture") {
-      if (captureFound) continue;
-      captureFound = true;
+      capture.push(item);
+      continue;
     }
     if (entry.family === "conversion") {
-      if (conversionFound) continue;
-      conversionFound = true;
+      conversion.push(item);
+      continue;
     }
     if (entry.family === "nurturing") {
-      if (nurturingCount >= 2) continue;
-      nurturingCount += 1;
+      // The old catalogue exposed an explicit "no nurturing" block. The
+      // package models that state as an empty optional zone, so it must not
+      // consume one of the two available nurturing slots.
+      if (item.blockKey === "aucune_nurturing") continue;
+      if (nurturing.length >= 2) continue;
+      nurturing.push(item);
     }
-    normalized.push({ blockKey: item.blockKey, order: item.order });
   }
 
-  if (!captureFound) normalized.unshift({ blockKey: byKey.has("lead_magnet") ? "lead_magnet" : "aucune_capture", order: 1 });
-  if (!conversionFound) normalized.push({ blockKey: byKey.has("appel") ? "appel" : "checkout_direct", order: 3 });
+  if (capture.length === 0) capture.push({ blockKey: byKey.has("lead_magnet") ? "lead_magnet" : "aucune_capture", order: 1 });
+  if (conversion.length === 0) conversion.push({ blockKey: byKey.has("appel") ? "appel" : "checkout_direct", order: 3 });
 
-  const ordered = normalized
-    .sort((a, b) => a.order - b.order)
+  const ordered = [...capture, ...nurturing, ...conversion]
     .map((item, index) => ({ blockKey: item.blockKey, order: index + 1 }));
   const sources = inferredSources({
     sources: acquisition.sources ?? [],

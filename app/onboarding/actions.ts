@@ -26,7 +26,7 @@ import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
 import { activeLegacyMetricKeysFromBlocks, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 
 const onboardingBlocksSchema = z.object({
-  blocks: z.array(z.object({ blockKey: z.string().min(1).max(100), order: z.number().int().min(1).max(5) })).min(2).max(4),
+  blocks: z.array(z.object({ blockKey: z.string().min(1).max(100), order: z.number().int().min(1).max(20) })).min(2).max(11),
   sources: z.array(z.enum(["organique", "ads", "newsletter", "bouche_a_oreille", "communaute_externe"])).min(1).max(5),
 });
 

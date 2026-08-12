@@ -41,9 +41,12 @@ import { measureAsync } from "@/lib/perf/timing";
 import { getLocale, getTranslations } from "next-intl/server";
 import { track } from "@/lib/analytics";
 import { buildAcquisitionStageVolumes } from "@/lib/acquisition-funnels/stage-volumes";
-import { FunnelSequenceOverview } from "@/components/funnel-sequence-overview";
+import { BottleneckFunnel } from "./bottleneck-funnel";
+import { FunnelSourceFilter } from "@/components/funnel-source-filter";
+import { buildFunnelBlockBottleneck, buildFunnelBlockMetricValues } from "@/lib/funnel-blocks/bottleneck";
 import { getFunnelBlockBenchmarks, getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
 import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+import { availableFunnelSources } from "@/lib/funnel-blocks/metrics";
 import { isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
 
 const PERIOD_MONTHS = 3;
@@ -74,6 +77,7 @@ async function renderDashboardPage({
   const locale = await getLocale();
   const t = await getTranslations("dashboard");
   const tDiagnostic = await getTranslations("diagnostic");
+  const tFunnelMetric = await getTranslations("funnelBlocks.metrics");
   const { userId, accountId, user, currentUser } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "dashboard");
   const callTrackingConnected = Boolean(user?.iclosedConnected || user?.calendlyConnected);
@@ -208,6 +212,11 @@ async function renderDashboardPage({
   const bottleneckMonthlyRow = allMonthlyRows.find(
     (row) => row.year === bottleneckMonth.year && row.month === bottleneckMonth.month
   ) ?? null;
+  const availableBlockSources = availableFunnelSources(
+    bottleneckMonthlyRow ? [bottleneckMonthlyRow] : [],
+    funnelBlockSelection.sources
+  );
+  const effectiveBlockSource = source !== "total" && availableBlockSources.includes(source) ? source : "total";
   const bottleneckSettingEntries = allSettingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
   const bottleneckClosingEntries = allClosingEntries.filter((entry) => inRange(entry.date, bottleneckMonth.range));
   const bottleneckCallSource = allCallSourcesByMonth[monthKey(bottleneckMonth.year, bottleneckMonth.month)];
@@ -279,6 +288,39 @@ async function renderDashboardPage({
     locale,
   });
   const dealPrice = resolveDealPrice(businessProfile, bottleneckClosingTotals, bottleneckCashContractedTotal);
+  const blockMetricValues = buildFunnelBlockMetricValues({
+    row: bottleneckMonthlyRow,
+    settingTotals: bottleneckSettingTotals,
+    closingTotals: bottleneckClosingTotals,
+    contentTotals: bottleneckContentTotals,
+    acquisitionTotals: bottleneckAcquisitionTotals,
+    hasSettingData: hasBottleneckSettingData,
+    hasClosingData: hasBottleneckClosingData,
+  });
+  const assembledBottleneck = buildFunnelBlockBottleneck({
+    selection: funnelBlockSelection,
+    catalog: funnelBlockCatalog,
+    row: bottleneckMonthlyRow,
+    benchmarks: funnelBlockBenchmarks,
+    metricValues: blockMetricValues,
+    source: effectiveBlockSource,
+    dealPrice: dealPrice.price,
+    revenue: hasBottleneckRevenueData ? bottleneckCashContractedTotal : null,
+    sales: hasBottleneckClosingData ? bottleneckClosingTotals.salesClosed : null,
+    catalogLabel: t("bottleneckFunnel.title"),
+  });
+  const localizedAssembledBottleneck = {
+    ...assembledBottleneck,
+    stages: assembledBottleneck.stages.map((stage) => ({
+      ...stage,
+      label: stage.metricKey && tFunnelMetric.has(`${stage.metricKey}.label`)
+        ? tFunnelMetric(`${stage.metricKey}.label`)
+        : stage.label,
+      unit: stage.metricKey && tFunnelMetric.has(`${stage.metricKey}.unit`)
+        ? tFunnelMetric(`${stage.metricKey}.unit`)
+        : stage.unit,
+    })),
+  };
   const adaptiveVariants: BottleneckFunnelVariant[] = activeFunnelEntries(acquisitionSelection, acquisitionCatalog).map((entry) =>
     buildAdaptiveFunnel({
       entry,
@@ -413,14 +455,16 @@ async function renderDashboardPage({
         </div>
       </div>
 
-      <FunnelSequenceOverview
-        selection={funnelBlockSelection}
-        catalog={funnelBlockCatalog}
-        benchmarks={funnelBlockBenchmarks}
-        currentRow={bottleneckMonthlyRow}
-        monthlyRows={allMonthlyRows}
-        source={source}
-      />
+      <div className="flex flex-col gap-2">
+        <FunnelSourceFilter
+          sources={funnelBlockSelection.sources}
+          availableSources={availableBlockSources}
+          value={effectiveBlockSource}
+          sourceHref="/business#acquisition"
+          showUnavailableHelp={false}
+        />
+        <BottleneckFunnel data={localizedAssembledBottleneck} />
+      </div>
 
       <TechnicalAlertsSection alerts={technicalAlerts} />
 

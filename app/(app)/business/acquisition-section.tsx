@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Route, PencilLine } from "lucide-react";
+import { ArrowDown, Route, PencilLine } from "lucide-react";
 
 import { computeSectionCompletion } from "@/lib/business/completion";
 import type { BusinessAcquisition, LeadMagnetType, Platform } from "@/lib/business/types";
@@ -49,6 +49,7 @@ export function AcquisitionSection({
 }) {
   const t = useTranslations("business.acquisition");
   const tSource = useTranslations("funnelBlocks.sources");
+  const tFamily = useTranslations("funnelBlocks.families");
   const tCatalog = useTranslations("funnelBlocks.catalog");
   const { schedule, status, error } = useDebouncedSave<BusinessAcquisition>((next) =>
     saveBusinessSection("acquisition", next)
@@ -133,17 +134,57 @@ export function AcquisitionSection({
             {t("editFunnel")}
           </Button>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {activeBlocks.map((entry) => (
-              <span key={entry.blockKey} className="rounded-full border border-accent bg-card px-3 py-1.5 text-xs font-bold text-accent-text">
-                {tCatalog.has(`${entry.blockKey}.label`) ? tCatalog(`${entry.blockKey}.label`) : entry.label}
-              </span>
-            ))}
-            {value.sources.map((source) => (
-              <span key={source} className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">
-                {tSource(source as FunnelSourceKey)}
-              </span>
-            ))}
+          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="rounded-xl border border-border bg-background p-4" aria-labelledby="business-journey-preview-title">
+              <p id="business-journey-preview-title" className="text-xs font-bold tracking-[0.08em] text-accent-text uppercase">
+                {t("journeyPreviewEyebrow")}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("journeyPreviewHelp")}</p>
+              <ol className="mt-4 flex flex-col gap-2">
+                {activeBlocks.map((entry, index) => {
+                  const label = tCatalog.has(`${entry.blockKey}.label`)
+                    ? tCatalog(`${entry.blockKey}.label`)
+                    : entry.label;
+                  const description = tCatalog.has(`${entry.blockKey}.description`)
+                    ? tCatalog(`${entry.blockKey}.description`)
+                    : entry.description;
+                  return (
+                    <li key={entry.blockKey} className="flex flex-col items-center gap-2">
+                      <div className="flex w-full items-start gap-3 rounded-[var(--radius-control)] border border-border bg-card p-3">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-text" aria-hidden="true">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-bold">{label}</p>
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground uppercase">
+                              {tFamily(entry.family)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+                          <p className="mt-2 text-[11px] font-bold text-accent-text">
+                            {t("stepCount", { count: entry.steps.length })}
+                          </p>
+                        </div>
+                      </div>
+                      {index < activeBlocks.length - 1 && <ArrowDown className="size-4 text-muted-foreground" aria-hidden="true" />}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">{t("sourcePreviewTitle")}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("sourcePreviewHelp")}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {value.sources.map((source) => (
+                  <span key={source} className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">
+                    {tSource(source as FunnelSourceKey)}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -339,7 +380,7 @@ export function AcquisitionSection({
       </div>
 
       <Dialog open={funnelEditorOpen} onOpenChange={setFunnelEditorOpen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-h-[calc(100vh-1rem)] max-w-5xl p-6 sm:p-8">
           <DialogTitle className="text-lg font-bold">{t("funnelEditorTitle")}</DialogTitle>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("funnelImpact")}</p>
           <div className="mt-5">
@@ -348,6 +389,7 @@ export function AcquisitionSection({
               initialBlocks={value.blocks}
               initialSources={value.sources}
               onSave={saveBlocks}
+              onCancel={() => setFunnelEditorOpen(false)}
             />
           </div>
         </DialogContent>
