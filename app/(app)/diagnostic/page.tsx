@@ -171,7 +171,7 @@ async function renderDiagnosticPage({
               diagnostic dit déjà "Optimise ce que tu fais déjà" en Section 1;
               garder le même mot ici pour un questionnaire qui sert à révéler
               des leviers non configurés créait une collision de nom. */}
-          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{t("discovery")}</h1>
+          <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{t("discoveryTab")}</h1>
           <Link href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
             {t("back")}
           </Link>

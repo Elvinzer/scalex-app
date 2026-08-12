@@ -1,6 +1,6 @@
 {
   "title": "Your diagnostic",
-  "discovery": "Discovery",
+  "discoveryTab": "Discovery",
   "back": "← Back to diagnostic",
   "noData": "Enter at least one month in My numbers to start your diagnostic.",
   "fillData": "Fill in My numbers →",

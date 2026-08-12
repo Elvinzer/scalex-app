@@ -1,6 +1,6 @@
 {
   "title": "Ton diagnostic",
-  "discovery": "Découverte",
+  "discoveryTab": "Découverte",
   "back": "← Retour au diagnostic",
   "noData": "Remplis au moins un mois dans Mes chiffres pour lancer ton diagnostic.",
   "fillData": "Remplir mes chiffres →",

@@ -152,8 +152,18 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
       {(anyConnected || calls.length > 0) && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KpiTile label={t("reservedCalls")} value={new Intl.NumberFormat(locale).format(reserved)} detail={t("periodDetail")} />
-          <KpiTile label={t("showRate")} value={pct(shown, shown + noShow)} tone="positive" />
-          <KpiTile label={t("closingRate")} value={pct(closed, closed + notClosed)} tone="accent2" />
+          <KpiTile
+            label={t("showRate")}
+            value={pct(shown, shown + noShow)}
+            tone="positive"
+            info={{ ariaLabel: t("showRateInfo"), content: t("showRateHelp") }}
+          />
+          <KpiTile
+            label={t("closingRate")}
+            value={pct(closed, closed + notClosed)}
+            tone="accent2"
+            info={{ ariaLabel: t("closingRateInfo"), content: t("closingRateHelp") }}
+          />
           <KpiTile label={t("cashCollected")} value={new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(cashCollected)} detail={t("periodDetail")} tone="positive" />
         </div>
       )}

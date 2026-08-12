@@ -24,6 +24,7 @@ SaaS BYOK qui diagnostique le goulot d'étranglement business d'un infopreneur U
 - `npm run dev` — lancer en local
 - `npm run typecheck` — auto-déclenché après chaque edit via hook (`.Codex/settings.json`) ; relancer manuellement si le hook est absent
 - `npm run lint` — avant chaque commit
+- `npm run test` — obligatoire avant de déclarer une tâche terminée ; inclut les contrôles de catalogues et de clés i18n
 
 ## Base de données — migrations UNIQUEMENT (jamais `db push`)
 Le schéma est géré par des fichiers de migration Drizzle, appliqués automatiquement
@@ -38,6 +39,7 @@ changement de `db/schema.ts` :
 ## Definition of Done
 Avant de dire qu'une tâche est terminée :
 - [ ] `npm run typecheck` et `npm run lint` passent
+- [ ] `npm run test` passe, y compris les tests i18n qui vérifient les clés brutes FR/EN, les doublons JSON et les clés réellement utilisées
 - [ ] Aucun secret dans le diff (clé API, `.env`, token Stripe/Supabase)
 - [ ] `.env.example` mis à jour si une nouvelle variable d'env a été ajoutée
 - [ ] Preview Vercel qui build sans erreur
@@ -90,6 +92,13 @@ Avant de dire qu'une tâche est terminée :
 - Ne jamais committer un JSON de locale invalide (vérifier qu'il parse) ni une clé dupliquée.
 - Avant de dire une tâche de wording terminée : `grep` la nouvelle clé dans les deux fichiers
   `en` et `fr` du namespace concerné pour confirmer qu'elle existe des deux côtés.
+
+## Tests obligatoires des traductions
+- Les tests doivent vérifier les fichiers JSON bruts avant le fallback français : le fallback ne doit jamais masquer une clé absente dans `en`.
+- Les tests doivent détecter les clés JSON dupliquées, car `JSON.parse` les écrase silencieusement.
+- Les tests doivent parcourir les appels littéraux à `getTranslations`/`useTranslations` et confirmer que chaque clé existe dans les deux catalogues.
+- Toute vérification runtime d'une UI traduite doit ouvrir les popovers, menus et états concernés et vérifier le texte visible. Un test de compilation ou un snapshot fermé ne suffit pas.
+- Une clé de traduction (`namespace.key`) visible dans le DOM est un échec, même si `typecheck`, `lint` et les tests unitaires passent.
 
 ## Design system (DA)
 - N'utiliser QUE les couleurs de la DA : tokens CSS (`--accent`, `--accent-2`, `--state-*`,
