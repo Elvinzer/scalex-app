@@ -126,6 +126,7 @@ export function DatasPageClient({
             <DrawerTitle className="text-base font-bold">{t("importNumbers")}</DrawerTitle>
             <ImportFlow
               source="datas"
+              allowPaste
               onCommitted={() => {
                 router.refresh();
                 setImportOpen(false);
