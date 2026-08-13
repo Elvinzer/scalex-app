@@ -11,13 +11,8 @@
     "pricing": "Tarifs",
     "useCases": "Pour qui",
     "resources": "Ressources",
-<<<<<<< HEAD
-    "diagnosticCta": "Diagnostiquer mon business",
-    "signIn": "Se connecter",
-=======
     "signIn": "Connexion",
     "diagnosticCta": "Diagnostic gratuit",
->>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "openMenu": "Ouvrir le menu",
     "closeMenu": "Fermer le menu",
     "home": "Accueil Minaly"
@@ -27,15 +22,9 @@
     "title": "Ton business grandit. Ton goulot d'étranglement se cache.",
     "accent": "Trouve-le. Corrige-le.",
     "description": "Minaly est le coach de scaling tout-en-un des coachs et infopreneurs. Il relie acquisition, ventes et delivery, trouve le frein qui te coûte le plus et te donne une action à exécuter cette semaine.",
-<<<<<<< HEAD
-    "primaryCta": "Commencer avec ton business",
-    "secondaryCta": "Voir comment ça marche",
-    "secondaryNote": "Une priorité claire pour la semaine, appuyée par tes données business.",
-=======
     "primaryCta": "Faire mon diagnostic gratuit",
     "secondaryCta": "Essayer 7 jours",
     "secondaryNote": "Carte requise · annulable à tout moment",
->>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "proof": "Une priorité claire pour la semaine, appuyée par tes données business",
     "mockupAlt": "Dashboard Minaly affichant un goulot d'étranglement business priorisé"
   },
@@ -191,16 +180,9 @@
   "finalCta": {
     "heading": "Donne un point de départ clair à ta prochaine décision de croissance",
     "description": "Pars des données que tu as déjà et repars avec une priorité à exécuter cette semaine.",
-<<<<<<< HEAD
-    "cta": "Commencer avec ton business",
-    "primaryCta": "Commencer avec ton business",
-    "secondaryCta": "Voir comment ça marche",
-    "secondaryNote": "Une priorité claire pour la semaine, appuyée par tes données business.",
-=======
     "primaryCta": "Faire mon diagnostic gratuit",
     "secondaryCta": "Essayer 7 jours",
     "secondaryNote": "Carte requise · annulable à tout moment",
->>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "falcoAlt": "Falco, l'assistant de coaching Minaly"
   },
   "footer": {
