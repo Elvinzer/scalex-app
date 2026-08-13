@@ -11,6 +11,7 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
+import { getInFlight } from "@/lib/perf/in-flight";
 import { measureAsync } from "@/lib/perf/timing";
 
 // The React `cache()` wrapper deduplicates calls inside one render. The
@@ -59,11 +60,21 @@ async function fetchDiagnosticKpiRawData(accountId: string) {
   });
 }
 
+type DiagnosticKpiRawData = Awaited<ReturnType<typeof fetchDiagnosticKpiRawData>>;
+
+// React's cache() is scoped to one render/request. A sidebar and a page can
+// still start the same large snapshot at the same time from separate route
+// requests. Share only the in-flight promise so concurrent requests do not fan
+// out into the same 14-query snapshot. The entry is removed as soon as it
+// settles, which avoids serving stale data after a mutation and keeps account
+// data isolated by the accountId key.
+const inFlightDiagnosticSnapshots = new Map<string, Promise<DiagnosticKpiRawData>>();
+
 // Keep the Map serializable inside the request-level memoized value. Unlike
 // `unstable_cache`, React `cache()` does not persist this potentially large
 // snapshot in Next's Data Cache.
 const getCachedDiagnosticKpiRawData = cache(async (accountId: string) => {
-  const snapshot = await fetchDiagnosticKpiRawData(accountId);
+  const snapshot = await getInFlight(inFlightDiagnosticSnapshots, accountId, () => fetchDiagnosticKpiRawData(accountId));
   return {
     ...snapshot,
     allVideoAttributionTotals: Array.from(snapshot.allVideoAttributionTotals.entries()),
@@ -142,4 +153,28 @@ function restoreDiagnosticDates(snapshot: CachedDiagnosticKpiRawData) {
 
 export const getDiagnosticKpiRawData = cache(async (accountId: string) => {
   return restoreDiagnosticDates(await getCachedDiagnosticKpiRawData(accountId));
+});
+
+export type ScaleScoreInputs = {
+  allSettingEntries: Awaited<ReturnType<typeof getSettingKpiEntries>>;
+  allClosingEntries: Awaited<ReturnType<typeof getClosingKpiEntries>>;
+  allMonthlyRows: Awaited<ReturnType<typeof getAllMonthlyMetrics>>;
+};
+
+async function fetchScaleScoreInputs(accountId: string): Promise<ScaleScoreInputs> {
+  return measureAsync("db.scale-score.inputs", async () => {
+    const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
+      measureAsync("db.scale-score.setting", () => getSettingKpiEntries(accountId)),
+      measureAsync("db.scale-score.closing", () => getClosingKpiEntries(accountId)),
+      measureAsync("db.scale-score.monthly", () => getAllMonthlyMetrics(accountId)),
+    ]);
+
+    return { allSettingEntries, allClosingEntries, allMonthlyRows };
+  });
+}
+
+const inFlightScaleScoreInputs = new Map<string, Promise<ScaleScoreInputs>>();
+
+export const getScaleScoreInputs = cache(async (accountId: string) => {
+  return getInFlight(inFlightScaleScoreInputs, accountId, () => fetchScaleScoreInputs(accountId));
 });

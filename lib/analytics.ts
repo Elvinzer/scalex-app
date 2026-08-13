@@ -5,17 +5,21 @@ import { PostHog } from "posthog-node";
 // per the analytics plan (reliability); see lib/analytics-client.ts for the
 // handful of purely client-driven events.
 //
-// captureImmediate/identifyImmediate (not the queued capture/identify) are
-// used deliberately: this app runs on serverless functions that can be
-// frozen/killed right after the response is sent, so a queued event with a
-// background flush timer could simply never be delivered.
+// The queued capture/identify methods are intentional here. Page views run in
+// Next.js `after()` callbacks and analytics must never hold the user response
+// open while PostHog retries a network request. The SDK still flushes queued
+// events while the runtime is warm, with bounded request/retry settings below.
 let client: PostHog | null = null;
 
 function getClient(): PostHog | null {
   const apiKey = process.env.POSTHOG_KEY;
   if (!apiKey) return null;
   if (!client) {
-    client = new PostHog(apiKey, { host: process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com" });
+    client = new PostHog(apiKey, {
+      host: process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com",
+      requestTimeout: 1000,
+      fetchRetryCount: 0,
+    });
   }
   return client;
 }
@@ -121,7 +125,7 @@ export async function track(
   try {
     const posthog = getClient();
     if (!posthog) return;
-    await posthog.captureImmediate({ distinctId, event, properties });
+    posthog.capture({ distinctId, event, properties });
   } catch (error) {
     console.error("PostHog track failed", event, error);
   }
@@ -131,7 +135,7 @@ export async function identifyUser(userId: string, properties: Record<string, un
   try {
     const posthog = getClient();
     if (!posthog) return;
-    await posthog.identifyImmediate({ distinctId: userId, properties });
+    posthog.identify({ distinctId: userId, properties });
   } catch (error) {
     console.error("PostHog identify failed", userId, error);
   }

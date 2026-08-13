@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
+import { getInFlight } from "@/lib/perf/in-flight";
 import type { PermissionKey } from "@/lib/team/permissions";
 
 export type AccountContext =
@@ -32,7 +33,7 @@ export type AccountContext =
 // lib/billing/plan-gate.ts's hasActiveTeamSubscription, for the couple of
 // call sites — /settings/equipe, /settings/facturation — that check the
 // subscription directly rather than through this function).
-export const getAccountContext = cache(async (userId: string): Promise<AccountContext | null> => {
+async function fetchAccountContext(userId: string): Promise<AccountContext | null> {
   const [[userRow], [membership]] = await Promise.all([
     db.select({ email: users.email, advancedModulesEnabled: users.advancedModulesEnabled }).from(users).where(eq(users.id, userId)).limit(1),
     db
@@ -78,6 +79,12 @@ export const getAccountContext = cache(async (userId: string): Promise<AccountCo
     permissions,
     advancedModulesEnabled: accountRow?.advancedModulesEnabled ?? false,
   };
+}
+
+const inFlightAccountContexts = new Map<string, Promise<AccountContext | null>>();
+
+export const getAccountContext = cache(async (userId: string): Promise<AccountContext | null> => {
+  return getInFlight(inFlightAccountContexts, userId, () => fetchAccountContext(userId));
 });
 
 // Used by every page/Server Action gated to a specific role-grantable

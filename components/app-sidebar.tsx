@@ -24,7 +24,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -190,7 +190,7 @@ function NavLink({
   return (
     <Link
       href={entry.href}
-      prefetch={true}
+      prefetch={false}
       className={cn(
         "flex min-h-11 min-w-0 cursor-pointer items-center gap-3 whitespace-normal break-words rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2",
         indented ? "pl-7 text-[13px] tracking-[-0.005em]" : "pl-3 text-[13.5px] tracking-[-0.01em]",
@@ -276,7 +276,7 @@ function PillarNavGroup({
               <Link
                 key={sub.href}
                 href={sub.href}
-                prefetch={true}
+                prefetch={false}
                 className={cn(
                   // pl-10 lines the label up under the parent's own label
                   // (pl-3 + size-4 icon + gap-3 = 40px).
@@ -445,61 +445,6 @@ export function AppSidebar({
   const mobileEntries = mobileNavEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
   const mobilePageTitle = mobileEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`));
 
-  // Warm a small set of likely destinations in the background. Link prefetch
-  // already handles visible links; warming every pillar subpage here would
-  // create a burst of expensive Server Component requests on every page.
-  // The rest remains hover/viewport-prefetched by Next's own scheduler.
-  const warmupRoutes = useMemo(() => {
-    const routes = new Set<string>();
-    const addEntry = (entry: LinkEntry, includeSubpages: boolean) => {
-      routes.add(entry.href);
-      if (!includeSubpages) return;
-      for (const subpage of PILLAR_SUBPAGES[entry.href] ?? []) {
-        if (isOwner || permissions.includes(subpage.permission)) routes.add(subpage.href);
-      }
-      if (entry.href === "/acquisition") {
-        for (const subpage of acquisitionSubpages) routes.add(subpage.href);
-      }
-    };
-
-    const visibleTopEntries = topEntries.filter((candidate) => isEntryVisible(candidate, isOwner, permissions));
-    const priorityHrefs = ["/dashboard", "/roadmap", "/diagnostic", "/datas", "/copilote"];
-    for (const href of priorityHrefs) {
-      const entry = visibleTopEntries.find((candidate) => candidate.href === href);
-      if (entry) addEntry(entry, false);
-    }
-
-    const currentPillar = visibleTopEntries.find(
-      (entry) => (entry.href === "/acquisition" || entry.href === "/ventes") && pathname.startsWith(entry.href),
-    );
-    if (currentPillar) addEntry(currentPillar, true);
-
-    if (isAdmin) routes.add(adminEntry.href);
-    return [...routes].slice(0, 8);
-  }, [acquisitionSubpages, isAdmin, isOwner, pathname, permissions]);
-
-  useEffect(() => {
-    const connection = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } }).connection;
-    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
-
-    let cancelled = false;
-    let timer: number | null = null;
-    let routeIndex = 0;
-
-    const warmNextRoute = () => {
-      if (cancelled || routeIndex >= warmupRoutes.length) return;
-      const route = warmupRoutes[routeIndex++];
-      router.prefetch(route);
-      timer = window.setTimeout(warmNextRoute, 120);
-    };
-
-    timer = window.setTimeout(warmNextRoute, 800);
-    return () => {
-      cancelled = true;
-      if (timer !== null) window.clearTimeout(timer);
-    };
-  }, [router, warmupRoutes]);
-
   return (
     <>
       {/* Mobile-only app chrome. On desktop the sidebar owns the complete
@@ -548,7 +493,7 @@ export function AppSidebar({
         {/* The taller brand area gives the wordmark breathing room above and
             below without changing the navigation item's touch targets. */}
         <div className="flex h-24 shrink-0 items-center px-3">
-          <Link href="/dashboard" prefetch={true} className="flex items-center transition-opacity hover:opacity-80">
+          <Link href="/dashboard" prefetch={false} className="flex items-center transition-opacity hover:opacity-80">
             <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} priority className="mt-5 mb-3 h-auto w-[140px] max-w-full object-contain object-left" />
           </Link>
         </div>
@@ -577,7 +522,7 @@ export function AppSidebar({
             <div className="px-3 pt-2">
               <Link
                 href={adminEntry.href}
-                prefetch={true}
+                prefetch={false}
                 className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/35 uppercase transition-colors hover:bg-mist/10 hover:text-mist/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
               >
                 <ShieldCheck className="size-3.5" />
@@ -624,7 +569,7 @@ export function AppSidebar({
             <Link
               key={entry.href}
               href={entry.href}
-              prefetch={true}
+              prefetch={false}
               aria-current={active ? "page" : undefined}
               className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-[10px] font-bold transition-colors", active ? (entry.href === "/copilote" ? "text-accent-2" : "text-accent") : "text-muted-foreground")}
             >

@@ -3,6 +3,7 @@ import { and, desc, eq, gte, inArray, like, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { insightRecords, instagramConnections, instagramPostInsights, metaAdAccounts, metaAdActionLogs, metaAdMetricCorrections, metaAdMetricsDaily, metaAdSets, metaAds, metaAdsConnections, metaAdTouchpoints, metaCampaignProfiles, metaCampaigns, nativeBookingLeads, sales, salesCalls } from "@/db/schema";
 import type { InsightDecision, InsightSnapshot } from "@/lib/insight-execution/types";
+import { getInFlight } from "@/lib/perf/in-flight";
 import { countUnattributedMetaSales, metaSalesCoverageRate, resolveMetaTouchpointCampaign } from "./attribution-resolution";
 import { META_MIN_CASH_ATTRIBUTION_COVERAGE, META_TOUCHPOINT_TTL_DAYS, comparisonMetaPeriod, metaAdsManagerUrl, normalizeMetaPeriodSelection, resolveMetaPeriod } from "./protocol";
 import { META_INSIGHT_THRESHOLDS } from "./thresholds";
@@ -425,7 +426,7 @@ function rawIsoDate(raw: MetaRawObject, keys: string[]): string | null {
   return null;
 }
 
-export async function getMetaAdsDashboard(accountId: string, requestedPeriod: unknown = 30): Promise<MetaAdsDashboard | null> {
+async function fetchMetaAdsDashboard(accountId: string, requestedPeriod: unknown): Promise<MetaAdsDashboard | null> {
   const [connection] = await db
     .select()
     .from(metaAdsConnections)
@@ -753,6 +754,17 @@ export async function getMetaAdsDashboard(accountId: string, requestedPeriod: un
       latestDate: latestByCampaign.get(campaign.externalId) ?? null,
     })),
   };
+}
+
+// The Ads list and campaign detail can render at the same time during a
+// navigation or a refresh. Share only the active read so those renders do not
+// each open the dashboard's twelve database queries. The promise is removed as
+// soon as it settles, so a later mutation or sync still gets fresh data.
+const inFlightMetaAdsDashboards = new Map<string, Promise<MetaAdsDashboard | null>>();
+
+export async function getMetaAdsDashboard(accountId: string, requestedPeriod: unknown = 30): Promise<MetaAdsDashboard | null> {
+  const periodKey = JSON.stringify(normalizeMetaPeriodSelection(requestedPeriod));
+  return getInFlight(inFlightMetaAdsDashboards, `${accountId}:${periodKey}`, () => fetchMetaAdsDashboard(accountId, requestedPeriod));
 }
 
 export async function getMetaCampaignDetail(accountId: string, campaignId: string, requestedPeriod: unknown = 30, dashboardOverride?: MetaAdsDashboard): Promise<MetaCampaignDetail | null> {

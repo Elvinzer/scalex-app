@@ -6,7 +6,7 @@ import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeScaleScore, describeScaleScoreGap } from "@/lib/diagnostic/scale-score";
 import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
-import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
+import { getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { activeFunnelRoutes } from "@/lib/acquisition-funnels/routes";
@@ -49,7 +49,7 @@ export async function AppSidebarWithScaleScore({
   let potentialMonthlyRevenue: number | null = null;
   const [acquisitionCatalog, scaleScoreInputs, benchmarks] = await Promise.all([
     getAcquisitionFunnelCatalog(),
-    canSeeScaleScore ? getDiagnosticKpiRawData(accountId) : Promise.resolve(null),
+    canSeeScaleScore ? getScaleScoreInputs(accountId) : Promise.resolve(null),
     canSeeScaleScore ? getDiagnosticBenchmarks(sector) : Promise.resolve(null),
   ]);
   const tAcquisition = await getTranslations("app.acquisition");

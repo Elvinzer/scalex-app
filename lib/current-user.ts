@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getAuthIdentity } from "@/lib/auth/request";
 import { track } from "@/lib/analytics";
+import { getInFlight } from "@/lib/perf/in-flight";
 import { getAccountContext } from "@/lib/team/context";
 import { captureReferralAttribution } from "@/lib/referrals/attribution";
 
@@ -26,9 +27,15 @@ import { captureReferralAttribution } from "@/lib/referrals/attribution";
 // Request-scoped row cache shared by the authenticated app chrome and the
 // page being opened. Both need the same account row before rendering useful
 // content, so keep one database read.
-export const getUserById = cache(async (userId: string) => {
+async function fetchUserById(userId: string) {
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   return user;
+}
+
+const inFlightUsers = new Map<string, Promise<Awaited<ReturnType<typeof fetchUserById>>>>();
+
+export const getUserById = cache(async (userId: string) => {
+  return getInFlight(inFlightUsers, userId, () => fetchUserById(userId));
 });
 
 export const getCurrentUser = cache(async () => {
