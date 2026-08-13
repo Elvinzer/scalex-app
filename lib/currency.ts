@@ -17,7 +17,7 @@ const USD_FORMAT = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
-// Scale X's own subscription pricing (what the infopreneur pays Scale X) is
+// Minaly's own subscription pricing (what the infopreneur pays Minaly) is
 // USD, matching the marketing pricing tiers — unlike formatEur above, which
 // is the infopreneur's OWN business numbers (their US customers, but their
 // dashboard is denominated in euros). Takes cents (subscriptionPlans.priceMonthlyCents).

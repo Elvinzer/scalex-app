@@ -27,7 +27,7 @@ export function MetaEntityAction({ entityType, entityId, campaignId, status, dee
   const [message, setMessage] = useState<string | null>(null);
   const [resultLink, setResultLink] = useState<string | null>(null);
   const [writeAccessRequired, setWriteAccessRequired] = useState(false);
-  const storageKey = `scale-x-meta-entity-action:${entityType}:${entityId}`;
+  const storageKey = `minaly-meta-entity-action:${entityType}:${entityId}`;
   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     try {

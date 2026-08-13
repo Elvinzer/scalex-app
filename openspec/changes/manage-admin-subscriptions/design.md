@@ -1,8 +1,8 @@
 ## Context
 
-Le produit utilise `users.id` comme identité du compte propriétaire ; les membres d'équipe sont des délégations rattachées à ce compte. La facturation Scale X est séparée de Stripe Connect : `subscription_plans` contient le catalogue et `subscriptions` projette un seul abonnement par compte, tandis que Stripe conserve la vérité financière. Le webhook de facturation vérifie déjà la signature et déduplique les événements. L'accès fondateur repose sur `ADMIN_EMAILS` et les actions admin doivent refaire leur contrôle via `requireAdmin`.
+Le produit utilise `users.id` comme identité du compte propriétaire ; les membres d'équipe sont des délégations rattachées à ce compte. La facturation Minaly est séparée de Stripe Connect : `subscription_plans` contient le catalogue et `subscriptions` projette un seul abonnement par compte, tandis que Stripe conserve la vérité financière. Le webhook de facturation vérifie déjà la signature et déduplique les événements. L'accès fondateur repose sur `ADMIN_EMAILS` et les actions admin doivent refaire leur contrôle via `requireAdmin`.
 
-La page `/settings/facturation` et le Billing Portal couvrent le parcours du client. La nouvelle surface est donc une console opérateur, pas un second espace de paiement. L'UI doit reprendre les tokens Scale X existants ; les recommandations génériques de dashboard dense servent uniquement à la hiérarchie et aux interactions.
+La page `/settings/facturation` et le Billing Portal couvrent le parcours du client. La nouvelle surface est donc une console opérateur, pas un second espace de paiement. L'UI doit reprendre les tokens Minaly existants ; les recommandations génériques de dashboard dense servent uniquement à la hiérarchie et aux interactions.
 
 ## Goals / Non-Goals
 
@@ -44,7 +44,7 @@ La migration est additive. Les lignes existantes ne sont pas inventées ni migr�
 
 Les actions locales ne modifient pas le cycle de vie Stripe. L'admin peut ouvrir le contexte Stripe, générer un portail client ou réconcilier la projection. Toute mutation financière reste dans Stripe, où les règles de prorata, de relance et d'autorisation existent déjà.
 
-Alternative écartée : ajouter immédiatement annulation et changement de plan dans Scale X. Cela exigerait une politique de prorata, une journalisation d'audit, une gestion des erreurs partielles et des tests idempotents plus larges que le besoin V1.
+Alternative écartée : ajouter immédiatement annulation et changement de plan dans Minaly. Cela exigerait une politique de prorata, une journalisation d'audit, une gestion des erreurs partielles et des tests idempotents plus larges que le besoin V1.
 
 ### 5. Actions serveur protégées et re-exécutables
 

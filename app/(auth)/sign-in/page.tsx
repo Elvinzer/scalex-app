@@ -15,7 +15,7 @@ import { getRequestLocale } from "@/lib/i18n/locale";
 import { SignInForm } from "./sign-in-form";
 
 export const metadata: Metadata = {
-  title: "Sign in to Scale X",
+  title: "Sign in to Minaly",
 };
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {

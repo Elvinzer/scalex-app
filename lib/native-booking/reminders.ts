@@ -188,10 +188,10 @@ export async function deliverNativeBookingReminder(deliveryId: string) {
       const renderedMessage = renderReminderMessage(row.rule.message, context);
       const management = context.managementUrl ? `Gérer mon rendez-vous : ${context.managementUrl}` : "";
       await getResendClient().emails.send({
-        from: process.env.RESEND_FROM_EMAIL ?? "Scale X <hello@scalex.app>",
+        from: process.env.RESEND_FROM_EMAIL ?? "Minaly <hello@minaly.io>",
         to: row.booking.email,
         subject: renderedSubject,
-        text: [`Bonjour ${row.booking.firstName},`, "", renderedMessage, context.meetingUrl ? `Lien de réunion : ${context.meetingUrl}` : "", management, "", "Scale X"].filter(Boolean).join("\n"),
+        text: [`Bonjour ${row.booking.firstName},`, "", renderedMessage, context.meetingUrl ? `Lien de réunion : ${context.meetingUrl}` : "", management, "", "Minaly"].filter(Boolean).join("\n"),
       });
     }
     await db.update(nativeBookingReminderDeliveries).set({ status: "sent", sentAt: new Date(), lastError: null, updatedAt: new Date() }).where(eq(nativeBookingReminderDeliveries.id, deliveryId));

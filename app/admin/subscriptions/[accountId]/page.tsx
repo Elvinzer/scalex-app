@@ -111,7 +111,7 @@ export default async function AdminSubscriptionDetailPage({ params }: AdminSubsc
             ) : (
               <div className="mt-5 rounded-[var(--radius-control)] border border-dashed border-border p-5">
                 <p className="font-bold">Aucune projection d’abonnement</p>
-                <p className="mt-1 text-sm text-muted-foreground">Ce compte n’a pas encore d’abonnement Stripe enregistré côté Scale X.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Ce compte n’a pas encore d’abonnement Stripe enregistré côté Minaly.</p>
               </div>
             )}
 
@@ -160,7 +160,7 @@ export default async function AdminSubscriptionDetailPage({ params }: AdminSubsc
           <section className="sticker-card p-5 sm:p-6" aria-labelledby="admin-actions-title">
             <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Opérations contrôlées</p>
             <h2 id="admin-actions-title" className="mt-1 text-lg font-bold">Actions Stripe</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Les changements financiers restent exécutés dans Stripe. Scale X ne fait ici que consulter ou réconcilier.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Les changements financiers restent exécutés dans Stripe. Minaly ne fait ici que consulter ou réconcilier.</p>
             <div className="mt-5">
               <SubscriptionActions accountId={detail.accountId} hasStripeSubscription={Boolean(subscription?.stripeSubscriptionId)} hasStripeCustomer={Boolean(detail.stripeCustomerId)} />
             </div>

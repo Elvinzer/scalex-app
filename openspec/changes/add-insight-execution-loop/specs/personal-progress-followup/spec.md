@@ -1,6 +1,6 @@
 ## Purpose
 
-Cette capacité rend l’amélioration visible et motivante à l’échelle d’un utilisateur, puis permet à Falco de relancer une priorité réelle sans transformer Scale X en jeu vidéo ou en système de notifications intrusif.
+Cette capacité rend l’amélioration visible et motivante à l’échelle d’un utilisateur, puis permet à Falco de relancer une priorité réelle sans transformer Minaly en jeu vidéo ou en système de notifications intrusif.
 
 ## ADDED Requirements
 
@@ -16,11 +16,11 @@ Le système SHALL afficher une progression personnelle fondée sur les transitio
 #### Scenario: Personal comparison is available
 
 - **WHEN** l’utilisateur ouvre son historique de progression
-- **THEN** Scale X compare sa semaine courante à ses semaines précédentes avec des volumes d’actions et de résultats, sans comparer publiquement son compte à un autre compte
+- **THEN** Minaly compare sa semaine courante à ses semaines précédentes avec des volumes d’actions et de résultats, sans comparer publiquement son compte à un autre compte
 
 ### Requirement: The product celebrates milestones without artificial scoring
 
-Scale X SHALL pouvoir célébrer de manière discrète les premiers jalons significatifs, notamment le premier insight lancé, la première action terminée et le premier résultat mesuré. Cette tranche SHALL ne SHALL pas introduire de points, de monnaie virtuelle, de niveau obligatoire ou de leaderboard inter-comptes.
+Minaly SHALL pouvoir célébrer de manière discrète les premiers jalons significatifs, notamment le premier insight lancé, la première action terminée et le premier résultat mesuré. Cette tranche SHALL ne SHALL pas introduire de points, de monnaie virtuelle, de niveau obligatoire ou de leaderboard inter-comptes.
 
 #### Scenario: First measured result gets a celebration
 
@@ -30,7 +30,7 @@ Scale X SHALL pouvoir célébrer de manière discrète les premiers jalons signi
 #### Scenario: No reward for empty activity
 
 - **WHEN** l’utilisateur ouvre plusieurs fois le Dashboard sans lancer ou terminer une initiative
-- **THEN** sa progression business ne change pas et Scale X ne déclenche pas de récompense artificielle
+- **THEN** sa progression business ne change pas et Minaly ne déclenche pas de récompense artificielle
 
 ### Requirement: Falco follows up on unfinished initiatives contextually
 
@@ -53,7 +53,7 @@ Le système SHALL limiter les relances à une par initiative et par fenêtre heb
 #### Scenario: Weekly job reruns safely
 
 - **WHEN** le job de briefing est rejoué pour la même semaine
-- **THEN** Scale X conserve un seul rappel par initiative et ne génère pas de doublon d’événement ou d’email
+- **THEN** Minaly conserve un seul rappel par initiative et ne génère pas de doublon d’événement ou d’email
 
 #### Scenario: Measured result suppresses future follow-up
 

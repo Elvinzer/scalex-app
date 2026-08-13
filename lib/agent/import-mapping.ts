@@ -31,7 +31,7 @@ clientName, clientEmail, sourceChannel, totalPrice (euros), paymentType (one_sho
 
 `;
 
-const SYSTEM_PROMPT = `Tu es l'agent d'import de données de Scale X, un SaaS pour infopreneurs.
+const SYSTEM_PROMPT = `Tu es l'agent d'import de données de Minaly, un SaaS pour infopreneurs.
 On te donne UNE feuille/fichier (tableau ou texte extrait) à la fois et tu dois la mapper vers les champs existants de l'app via l'outil map_columns.
 
 Règles absolues, non négociables :
@@ -59,7 +59,7 @@ ${FIELD_DEFINITIONS}`;
 // difference between "omitted" and "explicitly null".
 const MAP_COLUMNS_TOOL: Anthropic.Tool = {
   name: "map_columns",
-  description: "Retourne le mapping des colonnes d'une feuille vers les champs cibles de Scale X.",
+  description: "Retourne le mapping des colonnes d'une feuille vers les champs cibles de Minaly.",
   input_schema: {
     type: "object",
     properties: {

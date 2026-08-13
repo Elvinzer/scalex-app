@@ -112,7 +112,7 @@ describe("Stripe subscription projection parser", () => {
     })).toBeNull();
   });
 
-  it("rejects a subscription without Scale X ownership metadata", () => {
+  it("rejects a subscription without Minaly ownership metadata", () => {
     expect(
       parseStripeSubscription({
         id: "sub_unrelated",

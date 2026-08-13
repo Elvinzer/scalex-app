@@ -2,10 +2,10 @@ import Stripe from "stripe";
 
 import { requireEnv } from "@/lib/utils";
 
-// Scale X's OWN Stripe account — billing the infopreneur for their Scale X
+// Minaly's OWN Stripe account — billing the infopreneur for their Minaly
 // subscription. Full SDK access is safe here (unlike
 // lib/stripe/read-only-client.ts, which deliberately restricts a connected
-// CLIENT's token to list/retrieve): this key is Scale X's own platform
+// CLIENT's token to list/retrieve): this key is Minaly's own platform
 // secret key, the same one already used for the Connect OAuth token
 // exchange in app/api/stripe/callback/route.ts — Stripe doesn't issue a
 // separate "OAuth client secret" distinct from the platform's normal secret

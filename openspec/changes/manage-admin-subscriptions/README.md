@@ -1,3 +1,3 @@
 # manage-admin-subscriptions
 
-Console fondateurs Scale X pour piloter les abonnements clients
+Console fondateurs Minaly pour piloter les abonnements clients

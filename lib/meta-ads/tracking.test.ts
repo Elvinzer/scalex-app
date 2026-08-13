@@ -25,14 +25,14 @@ describe("Meta tracking extraction", () => {
       readMetaTracking({
         metadata: {
           utm_source: "meta",
-          utm_campaign: "scale-x-vsl",
+          utm_campaign: "minaly-vsl",
           sx_mt: token,
         },
       }),
     ).toEqual({
       utmSource: "meta",
       utmMedium: null,
-      utmCampaign: "scale-x-vsl",
+      utmCampaign: "minaly-vsl",
       utmContent: null,
       utmTerm: null,
       metaTouchpointToken: token,

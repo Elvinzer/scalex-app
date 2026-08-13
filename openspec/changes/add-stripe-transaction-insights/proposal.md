@@ -5,7 +5,7 @@ Le suivi des ventes réconcilie déjà les paiements Stripe avec les deals, mais
 ## What Changes
 
 - Conserver `sales` comme source de vérité du deal et ajouter une projection transactionnelle Stripe account-scoped, idempotente par compte Connect et identifiant Stripe.
-- Synchroniser les charges, remboursements, échecs, abonnements et clients nécessaires à l'analyse, sans lire le Stripe Billing de Scale X.
+- Synchroniser les charges, remboursements, échecs, abonnements et clients nécessaires à l'analyse, sans lire le Stripe Billing de Minaly.
 - Calculer en code les métriques et signaux d'insight : évolution du CA, transactions, remboursements, échecs, montant à risque, récurrence, clients récurrents et concentration.
 - Gérer explicitement les devises : aucune somme inter-devises ni conversion FX implicite ; la devise dominante est sélectionnée ou les données sont présentées séparément.
 - Ajouter une synchronisation ré-exécutable après connexion et un rafraîchissement manuel ou planifié, avec état de fraîcheur visible.

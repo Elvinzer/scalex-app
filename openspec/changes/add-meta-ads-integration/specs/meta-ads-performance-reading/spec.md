@@ -11,7 +11,7 @@ Le système SHALL afficher dans le module Ads uniquement les campagnes synchroni
 #### Scenario: User opens the Ads module
 
 - **WHEN** l'utilisateur consulte `/acquisition/ads`
-- **THEN** Scale X affiche les campagnes Meta synchronisées et ne rend visible aucun formulaire ou tableau de suivi manuel complémentaire
+- **THEN** Minaly affiche les campagnes Meta synchronisées et ne rend visible aucun formulaire ou tableau de suivi manuel complémentaire
 
 #### Scenario: User imports a file containing ad campaigns
 
@@ -20,7 +20,7 @@ Le système SHALL afficher dans le module Ads uniquement les campagnes synchroni
 
 ### Requirement: Every metric carries a three-axis provenance
 
-Le système SHALL qualifier chaque métrique exposée sur trois axes indépendants : `source` (`meta`, `stripe`, `calendly`, `iclosed`, `instagram`, `scalex`), `calculation` (`brute`, `derivee`) et `attribution` (`directe`, `jointe`, `estimee`, `non_rattachee`, `indisponible`). Le libellé affiché SHALL être dérivé de ce triplet et SHALL ne jamais être transmis par la couleur seule.
+Le système SHALL qualifier chaque métrique exposée sur trois axes indépendants : `source` (`meta`, `stripe`, `calendly`, `iclosed`, `instagram`, `minaly`), `calculation` (`brute`, `derivee`) et `attribution` (`directe`, `jointe`, `estimee`, `non_rattachee`, `indisponible`). Le libellé affiché SHALL être dérivé de ce triplet et SHALL ne jamais être transmis par la couleur seule.
 
 #### Scenario: A Meta-provided metric is displayed
 
@@ -44,12 +44,12 @@ Le système SHALL afficher `—` accompagné du motif lorsqu'une métrique n'est
 #### Scenario: Not enough data for a reliable reading
 
 - **WHEN** la période analysée ne contient pas assez de volume
-- **THEN** Scale X affiche le compte connecté, la période, l'absence de données exploitables et n'affiche aucun KPI à zéro
+- **THEN** Minaly affiche le compte connecté, la période, l'absence de données exploitables et n'affiche aucun KPI à zéro
 
 #### Scenario: A metric does not exist for this campaign type
 
 - **WHEN** un coût par lead est demandé sur une campagne de croissance Instagram
-- **THEN** Scale X affiche `—` avec le motif, et non une valeur nulle
+- **THEN** Minaly affiche `—` avec le motif, et non une valeur nulle
 
 ### Requirement: Funnel steps without a connected source are unavailable, not estimated
 
@@ -72,7 +72,7 @@ Le système SHALL calculer la fenêtre de consolidation de chaque série à part
 #### Scenario: User reads a period overlapping the window
 
 - **WHEN** la période sélectionnée inclut des jours non consolidés
-- **THEN** Scale X indique jusqu'à quelle date les chiffres sont définitifs et signale que les jours suivants peuvent évoluer
+- **THEN** Minaly indique jusqu'à quelle date les chiffres sont définitifs et signale que les jours suivants peuvent évoluer
 
 #### Scenario: A consolidated day changes retroactively
 
@@ -86,7 +86,7 @@ Le système SHALL demander à l'utilisateur de choisir explicitement un seul typ
 #### Scenario: Campaign has not been configured
 
 - **WHEN** une campagne vient d'être synchronisée sans configuration utilisateur
-- **THEN** Scale X affiche `Type à définir`, propose les quatre choix explicites et n'affiche aucun funnel ou insight spécialisé
+- **THEN** Minaly affiche `Type à définir`, propose les quatre choix explicites et n'affiche aucun funnel ou insight spécialisé
 
 #### Scenario: User configures the campaign type
 
@@ -95,12 +95,12 @@ Le système SHALL demander à l'utilisateur de choisir explicitement un seul typ
 
 ### Requirement: VSL and webinar conversion goals are explicit
 
-Le système SHALL demander, pour une campagne VSL ou Webinaire, un objectif de conversion parmi Appel et Vente. Il SHALL refuser une configuration incomplète ou un objectif de conversion associé à Trafic Instagram ou Retargeting. Cet objectif SHALL piloter le libellé et la dernière étape du funnel ; la valeur SHALL provenir de l'attribution Scale X et rester indisponible si cette source n'est pas couverte.
+Le système SHALL demander, pour une campagne VSL ou Webinaire, un objectif de conversion parmi Appel et Vente. Il SHALL refuser une configuration incomplète ou un objectif de conversion associé à Trafic Instagram ou Retargeting. Cet objectif SHALL piloter le libellé et la dernière étape du funnel ; la valeur SHALL provenir de l'attribution Minaly et rester indisponible si cette source n'est pas couverte.
 
 #### Scenario: A VSL tracks booked calls
 
 - **WHEN** l'utilisateur configure une VSL avec l'objectif Appel
-- **THEN** le funnel affiche les appels réservés comme conversion business, avec la provenance Scale X et `—` si l'attribution est indisponible
+- **THEN** le funnel affiche les appels réservés comme conversion business, avec la provenance Minaly et `—` si l'attribution est indisponible
 
 #### Scenario: A webinar tracks sales
 
@@ -141,4 +141,4 @@ Le système SHALL avertir lorsqu'une audience est trop petite pour conclure, sat
 #### Scenario: Frequency crosses the saturation threshold
 
 - **WHEN** la fréquence d'une audience dépasse le seuil configuré sur la période
-- **THEN** Scale X affiche l'avertissement, la valeur mesurée et le seuil utilisé
+- **THEN** Minaly affiche l'avertissement, la valeur mesurée et le seuil utilisé

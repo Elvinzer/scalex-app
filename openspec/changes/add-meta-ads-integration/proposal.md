@@ -1,8 +1,8 @@
 ## Why
 
-Scale X lit déjà Stripe, Calendly, iClosed, Instagram et YouTube, mais l'acquisition payante n'a pas encore de source fiable dans `/acquisition/ads`. L'utilisateur ne peut ni voir où son budget publicitaire se perd, ni relier une dépense Meta au cash réellement encaissé, ni décider quoi corriger en premier.
+Minaly lit déjà Stripe, Calendly, iClosed, Instagram et YouTube, mais l'acquisition payante n'a pas encore de source fiable dans `/acquisition/ads`. L'utilisateur ne peut ni voir où son budget publicitaire se perd, ni relier une dépense Meta au cash réellement encaissé, ni décider quoi corriger en premier.
 
-Cette change connecte Meta Ads en lecture, produit des recommandations orientées décision, et autorise un nombre volontairement réduit d'écritures — toujours derrière une confirmation explicite. Scale X n'est pas un clone du gestionnaire de publicités Meta.
+Cette change connecte Meta Ads en lecture, produit des recommandations orientées décision, et autorise un nombre volontairement réduit d'écritures — toujours derrière une confirmation explicite. Minaly n'est pas un clone du gestionnaire de publicités Meta.
 
 ## What Changes
 
@@ -17,7 +17,7 @@ Cette change connecte Meta Ads en lecture, produit des recommandations orientée
 - Adopter un insight dans le Journal via `launchInsight`, sans aucune écriture dans Meta.
 - Appliquer trois actions seulement — pause, réactivation, budget quotidien borné — via un flux proposition → confirmation → résultat, avec journal d'audit.
 - Construire les deep-links `Ouvrir dans Meta Ads` côté serveur, au bon niveau d'objet, avec repli sur le compte.
-- Paramétrer les cibles business. Sans cible, Scale X compare à l'historique et n'émet aucun jugement absolu.
+- Paramétrer les cibles business. Sans cible, Minaly compare à l'historique et n'émet aucun jugement absolu.
 - Faire de Meta Ads l'unique source de campagnes dans le module Ads : le suivi complémentaire, la création manuelle et l'import manuel de campagnes sont retirés de l'interface et des flux d'écriture. Les anciennes lignes restent conservées en base comme historique non affiché.
 
 ## Non-goals
@@ -26,7 +26,7 @@ Cette change connecte Meta Ads en lecture, produit des recommandations orientée
 - Saisie, édition, suppression ou import de campagnes publicitaires hors Meta Ads.
 - Tout clone du gestionnaire de publicités Meta.
 - Toute exécution automatique sans confirmation utilisateur.
-- Toute reconstruction d'un modèle d'attribution multi-touch : Scale X rattache ou ne rattache pas, il ne pondère pas.
+- Toute reconstruction d'un modèle d'attribution multi-touch : Minaly rattache ou ne rattache pas, il ne pondère pas.
 
 ## Capabilities
 

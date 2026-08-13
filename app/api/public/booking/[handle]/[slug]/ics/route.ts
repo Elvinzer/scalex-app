@@ -41,7 +41,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!row) return NextResponse.json({ error: "Ce lien de calendrier n’est plus valide." }, { status: 404 });
 
   const ics = createNativeBookingIcs({
-    uid: `native-booking-${row.booking.id}@scalex.app`,
+    uid: `native-booking-${row.booking.id}@minaly.io`,
     startAt: row.booking.startAt,
     endAt: row.booking.endAt,
     title: row.event.meetingLabel,
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     status: 200,
     headers: {
       "content-type": "text/calendar; charset=utf-8",
-      "content-disposition": 'attachment; filename="scale-x-rendez-vous.ics"',
+      "content-disposition": 'attachment; filename="minaly-rendez-vous.ics"',
       "cache-control": "private, no-store",
     },
   });

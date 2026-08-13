@@ -1,6 +1,6 @@
 ## Purpose
 
-Donner aux fondateurs Scale X une vue opérationnelle fiable de chaque compte client, de son abonnement, de ses droits et de son usage sans devoir parcourir Stripe ou les réglages d'un compte.
+Donner aux fondateurs Minaly une vue opérationnelle fiable de chaque compte client, de son abonnement, de ses droits et de son usage sans devoir parcourir Stripe ou les réglages d'un compte.
 
 ## ADDED Requirements
 

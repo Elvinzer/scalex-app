@@ -5,7 +5,7 @@ Cette capacité relie les calendriers Google et Outlook des closers aux événem
 ## Requirements
 ### Requirement: Calendar connection per closer
 
-Le système SHALL permettre à un closer autorisé de connecter un compte Google ou Outlook distinct de ses autres connexions Scale X. Il SHALL afficher l’état de la connexion, les erreurs de synchronisation et une action de reconnexion ou de déconnexion.
+Le système SHALL permettre à un closer autorisé de connecter un compte Google ou Outlook distinct de ses autres connexions Minaly. Il SHALL afficher l’état de la connexion, les erreurs de synchronisation et une action de reconnexion ou de déconnexion.
 
 #### Scenario: Closer connects a supported calendar provider
 
@@ -41,10 +41,10 @@ Si le calendrier ne peut pas être lu ou si l’événement externe ne peut pas 
 
 ### Requirement: Cancellation and rescheduling stay synchronized
 
-Lorsqu’un rendez-vous natif est annulé ou déplacé via Scale X, le système SHALL mettre à jour ou annuler l’événement externe correspondant lorsque le fournisseur le permet. Les erreurs SHALL être signalées sans perdre l’état interne du rendez-vous.
+Lorsqu’un rendez-vous natif est annulé ou déplacé via Minaly, le système SHALL mettre à jour ou annuler l’événement externe correspondant lorsque le fournisseur le permet. Les erreurs SHALL être signalées sans perdre l’état interne du rendez-vous.
 
 #### Scenario: Native cancellation removes the external event
 
-- **WHEN** un rendez-vous confirmé est annulé depuis Scale X
+- **WHEN** un rendez-vous confirmé est annulé depuis Minaly
 - **THEN** l’événement externe est annulé ou marqué comme annulé et le créneau redevient disponible selon les règles de l’événement
 

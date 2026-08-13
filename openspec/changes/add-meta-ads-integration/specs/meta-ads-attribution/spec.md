@@ -44,7 +44,7 @@ Le système SHALL exposer le niveau de rattachement atteint parmi `ad`, `adset`,
 #### Scenario: Partially instrumented account
 
 - **WHEN** seule une partie des formulaires transporte le touchpoint
-- **THEN** Scale X affiche la part rattachée par niveau, et indique ce qu'il faut instrumenter pour l'améliorer
+- **THEN** Minaly affiche la part rattachée par niveau, et indique ce qu'il faut instrumenter pour l'améliorer
 
 ### Requirement: Cash-dependent readings are gated by coverage
 

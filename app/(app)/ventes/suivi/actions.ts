@@ -158,7 +158,7 @@ export async function setInstallmentStatus(
 }
 
 // "Marquer comme traité" on a failed installment — an acknowledgement that
-// the owner has followed up with the client directly (Scale X never writes
+// the owner has followed up with the client directly (Minaly never writes
 // to the client's connected Stripe account, see lib/stripe/read-only-client.ts).
 // Does NOT change the installment's status: it stays "failed" until a real
 // payment (webhook/resync) or a manual override says otherwise.

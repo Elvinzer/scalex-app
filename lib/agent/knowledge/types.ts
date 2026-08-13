@@ -16,7 +16,7 @@ export type Question = {
   options: QuestionOption[];
 };
 
-// Curated by the Scale X team, not the model — `when` is evaluated in code
+// Curated by the Minaly team, not the model — `when` is evaluated in code
 // against the user's answers, and only the matching rules' cause/guidance
 // text is handed to Claude as context. The model synthesizes the final
 // wording, it never invents a cause or a number itself.

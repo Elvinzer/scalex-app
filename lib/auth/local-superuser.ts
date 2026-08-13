@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const LOCAL_SUPERUSER_COOKIE = "scalex_local_superuser";
+export const LOCAL_SUPERUSER_COOKIE = "minaly_local_superuser";
 export const LOCAL_SUPERUSER_COOKIE_VALUE = "enabled";
 
 const localSuperuserConfigSchema = z.object({

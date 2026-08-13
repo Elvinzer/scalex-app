@@ -30,8 +30,8 @@ dans un dashboard externe (pas du code, donc rien que `git log` ne peut retrouve
 - [ ] URI de redirection OAuth Connect mise à jour côté Stripe avec le domaine de prod
 
 ## 4. Programme de parrainage
-- [ ] Dans l'admin Scale X (`/admin/referrals`), activer le programme et définir le taux global
-- [ ] Dans l'admin Scale X (`/admin/referrals`), vérifier les overrides par compte et le taux effectif
+- [ ] Dans l'admin Minaly (`/admin/referrals`), activer le programme et définir le taux global
+- [ ] Dans l'admin Minaly (`/admin/referrals`), vérifier les overrides par compte et le taux effectif
 - [ ] Dans l'espace utilisateur (`/parrainage`), créer un code de test et vérifier le lien `/r/<code>`
 - [ ] Dans le compte Stripe **plateforme** (pas Stripe Connect), créer un endpoint webhook vers
       `https://<domaine-prod>/api/webhooks/stripe-billing`
@@ -58,7 +58,7 @@ avec des valeurs différentes de dev pour celles qui ne doivent jamais être par
 - [ ] `ENCRYPTION_KEY` — valeur unique prod, jamais celle de dev
 - [ ] `UNSUBSCRIBE_TOKEN_SECRET` — valeur unique prod
 - [ ] `ADMIN_EMAILS` — liste à jour
-- [ ] `APP_URL` — URL absolue du domaine de prod, sans slash final
+- [ ] `APP_URL` et `NEXT_PUBLIC_APP_URL` — `https://www.minaly.io`, sans slash final
 - [ ] Reste des variables (`NEXT_PUBLIC_SUPABASE_*`, `DATABASE_URL`, `DIRECT_URL`,
       `ANTHROPIC_SHARED_API_KEY`, `GROQ_API_KEY`, `POSTHOG_*`) présentes et pointées sur les
       bonnes ressources prod

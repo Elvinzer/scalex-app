@@ -1,12 +1,12 @@
 ## Why
 
-Scale X doit pouvoir récupérer des appels de vente sans dépendre exclusivement d’iClosed ou de Calendly. Une expérience native permettra aux utilisateurs de publier des liens de réservation, de contrôler leurs disponibilités et closers, puis de rattacher chaque rendez-vous à sa source marketing tout en conservant les règles métier de suivi des ventes.
+Minaly doit pouvoir récupérer des appels de vente sans dépendre exclusivement d’iClosed ou de Calendly. Une expérience native permettra aux utilisateurs de publier des liens de réservation, de contrôler leurs disponibilités et closers, puis de rattacher chaque rendez-vous à sa source marketing tout en conservant les règles métier de suivi des ventes.
 
 Le parcours public doit aussi qualifier le prospect avant de révéler les créneaux, comme le parcours iClosed observé dans le screenshot fourni, afin de sécuriser les coordonnées et d’éviter les réservations multiples. Les coordonnées saisies avant un abandon doivent rester exploitables par l’équipe commerciale pour relancer une intention chaude.
 
 ## What Changes
 
-- Ajouter la création et la gestion d’événements de réservation natifs dans Scale X.
+- Ajouter la création et la gestion d’événements de réservation natifs dans Minaly.
 - Permettre des disponibilités hebdomadaires, des exceptions par date, une mise en pause rapide et un fuseau horaire propre à chaque événement.
 - Limiter le plan le moins cher à un événement ; rendre la création d’événements illimitée à partir du niveau d’abonnement supérieur, avec des entitlements administrables depuis `/admin/plans`.
 - Permettre d’associer plusieurs closers à un événement et d’attribuer les réservations en round robin.

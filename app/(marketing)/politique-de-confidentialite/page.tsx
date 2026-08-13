@@ -7,17 +7,17 @@ import { SiteHeader } from "../site-header";
 import { getPublicSiteUrl, toJsonLd } from "@/lib/seo/site";
 
 const LAST_UPDATED = "4 août 2026";
-const CONTACT_EMAIL = "contact@scalex.app";
+const CONTACT_EMAIL = "contact@minaly.io";
 
 export const metadata: Metadata = {
-  title: "Politique de confidentialité | Scale X",
+  title: "Politique de confidentialité | Minaly",
   description:
-    "Comment Scale X collecte, utilise et protège vos données personnelles : ce que nous collectons, pourquoi, avec qui nous le partageons et vos droits RGPD.",
+    "Comment Minaly collecte, utilise et protège vos données personnelles : ce que nous collectons, pourquoi, avec qui nous le partageons et vos droits RGPD.",
   alternates: { canonical: "/politique-de-confidentialite" },
   openGraph: {
-    title: "Politique de confidentialité | Scale X",
+    title: "Politique de confidentialité | Minaly",
     description:
-      "Comment Scale X collecte, utilise et protège vos données personnelles : ce que nous collectons, pourquoi, avec qui nous le partageons et vos droits RGPD.",
+      "Comment Minaly collecte, utilise et protège vos données personnelles : ce que nous collectons, pourquoi, avec qui nous le partageons et vos droits RGPD.",
     type: "website",
   },
 };
@@ -30,8 +30,8 @@ const SECTIONS: Section[] = [
     title: "1. Qui est responsable de vos données",
     body: (
       <p>
-        Scale X (« nous », « notre ») est l&apos;éditeur du site et de l&apos;application accessibles à l&apos;adresse
-        scalex.app, et à ce titre responsable du traitement de vos données personnelles au sens du Règlement
+        Minaly (« nous », « notre ») est l&apos;éditeur du site et de l&apos;application accessibles à l&apos;adresse
+        www.minaly.io, et à ce titre responsable du traitement de vos données personnelles au sens du Règlement
         Général sur la Protection des Données (RGPD) et de la loi Informatique et Libertés. Pour toute question,
         vous pouvez nous contacter à{" "}
         <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-accent hover:underline">
@@ -107,7 +107,7 @@ const SECTIONS: Section[] = [
     body: (
       <>
         <p>
-          Lorsque vous connectez un compte tiers, Scale X importe les données nécessaires au calcul de vos
+          Lorsque vous connectez un compte tiers, Minaly importe les données nécessaires au calcul de vos
           indicateurs :
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
@@ -137,7 +137,7 @@ const SECTIONS: Section[] = [
         <p>
           Ces données peuvent contenir des données personnelles de vos propres clients ou prospects (nom, email,
           montant payé, statut d&apos;un appel). Vous restez responsable de traitement vis-à-vis de vos clients ;
-          Scale X agit pour ces données spécifiques en tant que sous-traitant, dans le seul cadre de la fourniture
+          Minaly agit pour ces données spécifiques en tant que sous-traitant, dans le seul cadre de la fourniture
           du service de diagnostic.
         </p>
       </>
@@ -276,7 +276,7 @@ const SECTIONS: Section[] = [
     title: "12. Mineurs",
     body: (
       <p>
-        Scale X est destiné aux professionnels majeurs. Nous ne collectons pas sciemment de données concernant des
+        Minaly est destiné aux professionnels majeurs. Nous ne collectons pas sciemment de données concernant des
         personnes mineures.
       </p>
     ),
@@ -313,14 +313,14 @@ export default async function PrivacyPolicyPage() {
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Scale X",
+    name: "Minaly",
     url: siteUrl,
     logo: siteUrl + "/icon.png",
   };
   const softwareApplicationJsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Scale X",
+    name: "Minaly",
     applicationCategory: "BusinessApplication",
     applicationSubCategory: "Scaling coach software",
     operatingSystem: "Web",
@@ -353,14 +353,14 @@ export default async function PrivacyPolicyPage() {
 
       <main className="px-6 py-16 sm:px-10 sm:py-24">
         <div className="mx-auto max-w-[760px]">
-          <p className="mb-3 text-[13.5px] font-semibold tracking-wide text-accent uppercase">Scale X</p>
+          <p className="mb-3 text-[13.5px] font-semibold tracking-wide text-accent uppercase">Minaly</p>
           <h1 className="text-[clamp(2rem,4vw,2.75rem)] font-bold text-foreground">Politique de confidentialité</h1>
           <p className="mt-3 text-[14.5px] text-muted-foreground">Dernière mise à jour : {LAST_UPDATED}</p>
 
           <p className="mt-8 text-[15.5px] leading-relaxed text-muted-foreground">
-            Cette politique explique quelles données Scale X collecte lorsque vous utilisez notre application,
+            Cette politique explique quelles données Minaly collecte lorsque vous utilisez notre application,
             pourquoi nous les collectons, avec qui nous les partageons, et comment exercer vos droits. Elle
-            s&apos;applique au site scalex.app et à l&apos;application produit.
+            s&apos;applique au site www.minaly.io et à l&apos;application produit.
           </p>
 
           <nav aria-label="Sommaire" className="mt-10 rounded-[var(--radius-card)] border border-border bg-surface-sunken p-6">

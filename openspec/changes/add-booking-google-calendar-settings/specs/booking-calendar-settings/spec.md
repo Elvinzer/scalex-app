@@ -6,7 +6,7 @@ Cette capacité permet à chaque closer de gérer plusieurs comptes Google pour 
 
 ### Requirement: Invited closers have personal calendar and booking visibility
 
-Chaque closer SHALL utiliser son propre accès Scale X issu de l'invitation de l'équipe pour connecter ses comptes Google. L'autorisation Google SHALL être attachée à l'utilisateur authentifié ; une autre identité de closer ne SHALL pas pouvoir être fournie par le client pour créer ou modifier une connexion.
+Chaque closer SHALL utiliser son propre accès Minaly issu de l'invitation de l'équipe pour connecter ses comptes Google. L'autorisation Google SHALL être attachée à l'utilisateur authentifié ; une autre identité de closer ne SHALL pas pouvoir être fournie par le client pour créer ou modifier une connexion.
 
 Pour un closer invité qui n'a pas de droit account-wide, le système SHALL exposer uniquement ses appels à venir et les liens de prise de rendez-vous des événements auxquels il est rattaché par la configuration de l'événement. Les événements, réservations et liens d'autres closers SHALL être exclus des listes, recherches, réponses d'API et accès directs. Les owners/admins ou utilisateurs disposant déjà du droit account-wide SHALL conserver la vue de gestion globale nécessaire à leurs permissions.
 
@@ -28,7 +28,7 @@ Pour un closer invité qui n'a pas de droit account-wide, le système SHALL expo
 #### Scenario: OAuth belongs to the authenticated closer
 
 - **WHEN** un closer termine le flux OAuth Google depuis ses paramètres
-- **THEN** la connexion est enregistrée pour son utilisateur Scale X et ne peut pas être utilisée pour configurer silencieusement le compte Google d'un autre closer
+- **THEN** la connexion est enregistrée pour son utilisateur Minaly et ne peut pas être utilisée pour configurer silencieusement le compte Google d'un autre closer
 
 ### Requirement: A closer can connect multiple Google accounts
 

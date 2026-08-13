@@ -189,7 +189,7 @@ describe("Meta Ads insight catalogue", () => {
       comparisonMetrics: totals({ impressions: 10_000, spendCents: 9_500, registrations: 100 }, { impressions: true, spendCents: true, registrations: true }),
       webinarObservation: {
         connected: true,
-        source: "scalex",
+        source: "minaly",
         current: { participants: 20 },
         comparison: { participants: 40 },
         coverageRate: 1,
@@ -201,8 +201,8 @@ describe("Meta Ads insight catalogue", () => {
     expect(insight?.metricKey).toBe("webinar_showup_rate");
     expect(insight?.currentValue).toBeCloseTo(0.2);
     expect(insight?.comparisonValue).toBeCloseTo(0.4);
-    expect(insight?.sourceCoverage).toContain("Scale X");
-    expect(insight?.provenance.source).toBe("meta+scalex");
+    expect(insight?.sourceCoverage).toContain("Minaly");
+    expect(insight?.provenance.source).toBe("meta+minaly");
   });
 
   it("fires the webinar qualified-traffic rule when participant cost rises without cash quality improving", () => {

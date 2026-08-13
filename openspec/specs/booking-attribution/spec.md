@@ -19,7 +19,7 @@ L’espace administrateur SHALL permettre de créer un lien nommé pour un évé
 #### Scenario: Instagram link is generated for an event
 
 - **WHEN** un utilisateur crée un lien « Instagram bio » avec ses paramètres UTM
-- **THEN** Scale X génère une URL partageable qui préremplit ces paramètres lors de son ouverture
+- **THEN** Minaly génère une URL partageable qui préremplit ces paramètres lors de son ouverture
 
 ### Requirement: Attribution is immutable on the booking snapshot
 

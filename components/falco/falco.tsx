@@ -17,7 +17,7 @@ import { useFalcoAnimationsEnabled } from "./falco-context";
 import { FalcoSkinImage } from "./falco-skin-image";
 
 const FALCO_ASSETS = {
-  hero: { src: falcoHero, alt: "Falco, la mascotte Scale X" },
+  hero: { src: falcoHero, alt: "Falco, la mascotte Minaly" },
   dashboard: { src: falcoDashboard, alt: "Falco, bras croisés, confiant devant les chiffres" },
   assistant: { src: falcoAssistant, alt: "Falco sur son laptop, ton copilote IA" },
   flying: { src: falcoFlying, alt: "Falco en plein vol" },

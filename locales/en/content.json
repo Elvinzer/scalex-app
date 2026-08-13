@@ -9,7 +9,7 @@
   "instagramNotProfessional": "This Instagram account is personal. Switch it to Business or Creator and try again.",
   "instagramError": "Instagram connection failed. Try again in a moment.",
   "youtubeNoChannel": "No YouTube channel is associated with this Google account. Sign in with the account that owns the channel.",
-  "youtubeNoRefreshToken": "Google did not return permanent access. Try connecting again, then reconnect Scale X if needed.",
+  "youtubeNoRefreshToken": "Google did not return permanent access. Try connecting again, then reconnect Minaly if needed.",
   "youtubeError": "YouTube connection failed. Try again in a moment.",
   "platformGroup": "Content platform",
   "connected": "Connected",

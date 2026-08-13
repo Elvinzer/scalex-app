@@ -8,7 +8,7 @@ Les décisions 1, 5, 6, 7, 8, 11 et 12 intègrent la revue technique du 8 août.
 
 ### 1. Moindre privilège : `ads_read` d'abord, `ads_management` en step-up
 
-La connexion initiale demande **`ads_read` uniquement**. Aucune permission d'écriture n'est demandée tant que l'utilisateur n'a pas décidé d'appliquer une action depuis Scale X. La première action directe déclenche un step-up OAuth explicite (`/api/meta/upgrade`), présenté comme un second consentement : ce qu'il autorise, sur quel compte, et comment le révoquer. Si l'utilisateur refuse le step-up, l'action bascule sur `Ouvrir dans Meta Ads` et la connexion en lecture reste intacte.
+La connexion initiale demande **`ads_read` uniquement**. Aucune permission d'écriture n'est demandée tant que l'utilisateur n'a pas décidé d'appliquer une action depuis Minaly. La première action directe déclenche un step-up OAuth explicite (`/api/meta/upgrade`), présenté comme un second consentement : ce qu'il autorise, sur quel compte, et comment le révoquer. Si l'utilisateur refuse le step-up, l'action bascule sur `Ouvrir dans Meta Ads` et la connexion en lecture reste intacte.
 
 ### 2. Sélection de compte toujours explicite
 
@@ -16,11 +16,11 @@ Le callback OAuth ne choisit jamais de compte. Même avec un seul compte accessi
 
 ### 3. Le type de campagne est une configuration business explicite, pas une saisie de campagne
 
-Meta fournit des objectifs techniques, mais ne décrit pas de façon fiable le parcours business réel. Scale X ne déduit donc plus le type depuis le nom, l'objectif Meta, le performance goal ou l'URL de destination. Chaque campagne doit être configurée manuellement avec l'un des quatre contextes : VSL, Webinaire, Trafic Instagram ou Retargeting. Tant que ce choix n'est pas enregistré, le funnel spécialisé et les insights restent en attente.
+Meta fournit des objectifs techniques, mais ne décrit pas de façon fiable le parcours business réel. Minaly ne déduit donc plus le type depuis le nom, l'objectif Meta, le performance goal ou l'URL de destination. Chaque campagne doit être configurée manuellement avec l'un des quatre contextes : VSL, Webinaire, Trafic Instagram ou Retargeting. Tant que ce choix n'est pas enregistré, le funnel spécialisé et les insights restent en attente.
 
-Cette configuration manuelle ne crée pas la campagne : les campagnes et leurs performances affichées dans Scale X proviennent exclusivement de Meta Ads. Le suivi manuel complémentaire, la création/édition/suppression de campagnes et leur import hors Meta ne font plus partie du produit ; les anciennes lignes sont conservées uniquement comme historique technique non affiché.
+Cette configuration manuelle ne crée pas la campagne : les campagnes et leurs performances affichées dans Minaly proviennent exclusivement de Meta Ads. Le suivi manuel complémentaire, la création/édition/suppression de campagnes et leur import hors Meta ne font plus partie du produit ; les anciennes lignes sont conservées uniquement comme historique technique non affiché.
 
-Pour une VSL ou un Webinaire, l'utilisateur choisit aussi l'objectif de conversion suivi dans Scale X : Appel ou Vente. Ce choix ne modifie rien dans Meta ; il sélectionne la dernière étape du funnel, le libellé de conversion et l'identité de l'insight. Les appels et ventes restent calculés uniquement depuis l'attribution Scale X disponible, jamais inventés depuis le seul objectif Meta.
+Pour une VSL ou un Webinaire, l'utilisateur choisit aussi l'objectif de conversion suivi dans Minaly : Appel ou Vente. Ce choix ne modifie rien dans Meta ; il sélectionne la dernière étape du funnel, le libellé de conversion et l'identité de l'insight. Les appels et ventes restent calculés uniquement depuis l'attribution Minaly disponible, jamais inventés depuis le seul objectif Meta.
 
 ### 4. Ne jamais fusionner deux vérités
 
@@ -31,7 +31,7 @@ Le ROAS Meta et le cash observé via Stripe sont affichés côte à côte, jamai
 Un seul mot ne peut pas décrire à la fois d'où vient une donnée, comment elle a été calculée et comment elle est rattachée. Chaque métrique exposée porte donc trois qualifications indépendantes :
 
 ```text
-source       = meta | stripe | calendly | iclosed | instagram | scalex
+source       = meta | stripe | calendly | iclosed | instagram | minaly
 calculation  = brute | derivee
 attribution  = directe | jointe | estimee | non_rattachee | indisponible
 ```
@@ -63,15 +63,15 @@ Décision retenue : **afficher ces étapes comme `indisponible` tant que leur so
 Le rattachement n'est pas une heuristique. Il repose sur une chaîne explicite :
 
 1. Meta ajoute `utm_*` et, si configuré, `campaign_id` / `adset_id` / `ad_id` aux URL sortantes.
-2. La landing page persiste ces paramètres dans un touchpoint Scale X (first-party, durée de vie bornée) et les repasse aux formulaires.
+2. La landing page persiste ces paramètres dans un touchpoint Minaly (first-party, durée de vie bornée) et les repasse aux formulaires.
 3. Le lead créé conserve son touchpoint. Les liens de booking natifs, Calendly et iClosed le transportent en champ caché / query param.
 4. Stripe reçoit l'identifiant du lead ou de la session en `metadata`, ce qui referme la boucle jusqu'au cash.
 
-Contrainte d'implémentation Scale X : la connexion Stripe Connect existante est
+Contrainte d'implémentation Minaly : la connexion Stripe Connect existante est
 volontairement encapsulée dans un client `read-only` (`list` / `retrieve` uniquement).
 Cette version ne modifie donc jamais le Stripe du client et ne peut pas écrire de
 metadata après coup. La boucle cash est fermée uniquement lorsqu'un touchpoint est
-déjà porté par une vente Scale X ou lorsqu'un identifiant explicite existe dans les
+déjà porté par une vente Minaly ou lorsqu'un identifiant explicite existe dans les
 données importées ; sinon la vente reste `non_rattachee` et les lectures cash sont
 gelées par la couverture. Une future écriture Stripe nécessitera une décision
 sécurité/permission séparée, elle ne doit pas être introduite implicitement dans

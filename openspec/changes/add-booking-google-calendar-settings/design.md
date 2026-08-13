@@ -18,7 +18,7 @@ Les événements natifs conservent encore un `meetingUrl` statique au niveau de 
 **Non-Goals:**
 
 - Permettre à un owner de connecter silencieusement le compte Google d'un autre closer : l'autorisation reste effectuée par le closer concerné.
-- Synchroniser les changements effectués directement dans Google Calendar vers Scale X au-delà de la lecture des conflits.
+- Synchroniser les changements effectués directement dans Google Calendar vers Minaly au-delà de la lecture des conflits.
 - Générer un lien Google Meet global partagé par un événement de booking : chaque réservation doit avoir sa propre conférence.
 - Remplacer immédiatement le support Outlook ; il reste conservé pour compatibilité, mais ne rend pas un closer prêt pour la nouvelle promesse Google Meet.
 - Refaire toute la navigation des paramètres selon le screenshot : seule la surface Calendriers et ses accès nécessaires sont dans le périmètre.
@@ -27,9 +27,9 @@ Les événements natifs conservent encore un `meetingUrl` statique au niveau de 
 
 ### 1. Séparer connexion OAuth et configuration booking
 
-`native_calendar_connections` devient le registre des autorisations fournisseur : compte Scale X, closer, fournisseur, identifiant stable du compte fournisseur, email d'affichage, tokens chiffrés, expiration et état. La contrainte ne sera plus `(closer, provider)` ; elle distinguera une autorisation par identifiant Google stable. L'email reste une donnée d'affichage et de diagnostic, pas une clé d'identité.
+`native_calendar_connections` devient le registre des autorisations fournisseur : compte Minaly, closer, fournisseur, identifiant stable du compte fournisseur, email d'affichage, tokens chiffrés, expiration et état. La contrainte ne sera plus `(closer, provider)` ; elle distinguera une autorisation par identifiant Google stable. L'email reste une donnée d'affichage et de diagnostic, pas une clé d'identité.
 
-Une configuration booking distincte portera, par closer et par compte Scale X :
+Une configuration booking distincte portera, par closer et par compte Minaly :
 
 - `invitationConnectionId` et `invitationCalendarId` pour la cible unique des nouveaux événements ; l'identifiant du calendrier est résolu côté serveur vers le calendrier principal du compte et conservé comme snapshot technique ;
 - les comptes sélectionnés pour les conflits, sous forme de lignes relationnelles reliant une connexion à l'identifiant de son calendrier principal résolu côté serveur.
@@ -82,7 +82,7 @@ La confirmation réutilisera l'identifiant de réservation/idempotence pour le G
 
 ### 9. Faire de l'invitation d'équipe la frontière d'accès des closers
 
-Chaque closer reçoit une invitation pour rejoindre l'espace Scale X, crée ou utilise sa propre session, puis connecte ses comptes Google depuis `/settings/calendars`. Le serveur prend toujours l'utilisateur authentifié comme `closerUserId` pour le flux OAuth et les mutations de préférences ; aucun identifiant de closer envoyé par le navigateur ne peut changer cette cible.
+Chaque closer reçoit une invitation pour rejoindre l'espace Minaly, crée ou utilise sa propre session, puis connecte ses comptes Google depuis `/settings/calendars`. Le serveur prend toujours l'utilisateur authentifié comme `closerUserId` pour le flux OAuth et les mutations de préférences ; aucun identifiant de closer envoyé par le navigateur ne peut changer cette cible.
 
 Le périmètre d'affichage est distinct du périmètre public :
 
@@ -93,11 +93,11 @@ Le périmètre d'affichage est distinct du périmètre public :
 
 Cette décision évite qu'un closer découvre les rendez-vous d'un collègue par un filtre, une URL profonde ou une réponse d'API, tout en permettant au propriétaire de piloter les pools et l'activité du compte.
 
-### 10. Traduire le modèle iClosed en interface Scale X
+### 10. Traduire le modèle iClosed en interface Minaly
 
 La page de paramètres présente d'abord les comptes Google connectés sous forme de cartes répétables, avec une action unique « Ajouter un autre calendrier », puis sépare clairement le compte d'invitation et les comptes de conflits. La configuration est progressive : un closer commence par connecter un compte, choisit la cible, puis sélectionne les comptes à vérifier. Chaque compte utilise toujours son calendrier Google principal.
 
-La recherche UX Pro Max recommande pour cette surface un SaaS à contraste élevé, des tokens sémantiques, une hiérarchie de titres séquentielle, des labels explicites, des erreurs annoncées (`role=alert` ou `aria-live`) et une navigation clavier complète. Ces règles seront adaptées aux tokens existants de Scale X, sans reprendre la palette hexadécimale de la recommandation générique. Les états loading, empty, success, error et disconnected seront tous prévus ; les actions asynchrones seront désactivées pendant leur traitement et offriront un chemin de reprise.
+La recherche UX Pro Max recommande pour cette surface un SaaS à contraste élevé, des tokens sémantiques, une hiérarchie de titres séquentielle, des labels explicites, des erreurs annoncées (`role=alert` ou `aria-live`) et une navigation clavier complète. Ces règles seront adaptées aux tokens existants de Minaly, sans reprendre la palette hexadécimale de la recommandation générique. Les états loading, empty, success, error et disconnected seront tous prévus ; les actions asynchrones seront désactivées pendant leur traitement et offriront un chemin de reprise.
 
 Sur `/ventes/rdv`, l'alerte de configuration est visible uniquement dans le périmètre de l'utilisateur, reste actionnable au clavier et renvoie directement à `/settings/calendars`. Le closer ne voit pas de sélecteur lui permettant d'explorer les rendez-vous ou liens d'un autre closer.
 
@@ -115,7 +115,7 @@ La version française conservera le sens, les chiffres, les contraintes et les p
 - **[Calendrier principal non écrivable]** Le calendrier principal peut être lisible mais refuser la création → valider son accès en écriture lors de la configuration et revalider au moment de réserver.
 - **[Compte utilisé pour deux usages]** Une configuration implicite pourrait créer dans le mauvais agenda → stocker séparément le compte d'invitation et les comptes de conflits, puis résoudre le calendrier principal côté serveur.
 - **[Régression Outlook]** Le support existant peut être utilisé par des comptes historiques → ne pas supprimer les connexions Outlook, mais afficher clairement qu'un compte Google est requis pour la readiness native.
-- **[Invitation Google et email Scale X en double]** `sendUpdates=all` et Resend peuvent notifier le prospect deux fois → documenter le comportement, tester le contenu et décider pendant l'implémentation si l'invitation Google doit rester active lorsque l'email prospect existe.
+- **[Invitation Google et email Minaly en double]** `sendUpdates=all` et Resend peuvent notifier le prospect deux fois → documenter le comportement, tester le contenu et décider pendant l'implémentation si l'invitation Google doit rester active lorsque l'email prospect existe.
 - **[OAuth réalisé par le mauvais utilisateur]** Un owner peut tenter de connecter le compte d'un closer → associer systématiquement l'autorisation à l'utilisateur authentifié et afficher le closer concerné dans les paramètres.
 
 - **[Périmètre d'accès trop large]** Un filtrage uniquement dans l'interface pourrait laisser fuiter un rendez-vous via une URL ou une API → appliquer la portée du closer dans les loaders serveur, actions, route handlers et policies RLS, puis tester avec deux closers invités.
@@ -136,4 +136,4 @@ Le rollback fonctionnel consiste à désactiver l'entitlement ou à mettre en pa
 
 - La V1 affiche les comptes Google connectés. Le closer sélectionne exactement un compte cible pour les invitations et au moins un compte pour les conflits ; le serveur utilise le calendrier principal de chaque compte et ne propose aucun sous-calendrier. Un compte dont l'accès requis ne peut pas être vérifié reste non prêt.
 - La confirmation effectue un polling borné de la conférence Meet. Si Google reste en `pending`, la réservation interne conserve un état récupérable avec le créneau protégé, mais la réponse publique, l'email et l'invitation ne la présentent pas comme finalisée tant que le lien n'est pas disponible. Un retry reprend l'événement existant et, après succès, finalise la réservation sans doublon.
-- Google reste l'expéditeur de l'invitation Calendar (`sendUpdates=all`) afin que le prospect soit bien ajouté à l'événement cible. L'email Scale X est complémentaire : il contient le lien de gestion et l'ICS, tandis que Google porte l'ajout au calendrier ; les deux communications sont protégées par l'idempotence de la réservation et de la notification.
+- Google reste l'expéditeur de l'invitation Calendar (`sendUpdates=all`) afin que le prospect soit bien ajouté à l'événement cible. L'email Minaly est complémentaire : il contient le lien de gestion et l'ICS, tandis que Google porte l'ajout au calendrier ; les deux communications sont protégées par l'idempotence de la réservation et de la notification.

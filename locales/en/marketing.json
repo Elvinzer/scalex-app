@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "Scale X | The all in one scaling coach for coaches",
-    "description": "Scale X helps coaches and info businesses doing $10k to $100k per month find the constraint slowing growth and turn it into a weekly action plan.",
+    "title": "Minaly | The all in one scaling coach for coaches",
+    "description": "Minaly helps coaches and info businesses doing $10k to $100k per month find the constraint slowing growth and turn it into a weekly action plan.",
     "keywords": "scaling coach, coaching business software, coaching business scaling, all in one coach platform, business bottleneck analysis"
   },
   "nav": {
@@ -14,21 +14,21 @@
     "signIn": "Sign in",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "home": "Scale X home"
+    "home": "Minaly home"
   },
   "hero": {
     "eyebrow": "For coaches and info businesses doing $10k to $100k per month.",
     "title": "Your business is growing. Your bottleneck is hiding.",
     "accent": "Find it. Fix it.",
-    "description": "Scale X is an all in one scaling coach for coaches and info businesses. It maps acquisition, sales and delivery, finds the constraint costing you the most, and gives you one action to run this week.",
+    "description": "Minaly is an all in one scaling coach for coaches and info businesses. It maps acquisition, sales and delivery, finds the constraint costing you the most, and gives you one action to run this week.",
     "primaryCta": "Start with your business",
     "secondaryCta": "See how it works",
     "proof": "One clear priority for the week, backed by your business data",
-    "mockupAlt": "Scale X dashboard showing a prioritized business bottleneck"
+    "mockupAlt": "Minaly dashboard showing a prioritized business bottleneck"
   },
   "benefits": {
     "heading": "Scaling gets simpler when the constraint is visible",
-    "intro": "Scale X brings the operating questions that matter into one place.",
+    "intro": "Minaly brings the operating questions that matter into one place.",
     "bottleneck": {
       "title": "Find the constraint",
       "description": "See where acquisition, sales or delivery is limiting the next stage of growth."
@@ -87,7 +87,7 @@
     },
     "diagnose": {
       "title": "Diagnose",
-      "description": "Scale X calculates the rates, deltas and gaps in code before explaining the constraint."
+      "description": "Minaly calculates the rates, deltas and gaps in code before explaining the constraint."
     },
     "execute": {
       "title": "Execute",
@@ -147,31 +147,31 @@
   "faq": {
     "heading": "Questions coaches ask before they scale",
     "whatIs": {
-      "question": "What is Scale X?",
-      "answer": "Scale X is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It combines business data, bottleneck diagnosis and a weekly action plan."
+      "question": "What is Minaly?",
+      "answer": "Minaly is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It combines business data, bottleneck diagnosis and a weekly action plan."
     },
     "whoFor": {
-      "question": "Who is Scale X for?",
+      "question": "Who is Minaly for?",
       "answer": "It is built for founders and small teams who already have sales activity but need a clearer order of operations across acquisition, sales and delivery."
     },
     "data": {
-      "question": "Which data can Scale X use?",
+      "question": "Which data can Minaly use?",
       "answer": "The core diagnosis starts with Stripe. Depending on the workflow, you can also connect iClosed or Calendly for calls, and Instagram or YouTube for content analytics."
     },
     "replace": {
-      "question": "Does Scale X replace a business coach?",
-      "answer": "No. Scale X gives a coach or founder a shared operating view and a concrete next move. It supports judgment and execution rather than pretending to replace either one."
+      "question": "Does Minaly replace a business coach?",
+      "answer": "No. Minaly gives a coach or founder a shared operating view and a concrete next move. It supports judgment and execution rather than pretending to replace either one."
     },
     "byok": {
       "question": "How does the AI key work?",
-      "answer": "Scale X supports bring your own key. Your Anthropic key is encrypted and used for your account's agent calls. It is never returned to the browser after setup."
+      "answer": "Minaly supports bring your own key. Your Anthropic key is encrypted and used for your account's agent calls. It is never returned to the browser after setup."
     }
   },
   "finalCta": {
     "heading": "Give your next growth decision a clear starting point",
     "description": "Start with the data you already have and leave with one priority worth running this week.",
     "cta": "Start with your business",
-    "falcoAlt": "Falco, the Scale X coaching assistant"
+    "falcoAlt": "Falco, the Minaly coaching assistant"
   },
   "footer": {
     "features": "What it fixes",
@@ -180,7 +180,7 @@
     "resources": "Resources",
     "contact": "Contact",
     "privacy": "Privacy policy",
-    "copyright": "© 2026 Scale X. All rights reserved."
+    "copyright": "© 2026 Minaly. All rights reserved."
   },
   "dashboard": {
     "overview": "Illustrative dashboard",
@@ -209,10 +209,10 @@
   },
   "privacy": {
     "faqQuestion": "How can I exercise my rights over personal data?",
-    "faqAnswer": "Email contact@scalex.app to request access, correction, deletion, restriction or portability of your personal data."
+    "faqAnswer": "Email contact@minaly.io to request access, correction, deletion, restriction or portability of your personal data."
   },
   "resource": {
-    "eyebrow": "Scale X resource",
+    "eyebrow": "Minaly resource",
     "title": "How to scale a coaching business from $10k to $100k per month",
     "intro": "A coaching business between $10k and $100k per month usually does not need ten more tools. It needs a clear view of where demand, sales or delivery stops compounding. This guide gives you a practical way to diagnose that constraint and choose the next move.",
     "answerHeading": "The short answer",
@@ -227,8 +227,8 @@
     "weeklyHeading": "Turn the diagnosis into a weekly operating loop",
     "weekly": "Write down the baseline, the single action, the owner and the number that should move. Review the next data point after seven days. Keep the action if the signal improves, change it if it does not, and only then choose another constraint.",
     "toolHeading": "Where an all in one scaling coach helps",
-    "tool": "A scaling coach application is useful when acquisition, sales and delivery data live in separate tools. Scale X brings those signals into one operating view, calculates the underlying rates in code and turns the result into a focused weekly plan.",
-    "cta": "See how Scale X works",
+    "tool": "A scaling coach application is useful when acquisition, sales and delivery data live in separate tools. Minaly brings those signals into one operating view, calculates the underlying rates in code and turns the result into a focused weekly plan.",
+    "cta": "See how Minaly works",
     "faqHeading": "Scaling questions",
     "faq1Question": "What should a coaching business fix first?",
     "faq1Answer": "Fix the stage with the largest controllable gap that can move within the current month. That may be lead quality, call conversion, show rate or delivery capacity depending on the data.",

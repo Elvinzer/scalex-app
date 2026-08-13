@@ -1,7 +1,7 @@
 # native-booking-events Specification
 
 ## Purpose
-Cette capacité permet à un compte Scale X de créer et publier des événements de réservation natifs avec leurs horaires, exceptions, limites, fuseau horaire et état de disponibilité.
+Cette capacité permet à un compte Minaly de créer et publier des événements de réservation natifs avec leurs horaires, exceptions, limites, fuseau horaire et état de disponibilité.
 ## Requirements
 ### Requirement: Event lifecycle and public identity
 

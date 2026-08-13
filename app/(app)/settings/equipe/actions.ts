@@ -37,7 +37,7 @@ export async function inviteMember(
   const { accountId } = access;
 
   if (!(await hasActiveTeamSubscription(accountId))) {
-    return { error: "Ton abonnement Scale X n'inclut pas les membres d'équipe." };
+    return { error: "Ton abonnement Minaly n'inclut pas les membres d'équipe." };
   }
 
   const parsed = inviteMemberInputSchema.safeParse(data);
@@ -95,7 +95,7 @@ export async function inviteMember(
   await db.insert(teamMemberRoles).values(roleIds.map((roleId) => ({ teamMemberId: member.id, roleId })));
 
   const profile = await getBusinessProfile(accountId);
-  const businessName = profile.identity.businessName || "Scale X";
+  const businessName = profile.identity.businessName || "Minaly";
   const inviteUrl = `${getAppUrl()}/invite/${token}`;
 
   // Sans Resend (dev), on n'envoie pas d'email : on renvoie le lien au
@@ -108,10 +108,10 @@ export async function inviteMember(
 
   const resend = getResendClient();
   await resend.emails.send({
-    from: "Scale X <team@scalex.app>",
+    from: "Minaly <team@minaly.io>",
     to: email,
-    subject: `${businessName} t'invite sur Scale X`,
-    text: `Tu as été invité à rejoindre l'équipe ${businessName} sur Scale X.\n\nAccepte l'invitation : ${inviteUrl}\n\nCe lien expire dans ${INVITE_EXPIRY_DAYS} jours.`,
+    subject: `${businessName} t'invite sur Minaly`,
+    text: `Tu as été invité à rejoindre l'équipe ${businessName} sur Minaly.\n\nAccepte l'invitation : ${inviteUrl}\n\nCe lien expire dans ${INVITE_EXPIRY_DAYS} jours.`,
   });
 
   revalidatePath("/settings/equipe");

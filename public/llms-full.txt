@@ -1,10 +1,10 @@
-# Scale X reference
+# Minaly reference
 
 ## Positioning
 
-Scale X is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It helps a founder or small team answer a practical question: what is the one constraint slowing growth right now, and what should we run this week to move it?
+Minaly is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It helps a founder or small team answer a practical question: what is the one constraint slowing growth right now, and what should we run this week to move it?
 
-Scale X is designed for businesses that have activity and data but too many possible improvements. It joins the operating context across acquisition, sales and delivery so a decision is connected to the number it should change.
+Minaly is designed for businesses that have activity and data but too many possible improvements. It joins the operating context across acquisition, sales and delivery so a decision is connected to the number it should change.
 
 ## How the product works
 
@@ -21,7 +21,7 @@ The product is AI assisted. Deterministic calculations happen before the model i
 - Stripe is the core source for payments and revenue diagnosis through Stripe Connect.
 - iClosed and Calendly can provide booked call and sales call tracking.
 - Instagram and YouTube can provide content analytics.
-- The active product integrations are limited to these sources. Scale X does not claim support for Kajabi, Brevo or TikTok.
+- The active product integrations are limited to these sources. Minaly does not claim support for Kajabi, Brevo or TikTok.
 
 ## Security and privacy
 
@@ -34,7 +34,7 @@ The product is AI assisted. Deterministic calculations happen before the model i
 
 ## Audience questions
 
-### Who is Scale X for?
+### Who is Minaly for?
 
 It is for coaches, info businesses and small teams with roughly $10k to $100k in monthly revenue who need a shared operating view and a clearer order of action.
 
@@ -42,9 +42,9 @@ It is for coaches, info businesses and small teams with roughly $10k to $100k in
 
 It means the application connects the decisions around acquisition, sales and delivery in one workflow. It is not a collection of isolated charts. The useful output is a constraint and a next action.
 
-### Does Scale X replace a coach?
+### Does Minaly replace a coach?
 
-No. Scale X supports a coach or founder with shared evidence, calculations and an execution loop. Human judgment remains part of the decision.
+No. Minaly supports a coach or founder with shared evidence, calculations and an execution loop. Human judgment remains part of the decision.
 
 ### What is BYOK?
 
@@ -52,6 +52,6 @@ BYOK means bring your own key. A customer can provide an Anthropic API key for a
 
 ## Public resources
 
-- Homepage: https://scalex.app/
-- Guide to scaling a coaching business from $10k to $100k per month: https://scalex.app/ressources/coach-business-scaling
-- Privacy policy: https://scalex.app/politique-de-confidentialite
+- Homepage: https://www.minaly.io/
+- Guide to scaling a coaching business from $10k to $100k per month: https://www.minaly.io/ressources/coach-business-scaling
+- Privacy policy: https://www.minaly.io/politique-de-confidentialite

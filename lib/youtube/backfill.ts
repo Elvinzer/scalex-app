@@ -19,7 +19,7 @@ async function knownVideoIds(userId: string): Promise<Set<string>> {
   return new Set(rows.map((row) => row.videoId));
 }
 
-// Core YouTube -> Scale X sync, shared by the Inngest connect-job and the
+// Core YouTube -> Minaly sync, shared by the Inngest connect-job and the
 // recurring insights-refresh cron. Like Instagram's backfillInstagramPosts,
 // always upserts (watch-time/retention numbers keep evolving after
 // publish), fully idempotent. `channelPublishedAt`/`uploadsPlaylistId` are

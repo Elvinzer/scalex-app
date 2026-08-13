@@ -21,7 +21,7 @@ export function metaAdsErrorMessage(value: unknown): string | null {
     return "Meta a renvoyé un jeton inutilisable. Relance la connexion et vérifie le compte autorisé.";
   }
   if (value === "server") {
-    return "Meta a répondu correctement, mais Scale X n’a pas pu enregistrer la connexion. Vérifie les logs du serveur puis réessaie.";
+    return "Meta a répondu correctement, mais Minaly n’a pas pu enregistrer la connexion. Vérifie les logs du serveur puis réessaie.";
   }
   if (value === "oauth") {
     return "La connexion Meta Ads n’a pas abouti. Réessaie depuis cette page.";

@@ -1,18 +1,18 @@
-# Scale X
+# Minaly
 
-> Scale X is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It connects business signals, finds the constraint slowing growth, and turns the diagnosis into one weekly action.
+> Minaly is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It connects business signals, finds the constraint slowing growth, and turns the diagnosis into one weekly action.
 
-## What Scale X does
+## What Minaly does
 
 - Audience: coaches, info businesses and small teams between $10k and $100k in monthly revenue.
 - Core workflow: connect Stripe, calculate revenue and funnel rates in code, identify the most important controllable gap, then run a focused action.
 - Operating context: acquisition, sales, delivery, content and booked calls can be viewed together.
 - Integrations: Stripe, iClosed, Calendly, Instagram and YouTube, depending on the workflow and plan.
-- AI model: Scale X supports a bring your own Anthropic API key setup. The key is encrypted and is not returned to the browser after setup.
+- AI model: Minaly supports a bring your own Anthropic API key setup. The key is encrypted and is not returned to the browser after setup.
 - Product principle: the output is a prioritized next move, not another dashboard to interpret.
 
 ## Useful pages
 
-- Homepage: https://scalex.app/
-- Scaling guide: https://scalex.app/ressources/coach-business-scaling
-- Privacy policy: https://scalex.app/politique-de-confidentialite
+- Homepage: https://www.minaly.io/
+- Scaling guide: https://www.minaly.io/ressources/coach-business-scaling
+- Privacy policy: https://www.minaly.io/politique-de-confidentialite

@@ -10,7 +10,7 @@ export const insightDraftSchema = z.object({
 export type InsightDraft = z.infer<typeof insightDraftSchema>;
 
 function keyFor(conversationId: string): string {
-  return `scalex:falco-insight-draft:${conversationId}`;
+  return `minaly:falco-insight-draft:${conversationId}`;
 }
 
 export function readInsightDraft(storage: Pick<Storage, "getItem"> | null, conversationId: string): InsightDraft | null {

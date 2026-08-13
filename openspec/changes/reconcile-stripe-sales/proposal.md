@@ -40,9 +40,9 @@ et l'affichage transaction par transaction avec le reste à payer.
 ### Périmètre (non négociable)
 
 Lit **uniquement** le Stripe Connect du client (read-only OAuth). Jamais le Stripe
-Billing Scale X (`lib/billing/`, `STRIPE_SECRET_KEY`) ni le parrainage. Le mot
+Billing Minaly (`lib/billing/`, `STRIPE_SECRET_KEY`) ni le parrainage. Le mot
 « abonnement » désigne toujours l'abonnement d'un **client final du client**, jamais
-l'abonnement SaaS Scale X.
+l'abonnement SaaS Minaly.
 
 ### Affichage & DA (voir `design.md`)
 
@@ -63,7 +63,7 @@ l'abonnement SaaS Scale X.
 - Pas de conversion de devises (les charges hors devise dominante restent exclues du
   calcul, comportement actuel conservé).
 - Pas de webhook Stripe Connect temps réel : la sync reste par job / refresh.
-- Ne touche ni le Stripe Billing Scale X ni le parrainage.
+- Ne touche ni le Stripe Billing Minaly ni le parrainage.
 
 ## Impact
 

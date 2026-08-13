@@ -22,7 +22,7 @@ function currentPeriodMonth(): string {
 
 // Increments the user's shared-key usage counter for the current month and
 // throws once SHARED_KEY_MONTHLY_QUOTA is exceeded. Never called for BYOK
-// requests — those cost Scale X nothing, so they aren't tracked here.
+// requests — those cost Minaly nothing, so they aren't tracked here.
 export async function checkAndIncrementSharedUsage(userId: string): Promise<void> {
   const periodMonth = currentPeriodMonth();
 

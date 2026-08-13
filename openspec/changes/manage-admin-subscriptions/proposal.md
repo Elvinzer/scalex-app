@@ -1,6 +1,6 @@
 ## Why
 
-Les fondateurs Scale X disposent déjà d'un catalogue de plans et d'un Billing Portal client, mais ils ne peuvent pas piloter les abonnements de tous les comptes depuis une vue opérationnelle. Il manque une lecture fiable du statut, des droits réellement actifs et de l'usage pour répondre au support et détecter rapidement les comptes à risque, sans transformer Scale X en second Stripe.
+Les fondateurs Minaly disposent déjà d'un catalogue de plans et d'un Billing Portal client, mais ils ne peuvent pas piloter les abonnements de tous les comptes depuis une vue opérationnelle. Il manque une lecture fiable du statut, des droits réellement actifs et de l'usage pour répondre au support et détecter rapidement les comptes à risque, sans transformer Minaly en second Stripe.
 
 Le changement de prix d'un plan crée déjà un nouveau Price Stripe, mais la projection locale ne conserve pas encore explicitement le prix réellement attaché aux abonnements existants. La console doit éviter d'afficher un montant trompeur.
 
@@ -13,7 +13,7 @@ Le changement de prix d'un plan crée déjà un nouveau Price Stripe, mais la pr
 - Ajouter des opérations sûres : ouvrir le contexte Stripe, générer un lien Billing Portal destiné au client et resynchroniser la projection locale depuis Stripe.
 - Utiliser Stripe comme source de vérité financière et rendre les opérations de synchronisation idempotentes et protégées par `requireAdmin`.
 - Préserver le prix réellement souscrit lors des évolutions de catalogue, ou rendre explicite la version de Price affichée pour un abonnement existant.
-- Ne pas ajouter en V1 de remboursement, annulation immédiate, changement de plan forcé, impersonation ou modification financière directe depuis Scale X.
+- Ne pas ajouter en V1 de remboursement, annulation immédiate, changement de plan forcé, impersonation ou modification financière directe depuis Minaly.
 
 ## Capabilities
 
@@ -21,7 +21,7 @@ Le changement de prix d'un plan crée déjà un nouveau Price Stripe, mais la pr
 
 - `admin-subscription-console`: lecture opérationnelle des abonnements, recherche, filtres, détails, entitlements, usage et navigation admin.
 - `admin-subscription-operations`: liens opérateur/client et resynchronisation sûre avec Stripe, avec contrôle d'accès et états de feedback.
-- `subscription-price-integrity`: cohérence entre les Prices Stripe historiques, les abonnements existants et les montants affichés dans Scale X.
+- `subscription-price-integrity`: cohérence entre les Prices Stripe historiques, les abonnements existants et les montants affichés dans Minaly.
 
 ### Modified Capabilities
 

@@ -13,19 +13,19 @@ const RESOURCE_PATH = "/ressources/coach-business-scaling";
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
   return {
-    title: t("resource.title") + " | Scale X",
+    title: t("resource.title") + " | Minaly",
     description: t("resource.intro"),
     alternates: { canonical: RESOURCE_PATH },
     openGraph: {
-      title: t("resource.title") + " | Scale X",
+      title: t("resource.title") + " | Minaly",
       description: t("resource.intro"),
       url: getPublicSiteUrl() + RESOURCE_PATH,
-      siteName: "Scale X",
+      siteName: "Minaly",
       type: "article",
     },
     twitter: {
       card: "summary_large_image",
-      title: t("resource.title") + " | Scale X",
+      title: t("resource.title") + " | Minaly",
       description: t("resource.intro"),
     },
     robots: { index: true, follow: true },
@@ -51,20 +51,20 @@ export default async function CoachBusinessScalingResourcePage() {
     description: t("resource.intro"),
     inLanguage: locale,
     mainEntityOfPage: siteUrl + RESOURCE_PATH,
-    author: { "@type": "Organization", name: "Scale X", url: siteUrl },
-    publisher: { "@type": "Organization", name: "Scale X", url: siteUrl },
+    author: { "@type": "Organization", name: "Minaly", url: siteUrl },
+    publisher: { "@type": "Organization", name: "Minaly", url: siteUrl },
   };
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Scale X",
+    name: "Minaly",
     url: siteUrl,
     logo: siteUrl + "/icon.png",
   };
   const softwareApplicationJsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Scale X",
+    name: "Minaly",
     applicationCategory: "BusinessApplication",
     applicationSubCategory: "Scaling coach software",
     operatingSystem: "Web",

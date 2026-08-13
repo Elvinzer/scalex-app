@@ -8,7 +8,7 @@ import { createSale } from "@/lib/sales/queries";
 import { listCalls, listDeals } from "./client";
 import { buildSaleInput } from "./sale";
 
-// Core iClosed → Scale X sync used by the one-time Inngest job on connect.
+// Core iClosed → Minaly sync used by the one-time Inngest job on connect.
 // iClosed exposes no webhook-management API, so the job backfills recent
 // history before the owner configures the token-scoped webhook receiver. It is
 // idempotent (onConflictDoNothing on the (userId, iclosedCallId) unique index).

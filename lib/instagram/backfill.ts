@@ -18,7 +18,7 @@ async function knownMediaIds(userId: string): Promise<Set<string>> {
   return new Set(rows.map((row) => row.mediaId));
 }
 
-// Core Instagram -> Scale X sync, shared by the Inngest connect-job and the
+// Core Instagram -> Minaly sync, shared by the Inngest connect-job and the
 // recurring insights-refresh cron. Unlike iClosed/Calendly's backfill
 // (onConflictDoNothing — call data is finalized once written), this always
 // upserts: organic insight numbers keep climbing for days after a post goes

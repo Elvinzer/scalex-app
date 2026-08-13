@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: t("metadata.title"),
       description: t("metadata.description"),
       url: getPublicSiteUrl(),
-      siteName: "Scale X",
+      siteName: "Minaly",
       type: "website",
     },
     twitter: {
@@ -53,14 +53,14 @@ export default async function MarketingHomePage() {
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Scale X",
+    name: "Minaly",
     url: siteUrl,
     logo: siteUrl + "/icon.png",
   };
   const softwareApplicationJsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Scale X",
+    name: "Minaly",
     applicationCategory: "BusinessApplication",
     applicationSubCategory: "Scaling coach software",
     operatingSystem: "Web",

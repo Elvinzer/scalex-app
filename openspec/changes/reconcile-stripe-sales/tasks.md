@@ -21,7 +21,7 @@
 - [x] 2.6 Abonnements : rattacher les prélèvements par **customer Stripe** (pas par montant), marquer « abonnement »
 - [x] 2.7 Remboursements : charge remboursée → écrire statut `refunded` sur l'échéance
 - [x] 2.8 Idempotence : `stripeChargeId` déjà enregistré → skip (re-sync safe)
-- [x] 2.9 Ne jamais toucher `STRIPE_SECRET_KEY` / Billing Scale X / parrainage — assertion de périmètre
+- [x] 2.9 Ne jamais toucher `STRIPE_SECRET_KEY` / Billing Minaly / parrainage — assertion de périmètre
 - [x] 2.10 Câbler dans `lib/inngest/functions/sync-stripe-account.ts` (re-run safe) + logguer counts (matched / created / orphaned)
 - [x] 2.11 Tests unitaires du matcher (merge, ambiguïté→orphelin, abonnement par customer, remboursement, idempotence)
 

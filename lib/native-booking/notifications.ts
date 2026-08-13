@@ -79,7 +79,7 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
     ? [management ? `Gérer mon rendez-vous : ${management}` : "", ics ? `Ajouter à mon agenda : ${ics}` : ""]
     : [copy.closerAction];
   await getResendClient().emails.send({
-    from: process.env.RESEND_FROM_EMAIL ?? "Scale X <hello@scalex.app>",
+    from: process.env.RESEND_FROM_EMAIL ?? "Minaly <hello@minaly.io>",
     to,
     subject: `${copy.subject} — ${event.meetingLabel}`,
     text: [
@@ -94,7 +94,7 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
       "",
       ...audienceAction,
       "",
-      "Scale X",
+      "Minaly",
     ].filter(Boolean).join("\n"),
   });
 }

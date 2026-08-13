@@ -15,4 +15,4 @@ Deux volets indissociables :
   reste à payer, création de vente depuis un orphelin. Voir `design.md`.
 
 Périmètre strict : lit **uniquement** le Stripe Connect du client (read-only).
-Jamais le Stripe Billing Scale X ni le système de parrainage.
+Jamais le Stripe Billing Minaly ni le système de parrainage.

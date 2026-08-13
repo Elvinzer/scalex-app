@@ -56,7 +56,7 @@ La gestion existe également dans `/integrations`, mais la duplication est volon
 
 ### Contrat d’interaction accessible
 
-Le sélecteur utilisera un pattern de tabs ou de boutons sémantiques avec nom visible, état sélectionné annoncé, focus visible et statut textuel. Il conservera les tokens de la DA Scale X ; aucun code couleur propre aux plateformes ni hexadécimal supplémentaire ne sera introduit. Sur petit écran, le sélecteur pourra se répartir sur plusieurs lignes ou défiler localement, tandis que le défilement horizontal des tableaux restera limité à leur conteneur.
+Le sélecteur utilisera un pattern de tabs ou de boutons sémantiques avec nom visible, état sélectionné annoncé, focus visible et statut textuel. Il conservera les tokens de la DA Minaly ; aucun code couleur propre aux plateformes ni hexadécimal supplémentaire ne sera introduit. Sur petit écran, le sélecteur pourra se répartir sur plusieurs lignes ou défiler localement, tandis que le défilement horizontal des tableaux restera limité à leur conteneur.
 
 ## Risks / Trade-offs
 

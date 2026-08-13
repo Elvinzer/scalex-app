@@ -166,7 +166,7 @@ export const weeklyBriefEmail = inngest.createFunction(
 
           const resend = getResendClient();
           await resend.emails.send({
-            from: "Scale X <brief@scalex.app>",
+            from: "Minaly <brief@minaly.io>",
             to: user.email,
             subject: `Ton rapport de la semaine, ${firstName}`,
             text: [

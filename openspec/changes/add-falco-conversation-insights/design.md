@@ -152,4 +152,4 @@ Les états sauvegardés sont exprimés en texte : `Action à traiter`, `Action l
 
 ## Vérification de conception
 
-La maquette `maquette/Falco - Insight vers Journal.dc.html` est la référence visuelle des états et des dimensions. `design-tokens.md` et `microcopy.md` sont les références de tokens et de textes. Ils ne sont pas importés comme code : l'implémentation réutilise les composants, tokens et conventions de Scale X.
+La maquette `maquette/Falco - Insight vers Journal.dc.html` est la référence visuelle des états et des dimensions. `design-tokens.md` et `microcopy.md` sont les références de tokens et de textes. Ils ne sont pas importés comme code : l'implémentation réutilise les composants, tokens et conventions de Minaly.

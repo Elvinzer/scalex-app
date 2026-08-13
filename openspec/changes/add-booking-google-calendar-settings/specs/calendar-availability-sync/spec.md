@@ -58,11 +58,11 @@ Si un calendrier ne peut pas être lu, si l'événement Google ne peut pas être
 
 ### Requirement: Cancellation and rescheduling stay synchronized
 
-Lorsqu'un rendez-vous natif est annulé ou déplacé via Scale X, le système SHALL mettre à jour ou annuler l'événement Google Calendar correspondant lorsque le fournisseur le permet. Le lien Meet existant SHALL rester attaché au même événement lors d'un simple déplacement ; les erreurs SHALL être signalées sans perdre l'état interne du rendez-vous.
+Lorsqu'un rendez-vous natif est annulé ou déplacé via Minaly, le système SHALL mettre à jour ou annuler l'événement Google Calendar correspondant lorsque le fournisseur le permet. Le lien Meet existant SHALL rester attaché au même événement lors d'un simple déplacement ; les erreurs SHALL être signalées sans perdre l'état interne du rendez-vous.
 
 #### Scenario: Native cancellation removes the external event
 
-- **WHEN** un rendez-vous confirmé est annulé depuis Scale X
+- **WHEN** un rendez-vous confirmé est annulé depuis Minaly
 - **THEN** l'événement Google externe est annulé ou marqué comme annulé, et le créneau redevient disponible selon les règles de l'événement
 
 #### Scenario: Native reschedule keeps the conference

@@ -8,7 +8,7 @@ import { getAdminReferralData } from "@/lib/referrals/queries";
 import { ReferralOverrideForm, ReferralPayoutForm, ReferralRateHint, ReferralSettingsForm } from "./referral-admin-forms";
 
 export const metadata: Metadata = {
-  title: "Parrainage — Admin Scale X",
+  title: "Parrainage — Admin Minaly",
   robots: { index: false, follow: false },
 };
 

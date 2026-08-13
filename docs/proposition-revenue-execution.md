@@ -1,11 +1,11 @@
-# Proposition produit — Faire de Scale X la couche d’exécution commerciale
+# Proposition produit — Faire de Minaly la couche d’exécution commerciale
 
 **Statut :** proposition à discuter  
 **Décision proposée :** ne pas construire un CRM générique. Faire évoluer le Pipeline actuel en couche d’exécution commerciale pilotée par le diagnostic.
 
 ## Résumé exécutif
 
-Scale X sait déjà identifier où un infopreneur perd du chiffre d’affaires. Le risque est qu’il reste ensuite à l’utilisateur de décider seul **qui contacter, quand, pourquoi et avec quel message**.
+Minaly sait déjà identifier où un infopreneur perd du chiffre d’affaires. Le risque est qu’il reste ensuite à l’utilisateur de décider seul **qui contacter, quand, pourquoi et avec quel message**.
 
 La proposition est de transformer le Pipeline existant en une boucle opérationnelle :
 
@@ -14,7 +14,7 @@ Goulot détecté → action priorisée → fiche prospect contextualisée → ac
 → résultat mesuré → diagnostic enrichi
 ```
 
-Cette évolution peut augmenter la valeur quotidienne et la rétention de Scale X sans nous faire entrer frontalement dans la catégorie des CRM généralistes.
+Cette évolution peut augmenter la valeur quotidienne et la rétention de Minaly sans nous faire entrer frontalement dans la catégorie des CRM généralistes.
 
 La recommandation est donc : **valider cette direction maintenant, puis lancer un MVP étroit autour des relances, des appels et du suivi des leads.**
 
@@ -47,7 +47,7 @@ La fonctionnalité doit réduire cet écart entre **comprendre le problème** et
 
 ## 3. Positionnement proposé
 
-> **Scale X ne remplace pas ton CRM. Il te dit qui faire avancer, pourquoi, et quelle action prendre pour récupérer ton cash.**
+> **Minaly ne remplace pas ton CRM. Il te dit qui faire avancer, pourquoi, et quelle action prendre pour récupérer ton cash.**
 
 Ou, en formulation plus courte :
 
@@ -105,7 +105,7 @@ Une action doit pouvoir être :
 - commentée ;
 - reliée à un changement d’étape.
 
-Cela crée la boucle nécessaire pour mesurer si Scale X aide réellement à faire avancer les leads.
+Cela crée la boucle nécessaire pour mesurer si Minaly aide réellement à faire avancer les leads.
 
 ## 5. Évolution UX proposée
 
@@ -253,11 +253,11 @@ La direction mérite d’être lancée si les utilisateurs confirment au moins t
 - ne pas augmenter fortement la saisie manuelle ;
 - ne pas créer de doublons entre Dashboard, Pipeline et Appels ;
 - ne pas ajouter de nouvelle couleur ou de nouveau système visuel hors DA ;
-- ne pas transformer Scale X en outil d’administration commerciale.
+- ne pas transformer Minaly en outil d’administration commerciale.
 
 ## Décision proposée à l’associé
 
-> Nous ne lançons pas un CRM généraliste. Nous faisons de Scale X la couche qui transforme le diagnostic en actions commerciales concrètes. Nous commençons par une file « À faire maintenant » reliée au Pipeline, aux appels et aux ventes, puis nous ajoutons la timeline et les suggestions du Copilote uniquement si l’usage est confirmé.
+> Nous ne lançons pas un CRM généraliste. Nous faisons de Minaly la couche qui transforme le diagnostic en actions commerciales concrètes. Nous commençons par une file « À faire maintenant » reliée au Pipeline, aux appels et aux ventes, puis nous ajoutons la timeline et les suggestions du Copilote uniquement si l’usage est confirmé.
 
 **Recommandation : valider la direction produit, interviewer quelques utilisateurs sur leurs relances et no-shows, puis prototyper ce flux avant de développer.**
 

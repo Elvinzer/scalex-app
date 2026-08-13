@@ -31,7 +31,7 @@ export const LOCALE_HTML_LANG: Record<Locale, string> = {
   en: "en-GB",
 };
 
-export const LOCALE_COOKIE = "scalex-locale";
+export const LOCALE_COOKIE = "minaly-locale";
 // Long-lived: the cookie is only a mirror for pre-auth screens, but a
 // visitor who picks English on the sign-in page should still get English
 // when they come back a month later to finish signing up.

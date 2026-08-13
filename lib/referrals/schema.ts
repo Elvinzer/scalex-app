@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const REFERRAL_COOKIE_NAME = "scalex_referral_code";
+export const REFERRAL_COOKIE_NAME = "minaly_referral_code";
 export const REFERRAL_COOKIE_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
 export const DEFAULT_REFERRAL_SETTINGS_ID = "default";
 export const MAX_COMMISSION_RATE_BPS = 10_000;

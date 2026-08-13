@@ -1,4 +1,4 @@
-# Audit de performance — Scale X
+# Audit de performance — Minaly
 
 ## Passe performance du 11 août 2026
 

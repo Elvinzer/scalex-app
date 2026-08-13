@@ -1,6 +1,6 @@
 ## Purpose
 
-Permettre aux fondateurs de diagnostiquer et de réconcilier un abonnement depuis Scale X tout en laissant les mutations financières sensibles à Stripe et en protégeant strictement les données clients.
+Permettre aux fondateurs de diagnostiquer et de réconcilier un abonnement depuis Minaly tout en laissant les mutations financières sensibles à Stripe et en protégeant strictement les données clients.
 
 ## ADDED Requirements
 
@@ -53,12 +53,12 @@ The system SHALL provide an admin-only resynchronization action that reads the p
 
 ### Requirement: Financial mutation boundary
 
-The V1 admin surface SHALL NOT expose direct Scale X actions for refunds, immediate cancellation, forced plan changes, payment-method editing, impersonation or arbitrary local subscription edits. It SHALL direct those workflows to the platform Stripe context when needed.
+The V1 admin surface SHALL NOT expose direct Minaly actions for refunds, immediate cancellation, forced plan changes, payment-method editing, impersonation or arbitrary local subscription edits. It SHALL direct those workflows to the platform Stripe context when needed.
 
 #### Scenario: Admin reviews a destructive workflow
 
 - **WHEN** an admin views an account detail
-- **THEN** no direct destructive financial control is presented as a local Scale X mutation
+- **THEN** no direct destructive financial control is presented as a local Minaly mutation
 
 #### Scenario: Admin uses a supported operational action
 

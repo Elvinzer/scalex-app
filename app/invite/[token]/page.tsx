@@ -33,7 +33,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       .innerJoin(teamRoles, eq(teamMemberRoles.roleId, teamRoles.id))
       .where(eq(teamMemberRoles.teamMemberId, invite.id)),
   ]);
-  const businessName = profile.identity.businessName || "Scale X";
+  const businessName = profile.identity.businessName || "Minaly";
   const roleNames = roleRows.map((r) => r.name);
 
   const supabase = await createClient();

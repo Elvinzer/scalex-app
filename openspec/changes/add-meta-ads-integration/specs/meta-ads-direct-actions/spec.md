@@ -1,6 +1,6 @@
 ## Purpose
 
-Cette capacité autorise un nombre volontairement réduit d'écritures dans Meta Ads depuis Scale X, toujours derrière une permission obtenue au moment utile et une confirmation explicite, avec un résultat vérifié et un audit complet.
+Cette capacité autorise un nombre volontairement réduit d'écritures dans Meta Ads depuis Minaly, toujours derrière une permission obtenue au moment utile et une confirmation explicite, avec un résultat vérifié et un audit complet.
 
 ## ADDED Requirements
 
@@ -11,7 +11,7 @@ Le système SHALL permettre uniquement de mettre en pause une campagne, un ensem
 #### Scenario: An unsupported change is needed
 
 - **WHEN** une recommandation implique un changement de ciblage ou de créatif
-- **THEN** Scale X propose `Ouvrir dans Meta Ads` et ne propose aucune écriture
+- **THEN** Minaly propose `Ouvrir dans Meta Ads` et ne propose aucune écriture
 
 ### Requirement: Write permission is requested at the moment of use
 
@@ -20,7 +20,7 @@ Le système SHALL vérifier la présence du scope `ads_management` avant l'étap
 #### Scenario: First write of the account
 
 - **WHEN** l'utilisateur veut appliquer une action et que seul `ads_read` a été accordé
-- **THEN** Scale X demande la permission d'écriture avant toute confirmation, puis reprend l'action au même point
+- **THEN** Minaly demande la permission d'écriture avant toute confirmation, puis reprend l'action au même point
 
 #### Scenario: Step-up is declined
 
@@ -39,7 +39,7 @@ Le système SHALL présenter une étape de proposition (action, campagne concern
 #### Scenario: Pausing requires an additional confirmation
 
 - **WHEN** l'action proposée est une mise en pause
-- **THEN** Scale X indique explicitement que la diffusion sera interrompue et demande une confirmation supplémentaire
+- **THEN** Minaly indique explicitement que la diffusion sera interrompue et demande une confirmation supplémentaire
 
 #### Scenario: No automatic execution
 
@@ -53,7 +53,7 @@ Le système SHALL appliquer une limite de sécurité à toute modification de bu
 #### Scenario: Change exceeds the safety limit
 
 - **WHEN** la variation demandée dépasse la limite configurée
-- **THEN** Scale X refuse l'exécution, explique la limite et propose `Ouvrir dans Meta Ads`
+- **THEN** Minaly refuse l'exécution, explique la limite et propose `Ouvrir dans Meta Ads`
 
 ### Requirement: Result states are exhaustive and honest
 
@@ -62,12 +62,12 @@ Le système SHALL exposer les états action en cours, action réussie, action é
 #### Scenario: Campaign changed between proposal and confirmation
 
 - **WHEN** la valeur relue dans Meta diffère de la valeur affichée dans la proposition
-- **THEN** Scale X interrompt l'exécution, affiche la valeur courante et demande une nouvelle décision
+- **THEN** Minaly interrompt l'exécution, affiche la valeur courante et demande une nouvelle décision
 
 #### Scenario: Success is verified, not assumed
 
 - **WHEN** l'écriture est acceptée par l'API Meta
-- **THEN** Scale X relit la valeur depuis Meta avant d'annoncer le succès, et bascule sur `état inconnu` si la relecture échoue
+- **THEN** Minaly relit la valeur depuis Meta avant d'annoncer le succès, et bascule sur `état inconnu` si la relecture échoue
 
 ### Requirement: Meta deep-links are built server-side and validated
 
@@ -81,7 +81,7 @@ Le système SHALL construire les liens `Ouvrir dans Meta Ads` côté serveur, au
 #### Scenario: Object no longer exists
 
 - **WHEN** l'objet ciblé n'existe plus ou n'appartient pas au compte connecté
-- **THEN** le lien retombe sur le niveau supérieur disponible et Scale X l'indique, sans construire d'URL à partir d'un identifiant non validé
+- **THEN** le lien retombe sur le niveau supérieur disponible et Minaly l'indique, sans construire d'URL à partir d'un identifiant non validé
 
 ### Requirement: Every attempt is audited
 

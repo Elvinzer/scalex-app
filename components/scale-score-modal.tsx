@@ -54,7 +54,7 @@ export function ScaleScoreModal({
     try {
       const dataUrl = await toPng(node);
       const link = document.createElement("a");
-      link.download = "scalex-scale-score.png";
+      link.download = "minaly-scale-score.png";
       link.href = dataUrl;
       link.click();
     } finally {

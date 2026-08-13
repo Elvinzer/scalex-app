@@ -538,7 +538,7 @@ export async function createMetaCampaignTrackingLink(input: unknown): Promise<Me
     adExternalId,
     utmSource: "meta",
     utmMedium: "paid_social",
-    utmCampaign: `scale-x-${campaign.id.slice(0, 8)}`,
+    utmCampaign: `minaly-${campaign.id.slice(0, 8)}`,
   });
   const url = buildMetaTrackingUrl(parsed.data.destinationUrl, {
     touchpointToken: touchpoint.token,
@@ -547,7 +547,7 @@ export async function createMetaCampaignTrackingLink(input: unknown): Promise<Me
     adExternalId,
     utmSource: "meta",
     utmMedium: "paid_social",
-    utmCampaign: `scale-x-${campaign.id.slice(0, 8)}`,
+    utmCampaign: `minaly-${campaign.id.slice(0, 8)}`,
   });
 
   return { error: null, url };
@@ -750,7 +750,7 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
   if (requestedBudget !== null && currentDailyBudgetCents !== null && currentDailyBudgetCents > 0) {
     const variation = Math.abs(requestedBudget - currentDailyBudgetCents) / currentDailyBudgetCents;
     if (variation > MAX_DAILY_BUDGET_CHANGE_FRACTION) {
-      const message = `Cette variation de budget dépasse la limite Scale X de ${MAX_DAILY_BUDGET_CHANGE_FRACTION * 100} %. Ouvre Meta Ads pour une modification plus importante.`;
+      const message = `Cette variation de budget dépasse la limite Minaly de ${MAX_DAILY_BUDGET_CHANGE_FRACTION * 100} %. Ouvre Meta Ads pour une modification plus importante.`;
       const logId = await insertMetaActionLog({ accountId: access.accountId, adAccountId: target.adAccountId, entityType: target.entityType, entityExternalId: target.externalId, actionType: parsed.data.actionType, idempotencyKey, status: "blocked", requestedState, currentState, errorMessage: message, completedAt: new Date() });
       await recordMetaActionInJournal({ accountId: access.accountId, logId, campaignName: target.name, actionType: parsed.data.actionType, status: "blocked" });
       return { error: message, status: "blocked", deepLink };

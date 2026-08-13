@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,8 @@ import { createRole } from "./actions";
 
 export function CreateRoleDialog({
   permissionOptions,
-  trigger,
 }: {
   permissionOptions: { key: PermissionKey }[];
-  trigger: React.ReactNode;
 }) {
   const t = useTranslations("settings.team");
   const [open, setOpen] = useState(false);
@@ -46,7 +45,12 @@ export function CreateRoleDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline">
+          <Plus className="size-4" />
+          {t("newRole")}
+        </Button>
+      </DialogTrigger>
       <DialogContent>
         <DialogTitle className="text-lg font-bold">{t("newRole")}</DialogTitle>
 

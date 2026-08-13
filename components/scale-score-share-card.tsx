@@ -15,7 +15,7 @@ function formatMultiplier(current: number, potential: number, locale: string): s
 }
 
 // Same dark shareable-card family as components/metric-health-card.tsx (bg
-// #16150F, tier glow, Scale X wordmark, footer CTA) — this is the Scale
+// #16150F, tier glow, Minaly wordmark, footer CTA) — this is the Scale
 // Score modal's variant: potential monthly revenue "if everything the app
 // flags gets fixed" instead of a single metric's %. Potential/current figures
 // come from app/(app)/layout.tsx (same top-3-bottlenecks basis as Dashboard's
@@ -41,7 +41,7 @@ export const ScaleScoreShareCard = forwardRef<
       />
 
       <div className="relative flex items-center justify-between">
-        <Image src="/scalex-wordmark.png" alt="Scale X" width={200} height={50} className="h-7 w-auto" />
+        <Image src="/minaly-wordmark.png" alt="Minaly" width={200} height={50} className="h-7 w-auto" />
         <div className="text-right">
           <p className="text-[11px] tracking-wide text-[var(--text-on-dark-muted)] uppercase">{t(`scaleScore.tier.${tier.tier}`)}</p>
           <p className="font-display text-2xl font-bold tabular-nums" style={{ color: tier.colorText }}>

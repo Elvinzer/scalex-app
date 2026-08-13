@@ -158,7 +158,7 @@ function buildDashboard(selectedType: MetaCampaignType | undefined, periodSelect
 
   return {
     connected: true,
-    account: { id: "fixture-account", externalId: "act_1234567890", name: "Scale X Fixture Ads", currency: "EUR", timezone: "Europe/Paris" },
+    account: { id: "fixture-account", externalId: "act_1234567890", name: "Minaly Fixture Ads", currency: "EUR", timezone: "Europe/Paris" },
     connection: { status: "connected", initialSyncStatus: "completed", lastSyncCompletedAt: FIXTURE_SYNCED_AT, lastSyncError: null, grantedScopes: ["ads_read"] },
     period: { ...period, consolidatedThrough: period.end >= FIXTURE_NOW ? "2026-08-06" : period.end },
     comparisonPeriod,
@@ -219,13 +219,13 @@ export default async function MetaAdsE2EFixturePage({ searchParams }: { searchPa
         <MetaAdsConnectionCard
           connected
           connectionStatus="connected"
-          metaUserName="Scale X Fixture"
+          metaUserName="Minaly Fixture"
           selectedAdAccountId="act_1234567890"
           initialSyncStatus="completed"
           initialSyncCompletedAt={new Date(FIXTURE_SYNCED_AT)}
           lastSyncCompletedAt={new Date(FIXTURE_SYNCED_AT)}
           grantedScopes={["ads_read"]}
-          accounts={[{ externalId: "act_1234567890", name: "Scale X Fixture Ads", currency: "EUR", timezone: "Europe/Paris", canRead: true }, { externalId: "act_0987654321", name: "Compte sans accès", currency: "USD", timezone: "America/New_York", canRead: false, disableReason: "Accès lecture absent" }]}
+          accounts={[{ externalId: "act_1234567890", name: "Minaly Fixture Ads", currency: "EUR", timezone: "Europe/Paris", canRead: true }, { externalId: "act_0987654321", name: "Compte sans accès", currency: "USD", timezone: "America/New_York", canRead: false, disableReason: "Accès lecture absent" }]}
           subscriptionActive
           connectionNotice={null}
         />

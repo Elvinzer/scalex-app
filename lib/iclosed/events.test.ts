@@ -28,10 +28,10 @@ describe("iClosed call normalization", () => {
     const call = readCall({
       id: 44,
       dateTimeUTC: "2026-08-08T10:00:00.000Z",
-      tracking: { utm_campaign: "scale-x-vsl", sx_mt: "b".repeat(64) },
+      tracking: { utm_campaign: "minaly-vsl", sx_mt: "b".repeat(64) },
     });
 
-    expect(call?.utmCampaign).toBe("scale-x-vsl");
+    expect(call?.utmCampaign).toBe("minaly-vsl");
     expect(call?.metaTouchpointToken).toBe("b".repeat(64));
   });
 

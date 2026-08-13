@@ -52,7 +52,7 @@ export const refreshStreaks = inngest.createFunction(
 
           const resend = getResendClient();
           await resend.emails.send({
-            from: "Scale X <brief@scalex.app>",
+            from: "Minaly <brief@minaly.io>",
             to: account.email,
             subject: "Un petit quelque chose aujourd'hui ?",
             text: [
@@ -62,7 +62,7 @@ export const refreshStreaks = inngest.createFunction(
               "publier un contenu, envoyer une campagne, cocher une action du Journal,",
               "remplir tes chiffres ou travailler un lead.",
               "",
-              `Ouvrir Scale X : ${appUrl}/roadmap`,
+              `Ouvrir Minaly : ${appUrl}/roadmap`,
               "",
               `Ne plus recevoir ce rappel : ${unsubscribeUrl}`,
             ].join("\n"),

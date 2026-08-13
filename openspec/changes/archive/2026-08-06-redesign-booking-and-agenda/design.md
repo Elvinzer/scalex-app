@@ -2,7 +2,7 @@
 
 Le code actuel possède deux sources de lecture séparées : `nativeBookings` pour les réservations natives et `salesCalls` pour les appels iClosed, Calendly, manuels et natifs. La page publique et sa route utilisent encore un formulaire de coordonnées unique, tandis que l’éditeur d’événement ne possède ni questions persistées ni règles de rappels. Les notifications natives existent déjà via Resend/Inngest, mais l’email prospect est actuellement nullable et les rappels métier n’existent pas.
 
-Les règles existantes à préserver sont l’account scoping/RLS, l’attribution round-robin persistée, la réservation transactionnelle, la synchronisation Google/Outlook, les tokens publics de gestion et les limites d’abonnement. La DA du handoff et les tokens Scale X restent prioritaires sur toute suggestion visuelle générique ; les recommandations `ui-ux-pro-max` servent uniquement aux interactions non maquettées.
+Les règles existantes à préserver sont l’account scoping/RLS, l’attribution round-robin persistée, la réservation transactionnelle, la synchronisation Google/Outlook, les tokens publics de gestion et les limites d’abonnement. La DA du handoff et les tokens Minaly restent prioritaires sur toute suggestion visuelle générique ; les recommandations `ui-ux-pro-max` servent uniquement aux interactions non maquettées.
 
 ## Goals / Non-Goals
 
@@ -16,7 +16,7 @@ Les règles existantes à préserver sont l’account scoping/RLS, l’attributi
 
 **Non-Goals:**
 
-- Modifier, annuler ou déplacer les appels iClosed/Calendly depuis Scale X.
+- Modifier, annuler ou déplacer les appels iClosed/Calendly depuis Minaly.
 - Inclure les appels manuels dans l’agenda unifié.
 - Réattribuer les rendez-vous existants lors d’un rééquilibrage ou d’un changement de pool.
 - Envoyer automatiquement des messages WhatsApp ; le lien prérempli reste une action manuelle.

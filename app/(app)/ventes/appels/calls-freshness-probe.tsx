@@ -8,7 +8,7 @@ import { requestIclosedUpcomingSync } from "@/app/(app)/integrations/iclosed-act
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 const SESSION_CHECK_GAP_MS = 4 * 60 * 1000;
 const REFRESH_DELAYS_MS = [4_000, 15_000] as const;
-const SESSION_CHECK_KEY = "scalex:iclosed-upcoming-check:v1";
+const SESSION_CHECK_KEY = "minaly:iclosed-upcoming-check:v1";
 
 // Invisible client-side coordinator for the server-side reconciliation. It
 // runs once when the page opens, again after five minutes while the tab stays

@@ -9,7 +9,7 @@
   "instagramNotProfessional": "Ce compte Instagram est un compte personnel. Passe-le en Business ou Créateur puis réessaie.",
   "instagramError": "La connexion Instagram a échoué. Réessaie dans un instant.",
   "youtubeNoChannel": "Aucune chaîne YouTube n’est associée à ce compte Google. Connecte-toi avec le compte qui possède la chaîne.",
-  "youtubeNoRefreshToken": "Google n’a pas renvoyé d’accès permanent. Réessaie la connexion puis reconnecte Scale X si nécessaire.",
+  "youtubeNoRefreshToken": "Google n’a pas renvoyé d’accès permanent. Réessaie la connexion puis reconnecte Minaly si nécessaire.",
   "youtubeError": "La connexion YouTube a échoué. Réessaie dans un instant.",
   "platformGroup": "Plateforme de contenu",
   "connected": "Connecté",

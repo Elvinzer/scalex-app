@@ -8,10 +8,10 @@ Le changement `add-revenue-execution-actions` a volontairement conservé une pro
 
 **Goals:**
 
-- Donner à l’utilisateur une mémoire fiable de ce que Scale X lui a recommandé et de ce qu’il a décidé.
+- Donner à l’utilisateur une mémoire fiable de ce que Minaly lui a recommandé et de ce qu’il a décidé.
 - Faire de `Je lance cette action` un passage court vers une tâche ou un projet du Journal.
 - Garantir une seule priorité hebdomadaire, tout en autorisant plusieurs initiatives historiques ou en attente.
-- Mesurer automatiquement les métriques comparables et présenter un impact honnête, sans attribuer causalement tout le CA à Scale X.
+- Mesurer automatiquement les métriques comparables et présenter un impact honnête, sans attribuer causalement tout le CA à Minaly.
 - Permettre au propriétaire d’assigner une initiative à un membre d’équipe actif et à ce membre de la faire avancer dans ses droits.
 - Donner à Falco un contexte de relance basé sur l’initiative réelle, pas un conseil générique répété.
 

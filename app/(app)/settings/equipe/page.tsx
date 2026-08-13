@@ -132,15 +132,7 @@ export default async function EquipePage() {
           <h2 className="text-xl font-bold">{t("rolesTitle")}</h2>
           <p className="mt-1 text-muted-foreground">{t("rolesHelp")}</p>
         </div>
-        <CreateRoleDialog
-          permissionOptions={PERMISSION_OPTIONS}
-          trigger={
-            <Button type="button" variant="outline">
-              <Plus className="size-4" />
-              {t("newRole")}
-            </Button>
-          }
-        />
+        <CreateRoleDialog permissionOptions={PERMISSION_OPTIONS} />
       </div>
 
       <div className="flex flex-col gap-4">

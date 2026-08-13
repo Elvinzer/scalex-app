@@ -356,7 +356,7 @@ export function MetaCampaignsTable({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-bold">Campagnes Meta</p>
-            <p className="mt-1 max-w-5xl text-xs text-muted-foreground">Ouvre une campagne pour voir ses détails. Le type adapte uniquement la lecture Scale X.</p>
+            <p className="mt-1 max-w-5xl text-xs text-muted-foreground">Ouvre une campagne pour voir ses détails. Le type adapte uniquement la lecture Minaly.</p>
           </div>
           <span className="text-xs font-bold text-muted-foreground" aria-live="polite">{number(filteredRows.length)} / {number(campaigns.length)} campagne(s)</span>
         </div>

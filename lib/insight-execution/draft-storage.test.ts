@@ -31,7 +31,7 @@ describe("Copilote draft storage", () => {
     writeInsightDraft(store, "00000000-0000-0000-0000-000000000001", draft);
     clearInsightDraft(store, "00000000-0000-0000-0000-000000000001");
     expect(readInsightDraft(store, "00000000-0000-0000-0000-000000000001")).toBeNull();
-    store.setItem("scalex:falco-insight-draft:bad", "not-json");
+    store.setItem("minaly:falco-insight-draft:bad", "not-json");
     expect(readInsightDraft(store, "bad")).toBeNull();
   });
 });

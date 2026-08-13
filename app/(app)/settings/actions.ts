@@ -196,7 +196,7 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
 // account and resets the users row to a fresh-signup state — but
 // deliberately NEVER touches anthropicApiKeyEncrypted/Invalid,
 // stripeConnectId/stripe_connections, or stripeCustomerId/subscriptions:
-// the BYOK key, Stripe Connect link, and paid Scale X subscription are
+// the BYOK key, Stripe Connect link, and paid Minaly subscription are
 // account-level infrastructure, not "business data", and a reset must not
 // silently kill a subscription the user is still paying for. Contrast with
 // deleteAccount below, which does wipe those (by design, via cascade).

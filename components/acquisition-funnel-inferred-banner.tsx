@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-const DISMISS_KEY = "scalex:acquisition-funnel-inferred-dismissed";
+const DISMISS_KEY = "minaly:acquisition-funnel-inferred-dismissed";
 
 type AcquisitionFunnelInferredBannerProps = {
   title: string;

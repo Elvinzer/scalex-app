@@ -16,7 +16,7 @@ Au lancement d’une initiative, le système SHALL capturer côté serveur la m�
 #### Scenario: Missing data prevents a false baseline
 
 - **WHEN** la métrique d’un insight n’est plus calculable au moment du lancement
-- **THEN** Scale X refuse le lancement mesurable avec une explication actionnable ou crée une initiative explicitement non mesurable, sans enregistrer zéro à la place d’une donnée manquante
+- **THEN** Minaly refuse le lancement mesurable avec une explication actionnable ou crée une initiative explicitement non mesurable, sans enregistrer zéro à la place d’une donnée manquante
 
 ### Requirement: Comparable metrics are measured after the action
 
@@ -39,7 +39,7 @@ Le système SHALL calculer un impact cash uniquement lorsqu’une formule déter
 #### Scenario: Deterministic cash impact is available
 
 - **WHEN** une initiative possède une métrique de revenu et une formule de comparaison validée par le domaine
-- **THEN** Scale X affiche le montant, la période, la source et le libellé de preuve correspondant
+- **THEN** Minaly affiche le montant, la période, la source et le libellé de preuve correspondant
 
 #### Scenario: Cash attribution is not deterministic
 

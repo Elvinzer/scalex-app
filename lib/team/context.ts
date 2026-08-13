@@ -22,7 +22,7 @@ export type AccountContext =
 // are separate invocations and re-resolve fresh, which is fine — it's a
 // single indexed query.
 //
-// Returns null if the resolved account's Scale X subscription has lapsed:
+// Returns null if the resolved account's Minaly subscription has lapsed:
 // team members lose access immediately, not just future invites, per
 // CLAUDE.md ("l'infopreneur devra forcément avoir un abonnement"). Never
 // null for an owner — the gate only applies to delegated access.

@@ -46,11 +46,11 @@ describe("Calendly call normalization", () => {
         start_time: "2026-08-08T10:00:00.000Z",
       },
       {
-        tracking: { utm_campaign: "scale-x-webinar", utm_content: "creative-a" },
+        tracking: { utm_campaign: "minaly-webinar", utm_content: "creative-a" },
       },
     );
 
-    expect(call?.utmCampaign).toBe("scale-x-webinar");
+    expect(call?.utmCampaign).toBe("minaly-webinar");
     expect(call?.utmContent).toBe("creative-a");
   });
 });

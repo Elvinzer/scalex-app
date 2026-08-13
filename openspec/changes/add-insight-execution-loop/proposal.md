@@ -1,6 +1,6 @@
 ## Why
 
-Scale X génère déjà des diagnostics, des insights de funnel et des recommandations, mais ces éléments restent principalement des lectures ponctuelles. L’utilisateur peut comprendre quoi améliorer sans avoir une mémoire fiable de sa décision, une action reliée au Journal, une priorité hebdomadaire ni une preuve du résultat obtenu.
+Minaly génère déjà des diagnostics, des insights de funnel et des recommandations, mais ces éléments restent principalement des lectures ponctuelles. L’utilisateur peut comprendre quoi améliorer sans avoir une mémoire fiable de sa décision, une action reliée au Journal, une priorité hebdomadaire ni une preuve du résultat obtenu.
 
 Cette change transforme un insight actionnable en boucle d’amélioration suivie, sans créer un CRM générique ni une couche de gamification lourde.
 

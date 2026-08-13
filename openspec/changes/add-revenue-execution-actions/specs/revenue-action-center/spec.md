@@ -1,6 +1,6 @@
 ## Purpose
 
-Cette capacité rend les actions commerciales prioritaires visibles dans le Dashboard de Scale X et permet à l’utilisateur d’ouvrir rapidement le contexte source approprié, avec une expérience accessible, dense et cohérente avec la DA existante.
+Cette capacité rend les actions commerciales prioritaires visibles dans le Dashboard de Minaly et permet à l’utilisateur d’ouvrir rapidement le contexte source approprié, avec une expérience accessible, dense et cohérente avec la DA existante.
 
 ## ADDED Requirements
 
@@ -34,12 +34,12 @@ Le CTA d’une action SHALL ouvrir la page propriétaire correspondante et SHALL
 #### Scenario: Pipeline action opens the selected lead
 
 - **WHEN** l’utilisateur ouvre une action de rappel ou de no-show
-- **THEN** Scale X ouvre Pipeline avec le lead concerné identifié et sans demander à l’utilisateur de le retrouver manuellement dans toutes les colonnes
+- **THEN** Minaly ouvre Pipeline avec le lead concerné identifié et sans demander à l’utilisateur de le retrouver manuellement dans toutes les colonnes
 
 #### Scenario: Native lead action opens the relaunch context
 
 - **WHEN** l’utilisateur ouvre une action issue d’une réservation native
-- **THEN** Scale X ouvre Rendez-vous avec le prospect concerné visible ou mis en évidence dans la liste `À relancer`
+- **THEN** Minaly ouvre Rendez-vous avec le prospect concerné visible ou mis en évidence dans la liste `À relancer`
 
 ### Requirement: Revenue and technical alerts are visually separated
 

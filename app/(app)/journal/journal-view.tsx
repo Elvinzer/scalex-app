@@ -288,7 +288,7 @@ function ResultCard({ result, onAdjust }: { result: JournalResult; onAdjust: (re
 
   useEffect(() => {
     if (result.state !== "positive") return;
-    const key = `scalex:journal-result-seen:${result.id}`;
+    const key = `minaly:journal-result-seen:${result.id}`;
     if (window.localStorage.getItem(key)) return;
     window.localStorage.setItem(key, "1");
     setCelebrate(true);
@@ -496,7 +496,7 @@ export function JournalView({ data, todos, projects, streak = null, fixtureMode 
   const [showIntro, setShowIntro] = useState(false);
 
   useEffect(() => {
-    setShowIntro(window.localStorage.getItem("scalex:journal-intro-dismissed") !== "1");
+    setShowIntro(window.localStorage.getItem("minaly:journal-intro-dismissed") !== "1");
   }, []);
 
   const todayAction = queue[0] ?? null;
@@ -506,7 +506,7 @@ export function JournalView({ data, todos, projects, streak = null, fixtureMode 
   const hasLoopHistory = data.results.length > 0 || data.timeline.visible;
 
   function dismissIntro() {
-    window.localStorage.setItem("scalex:journal-intro-dismissed", "1");
+    window.localStorage.setItem("minaly:journal-intro-dismissed", "1");
     setShowIntro(false);
   }
 

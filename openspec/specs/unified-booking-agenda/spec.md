@@ -68,7 +68,7 @@ Les rendez-vous iClosed et Calendly SHALL proposer uniquement des actions de con
 #### Scenario: External appointment has no mutation action
 
 - **WHEN** l’utilisateur ouvre le menu d’un rendez-vous iClosed ou Calendly
-- **THEN** il peut ouvrir la fiche et les informations disponibles, mais ne peut ni déplacer ni annuler le rendez-vous depuis Scale X
+- **THEN** il peut ouvrir la fiche et les informations disponibles, mais ne peut ni déplacer ni annuler le rendez-vous depuis Minaly
 
 ### Requirement: Native appointments expose authorized management actions
 

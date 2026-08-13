@@ -1,4 +1,4 @@
-const FALLBACK_SITE_URL = "https://scalex.app";
+const FALLBACK_SITE_URL = "https://www.minaly.io";
 
 export function getPublicSiteUrl(): string {
   const configuredUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL;

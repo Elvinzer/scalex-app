@@ -85,7 +85,7 @@ export default async function AppLayout({
     getUserById(userId),
   ]);
   if (!context) {
-    // A team member whose account's Scale X subscription lapsed — blocked
+    // A team member whose account's Minaly subscription lapsed — blocked
     // immediately, not just future invites (see lib/billing/plan-gate.ts).
     const t = await getTranslations("common.shared");
     return (

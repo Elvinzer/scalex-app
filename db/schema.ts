@@ -95,7 +95,7 @@ export const users = pgTable("users", {
   // "is this user connected to Stripe". stripe_connections stays the source
   // of truth (token, connected_at).
   stripeConnectId: text("stripe_connect_id"),
-  // Scale X's OWN Stripe customer id for this account (platform billing —
+  // Minaly's OWN Stripe customer id for this account (platform billing —
   // see subscriptions below), created on first checkout attempt so retrying
   // an abandoned checkout reuses the same Stripe Customer instead of
   // minting duplicates. Distinct from stripeConnectId above (that one
@@ -1947,7 +1947,7 @@ export const funnelStageEnum = pgEnum("funnel_stage", [
 // on regeneration), so a user can look back at everything ever generated for
 // a stage. implemented/implementedAt let the user mark whether they actually
 // put a given insight into practice. keySource/inputTokens/outputTokens exist
-// so the client can see their own consumption and so Scale X can track
+// so the client can see their own consumption and so Minaly can track
 // exposure on the shared fallback key (see lib/agent/quota.ts), per
 // CLAUDE.md's BYOK logging rule.
 export const funnelStageInsights = pgTable(
@@ -1974,7 +1974,7 @@ export const funnelStageInsights = pgTable(
 ).enableRLS();
 
 // Monthly per-user counter, incremented only when the shared fallback key is
-// used (BYOK calls cost Scale X nothing, so they're never counted here).
+// used (BYOK calls cost Minaly nothing, so they're never counted here).
 // periodMonth ("2026-07") doubles as the reset mechanism — a new month is
 // simply a new row, no cron job needed.
 export const sharedAgentUsage = pgTable(
@@ -2846,9 +2846,9 @@ export const teamMemberRoles = pgTable(
   (table) => [primaryKey({ columns: [table.teamMemberId, table.roleId] })]
 ).enableRLS();
 
-// --- Scale X's own SaaS billing ---------------------------------------------
+// --- Minaly's own SaaS billing ---------------------------------------------
 // Distinct from Stripe Connect above (stripeConnections), which only reads a
-// CLIENT's Stripe account. This is Scale X's platform Stripe account,
+// CLIENT's Stripe account. This is Minaly's platform Stripe account,
 // billing the infopreneur — see lib/stripe/platform-client.ts.
 
 // Admin-editable via /admin/plans. features is a jsonb bag rather than fixed
@@ -2922,7 +2922,7 @@ export const processedStripeEvents = pgTable("processed_stripe_events", {
 }).enableRLS();
 
 // --- Referral programme ------------------------------------------------------
-// Referral revenue belongs to the Scale X platform subscription, not to the
+// Referral revenue belongs to the Minaly platform subscription, not to the
 // customer's Stripe Connect account. Rates are stored in basis points (100 =
 // 1%) so calculations stay integer-only and every commission can retain the
 // exact rate that produced it.

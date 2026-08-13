@@ -18,7 +18,7 @@
 - [x] 3.2 Build `/admin/subscriptions` with current-state KPIs, URL-persisted controls, accessible table headers, empty states and a responsive mobile card representation.
 - [x] 3.3 Build `/admin/subscriptions/[accountId]` with account identity, subscription summary, entitlements, usage, synchronization metadata and safe Stripe/portal/resync actions.
 - [x] 3.4 Add pending, success and actionable error feedback for all asynchronous actions, prevent duplicate submissions, and keep destructive financial actions absent from V1.
-- [x] 3.5 Apply Scale X semantic tokens and Button variants, with one corail priority CTA per screen and violet reserved for analytics/context actions.
+- [x] 3.5 Apply Minaly semantic tokens and Button variants, with one corail priority CTA per screen and violet reserved for analytics/context actions.
 
 ## 4. Verification and delivery
 

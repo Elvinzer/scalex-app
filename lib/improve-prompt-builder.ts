@@ -25,7 +25,7 @@ export type LeverMode = "optimiser" | "demarrer" | "decouverte";
 // missing (safety net, not the intended path — same defensive stance the
 // old ROLE_BY_METRIC fallback had).
 const FALLBACK_ROLE =
-  "Tu es Falco, le copilote de croissance de ScaleX pour coachs et formateurs francophones.";
+  "Tu es Falco, le copilote de croissance de Minaly pour coachs et formateurs francophones.";
 
 // Exported so lib/call-analysis-prompt-builder.ts and lib/ad-copy-prompt-builder.ts
 // can reuse the same business-context description instead of re-deriving it.
@@ -299,7 +299,7 @@ export function buildImprovePrompt({
     "- N'invente jamais un chiffre qui ne figure pas dans les données ci-dessus.",
     "- Maximum 300 mots par réponse. Termine TOUJOURS par une seule question qui fait avancer.",
     "- Ne promets jamais un résultat chiffré (\"tu vas gagner X€\") : reste sur des estimations prudentes (\"de l'ordre de\", \"≈\").",
-    "- Ne recommande jamais un outil concurrent de Scale X.",
+    "- Ne recommande jamais un outil concurrent de Minaly.",
     "- Quand tu peux formuler une action testable avec un problème clair et un critère de réussite concret, ajoute à la toute fin de ta réponse le bloc machine ci-dessous. Il ne doit contenir aucun Markdown ni texte autour :",
     `${falcoInsightProtocol.start}{\"kind\":\"proposal\",\"title\":\"...\",\"problem\":\"...\",\"actionText\":\"...\",\"successCriterion\":\"...\"}${falcoInsightProtocol.end}`,
     "- Si l'action n'est pas encore assez précise, n'invente rien : ajoute à la fin un bloc machine vague avec la précision manquante et 2 à 4 réponses rapides :",

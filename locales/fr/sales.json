@@ -160,7 +160,7 @@
     "syncNotDone": "Synchronisation Stripe pas encore terminée.",
     "syncRequest": "Synchronisation demandée. Les données se mettront à jour dès que Stripe aura répondu.",
     "noTransactions": "Pas encore de transactions Stripe à analyser.",
-    "syncInstruction": "Lance une synchronisation : Scale X récupère les 12 derniers mois en lecture seule et garde les remboursements séparés pour éviter les doubles comptes.",
+    "syncInstruction": "Lance une synchronisation : Minaly récupère les 12 derniers mois en lecture seule et garde les remboursements séparés pour éviter les doubles comptes.",
     "requestSync": "Demander la synchronisation",
     "netRevenue": "CA net",
     "grossRevenue": "CA brut",

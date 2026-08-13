@@ -36,7 +36,7 @@ export const META_ACTION_STATUSES = [
 
 export type MetaActionStatus = (typeof META_ACTION_STATUSES)[number];
 
-export const META_WEBINAR_SOURCES = ["calendly", "iclosed", "scalex"] as const;
+export const META_WEBINAR_SOURCES = ["calendly", "iclosed", "minaly"] as const;
 
 export type MetaWebinarSource = (typeof META_WEBINAR_SOURCES)[number];
 
@@ -61,15 +61,15 @@ export type MetaProvenance = {
     | "meta+instagram"
     | "meta+calendly"
     | "meta+iclosed"
-    | "meta+scalex"
+    | "meta+minaly"
     | "meta+calendly+stripe"
     | "meta+iclosed+stripe"
-    | "meta+scalex+stripe"
+    | "meta+minaly+stripe"
     | "stripe"
     | "calendly"
     | "iclosed"
     | "instagram"
-    | "scalex";
+    | "minaly";
   calculation: "brute" | "derivee";
   attribution: "directe" | "jointe" | "estimee" | "non_rattachee" | "indisponible";
   freshness: string;

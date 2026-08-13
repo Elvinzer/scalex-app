@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "title": "Scale X | Le coach de scaling tout-en-un pour les coachs",
-    "description": "Scale X aide les coachs et infopreneurs entre 10 k$ et 100 k$ par mois à trouver le frein qui ralentit leur croissance et à le transformer en plan d'action hebdomadaire.",
+    "title": "Minaly | Le coach de scaling tout-en-un pour les coachs",
+    "description": "Minaly aide les coachs et infopreneurs entre 10 k$ et 100 k$ par mois à trouver le frein qui ralentit leur croissance et à le transformer en plan d'action hebdomadaire.",
     "keywords": "coach scaling, logiciel pour coach, scaling business coaching, plateforme tout-en-un coach, diagnostic goulot d'étranglement"
   },
   "nav": {
-    "features": "Ce que Scale X corrige",
+    "features": "Ce que Minaly corrige",
     "product": "Dans la plateforme",
     "process": "Comment ça marche",
     "pricing": "Tarifs",
@@ -14,21 +14,21 @@
     "signIn": "Se connecter",
     "openMenu": "Ouvrir le menu",
     "closeMenu": "Fermer le menu",
-    "home": "Accueil Scale X"
+    "home": "Accueil Minaly"
   },
   "hero": {
     "eyebrow": "Pour les coachs et infopreneurs entre 10 k$ et 100 k$ par mois.",
     "title": "Ton business grandit. Ton goulot d'étranglement se cache.",
     "accent": "Trouve-le. Corrige-le.",
-    "description": "Scale X est le coach de scaling tout-en-un des coachs et infopreneurs. Il relie acquisition, ventes et delivery, trouve le frein qui te coûte le plus et te donne une action à exécuter cette semaine.",
+    "description": "Minaly est le coach de scaling tout-en-un des coachs et infopreneurs. Il relie acquisition, ventes et delivery, trouve le frein qui te coûte le plus et te donne une action à exécuter cette semaine.",
     "primaryCta": "Commencer avec ton business",
     "secondaryCta": "Voir comment ça marche",
     "proof": "Une priorité claire pour la semaine, appuyée par tes données business",
-    "mockupAlt": "Dashboard Scale X affichant un goulot d'étranglement business priorisé"
+    "mockupAlt": "Dashboard Minaly affichant un goulot d'étranglement business priorisé"
   },
   "benefits": {
     "heading": "Scaler devient plus simple quand le frein est visible",
-    "intro": "Scale X rassemble les questions opérationnelles qui comptent au même endroit.",
+    "intro": "Minaly rassemble les questions opérationnelles qui comptent au même endroit.",
     "bottleneck": {
       "title": "Trouve le goulot",
       "description": "Vois si l'acquisition, les ventes ou le delivery limite la prochaine étape de croissance."
@@ -87,7 +87,7 @@
     },
     "diagnose": {
       "title": "Diagnostiquer",
-      "description": "Scale X calcule les taux, écarts et évolutions dans le code avant d'expliquer le frein."
+      "description": "Minaly calcule les taux, écarts et évolutions dans le code avant d'expliquer le frein."
     },
     "execute": {
       "title": "Exécuter",
@@ -147,40 +147,40 @@
   "faq": {
     "heading": "Les questions des coachs avant de scaler",
     "whatIs": {
-      "question": "Qu'est-ce que Scale X ?",
-      "answer": "Scale X est le coach de scaling tout-en-un des coachs et infopreneurs entre 10 k$ et 100 k$ par mois. Il combine données business, diagnostic du goulot et plan d'action hebdomadaire."
+      "question": "Qu'est-ce que Minaly ?",
+      "answer": "Minaly est le coach de scaling tout-en-un des coachs et infopreneurs entre 10 k$ et 100 k$ par mois. Il combine données business, diagnostic du goulot et plan d'action hebdomadaire."
     },
     "whoFor": {
-      "question": "À qui s'adresse Scale X ?",
+      "question": "À qui s'adresse Minaly ?",
       "answer": "Il est conçu pour les fondateurs et petites équipes qui ont déjà de l'activité commerciale mais veulent remettre de l'ordre entre acquisition, ventes et delivery."
     },
     "data": {
-      "question": "Quelles données Scale X peut-il utiliser ?",
+      "question": "Quelles données Minaly peut-il utiliser ?",
       "answer": "Le diagnostic principal démarre avec Stripe. Selon le workflow, tu peux aussi connecter iClosed ou Calendly pour les appels, et Instagram ou YouTube pour l'analytics de contenu."
     },
     "replace": {
-      "question": "Scale X remplace-t-il un coach business ?",
-      "answer": "Non. Scale X donne au coach ou au fondateur une vue opérationnelle commune et une prochaine action concrète. Il soutient le jugement et l'exécution au lieu de prétendre les remplacer."
+      "question": "Minaly remplace-t-il un coach business ?",
+      "answer": "Non. Minaly donne au coach ou au fondateur une vue opérationnelle commune et une prochaine action concrète. Il soutient le jugement et l'exécution au lieu de prétendre les remplacer."
     },
     "byok": {
       "question": "Comment fonctionne la clé IA ?",
-      "answer": "Scale X accepte ta propre clé. Ta clé Anthropic est chiffrée et utilisée pour les appels de l'agent de ton compte. Elle n'est jamais renvoyée au navigateur après sa configuration."
+      "answer": "Minaly accepte ta propre clé. Ta clé Anthropic est chiffrée et utilisée pour les appels de l'agent de ton compte. Elle n'est jamais renvoyée au navigateur après sa configuration."
     }
   },
   "finalCta": {
     "heading": "Donne un point de départ clair à ta prochaine décision de croissance",
     "description": "Pars des données que tu as déjà et repars avec une priorité à exécuter cette semaine.",
     "cta": "Commencer avec ton business",
-    "falcoAlt": "Falco, l'assistant de coaching Scale X"
+    "falcoAlt": "Falco, l'assistant de coaching Minaly"
   },
   "footer": {
-    "features": "Ce que Scale X corrige",
+    "features": "Ce que Minaly corrige",
     "product": "Dans la plateforme",
     "pricing": "Tarifs",
     "resources": "Ressources",
     "contact": "Contact",
     "privacy": "Politique de confidentialité",
-    "copyright": "© 2026 Scale X. Tous droits réservés."
+    "copyright": "© 2026 Minaly. Tous droits réservés."
   },
   "dashboard": {
     "overview": "Dashboard illustratif",
@@ -209,10 +209,10 @@
   },
   "privacy": {
     "faqQuestion": "Comment exercer vos droits sur vos données personnelles ?",
-    "faqAnswer": "Écrivez à contact@scalex.app pour demander l'accès, la rectification, l'effacement, la limitation ou la portabilité de vos données."
+    "faqAnswer": "Écrivez à contact@minaly.io pour demander l'accès, la rectification, l'effacement, la limitation ou la portabilité de vos données."
   },
   "resource": {
-    "eyebrow": "Ressource Scale X",
+    "eyebrow": "Ressource Minaly",
     "title": "Comment scaler un business de coaching de 10 k$ à 100 k$ par mois",
     "intro": "Un business de coaching entre 10 k$ et 100 k$ par mois n'a généralement pas besoin de dix outils supplémentaires. Il a besoin de voir clairement où la demande, les ventes ou le delivery cessent de se cumuler. Ce guide donne une méthode pratique pour diagnostiquer ce frein et choisir la prochaine action.",
     "answerHeading": "La réponse courte",
@@ -227,8 +227,8 @@
     "weeklyHeading": "Transforme le diagnostic en boucle hebdomadaire",
     "weekly": "Note le point de départ, l'action unique, le responsable et le chiffre qui doit bouger. Relis la prochaine donnée après sept jours. Garde l'action si le signal progresse, change-la sinon, puis choisis seulement après un autre goulot.",
     "toolHeading": "Quand un coach de scaling tout-en-un aide",
-    "tool": "Une application de coaching de scaling est utile quand les données d'acquisition, de ventes et de delivery vivent dans des outils séparés. Scale X rassemble ces signaux, calcule les taux sous-jacents dans le code et transforme le résultat en plan hebdomadaire ciblé.",
-    "cta": "Voir comment Scale X fonctionne",
+    "tool": "Une application de coaching de scaling est utile quand les données d'acquisition, de ventes et de delivery vivent dans des outils séparés. Minaly rassemble ces signaux, calcule les taux sous-jacents dans le code et transforme le résultat en plan hebdomadaire ciblé.",
+    "cta": "Voir comment Minaly fonctionne",
     "faqHeading": "Questions sur le scaling",
     "faq1Question": "Que doit corriger un business de coaching en premier ?",
     "faq1Answer": "Commence par l'écart contrôlable le plus important, capable de bouger pendant le mois en cours. Selon les données, il peut s'agir de la qualité des leads, de la conversion des appels, du taux de présence ou de la capacité de delivery.",

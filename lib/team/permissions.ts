@@ -4,7 +4,7 @@
 // (db/schema.ts's teamRoles.permissions) and editable by the account owner
 // at /settings/equipe, not fixed in code. /settings, /integrations and team
 // or billing management are deliberately absent — always owner-only,
-// non-grantable (BYOK key, Stripe Connect OAuth, Scale X billing, team
+// non-grantable (BYOK key, Stripe Connect OAuth, Minaly billing, team
 // membership are account-level, not delegable to any role).
 export const PERMISSION_KEYS = [
   "dashboard",

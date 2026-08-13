@@ -1,6 +1,6 @@
 ## Purpose
 
-Garantir que le montant et le Price affichés pour un abonnement correspondent à ce qui est réellement souscrit dans Stripe, même après une évolution du catalogue Scale X.
+Garantir que le montant et le Price affichés pour un abonnement correspondent à ce qui est réellement souscrit dans Stripe, même après une évolution du catalogue Minaly.
 
 ## ADDED Requirements
 

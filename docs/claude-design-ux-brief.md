@@ -1,9 +1,9 @@
-# Scale X — Brief maître UX/UI pour Claude Design
+# Minaly — Brief maître UX/UI pour Claude Design
 
 **Version :** 1.0  
 **Date :** 7 août 2026  
 **Statut :** document de cadrage pour un redesign UX, pas une spécification technique d’implémentation  
-**Produit :** Scale X, SaaS d’exécution business pour infopreneurs
+**Produit :** Minaly, SaaS d’exécution business pour infopreneurs
 
 ---
 
@@ -50,16 +50,16 @@ La décision finale doit être prise après comparaison de deux variantes dans l
 
 ## 1. Vision produit en une phrase
 
-> **Scale X détecte le goulot qui coûte du cash à un infopreneur, lui dit quoi faire maintenant, l’aide à l’exécuter et mesure si la situation s’améliore.**
+> **Minaly détecte le goulot qui coûte du cash à un infopreneur, lui dit quoi faire maintenant, l’aide à l’exécuter et mesure si la situation s’améliore.**
 
-Scale X ne doit pas être perçu comme :
+Minaly ne doit pas être perçu comme :
 
 - un dashboard de plus ;
 - un CRM généraliste ;
 - un outil de reporting sans action ;
 - un chatbot qui donne des conseils génériques.
 
-Scale X doit être perçu comme une **couche d’exécution pilotée par le diagnostic** :
+Minaly doit être perçu comme une **couche d’exécution pilotée par le diagnostic** :
 
 ```mermaid
 flowchart LR
@@ -132,7 +132,7 @@ Job principal :
 
 > « Donne-moi une lecture fiable de ce qui a réellement été encaissé, reste dû ou remboursé. »
 
-### Persona 6 — Administrateur Scale X
+### Persona 6 — Administrateur Minaly
 
 Utilisateur interne, hors parcours client : comptes, plans, abonnements, referrals et supervision.
 
@@ -225,8 +225,8 @@ Cette carte décrit le produit existant à prendre en compte dans le redesign. E
 | Journal de bord | `/journal` | Qu’ai-je fait et que dois-je suivre ? | Jours, projets, tâches, jalons, notes |
 | Intégrations | `/integrations` | Mes sources sont-elles connectées ? | Stripe, iClosed, Calendly, Instagram, YouTube, synchronisation et erreurs |
 | Réglages | `/settings` | Comment fonctionne mon compte ? | Profil, clé Anthropic BYOK, facturation, équipe, permissions, zone de danger, préférences Falco |
-| Parrainage | `/parrainage` | Comment recommander Scale X ? | Lien, comptes parrainés, commissions, historique |
-| Admin interne | `/admin` | Comment opérer Scale X ? | Plans, abonnements, comptes, supervision, referrals |
+| Parrainage | `/parrainage` | Comment recommander Minaly ? | Lien, comptes parrainés, commissions, historique |
+| Admin interne | `/admin` | Comment opérer Minaly ? | Plans, abonnements, comptes, supervision, referrals |
 
 ### Sources de données à préserver
 
@@ -616,7 +616,7 @@ Les réglages doivent isoler clairement :
 
 - profil ;
 - clé Anthropic BYOK ;
-- facturation Scale X ;
+- facturation Minaly ;
 - équipe et permissions ;
 - préférences Falco ;
 - suppression du compte.
@@ -629,12 +629,12 @@ Format : **En tant que [rôle], je veux [action], afin de [valeur].**
 
 ### Epic A — Activation et premier résultat
 
-- **A1.** En tant que fondateur, je veux comprendre en une phrase ce que Scale X corrige, afin de savoir pourquoi connecter mes données.
+- **A1.** En tant que fondateur, je veux comprendre en une phrase ce que Minaly corrige, afin de savoir pourquoi connecter mes données.
 - **A2.** En tant que fondateur, je veux connecter Stripe avec un accès explicite, afin d’obtenir une vision réelle de mon cash sans ambiguïté.
 - **A3.** En tant que fondateur, je veux voir l’état de chaque intégration, afin de savoir si mon diagnostic repose sur des données fraîches.
 - **A4.** En tant que fondateur, je veux renseigner les informations essentielles de mon business sans remplir un questionnaire interminable, afin d’obtenir rapidement un premier diagnostic.
 - **A5.** En tant que fondateur, je veux savoir quelles informations manquent et pourquoi elles amélioreraient le diagnostic, afin de choisir quoi compléter.
-- **A6.** En tant que fondateur, je veux voir mon premier goulot avec une explication chiffrée, afin de comprendre immédiatement la valeur de Scale X.
+- **A6.** En tant que fondateur, je veux voir mon premier goulot avec une explication chiffrée, afin de comprendre immédiatement la valeur de Minaly.
 - **A7.** En tant que fondateur, je veux lancer une première action depuis le diagnostic, afin de ne pas rester dans l’analyse.
 - **A8.** En tant que propriétaire, je veux enregistrer ma clé BYOK de façon sécurisée, afin d’utiliser l’agent avec ma propre clé.
 - **A9.** En tant que propriétaire, je veux inviter mon équipe après le premier résultat, afin de ne pas être bloqué par la gestion des rôles au démarrage.
@@ -724,7 +724,7 @@ Format : **En tant que [rôle], je veux [action], afin de [valeur].**
 - **I1.** En tant que propriétaire, je veux voir mon plan et son état, afin de comprendre ce qui est inclus.
 - **I2.** En tant que propriétaire, je veux changer de plan avec une différence de valeur explicite, afin de prendre une décision éclairée.
 - **I3.** En tant que propriétaire, je veux voir les limites d’équipe, de Copilote, d’intégrations et de réservation, afin d’éviter les surprises.
-- **I4.** En tant que propriétaire, je veux gérer mon abonnement et la facturation, afin de garder la main sur mon compte Scale X.
+- **I4.** En tant que propriétaire, je veux gérer mon abonnement et la facturation, afin de garder la main sur mon compte Minaly.
 - **I5.** En tant qu’utilisateur, je veux recevoir une invitation et voir uniquement les pages auxquelles j’ai accès, afin que l’interface soit adaptée à mon rôle.
 - **I6.** En tant que fondateur, je veux parrainer un autre business, afin de bénéficier d’un programme de recommandation compréhensible.
 - **I7.** En tant que fondateur, je veux supprimer mon compte avec une explication des conséquences, afin de garder le contrôle de mes données.
@@ -762,7 +762,7 @@ Dashboard
   → Diagnostic recalculé
 ```
 
-Critère de réussite : Scale X devient une habitude d’exécution, pas une page ouverte une fois par mois.
+Critère de réussite : Minaly devient une habitude d’exécution, pas une page ouverte une fois par mois.
 
 ### Parcours 3 — Du goulot à l’exécution
 
@@ -970,7 +970,7 @@ Exigences :
 | Déléguer sans perdre la main | Rôles et permissions lisibles | Actions réalisées par l’équipe, accès corrects |
 | Faire confiance aux chiffres | Réconciliation Stripe et provenance explicite | Moins de doublons et d’ambiguïtés |
 
-### Incitations business pour Scale X
+### Incitations business pour Minaly
 
 Ce sont des hypothèses de modèle à valider par les usages, pas des métriques déjà garanties.
 
@@ -1067,7 +1067,7 @@ L’UX de facturation doit montrer la différence de valeur, pas seulement la di
 - erreurs de permission ;
 - feedback « je sais quoi faire ensuite ».
 
-#### Business Scale X
+#### Business Minaly
 
 - activation par plan ;
 - conversion Starter → Growth → Scale ;
@@ -1084,7 +1084,7 @@ Ces règles doivent apparaître dans les écrans ou leurs états, même si elles
 
 - La clé BYOK est chiffrée, masquée après saisie et jamais renvoyée au frontend en clair.
 - Le client sait si l’agent utilise sa clé ou un quota partagé, sans voir de secret.
-- Stripe Connect du client est distinct de l’abonnement Scale X.
+- Stripe Connect du client est distinct de l’abonnement Minaly.
 - Toute intégration affiche son périmètre et sa dernière synchronisation.
 - Un membre d’équipe ne voit pas une action qu’il ne peut pas exécuter sans explication.
 - Les données sensibles ne doivent pas apparaître dans les messages d’erreur ou les logs visibles.
@@ -1195,9 +1195,9 @@ Le redesign est considéré comme convaincant si :
 ```text
 Tu es lead product designer spécialisé en SaaS B2B, dashboards opérationnels et produits d’aide à la décision.
 
-Tu dois remanier l’UX de Scale X à partir du brief ci-dessus.
+Tu dois remanier l’UX de Minaly à partir du brief ci-dessus.
 
-Scale X est un SaaS pour infopreneurs qui détecte le goulot business qui coûte du cash, priorise une action, aide à l’exécuter et mesure le résultat. Ce n’est ni un dashboard passif, ni un CRM généraliste, ni un chatbot générique.
+Minaly est un SaaS pour infopreneurs qui détecte le goulot business qui coûte du cash, priorise une action, aide à l’exécuter et mesure le résultat. Ce n’est ni un dashboard passif, ni un CRM généraliste, ni un chatbot générique.
 
 Problème de navigation à résoudre en priorité : les offres, les prix et l’upsell appartiennent au contexte « Business & offres », pas au suivi opérationnel de Vente. L’entrée « Mon business » dans la sidebar principale peut sembler bizarre car elle mélange configuration et travail quotidien. Compare une variante où Business & offres est dans l’espace compte/configuration avec une variante où il est une entrée secondaire de sidebar. Recommande une seule architecture finale avec un raisonnement UX.
 

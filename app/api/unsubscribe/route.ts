@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   await db.update(users).set({ weeklyEmailEnabled: false }).where(eq(users.id, userId));
 
-  return new NextResponse("Tu ne recevras plus l'email hebdomadaire de Scale X.", {
+  return new NextResponse("Tu ne recevras plus l'email hebdomadaire de Minaly.", {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 }

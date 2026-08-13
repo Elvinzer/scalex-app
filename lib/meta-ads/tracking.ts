@@ -159,7 +159,7 @@ export function readMetaTracking(...sources: unknown[]): MetaTrackingFields {
   };
 }
 
-export const META_BROWSER_TRACKING_STORAGE_KEY = "scale-x-meta-tracking";
+export const META_BROWSER_TRACKING_STORAGE_KEY = "minaly-meta-tracking";
 const META_BROWSER_TRACKING_MAX_AGE_MS = META_TOUCHPOINT_TTL_DAYS * 24 * 60 * 60 * 1000;
 
 function emptyMetaTracking(): MetaTrackingFields {

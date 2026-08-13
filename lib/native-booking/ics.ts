@@ -26,7 +26,7 @@ export function createNativeBookingIcs(details: IcsDetails): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Scale X//Native booking//FR",
+    "PRODID:-//Minaly//Native booking//FR",
     "CALSCALE:GREGORIAN",
     `X-WR-TIMEZONE:${escapeIcs(details.timeZone)}`,
     "BEGIN:VEVENT",

@@ -160,7 +160,7 @@
     "syncNotDone": "Stripe synchronization has not finished yet.",
     "syncRequest": "Synchronization requested. Data will update once Stripe responds.",
     "noTransactions": "No Stripe transactions to analyze yet.",
-    "syncInstruction": "Start a synchronization: Scale X retrieves the last 12 months in read-only mode and keeps refunds separate to avoid double counting.",
+    "syncInstruction": "Start a synchronization: Minaly retrieves the last 12 months in read-only mode and keeps refunds separate to avoid double counting.",
     "requestSync": "Request synchronization",
     "netRevenue": "Net revenue",
     "grossRevenue": "Gross revenue",

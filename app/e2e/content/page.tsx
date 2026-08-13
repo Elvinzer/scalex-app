@@ -153,7 +153,7 @@ export default async function ContentE2EFixturePage({
           youtubeVideos={youtubeConnected ? youtubeVideos : []}
           youtubeCommercialStats={youtubeConnected ? youtubeCommercialStats : new Map()}
           youtubeConnected={youtubeConnected}
-          youtubeChannelTitle={youtubeConnected ? "Scale X Fixture Channel" : null}
+          youtubeChannelTitle={youtubeConnected ? "Minaly Fixture Channel" : null}
           youtubeSyncStatus={youtubeConnected ? "completed" : null}
           youtubeLastSyncAt={youtubeConnected ? FIXTURE_SYNCED_AT : null}
           youtubeSubscriberCount={youtubeConnected ? 386 : null}

@@ -10,7 +10,7 @@ Chaque insight SHALL contenir un titre clair, un niveau de priorité, une preuve
 
 #### Scenario: An insight is displayed
 
-- **WHEN** Scale X propose une recommandation sur une campagne
+- **WHEN** Minaly propose une recommandation sur une campagne
 - **THEN** les dix éléments sont présents et la preuve chiffrée précède le diagnostic
 
 #### Scenario: An insight cannot state its sources
@@ -50,7 +50,7 @@ Retargeting rt_fenetre_inefficace          CPA d'une fenêtre > seuil × CPA de 
 #### Scenario: A campaign is not configured
 
 - **WHEN** aucun type manuel n'est enregistré, ou qu'une VSL/Webinaire n'a pas d'objectif Appel/Vente
-- **THEN** aucune règle spécialisée ne se déclenche et Scale X invite l'utilisateur à configurer la campagne
+- **THEN** aucune règle spécialisée ne se déclenche et Minaly invite l'utilisateur à configurer la campagne
 
 ### Requirement: Insights are idempotent across synchronisations
 
@@ -77,7 +77,7 @@ Le système SHALL matérialiser les insights Meta dans les `insightRecords` exis
 
 ### Requirement: Sources are always named
 
-Le système SHALL indiquer si une recommandation repose sur une donnée Meta, Stripe, Calendly, iClosed, Instagram, ou sur une estimation Scale X, et SHALL afficher la couverture de chaque source sur la période.
+Le système SHALL indiquer si une recommandation repose sur une donnée Meta, Stripe, Calendly, iClosed, Instagram, ou sur une estimation Minaly, et SHALL afficher la couverture de chaque source sur la période.
 
 #### Scenario: Mixed-source insight
 

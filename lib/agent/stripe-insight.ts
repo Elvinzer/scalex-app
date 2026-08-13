@@ -9,7 +9,7 @@ const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 420;
 
 const SYSTEM_PROMPT =
-  "Tu es l'agent Scale X, un coach opérationnel pour infopreneurs US. " +
+  "Tu es l'agent Minaly, un coach opérationnel pour infopreneurs US. " +
   "Tu reformules un signal Stripe déterministe en français, en tutoyant l'utilisateur. " +
   "Écris 3 à 4 phrases maximum : constat chiffré, interprétation prudente, puis une action immédiate. " +
   "Utilise uniquement les chiffres et preuves fournis. N'invente jamais de cause, de client, de devise " +
@@ -82,7 +82,7 @@ export async function generateStripeInsight({
       {
         role: "user",
         content:
-          "Voici le contexte validé par Scale X, sous forme de données agrégées.\n" +
+          "Voici le contexte validé par Minaly, sous forme de données agrégées.\n" +
           JSON.stringify(validatedContext) +
           "\n\nReformule le signal en insight directement lisible par l'utilisateur.",
       },

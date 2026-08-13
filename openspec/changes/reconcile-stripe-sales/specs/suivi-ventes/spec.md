@@ -11,17 +11,17 @@ double-compte et sans jamais lire un autre Stripe que celui du client.
 
 Le système SHALL alimenter le Suivi des ventes exclusivement depuis le compte Stripe
 connecté du client (jeton OAuth read-only). Il SHALL NOT lire le Stripe Billing de
-Scale X (`STRIPE_SECRET_KEY`) ni le système de parrainage. Le terme « abonnement » y
-désigne toujours l'abonnement d'un client final du client, jamais l'abonnement SaaS Scale X.
+Minaly (`STRIPE_SECRET_KEY`) ni le système de parrainage. Le terme « abonnement » y
+désigne toujours l'abonnement d'un client final du client, jamais l'abonnement SaaS Minaly.
 
 #### Scenario: Une charge du Stripe du client apparaît
 
 - **WHEN** la sync lit une charge sur le compte Connect du client
 - **THEN** elle peut alimenter le Suivi des ventes
 
-#### Scenario: Le Billing Scale X n'entre jamais
+#### Scenario: Le Billing Minaly n'entre jamais
 
-- **WHEN** un paiement d'abonnement SaaS transite par le Stripe Billing de Scale X
+- **WHEN** un paiement d'abonnement SaaS transite par le Stripe Billing de Minaly
 - **THEN** il n'apparaît jamais dans le Suivi des ventes d'aucun client
 
 ### Requirement: Réconciliation des paiements réussis avec merge auto

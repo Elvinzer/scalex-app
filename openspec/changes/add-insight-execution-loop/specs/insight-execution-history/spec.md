@@ -1,6 +1,6 @@
 ## Purpose
 
-Cette capacité donne à Scale X une mémoire account-scoped des recommandations actionnables et transforme une décision utilisateur en initiative reliée au Journal, sans créer un CRM ou une file de tâches parallèle.
+Cette capacité donne à Minaly une mémoire account-scoped des recommandations actionnables et transforme une décision utilisateur en initiative reliée au Journal, sans créer un CRM ou une file de tâches parallèle.
 
 ## ADDED Requirements
 
@@ -11,7 +11,7 @@ Le système SHALL conserver un record normalisé pour chaque insight actionnable
 #### Scenario: A structured diagnostic insight enters history
 
 - **WHEN** un utilisateur ouvre ou accepte une recommandation Diagnostic qui possède une action explicite
-- **THEN** Scale X crée ou retrouve un record account-scoped avec la recommandation, sa métrique, sa période et son impact estimé sans créer de doublon pour le même snapshot
+- **THEN** Minaly crée ou retrouve un record account-scoped avec la recommandation, sa métrique, sa période et son impact estimé sans créer de doublon pour le même snapshot
 
 #### Scenario: Re-reading an insight does not create a duplicate
 
@@ -39,7 +39,7 @@ Le système SHALL proposer `Je lance cette action` pour un insight actionnable. 
 #### Scenario: Launch creates a linked business task
 
 - **WHEN** l’utilisateur lance un insight court et confirme une échéance
-- **THEN** Scale X crée une tâche Journal marquée comme amélioration business, crée l’initiative liée et affiche le lien retour vers l’insight
+- **THEN** Minaly crée une tâche Journal marquée comme amélioration business, crée l’initiative liée et affiche le lien retour vers l’insight
 
 #### Scenario: Launch links an existing project
 
@@ -49,7 +49,7 @@ Le système SHALL proposer `Je lance cette action` pour un insight actionnable. 
 #### Scenario: Launch is idempotent
 
 - **WHEN** l’utilisateur double-clique ou recharge après avoir lancé le même insight
-- **THEN** Scale X conserve une seule initiative active liée à cet insight et ne crée pas de tâche ou projet en double
+- **THEN** Minaly conserve une seule initiative active liée à cet insight et ne crée pas de tâche ou projet en double
 
 ### Requirement: The account has one weekly business priority
 

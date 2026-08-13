@@ -51,7 +51,7 @@ export const MetricHealthCard = forwardRef<
           >
             X
           </span>
-          <span className="font-display text-[13px] font-bold tracking-[-0.01em] text-[var(--text-on-dark)]">Scale X</span>
+          <span className="font-display text-[13px] font-bold tracking-[-0.01em] text-[var(--text-on-dark)]">Minaly</span>
         </div>
         <span className="text-[11px] tracking-wide text-[var(--text-on-dark-muted)] uppercase">{card.category}</span>
       </div>

@@ -347,7 +347,7 @@ async function callFalcoJson(providerUserId: string, prompt: string): Promise<Mo
   const locale = isLocale(user?.locale) ? user.locale : DEFAULT_LOCALE;
   const response = await requestFalcoJson(
     provider,
-    "Tu es l'analyste contenu de Scale X. Tu travailles uniquement sur les données de la chaîne YouTube fournies. " +
+    "Tu es l'analyste contenu de Minaly. Tu travailles uniquement sur les données de la chaîne YouTube fournies. " +
       "Tu ne cites jamais une autre chaîne et tu n'inventes jamais de chiffre. Réponds uniquement avec le JSON demandé." +
       `\n\n${falcoLanguageInstruction(locale)}`,
     prompt,

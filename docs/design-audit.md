@@ -1,4 +1,4 @@
-# Audit design — Scale X (état actuel, avant refonte)
+# Audit design — Minaly (état actuel, avant refonte)
 
 Lecture seule. Aucun fichier de code n'a été modifié pour produire ce rapport.
 Pages couvertes : Dashboard, Diagnostic, Mes chiffres, Copilote, Mon business,

@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   title: "Minaly",
   applicationName: "Minaly",
   description:
-    "Scale X helps coaches and info businesses doing $10k to $100k per month find and fix the constraint slowing growth.",
+    "Minaly helps coaches and info businesses doing $10k to $100k per month find and fix the constraint slowing growth.",
 };
 
 export default async function RootLayout({

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Falco } from "@/components/falco/falco";
 
 export const metadata: Metadata = {
-  title: "Page introuvable · Scale X",
+  title: "Page introuvable · Minaly",
   robots: { index: false, follow: false },
 };
 

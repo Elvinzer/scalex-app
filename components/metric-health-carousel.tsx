@@ -69,7 +69,7 @@ export function MetricHealthCarousel({ cards, auditUrl }: { cards: MetricHealthC
         pixelRatio: EXPORT_WIDTH_PX / CARD_WIDTH_PX,
       });
       const link = document.createElement("a");
-      link.download = `scalex-${activeCard.key}.png`;
+      link.download = `minaly-${activeCard.key}.png`;
       link.href = dataUrl;
       link.click();
       trackClient("metric_card_shared", { metric_key: activeCard.key, tier: getHealthTier(activeCard.score).tier });

@@ -737,11 +737,11 @@ export function RoadmapView({ data, streak, weeklyReports, accountId, fixtureMod
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setShowIntro(window.localStorage.getItem("scalex:roadmap-intro-dismissed") !== "1");
+    setShowIntro(window.localStorage.getItem("minaly:roadmap-intro-dismissed") !== "1");
   }, []);
 
   function dismissIntro() {
-    window.localStorage.setItem("scalex:roadmap-intro-dismissed", "1");
+    window.localStorage.setItem("minaly:roadmap-intro-dismissed", "1");
     setShowIntro(false);
   }
 
@@ -887,7 +887,7 @@ export function RoadmapView({ data, streak, weeklyReports, accountId, fixtureMod
           translate={translate}
           translateDiagnostic={translateDiagnostic}
           locale={locale}
-          storageKey={accountId ? `scalex:roadmap-stages:${accountId}` : null}
+          storageKey={accountId ? `minaly:roadmap-stages:${accountId}` : null}
         />
       )}
 

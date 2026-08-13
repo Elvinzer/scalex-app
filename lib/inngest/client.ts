@@ -130,4 +130,4 @@ export const nativeBookingReminderRequested = eventType("native-booking/reminder
   schema: staticSchema<NativeBookingReminderRequested>(),
 });
 
-export const inngest = new Inngest({ id: "scale-x" });
+export const inngest = new Inngest({ id: "minaly" });

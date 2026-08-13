@@ -6,16 +6,16 @@ Cette capacité transforme les paiements Stripe Connect synchronisés en faits a
 
 ### Requirement: Stripe Connect scope and account isolation
 
-Le système SHALL lire et analyser exclusivement le compte Stripe Connect associé au compte Scale X courant. Il SHALL NOT lire le Stripe Billing de Scale X, le système de parrainage, ni exposer une transaction d'un autre compte. Toutes les lectures, écritures et actions SHALL être account-scoped côté serveur et protégées par RLS.
+Le système SHALL lire et analyser exclusivement le compte Stripe Connect associé au compte Minaly courant. Il SHALL NOT lire le Stripe Billing de Minaly, le système de parrainage, ni exposer une transaction d'un autre compte. Toutes les lectures, écritures et actions SHALL être account-scoped côté serveur et protégées par RLS.
 
 #### Scenario: Connected account transaction is accepted
 
 - **WHEN** une charge ou un remboursement est lu depuis le client read-only du compte Connect de l'utilisateur
 - **THEN** l'événement peut alimenter les données transactionnelles et les insights de ce compte uniquement
 
-#### Scenario: Scale X billing is excluded
+#### Scenario: Minaly billing is excluded
 
-- **WHEN** un paiement concerne l'abonnement Scale X interne
+- **WHEN** un paiement concerne l'abonnement Minaly interne
 - **THEN** il n'est présent dans aucune transaction ni aucun insight du client
 
 #### Scenario: Cross-account access is attempted

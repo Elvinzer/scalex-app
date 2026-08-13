@@ -6,7 +6,7 @@ const FOOTER_LINKS = [
   { labelKey: "footer.product", href: "/#produit" },
   { labelKey: "footer.pricing", href: "/#tarifs" },
   { labelKey: "footer.resources", href: "/ressources/coach-business-scaling" },
-  { labelKey: "footer.contact", href: "mailto:contact@scalex.app" },
+  { labelKey: "footer.contact", href: "mailto:contact@minaly.io" },
   { labelKey: "footer.privacy", href: "/politique-de-confidentialite" },
 ] as const;
 
@@ -17,7 +17,7 @@ export function SiteFooter() {
     <footer className="border-t border-white/10 px-6 py-10 sm:px-10" style={{ background: "var(--gradient-dark)" }}>
       <div className="mx-auto flex max-w-[1360px] flex-col items-center gap-6 sm:flex-row sm:justify-between">
         <Image
-          src="/scalex-wordmark.png"
+          src="/minaly-wordmark.png"
           alt={t("nav.home")}
           width={398}
           height={100}

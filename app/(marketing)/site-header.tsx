@@ -52,7 +52,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-24 max-w-[1360px] items-center justify-between px-6 sm:px-10">
         <Link href="/" className="flex shrink-0 items-center" onClick={() => setMobileOpen(false)}>
           <Image
-            src="/scalex-wordmark.png"
+            src="/minaly-wordmark.png"
             alt={t("nav.home")}
             width={398}
             height={100}

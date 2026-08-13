@@ -36,7 +36,7 @@ type Props = {
 export function MetaCampaignActions({ campaignId, status, dailyBudgetCents, hasWriteAccess, accountLabel, deepLink: campaignDeepLink, returnTo }: Props) {
   const t = useTranslations("app.ads.actions");
   const [budget, setBudget] = useState(dailyBudgetCents === null ? "" : String(Math.round(dailyBudgetCents / 100)));
-  const storageKey = `scale-x-meta-action:${campaignId}`;
+  const storageKey = `minaly-meta-action:${campaignId}`;
   const [proposal, setProposal] = useState<Proposal | null>(() => {
     if (typeof window === "undefined") return null;
     try {

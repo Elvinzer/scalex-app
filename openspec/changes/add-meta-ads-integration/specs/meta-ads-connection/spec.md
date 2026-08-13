@@ -1,6 +1,6 @@
 ## Purpose
 
-Cette capacité connecte un compte publicitaire Meta à un compte Scale X en lecture, de façon révocable et explicite, expose l'état de la connexion et de la synchronisation sans jamais masquer une dégradation, et n'obtient une permission d'écriture qu'au moment où l'utilisateur en a besoin.
+Cette capacité connecte un compte publicitaire Meta à un compte Minaly en lecture, de façon révocable et explicite, expose l'état de la connexion et de la synchronisation sans jamais masquer une dégradation, et n'obtient une permission d'écriture qu'au moment où l'utilisateur en a besoin.
 
 ## ADDED Requirements
 
@@ -10,8 +10,8 @@ Le système SHALL demander `ads_read` uniquement lors de la connexion initiale. 
 
 #### Scenario: User connects for the first time
 
-- **WHEN** l'utilisateur autorise Scale X dans la fenêtre Meta
-- **THEN** seule la permission de lecture est demandée, et Scale X indique qu'aucune modification de son compte publicitaire n'est possible à ce stade
+- **WHEN** l'utilisateur autorise Minaly dans la fenêtre Meta
+- **THEN** seule la permission de lecture est demandée, et Minaly indique qu'aucune modification de son compte publicitaire n'est possible à ce stade
 
 #### Scenario: Read scope is granted but write scope is absent
 
@@ -25,7 +25,7 @@ Le système SHALL demander `ads_management` par un consentement séparé, décle
 #### Scenario: User applies an action for the first time
 
 - **WHEN** l'utilisateur confirme vouloir appliquer une action et que le scope d'écriture est absent
-- **THEN** Scale X affiche l'écran de step-up avant toute confirmation d'exécution, et l'action reprend là où elle était après l'autorisation
+- **THEN** Minaly affiche l'écran de step-up avant toute confirmation d'exécution, et l'action reprend là où elle était après l'autorisation
 
 #### Scenario: User declines the step-up
 
@@ -39,7 +39,7 @@ Le système SHALL afficher, avant toute redirection vers Meta, la raison de la c
 #### Scenario: User opens the consent modal
 
 - **WHEN** l'utilisateur clique sur `Connecter Meta Ads`
-- **THEN** Scale X affiche les données lues et la permission demandée avant tout appel à Meta
+- **THEN** Minaly affiche les données lues et la permission demandée avant tout appel à Meta
 
 #### Scenario: User cancels the consent modal
 
@@ -53,12 +53,12 @@ Le système SHALL demander une sélection explicite du compte publicitaire, y co
 #### Scenario: Several accounts are available
 
 - **WHEN** le callback Meta renvoie plusieurs comptes publicitaires
-- **THEN** Scale X affiche la liste sans présélection et le bouton `Continuer` reste inactif tant qu'aucun compte n'est choisi
+- **THEN** Minaly affiche la liste sans présélection et le bouton `Continuer` reste inactif tant qu'aucun compte n'est choisi
 
 #### Scenario: A single account is available
 
 - **WHEN** un seul compte publicitaire est accessible
-- **THEN** Scale X demande quand même une sélection explicite avant de persister le compte principal
+- **THEN** Minaly demande quand même une sélection explicite avant de persister le compte principal
 
 #### Scenario: An account cannot be read
 
@@ -72,12 +72,12 @@ Le système SHALL exposer l'état courant parmi non connecté, redirection en co
 #### Scenario: Authorization is refused at Meta
 
 - **WHEN** l'utilisateur refuse l'autorisation dans la fenêtre Meta
-- **THEN** Scale X affiche la cause en clair et propose de relancer la connexion, sans persister de connexion partielle
+- **THEN** Minaly affiche la cause en clair et propose de relancer la connexion, sans persister de connexion partielle
 
 #### Scenario: No ad account is reachable
 
 - **WHEN** le compte Meta autorisé n'expose aucun compte publicitaire
-- **THEN** Scale X l'indique explicitement et propose de vérifier les accès dans le Business Manager
+- **THEN** Minaly l'indique explicitement et propose de vérifier les accès dans le Business Manager
 
 ### Requirement: A connected account exposes its identity and freshness
 
@@ -86,12 +86,12 @@ Le système SHALL afficher le nom du compte, son identifiant masqué, sa devise,
 #### Scenario: User switches account
 
 - **WHEN** l'utilisateur choisit `Changer de compte`
-- **THEN** Scale X repasse par la sélection explicite et conserve l'historique déjà synchronisé du compte précédent jusqu'à confirmation
+- **THEN** Minaly repasse par la sélection explicite et conserve l'historique déjà synchronisé du compte précédent jusqu'à confirmation
 
 #### Scenario: User disconnects
 
 - **WHEN** l'utilisateur choisit `Déconnecter`
-- **THEN** les tokens sont révoqués et supprimés, et Scale X indique ce qui reste consultable et ce qui ne sera plus mis à jour
+- **THEN** les tokens sont révoqués et supprimés, et Minaly indique ce qui reste consultable et ce qui ne sera plus mis à jour
 
 ### Requirement: Degraded states never delete already-read data
 
@@ -100,14 +100,14 @@ Le système SHALL gérer token expiré, permission supprimée, synchronisation �
 #### Scenario: Token expires
 
 - **WHEN** le token d'accès expire
-- **THEN** Scale X affiche `Reconnecter Meta Ads`, conserve les données déjà synchronisées et les marque avec leur date de dernière fraîcheur
+- **THEN** Minaly affiche `Reconnecter Meta Ads`, conserve les données déjà synchronisées et les marque avec leur date de dernière fraîcheur
 
 #### Scenario: Write permission is revoked at Meta
 
 - **WHEN** `ads_management` est retirée côté Meta alors que la lecture reste valide
-- **THEN** Scale X continue de lire, signale que les actions directes ne sont plus disponibles et propose un nouveau step-up
+- **THEN** Minaly continue de lire, signale que les actions directes ne sont plus disponibles et propose un nouveau step-up
 
 #### Scenario: Partial sync
 
 - **WHEN** une synchronisation ne récupère qu'une partie de la période
-- **THEN** Scale X indique les jours manquants et expose la couverture, sans compléter par des valeurs nulles
+- **THEN** Minaly indique les jours manquants et expose la couverture, sans compléter par des valeurs nulles

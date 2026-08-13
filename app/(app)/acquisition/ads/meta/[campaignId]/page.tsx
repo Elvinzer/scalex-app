@@ -49,7 +49,7 @@ const campaignSearchParamsSchema = z.object({
 function webinarSourceLabel(value: string): string {
   if (value === "calendly") return "Calendly";
   if (value === "iclosed") return "iClosed";
-  return "Scale X";
+  return "Minaly";
 }
 
 function actionLabel(value: string, locale: string): string {
@@ -303,7 +303,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const conversionUnavailableReason = !campaignConfigured
     ? (locale === "en" ? "Choose the campaign type and conversion goal to display this step" : "Choisis le type et l’objectif de conversion pour afficher cette étape")
     : attribution.status === "unavailable"
-      ? (locale === "en" ? "No Scale X attribution is available for this campaign for this period" : "Aucune attribution Scale X disponible pour cette campagne sur la période")
+      ? (locale === "en" ? "No Minaly attribution is available for this campaign for this period" : "Aucune attribution Minaly disponible pour cette campagne sur la période")
       : undefined;
   const hasWriteAccess = detail.dashboard.connection.grantedScopes.includes("ads_management");
   const rankedAds = [...detail.ads].sort((left, right) => {
@@ -351,7 +351,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       { label: "ThruPlay / vue", numerator: videoThruplay, denominator: video3sViews },
       { label: locale === "en" ? "VSL playback" : "Lecture VSL", numerator: null, denominator: null, unavailableReason: locale === "en" ? "Missing source: VSL page playback events" : "Source manquante : événements de lecture de la page VSL" },
       { label: "Watch depth", numerator: null, denominator: null, unavailableReason: locale === "en" ? "Missing source: VSL page progression events" : "Source manquante : événements de progression de la page VSL" },
-      { label: conversionMetricLabel, numerator: conversionMetricValue, denominator: conversionMetricBase, unavailableReason: conversionUnavailableReason, availability: locale === "en" ? "Scale X · joined attribution" : "Scale X · attribution jointe" },
+      { label: conversionMetricLabel, numerator: conversionMetricValue, denominator: conversionMetricBase, unavailableReason: conversionUnavailableReason, availability: locale === "en" ? "Minaly · joined attribution" : "Minaly · attribution jointe" },
     );
   }
   if (campaignConfigured && detail.campaign.campaignType === "webinar") {
@@ -359,7 +359,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
       { label: locale === "en" ? "Registrations" : "Inscriptions", numerator: registrations, denominator: linkClicks },
       { label: locale === "en" ? "Live attendance" : "Présence live", numerator: webinarParticipants, denominator: registrations, unavailableReason: webinarParticipants === null ? (locale === "en" ? "Missing source: webinar attendance event" : "Source manquante : événement de présence du webinar") : undefined },
       { label: locale === "en" ? "Attendance through pitch" : "Présence jusqu'au pitch", numerator: null, denominator: registrations, unavailableReason: locale === "en" ? "Missing source: webinar progression event" : "Source manquante : événement de progression du webinar" },
-      { label: conversionMetricLabel, numerator: conversionMetricValue, denominator: conversionMetricBase, unavailableReason: conversionUnavailableReason, availability: locale === "en" ? "Scale X · joined attribution" : "Scale X · attribution jointe" },
+      { label: conversionMetricLabel, numerator: conversionMetricValue, denominator: conversionMetricBase, unavailableReason: conversionUnavailableReason, availability: locale === "en" ? "Minaly · joined attribution" : "Minaly · attribution jointe" },
     );
   }
   if (campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth") {
@@ -489,10 +489,10 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold">{attributionLabel}</span>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Metric label={t("touchpoints")} value={attribution.touchpoints.toLocaleString(locale)} detail={t("usedLinks")} provenance={metricProvenance("Scale X", "brute", true, "directe", locale)} />
-          <Metric label={t("attributedLeads")} value={attribution.leads.toLocaleString(locale)} detail={t("attributedForms")} provenance={metricProvenance("Scale X", "brute", true, "jointe", locale)} />
-          <Metric label={t("attributedCalls")} value={attribution.bookedCalls.toLocaleString(locale)} detail={t("closedCalls", { count: attribution.closedCalls.toLocaleString(locale) })} provenance={metricProvenance("Scale X", "brute", true, "jointe", locale)} />
-          <Metric label={t("attributedSales")} value={attribution.sales.toLocaleString(locale)} detail={t("salesWithTouchpoint")} provenance={metricProvenance("Scale X", "brute", true, "jointe", locale)} />
+          <Metric label={t("touchpoints")} value={attribution.touchpoints.toLocaleString(locale)} detail={t("usedLinks")} provenance={metricProvenance("Minaly", "brute", true, "directe", locale)} />
+          <Metric label={t("attributedLeads")} value={attribution.leads.toLocaleString(locale)} detail={t("attributedForms")} provenance={metricProvenance("Minaly", "brute", true, "jointe", locale)} />
+          <Metric label={t("attributedCalls")} value={attribution.bookedCalls.toLocaleString(locale)} detail={t("closedCalls", { count: attribution.closedCalls.toLocaleString(locale) })} provenance={metricProvenance("Minaly", "brute", true, "jointe", locale)} />
+          <Metric label={t("attributedSales")} value={attribution.sales.toLocaleString(locale)} detail={t("salesWithTouchpoint")} provenance={metricProvenance("Minaly", "brute", true, "jointe", locale)} />
           <Metric label={t("attributedRevenue")} value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100, locale)} detail={attribution.revenueCents === null ? t("coverageInsufficient") : t("linkedSalesOnly")} provenance={metricProvenance("Meta + Stripe", "dérivée", attribution.revenueCents !== null, "jointe", locale)} />
         </div>
         <p className="mt-3 text-xs text-muted-foreground">

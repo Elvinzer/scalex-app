@@ -20,7 +20,7 @@
 
 ## 4. UX des paramètres et de la prise de rendez-vous
 
-- [x] 4.1 Construire `/settings/calendars` dans le style iClosed observé : cartes de comptes répétables, action d'ajout, bloc cible d'invitation et bloc conflits, en respectant les tokens de Scale X et les recommandations `ui-ux-pro-max`.
+- [x] 4.1 Construire `/settings/calendars` dans le style iClosed observé : cartes de comptes répétables, action d'ajout, bloc cible d'invitation et bloc conflits, en respectant les tokens de Minaly et les recommandations `ui-ux-pro-max`.
 - [x] 4.2 Ajouter les états loading, empty, success, error et disconnected, une confirmation avant déconnexion, les labels de formulaire, le focus clavier, les annonces `aria-live`/`role=alert` et les chemins de reprise.
 - [x] 4.3 Ajouter l'entrée de navigation et les liens de redirection nécessaires. Rédiger d'abord les chaînes anglaises, les passer au humanizer, puis produire une version française naturelle ; synchroniser les clés, structures et placeholders dans `locales/en` et `locales/fr`.
 - [x] 4.4 Afficher sur `/ventes/rdv` une alerte actionnable lorsque le closer courant n'est pas prêt, puis retirer de l'éditeur d'événement les contrôles OAuth et la sélection des calendriers ; conserver seulement l'état de readiness et le lien vers les paramètres.
@@ -36,7 +36,7 @@
 
 - [x] 6.1 Adapter l'adaptateur Google pour créer dans le calendrier principal du compte cible, inviter le prospect lorsque son email est disponible et demander `conferenceData` avec une clé Meet et un `requestId` déterministe par réservation.
 - [x] 6.2 Extraire le lien vidéo, gérer l'état `pending` avec un polling borné puis un job Inngest, et reprendre l'événement externe existant sans recréer une conférence.
-- [x] 6.3 Rendre la création, la mise à jour, l'annulation et la reconnexion idempotentes ; conserver les identifiants externes et signaler les erreurs de synchronisation sans perdre l'état Scale X.
+- [x] 6.3 Rendre la création, la mise à jour, l'annulation et la reconnexion idempotentes ; conserver les identifiants externes et signaler les erreurs de synchronisation sans perdre l'état Minaly.
 - [x] 6.4 Vérifier les scopes OAuth, les droits d'écriture et l'expiration des tokens sans exposer de secrets dans les logs, le frontend ou les erreurs utilisateur.
 
 ## 7. Réservation et surfaces utilisateur
@@ -44,7 +44,7 @@
 - [x] 7.1 Revalider le créneau, le closer, la readiness et l'idempotence dans la confirmation ; protéger le créneau en état récupérable si Meet reste `pending`, sans retourner de confirmation complète avant d'avoir un lien valide.
 - [x] 7.2 Snapshotter le lien Meet sur la réservation et utiliser ce snapshot pour la confirmation publique, le lien de gestion, les rappels, les emails du prospect/closer et l'ICS ; garder le lien d'événement Calendar séparé.
 - [x] 7.3 Préserver le fallback du `meetingUrl` d'événement pour les anciennes réservations et ne jamais réécrire le lien d'une réservation existante lorsqu'un événement de booking est modifié.
-- [x] 7.4 Tester et documenter le comportement des invitations Google et des emails Scale X afin d'éviter les doublons tout en conservant l'invitation au bon compte cible.
+- [x] 7.4 Tester et documenter le comportement des invitations Google et des emails Minaly afin d'éviter les doublons tout en conservant l'invitation au bon compte cible.
 
 ## 8. Tests unitaires, intégration et sécurité
 
@@ -69,4 +69,4 @@
 - [x] 10.2 Vérifier le diff et les logs pour confirmer l'absence de secrets, tokens OAuth, clés API ou données de session.
 - [x] 10.3 Valider la proposition avec `rtk openspec validate add-booking-google-calendar-settings --type change --strict --no-interactive` et vérifier que tous les artefacts sont présents et cohérents.
 
-> Les scénarios 8.1 à 9.7 qui nécessitent deux sessions Scale X, un fournisseur Google de test et l'accès à la page authentifiée restent à exécuter dans l'environnement E2E dédié. Le smoke test local couvre le parcours public, la redirection OAuth non authentifiée, les fixtures Calendar/Meet, les scopes owner/closer, le responsive 390/1280 px et l'audit axe.
+> Les scénarios 8.1 à 9.7 qui nécessitent deux sessions Minaly, un fournisseur Google de test et l'accès à la page authentifiée restent à exécuter dans l'environnement E2E dédié. Le smoke test local couvre le parcours public, la redirection OAuth non authentifiée, les fixtures Calendar/Meet, les scopes owner/closer, le responsive 390/1280 px et l'audit axe.

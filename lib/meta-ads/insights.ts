@@ -111,7 +111,7 @@ function successCriterionFor(ruleKey: MetaInsightRuleKey): string {
 function webinarSourceLabel(source: MetaWebinarObservation["source"]): string {
   if (source === "calendly") return "Calendly";
   if (source === "iclosed") return "iClosed";
-  return "Scale X";
+  return "Minaly";
 }
 
 function conversionGoalLabel(goal: MetaConversionGoal | null): string | null {
@@ -124,11 +124,11 @@ function webinarProvenanceSource(source: MetaWebinarObservation["source"], withS
   if (withStripe) {
     if (source === "calendly") return "meta+calendly+stripe";
     if (source === "iclosed") return "meta+iclosed+stripe";
-    return "meta+scalex+stripe";
+    return "meta+minaly+stripe";
   }
   if (source === "calendly") return "meta+calendly";
   if (source === "iclosed") return "meta+iclosed";
-  return "meta+scalex";
+  return "meta+minaly";
 }
 
 function webinarSourceCoverageReady(observation: MetaWebinarObservation | undefined): boolean {
@@ -190,7 +190,7 @@ function baseProposal(
     : `Meta Ads : ${Math.round(campaign.metricCoverageRate * 100)} % des jours de la période`;
   const sourceNotes = [metaCoverage];
   const conversionGoal = conversionGoalLabel(campaign.conversionGoal);
-  if (conversionGoal) sourceNotes.push(`Objectif de conversion Scale X : ${conversionGoal}`);
+  if (conversionGoal) sourceNotes.push(`Objectif de conversion Minaly : ${conversionGoal}`);
   if (details.sourceCoverage.includes("Stripe")) {
     sourceNotes.push(
       campaign.cash?.coverageRate == null
@@ -325,7 +325,7 @@ function buildCampaignProposals(campaign: MetaCampaignDashboardRow, periodDays: 
             recommendedAction: "Vérifier la qualité des leads, l’offre présentée après le VSL et la continuité du suivi jusqu’au closing.",
             expectedImpact: "Protéger le cash par lead sans couper une campagne uniquement sur son CPL.",
             confidence: "medium",
-            sourceCoverage: "Meta Ads + Stripe · touchpoints Scale X · couverture suffisante sur les deux périodes",
+            sourceCoverage: "Meta Ads + Stripe · touchpoints Minaly · couverture suffisante sur les deux périodes",
             provenance: provenance("meta+stripe", "jointe"),
           },
         ),

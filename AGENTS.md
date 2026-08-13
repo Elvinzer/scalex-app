@@ -1,4 +1,4 @@
-# Scale X — AGENTS.md
+# Minaly — AGENTS.md
 
 SaaS BYOK qui diagnostique le goulot d'étranglement business d'un infopreneur US
 (10-100k$/mois) et déploie un agent Codex qui le corrige, pas juste un dashboard.
@@ -59,7 +59,7 @@ Avant de dire qu'une tâche est terminée :
   metadata, messages d'erreur, textes de l'agent affichés à l'utilisateur), lire et appliquer
   `.agents/skills/humanizer/SKILL.md` avant d'écrire.
 - Faire une vraie réécriture, pas une suppression : conserver le sens, les chiffres, les
-  contraintes produit et le ton direct de Scale X.
+  contraintes produit et le ton direct de Minaly.
 - Relire le texte à voix haute et retirer les tournures gonflées ou vagues, le vocabulaire
   promotionnel, les introductions méta, les négations en miroir, les groupes de trois forcés,
   les fragments passifs et les conclusions génériques. Préférer des phrases concrètes avec
@@ -138,7 +138,7 @@ Avant de dire qu'une tâche est terminée :
   pas seulement les webhooks Stripe.
 - Logger le nombre de tokens (input/output) de chaque appel à l'agent, que ce soit sur la clé
   BYOK du client (il doit pouvoir voir sa conso) ou sur la clé partagée (suivi de l'exposition
-  côté Scale X).
+  côté Minaly).
 
 ## Sécurité (toute l'app, pas seulement BYOK/Stripe)
 - Chaque route dans `app/(app)/` et `app/api/` vérifie la session Supabase côté serveur
