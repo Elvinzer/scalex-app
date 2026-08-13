@@ -1,12 +1,14 @@
-import { AgentBanner } from "@/components/agent-banner";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+
+import { AgentBanner } from "@/components/agent-banner";
 import { FalcoEmptyState } from "@/components/falco/falco-empty-state";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { computeSettersCommissions, getSetters } from "@/lib/setters/queries";
-import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
 import { AddSetterDialog } from "./add-setter-dialog";
 import { SetterCard } from "./setter-card";
@@ -16,10 +18,11 @@ export default async function SettersPage() {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:setters");
 
+  const context = await getAccountContext(userId);
+  if (context?.isOwner) redirect("/settings/equipe");
+
   const [setters, businessProfile] = await Promise.all([getSetters(accountId), getBusinessProfile(accountId)]);
-
   const summaries = await computeSettersCommissions(accountId, setters, businessProfile.sales.offers);
-
   const chatContext: ChatContext = { topicType: "lever", topicKey: "ceo_vision", topicLabel: "Vision", sourcePage: "acquisition_setters" };
   const falcoSkin = resolveFalcoSkin("/ventes/setters");
 

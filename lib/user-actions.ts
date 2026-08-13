@@ -32,7 +32,6 @@ export async function updateSector(sector: string | null): Promise<{ error: stri
   revalidatePath("/diagnostic");
   revalidatePath("/ventes/pipeline");
   revalidatePath("/ventes/pipeline/funnel");
-  revalidatePath("/ventes/appels/funnel");
   revalidateBusinessData();
   return { error: null };
 }

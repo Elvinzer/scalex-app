@@ -124,9 +124,7 @@ const AGENT_ROUTE_RULES: { route: string; agentKey: string }[] = [
   { route: "/ventes/pipeline", agentKey: "ceo_vision" },
   { route: "/ventes/setters", agentKey: "ceo_vision" },
   { route: "/business", agentKey: "ventes" },
-  // Covers /ventes/appels itself plus its nested /funnel (ex-Closing) and
-  // /videos pages via prefix match — Closing's old standalone rule pointed
-  // only at itself, leaving Appels with no agent resolution at all.
+  // Covers the call tracking page and any route nested beneath it.
   { route: "/ventes/appels", agentKey: "ventes" },
 ];
 

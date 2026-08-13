@@ -36,7 +36,8 @@
   "trendYear": "Year to date",
   "modal": {
     "settingSource": "Calculated from your daily tracking. Editable in Pipeline → Daily funnel.",
-    "closingSource": "Calculated from your daily tracking. Editable in Call tracking → Closing funnel.",
+    "closingSource": "Calculated from your daily tracking. Review the call records in Call tracking.",
+    "callTracking": "Open call tracking",
     "dailyTracking": "Go to daily tracking",
     "stripeSynced": "Synced from Stripe on",
     "viewIntegrations": "View integrations",

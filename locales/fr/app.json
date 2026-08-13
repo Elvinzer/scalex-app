@@ -1290,8 +1290,6 @@
     "title": "Suivi d'appel",
     "subtitle": "Tes appels de closing, réservés automatiquement depuis iClosed ou Calendly, ou ajoutés à la main. Marque l'issue et le montant ; un appel closé alimente ton CA dans le suivi des ventes.",
     "backDashboard": "Retour au Dashboard",
-    "closingFunnel": "Funnel de closing",
-    "closingVideos": "Vidéos de closing",
     "connectedIntegrations": "Intégrations d'appels connectées",
     "manage": "Gérer",
     "reservedCalls": "Appels réservés",

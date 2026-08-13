@@ -89,9 +89,9 @@ function stageSourceHref(stage: BottleneckStage): string {
     case "bookedCalls":
       return "/ventes/pipeline/funnel";
     case "attendedCalls":
-      return "/ventes/appels/funnel";
+      return "/ventes/appels";
     case "salesClosed":
-      return stage.source === "sales" ? "/ventes/suivi" : "/ventes/appels/funnel";
+      return stage.source === "sales" ? "/ventes/suivi" : "/ventes/appels";
     default:
       return "/business#acquisition";
   }

@@ -60,7 +60,7 @@
     "callsTaken": "Appels pris",
     "salesClosed": "Ventes conclues",
     "settingSource": "Cette valeur vient de ta saisie journalière dans Pipeline. Modifie-la directement là-bas.",
-    "closingSource": "Cette valeur vient de ta saisie journalière dans Suivi d’appel. Modifie-la directement là-bas.",
+    "closingSource": "Cette valeur vient de ta saisie journalière dans le suivi des appels.",
     "goToPipeline": "Aller à Pipeline",
     "goToCallTracking": "Aller au suivi d’appel"
   },

@@ -25,9 +25,8 @@ export const PERMISSION_KEYS = [
   "ventes:suivi",
   "ventes:videos",
   "ventes:rdv",
-  // Legacy — Closing was folded into Appels (its content now lives at
-  // /ventes/appels/funnel, gated by "ventes:appels"). Same treatment as
-  // "acquisition:setting" above.
+  // Legacy. Closing is no longer exposed as a separate page, but existing
+  // roles keep this key so their permissions remain readable.
   "ventes:closing",
   "ventes:appels",
   "ventes:upsell",

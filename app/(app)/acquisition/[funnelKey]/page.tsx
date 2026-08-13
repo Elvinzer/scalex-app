@@ -54,7 +54,7 @@ function sourceHref(inputMetricKey: string, funnelKey: AcquisitionFunnelKey): st
   if (["calls_booked", "calls_proposed", "first_messages", "conversations", "new_followers"].includes(inputMetricKey)) {
     return "/ventes/pipeline/funnel";
   }
-  if (inputMetricKey === "calls_attended") return "/ventes/appels/funnel";
+  if (inputMetricKey === "calls_attended") return "/ventes/appels";
   if (inputMetricKey === "sales_closed") return "/ventes/suivi";
   return acquisitionFunnelHref(funnelKey);
 }

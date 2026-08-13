@@ -89,8 +89,7 @@ const topEntries: LinkEntry[] = [
     labelKey: "acquisition",
     icon: Megaphone,
     // All current Acquisition sub-page permissions (matches
-    // lib/nav/pillar-subpages.ts). Pipeline and Setters are intentionally
-    // owned by the Vente pillar now.
+    // lib/nav/pillar-subpages.ts). Pipeline remains owned by the Vente pillar.
     anyOfPermissions: ["acquisition:contenu", "acquisition:mail", "acquisition:ads"],
   },
   {
@@ -98,15 +97,13 @@ const topEntries: LinkEntry[] = [
     href: "/ventes",
     labelKey: "sales",
     icon: Handshake,
-    // Pipeline and Setters keep their acquisition-scoped permission keys so
-    // existing team roles retain access after the navigation move.
+    // Pipeline keeps its acquisition-scoped permission key so existing team
+    // roles retain access after the navigation move.
     anyOfPermissions: [
       "acquisition:pipeline",
-      "acquisition:setters",
       "ventes:suivi",
       "ventes:appels",
       "ventes:closing",
-      "ventes:videos",
     ],
   },
   { type: "link", href: "/diagnostic", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
@@ -119,7 +116,7 @@ const mobileNavEntries = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { type: "link", href: "/roadmap", labelKey: "roadmap", mobileLabelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
-  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "acquisition:setters", "ventes:suivi", "ventes:appels", "ventes:closing", "ventes:videos"] },
+  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "ventes:suivi", "ventes:appels", "ventes:closing"] },
   { type: "link", href: "/diagnostic", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
 ] satisfies Array<LinkEntry & { mobileLabelKey: string }>;
 
@@ -148,7 +145,6 @@ const subpageLabelKeys: Record<string, string> = {
   "/acquisition/contenu": "content",
   "/acquisition/mail": "mail",
   "/ventes/pipeline": "pipeline",
-  "/ventes/setters": "setters",
   "/acquisition/ads": "ads",
   "/ventes/suivi": "salesTracking",
   "/ventes/appels": "callsTracking",

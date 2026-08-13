@@ -49,7 +49,6 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
 
   const context = await getAccountContext(userId);
   const isOwner = context?.isOwner ?? false;
-  const canSeeVideos = isOwner || (context !== null && context.permissions !== "all" && context.permissions.has("ventes:videos"));
 
   const iclosedConnected = Boolean(user?.iclosedConnected);
   const calendlyConnected = Boolean(user?.calendlyConnected);
@@ -99,14 +98,6 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
           {fromDashboard && (
             <Link href="/dashboard" className="inline-flex min-h-11 items-center text-sm font-bold text-muted-foreground outline-none hover:underline focus-visible:ring-3 focus-visible:ring-accent/20">
               ← {t("backDashboard")}
-            </Link>
-          )}
-          <Link href="/ventes/appels/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
-            {t("closingFunnel")} →
-          </Link>
-          {canSeeVideos && (
-            <Link href="/ventes/appels/videos" className="text-sm font-bold text-muted-foreground hover:underline">
-              {t("closingVideos")} →
             </Link>
           )}
           {(anyConnected || calls.length > 0) && <PeriodFilter current={period.key} />}

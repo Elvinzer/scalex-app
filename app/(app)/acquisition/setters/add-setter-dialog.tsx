@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 
 import { saveSetter } from "./actions";
 
-export function AddSetterDialog() {
+export function AddSetterDialog({ triggerVariant = "default" }: { triggerVariant?: "default" | "outline" }) {
   const t = useTranslations("app.setters");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export function AddSetterDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button">
+        <Button type="button" variant={triggerVariant}>
           <Plus className="size-4" />
           {t("addSetter")}
         </Button>

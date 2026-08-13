@@ -106,7 +106,6 @@ export async function saveMonthlyMetrics(
   revalidatePath("/diagnostic");
   revalidatePath("/ventes/pipeline");
   revalidatePath("/ventes/pipeline/funnel");
-  revalidatePath("/ventes/appels/funnel");
   revalidateBusinessData();
   return { error: null };
 }

@@ -60,8 +60,8 @@ export function RoleCard({
               onClick={() => toggle(option.key)}
               className={
                 active
-                  ? "rounded-full border border-signal bg-signal/15 px-3 py-1.5 text-sm font-bold text-signal"
-                  : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-signal/50"
+                  ? "rounded-full border border-accent-border bg-accent-soft px-3 py-1.5 text-sm font-bold text-accent-text"
+                  : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-accent-border"
               }
             >
               {t(`permission.${permissionKey(option.key)}`)}

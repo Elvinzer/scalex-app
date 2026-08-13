@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import type { SetterCommissions, SetterRow } from "@/lib/setters/types";
+import { cn } from "@/lib/utils";
 
 import { saveSetter } from "./actions";
 
@@ -43,6 +44,7 @@ export function SetterCard({
             onChange={(event) => setPctInput(event.target.value)}
             onBlur={handlePctBlur}
             disabled={isPending}
+            aria-label={t("defaultCommission")}
             className="w-14 rounded-[var(--radius-control)] border border-border bg-background px-2 py-1 text-right text-sm tabular-nums outline-none focus-visible:border-accent"
           />
           %
@@ -68,9 +70,12 @@ export function SetterCard({
         </div>
       </div>
 
-      <Button type="button" variant="outline" size="sm" className="self-start" asChild>
-        <Link href={`/ventes/setters/${setter.id}`}>{t("viewDetail")}</Link>
-      </Button>
+      <Link
+        href={`/settings/equipe/setters/${setter.id}`}
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "self-start")}
+      >
+        {t("viewDetail")}
+      </Link>
     </div>
   );
 }

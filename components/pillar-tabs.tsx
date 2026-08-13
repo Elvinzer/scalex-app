@@ -21,7 +21,6 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
     "/acquisition/contenu": "content",
     "/acquisition/mail": "mail",
     "/ventes/pipeline": "pipeline",
-    "/ventes/setters": "setters",
     "/acquisition/ads": "ads",
     "/ventes/suivi": "salesTracking",
     "/ventes/appels": "callsTracking",

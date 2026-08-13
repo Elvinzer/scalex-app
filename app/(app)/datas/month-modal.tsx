@@ -118,7 +118,7 @@ export function MonthModal({
   const router = useRouter();
   const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
   const settingSource: KpiFieldSource = { text: t("settingSource"), href: "/ventes/pipeline/funnel", linkLabel: t("dailyTracking") };
-  const closingDailySource: KpiFieldSource = { text: t("closingSource"), href: "/ventes/appels/funnel", linkLabel: t("dailyTracking") };
+  const closingDailySource: KpiFieldSource = { text: t("closingSource"), href: "/ventes/appels", linkLabel: t("callTracking") };
   const persistedSettingManualOverride = initialData?.settingManualOverride ?? false;
   const persistedClosingManualOverride = initialData?.closingManualOverride ?? false;
   const persistedSourceOverrides = useMemo(

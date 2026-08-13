@@ -36,7 +36,8 @@
   "trendYear": "Année en cours",
   "modal": {
     "settingSource": "Calculé depuis ton suivi quotidien. Modifiable dans Pipeline → Funnel journalier.",
-    "closingSource": "Calculé depuis ton suivi quotidien. Modifiable dans Suivi d'appel → Funnel de closing.",
+    "closingSource": "Calculé depuis ton suivi quotidien. Vérifie les appels dans Suivi d'appel.",
+    "callTracking": "Ouvrir le suivi des appels",
     "dailyTracking": "Aller au suivi quotidien",
     "stripeSynced": "Synchronisé depuis Stripe le",
     "viewIntegrations": "Voir mes intégrations",

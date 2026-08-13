@@ -80,6 +80,7 @@
     "email": "Email",
     "roles": "Roles",
     "status": "Status",
+    "actions": "Actions",
     "invited": "Invitation sent",
     "active": "Active",
     "noMembers": "No members yet.",

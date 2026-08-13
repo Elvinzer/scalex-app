@@ -5,9 +5,6 @@ import { resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import { getAccountContext } from "@/lib/team/context";
 
-// Closing and Vidéos are gone as their own tabs/routes — their content was
-// folded into Appels as nested pages (/ventes/appels/funnel,
-// /ventes/appels/videos, linked from Appels itself, not from this tab bar).
 export default async function VentesLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("app.sales");
   const { userId } = await getCurrentUser();

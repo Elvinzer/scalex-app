@@ -55,7 +55,7 @@ export function MemberRow({ member, roles, statusLabel }: { member: Member; role
         <div className="flex flex-wrap gap-1.5">
           {member.roles.length === 0 && <span className="text-muted-foreground">—</span>}
           {member.roles.map((role) => (
-            <span key={role.id} className="rounded-full bg-signal/15 px-2.5 py-1 text-xs font-bold text-signal">
+            <span key={role.id} className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent-text">
               {role.name}
             </span>
           ))}
@@ -82,8 +82,8 @@ export function MemberRow({ member, roles, statusLabel }: { member: Member; role
                       onClick={() => toggleRole(role.id)}
                       className={
                         active
-                          ? "rounded-full border border-signal bg-signal/15 px-3 py-1.5 text-sm font-bold text-signal"
-                          : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-signal/50"
+                          ? "rounded-full border border-accent-border bg-accent-soft px-3 py-1.5 text-sm font-bold text-accent-text"
+                          : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-accent-border"
                       }
                     >
                       {role.name}

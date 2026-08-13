@@ -1274,8 +1274,6 @@
     "title": "Call tracking",
     "subtitle": "Your closing calls, synced from iClosed or Calendly, or added manually. Mark the outcome and amount. A closed call feeds revenue tracking.",
     "backDashboard": "Back to Dashboard",
-    "closingFunnel": "Closing funnel",
-    "closingVideos": "Closing videos",
     "connectedIntegrations": "Connected call integrations",
     "manage": "Manage",
     "reservedCalls": "Booked calls",

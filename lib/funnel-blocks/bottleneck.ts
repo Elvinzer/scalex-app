@@ -59,7 +59,7 @@ function sourceForMetric(metricKey: string): BottleneckStage["source"] {
 function sourceHrefForMetric(metricKey: string, blockKey: string): string {
   if (metricKey.includes("email")) return "/acquisition/mail";
   if (metricKey.includes("content") || metricKey.includes("lead_magnet")) return "/acquisition/contenu";
-  if (metricKey.includes("calls") || metricKey.includes("booking") || metricKey.includes("conversation")) return "/ventes/appels/funnel";
+  if (metricKey.includes("calls") || metricKey.includes("booking") || metricKey.includes("conversation")) return "/ventes/appels";
   if (metricKey.includes("sales")) return "/ventes/suivi";
   return `/acquisition/${blockKey.replaceAll("_", "-")}`;
 }

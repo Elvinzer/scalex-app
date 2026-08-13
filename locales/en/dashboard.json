@@ -60,7 +60,7 @@
     "callsTaken": "Calls attended",
     "salesClosed": "Sales closed",
     "settingSource": "This value comes from your daily Pipeline entry. Edit it there directly.",
-    "closingSource": "This value comes from your daily call-tracking entry. Edit it there directly.",
+    "closingSource": "This value comes from your daily call tracking.",
     "goToPipeline": "Go to Pipeline",
     "goToCallTracking": "Go to call tracking"
   },
