@@ -78,9 +78,12 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button asChild className="rounded-[12px] px-6">
-            <a href="/sign-in">{t("nav.signIn")}</a>
+          <Button asChild size="sm" className="rounded-[10px] px-4">
+            <Link href="/diagnostic">{t("nav.diagnosticCta")}</Link>
           </Button>
+          <Link href="/sign-in" className="px-2 text-sm font-semibold text-mist/75 transition-colors hover:text-mist">
+            {t("nav.signIn")}
+          </Link>
         </div>
 
         <button
@@ -112,8 +115,11 @@ export function SiteHeader() {
             ))}
           </nav>
           <Button asChild className="mt-5 w-full rounded-[12px]">
-            <a href="/sign-in">{t("nav.signIn")}</a>
+            <Link href="/diagnostic">{t("nav.diagnosticCta")}</Link>
           </Button>
+          <Link href="/sign-in" onClick={() => setMobileOpen(false)} className="mt-4 block text-center text-sm font-semibold text-mist/75">
+            {t("nav.signIn")}
+          </Link>
         </div>
       )}
     </header>

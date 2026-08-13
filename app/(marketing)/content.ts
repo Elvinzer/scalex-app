@@ -34,9 +34,8 @@ export const USE_CASES = [
 ] as const;
 
 export const PRICING_TIERS = [
-  { key: "starter", price: "49", highlight: false },
-  { key: "growth", price: "149", highlight: true },
-  { key: "scale", price: "399", highlight: false },
+  { key: "solo", monthlyPrice: 79, annualPrice: 790, highlight: false },
+  { key: "team", monthlyPrice: 199, annualPrice: 1990, highlight: true },
 ] as const;
 
 export const LOSS_BREAKDOWN = [
@@ -66,7 +65,7 @@ export const PRIORITY_ACTIONS = [
   { labelKey: "product.action3", impactKey: "dashboard.valueQualification", severity: "medium" as const },
 ] as const;
 
-export const FAQ_KEYS = ["whatIs", "whoFor", "data", "replace", "byok"] as const;
+export const FAQ_KEYS = ["whatIs", "whoFor", "data", "diagnostic", "trial", "replace"] as const;
 export const RESOURCE_FAQ_KEYS = ["faq1", "faq2", "faq3"] as const;
 
 export type MarketingBenefitKey = (typeof BENEFITS)[number]["key"];

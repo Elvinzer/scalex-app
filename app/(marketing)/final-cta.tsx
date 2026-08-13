@@ -1,5 +1,6 @@
 import { Falco } from "@/components/falco/falco";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 export function FinalCta() {
@@ -25,9 +26,15 @@ export function FinalCta() {
             <p className="mb-7 max-w-lg text-[16px] leading-relaxed text-foreground/70">
               {t("finalCta.description")}
             </p>
-            <Button asChild size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
-              <a href="/sign-in">{t("finalCta.cta")}</a>
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button asChild size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
+                <Link href="/diagnostic">{t("finalCta.primaryCta")}</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="rounded-[12px] border-foreground/20 bg-white/70 px-7 py-6 text-[15px]">
+                <Link href="/sign-in?intent=trial&plan=solo">{t("finalCta.secondaryCta")}</Link>
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-foreground/60">{t("finalCta.secondaryNote")}</p>
           </div>
 
           <Falco variant="insights" size="xl" className="relative mx-auto w-[170px] sm:w-[210px]" />

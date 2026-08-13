@@ -1,5 +1,6 @@
 import { Falco } from "@/components/falco/falco";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { DashboardMockup } from "./dashboard-mockup";
@@ -27,12 +28,13 @@ export function HeroSection() {
 
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
-              <a href="/sign-in">{t("hero.primaryCta")}</a>
+              <Link href="/diagnostic">{t("hero.primaryCta")}</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
-              <a href="#produit">{t("hero.secondaryCta")}</a>
+              <Link href="/sign-in?intent=trial&plan=solo">{t("hero.secondaryCta")}</Link>
             </Button>
           </div>
+          <p className="-mt-3 text-xs text-muted-foreground">{t("hero.secondaryNote")}</p>
 
           <div className="flex items-center gap-3 pt-2">
             <span className="size-2 rounded-full bg-accent" aria-hidden />

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { PERFORMANCE_TREND, PRIORITY_ACTIONS } from "./content";
@@ -102,7 +103,7 @@ export function ProductOverview() {
             </li>
           </ul>
           <Button asChild variant="outline" size="lg" className="rounded-[12px] px-7">
-            <a href="/onboarding">{t("product.cta")}</a>
+            <Link href="/diagnostic">{t("product.cta")}</Link>
           </Button>
         </div>
 
