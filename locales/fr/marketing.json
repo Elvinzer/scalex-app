@@ -185,7 +185,6 @@
   "dashboard": {
     "overview": "Dashboard illustratif",
     "dateRange": "1 au 31 mai 2026",
-    "exampleLabel": "Exemple illustratif",
     "losses": "CA potentiellement en risque",
     "recoverable": "Récupération potentielle",
     "actions": "Actions actives",

@@ -1,10 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+import { getLocalSuperuserClaims } from "@/lib/auth/local-superuser-server";
+
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -25,4 +27,21 @@ export async function createClient() {
       },
     }
   );
+
+  const localClaims = await getLocalSuperuserClaims();
+  if (localClaims) {
+    Object.defineProperty(supabase.auth, "getClaims", {
+      configurable: true,
+      value: async () => ({
+        data: {
+          claims: localClaims,
+          header: { alg: "none", typ: "JWT" },
+          signature: new Uint8Array(),
+        },
+        error: null,
+      }),
+    });
+  }
+
+  return supabase;
 }

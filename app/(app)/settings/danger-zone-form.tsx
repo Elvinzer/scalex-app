@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { createClient } from "@/lib/supabase/client";
+import { signOut } from "@/lib/supabase/client";
 
 import { deleteAccount, resetAccountData } from "./actions";
 
@@ -45,8 +45,7 @@ export function DangerZoneForm({ email }: { email: string }) {
         setDeleteError(result.error);
         return;
       }
-      const supabase = createClient();
-      await supabase.auth.signOut();
+      await signOut();
       router.push("/sign-in");
     });
   }

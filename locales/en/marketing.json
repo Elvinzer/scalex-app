@@ -185,7 +185,6 @@
   "dashboard": {
     "overview": "Illustrative dashboard",
     "dateRange": "May 1 to May 31, 2026",
-    "exampleLabel": "Illustrative example",
     "losses": "Potential revenue at risk",
     "recoverable": "Potential recovery",
     "actions": "Active actions",

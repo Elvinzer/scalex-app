@@ -109,7 +109,6 @@ export function DashboardMockup({ ariaLabel }: { ariaLabel?: string }) {
           </div>
         </div>
       </div>
-      <p className="mt-4 text-right text-[10px] text-muted-foreground">{t("dashboard.exampleLabel")}</p>
     </div>
   );
 }

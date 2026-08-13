@@ -31,7 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
-import { createClient } from "@/lib/supabase/client";
+import { signOut } from "@/lib/supabase/client";
 import type { PermissionKey } from "@/lib/team/permissions";
 import { cn } from "@/lib/utils";
 
@@ -436,8 +436,7 @@ export function AppSidebar({
   }, [pathname]);
 
   async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await signOut();
     router.push("/sign-in");
     router.refresh();
   }

@@ -11,13 +11,18 @@ import { useTranslations } from "next-intl";
 
 import { NAV_LINKS } from "./content";
 
+function getAnchorId(href: string) {
+  const hashIndex = href.indexOf("#");
+  return hashIndex === -1 ? "" : href.slice(hashIndex + 1);
+}
+
 export function SiteHeader() {
   const t = useTranslations("marketing");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeId, setActiveId] = useState<string>("");
 
   useEffect(() => {
-    const sections = NAV_LINKS.map((link) => document.getElementById(link.href.slice(1))).filter(
+    const sections = NAV_LINKS.map((link) => document.getElementById(getAnchorId(link.href))).filter(
       (el): el is HTMLElement => el !== null,
     );
 
@@ -64,7 +69,7 @@ export function SiteHeader() {
               href={link.href}
               className={cn(
                 "transition-colors hover:text-accent",
-                activeId === link.href.slice(1) && "text-accent",
+                activeId === getAnchorId(link.href) && "text-accent",
               )}
             >
               {t(link.labelKey)}
@@ -99,7 +104,7 @@ export function SiteHeader() {
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "transition-colors",
-                  activeId === link.href.slice(1) && "text-accent",
+                  activeId === getAnchorId(link.href) && "text-accent",
                 )}
               >
                 {t(link.labelKey)}

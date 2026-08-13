@@ -2,9 +2,9 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 const FOOTER_LINKS = [
-  { labelKey: "footer.features", href: "#fonctionnalites" },
-  { labelKey: "footer.product", href: "#produit" },
-  { labelKey: "footer.pricing", href: "#tarifs" },
+  { labelKey: "footer.features", href: "/#fonctionnalites" },
+  { labelKey: "footer.product", href: "/#produit" },
+  { labelKey: "footer.pricing", href: "/#tarifs" },
   { labelKey: "footer.resources", href: "/ressources/coach-business-scaling" },
   { labelKey: "footer.contact", href: "mailto:contact@scalex.app" },
   { labelKey: "footer.privacy", href: "/politique-de-confidentialite" },

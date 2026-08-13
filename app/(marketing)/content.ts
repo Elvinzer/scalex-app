@@ -1,11 +1,11 @@
 import { Search, Target, Zap, type LucideIcon } from "lucide-react";
 
 export const NAV_LINKS = [
-  { labelKey: "nav.features", href: "#fonctionnalites" },
-  { labelKey: "nav.product", href: "#produit" },
-  { labelKey: "nav.process", href: "#comment-ca-marche" },
-  { labelKey: "nav.pricing", href: "#tarifs" },
-  { labelKey: "nav.useCases", href: "#cas-usage" },
+  { labelKey: "nav.features", href: "/#fonctionnalites" },
+  { labelKey: "nav.product", href: "/#produit" },
+  { labelKey: "nav.process", href: "/#comment-ca-marche" },
+  { labelKey: "nav.pricing", href: "/#tarifs" },
+  { labelKey: "nav.useCases", href: "/#cas-usage" },
   { labelKey: "nav.resources", href: "/ressources/coach-business-scaling" },
 ] as const;
 
