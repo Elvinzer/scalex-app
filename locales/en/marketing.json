@@ -1,30 +1,41 @@
 {
   "metadata": {
     "title": "Minaly | The all in one scaling coach for coaches",
-    "description": "Minaly helps coaches and info businesses doing $10k to $100k per month find the constraint slowing growth and turn it into a weekly action plan.",
+    "description": "Minaly helps coaches and info businesses doing €2k to €20k per month find the constraint slowing growth and turn it into a weekly action plan.",
     "keywords": "scaling coach, coaching business software, coaching business scaling, all in one coach platform, business bottleneck analysis"
   },
   "nav": {
     "features": "What it fixes",
-    "product": "Inside the platform",
+    "product": "Product",
     "process": "How it works",
     "pricing": "Pricing",
     "useCases": "Who it helps",
     "resources": "Resources",
+<<<<<<< HEAD
     "diagnosticCta": "Diagnose my business",
     "signIn": "Sign in",
+=======
+    "signIn": "Log in",
+    "diagnosticCta": "Free diagnostic",
+>>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "home": "Minaly home"
   },
   "hero": {
-    "eyebrow": "For coaches and info businesses doing $10k to $100k per month.",
+    "eyebrow": "For coaches and info businesses doing €2k to €20k per month.",
     "title": "Your business is growing. Your bottleneck is hiding.",
     "accent": "Find it. Fix it.",
     "description": "Minaly is an all in one scaling coach for coaches and info businesses. It maps acquisition, sales and delivery, finds the constraint costing you the most, and gives you one action to run this week.",
+<<<<<<< HEAD
     "primaryCta": "Start with your business",
     "secondaryCta": "See how it works",
     "secondaryNote": "One clear priority for the week, based on your business data.",
+=======
+    "primaryCta": "Get my free diagnostic",
+    "secondaryCta": "Try it for 7 days",
+    "secondaryNote": "Card required · cancel anytime",
+>>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "proof": "One clear priority for the week, backed by your business data",
     "mockupAlt": "Minaly dashboard showing a prioritized business bottleneck"
   },
@@ -50,7 +61,7 @@
       "label": "constraint to work on at a time"
     },
     "range": {
-      "value": "$10k to $100k",
+      "value": "€2k to €20k",
       "label": "monthly revenue range"
     },
     "weekly": {
@@ -63,7 +74,7 @@
     "description": "Connect the data you already use, then keep the decision in one place. The product is built to help you act on a diagnosis, not study another dashboard.",
     "bullet1": "A clear view of the constraint and the evidence behind it",
     "bullet2": "A weekly action plan with an owner and a measurable outcome",
-    "cta": "Explore the platform",
+    "cta": "Get my free diagnostic",
     "chartTitle": "Illustrative performance view",
     "chartSubtitle": "Example data, not a customer result",
     "chartTooltip": "Potential revenue at risk",
@@ -97,34 +108,38 @@
     }
   },
   "pricing": {
-    "heading": "Choose the level of focus you need",
-    "description": "Plans are designed around the amount of operating context you want in one place. Cancel when you want.",
+    "heading": "A clear diagnostic. A simple plan.",
+    "description": "Start with your free diagnostic, then choose the level of support that fits your business.",
+    "billingLabel": "Billing period",
+    "monthly": "Monthly",
+    "annual": "Annual",
+    "annualNote": "Two months free on annual billing",
     "popular": "Most popular",
-    "choose": "Choose",
+    "trialCta": "Try it for 7 days",
     "perMonth": "/month",
-    "starter": {
-      "name": "Starter",
-      "tagline": "A focused bottleneck diagnosis.",
-      "feature1": "Stripe revenue diagnosis",
-      "feature2": "Weekly bottleneck brief",
-      "feature3": "Bring your own Anthropic API key",
-      "feature4": "Email support"
+    "perYear": "/year",
+    "annualEquivalent": "About €{price} per month",
+    "terms": "No commitment, cancel anytime · Two months free on annual billing",
+    "diagnosticLink": "Not sure yet? Get the free diagnostic →",
+    "solo": {
+      "name": "Solo",
+      "tagline": "For running your business on your own.",
+      "feature1": "Full diagnostic: acquisition, sales, delivery",
+      "feature2": "Your priority bottleneck, measured in euros",
+      "feature3": "Weekly action plan",
+      "feature4": "Stripe connection plus your numbers",
+      "feature5": "Falco, your copilot, included usage",
+      "feature6": "Email support"
     },
-    "growth": {
-      "name": "Growth",
-      "tagline": "A complete operating view for the next stage.",
-      "feature1": "Stripe, acquisition and sales views",
-      "feature2": "Copilot for your action plan",
-      "feature3": "iClosed and Calendly call tracking",
-      "feature4": "Priority support"
-    },
-    "scale": {
-      "name": "Scale",
-      "tagline": "Shared context for a team that is scaling.",
-      "feature1": "Everything in Growth",
-      "feature2": "Instagram and YouTube content analytics",
-      "feature3": "Team workflows and permissions",
-      "feature4": "Priority access to new features"
+    "team": {
+      "name": "Team",
+      "tagline": "For running your business with your team.",
+      "feature1": "Everything in Solo",
+      "feature2": "Setter and closer access, commission tracking",
+      "feature3": "Unlimited Falco",
+      "feature4": "YouTube and Instagram content analytics",
+      "feature5": "iClosed and Calendly call tracking",
+      "feature6": "Priority support"
     }
   },
   "useCases": {
@@ -150,7 +165,7 @@
     "heading": "Questions coaches ask before they scale",
     "whatIs": {
       "question": "What is Minaly?",
-      "answer": "Minaly is an all in one scaling coach for coaches and info businesses doing $10k to $100k per month. It combines business data, bottleneck diagnosis and a weekly action plan."
+      "answer": "Minaly is an all in one scaling coach for coaches and info businesses doing €2k to €20k per month. It combines business data, bottleneck diagnosis and a weekly action plan."
     },
     "whoFor": {
       "question": "Who is Minaly for?",
@@ -164,18 +179,28 @@
       "question": "Does Minaly replace a business coach?",
       "answer": "No. Minaly gives a coach or founder a shared operating view and a concrete next move. It supports judgment and execution rather than pretending to replace either one."
     },
-    "byok": {
-      "question": "How does the AI key work?",
-      "answer": "Minaly supports bring your own key. Your Anthropic key is encrypted and used for your account's agent calls. It is never returned to the browser after setup."
+    "diagnostic": {
+      "question": "Can I start without connecting my tools?",
+      "answer": "Yes. The free diagnostic uses a few rough figures: audience, leads, calls, sales and last month's revenue. You see your result before creating an account."
+    },
+    "trial": {
+      "question": "How does the 7 day trial work?",
+      "answer": "Add your card to start the trial. Your subscription then renews automatically, and we send a reminder two days before the trial ends. You can cancel in one click from Settings."
     }
   },
   "finalCta": {
     "heading": "Give your next growth decision a clear starting point",
     "description": "Start with the data you already have and leave with one priority worth running this week.",
+<<<<<<< HEAD
     "cta": "Start with your business",
     "primaryCta": "Start with your business",
     "secondaryCta": "See how it works",
     "secondaryNote": "One clear priority for the week, based on your business data.",
+=======
+    "primaryCta": "Get my free diagnostic",
+    "secondaryCta": "Try it for 7 days",
+    "secondaryNote": "Card required · cancel anytime",
+>>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "falcoAlt": "Falco, the Minaly coaching assistant"
   },
   "footer": {
@@ -329,8 +354,8 @@
   },
   "resource": {
     "eyebrow": "Minaly resource",
-    "title": "How to scale a coaching business from $10k to $100k per month",
-    "intro": "A coaching business between $10k and $100k per month usually does not need ten more tools. It needs a clear view of where demand, sales or delivery stops compounding. This guide gives you a practical way to diagnose that constraint and choose the next move.",
+    "title": "How to scale a coaching business from €2k to €20k per month",
+    "intro": "A coaching business between €2k and €20k per month usually does not need ten more tools. It needs a clear view of where demand, sales or delivery stops compounding. This guide gives you a practical way to diagnose that constraint and choose the next move.",
     "answerHeading": "The short answer",
     "answer": "Scale a coaching business by measuring the full path from lead to cash, finding the one stage with the largest avoidable gap, and running one focused improvement for seven days before adding more complexity.",
     "frameworkHeading": "A simple scaling framework",

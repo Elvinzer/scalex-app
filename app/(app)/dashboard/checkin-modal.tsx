@@ -129,7 +129,7 @@ export function CheckinModal({
                   {t("stillAt", { after: feedback.afterPercent, label: feedback.label.toLowerCase() })}
                 </p>
                 <Button asChild size="sm" variant="outline" className="self-center">
-                  <Link href={`/diagnostic?open=${feedback.key}`} prefetch={true}>{t("resumeChat")}</Link>
+                  <Link href={`/diagnostic-app?open=${feedback.key}`} prefetch={true}>{t("resumeChat")}</Link>
                 </Button>
               </>
             )}

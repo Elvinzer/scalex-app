@@ -7,7 +7,7 @@ const privatePaths = [
   "/business",
   "/acquisition",
   "/ventes",
-  "/diagnostic",
+  "/diagnostic-app",
   "/datas",
   "/journal",
   "/copilote",

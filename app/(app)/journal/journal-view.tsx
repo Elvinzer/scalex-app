@@ -124,7 +124,7 @@ function ActionHero({
                 : t("keepRhythmHelp")}
             </p>
             <Button asChild size="lg" className="mt-5">
-              <Link href={isInsufficient ? "/datas" : "/diagnostic#discovery"}>
+              <Link href={isInsufficient ? "/datas" : "/diagnostic-app#discovery"}>
                 {isInsufficient ? t("fillNumbers") : t("nextGoal")}
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Link>

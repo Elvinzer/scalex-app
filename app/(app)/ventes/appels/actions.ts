@@ -123,7 +123,7 @@ export async function setCallResult(callId: string, result: unknown): Promise<{ 
 
   revalidatePath("/ventes/appels");
   revalidatePath("/ventes/suivi");
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidateBusinessData();
   return { error: null };
 }
@@ -229,7 +229,7 @@ export async function setCallAmounts(
 
   revalidatePath("/ventes/appels");
   revalidatePath("/ventes/suivi");
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidateBusinessData();
   return { error: null };
 }

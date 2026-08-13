@@ -5,7 +5,9 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { processedStripeEvents } from "@/db/schema";
+import { sendTrialReminderEmail } from "@/lib/billing/trial-reminder";
 import { subscriptionMetadataSchema, syncStripeSubscriptionProjection } from "@/lib/billing/stripe-subscription";
+import { billingTrialReminderRequested, inngest } from "@/lib/inngest/client";
 import { recordPaidReferralInvoice, reverseAvailableReferralCommission } from "@/lib/referrals/commissions";
 import { getPlatformStripeClient } from "@/lib/stripe/platform-client";
 import { requireEnv } from "@/lib/utils";
@@ -98,6 +100,34 @@ async function upsertFromSubscription(subscription: unknown): Promise<void> {
   if (!result.ok) return;
 }
 
+async function scheduleTrialReminder(subscription: unknown): Promise<void> {
+  const parsedSubscription = z
+    .object({
+      id: z.string().min(1),
+      metadata: z.record(z.string(), z.string()),
+      trial_end: z.number().int().positive().nullable().optional(),
+    })
+    .safeParse(subscription);
+  if (!parsedSubscription.success || !parsedSubscription.data.trial_end) return;
+
+  const parsedMetadata = subscriptionMetadataSchema.safeParse(parsedSubscription.data.metadata);
+  if (!parsedMetadata.success) return;
+
+  const payload = {
+    userId: parsedMetadata.data.userId,
+    subscriptionId: parsedSubscription.data.id,
+    trialEnd: parsedSubscription.data.trial_end,
+  };
+  const reminderAt = (payload.trialEnd - 2 * 24 * 60 * 60) * 1000;
+
+  if (reminderAt <= Date.now() || (!process.env.INNGEST_EVENT_KEY && !process.env.INNGEST_DEV)) {
+    await sendTrialReminderEmail(payload);
+    return;
+  }
+
+  await inngest.send(billingTrialReminderRequested.create(payload));
+}
+
 export async function POST(request: NextRequest) {
   const contentLengthHeader = request.headers.get("content-length");
   const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
@@ -144,6 +174,10 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         await upsertFromSubscription(event.data.object);
+        break;
+      }
+      case "customer.subscription.trial_will_end": {
+        await scheduleTrialReminder(event.data.object);
         break;
       }
       case "invoice.paid": {

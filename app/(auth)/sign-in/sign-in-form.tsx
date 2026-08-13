@@ -8,10 +8,30 @@ import { createClient } from "@/lib/supabase/client";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
-export function SignInForm({ authCallbackError = false }: { authCallbackError?: boolean }) {
+export function SignInForm({
+  authCallbackError = false,
+  intent,
+  plan = "solo",
+  billing = "monthly",
+}: {
+  authCallbackError?: boolean;
+  intent?: "trial" | "diagnostic" | null;
+  plan?: "solo" | "team";
+  billing?: "monthly" | "annual";
+}) {
   const t = useTranslations("auth.signIn");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
+
+  function getAuthCallbackUrl(): string {
+    const callback = new URL("/auth/callback", window.location.origin);
+    if (intent === "trial") {
+      callback.searchParams.set("next", `/api/billing/checkout?plan=${plan}&trial=7&billing=${billing}`);
+    } else if (intent === "diagnostic") {
+      callback.searchParams.set("next", "/onboarding?diagnostic=1");
+    }
+    return callback.toString();
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,7 +41,7 @@ export function SignInForm({ authCallbackError = false }: { authCallbackError?: 
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: getAuthCallbackUrl(),
       },
     });
 
@@ -35,7 +55,7 @@ export function SignInForm({ authCallbackError = false }: { authCallbackError?: 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: getAuthCallbackUrl(),
       },
     });
 

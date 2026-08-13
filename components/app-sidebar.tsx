@@ -106,7 +106,7 @@ const topEntries: LinkEntry[] = [
       "ventes:closing",
     ],
   },
-  { type: "link", href: "/diagnostic", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
+  { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
   // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
   // même permission que le Copilote partout ailleurs dans l'app.
   { type: "link", href: "/copilote", labelKey: "copilot", icon: MessageCircle, permission: "diagnostic" },
@@ -117,7 +117,7 @@ const mobileNavEntries = [
   { type: "link", href: "/roadmap", labelKey: "roadmap", mobileLabelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
   { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "ventes:suivi", "ventes:appels", "ventes:closing"] },
-  { type: "link", href: "/diagnostic", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
+  { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
 ] satisfies Array<LinkEntry & { mobileLabelKey: string }>;
 
 // COMPTE — account-level settings behind the avatar/profile dropdown

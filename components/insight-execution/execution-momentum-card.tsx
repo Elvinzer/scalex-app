@@ -43,7 +43,7 @@ export async function ExecutionMomentumCard({
   const nudge = activeNudge ?? candidate;
   const followUpHref = (initiativeId: string) =>
     canOpenDiagnostic
-      ? `/diagnostic#insight-${initiativeId}`
+      ? `/diagnostic-app#insight-${initiativeId}`
       : "/roadmap#execution-momentum";
   const completedPreviousWeeks = progress.previousWeeks.reduce(
     (total, week) => total + week.completed,
@@ -110,7 +110,7 @@ export async function ExecutionMomentumCard({
             {t("onePriority")}
           </p>
           <Link
-            href="/diagnostic#insight-history"
+            href="/diagnostic-app#insight-history"
             prefetch={true}
             className="mt-3 inline-flex text-xs font-bold text-accent-text hover:underline"
           >

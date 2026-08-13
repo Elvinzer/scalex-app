@@ -27,7 +27,7 @@ export function OptimisationEntryCard({
             <p className="text-sm text-muted-foreground">{t("reviewedLevers", { count: total })}</p>
           </div>
         </div>
-        <Link href="/diagnostic?tab=discovery" className="text-sm font-bold text-accent-text hover:underline">
+        <Link href="/diagnostic-app?tab=discovery" className="text-sm font-bold text-accent-text hover:underline">
           {t("viewDiscoveries")} →
         </Link>
       </div>
@@ -50,7 +50,7 @@ export function OptimisationEntryCard({
           </div>
         </div>
         <Button size="lg" asChild className="shrink-0">
-          <Link href="/diagnostic?tab=discovery">{t("answerQuestions")} →</Link>
+          <Link href="/diagnostic-app?tab=discovery">{t("answerQuestions")} →</Link>
         </Button>
       </div>
       <div className="flex items-center gap-1.5">

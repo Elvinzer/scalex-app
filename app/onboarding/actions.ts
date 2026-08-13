@@ -176,7 +176,7 @@ async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingG
   await db.update(users).set({ onboardingCompleted: true }).where(eq(users.id, userId));
   revalidatePath("/dashboard");
   revalidatePath("/roadmap");
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidateBusinessData();
 
   return { result };

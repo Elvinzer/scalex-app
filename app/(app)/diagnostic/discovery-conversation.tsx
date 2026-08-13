@@ -94,7 +94,7 @@ export function DiscoveryConversation({
   const locale = useLocale();
   const router = useRouter();
   // Snapshotted once on mount, deliberately ignoring subsequent `levers`
-  // prop updates: saveLeverAnswer calls revalidatePath("/diagnostic") after
+  // prop updates: saveLeverAnswer calls revalidatePath("/diagnostic-app") after
   // EVERY answer (not just the last), which re-renders the server parent
   // and hands this component a shorter `levers` array mid-conversation. If
   // `index` were applied to that live prop instead of a frozen snapshot,

@@ -181,7 +181,7 @@ export function makeMetricAction(input: MetricActionInput): JournalActionCandida
         topicLabel: input.label,
         sourcePage: "journal_action",
       },
-      href: `/diagnostic?open=${encodeURIComponent(input.key)}`,
+      href: `/diagnostic-app?open=${encodeURIComponent(input.key)}`,
       isPersisted: input.status !== "pending" || input.createdAt !== null && input.createdAt !== undefined,
     },
     input.overdueDays,

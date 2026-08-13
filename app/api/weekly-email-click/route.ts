@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   const destination = initiativeId.success
-    ? `/diagnostic#insight-${initiativeId.data}`
+    ? `/diagnostic-app#insight-${initiativeId.data}`
     : "/dashboard?report=1";
   return NextResponse.redirect(new URL(destination, origin));
 }

@@ -135,7 +135,7 @@ export function ScaleScoreModal({
 
               <div className="flex gap-2">
                 <Button asChild className="flex-1">
-                  <Link href="/diagnostic" prefetch={true}>{t("improve")}</Link>
+                  <Link href="/diagnostic-app" prefetch={true}>{t("improve")}</Link>
                 </Button>
                 <Button variant="secondary" onClick={handleShare} disabled={isExporting} className="flex-1">
                   {isExporting ? t("exporting") : t("share")}

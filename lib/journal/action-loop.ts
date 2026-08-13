@@ -737,7 +737,7 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
         benchmarkRatePercent: bottleneckPoint.benchmarkRatePercent,
         monthlyGain: bottleneckPoint.monthlyGain,
         extraClients: bottleneckPoint.extraClients,
-        href: `/diagnostic?open=${encodeURIComponent(bottleneckPoint.key)}`,
+        href: `/diagnostic-app?open=${encodeURIComponent(bottleneckPoint.key)}`,
         chatContext: {
           topicType: "metric",
           topicKey: bottleneckPoint.key,

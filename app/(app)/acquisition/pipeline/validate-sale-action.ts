@@ -40,7 +40,7 @@ export async function validateSaleFromLead(leadId: string, data: unknown): Promi
   revalidatePath("/ventes/suivi");
   revalidatePath("/ventes/pipeline");
   revalidatePath("/ventes/setters");
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidateBusinessData();
   return { error: null };
 }

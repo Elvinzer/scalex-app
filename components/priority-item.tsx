@@ -55,12 +55,12 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
             </span>
             {isTop ? (
               <Button asChild size="sm" variant="secondary">
-                <Link href={`/diagnostic?openLever=${leverWinner.leverKey}&openLeverLabel=${encodeURIComponent(leverWinner.label)}`} prefetch={true}>
+                <Link href={`/diagnostic-app?openLever=${leverWinner.leverKey}&openLeverLabel=${encodeURIComponent(leverWinner.label)}`} prefetch={true}>
                   {t("improve")}
                 </Link>
               </Button>
             ) : (
-              <Link href="/diagnostic" prefetch={true} className="text-sm font-bold text-muted-foreground hover:underline">
+              <Link href="/diagnostic-app" prefetch={true} className="text-sm font-bold text-muted-foreground hover:underline">
                 {t("seeDetail")}
               </Link>
             )}
@@ -119,10 +119,10 @@ export function PriorityItem({ rank, point, leverWinner }: PriorityItemProps) {
             // Secondary, not coral — the page's one coral CTA is the hero
             // banner's "Récupérer ce cash →", which already points here.
             <Button asChild size="sm" variant="secondary">
-              <Link href={`/diagnostic?open=${point.key}`} prefetch={true}>{t("improve")}</Link>
+              <Link href={`/diagnostic-app?open=${point.key}`} prefetch={true}>{t("improve")}</Link>
             </Button>
           ) : (
-            <Link href="/diagnostic" prefetch={true} className="text-sm font-bold text-muted-foreground hover:underline">
+            <Link href="/diagnostic-app" prefetch={true} className="text-sm font-bold text-muted-foreground hover:underline">
               {t("seeDetail")}
             </Link>
           )}

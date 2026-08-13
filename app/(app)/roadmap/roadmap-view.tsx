@@ -301,7 +301,7 @@ function DailyActionRow({
           </>
         ) : (
           <Button type="button" size="sm" variant="outline" className="min-h-10 px-2.5 text-xs" asChild>
-            <Link href="/diagnostic">
+            <Link href="/diagnostic-app">
               {translate("fallback.openDiagnostic")}
               <ArrowRight className="size-3.5" aria-hidden="true" />
             </Link>
@@ -376,7 +376,7 @@ function BottleneckBlock({
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/30 pt-4">
           <span className="text-xs text-text-on-dark-muted">{translate("bottleneck.emptyAction")}</span>
           <Button type="button" variant="outline" className="min-h-11" asChild>
-            <Link href="/diagnostic">
+            <Link href="/diagnostic-app">
               {translate("bottleneck.openDiagnostic")}
               <ArrowRight className="size-3.5" aria-hidden="true" />
             </Link>

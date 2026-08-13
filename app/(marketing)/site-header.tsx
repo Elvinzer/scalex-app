@@ -49,7 +49,7 @@ export function SiteHeader() {
       className="sticky top-0 z-50 border-b border-white/10"
       style={{ background: "var(--gradient-dark)" }}
     >
-      <div className="mx-auto flex h-24 max-w-[1360px] items-center justify-between px-6 sm:px-10">
+      <div className="mx-auto flex h-20 max-w-[1360px] items-center justify-between gap-5 px-6 sm:px-10">
         <Link href="/" className="flex shrink-0 items-center" onClick={() => setMobileOpen(false)}>
           <Image
             src="/minaly-wordmark.png"
@@ -58,13 +58,13 @@ export function SiteHeader() {
             height={100}
             priority
             sizes="199px"
-            className="h-14 w-auto"
+            className="h-12 w-auto"
           />
         </Link>
 
-        <nav className="hidden items-center gap-9 text-[14.5px] font-semibold text-mist/75 md:flex">
+        <nav className="hidden items-center gap-6 text-[13.5px] font-semibold text-mist/75 lg:flex">
           {NAV_LINKS.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               className={cn(
@@ -73,12 +73,12 @@ export function SiteHeader() {
               )}
             >
               {t(link.labelKey)}
-            </a>
+            </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
-          <Button asChild size="sm" className="rounded-[10px] px-4">
+        <div className="hidden shrink-0 items-center gap-2 md:flex">
+          <Button asChild size="sm" className="rounded-[10px] px-3 text-xs">
             <Link href="/diagnostic">{t("nav.diagnosticCta")}</Link>
           </Button>
           <Link href="/sign-in" className="px-2 text-sm font-semibold text-mist/75 transition-colors hover:text-mist">
@@ -101,7 +101,7 @@ export function SiteHeader() {
         <div className="border-t border-white/10 px-6 py-5 md:hidden" style={{ background: "var(--gradient-dark)" }}>
           <nav className="flex flex-col gap-4 text-[15px] font-semibold text-mist/85">
             {NAV_LINKS.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
@@ -111,7 +111,7 @@ export function SiteHeader() {
                 )}
               >
                 {t(link.labelKey)}
-              </a>
+              </Link>
             ))}
           </nav>
           <Button asChild className="mt-5 w-full rounded-[12px]">

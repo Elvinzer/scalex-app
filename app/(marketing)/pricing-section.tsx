@@ -105,7 +105,7 @@ export function PricingSection() {
               </ul>
 
               <Button asChild variant={tier.highlight ? "default" : "outline"} className="mt-auto w-full rounded-[12px]">
-                <Link href={`/sign-in?intent=trial&plan=${tier.key}`}>{t("pricing.trialCta")}</Link>
+                <Link href={`/sign-in?intent=trial&plan=${tier.key}${annual ? "&billing=annual" : ""}`}>{t("pricing.trialCta")}</Link>
               </Button>
             </article>
           );

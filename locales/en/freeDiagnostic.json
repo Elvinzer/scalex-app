@@ -1,0 +1,69 @@
+{
+  "metadata": {
+    "title": "Free business diagnostic | Minaly",
+    "description": "In under 2 minutes, find the constraint slowing your business and estimate what it costs.",
+    "keywords": "free business diagnostic, business bottleneck, scaling coach"
+  },
+  "eyebrow": "Free diagnostic · under 2 minutes",
+  "title": "Where is your business losing momentum?",
+  "intro": "Share a few rough figures. You get your Scale Score, priority bottleneck and an estimated value before creating an account.",
+  "stepLabel": "Step {step} of 3",
+  "backToHome": "Back to home",
+  "next": "Continue",
+  "seeResult": "See my result",
+  "back": "Back",
+  "validationError": "Add the required fields to continue.",
+  "roughNumbers": "Rough numbers are enough.",
+  "step1": {
+    "title": "Tell us about your business",
+    "description": "These three answers give your diagnostic the right context.",
+    "niche": "Niche or business type",
+    "nichePlaceholder": "For example, career coaching",
+    "offer": "Main offer",
+    "offerPlaceholder": "For example, a 12 week program",
+    "price": "Offer price (€)",
+    "pricePlaceholder": "For example, 1500"
+  },
+  "step2": {
+    "title": "What happened last month?",
+    "description": "A few figures are enough. Leave anything you do not track blank.",
+    "audience": "Audience reached",
+    "audienceHelp": "Views, subscribers or people reached",
+    "leads": "Leads generated",
+    "appointments": "Appointments booked",
+    "sales": "Sales closed",
+    "revenue": "Collected revenue (€)",
+    "revenueHelp": "Last month, in euros"
+  },
+  "result": {
+    "eyebrow": "Your diagnostic is ready",
+    "title": "The constraint is here",
+    "score": "Scale Score",
+    "outOf": "/100",
+    "bottleneckLabel": "Priority bottleneck",
+    "bottlenecks": {
+      "acquisition": "Acquisition",
+      "sales": "Sales",
+      "conversion": "Conversion"
+    },
+    "rate": "Your rate: {current} · reference: {benchmark}",
+    "gain": "Estimated monthly gain: ≈€{amount}",
+    "gainUnavailable": "The euro estimate will be available once you add your revenue.",
+    "insufficient": "There is not enough measured data to rank a constraint yet.",
+    "methodToggle": "See how we calculate it",
+    "method": "Based on {measured} available rates compared with journey references. This is an estimate, not a promise.",
+    "primaryCta": "Create my account and fix this",
+    "emailCta": "Email my diagnostic",
+    "emailPlaceholder": "you@example.com",
+    "emailSubmit": "Send my diagnostic",
+    "emailSending": "Sending…",
+    "emailSent": "Sent. Check your inbox.",
+    "emailError": "The email could not be sent. Try again in a moment.",
+    "trialReminderSubject": "Your Minaly trial ends soon",
+    "trialReminderBody": "Your Minaly trial ends on {date}. Your subscription will then renew automatically. You can cancel in one click from Settings > Billing.",
+    "download": "Download my card",
+    "downloading": "Preparing…",
+    "cardUnavailable": "Add your revenue to unlock the shareable card.",
+    "falcoVerdict": "Start with {bottleneck}. That is where the gap is clearest in your current numbers."
+  }
+}

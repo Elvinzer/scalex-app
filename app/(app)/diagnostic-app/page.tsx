@@ -2,11 +2,11 @@ import Link from "next/link";
 import { after } from "next/server";
 import { Suspense } from "react";
 
-import { AutoOpenImprove } from "./auto-open-improve";
-import { DiscoveryOpportunityCard } from "./discovery-opportunity-card";
-import { getDiscoveryProgress } from "./discovery-actions";
-import { DiscoveryTab } from "./discovery-tab";
-import { OptimisationEntryCard } from "./optimisation-entry-card";
+import { AutoOpenImprove } from "../diagnostic/auto-open-improve";
+import { DiscoveryOpportunityCard } from "../diagnostic/discovery-opportunity-card";
+import { getDiscoveryProgress } from "../diagnostic/discovery-actions";
+import { DiscoveryTab } from "../diagnostic/discovery-tab";
+import { OptimisationEntryCard } from "../diagnostic/optimisation-entry-card";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { scoreCandidates } from "@/lib/diagnostic/priority";
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
@@ -172,7 +172,7 @@ async function renderDiagnosticPage({
               garder le même mot ici pour un questionnaire qui sert à révéler
               des leviers non configurés créait une collision de nom. */}
           <h1 className="text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{t("discoveryTab")}</h1>
-          <Link href="/diagnostic" className="text-sm font-bold text-muted-foreground hover:underline">
+          <Link href="/diagnostic-app" className="text-sm font-bold text-muted-foreground hover:underline">
             {t("back")}
           </Link>
         </div>
@@ -365,7 +365,7 @@ async function renderDiagnosticPage({
 
   after(() => track("diagnostic_points_viewed", userId, { count: optimizeList.length + contentPoints.length }));
   after(() => track("diagnostic_add_viewed", userId, { opportunities_count: addList.length }));
-  // The CTA in Section 1 is a plain <a href="/diagnostic?open=..."> (or
+  // The CTA in Section 1 is a plain <a href="/diagnostic-app?open=..."> (or
   // ?openLever=...) — clicking it reloads this exact page, so the click is
   // observable server-side on the very next render, no client wiring needed.
   if (params.open || params.openLever) {
@@ -448,7 +448,7 @@ async function renderDiagnosticPage({
           {[...PERIOD_VALUES].map((value) => (
             <Link
               key={value}
-              href={`/diagnostic?period=${value}`}
+              href={`/diagnostic-app?period=${value}`}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)]",
                 // Soft tint for the selected filter, not a solid coral fill —
@@ -581,8 +581,8 @@ async function renderDiagnosticPage({
                 ? t("calculationExplanation")
                 : candidate.sourceMetricPoint!.tooltip;
             const href = isLever
-              ? `/diagnostic?openLever=${watchItem!.leverKey}&openLeverLabel=${encodeURIComponent(displayLabel)}`
-              : `/diagnostic?open=${candidate.key}`;
+              ? `/diagnostic-app?openLever=${watchItem!.leverKey}&openLeverLabel=${encodeURIComponent(displayLabel)}`
+              : `/diagnostic-app?open=${candidate.key}`;
 
             return (
               <div
@@ -712,7 +712,7 @@ async function renderDiagnosticPage({
                   <p className="text-sm text-muted-foreground">{advice}</p>
 
                   <a
-                    href={`/diagnostic?openLever=content&openLeverLabel=${encodeURIComponent(t("contentLabel"))}`}
+                    href={`/diagnostic-app?openLever=content&openLeverLabel=${encodeURIComponent(t("contentLabel"))}`}
                     className="self-start text-sm font-bold text-muted-foreground hover:underline"
                   >
                     {t("viewDetail")}

@@ -245,7 +245,7 @@ export async function generateFunnelStageInsight(
     // temporarily unavailable; the explicit launch path retries it.
   }
 
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidatePath("/ventes/pipeline/funnel");
   revalidateJournalSurfaces();
   return { insightText: result.text, insightId: savedInsight.id, error: null };
@@ -332,7 +332,7 @@ export async function setInsightImplemented(
       .onConflictDoNothing();
   }
 
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidateJournalSurfaces();
   return { error: null };
 }

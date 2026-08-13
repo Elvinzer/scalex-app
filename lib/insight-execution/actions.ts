@@ -128,7 +128,7 @@ function revalidateExecutionSurfaces(): void {
   // the updated RSC payload in the same round trip.
   refresh();
   revalidatePath("/dashboard");
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidatePath("/roadmap");
   revalidatePath("/copilote");
 }

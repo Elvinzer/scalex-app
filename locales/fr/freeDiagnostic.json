@@ -1,0 +1,69 @@
+{
+  "metadata": {
+    "title": "Diagnostic gratuit de ton business | Minaly",
+    "description": "En moins de 2 minutes, trouve le goulot qui ralentit ton business et estime ce qu'il te coûte.",
+    "keywords": "diagnostic business gratuit, goulot d'étranglement, scaling coach"
+  },
+  "eyebrow": "Diagnostic gratuit · moins de 2 minutes",
+  "title": "Où ton business perd-il de l'élan ?",
+  "intro": "Donne-nous quelques ordres de grandeur. Tu obtiens ton Scale Score, ton goulot prioritaire et une estimation chiffrée avant de créer un compte.",
+  "stepLabel": "Étape {step} sur 3",
+  "backToHome": "Retour à l'accueil",
+  "next": "Continuer",
+  "seeResult": "Voir mon résultat",
+  "back": "Retour",
+  "validationError": "Renseigne les champs nécessaires pour continuer.",
+  "roughNumbers": "Des ordres de grandeur suffisent.",
+  "step1": {
+    "title": "Parle-nous de ton activité",
+    "description": "Ces trois réponses donnent le contexte de ton diagnostic.",
+    "niche": "Niche ou activité",
+    "nichePlaceholder": "Ex. coaching carrière",
+    "offer": "Offre principale",
+    "offerPlaceholder": "Ex. accompagnement 12 semaines",
+    "price": "Prix de ton offre (€)",
+    "pricePlaceholder": "Ex. 1500"
+  },
+  "step2": {
+    "title": "Que s'est-il passé le mois dernier ?",
+    "description": "Quelques chiffres suffisent. Laisse vide ce que tu ne mesures pas encore.",
+    "audience": "Audience touchée",
+    "audienceHelp": "Vues, abonnés ou personnes touchées",
+    "leads": "Leads générés",
+    "appointments": "Rendez-vous pris",
+    "sales": "Ventes conclues",
+    "revenue": "CA encaissé (€)",
+    "revenueHelp": "Le mois dernier, en euros"
+  },
+  "result": {
+    "eyebrow": "Ton diagnostic est prêt",
+    "title": "Le goulot est ici",
+    "score": "Scale Score",
+    "outOf": "/100",
+    "bottleneckLabel": "Goulot prioritaire",
+    "bottlenecks": {
+      "acquisition": "Acquisition",
+      "sales": "Ventes",
+      "conversion": "Conversion"
+    },
+    "rate": "Ton taux : {current} · repère : {benchmark}",
+    "gain": "Gain mensuel estimé : ≈{amount} €",
+    "gainUnavailable": "Le gain en euros sera calculable dès que tu renseigneras ton CA.",
+    "insufficient": "Pas assez de données mesurées pour classer un goulot.",
+    "methodToggle": "Voir comment le calcul est fait",
+    "method": "Calcul basé sur {measured} taux disponibles, comparés à des repères de parcours. Ce n'est pas une promesse de résultat.",
+    "primaryCta": "Créer mon compte et corriger ça",
+    "emailCta": "Recevoir mon diagnostic par email",
+    "emailPlaceholder": "ton@email.com",
+    "emailSubmit": "Envoyer le diagnostic",
+    "emailSending": "Envoi en cours…",
+    "emailSent": "C'est envoyé. Vérifie ta boîte mail.",
+    "emailError": "L'envoi n'a pas fonctionné. Réessaie dans un instant.",
+    "trialReminderSubject": "Ton essai Minaly se termine bientôt",
+    "trialReminderBody": "Ton essai Minaly se termine le {date}. Ton abonnement sera ensuite débité automatiquement. Tu peux annuler en un clic depuis Réglages > Facturation.",
+    "download": "Télécharger ma carte",
+    "downloading": "Préparation…",
+    "cardUnavailable": "Ajoute ton CA pour débloquer la carte partageable.",
+    "falcoVerdict": "On commence par {bottleneck}. C'est là que l'écart est le plus lisible avec tes chiffres actuels."
+  }
+}

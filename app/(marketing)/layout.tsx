@@ -6,7 +6,7 @@ import { loadMessagesFor } from "@/lib/i18n/messages";
 
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale();
-  const messages = await loadMessagesFor(locale, ["marketing"]);
+  const messages = await loadMessagesFor(locale, ["common", "marketing", "freeDiagnostic"]);
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>

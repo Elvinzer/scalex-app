@@ -12,6 +12,7 @@ const authCallbackQuerySchema = z.object({
   code: z.string().trim().min(1).max(1024).optional(),
   invite: z.string().trim().min(1).max(256).optional(),
   error: z.string().trim().min(1).max(128).optional(),
+  next: z.string().trim().startsWith("/").max(512).optional(),
 });
 
 function redirectToSignIn(request: Request) {
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     return redirectToSignIn(request);
   }
 
-  const { code, invite: inviteToken } = parsedQuery.data;
+  const { code, invite: inviteToken, next } = parsedQuery.data;
 
   const supabase = await createClient();
   try {
@@ -41,6 +42,10 @@ export async function GET(request: Request) {
   // business-owner onboarding wizard — see app/invite/[token]/page.tsx.
   if (inviteToken) {
     return NextResponse.redirect(new URL(`/invite/${encodeURIComponent(inviteToken)}`, requestUrl.origin));
+  }
+
+  if (next && !next.startsWith("//")) {
+    return NextResponse.redirect(new URL(next, requestUrl.origin));
   }
 
   // Checked directly here instead of always routing through /onboarding

@@ -1,5 +1,6 @@
 import { eventType, Inngest, staticSchema } from "inngest";
 
+import type { TrialReminderPayload } from "@/lib/billing/trial-reminder";
 import type { MetaAdsSyncPhase } from "@/lib/meta-ads/protocol";
 
 type StripeAccountConnected = {
@@ -16,6 +17,10 @@ type StripeSyncRequested = {
 
 export const stripeSyncRequested = eventType("stripe/sync.requested", {
   schema: staticSchema<StripeSyncRequested>(),
+});
+
+export const billingTrialReminderRequested = eventType("billing/trial-reminder.requested", {
+  schema: staticSchema<TrialReminderPayload>(),
 });
 
 type IclosedAccountConnected = {

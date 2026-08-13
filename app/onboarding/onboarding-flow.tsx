@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -14,6 +14,7 @@ import { RateVsBenchmarkBar } from "@/components/rate-vs-benchmark-bar";
 import { FunnelBlockBuilder, type FunnelBlockBuilderPayload } from "@/components/funnel-block-builder";
 import { FunnelPresetCards, type FunnelPresetKey } from "@/components/funnel-preset-cards";
 import { formatEur } from "@/lib/currency";
+import { freeDiagnosticInputSchema } from "@/lib/free-diagnostic";
 import type { Locale } from "@/lib/i18n/config";
 import type { SaleMode } from "@/lib/business/types";
 import type { FunnelBlockCatalogEntry, FunnelBlockSelectionItem, FunnelSourceKey } from "@/lib/funnel-blocks/types";
@@ -180,6 +181,33 @@ export function OnboardingFlow({
 
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("minaly-free-diagnostic");
+    if (!stored) return;
+
+    try {
+      const storedValue: unknown = JSON.parse(stored);
+      const parsed = freeDiagnosticInputSchema.safeParse(storedValue);
+      if (!parsed.success) return;
+      const diagnostic = parsed.data;
+      setNiche(diagnostic.niche);
+      setOfferName(diagnostic.offer);
+      setPrice(diagnostic.price);
+      setMonthDraft((current) => ({
+        ...current,
+        cashCollected: diagnostic.revenue,
+        cashContracted: diagnostic.revenue,
+        newFollowers: diagnostic.audience,
+        firstMessages: diagnostic.leads,
+        callsBooked: diagnostic.appointments,
+        callsTaken: diagnostic.appointments,
+        salesClosed: diagnostic.sales,
+      }));
+    } catch {
+      window.localStorage.removeItem("minaly-free-diagnostic");
+    }
+  }, []);
 
   function updateMonth(patch: Partial<MonthlyMetricsInput>) {
     setMonthDraft((prev) => ({ ...prev, ...patch }));
@@ -604,7 +632,7 @@ export function OnboardingFlow({
 
           <Bubble index={1}>{t("improveTogether")}</Bubble>
           <Button size="lg" asChild className="w-full">
-            <a href={`/diagnostic?open=${result.point.key}`}>{t("improveNow")} →</a>
+            <a href={`/diagnostic-app?open=${result.point.key}`}>{t("improveNow")} →</a>
           </Button>
 
           <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />

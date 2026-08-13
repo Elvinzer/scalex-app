@@ -57,7 +57,11 @@ export type ClientAnalyticsEvent =
   | "import_committed"
   | "import_abandoned"
   | "streak_modal_opened"
-  | "source_filter_used";
+  | "source_filter_used"
+  | "free_diagnostic_started"
+  | "free_diagnostic_completed"
+  | "free_diagnostic_email_captured"
+  | "free_diagnostic_to_signup";
 
 export function trackClient(event: ClientAnalyticsEvent, properties?: Record<string, unknown>): void {
   void loadPostHog().then(() => posthogInstance?.capture(event, properties));

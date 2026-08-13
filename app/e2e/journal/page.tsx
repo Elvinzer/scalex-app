@@ -139,7 +139,7 @@ export function buildFixtureData(): JournalActionLoopData {
       benchmarkRatePercent: 35,
       monthlyGain: 3200,
       extraClients: 1.4,
-      href: "/diagnostic?open=responseRate",
+      href: "/diagnostic-app?open=responseRate",
       chatContext: { topicType: "metric", topicKey: "responseRate", topicLabel: "Taux de réponse", sourcePage: "roadmap_bottleneck" },
     },
     roadmapItems: [

@@ -9,7 +9,7 @@ import { ACQUISITION_FUNNEL_ROUTES } from "@/lib/acquisition-funnels/routes";
 // Roadmap and believe the numbers disagree.
 const BUSINESS_DATA_PATHS = [
   "/dashboard",
-  "/diagnostic",
+  "/diagnostic-app",
   "/datas",
   "/roadmap",
   "/journal",
@@ -46,5 +46,5 @@ export function revalidateBusinessData(): void {
 // Journal mutations affect the action loop shown on Roadmap and can change
 // the improvement context displayed on Dashboard and Diagnostic.
 export function revalidateJournalSurfaces(): void {
-  for (const path of ["/journal", "/roadmap", "/dashboard", "/diagnostic"] as const) revalidatePath(path);
+  for (const path of ["/journal", "/roadmap", "/dashboard", "/diagnostic-app"] as const) revalidatePath(path);
 }

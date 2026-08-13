@@ -18,7 +18,15 @@ export const metadata: Metadata = {
   title: "Sign in to Minaly",
 };
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; intent?: string; plan?: string; billing?: string }>;
+}) {
+  const params = await searchParams;
+  const trialPlan = params.plan === "solo" || params.plan === "team" ? params.plan : "solo";
+  const intent = params.intent === "trial" || params.intent === "diagnostic" ? params.intent : null;
+  const billing = params.billing === "annual" ? "annual" : "monthly";
   // Un utilisateur déjà connecté qui atterrit sur /sign-in (session encore
   // valide) ne doit pas revoir le formulaire : on le renvoie directement dans
   // l'app. Même résolution de destination que app/auth/callback/route.ts.
@@ -30,6 +38,9 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
     const email = data.claims.email;
     if (typeof email === "string") {
       await ensureUserRow(userId, email);
+    }
+    if (intent === "trial") {
+      redirect(`/api/billing/checkout?plan=${trialPlan}&trial=7&billing=${billing}`);
     }
     // Le statut d'onboarding suit le compte (owner) auquel l'utilisateur est
     // rattaché, pas sa propre ligne — cf. lib/current-user.ts.
@@ -52,7 +63,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       <div className="absolute top-6 right-6">
         <PublicLocaleSwitcher current={locale} />
       </div>
-      <SignInForm authCallbackError={(await searchParams).error === "auth_callback"} />
+      <SignInForm authCallbackError={params.error === "auth_callback"} intent={intent} plan={trialPlan} billing={billing} />
     </div>
   );
 }

@@ -103,7 +103,7 @@ export async function saveMonthlyMetrics(
 
   revalidatePath("/datas");
   revalidatePath("/dashboard");
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidatePath("/ventes/pipeline");
   revalidatePath("/ventes/pipeline/funnel");
   revalidateBusinessData();

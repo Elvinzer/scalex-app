@@ -117,7 +117,7 @@ export async function saveBusinessSection(
 
   revalidatePath("/business");
   revalidatePath("/dashboard");
-  revalidatePath("/diagnostic");
+  revalidatePath("/diagnostic-app");
   revalidatePath("/datas");
   revalidateBusinessData();
   return { error: null };

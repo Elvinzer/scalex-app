@@ -1,30 +1,41 @@
 {
   "metadata": {
     "title": "Minaly | Le coach de scaling tout-en-un pour les coachs",
-    "description": "Minaly aide les coachs et infopreneurs entre 10 k$ et 100 k$ par mois à trouver le frein qui ralentit leur croissance et à le transformer en plan d'action hebdomadaire.",
+    "description": "Minaly aide les coachs et infopreneurs entre 2 k€ et 20 k€ par mois à trouver le frein qui ralentit leur croissance et à le transformer en plan d'action hebdomadaire.",
     "keywords": "coach scaling, logiciel pour coach, scaling business coaching, plateforme tout-en-un coach, diagnostic goulot d'étranglement"
   },
   "nav": {
     "features": "Ce que Minaly corrige",
-    "product": "Dans la plateforme",
+    "product": "Produit",
     "process": "Comment ça marche",
     "pricing": "Tarifs",
     "useCases": "Pour qui",
     "resources": "Ressources",
+<<<<<<< HEAD
     "diagnosticCta": "Diagnostiquer mon business",
     "signIn": "Se connecter",
+=======
+    "signIn": "Connexion",
+    "diagnosticCta": "Diagnostic gratuit",
+>>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "openMenu": "Ouvrir le menu",
     "closeMenu": "Fermer le menu",
     "home": "Accueil Minaly"
   },
   "hero": {
-    "eyebrow": "Pour les coachs et infopreneurs entre 10 k$ et 100 k$ par mois.",
+    "eyebrow": "Pour les coachs et infopreneurs entre 2 k€ et 20 k€ par mois.",
     "title": "Ton business grandit. Ton goulot d'étranglement se cache.",
     "accent": "Trouve-le. Corrige-le.",
     "description": "Minaly est le coach de scaling tout-en-un des coachs et infopreneurs. Il relie acquisition, ventes et delivery, trouve le frein qui te coûte le plus et te donne une action à exécuter cette semaine.",
+<<<<<<< HEAD
     "primaryCta": "Commencer avec ton business",
     "secondaryCta": "Voir comment ça marche",
     "secondaryNote": "Une priorité claire pour la semaine, appuyée par tes données business.",
+=======
+    "primaryCta": "Faire mon diagnostic gratuit",
+    "secondaryCta": "Essayer 7 jours",
+    "secondaryNote": "Carte requise · annulable à tout moment",
+>>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "proof": "Une priorité claire pour la semaine, appuyée par tes données business",
     "mockupAlt": "Dashboard Minaly affichant un goulot d'étranglement business priorisé"
   },
@@ -50,7 +61,7 @@
       "label": "goulot à traiter à la fois"
     },
     "range": {
-      "value": "10 k$ à 100 k$",
+      "value": "2 k€ à 20 k€",
       "label": "de CA mensuel"
     },
     "weekly": {
@@ -63,7 +74,7 @@
     "description": "Connecte les données que tu utilises déjà, puis garde la décision au même endroit. Le produit t'aide à agir sur un diagnostic, pas à étudier un dashboard de plus.",
     "bullet1": "Une vue claire du frein et des données qui le prouvent",
     "bullet2": "Un plan d'action hebdomadaire avec un responsable et un résultat mesurable",
-    "cta": "Découvrir la plateforme",
+    "cta": "Faire mon diagnostic gratuit",
     "chartTitle": "Vue de performance illustrative",
     "chartSubtitle": "Données d'exemple, pas un résultat client",
     "chartTooltip": "CA potentiellement en risque",
@@ -97,34 +108,38 @@
     }
   },
   "pricing": {
-    "heading": "Choisis le niveau de focus dont tu as besoin",
-    "description": "Les formules dépendent du niveau de contexte opérationnel que tu veux réunir. Résilie quand tu veux.",
+    "heading": "Un diagnostic clair. Une formule simple.",
+    "description": "Commence par ton diagnostic gratuit, puis choisis le niveau d'accompagnement qui correspond à ton business.",
+    "billingLabel": "Période de facturation",
+    "monthly": "Mensuel",
+    "annual": "Annuel",
+    "annualNote": "2 mois offerts en annuel",
     "popular": "La plus choisie",
-    "choose": "Choisir",
+    "trialCta": "Essayer 7 jours",
     "perMonth": "/mois",
-    "starter": {
-      "name": "Starter",
-      "tagline": "Un diagnostic ciblé du goulot.",
-      "feature1": "Diagnostic du CA Stripe",
-      "feature2": "Brief hebdomadaire du goulot",
-      "feature3": "Ta propre clé API Anthropic",
-      "feature4": "Support par email"
+    "perYear": "/an",
+    "annualEquivalent": "Soit environ {price} €/mois",
+    "terms": "Sans engagement, résilie quand tu veux · 2 mois offerts en annuel",
+    "diagnosticLink": "Pas encore sûr ? Fais le diagnostic gratuit →",
+    "solo": {
+      "name": "Solo",
+      "tagline": "Pour piloter ton business seul.",
+      "feature1": "Diagnostic complet : acquisition, ventes, delivery",
+      "feature2": "Ton goulot prioritaire chiffré en euros",
+      "feature3": "Plan d'action hebdomadaire",
+      "feature4": "Connexion Stripe + tes chiffres",
+      "feature5": "Falco, ton copilote (usage inclus)",
+      "feature6": "Support email"
     },
-    "growth": {
-      "name": "Growth",
-      "tagline": "Une vue opérationnelle complète pour la prochaine étape.",
-      "feature1": "Vues Stripe, acquisition et ventes",
-      "feature2": "Copilote pour ton plan d'action",
-      "feature3": "Suivi des appels iClosed et Calendly",
-      "feature4": "Support prioritaire"
-    },
-    "scale": {
-      "name": "Scale",
-      "tagline": "Un contexte partagé pour une équipe qui grandit.",
-      "feature1": "Tout le contenu de Growth",
-      "feature2": "Analytics de contenu Instagram et YouTube",
-      "feature3": "Workflows et permissions d'équipe",
-      "feature4": "Accès prioritaire aux nouveautés"
+    "team": {
+      "name": "Équipe",
+      "tagline": "Pour piloter avec ton équipe.",
+      "feature1": "Tout Solo",
+      "feature2": "Accès setters/closers, suivi des commissions",
+      "feature3": "Falco illimité",
+      "feature4": "Analytics de contenu YouTube/Instagram",
+      "feature5": "Suivi des appels iClosed/Calendly",
+      "feature6": "Support prioritaire"
     }
   },
   "useCases": {
@@ -150,7 +165,7 @@
     "heading": "Les questions des coachs avant de scaler",
     "whatIs": {
       "question": "Qu'est-ce que Minaly ?",
-      "answer": "Minaly est le coach de scaling tout-en-un des coachs et infopreneurs entre 10 k$ et 100 k$ par mois. Il combine données business, diagnostic du goulot et plan d'action hebdomadaire."
+      "answer": "Minaly est le coach de scaling tout-en-un des coachs et infopreneurs entre 2 k€ et 20 k€ par mois. Il combine données business, diagnostic du goulot et plan d'action hebdomadaire."
     },
     "whoFor": {
       "question": "À qui s'adresse Minaly ?",
@@ -164,18 +179,28 @@
       "question": "Minaly remplace-t-il un coach business ?",
       "answer": "Non. Minaly donne au coach ou au fondateur une vue opérationnelle commune et une prochaine action concrète. Il soutient le jugement et l'exécution au lieu de prétendre les remplacer."
     },
-    "byok": {
-      "question": "Comment fonctionne la clé IA ?",
-      "answer": "Minaly accepte ta propre clé. Ta clé Anthropic est chiffrée et utilisée pour les appels de l'agent de ton compte. Elle n'est jamais renvoyée au navigateur après sa configuration."
+    "diagnostic": {
+      "question": "Puis-je commencer sans connecter mes outils ?",
+      "answer": "Oui. Le diagnostic gratuit se fait avec quelques ordres de grandeur : audience, leads, rendez-vous, ventes et CA du dernier mois. Tu obtiens ton résultat avant de créer un compte."
+    },
+    "trial": {
+      "question": "Comment fonctionne l'essai de 7 jours ?",
+      "answer": "Tu ajoutes ta carte pour démarrer l'essai. L'abonnement est ensuite débité automatiquement, avec un rappel envoyé deux jours avant la fin de l'essai. Tu peux annuler en un clic dans tes réglages."
     }
   },
   "finalCta": {
     "heading": "Donne un point de départ clair à ta prochaine décision de croissance",
     "description": "Pars des données que tu as déjà et repars avec une priorité à exécuter cette semaine.",
+<<<<<<< HEAD
     "cta": "Commencer avec ton business",
     "primaryCta": "Commencer avec ton business",
     "secondaryCta": "Voir comment ça marche",
     "secondaryNote": "Une priorité claire pour la semaine, appuyée par tes données business.",
+=======
+    "primaryCta": "Faire mon diagnostic gratuit",
+    "secondaryCta": "Essayer 7 jours",
+    "secondaryNote": "Carte requise · annulable à tout moment",
+>>>>>>> bfcd257 (feat: add free diagnostic flow and related API)
     "falcoAlt": "Falco, l'assistant de coaching Minaly"
   },
   "footer": {
@@ -329,8 +354,8 @@
   },
   "resource": {
     "eyebrow": "Ressource Minaly",
-    "title": "Comment scaler un business de coaching de 10 k$ à 100 k$ par mois",
-    "intro": "Un business de coaching entre 10 k$ et 100 k$ par mois n'a généralement pas besoin de dix outils supplémentaires. Il a besoin de voir clairement où la demande, les ventes ou le delivery cessent de se cumuler. Ce guide donne une méthode pratique pour diagnostiquer ce frein et choisir la prochaine action.",
+    "title": "Comment scaler un business de coaching de 2 k€ à 20 k€ par mois",
+    "intro": "Un business de coaching entre 2 k€ et 20 k€ par mois n'a généralement pas besoin de dix outils supplémentaires. Il a besoin de voir clairement où la demande, les ventes ou le delivery cessent de se cumuler. Ce guide donne une méthode pratique pour diagnostiquer ce frein et choisir la prochaine action.",
     "answerHeading": "La réponse courte",
     "answer": "Pour scaler un business de coaching, mesure le parcours complet du lead à l'encaissement, trouve l'étape avec le plus grand écart évitable et exécute une amélioration ciblée pendant sept jours avant d'ajouter de la complexité.",
     "frameworkHeading": "Un framework simple pour scaler",
