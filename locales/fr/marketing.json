@@ -211,6 +211,117 @@
     "faqQuestion": "Comment exercer vos droits sur vos données personnelles ?",
     "faqAnswer": "Écrivez à contact@minaly.io pour demander l'accès, la rectification, l'effacement, la limitation ou la portabilité de vos données."
   },
+  "privacyPolicy": {
+    "metadata": {
+      "title": "Politique de confidentialité | Minaly",
+      "description": "Comment Minaly collecte, utilise et protège vos données personnelles : ce que nous collectons, pourquoi, avec qui nous les partageons et quels sont vos droits RGPD."
+    },
+    "lastUpdated": "4 août 2026",
+    "lastUpdatedLabel": "Dernière mise à jour : {date}",
+    "pageTitle": "Politique de confidentialité",
+    "intro": "Cette politique explique quelles données Minaly collecte lorsque vous utilisez notre application, pourquoi nous les collectons, avec qui nous les partageons et comment exercer vos droits. Elle s'applique au site www.minaly.io et à l'application produit.",
+    "contentsAriaLabel": "Sommaire",
+    "contentsTitle": "Sommaire",
+    "sections": {
+      "controller": {
+        "title": "1. Qui est responsable de vos données",
+        "body": "Minaly (« nous », « notre ») est l'éditeur du site et de l'application accessibles à l'adresse www.minaly.io. Nous sommes responsables du traitement de vos données personnelles au sens du Règlement général sur la protection des données (RGPD) et de la loi Informatique et Libertés. Pour toute question, vous pouvez nous contacter à <email>contact@minaly.io</email>."
+      },
+      "collectedData": {
+        "title": "2. Les données que nous collectons",
+        "intro": "Selon votre usage du produit, nous collectons :",
+        "account": "<strong>Données de compte :</strong> nom, adresse email, mot de passe (haché et géré par Supabase Auth) et rôle au sein de votre équipe.",
+        "billing": "<strong>Données de facturation :</strong> gérées directement par Stripe. Nous ne stockons jamais votre numéro de carte bancaire.",
+        "anthropicKey": "<strong>Clé API Anthropic (BYOK) :</strong> si vous fournissez la vôtre, elle est chiffrée dans la base de données. Elle n'est jamais affichée en clair après sa saisie et jamais journalisée.",
+        "connectedBusiness": "<strong>Données business connectées :</strong> issues des intégrations que vous activez (Stripe Connect, iClosed, Calendly, Instagram). Voir la section dédiée ci-dessous.",
+        "usage": "<strong>Données d'usage :</strong> pages consultées, actions réalisées dans le produit et journaux techniques collectés via notre outil de mesure d'audience, PostHog.",
+        "correspondence": "<strong>Correspondance :</strong> les emails que vous nous envoyez lorsque vous nous contactez."
+      },
+      "purposes": {
+        "title": "3. Pourquoi nous les utilisons",
+        "intro": "Nous utilisons vos données pour les finalités suivantes. Chacune repose sur une base légale RGPD :",
+        "provide": "Fournir et faire fonctionner le service souscrit (exécution du contrat).",
+        "diagnose": "Diagnostiquer votre activité et générer des recommandations via l'agent IA (exécution du contrat).",
+        "weeklyBrief": "Vous envoyer le brief hebdomadaire et les notifications produit (exécution du contrat).",
+        "billing": "Facturer votre abonnement (exécution du contrat et obligations légales comptables).",
+        "improve": "Améliorer le produit et mesurer son usage (intérêt légitime).",
+        "security": "Assurer la sécurité du service et prévenir la fraude (intérêt légitime et obligation légale).",
+        "support": "Répondre à vos demandes de support (exécution du contrat).",
+        "automatedDecisions": "Nous ne prenons aucune décision automatisée produisant des effets juridiques à votre égard. Les recommandations générées par l'agent IA vous sont présentées pour que vous décidiez de les appliquer ou non."
+      },
+      "integrations": {
+        "title": "4. Intégrations tierces (Stripe, iClosed, Calendly, Instagram)",
+        "intro": "Lorsque vous connectez un compte tiers, Minaly importe les données nécessaires au calcul de vos indicateurs :",
+        "stripe": "<strong>Stripe Connect :</strong> transactions, produits, montants et statut de vos clients payants.",
+        "iclosed": "<strong>iClosed :</strong> appels de closing programmés et leur résultat (montant et statut).",
+        "calendly": "<strong>Calendly :</strong> rendez-vous pris et leur statut.",
+        "instagram": "<strong>Instagram :</strong> via l'API Instagram (scopes en lecture seule <code>instagram_business_basic</code> et <code>instagram_business_manage_insights</code>), l'identifiant et les statistiques de performance (reach, impressions, interactions) de vos publications professionnelles. Nous ne collectons ni vos messages privés, ni vos identifiants de connexion, ni aucune donnée individuelle sur vos abonnés.",
+        "processorRole": "Ces données peuvent contenir des données personnelles de vos propres clients ou prospects (nom, email, montant payé et statut d'un appel). Vous restez responsable de traitement vis-à-vis de vos clients. Pour ces données spécifiques, Minaly agit en tant que sous-traitant, dans le seul cadre de la fourniture du service de diagnostic."
+      },
+      "sharing": {
+        "title": "5. Avec qui nous partageons vos données",
+        "intro": "Nous ne vendons jamais vos données personnelles. Nous les partageons uniquement avec les sous-traitants nécessaires au fonctionnement du service :",
+        "vercel": "Vercel Inc. : hébergement de l'application.",
+        "supabase": "Supabase Inc. : base de données et authentification.",
+        "stripe": "Stripe : paiement de votre abonnement et accès à votre compte Stripe connecté.",
+        "anthropic": "Anthropic PBC : exécution des requêtes de l'agent IA, en priorité via votre propre clé API.",
+        "resend": "Resend : envoi des emails transactionnels et du brief hebdomadaire.",
+        "inngest": "Inngest Inc. : orchestration des tâches automatisées (synchronisation et relances).",
+        "posthog": "PostHog Inc. : mesure d'audience et amélioration du produit.",
+        "meta": "Meta Platforms, Inc. : API Instagram, si vous connectez un compte Instagram professionnel.",
+        "iclosedCalendly": "iClosed / Calendly LLC : si vous connectez le compte correspondant."
+      },
+      "cookies": {
+        "title": "6. Cookies et traceurs",
+        "essential": "<strong>Cookies essentiels :</strong> session d'authentification (Supabase Auth), nécessaire au fonctionnement du produit et exemptée de consentement.",
+        "analytics": "<strong>Cookies de mesure d'audience :</strong> PostHog, pour comprendre l'usage du produit et l'améliorer. Vous pouvez vous y opposer via les réglages de votre navigateur.",
+        "noAdvertising": "Nous ne déposons aucun cookie publicitaire ni traceur de suivi cross-site tiers."
+      },
+      "retention": {
+        "title": "7. Durée de conservation",
+        "account": "Données de compte : pendant toute la durée de votre abonnement.",
+        "afterCancellation": "Après résiliation : conservées 30 jours pour permettre une réactivation, puis supprimées, sauf durée de conservation légale plus longue (données de facturation : 10 ans, Code de commerce).",
+        "technicalLogs": "Journaux techniques : 12 mois maximum.",
+        "integrations": "Données Instagram, iClosed et Calendly : supprimées dès la déconnexion de l'intégration."
+      },
+      "internationalTransfers": {
+        "title": "8. Transferts de données hors Union européenne",
+        "body": "Certains de nos sous-traitants sont situés hors de l'Union européenne, notamment aux États-Unis (Anthropic, Meta, PostHog, Stripe et Vercel). Ces transferts sont encadrés par les Clauses contractuelles types de la Commission européenne ou un mécanisme équivalent garantissant un niveau de protection adéquat."
+      },
+      "security": {
+        "title": "9. Sécurité de vos données",
+        "apiKeys": "Les clés API sensibles (Anthropic) sont chiffrées dans la base de données. Elles ne sont jamais stockées en clair ni journalisées.",
+        "connections": "Toutes les connexions à l'application sont chiffrées en HTTPS/TLS.",
+        "rls": "Row Level Security (RLS) est activée sur toutes les tables contenant des données utilisateur.",
+        "productionAccess": "L'accès aux données de production est restreint selon le principe du moindre privilège."
+      },
+      "rights": {
+        "title": "10. Vos droits",
+        "intro": "Conformément au RGPD, vous disposez des droits suivants sur vos données personnelles :",
+        "access": "Droit d'accès, de rectification et d'effacement.",
+        "restriction": "Droit à la limitation et à la portabilité de vos données.",
+        "objection": "Droit d'opposition au traitement.",
+        "consent": "Droit de retirer votre consentement à tout moment, lorsque le traitement en dépend.",
+        "complaint": "Pour exercer ces droits, écrivez-nous à <email>contact@minaly.io</email>. Nous répondons sous un mois. Vous disposez également du droit d'introduire une réclamation auprès de la CNIL (3 Place de Fontenoy, 75007 Paris, <cnil>www.cnil.fr</cnil>)."
+      },
+      "instagramData": {
+        "title": "11. Déconnexion et suppression des données Instagram",
+        "body": "Si vous avez connecté un compte Instagram professionnel, vous pouvez à tout moment déconnecter l'intégration depuis Paramètres > Intégrations. Cela révoque immédiatement notre accès à votre compte et arrête toute nouvelle collecte. Vous pouvez également demander la suppression complète des données déjà importées (statistiques de contenu et informations de connexion) en nous écrivant à <email>contact@minaly.io</email>. Nous traitons les demandes sous 30 jours."
+      },
+      "minors": {
+        "title": "12. Mineurs",
+        "body": "Minaly est destiné aux professionnels majeurs. Nous ne collectons pas sciemment de données concernant des personnes mineures."
+      },
+      "changes": {
+        "title": "13. Modifications de cette politique",
+        "body": "Nous pouvons mettre à jour cette politique lorsque le produit ou la réglementation évolue. La date de mise à jour en haut de page fait foi. En cas de changement substantiel, nous vous informerons par email."
+      },
+      "contact": {
+        "title": "14. Nous contacter",
+        "body": "Pour toute question relative à cette politique ou à vos données personnelles, écrivez-nous à <email>contact@minaly.io</email>."
+      }
+    }
+  },
   "resource": {
     "eyebrow": "Ressource Minaly",
     "title": "Comment scaler un business de coaching de 10 k$ à 100 k$ par mois",
