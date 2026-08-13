@@ -11,6 +11,7 @@
     "pricing": "Tarifs",
     "useCases": "Pour qui",
     "resources": "Ressources",
+    "diagnosticCta": "Diagnostiquer mon business",
     "signIn": "Se connecter",
     "openMenu": "Ouvrir le menu",
     "closeMenu": "Fermer le menu",
@@ -23,6 +24,7 @@
     "description": "Minaly est le coach de scaling tout-en-un des coachs et infopreneurs. Il relie acquisition, ventes et delivery, trouve le frein qui te coûte le plus et te donne une action à exécuter cette semaine.",
     "primaryCta": "Commencer avec ton business",
     "secondaryCta": "Voir comment ça marche",
+    "secondaryNote": "Une priorité claire pour la semaine, appuyée par tes données business.",
     "proof": "Une priorité claire pour la semaine, appuyée par tes données business",
     "mockupAlt": "Dashboard Minaly affichant un goulot d'étranglement business priorisé"
   },
@@ -171,6 +173,9 @@
     "heading": "Donne un point de départ clair à ta prochaine décision de croissance",
     "description": "Pars des données que tu as déjà et repars avec une priorité à exécuter cette semaine.",
     "cta": "Commencer avec ton business",
+    "primaryCta": "Commencer avec ton business",
+    "secondaryCta": "Voir comment ça marche",
+    "secondaryNote": "Une priorité claire pour la semaine, appuyée par tes données business.",
     "falcoAlt": "Falco, l'assistant de coaching Minaly"
   },
   "footer": {

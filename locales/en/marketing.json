@@ -11,6 +11,7 @@
     "pricing": "Pricing",
     "useCases": "Who it helps",
     "resources": "Resources",
+    "diagnosticCta": "Diagnose my business",
     "signIn": "Sign in",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
@@ -23,6 +24,7 @@
     "description": "Minaly is an all in one scaling coach for coaches and info businesses. It maps acquisition, sales and delivery, finds the constraint costing you the most, and gives you one action to run this week.",
     "primaryCta": "Start with your business",
     "secondaryCta": "See how it works",
+    "secondaryNote": "One clear priority for the week, based on your business data.",
     "proof": "One clear priority for the week, backed by your business data",
     "mockupAlt": "Minaly dashboard showing a prioritized business bottleneck"
   },
@@ -171,6 +173,9 @@
     "heading": "Give your next growth decision a clear starting point",
     "description": "Start with the data you already have and leave with one priority worth running this week.",
     "cta": "Start with your business",
+    "primaryCta": "Start with your business",
+    "secondaryCta": "See how it works",
+    "secondaryNote": "One clear priority for the week, based on your business data.",
     "falcoAlt": "Falco, the Minaly coaching assistant"
   },
   "footer": {
