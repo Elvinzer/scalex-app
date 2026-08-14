@@ -7,11 +7,32 @@ import { teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
 import { getInFlight } from "@/lib/perf/in-flight";
-import type { PermissionKey } from "@/lib/team/permissions";
+import { expandPermissionKeys, type PermissionKey } from "@/lib/team/permissions";
 
 export type AccountContext =
   | { isOwner: true; accountId: string; permissions: "all"; advancedModulesEnabled: boolean }
   | { isOwner: false; accountId: string; permissions: Set<string>; advancedModulesEnabled: boolean };
+
+const MEMBER_LANDING_ROUTES: readonly { permission: PermissionKey; href: string }[] = [
+  { permission: "dashboard", href: "/dashboard" },
+  { permission: "acquisition:pipeline", href: "/ventes/pipeline" },
+  { permission: "acquisition:setters", href: "/ventes/setters" },
+  { permission: "ventes:suivi", href: "/ventes/suivi" },
+  { permission: "ventes:appels", href: "/ventes/appels" },
+  { permission: "ventes:rdv", href: "/ventes/rdv" },
+  { permission: "acquisition:contenu", href: "/acquisition/contenu" },
+  { permission: "acquisition:mail", href: "/acquisition/mail" },
+  { permission: "acquisition:ads", href: "/acquisition/ads" },
+  { permission: "diagnostic", href: "/diagnostic-app" },
+  { permission: "datas", href: "/datas" },
+  { permission: "business", href: "/business" },
+];
+
+export function getDefaultAppRoute(context: AccountContext | null): string {
+  if (!context) return "/";
+  if (context.isOwner) return "/dashboard";
+  return MEMBER_LANDING_ROUTES.find(({ permission }) => context.permissions.has(permission))?.href ?? "/";
+}
 
 // Resolves which account a Supabase Auth user id acts on behalf of, and
 // with what permissions. No separate "accounts" table: an account IS its
@@ -68,10 +89,7 @@ async function fetchAccountContext(userId: string): Promise<AccountContext | nul
       .where(eq(teamMemberRoles.teamMemberId, membership.id)),
   ]);
 
-  const permissions = new Set<string>();
-  for (const role of roles) {
-    for (const key of role.permissions as string[]) permissions.add(key);
-  }
+  const permissions = expandPermissionKeys(roles.flatMap((role) => role.permissions));
 
   return {
     isOwner: false,
@@ -118,10 +136,13 @@ export async function requireOwner(userId: string): Promise<{ accountId: string 
 export async function requirePermissionOrRedirect(
   userId: string,
   key: PermissionKey,
-  redirectTo = "/dashboard"
+  redirectTo?: string
 ): Promise<{ accountId: string }> {
   const access = await requirePermission(userId, key);
-  if (!access) redirect(redirectTo);
+  if (!access) {
+    const context = await getAccountContext(userId);
+    redirect(redirectTo ?? getDefaultAppRoute(context));
+  }
   return access;
 }
 

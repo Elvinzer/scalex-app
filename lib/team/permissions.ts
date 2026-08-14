@@ -70,6 +70,27 @@ export function isPermissionKey(value: string): value is PermissionKey {
   return (PERMISSION_KEYS as readonly string[]).includes(value);
 }
 
+// Roles are account data, so old roles must keep working after a permission
+// key is renamed or a page moves between navigation pillars. These aliases
+// are additive: the legacy key remains visible/editable, while access checks
+// also understand the current key(s).
+export const LEGACY_PERMISSION_ALIASES: Partial<Record<PermissionKey, readonly PermissionKey[]>> = {
+  "acquisition:setting": ["acquisition:pipeline", "acquisition:setters"],
+  "ventes:closing": ["ventes:appels"],
+};
+
+export function expandPermissionKeys(keys: readonly string[]): Set<PermissionKey> {
+  const expanded = new Set<PermissionKey>();
+
+  for (const rawKey of keys) {
+    if (!isPermissionKey(rawKey)) continue;
+    expanded.add(rawKey);
+    for (const alias of LEGACY_PERMISSION_ALIASES[rawKey] ?? []) expanded.add(alias);
+  }
+
+  return expanded;
+}
+
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   dashboard: "Dashboard",
   funnel: "Funnel",

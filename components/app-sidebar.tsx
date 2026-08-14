@@ -101,6 +101,7 @@ const topEntries: LinkEntry[] = [
     // roles retain access after the navigation move.
     anyOfPermissions: [
       "acquisition:pipeline",
+      "acquisition:setters",
       "ventes:suivi",
       "ventes:appels",
       "ventes:closing",
@@ -116,7 +117,7 @@ const mobileNavEntries = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { type: "link", href: "/roadmap", labelKey: "roadmap", mobileLabelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
-  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "ventes:suivi", "ventes:appels", "ventes:closing"] },
+  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "acquisition:setters", "ventes:suivi", "ventes:appels", "ventes:closing"] },
   { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
 ] satisfies Array<LinkEntry & { mobileLabelKey: string }>;
 
