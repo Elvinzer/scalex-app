@@ -102,6 +102,8 @@
     "frequency": "Fréquence",
     "testimonials": "Témoignages",
     "collected": "Combien collectés",
+    "countManaged": "Témoignages avec consentement",
+    "openTestimonials": "Gérer les témoignages",
     "upsell": "Upsell & ascension",
     "upsellHelp": "Configure ici tes offres complémentaires et suis leur performance.",
     "yes": "Oui",

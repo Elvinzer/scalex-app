@@ -6,6 +6,7 @@ import {
   ChevronsUpDown,
   Database,
   Gift,
+  HeartHandshake,
   Handshake,
   LayoutDashboard,
   LogOut,
@@ -108,6 +109,13 @@ const topEntries: LinkEntry[] = [
       "ventes:closing",
     ],
   },
+  {
+    type: "link",
+    href: "/delivrabilite",
+    labelKey: "deliverability",
+    icon: HeartHandshake,
+    anyOfPermissions: ["delivrabilite:suivi-client", "delivrabilite:temoignages"],
+  },
   { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
   // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
   // même permission que le Copilote partout ailleurs dans l'app.
@@ -152,6 +160,8 @@ const subpageLabelKeys: Record<string, string> = {
   "/ventes/suivi": "salesTracking",
   "/ventes/appels": "callsTracking",
   "/ventes/rdv": "appointments",
+  "/delivrabilite/suivi-client": "clientTracking",
+  "/delivrabilite/temoignages": "testimonials",
 };
 
 function getSubpageLabelKey(href: string): string {

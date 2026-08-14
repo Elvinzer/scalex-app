@@ -50,16 +50,18 @@ export function AgentBanner({
 
   return (
     <>
-      <div className="relative flex items-center gap-4 overflow-visible rounded-[var(--radius-card)] bg-[var(--surface-dark)] px-6 py-5">
-        {falcoSkin ? (
-          <div className="relative w-16 shrink-0 self-stretch">
-            <Falco skin={falcoSkin} skinSizePx={64} priority className="absolute -top-2 left-0" />
-          </div>
-        ) : (
-          <Falco pose={falcoPose} size="sm" />
-        )}
-        <p className="min-w-0 flex-1 text-sm font-bold text-[var(--text-on-dark)]">{stateText}</p>
-        <Button onClick={() => handleOpenChange(true)} variant="accent2" className="shrink-0">
+      <div className="relative flex flex-col items-stretch gap-3 overflow-visible rounded-[var(--radius-card)] bg-[var(--surface-dark)] px-5 py-5 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          {falcoSkin ? (
+            <div className="relative w-16 shrink-0 self-stretch">
+              <Falco skin={falcoSkin} skinSizePx={64} priority className="absolute -top-2 left-0" />
+            </div>
+          ) : (
+            <Falco pose={falcoPose} size="sm" />
+          )}
+          <p className="min-w-0 flex-1 text-sm font-bold text-[var(--text-on-dark)]">{stateText}</p>
+        </div>
+        <Button onClick={() => handleOpenChange(true)} variant="accent2" className="self-end sm:shrink-0">
           {ctaLabel}
         </Button>
       </div>

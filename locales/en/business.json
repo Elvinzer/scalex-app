@@ -102,6 +102,8 @@
     "frequency": "Frequency",
     "testimonials": "Testimonials",
     "collected": "How many collected",
+    "countManaged": "Testimonials with consent",
+    "openTestimonials": "Manage testimonials",
     "upsell": "Upsell & expansion",
     "upsellHelp": "Configure complementary offers and track their performance here.",
     "yes": "Yes",

@@ -55,6 +55,7 @@ import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
 import { formatEur } from "@/lib/currency";
 import { getCurrentUser } from "@/lib/current-user";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { getTestimonialProof } from "@/lib/deliverability/queries";
 import { cn } from "@/lib/utils";
 import { measureAsync } from "@/lib/perf/timing";
 import { InsightHistorySection } from "@/components/insight-execution/insight-history-section";
@@ -181,12 +182,13 @@ async function renderDiagnosticPage({
     );
   }
 
-  const [businessProfile, rawData, discoveryProgress, acquisitionCatalog, funnelBlockCatalog] = await Promise.all([
+  const [businessProfile, rawData, discoveryProgress, acquisitionCatalog, funnelBlockCatalog, testimonialProof] = await Promise.all([
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
     getDiscoveryProgress(accountId),
     getAcquisitionFunnelCatalog(),
     getFunnelBlockCatalog(),
+    getTestimonialProof(accountId),
   ]);
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
@@ -472,6 +474,17 @@ async function renderDiagnosticPage({
         monthlyRows={allMonthlyRows}
         source={source}
       />
+
+      <section className="sticker-card flex flex-col gap-4 border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="testimonial-proof-heading">
+        <div>
+          <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">{t("deliveryProof.title")}</p>
+          <h2 id="testimonial-proof-heading" className="mt-1 text-lg font-bold">{t("deliveryProof.count", { count: testimonialProof.count })}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t(`deliveryProof.status.${testimonialProof.status}`)}</p>
+        </div>
+        <Button variant="outline" asChild>
+          <Link href="/delivrabilite/temoignages">{t("deliveryProof.cta")}</Link>
+        </Button>
+      </section>
 
       {isThin && <BusinessNudgeBanner />}
 

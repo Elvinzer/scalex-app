@@ -30,6 +30,8 @@ export const PERMISSION_KEYS = [
   "ventes:closing",
   "ventes:appels",
   "ventes:upsell",
+  "delivrabilite:suivi-client",
+  "delivrabilite:temoignages",
   "business",
 ] as const;
 
@@ -61,6 +63,10 @@ export const PERMISSION_GROUPS = [
       "ventes:appels",
       "ventes:upsell",
     ],
+  },
+  {
+    key: "delivrabilite",
+    permissions: ["delivrabilite:suivi-client", "delivrabilite:temoignages"],
   },
 ] as const satisfies readonly { key: string; permissions: readonly PermissionKey[] }[];
 
@@ -110,6 +116,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   // Legacy grant kept so existing roles remain readable after the Upsell page
   // moved into Mon business. New access is covered by the business permission.
   "ventes:upsell": "Mon business — Upsell (legacy)",
+  "delivrabilite:suivi-client": "Délivrabilité — Suivi client",
+  "delivrabilite:temoignages": "Délivrabilité — Témoignages",
   business: "Mon business",
 };
 
@@ -118,6 +126,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
 // including adding permissions beyond these defaults.
 export const DEFAULT_ROLES: { key: string; name: string; permissions: PermissionKey[] }[] = [
   { key: "setting", name: "Setting", permissions: ["acquisition:pipeline", "acquisition:setters"] },
-  { key: "closing", name: "Closing", permissions: ["ventes:closing", "ventes:appels", "ventes:rdv"] },
+  { key: "closing", name: "Closing", permissions: ["ventes:closing", "ventes:appels", "ventes:rdv", "delivrabilite:suivi-client", "delivrabilite:temoignages"] },
   { key: "financier", name: "Financier", permissions: ["ventes:suivi", "datas", "dashboard"] },
 ];

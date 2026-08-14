@@ -15,6 +15,7 @@ import { EMPTY_BUSINESS_PROFILE, type BusinessAcquisition, type BusinessSection 
 import { normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { syncTestimonialCount } from "@/lib/deliverability/queries";
 import { isAcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
 import { legacyFunnelKeysForBlocks, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
@@ -77,6 +78,11 @@ export async function saveBusinessSection(
       target: businessProfile.userId,
       set: { [section]: persistedData, updatedAt: new Date() },
     });
+
+  // Testimonials are now canonical rows. Keep the legacy business-profile
+  // projection in sync so the Business page and diagnostic never trust a
+  // manually entered counter.
+  if (section === "delivery") await syncTestimonialCount(accountId);
 
   if (section === "acquisition" && previousProfile) {
     const nextAcquisition = persistedData as typeof previousProfile.acquisition;

@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { businessProfile } from "@/db/schema";
+import { businessProfile, testimonials } from "@/db/schema";
 
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
@@ -30,6 +30,10 @@ async function fetchBusinessProfile(userId: string): Promise<BusinessProfileData
 
   if (!row) return EMPTY_BUSINESS_PROFILE;
 
+  const [{ consentedTestimonials }] = await db
+    .select({ consentedTestimonials: sql<number>`count(*)` })
+    .from(testimonials)
+    .where(and(eq(testimonials.userId, userId), eq(testimonials.consent, true)));
   const acquisition = row.acquisition;
   const [catalog, blockCatalog] = await Promise.all([
     getAcquisitionFunnelCatalog(),
@@ -63,7 +67,10 @@ async function fetchBusinessProfile(userId: string): Promise<BusinessProfileData
       blockSelectionInferred: acquisition.blockSelectionInferred ?? blockSelection.inferred,
     },
     sales: row.sales,
-    delivery: row.delivery,
+    delivery: {
+      ...row.delivery,
+      testimonials: { ...row.delivery.testimonials, count: Number(consentedTestimonials) },
+    },
   };
 }
 

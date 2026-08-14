@@ -1,5 +1,15 @@
 {
   "title": "Your diagnostic",
+  "deliveryProof": {
+    "title": "Social proof",
+    "count": "{count} consented testimonial{count, plural, =1 {} other {s}}",
+    "status": {
+      "strong": "✅ 5 or more testimonials: strong social proof.",
+      "partial": "⚠️ 1 to 4 testimonials: you can strengthen your proof.",
+      "none": "❌ No approved testimonials: start collecting proof."
+    },
+    "cta": "Manage testimonials"
+  },
   "discoveryTab": "Discovery",
   "back": "← Back to diagnostic",
   "noData": "Enter at least one month in My numbers to start your diagnostic.",

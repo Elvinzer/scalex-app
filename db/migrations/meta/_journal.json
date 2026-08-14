@@ -274,6 +274,20 @@
       "when": 1786716165000,
       "tag": "0038_booking_asset_storage_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1786722531166,
+      "tag": "0039_lame_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1786724324000,
+      "tag": "0040_deliverability_storage_team_access",
+      "breakpoints": true
     }
   ]
 }

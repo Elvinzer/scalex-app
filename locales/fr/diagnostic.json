@@ -1,5 +1,15 @@
 {
   "title": "Ton diagnostic",
+  "deliveryProof": {
+    "title": "Preuve sociale",
+    "count": "{count} témoignage{count, plural, =1 {} other {s}} avec consentement",
+    "status": {
+      "strong": "✅ 5 témoignages ou plus : preuve sociale solide.",
+      "partial": "⚠️ 1 à 4 témoignages : tu peux encore renforcer la preuve.",
+      "none": "❌ Aucun témoignage autorisé : commence par collecter une preuve."
+    },
+    "cta": "Gérer les témoignages"
+  },
   "discoveryTab": "Découverte",
   "back": "← Retour au diagnostic",
   "noData": "Remplis au moins un mois dans Mes chiffres pour lancer ton diagnostic.",

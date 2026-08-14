@@ -3662,3 +3662,220 @@ export const streaks = pgTable(
     }),
   ]
 ).enableRLS();
+
+// --- Délivrabilité ---------------------------------------------------------
+// The delivery board is intentionally relational. Sales remain the source of
+// truth for revenue and offer data; journeys only keep the follow-up state
+// around an existing sale (or a manually created client).
+export const clientJourneyColumnType = pgEnum("client_journey_column_type", [
+  "entry",
+  "progression",
+  "risk",
+  "success",
+  "end",
+]);
+
+export const clientJourneyStatus = pgEnum("client_journey_status", ["active", "completed", "abandoned"]);
+
+export const testimonialMediaType = pgEnum("testimonial_media_type", ["photo", "video", "link", "text"]);
+
+export const journeyColumns = pgTable(
+  "journey_columns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: clientJourneyColumnType("type").notNull().default("progression"),
+    position: integer("order").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("journey_columns_user_order_idx").on(table.userId, table.position),
+    index("journey_columns_user_idx").on(table.userId),
+    pgPolicy("journey_columns_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const clientJourneys = pgTable(
+  "client_journeys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientName: text("client_name").notNull(),
+    saleId: uuid("sale_id").references(() => sales.id, { onDelete: "set null" }),
+    // offerId points to business_profile.sales.offers, which is intentionally
+    // JSONB because offers are edited as one business-profile section.
+    offerId: text("offer_id"),
+    columnId: uuid("column_id")
+      .notNull()
+      .references(() => journeyColumns.id, { onDelete: "restrict" }),
+    enteredAt: timestamp("entered_at", { withTimezone: true }).notNull().defaultNow(),
+    columnUpdatedAt: timestamp("column_updated_at", { withTimezone: true }).notNull().defaultNow(),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
+    status: clientJourneyStatus("status").notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_journeys_user_sale_idx").on(table.userId, table.saleId),
+    index("client_journeys_user_column_idx").on(table.userId, table.columnId),
+    index("client_journeys_user_activity_idx").on(table.userId, table.lastActivityAt),
+    pgPolicy("client_journeys_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const clientNotes = pgTable(
+  "client_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientJourneyId: uuid("client_journey_id")
+      .notNull()
+      .references(() => clientJourneys.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("client_notes_journey_created_idx").on(table.clientJourneyId, table.createdAt),
+    pgPolicy("client_notes_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const clientMilestones = pgTable(
+  "client_milestones",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientJourneyId: uuid("client_journey_id")
+      .notNull()
+      .references(() => clientJourneys.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("client_milestones_journey_position_idx").on(table.clientJourneyId, table.position),
+    pgPolicy("client_milestones_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const clientReminders = pgTable(
+  "client_reminders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientJourneyId: uuid("client_journey_id")
+      .notNull()
+      .references(() => clientJourneys.id, { onDelete: "cascade" }),
+    remindAt: timestamp("remind_at", { withTimezone: true }).notNull(),
+    note: text("note").notNull(),
+    completed: boolean("completed").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("client_reminders_journey_date_idx").on(table.clientJourneyId, table.remindAt),
+    pgPolicy("client_reminders_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const clientJourneyStageHistory = pgTable(
+  "client_journey_stage_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientJourneyId: uuid("client_journey_id")
+      .notNull()
+      .references(() => clientJourneys.id, { onDelete: "cascade" }),
+    fromColumnId: uuid("from_column_id").references(() => journeyColumns.id, { onDelete: "set null" }),
+    toColumnId: uuid("to_column_id")
+      .notNull()
+      .references(() => journeyColumns.id, { onDelete: "restrict" }),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("client_journey_stage_history_journey_idx").on(table.clientJourneyId, table.changedAt),
+    pgPolicy("client_journey_stage_history_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const testimonials = pgTable(
+  "testimonials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mediaType: testimonialMediaType("media_type").notNull(),
+    // Private Supabase Storage path, never a public URL. Queries return a
+    // short-lived signed URL under the same field name for the UI.
+    fileUrl: text("file_url"),
+    externalUrl: text("external_url"),
+    text: text("text"),
+    clientName: text("client_name").notNull(),
+    clientJourneyId: uuid("client_journey_id").references(() => clientJourneys.id, { onDelete: "set null" }),
+    offerId: text("offer_id"),
+    resultText: text("result_text"),
+    consent: boolean("consent").notNull().default(false),
+    tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
+    testimonialDate: date("date", { mode: "string" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("testimonials_user_date_idx").on(table.userId, table.testimonialDate),
+    index("testimonials_user_consent_idx").on(table.userId, table.consent),
+    pgPolicy("testimonials_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();

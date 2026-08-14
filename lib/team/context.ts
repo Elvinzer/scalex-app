@@ -20,6 +20,8 @@ const MEMBER_LANDING_ROUTES: readonly { permission: PermissionKey; href: string 
   { permission: "ventes:suivi", href: "/ventes/suivi" },
   { permission: "ventes:appels", href: "/ventes/appels" },
   { permission: "ventes:rdv", href: "/ventes/rdv" },
+  { permission: "delivrabilite:suivi-client", href: "/delivrabilite/suivi-client" },
+  { permission: "delivrabilite:temoignages", href: "/delivrabilite/temoignages" },
   { permission: "acquisition:contenu", href: "/acquisition/contenu" },
   { permission: "acquisition:mail", href: "/acquisition/mail" },
   { permission: "acquisition:ads", href: "/acquisition/ads" },

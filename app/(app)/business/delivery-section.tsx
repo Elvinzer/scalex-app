@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { computeSectionCompletion } from "@/lib/business/completion";
@@ -143,23 +144,18 @@ export function DeliverySection({
 
         <div className="flex flex-col gap-3">
           <p className="text-sm font-bold">{t("testimonials")}</p>
-          <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-xs font-bold text-muted-foreground">{t("collected")}</span>
-            <input
-              type="number"
-              min={0}
-              value={value.testimonials.count ?? ""}
-              onChange={(event) =>
-                update({
-                  testimonials: {
-                    ...value.testimonials,
-                    count: event.target.value === "" ? null : Number(event.target.value),
-                  },
-                })
-              }
-              className={`${inputClass} max-w-40`}
-            />
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border bg-muted/35 p-4">
+            <div>
+              <p className="text-xs font-bold text-muted-foreground">{t("countManaged")}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">{value.testimonials.count ?? 0}</p>
+            </div>
+            <Link
+              href="/delivrabilite/temoignages"
+              className="inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-bold text-foreground transition-colors hover:border-border-hover hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              {t("openTestimonials")}
+            </Link>
+          </div>
           <div className="flex flex-wrap gap-2">
             {TESTIMONIAL_CHANNELS.map((channel) => {
               const active = value.testimonials.displayedOn.includes(channel);
