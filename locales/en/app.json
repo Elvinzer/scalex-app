@@ -1128,7 +1128,7 @@
       "nextSlotsHelp": "Preview based on saved rules, excluding personal calendars and existing bookings.",
       "noGeneratedSlots": "No slot generated with the current configuration.",
       "closers": "Closers",
-      "closersHelp": "Appointments are distributed round robin among available closers.",
+      "closersHelp": "Appointments are distributed round robin among available closers. If none is assigned, you are used by default.",
       "online": "Available",
       "off": "Off",
       "closerOnline": "Closer brought online.",

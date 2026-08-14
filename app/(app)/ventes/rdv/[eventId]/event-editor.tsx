@@ -172,6 +172,7 @@ function ReminderVariables({ onInsert }: { onInsert: (variable: string) => void 
 
 export function EventEditor({
   event,
+  defaultCloserId,
   availability,
   exceptions,
   closers,
@@ -183,6 +184,7 @@ export function EventEditor({
   reminders,
 }: {
   event: EventData;
+  defaultCloserId: string;
   availability: AvailabilityRow[];
   exceptions: Array<{ date: string; type: "closed" | "custom"; windows: NativeBookingWindow[]; reason: string | null }>;
   closers: Array<{ id: string; name: string; email: string; isOff: boolean; isActive: boolean }>;
@@ -213,7 +215,11 @@ export function EventEditor({
   const [exceptionType, setExceptionType] = useState<"closed" | "custom">("closed");
   const [exceptionWindows, setExceptionWindows] = useState<TimeWindowDraft[]>([{ startTime: "09:00", endTime: "17:00" }]);
   const [exceptionReason, setExceptionReason] = useState("");
-  const [selectedCloser, setSelectedCloser] = useState(candidates[0]?.id ?? "");
+  const [selectedCloser, setSelectedCloser] = useState(() => {
+    const assignedIds = new Set(closers.map((closer) => closer.id));
+    const available = candidates.filter((candidate) => !assignedIds.has(candidate.id));
+    return available.find((candidate) => candidate.id === defaultCloserId)?.id ?? available[0]?.id ?? "";
+  });
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [questionDrafts, setQuestionDrafts] = useState<QuestionDraft[]>(questions);
   const [reminderDrafts, setReminderDrafts] = useState<ReminderDraft[]>(reminders);

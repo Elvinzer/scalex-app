@@ -1128,7 +1128,7 @@
       "nextSlotsHelp": "Aperçu basé sur les règles enregistrées, hors agendas personnels et rendez-vous déjà pris.",
       "noGeneratedSlots": "Aucun créneau généré avec la configuration actuelle.",
       "closers": "Closers",
-      "closersHelp": "Les rendez-vous sont répartis en round robin entre les closers disponibles.",
+      "closersHelp": "Les rendez-vous sont répartis en round robin entre les closers disponibles. Si aucun closer n'est ajouté, tu es utilisé par défaut.",
       "online": "Disponible",
       "off": "Off",
       "closerOnline": "Closer remis en ligne.",

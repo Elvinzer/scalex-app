@@ -61,6 +61,16 @@ function requireAccountWideBookingAccess(access: { viewer: NativeBookingViewer }
   return access.viewer.isAccountWide ? null : { error: "booking_management_forbidden" };
 }
 
+async function ensureDefaultNativeBookingCloser(eventId: string, accountId: string, position: number) {
+  await db
+    .insert(nativeBookingEventClosers)
+    .values({ eventId, closerUserId: accountId, position })
+    .onConflictDoUpdate({
+      target: [nativeBookingEventClosers.eventId, nativeBookingEventClosers.closerUserId],
+      set: { isActive: true, isOff: false, updatedAt: new Date() },
+    });
+}
+
 export async function createNativeBookingEventAction(input: unknown): Promise<ActionResult & { eventId?: string }> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;
@@ -306,12 +316,13 @@ export async function toggleNativeBookingEventAction(eventId: string, status: st
     const entitlements = await getNativeBookingEntitlements(access.accountId);
     if (!entitlements.enabled) return { error: "La prise de rendez-vous native n’est plus incluse dans ton abonnement." };
     if (detail.availability.length === 0) return { error: "Ajoute au moins une disponibilité avant d’activer l’événement." };
-    if (detail.closers.filter(({ assignment }) => assignment.isActive && !assignment.isOff).length === 0) {
-      return { error: "Ajoute au moins un closer disponible avant d’activer l’événement." };
-    }
-    const activeCloserIds = detail.closers
+    let activeCloserIds = detail.closers
       .filter(({ assignment }) => assignment.isActive && !assignment.isOff)
       .map(({ assignment }) => assignment.closerUserId);
+    if (activeCloserIds.length === 0) {
+      await ensureDefaultNativeBookingCloser(detail.event.id, access.accountId, detail.closers.length);
+      activeCloserIds = [access.accountId];
+    }
     const calendarStates = await getCalendarStatesForClosers(access.accountId, activeCloserIds);
     if (activeCloserIds.some((closerId) => !calendarStates.get(closerId)?.ready)) return { error: "calendar_setup_required" };
   }

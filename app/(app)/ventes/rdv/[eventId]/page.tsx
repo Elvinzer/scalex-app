@@ -120,6 +120,7 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
 
       <EventEditor
         event={detail.event}
+        defaultCloserId={accountId}
         availability={detail.availability}
         exceptions={detail.exceptions}
         closers={detail.closers.map(({ assignment, user }) => ({
