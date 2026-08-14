@@ -7,6 +7,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { SetterRow } from "@/lib/setters/types";
+import type { ActiveCloser } from "@/lib/closers/types";
 
 import { createManualCallAction } from "./actions";
 
@@ -21,7 +22,7 @@ function today(): string {
 // booking itself (source: "manual"). Outcome (closé/non closé/attente
 // décision) and amounts are set afterwards through the exact same inline
 // controls as any synced call (calls-table.tsx), never duplicated here.
-export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
+export function ManualCallDialog({ setters, closers }: { setters: SetterRow[]; closers: ActiveCloser[] }) {
   const t = useTranslations("app.calls");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
       inviteeEmail: String(formData.get("inviteeEmail") ?? "") || null,
       inviteePhone: String(formData.get("inviteePhone") ?? "") || null,
       scheduledAt: String(formData.get("scheduledAt") ?? today()),
-      closer: String(formData.get("closer") ?? "") || null,
+      closerUserId: String(formData.get("closerUserId") ?? "") || null,
       setterId: String(formData.get("setterId") ?? "") || null,
       attendance: String(formData.get("attendance") ?? "showed"),
     };
@@ -131,11 +132,18 @@ export function ManualCallDialog({ setters }: { setters: SetterRow[] }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">{t("closerOptional")}</span>
-              <input
-                type="text"
-                name="closer"
+              <select
+                name="closerUserId"
+                defaultValue={closers.find((closer) => closer.isOwner)?.id ?? closers[0]?.id ?? ""}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
-              />
+              >
+                <option value="">—</option>
+                {closers.map((closer) => (
+                  <option key={closer.id} value={closer.id}>
+                    {closer.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">{t("setterOptional")}</span>

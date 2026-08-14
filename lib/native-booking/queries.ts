@@ -15,7 +15,9 @@ import {
 import { listBusyForConnection } from "@/lib/native-booking/calendar";
 import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
 import type { NativeBookingViewer } from "@/lib/native-booking/access";
+import { getBookingPageSettingsView } from "@/lib/booking-page/queries";
 
+import { isCalendarTemporarilyUnavailable } from "./calendar-readiness";
 import { generateBookingSlots, type GeneratedBookingSlot } from "./slots";
 
 export async function listNativeBookingEvents(accountId: string, viewer?: NativeBookingViewer) {
@@ -110,7 +112,8 @@ export async function getPublicNativeBookingEvent(handle: string, slug: string) 
     .from(nativeBookingQuestions)
     .where(eq(nativeBookingQuestions.eventId, row.event.id))
     .orderBy(asc(nativeBookingQuestions.position));
-  return { ...row.event, handle, questions };
+  const customization = await getBookingPageSettingsView(row.event.userId);
+  return { ...row.event, handle, questions, customization };
 }
 
 // Rétrocompat : un ancien lien /book/{slug} ne porte pas de handle. On retrouve
@@ -197,7 +200,7 @@ export async function getPublicNativeBookingSlots(
     closers.map(async ({ closerUserId }) => {
       const state = calendarStates.get(closerUserId);
       if (!state) return;
-      if (state.unavailable) {
+      if (isCalendarTemporarilyUnavailable(state.reason)) {
         calendarUnavailable.add(closerUserId);
         return;
       }

@@ -1,12 +1,13 @@
 "use server";
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, nativeBookingQuestions, nativeBookingReminderRules, nativeBookings, teamMembers, users } from "@/db/schema";
+import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, nativeBookingQuestions, nativeBookingReminderRules, nativeBookings, users } from "@/db/schema";
 import { canCreateNativeBookingEvent, getNativeBookingEntitlements } from "@/lib/billing/plan-gate";
+import { getActiveCloser } from "@/lib/closers/queries";
 import { requireUserId } from "@/lib/current-user";
 import { getNativeBookingViewer, type NativeBookingViewer } from "@/lib/native-booking/access";
 import { getNativeBookingEvent, getNativeBookingEventDetail } from "@/lib/native-booking/queries";
@@ -17,7 +18,6 @@ import { availabilitySchema, exceptionSchema, nativeBookingEventInputSchema } fr
 import { requirePermission } from "@/lib/team/context";
 import { syncNativeBookingReminderConfiguration } from "@/lib/native-booking/reminders";
 import { getNativeBookingRescheduleSlotsForAccount } from "@/lib/native-booking/agenda";
-import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 const eventActionSchema = z.object({ eventId: z.string().uuid() });
@@ -323,8 +323,6 @@ export async function toggleNativeBookingEventAction(eventId: string, status: st
       await ensureDefaultNativeBookingCloser(detail.event.id, access.accountId, detail.closers.length);
       activeCloserIds = [access.accountId];
     }
-    const calendarStates = await getCalendarStatesForClosers(access.accountId, activeCloserIds);
-    if (activeCloserIds.some((closerId) => !calendarStates.get(closerId)?.ready)) return { error: "calendar_setup_required" };
   }
 
   await db
@@ -346,17 +344,7 @@ export async function addNativeBookingCloserAction(input: unknown): Promise<Acti
   const event = await getNativeBookingEvent(access.accountId, parsed.data.eventId, access.viewer);
   if (!event) return { error: "Événement introuvable." };
 
-  const [candidate] = await db
-    .select({ id: users.id })
-    .from(users)
-    .leftJoin(teamMembers, and(eq(teamMembers.memberUserId, users.id), eq(teamMembers.accountId, access.accountId), eq(teamMembers.status, "active")))
-    .where(
-      and(
-        eq(users.id, parsed.data.closerUserId),
-        or(eq(users.id, access.accountId), eq(teamMembers.accountId, access.accountId))
-      )
-    )
-    .limit(1);
+  const candidate = await getActiveCloser(access.accountId, parsed.data.closerUserId);
   if (!candidate) return { error: "Closer introuvable dans ton équipe." };
 
   const [existing] = await db

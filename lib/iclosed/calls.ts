@@ -21,6 +21,7 @@ export type SalesCallRow = {
   inviteePhone: string | null;
   scheduledAt: string; // ISO
   closer: string | null;
+  closerUserId: string | null;
   eventType: string | null;
   utmSource: string | null;
   utmMedium: string | null;
@@ -63,6 +64,7 @@ export const getSalesCalls = cache(async (accountId: string): Promise<SalesCallR
     inviteePhone: call.inviteePhone,
     scheduledAt: call.scheduledAt.toISOString(),
     closer: call.closer,
+    closerUserId: call.closerUserId,
     eventType: call.eventType,
     utmSource: call.utmSource,
     utmMedium: call.utmMedium,

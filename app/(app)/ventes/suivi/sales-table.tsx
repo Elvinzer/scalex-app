@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { SourceBadge, type MetricSource } from "@/components/source-badge";
 import type { Offer } from "@/lib/business/types";
+import type { ActiveCloser } from "@/lib/closers/types";
 import { displayInstallments, summarize } from "@/lib/sales/installments";
 import type { OverallSaleStatus, SaleRow } from "@/lib/sales/types";
 import type { SetterRow } from "@/lib/setters/types";
@@ -46,16 +47,22 @@ function sourceForSale(sale: SaleRow): MetricSource {
   return "Saisie";
 }
 
+function closerName(closers: ActiveCloser[], closerId: string): string | null {
+  return closers.find((closer) => closer.id === closerId)?.name ?? null;
+}
+
 export function SalesTable({
   sales,
   allSales,
   setters,
+  closers,
   offers,
   stripeConnection,
 }: {
   sales: SaleRow[];
   allSales: SaleRow[];
   setters: SetterRow[];
+  closers: ActiveCloser[];
   offers: Offer[];
   stripeConnection?: { accountId: string; livemode: boolean } | null;
 }) {
@@ -64,6 +71,7 @@ export function SalesTable({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = selectedId ? (sales.find((sale) => sale.id === selectedId) ?? null) : null;
   const [setterFilter, setSetterFilter] = useState("");
+  const [closerFilter, setCloserFilter] = useState("");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -75,12 +83,13 @@ export function SalesTable({
         const matchesStatus = statusFilter === "orphan" ? sale.isOrphan : displayInstallments(sale.totalPrice, sale.saleDate, sale.installments).some(({ installment }) => installment.status === statusFilter);
         return (
           (!setterFilter || sale.setterId === setterFilter) &&
+          (!closerFilter || sale.closer === closerName(closers, closerFilter)) &&
           (!paymentMethodFilter || sale.paymentMethod === paymentMethodFilter) &&
           (!paymentTypeFilter || sale.paymentType === paymentTypeFilter) &&
           (!statusFilter || matchesStatus)
         );
       }),
-    [sales, setterFilter, paymentMethodFilter, paymentTypeFilter, statusFilter]
+    [sales, setterFilter, closerFilter, paymentMethodFilter, paymentTypeFilter, statusFilter, closers]
   );
 
   const displayRows = useMemo(() => {
@@ -121,7 +130,7 @@ export function SalesTable({
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {setters.length > 0 && (
           <label className="flex min-w-0 flex-col gap-1.5 text-sm">
             <span className="text-xs font-bold text-muted-foreground">{t("filterSetter")}</span>
@@ -134,6 +143,23 @@ export function SalesTable({
               {setters.map((setter) => (
                 <option key={setter.id} value={setter.id}>
                   {setter.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {closers.length > 0 && (
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm">
+            <span className="text-xs font-bold text-muted-foreground">{t("filterCloser")}</span>
+            <select
+              value={closerFilter}
+              onChange={(event) => setCloserFilter(event.target.value)}
+              className="min-h-11 w-full rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            >
+              <option value="">{t("all")}</option>
+              {closers.map((closer) => (
+                <option key={closer.id} value={closer.id}>
+                  {closer.name}
                 </option>
               ))}
             </select>
@@ -233,6 +259,7 @@ export function SalesTable({
                       <SaleFormDialog
                         offers={offers}
                         setters={setters}
+                        closers={closers}
                         sale={sale}
                         trigger={
                           <Button
@@ -286,6 +313,7 @@ export function SalesTable({
                     <SaleFormDialog
                       offers={offers}
                       setters={setters}
+                      closers={closers}
                       sale={sale}
                       trigger={<Button type="button" variant="outline" size="sm" onClick={(event) => event.stopPropagation()}>{t("createSale")}</Button>}
                     />
@@ -306,6 +334,7 @@ export function SalesTable({
         allSales={allSales}
         offers={offers}
         setters={setters}
+        closers={closers}
         stripeConnection={stripeConnection}
         open={selected !== null}
         onOpenChange={(open) => !open && setSelectedId(null)}

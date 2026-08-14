@@ -10,20 +10,28 @@ import { inviteMember } from "./actions";
 
 type RoleOption = { id: string; name: string };
 
-export function InviteMemberDialog({ roles, trigger }: { roles: RoleOption[]; trigger: React.ReactNode }) {
+export function InviteMemberDialog({
+  roles,
+  trigger,
+  defaultRoleIds = [],
+}: {
+  roles: RoleOption[];
+  trigger: React.ReactNode;
+  defaultRoleIds?: string[];
+}) {
   const t = useTranslations("settings.team");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manualLink, setManualLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(defaultRoleIds);
   const [isPending, startTransition] = useTransition();
 
   function reset() {
     setError(null);
     setManualLink(null);
     setCopied(false);
-    setSelectedRoleIds([]);
+    setSelectedRoleIds(defaultRoleIds);
   }
 
   function toggleRole(roleId: string) {

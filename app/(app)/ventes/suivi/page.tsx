@@ -14,6 +14,7 @@ import { StripeInsightsSection } from "./stripe-insights-section";
 import { db } from "@/db";
 import { stripeConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getActiveClosers } from "@/lib/closers/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
@@ -185,10 +186,11 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
   const stripeConnected = Boolean(user?.stripeConnectId);
   const query = await searchParams;
   const period = resolvePeriod(query.period);
-  const [sales, profile, setters, [connection], youtubeInsights] = await Promise.all([
+  const [sales, profile, setters, closers, [connection], youtubeInsights] = await Promise.all([
     getSales(accountId),
     getBusinessProfile(accountId),
     getSetters(accountId),
+    getActiveClosers(accountId),
     stripeConnected
       ? db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -259,6 +261,7 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
           <SaleFormDialog
             offers={offers}
             setters={setters}
+            closers={closers}
             youtubeVideos={youtubeVideoChoices}
             trigger={
               <Button type="button">
@@ -305,6 +308,7 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
           sales={periodSales}
           allSales={sales}
           setters={setters}
+          closers={closers}
           offers={offers}
           stripeConnection={connection ? { accountId: connection.stripeAccountId, livemode: connection.livemode } : null}
         />

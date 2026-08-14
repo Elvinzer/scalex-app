@@ -21,6 +21,7 @@ import {
   updateExternalCalendarEvent,
 } from "./calendar";
 import { getCalendarStatesForClosers } from "./settings";
+import { isCalendarTemporarilyUnavailable } from "./calendar-readiness";
 import { scheduleNativeBookingNotification } from "./notifications";
 import { cancelNativeBookingReminders, rebuildNativeBookingReminders } from "./reminders";
 import { getPublicNativeBookingSlots } from "./queries";
@@ -202,7 +203,7 @@ export async function rescheduleNativeBooking(
     calendarCandidates.map(async ({ closerUserId }) => {
       const state = calendarStates.get(closerUserId);
       if (!state) return;
-      if (state.unavailable) {
+      if (isCalendarTemporarilyUnavailable(state.reason)) {
         unavailableClosers.add(closerUserId);
         return;
       }

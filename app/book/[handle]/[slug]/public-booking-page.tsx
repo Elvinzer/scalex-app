@@ -2,8 +2,10 @@
 
 import { getCountries, getCountryCallingCode, isValidPhoneNumber as isValidPhone, parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 import { LockKeyhole, MapPin, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 
+import { DEFAULT_BOOKING_PAGE_SETTINGS, getBookingAppearance, getSafeBookingEmbedUrl, type BookingPageSettingsView } from "@/lib/booking-page/config";
 import {
   captureMetaTrackingInBrowser,
   mergeMetaTracking,
@@ -21,7 +23,7 @@ type Question = {
   position: number;
 };
 
-type PublicEvent = {
+export type PublicEvent = {
   handle: string;
   slug: string;
   name: string;
@@ -36,6 +38,7 @@ type PublicEvent = {
   confirmationMessage: string;
   bookingInstructions: string;
   questions: Question[];
+  customization?: BookingPageSettingsView;
 };
 
 type Slot = { startAt: string; endAt: string };
@@ -45,6 +48,12 @@ type Stage = 1 | 2 | 3 | 4;
 type ManagementMode = "unknown" | "loading" | "ready" | "invalid";
 
 const EMPTY_CONTACT: Contact = { firstName: "", lastName: "", email: "", phone: "" };
+const PREVIEW_SLOTS: Slot[] = [
+  { startAt: "2026-08-17T08:00:00.000Z", endAt: "2026-08-17T09:00:00.000Z" },
+  { startAt: "2026-08-17T09:30:00.000Z", endAt: "2026-08-17T10:30:00.000Z" },
+  { startAt: "2026-08-18T08:00:00.000Z", endAt: "2026-08-18T09:00:00.000Z" },
+  { startAt: "2026-08-18T09:30:00.000Z", endAt: "2026-08-18T10:30:00.000Z" },
+];
 const COUNTRY_CODES = getCountries();
 const COUNTRY_NAMES: Record<string, string> = {
   FR: "France",
@@ -143,20 +152,22 @@ function getUtmMetadata() {
   };
 }
 
-export function PublicBookingPage({ event }: { event: PublicEvent }) {
-  const [stage, setStage] = useState<Stage>(1);
+type BookingPageStyle = CSSProperties & Record<string, string | number | undefined>;
+
+export function PublicBookingPage({ event, preview = false }: { event: PublicEvent; preview?: boolean }) {
+  const [stage, setStage] = useState<Stage>(() => (preview ? 4 : 1));
   const [contact, setContact] = useState<Contact>(EMPTY_CONTACT);
   const [countryCode, setCountryCode] = useState<CountryCode>("FR");
   const [countryNames, setCountryNames] = useState<Record<string, string>>({});
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
-  const [guestTimeZone, setGuestTimeZone] = useState("Europe/Paris");
+  const [guestTimeZone, setGuestTimeZone] = useState(event.timeZone);
   const [displayTimeZone, setDisplayTimeZone] = useState(event.timeZone);
   const [utm, setUtm] = useState<Record<string, string>>({});
   const [linkId, setLinkId] = useState<string | null>(null);
   const [metaTouchpointToken, setMetaTouchpointToken] = useState<string | null>(null);
   const [landingPage, setLandingPage] = useState<string | null>(null);
   const [referrer, setReferrer] = useState<string | null>(null);
-  const [slots, setSlots] = useState<Slot[]>([]);
+  const [slots, setSlots] = useState<Slot[]>(() => (preview ? PREVIEW_SLOTS : []));
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [confirmation, setConfirmation] = useState<null | {
     startAt: string;
@@ -186,7 +197,45 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   const firstRevealedRef = useRef<HTMLInputElement>(null);
   const phoneCaptureRef = useRef<{ phone: string; promise: Promise<string | null> } | null>(null);
 
+  const customization = event.customization ?? {
+    ...DEFAULT_BOOKING_PAGE_SETTINGS,
+    backgroundAssetUrl: null,
+    logoAssetUrl: null,
+    sideMediaAssetUrl: null,
+    companyName: "Minaly",
+    ownerName: null,
+  };
+  const appearance = getBookingAppearance(customization, customization.backgroundAssetUrl);
+  const pageStyle: BookingPageStyle = {
+    "--booking-accent": appearance.accent,
+    "--booking-accent-readable": appearance.accentReadable,
+    "--booking-accent-text": appearance.accentText,
+    "--booking-success": appearance.success,
+    "--booking-page-background": appearance.pageBackground,
+    "--booking-surface": appearance.surface,
+    "--booking-muted-surface": appearance.mutedSurface,
+    "--booking-foreground": appearance.foreground,
+    "--booking-muted": appearance.muted,
+    "--booking-border": appearance.border,
+    backgroundImage: appearance.backgroundImage,
+    backgroundPosition: appearance.backgroundPosition,
+    backgroundSize: appearance.backgroundImage ? "cover" : undefined,
+  };
+  const pageTitle = customization.title || event.publicHeading;
+  const pageSubtitle = customization.subtitle || event.publicDescription;
+  const confirmationMessage = customization.confirmationMessage || event.confirmationMessage;
+  const safeEmbedUrl = customization.sideMediaType === "embed" ? getSafeBookingEmbedUrl(customization.sideMediaUrl) : null;
+  const hasSideMedia = customization.sideMediaType !== "none" && Boolean(customization.sideMediaAssetUrl || safeEmbedUrl);
+  const PublicRoot = preview ? "div" : "main";
+
   useEffect(() => {
+    if (preview) {
+      setStage(4);
+      setSlots(PREVIEW_SLOTS);
+      setGuestTimeZone(event.timeZone);
+      setDisplayTimeZone(event.timeZone);
+      return;
+    }
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (detected) {
       setGuestTimeZone(detected);
@@ -263,14 +312,15 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
     } catch {
       window.sessionStorage.removeItem(getDraftKey(event.slug));
     }
-  }, [event.handle, event.slug, event.timeZone]);
+  }, [event.handle, event.slug, event.timeZone, preview]);
 
   useEffect(() => {
+    if (preview) return;
     window.sessionStorage.setItem(
       getDraftKey(event.slug),
       JSON.stringify({ stage, contact, countryCode, answers, leadId, slots, displayTimeZone })
     );
-  }, [answers, contact, countryCode, displayTimeZone, event.slug, leadId, slots, stage]);
+  }, [answers, contact, countryCode, displayTimeZone, event.slug, leadId, preview, slots, stage]);
 
   useEffect(() => {
     if (stage < 2) return;
@@ -626,14 +676,15 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
   if (confirmation) {
     const icsHref = confirmation.rescheduleToken ? `/api/public/booking/${event.handle}/${event.slug}/ics?token=${encodeURIComponent(confirmation.rescheduleToken)}` : null;
     return (
-      <main className="public-booking-page min-h-screen bg-canvas px-4 py-8 sm:px-6 sm:py-12">
+      <PublicRoot className="public-booking-page booking-public min-h-screen px-4 py-8 sm:px-6 sm:py-12" style={pageStyle} data-theme={customization.theme}>
         <div className="mx-auto flex max-w-3xl flex-col gap-6">
           <div className="sticker-card flex flex-col items-center gap-4 p-8 text-center sm:p-12">
+            <BookingBrand customization={customization} />
             <div className="flex size-14 items-center justify-center rounded-full bg-state-healthy-bg text-state-healthy"><ShieldCheck className="size-7" /></div>
             <div>
               <p className={`text-sm font-bold ${confirmation.calendarSyncWarning ? "text-state-caution" : "text-state-healthy"}`}>{confirmation.calendarSyncWarning ? "Réservation enregistrée" : event.confirmationTitle}</p>
               <h1 className="mt-2 text-3xl font-bold">C&apos;est réservé, {contact.firstName}.</h1>
-              <p className="mt-2 text-muted-foreground">{event.confirmationMessage}</p>
+              <p className="mt-2 text-muted-foreground">{confirmationMessage}</p>
             </div>
             <div className="mt-3 w-full max-w-lg rounded-[var(--radius-card)] border border-border bg-muted/50 p-5 text-left">
               <p className="font-bold">{formatSlotDay(confirmation.startAt, displayTimeZone)}</p>
@@ -672,54 +723,63 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
             ) : null}
           </div>
         </div>
-      </main>
+      </PublicRoot>
     );
   }
 
   if (managementMode === "loading") {
     return (
-      <main className="public-booking-page flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
+      <PublicRoot className="public-booking-page booking-public flex min-h-screen items-center justify-center px-4 py-10" style={pageStyle} data-theme={customization.theme}>
         <div className="sticker-card max-w-md p-8 text-center" role="status" aria-live="polite">
           <div className="mx-auto size-8 animate-spin rounded-full border-2 border-border border-t-accent" />
           <p className="mt-4 font-bold">Chargement de ton rendez-vous…</p>
         </div>
-      </main>
+      </PublicRoot>
     );
   }
 
   if (managementMode === "invalid") {
     return (
-      <main className="public-booking-page flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
+      <PublicRoot className="public-booking-page booking-public flex min-h-screen items-center justify-center px-4 py-10" style={pageStyle} data-theme={customization.theme}>
         <div className="sticker-card max-w-md p-8 text-center">
           <p className="font-bold">Ce lien de gestion n’est plus valide</p>
           <p className="mt-2 text-sm text-muted-foreground">Demande un nouveau lien depuis ton email de confirmation.</p>
           {manageError && <p className="mt-4 text-xs text-state-critical" role="alert">{manageError}</p>}
         </div>
-      </main>
+      </PublicRoot>
     );
   }
 
   return (
-    <main className="public-booking-page min-h-screen bg-canvas px-4 py-6 sm:px-6 sm:py-10">
+    <PublicRoot className="public-booking-page booking-public min-h-screen px-4 py-6 sm:px-6 sm:py-10" style={pageStyle} data-theme={customization.theme} data-preview={preview ? "true" : undefined}>
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <div>
-            <p className="text-sm font-bold tracking-wide text-accent uppercase">{event.name}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold tracking-wide text-accent uppercase">{event.name}</p>
             <p className="mt-1 text-xs text-muted-foreground">{event.durationMinutes} minutes · {event.timeZone}</p>
           </div>
           <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground"><ShieldCheck className="size-4 text-state-healthy" /> Réservation sécurisée</div>
         </header>
 
         <div className="sticker-card overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 pt-5 sm:px-8">
+            <BookingBrand customization={customization} />
+            <p className="text-xs font-bold text-muted-foreground">{event.durationMinutes} min · {event.meetingLabel}</p>
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-4 border-b border-border bg-muted/40 px-4 py-3 text-xs font-bold sm:gap-8">
             <StepIndicator active={stage >= 1} current={stage < 4} label="Tes coordonnées" />
             <StepIndicator active={stage >= 4} current={stage === 4} label="Ton créneau" />
           </div>
-          <div className="grid min-w-0 gap-0 lg:grid-cols-2">
+          <div className={`grid min-w-0 gap-0 ${hasSideMedia ? "lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]" : "lg:grid-cols-2"}`}>
             <section className="min-w-0 p-6 sm:p-8">
+              {hasSideMedia && (
+                <div className="-mx-6 -mt-1 mb-7 sm:-mx-8">
+                  <SideMedia customization={customization} safeEmbedUrl={safeEmbedUrl} />
+                </div>
+              )}
               <p className="text-sm font-bold text-accent">Une étape avant les créneaux</p>
-              <h1 className="mt-2 text-3xl leading-tight font-bold">{event.publicHeading}</h1>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{event.publicDescription}</p>
+              <h1 className="mt-2 text-3xl leading-tight font-bold">{customization.emoji && <span className="mr-2" aria-hidden="true">{customization.emoji}</span>}{pageTitle}</h1>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{pageSubtitle}</p>
               {event.description && <p className="mt-4 border-l-2 border-accent pl-3 text-sm leading-6">{event.description}</p>}
 
               <div className="mt-7 flex flex-col gap-5" aria-live="polite">
@@ -828,8 +888,72 @@ export function PublicBookingPage({ event }: { event: PublicEvent }) {
           </div>
         </div>
       </div>
-    </main>
+    </PublicRoot>
   );
+}
+
+function BookingBrand({ customization }: { customization: BookingPageSettingsView }) {
+  if (!customization.logoAssetUrl && !customization.showCompanyName) return null;
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      {customization.logoAssetUrl && (
+        <Image
+          src={customization.logoAssetUrl}
+          alt={customization.companyName}
+          width={180}
+          height={40}
+          unoptimized
+          className="h-9 w-auto max-w-44 object-contain object-left"
+        />
+      )}
+      {customization.showCompanyName && <span className="truncate text-sm font-bold">{customization.companyName}</span>}
+    </div>
+  );
+}
+
+function SideMedia({ customization, safeEmbedUrl }: { customization: BookingPageSettingsView; safeEmbedUrl: string | null }) {
+  const caption = customization.sideMediaCaption || customization.ownerName || customization.companyName;
+  const mediaClassName = "relative min-h-64 overflow-hidden bg-black/10 sm:min-h-72 lg:min-h-80";
+  if (customization.sideMediaType === "image" && customization.sideMediaAssetUrl) {
+    return (
+      <div
+        className={mediaClassName}
+        role="img"
+        aria-label={caption}
+        style={{ backgroundImage: `url(${customization.sideMediaAssetUrl})`, backgroundPosition: "center", backgroundSize: "cover" }}
+      >
+        <MediaCaption caption={caption} />
+      </div>
+    );
+  }
+  if (customization.sideMediaType === "video" && customization.sideMediaAssetUrl) {
+    return (
+      <div className={mediaClassName}>
+        <video className="absolute inset-0 size-full object-cover" src={customization.sideMediaAssetUrl} autoPlay muted loop playsInline />
+        <MediaCaption caption={caption} />
+      </div>
+    );
+  }
+  if (customization.sideMediaType === "embed" && safeEmbedUrl) {
+    return (
+      <div className={mediaClassName}>
+        <iframe
+          src={safeEmbedUrl}
+          title={caption}
+          className="absolute inset-0 size-full"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+        <MediaCaption caption={caption} />
+      </div>
+    );
+  }
+  return null;
+}
+
+function MediaCaption({ caption }: { caption: string }) {
+  return <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-5 pb-4 pt-12 text-sm font-bold text-white">{caption}</div>;
 }
 
 function StepIndicator({ active, current, label }: { active: boolean; current: boolean; label: string }) {

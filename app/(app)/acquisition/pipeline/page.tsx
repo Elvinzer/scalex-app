@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 
 import { AgentBanner } from "@/components/agent-banner";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getActiveClosers } from "@/lib/closers/queries";
 import type { ChatContext } from "@/lib/chat-context";
 import { getCurrentUser } from "@/lib/current-user";
 import { toIsoDate, todayUtc } from "@/lib/date-range";
@@ -43,9 +44,10 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
   previousFrom.setUTCDate(previousFrom.getUTCDate() - (rangeLengthDays - 1));
   const previousRange: DateRange = { from: toIsoDate(previousFrom), to: toIsoDate(previousTo) };
 
-  const [leads, setters, businessProfile, commentCounts] = await Promise.all([
+  const [leads, setters, closers, businessProfile, commentCounts] = await Promise.all([
     getLeads(accountId),
     getSetters(accountId),
+    getActiveClosers(accountId),
     getBusinessProfile(accountId),
     getCommentCounts(accountId),
   ]);
@@ -72,7 +74,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
           <Link href="/ventes/pipeline/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
             {t("dailyFunnel")} →
           </Link>
-          <NewLeadDialog offers={offers} setters={setters} />
+          <NewLeadDialog offers={offers} setters={setters} closers={closers} />
         </div>
       </div>
 
@@ -109,6 +111,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
             initialLeads={leads}
             offers={offers}
             setters={setters}
+            closers={closers}
             commentCounts={commentCounts}
             initialLeadId={targetLeadId}
           />

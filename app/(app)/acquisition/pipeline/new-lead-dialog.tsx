@@ -7,12 +7,13 @@ import { useState, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Offer } from "@/lib/business/types";
+import type { ActiveCloser } from "@/lib/closers/types";
 import { LEAD_SOURCES } from "@/lib/leads/types";
 import type { SetterRow } from "@/lib/setters/types";
 
 import { createLeadAction } from "./lead-actions";
 
-export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: SetterRow[] }) {
+export function NewLeadDialog({ offers, setters, closers }: { offers: Offer[]; setters: SetterRow[]; closers: ActiveCloser[] }) {
   const t = useTranslations("pipeline");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,11 +149,18 @@ export function NewLeadDialog({ offers, setters }: { offers: Offer[]; setters: S
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">{t("newLead.closerOptional")}</span>
-              <input
-                type="text"
+              <select
                 name="closer"
+                defaultValue={closers.find((closer) => closer.isOwner)?.name ?? closers[0]?.name ?? ""}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
-              />
+              >
+                <option value="">—</option>
+                {closers.map((closer) => (
+                  <option key={closer.id} value={closer.name}>
+                    {closer.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 

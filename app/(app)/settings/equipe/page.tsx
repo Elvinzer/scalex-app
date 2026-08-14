@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { getClosers } from "@/lib/closers/queries";
 import { requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
@@ -15,6 +16,7 @@ import { PERMISSION_KEYS } from "@/lib/team/permissions";
 import { AddSetterDialog } from "../../acquisition/setters/add-setter-dialog";
 import { SetterCard } from "../../acquisition/setters/setter-card";
 import { CreateRoleDialog } from "./create-role-dialog";
+import { CloserCard } from "./closer-card";
 import { InviteMemberDialog } from "./invite-member-dialog";
 import { MemberRow } from "./member-row";
 import { RoleCard } from "./role-card";
@@ -29,12 +31,13 @@ export default async function EquipePage() {
   const { accountId } = access;
 
   await ensureDefaultRoles(accountId);
-  const [members, roles, subscriptionActive, setters, businessProfile] = await Promise.all([
+  const [members, roles, subscriptionActive, setters, businessProfile, closers] = await Promise.all([
     getTeamMembers(accountId),
     getRoles(accountId),
     hasActiveTeamSubscription(accountId),
     getSetters(accountId),
     getBusinessProfile(accountId),
+    getClosers(accountId),
   ]);
   const setterSummaries = await computeSettersCommissions(accountId, setters, businessProfile.sales.offers);
 
@@ -103,6 +106,33 @@ export default async function EquipePage() {
           </tbody>
         </table>
       </div>
+
+      <section aria-labelledby="closers-section-title" className="flex flex-col gap-4 border-t border-border pt-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 id="closers-section-title" className="text-xl font-bold">{t("closersTitle")}</h2>
+            <p className="mt-1 max-w-2xl text-muted-foreground">{t("closersHelp")}</p>
+          </div>
+          {subscriptionActive && (
+            <InviteMemberDialog
+              roles={roles}
+              defaultRoleIds={roles.filter((role) => role.key === "closing").map((role) => role.id)}
+              trigger={
+                <Button type="button" variant="outline">
+                  <Plus className="size-4" />
+                  {t("addCloser")}
+                </Button>
+              }
+            />
+          )}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          {closers.map((closer) => (
+            <CloserCard key={closer.memberId ?? closer.userId} closer={closer} />
+          ))}
+        </div>
+      </section>
 
       <section aria-labelledby="setters-section-title" className="flex flex-col gap-4 border-t border-border pt-8">
         <div className="flex flex-wrap items-start justify-between gap-4">

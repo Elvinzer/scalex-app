@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import type { Offer } from "@/lib/business/types";
 import { generateSchedule } from "@/lib/sales/installments";
 import type { PaymentType, SaleRow } from "@/lib/sales/types";
+import type { ActiveCloser } from "@/lib/closers/types";
 import type { SetterRow } from "@/lib/setters/types";
 
 import { createSaleFromOrphan, saveSale } from "./actions";
@@ -16,9 +17,21 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function initialCloserSelection(sale: SaleRow | undefined, closers: ActiveCloser[]): string {
+  if (sale?.closer) {
+    const label = sale.closer.trim().toLocaleLowerCase();
+    const match = closers.find(
+      (closer) => closer.name.trim().toLocaleLowerCase() === label || closer.email.trim().toLocaleLowerCase() === label
+    );
+    return match?.id ?? sale.closer;
+  }
+  return closers.find((closer) => closer.isOwner)?.id ?? closers[0]?.id ?? "";
+}
+
 export function SaleFormDialog({
   offers,
   setters,
+  closers,
   sale,
   trigger,
   youtubeVideos = [],
@@ -26,6 +39,7 @@ export function SaleFormDialog({
 }: {
   offers: Offer[];
   setters: SetterRow[];
+  closers: ActiveCloser[];
   sale?: SaleRow;
   trigger: React.ReactNode;
   // Public YouTube videos, most recent first — the choices for "which video
@@ -50,6 +64,7 @@ export function SaleFormDialog({
   const [upsellOfferId, setUpsellOfferId] = useState(sale?.upsellOfferId ?? "");
   const [upsellAmount, setUpsellAmount] = useState<string>(sale?.upsellAmount !== null && sale?.upsellAmount !== undefined ? String(sale.upsellAmount) : "");
   const [setterId, setSetterId] = useState(sale?.setterId ?? "");
+  const [closerSelection, setCloserSelection] = useState(() => initialCloserSelection(sale, closers));
 
   const preview = useMemo(() => {
     if (paymentType !== "installments") return null;
@@ -92,7 +107,7 @@ export function SaleFormDialog({
               ? sale.installments
               : null,
       saleDate,
-      closer: String(formData.get("closer") ?? "") || null,
+      closer: closers.find((closer) => closer.id === closerSelection)?.name ?? (closerSelection || null),
       hasUpsell,
       upsellOfferId: hasUpsell ? upsellOfferId || null : null,
       upsellAmount: hasUpsell ? Number(upsellAmount) || 0 : null,
@@ -202,12 +217,21 @@ export function SaleFormDialog({
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">{t("closerOptional")}</span>
-              <input
-                type="text"
-                name="closer"
-                defaultValue={sale?.closer ?? ""}
+              <select
+                value={closerSelection}
+                onChange={(event) => setCloserSelection(event.target.value)}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
-              />
+              >
+                <option value="">—</option>
+                {sale?.closer && !closers.some((closer) => closer.id === closerSelection) && (
+                  <option value={sale.closer}>{sale.closer}</option>
+                )}
+                {closers.map((closer) => (
+                  <option key={closer.id} value={closer.id}>
+                    {closer.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 

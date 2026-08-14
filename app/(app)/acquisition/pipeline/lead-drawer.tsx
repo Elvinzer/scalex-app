@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { Offer } from "@/lib/business/types";
+import type { ActiveCloser } from "@/lib/closers/types";
 import { formatEur } from "@/lib/currency";
 import {
   LEAD_SOURCES,
@@ -26,12 +27,14 @@ export function LeadDrawer({
   lead,
   offers,
   setters,
+  closers,
   open,
   onOpenChange,
 }: {
   lead: LeadRow | null;
   offers: Offer[];
   setters: SetterRow[];
+  closers: ActiveCloser[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -234,12 +237,21 @@ export function LeadDrawer({
                 </label>
                 <label className="flex flex-col gap-1.5 text-sm">
                   <span className="text-muted-foreground">{t("closer")}</span>
-                  <input
-                    type="text"
+                  <select
                     defaultValue={lead.closer ?? ""}
-                    onBlur={(event) => handleFieldUpdate({ closer: event.target.value || null })}
+                    onChange={(event) => handleFieldUpdate({ closer: event.target.value || null })}
                     className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
-                  />
+                  >
+                    <option value="">—</option>
+                    {lead.closer && !closers.some((closer) => closer.name === lead.closer) && (
+                      <option value={lead.closer}>{lead.closer}</option>
+                    )}
+                    {closers.map((closer) => (
+                      <option key={closer.id} value={closer.name}>
+                        {closer.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
 
@@ -344,7 +356,7 @@ export function LeadDrawer({
       </DrawerContent>
       </Drawer>
       <LostReasonDialog leadId={lead.id} open={lostDialogOpen} onOpenChange={setLostDialogOpen} />
-      <SaleValidationDialog lead={lead} offers={offers} setters={setters} open={saleDialogOpen} onOpenChange={setSaleDialogOpen} />
+      <SaleValidationDialog lead={lead} offers={offers} setters={setters} closers={closers} open={saleDialogOpen} onOpenChange={setSaleDialogOpen} />
     </>
   );
 }

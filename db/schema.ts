@@ -1070,6 +1070,44 @@ const nativeCalendarConnectionReferenceAccess = (connectionId: AnyPgColumn, acco
       and connection.closer_user_id = ${closerUserId}
   ))`;
 
+// One account-level appearance row is shared by every native booking event.
+// Uploaded values are private Supabase Storage object paths, never public or
+// expiring URLs. The public route resolves them to short-lived signed URLs at
+// render time (lib/booking-page/queries.ts).
+export const bookingPageSettings = pgTable(
+  "booking_page_settings",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    theme: text("theme").$type<"light" | "dark">().notNull().default("dark"),
+    accentColor: text("accent_color").notNull().default("#e8663c"),
+    backgroundType: text("background_type").$type<"none" | "preset" | "upload">().notNull().default("none"),
+    backgroundKey: text("background_key"),
+    backgroundUrl: text("background_url"),
+    overlayOpacity: integer("overlay_opacity").notNull().default(40),
+    backgroundPosition: text("background_position").$type<"center" | "top" | "bottom">().notNull().default("center"),
+    logoUrl: text("logo_url"),
+    showCompanyName: boolean("show_company_name").notNull().default(true),
+    sideMediaType: text("side_media_type").$type<"none" | "image" | "video" | "embed">().notNull().default("none"),
+    sideMediaUrl: text("side_media_url"),
+    sideMediaCaption: text("side_media_caption"),
+    title: text("title"),
+    subtitle: text("subtitle"),
+    emoji: text("emoji"),
+    confirmationMessage: text("confirmation_message"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    pgPolicy("booking_page_settings_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ]
+).enableRLS();
+
 export const nativeBookingEvents = pgTable(
   "native_booking_events",
   {

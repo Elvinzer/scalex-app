@@ -14,6 +14,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import type { Offer } from "@/lib/business/types";
+import type { ActiveCloser } from "@/lib/closers/types";
 import { LEAD_STAGES, type LeadRow, type LeadStage } from "@/lib/leads/types";
 import type { SetterRow } from "@/lib/setters/types";
 import { cn } from "@/lib/utils";
@@ -81,12 +82,14 @@ export function KanbanBoard({
   initialLeads,
   offers,
   setters,
+  closers,
   commentCounts,
   initialLeadId,
 }: {
   initialLeads: LeadRow[];
   offers: Offer[];
   setters: SetterRow[];
+  closers: ActiveCloser[];
   commentCounts: Record<string, number>;
   initialLeadId: string | null;
 }) {
@@ -191,7 +194,7 @@ export function KanbanBoard({
         </DragOverlay>
       </DndContext>
 
-      <LeadDrawer lead={drawerLead} offers={offers} setters={setters} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} />
+      <LeadDrawer lead={drawerLead} offers={offers} setters={setters} closers={closers} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} />
 
       {lostDialogLeadId && (
         <LostReasonDialog
@@ -213,6 +216,7 @@ export function KanbanBoard({
           lead={saleDialogLead}
           offers={offers}
           setters={setters}
+          closers={closers}
           open
           onOpenChange={(open) => {
             if (!open) setSaleDialogLead(null);

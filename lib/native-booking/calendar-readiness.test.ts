@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isCalendarConfigurationComplete, type CalendarConfigurationReadiness } from "./calendar-readiness";
+import { isCalendarConfigurationComplete, isCalendarTemporarilyUnavailable, type CalendarConfigurationReadiness } from "./calendar-readiness";
 
 const connection = {
   provider: "google" as const,
@@ -31,5 +31,14 @@ describe("isCalendarConfigurationComplete", () => {
 
   it.each(incompleteStates)("rejects an incomplete setup: %s", (_label, overrides) => {
     expect(isCalendarConfigurationComplete(state(overrides))).toBe(false);
+  });
+});
+
+describe("isCalendarTemporarilyUnavailable", () => {
+  it("blocks booking only when a connected calendar cannot be read", () => {
+    expect(isCalendarTemporarilyUnavailable("calendar_unavailable")).toBe(true);
+    expect(isCalendarTemporarilyUnavailable("missing_target")).toBe(false);
+    expect(isCalendarTemporarilyUnavailable("missing_conflict")).toBe(false);
+    expect(isCalendarTemporarilyUnavailable(null)).toBe(false);
   });
 });

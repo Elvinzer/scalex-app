@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import type { SalesCallRow } from "@/lib/iclosed/calls";
+import type { ActiveCloser } from "@/lib/closers/types";
 import { CallContactActions } from "@/components/call-contact-actions";
 
 import { CallDetailDrawer } from "./call-detail-drawer";
@@ -13,33 +14,58 @@ import { AmountInput, CallResultSelect, TONE_DOT, TONE_TEXT, decisionUrgency, us
 export function CallsTable({
   calls,
   pendingDecisions,
+  closers,
   initialCallId,
 }: {
   calls: SalesCallRow[];
   pendingDecisions: SalesCallRow[];
+  closers: ActiveCloser[];
   initialCallId: string | null;
 }) {
   const t = useTranslations("app.calls");
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
+  const [closerFilter, setCloserFilter] = useState("");
+  const selectedCloserName = closers.find((closer) => closer.id === closerFilter)?.name ?? null;
+  const visibleCalls = closerFilter
+    ? calls.filter((call) => call.closerUserId === closerFilter || (call.closerUserId === null && call.closer === selectedCloserName))
+    : calls;
+  const visiblePendingDecisions = closerFilter
+    ? pendingDecisions.filter((call) => call.closerUserId === closerFilter || (call.closerUserId === null && call.closer === selectedCloserName))
+    : pendingDecisions;
   // A pending decision can sit outside the current period, so look it up across
   // both lists for the drawer.
   const selectedCall = selectedCallId
-    ? (calls.find((c) => c.id === selectedCallId) ??
-      pendingDecisions.find((c) => c.id === selectedCallId) ??
+    ? (visibleCalls.find((c) => c.id === selectedCallId) ??
+      visiblePendingDecisions.find((c) => c.id === selectedCallId) ??
       null)
     : null;
 
   useEffect(() => {
     if (!initialCallId) return;
-    const exists = calls.some((call) => call.id === initialCallId) || pendingDecisions.some((call) => call.id === initialCallId);
+    const exists = visibleCalls.some((call) => call.id === initialCallId) || visiblePendingDecisions.some((call) => call.id === initialCallId);
     if (exists) setSelectedCallId(initialCallId);
-  }, [calls, initialCallId, pendingDecisions]);
+  }, [initialCallId, visibleCalls, visiblePendingDecisions]);
 
   return (
     <>
       <div className="flex flex-col gap-4">
-        <PendingDecisions decisions={pendingDecisions} onOpen={setSelectedCallId} initialCallId={initialCallId} />
-        {calls.length === 0 ? (
+        {closers.length > 0 && (
+          <label className="flex w-full max-w-xs flex-col gap-1.5 text-sm">
+            <span className="text-xs font-bold text-muted-foreground">{t("filterCloser")}</span>
+            <select
+              value={closerFilter}
+              onChange={(event) => setCloserFilter(event.target.value)}
+              className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            >
+              <option value="">{t("allClosers")}</option>
+              {closers.map((closer) => (
+                <option key={closer.id} value={closer.id}>{closer.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <PendingDecisions decisions={visiblePendingDecisions} onOpen={setSelectedCallId} initialCallId={initialCallId} />
+        {visibleCalls.length === 0 ? (
           <div className="sticker-card-dashed p-6 text-center">
             <p className="text-sm font-bold">{t("emptyTitle")}</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -61,7 +87,7 @@ export function CallsTable({
                 </tr>
               </thead>
               <tbody>
-                {calls.map((call) => (
+                {visibleCalls.map((call) => (
                   <CallRow key={call.id} call={call} onOpenComments={setSelectedCallId} />
                 ))}
               </tbody>

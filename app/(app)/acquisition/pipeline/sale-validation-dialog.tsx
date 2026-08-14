@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { Offer } from "@/lib/business/types";
+import type { ActiveCloser } from "@/lib/closers/types";
 import { type LeadRow } from "@/lib/leads/types";
 import { generateSchedule } from "@/lib/sales/installments";
 import type { SetterRow } from "@/lib/setters/types";
@@ -24,12 +25,14 @@ export function SaleValidationDialog({
   lead,
   offers,
   setters,
+  closers,
   open,
   onOpenChange,
 }: {
   lead: LeadRow;
   offers: Offer[];
   setters: SetterRow[];
+  closers: ActiveCloser[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -41,7 +44,7 @@ export function SaleValidationDialog({
   const [selectedOfferId, setSelectedOfferId] = useState(lead.offerId ?? "");
   const [totalPrice, setTotalPrice] = useState<string>(String(lead.potentialValueEur || initialOffer?.price || ""));
   const [setterId, setSetterId] = useState(lead.setterId ?? "");
-  const [closer, setCloser] = useState(lead.closer ?? "");
+  const [closer, setCloser] = useState(lead.closer ?? closers.find((closer) => closer.isOwner)?.name ?? closers[0]?.name ?? "");
   const [saleDate, setSaleDate] = useState(today());
   const [paymentType, setPaymentType] = useState<"one_shot" | "installments">("one_shot");
   const [paymentMethod, setPaymentMethod] = useState<"stripe" | "virement">("virement");
@@ -159,12 +162,21 @@ export function SaleValidationDialog({
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">{t("saleValidation.closerOptional")}</span>
-              <input
-                type="text"
+              <select
                 value={closer}
                 onChange={(event) => setCloser(event.target.value)}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
-              />
+              >
+                <option value="">—</option>
+                {lead.closer && !closers.some((candidate) => candidate.name === lead.closer) && (
+                  <option value={lead.closer}>{lead.closer}</option>
+                )}
+                {closers.map((candidate) => (
+                  <option key={candidate.id} value={candidate.name}>
+                    {candidate.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 

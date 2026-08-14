@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { sales, salesCalls } from "@/db/schema";
 import { track } from "@/lib/analytics";
+import { getActiveCloser } from "@/lib/closers/queries";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { buildSaleInput } from "@/lib/iclosed/sale";
 import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
@@ -46,7 +47,7 @@ const manualCallSchema = z.object({
   inviteeEmail: z.string().email().nullable(),
   inviteePhone: z.string().trim().min(7, "Numéro de téléphone invalide").max(40, "Numéro de téléphone invalide").nullable(),
   scheduledAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide"),
-  closer: z.string().nullable(),
+  closerUserId: z.string().uuid().nullable(),
   setterId: z.string().uuid().nullable(),
   attendance: z.enum(["booked", "showed", "no_show", "cancelled"]),
 });
@@ -61,6 +62,9 @@ export async function createManualCallAction(data: unknown): Promise<{ error: st
   const parsed = manualCallSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
 
+  const closer = parsed.data.closerUserId ? await getActiveCloser(accountId, parsed.data.closerUserId) : null;
+  if (parsed.data.closerUserId && !closer) return { error: "Closer introuvable dans ton équipe." };
+
   await db.insert(salesCalls).values({
     userId: accountId,
     iclosedCallId: crypto.randomUUID(),
@@ -69,7 +73,8 @@ export async function createManualCallAction(data: unknown): Promise<{ error: st
     inviteeEmail: parsed.data.inviteeEmail,
     inviteePhone: parsed.data.inviteePhone,
     scheduledAt: new Date(`${parsed.data.scheduledAt}T12:00:00Z`),
-    closer: parsed.data.closer,
+    closer: closer?.name ?? null,
+    closerUserId: closer?.id ?? null,
     setterId: parsed.data.setterId,
     attendance: parsed.data.attendance,
   });

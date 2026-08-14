@@ -433,6 +433,90 @@
     color: #a84020;
   }
 
+  /* Public booking pages are branded by the account owner. The custom
+     properties are injected by the shared public component, so the editor
+     preview and the published page keep the exact same visual surface. */
+  .booking-public {
+    background-color: var(--booking-page-background, var(--canvas));
+    color: var(--booking-foreground, var(--foreground));
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+
+  .booking-public .sticker-card {
+    border-color: var(--booking-border, var(--border-value));
+    background: var(--booking-surface, var(--surface));
+    color: var(--booking-foreground, var(--foreground));
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.16);
+  }
+
+  .booking-public .public-booking-input,
+  .booking-public .bg-background,
+  .booking-public .bg-background\/70 {
+    border-color: var(--booking-border, var(--border-value));
+    background: var(--booking-surface, var(--surface));
+    color: var(--booking-foreground, var(--foreground));
+  }
+
+  .booking-public .bg-muted\/20,
+  .booking-public .bg-muted\/40,
+  .booking-public .bg-muted\/50 {
+    background: var(--booking-muted-surface, var(--muted));
+  }
+
+  .booking-public .border-border {
+    border-color: var(--booking-border, var(--border-value));
+  }
+
+  .booking-public .text-muted-foreground {
+    color: var(--booking-muted, var(--muted-foreground));
+  }
+
+  .booking-public .text-accent {
+    color: var(--booking-accent-readable, var(--booking-accent, var(--accent))) !important;
+  }
+
+  .booking-public .text-foreground {
+    color: var(--booking-foreground, var(--foreground));
+  }
+
+  .booking-public .text-state-healthy {
+    color: var(--booking-success, var(--state-healthy)) !important;
+  }
+
+  .booking-public .bg-accent\/5,
+  .booking-public .bg-accent\/10 {
+    background: color-mix(in srgb, var(--booking-accent, var(--accent)) 12%, transparent);
+  }
+
+  .booking-public .bg-accent {
+    background: var(--booking-accent, var(--accent));
+    color: var(--booking-accent-text, var(--text-on-dark));
+  }
+
+  .booking-public .text-primary-foreground {
+    color: var(--booking-accent-text, var(--text-on-dark));
+  }
+
+  .booking-public .public-booking-primary {
+    background: var(--booking-accent, var(--accent));
+    color: var(--booking-accent-text, var(--text-on-dark));
+  }
+
+  .booking-public .public-booking-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--booking-accent, var(--accent)) 84%, #000);
+  }
+
+  .booking-public .public-booking-input:focus-visible {
+    border-color: var(--booking-accent, var(--accent));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--booking-accent, var(--accent)) 22%, transparent);
+  }
+
+  .booking-public select,
+  .booking-public option {
+    background-color: var(--booking-surface, var(--surface));
+    color: var(--booking-foreground, var(--foreground));
+  }
+
   /* The dark "spotlight" surface that carries the headline figure
      (Dashboard's "manque à gagner", Diagnostic's "potentiel total", Mon
      business' progress header...) — now a soft gradient + faint accent

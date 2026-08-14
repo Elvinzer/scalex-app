@@ -32,6 +32,7 @@
   "noSales": "Aucune vente enregistrée pour l’instant",
   "firstSale": "Ajoute ta première vente ci-dessus.",
   "filterSetter": "Filtrer par setter",
+  "filterCloser": "Filtrer par closer",
   "all": "Tous",
   "paymentMethod": "Moyen de paiement",
   "transfer": "Virement",

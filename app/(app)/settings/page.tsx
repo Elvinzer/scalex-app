@@ -36,11 +36,12 @@ export default async function SettingsPage() {
 
   // storedLocale === null marks an account that predates the language choice:
   // it keeps French and gets the dismissable note, never a replayed onboarding.
-  const [resolvedLocale, storedLocale, tPreferences, tPage] = await Promise.all([
+  const [resolvedLocale, storedLocale, tPreferences, tPage, tBooking] = await Promise.all([
     getRequestLocale(),
     getStoredUserLocale(),
     getTranslations("settings.preferences"),
     getTranslations("settings.page"),
+    getTranslations("app.booking.customization"),
   ]);
 
   return (
@@ -78,6 +79,14 @@ export default async function SettingsPage() {
         <p className="mt-1 text-sm text-muted-foreground">{tPage("businessHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
           <Link href="/business" prefetch={true}>{tPage("editBusiness")}</Link>
+        </Button>
+      </div>
+
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">{tBooking("title")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tBooking("subtitle")}</p>
+        <Button asChild variant="outline" className="mt-4">
+          <Link href="/settings/reservation" prefetch={true}>{tBooking("preview")}</Link>
         </Button>
       </div>
 

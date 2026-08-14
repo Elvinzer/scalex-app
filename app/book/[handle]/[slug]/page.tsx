@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { CalendarX2 } from "lucide-react";
+import { after } from "next/server";
 
+import { track } from "@/lib/analytics";
 import { getPublicNativeBookingEvent } from "@/lib/native-booking/queries";
 
 import { PublicBookingPage } from "./public-booking-page";
@@ -30,6 +32,8 @@ export default async function PublicBookingRoute({ params }: { params: Promise<{
     );
   }
 
+  after(() => track("booking_page_viewed_public", event.userId, { event_id: event.id }));
+
   return (
     <PublicBookingPage
       event={{
@@ -47,6 +51,7 @@ export default async function PublicBookingRoute({ params }: { params: Promise<{
         confirmationMessage: event.confirmationMessage,
         bookingInstructions: event.bookingInstructions,
         questions: event.questions,
+        customization: event.customization,
       }}
     />
   );

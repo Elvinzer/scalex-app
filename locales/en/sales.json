@@ -32,6 +32,7 @@
   "noSales": "No sales recorded yet",
   "firstSale": "Add your first sale above.",
   "filterSetter": "Filter by setter",
+  "filterCloser": "Filter by closer",
   "all": "All",
   "paymentMethod": "Payment method",
   "transfer": "Bank transfer",

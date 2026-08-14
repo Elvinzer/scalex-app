@@ -13,6 +13,7 @@ import {
   type CalendarConnection,
   type CalendarOption,
 } from "./calendar";
+import type { CalendarConfigurationReason } from "./calendar-readiness";
 
 export type CalendarConfigurationState = {
   closerUserId: string;
@@ -21,7 +22,7 @@ export type CalendarConfigurationState = {
   conflictCalendars: Array<{ connection: CalendarConnection; calendarId: string }>;
   ready: boolean;
   unavailable: boolean;
-  reason: "missing_target" | "missing_conflict" | "calendar_unavailable" | null;
+  reason: CalendarConfigurationReason | null;
 };
 
 export type CalendarSettingsConnectionView = {

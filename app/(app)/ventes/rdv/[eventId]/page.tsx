@@ -1,18 +1,16 @@
-import { AlertCircle, ArrowLeft, CheckCircle2, ExternalLink } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, ExternalLink, Palette } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
-import { db } from "@/db";
-import { teamMembers, users } from "@/db/schema";
+import { getActiveClosers } from "@/lib/closers/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { getNativeBookingViewer } from "@/lib/native-booking/access";
 import { getNativeBookingEventDetail } from "@/lib/native-booking/queries";
 import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { generateBookingSlots } from "@/lib/native-booking/slots";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
-import { and, eq, or } from "drizzle-orm";
 
 import { EventStatusButton } from "../event-status-button";
 import { CopyLinkButton } from "../copy-link-button";
@@ -55,15 +53,11 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
     );
   }
 
-  const candidates = await db
-    .select({ id: users.id, displayName: users.displayName, email: users.email })
-    .from(users)
-    .leftJoin(
-      teamMembers,
-      and(eq(teamMembers.memberUserId, users.id), eq(teamMembers.accountId, accountId), eq(teamMembers.status, "active"))
-    )
-    .where(or(eq(users.id, accountId), eq(teamMembers.accountId, accountId)))
-    .orderBy(users.displayName, users.email);
+  const candidates = (await getActiveClosers(accountId)).map((closer) => ({
+    id: closer.id,
+    displayName: closer.name,
+    email: closer.email,
+  }));
 
   const isReady = detail.availability.length > 0 && detail.closers.some(({ assignment }) => assignment.isActive && !assignment.isOff);
   const previewSlots = generateBookingSlots({
@@ -88,6 +82,11 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
             <a href={publicUrl} target="_blank" rel="noreferrer">
               {t("preview")} <ExternalLink className="size-3.5" />
             </a>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href={`/settings/reservation?event=${detail.event.id}`}>
+              <Palette className="size-3.5" /> {t("customize")}
+            </Link>
           </Button>
           <CopyLinkButton url={publicUrl} />
           <details className="relative">

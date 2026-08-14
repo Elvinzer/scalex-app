@@ -12,6 +12,7 @@ import { PeriodFilter } from "@/components/period-filter";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
+import { getActiveClosers } from "@/lib/closers/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { getSalesCalls } from "@/lib/iclosed/calls";
 import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
@@ -54,7 +55,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
   const calendlyConnected = Boolean(user?.calendlyConnected);
   const anyConnected = iclosedConnected || calendlyConnected;
 
-  const [[iclosedConnection], [calendlyConnection], subscriptionActive, calls, setters, sales] = await Promise.all([
+  const [[iclosedConnection], [calendlyConnection], subscriptionActive, calls, setters, closers, sales] = await Promise.all([
     iclosedConnected
       ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
@@ -64,6 +65,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
     hasActiveSubscription(accountId),
     getSalesCalls(accountId),
     getSetters(accountId),
+    getActiveClosers(accountId),
     getSales(accountId),
   ]);
 
@@ -101,7 +103,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
             </Link>
           )}
           {(anyConnected || calls.length > 0) && <PeriodFilter current={period.key} />}
-          <ManualCallDialog setters={setters} />
+          <ManualCallDialog setters={setters} closers={closers} />
         </div>
       </div>
 
@@ -185,7 +187,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
         ))}
 
       {(anyConnected || calls.length > 0) && (
-        <CallsTable calls={periodCalls} pendingDecisions={pendingDecisions} initialCallId={targetCallId} />
+        <CallsTable calls={periodCalls} pendingDecisions={pendingDecisions} closers={closers} initialCallId={targetCallId} />
       )}
     </div>
   );

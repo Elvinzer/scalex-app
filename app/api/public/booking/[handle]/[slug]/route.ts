@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { and, eq, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
+import { track } from "@/lib/analytics";
 import { nativeBookingEvents, nativeBookings, users } from "@/db/schema";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { createNativeBooking, createNativeBookingHold } from "@/lib/native-booking/booking";
@@ -274,6 +275,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
     revalidateBusinessData(event.userId);
+    after(() => track("booking_completed", event.userId, { event_id: event.id }));
     return NextResponse.json({ booking: { ...result, startAt: result.startAt.toISOString(), endAt: result.endAt.toISOString() } });
   }
 

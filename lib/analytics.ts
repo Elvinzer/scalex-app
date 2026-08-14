@@ -95,6 +95,10 @@ export type AnalyticsEvent =
   | "sale_validated"
   | "setter_added"
   | "commission_pct_changed"
+  | "booking_page_customized"
+  | "booking_page_preset_background_used"
+  | "booking_page_viewed_public"
+  | "booking_completed"
   // Contenu insights (F1/F2) — see lib/youtube/attribution.ts.
   | "content_insights_viewed"
   | "video_attribution_declared"

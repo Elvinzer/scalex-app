@@ -28,6 +28,7 @@ import {
   type CalendarConnection,
 } from "./calendar";
 import { getCalendarStatesForClosers } from "./settings";
+import { isCalendarTemporarilyUnavailable } from "./calendar-readiness";
 import { validateNativeBookingAnswers } from "./questions";
 import { normalizeEmail, normalizePhone, sanitizeUtm, type PublicBookingRequest } from "./validation";
 import { scheduleNativeBookingNotification } from "./notifications";
@@ -159,7 +160,7 @@ async function createNativeBookingInternal(handle: string, slug: string, request
     calendarCandidates.map(async ({ closerUserId }) => {
       const state = calendarStates.get(closerUserId);
       if (!state) return;
-      if (state.unavailable) {
+      if (isCalendarTemporarilyUnavailable(state.reason)) {
         calendarUnavailable.add(closerUserId);
         return;
       }

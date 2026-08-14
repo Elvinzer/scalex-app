@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { Offer } from "@/lib/business/types";
+import type { ActiveCloser } from "@/lib/closers/types";
 import { displayInstallments, summarize } from "@/lib/sales/installments";
 import type { SaleRow } from "@/lib/sales/types";
 import { stripeDashboardChargeUrl } from "@/lib/stripe/dashboard-url";
@@ -20,6 +21,7 @@ export function SaleDetailDrawer({
   allSales,
   offers,
   setters,
+  closers,
   stripeConnection,
   open,
   onOpenChange,
@@ -28,6 +30,7 @@ export function SaleDetailDrawer({
   allSales: SaleRow[];
   offers: Offer[];
   setters: SetterRow[];
+  closers: ActiveCloser[];
   stripeConnection?: { accountId: string; livemode: boolean } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -74,7 +77,7 @@ export function SaleDetailDrawer({
         <div className="flex items-center justify-between border-b border-border p-5">
           <DrawerTitle className="text-lg font-bold">{sale.clientName}</DrawerTitle>
           <div className="flex items-center gap-1">
-            <SaleFormDialog offers={offers} setters={setters} sale={sale} trigger={<Button type="button" variant="outline" size="sm">{t("edit")}</Button>} />
+            <SaleFormDialog offers={offers} setters={setters} closers={closers} sale={sale} trigger={<Button type="button" variant="outline" size="sm">{t("edit")}</Button>} />
             <DrawerClose asChild>
               <Button type="button" variant="ghost" size="icon-sm" aria-label={t("close")}>
                 ×
@@ -124,6 +127,7 @@ export function SaleDetailDrawer({
                 <SaleFormDialog
                   offers={offers}
                   setters={setters}
+                  closers={closers}
                   sale={sale}
                   trigger={<Button type="button" variant="outline" size="sm">{t("createSale")}</Button>}
                 />
