@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { Plus } from "lucide-react";
+import { Check, Circle, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import type { PermissionKey } from "@/lib/team/permissions";
+import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/team/permissions";
 
 import { createRole } from "./actions";
 
@@ -67,29 +67,45 @@ export function CreateRoleDialog({
           </label>
 
           <div className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">{t("access")}</span>
-            <div className="flex flex-wrap gap-2">
-              {permissionOptions.map((option) => {
-                const active = selected.includes(option.key);
-                return (
-                  <button
-                    key={option.key}
-                    type="button"
-                    onClick={() => toggle(option.key)}
-                    className={
-                      active
-                        ? "rounded-full border border-accent-border bg-accent-soft px-3 py-1.5 text-sm font-bold text-accent-text"
-                        : "rounded-full border border-border bg-background px-3 py-1.5 text-sm font-bold text-muted-foreground hover:border-accent-border"
-                    }
-                  >
-                    {t(`permission.${permissionKey(option.key)}`)}
-                  </button>
-                );
-              })}
+            <span className="font-bold">{t("access")}</span>
+            <span className="text-muted-foreground">{t("accessHelp")}</span>
+            <span className="text-xs font-bold text-muted-foreground" aria-live="polite">
+              {t("permissionSummary", { count: selected.length, total: permissionOptions.length })}
+            </span>
+            <div className="mt-2 grid gap-3">
+              {PERMISSION_GROUPS.map((group) => (
+                <fieldset key={group.key} className="min-w-0 rounded-[var(--radius-control)] border border-border bg-muted/20 p-3">
+                  <legend className="px-1 text-sm font-bold">{t(`permissionGroup.${group.key}`)}</legend>
+                  <p className="mt-1 text-xs text-muted-foreground">{t(`permissionGroupHelp.${group.key}`)}</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {permissionOptions
+                      .filter((option) => group.permissions.some((permission) => permission === option.key))
+                      .map((option) => {
+                        const active = selected.includes(option.key);
+                        return (
+                          <button
+                            key={option.key}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => toggle(option.key)}
+                            className={
+                              active
+                                ? "flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-left text-sm font-bold text-accent-text transition-colors duration-200 hover:bg-accent-soft/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/25"
+                                : "flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-left text-sm font-bold text-foreground transition-colors duration-200 hover:border-accent-border hover:bg-accent-soft/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/25"
+                            }
+                          >
+                            {active ? <Check className="size-4 shrink-0" aria-hidden="true" /> : <Circle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                            <span className="min-w-0">{t(`permission.${permissionKey(option.key)}`)}</span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </fieldset>
+              ))}
             </div>
           </div>
 
-          {error && <p className="text-sm text-state-critical">{error}</p>}
+          {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
             {isPending ? t("creating") : t("createRole")}

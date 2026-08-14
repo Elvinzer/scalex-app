@@ -95,6 +95,13 @@ function numberLabel(value: number, locale: string): string {
   return new Intl.NumberFormat(locale === "en" ? "en-US" : "fr-FR", { maximumFractionDigits: 0 }).format(value);
 }
 
+function weeklyDeltaLabel(
+  label: string | null,
+  translate: (key: string, values?: Record<string, string | number>) => string,
+): string | null {
+  return label?.replace("vs semaine précédente", translate("weekly.previousWeek")) ?? null;
+}
+
 function contentTitle(action: JournalActionCandidate): string {
   return action.title.replace(/^Tourne la vidéo « /, "").replace(/ »$/, "");
 }
@@ -125,6 +132,13 @@ function actionTitle(
   if (action.type === "lead_reminder") return translate("actionTitles.followUp", { name: leadName(action) });
   if (action.type === "content") return translate("actionTitles.content", { title: contentTitle(action) });
   if (action.type === "data_checkin") return translate("actionTitles.checkin");
+  if (action.type === "lever") {
+    try {
+      return translate(`actionTitles.levers.${action.sourceId}`);
+    } catch {
+      return translate("actionTitles.leverFallback");
+    }
+  }
   return action.title;
 }
 
@@ -686,7 +700,7 @@ function WeeklySummary({
             <div key={stat.key} className="rounded-[var(--radius-control)] bg-surface-sunken p-3">
               <p className="text-[11px] font-bold text-muted-foreground">{translate(`weekly.stats.${stat.key}`)}</p>
               <p className="mt-1 text-base font-bold tabular-nums">{stat.valueLabel}</p>
-              <Delta direction={stat.deltaDirection} label={stat.deltaLabel} />
+              <Delta direction={stat.deltaDirection} label={weeklyDeltaLabel(stat.deltaLabel, translate)} />
             </div>
           ))}
           <div className="rounded-[var(--radius-control)] bg-surface-sunken p-3">

@@ -35,6 +35,37 @@ export const PERMISSION_KEYS = [
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
+export const PERMISSION_GROUPS = [
+  {
+    key: "overview",
+    permissions: ["dashboard", "funnel", "datas", "diagnostic", "business"],
+  },
+  {
+    key: "acquisition",
+    permissions: [
+      "acquisition:contenu",
+      "acquisition:setting",
+      "acquisition:ads",
+      "acquisition:mail",
+      "acquisition:pipeline",
+      "acquisition:setters",
+    ],
+  },
+  {
+    key: "sales",
+    permissions: [
+      "ventes:suivi",
+      "ventes:videos",
+      "ventes:rdv",
+      "ventes:closing",
+      "ventes:appels",
+      "ventes:upsell",
+    ],
+  },
+] as const satisfies readonly { key: string; permissions: readonly PermissionKey[] }[];
+
+export type PermissionGroup = (typeof PERMISSION_GROUPS)[number];
+
 export function isPermissionKey(value: string): value is PermissionKey {
   return (PERMISSION_KEYS as readonly string[]).includes(value);
 }

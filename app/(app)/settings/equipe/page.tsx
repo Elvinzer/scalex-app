@@ -135,11 +135,12 @@ export default async function EquipePage() {
         <CreateRoleDialog permissionOptions={PERMISSION_OPTIONS} />
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="grid gap-4 lg:grid-cols-2">
         {roles.map((role) => (
           <RoleCard
             key={role.id}
             role={{ id: role.id, name: role.name, permissions: role.permissions as string[], isDefault: role.isDefault }}
+            memberCount={members.filter((member) => member.roles.some((assignedRole) => assignedRole.id === role.id)).length}
             permissionOptions={PERMISSION_OPTIONS}
           />
         ))}

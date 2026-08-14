@@ -35,7 +35,30 @@
     "bottleneck": "Improve {label}",
     "followUp": "Follow up with {name}",
     "content": "Publish content about “{title}”",
-    "checkin": "Enter your numbers"
+    "checkin": "Enter your numbers",
+    "leverFallback": "Work on this lever",
+    "levers": {
+      "lead_magnet": "Choose the format and topic",
+      "email_marketing": "Choose an email marketing tool",
+      "newsletter": "Choose a sustainable cadence",
+      "seo_blog": "Identify 5 to 10 questions your prospects ask",
+      "podcast": "Define the format and frequency",
+      "retargeting": "Install the tracking pixel",
+      "referral": "Define when to ask for referrals",
+      "ads": "Define the offer and test budget",
+      "vsl": "Write the script",
+      "webinar": "Define the promise and topic",
+      "sequence_relance_non_acheteurs": "List the most common objections",
+      "order_bump": "Choose a low-priced add-on",
+      "downsell": "Identify price or commitment objections",
+      "garantie": "Choose the type of guarantee",
+      "preuve_sociale_page": "Gather your existing testimonials",
+      "upsell_ascension": "Choose the supporting offer",
+      "onboarding_structure": "List the questions new customers ask",
+      "collecte_temoignages_systematique": "Choose when to ask for testimonials",
+      "communaute_clients": "Choose the platform",
+      "reactivation_anciens_clients": "List inactive past customers"
+    }
   },
   "origins": {
     "bottleneck": "From your {label} bottleneck",
@@ -157,6 +180,7 @@
     "subtitle": "Real numbers from your latest report, without rebuilding the dashboard.",
     "actionsDone": "Actions done",
     "thisWeek": "this week",
+    "previousWeek": "vs previous week",
     "stats": {
       "ca_contracte": "Contracted revenue",
       "nouveaux_clients": "New clients",

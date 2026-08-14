@@ -35,7 +35,30 @@
     "bottleneck": "Améliore {label}",
     "followUp": "Relance {name}",
     "content": "Publie un contenu sur « {title} »",
-    "checkin": "Renseigne tes chiffres"
+    "checkin": "Renseigne tes chiffres",
+    "leverFallback": "Travaille ce levier",
+    "levers": {
+      "lead_magnet": "Choisir le format et le sujet",
+      "email_marketing": "Choisir un outil d’emailing",
+      "newsletter": "Choisir une cadence tenable",
+      "seo_blog": "Identifier 5-10 questions que se posent tes prospects",
+      "podcast": "Définir le format et la fréquence",
+      "retargeting": "Installer le pixel de tracking (Meta ou Google)",
+      "referral": "Définir le moment où tu demandes",
+      "ads": "Définir l’offre et le budget test",
+      "vsl": "Écrire le script (Falco peut t’aider)",
+      "webinar": "Définir la promesse et le sujet",
+      "sequence_relance_non_acheteurs": "Lister les objections les plus fréquentes",
+      "order_bump": "Choisir un complément à petit prix",
+      "downsell": "Repérer les refus liés au prix ou à l’engagement",
+      "garantie": "Choisir le type de garantie",
+      "preuve_sociale_page": "Rassembler tes témoignages existants",
+      "upsell_ascension": "Choisir l’offre support (celle que tu vends déjà)",
+      "onboarding_structure": "Lister les questions que posent tes nouveaux clients",
+      "collecte_temoignages_systematique": "Choisir le moment de la demande",
+      "communaute_clients": "Choisir la plateforme",
+      "reactivation_anciens_clients": "Lister tes anciens clients inactifs"
+    }
   },
   "origins": {
     "bottleneck": "Vient de ton goulot {label}",
@@ -157,6 +180,7 @@
     "subtitle": "Les chiffres réels de ton dernier rapport, sans refaire tout le dashboard.",
     "actionsDone": "Actions faites",
     "thisWeek": "cette semaine",
+    "previousWeek": "vs semaine précédente",
     "stats": {
       "ca_contracte": "CA contracté",
       "nouveaux_clients": "Nouveaux clients",
