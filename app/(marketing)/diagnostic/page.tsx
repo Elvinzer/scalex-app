@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
+import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { getPublicSiteUrl } from "@/lib/seo/site";
 
-import { FreeDiagnosticFlow } from "./free-diagnostic-flow";
+import { GrowthDiagnostic } from "../growth-diagnostic";
 import { SiteHeader } from "../site-header";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("freeDiagnostic");
+  const t = await getTranslations("growthDiagnostic");
   return {
     title: t("metadata.title"),
     description: t("metadata.description"),
@@ -24,11 +25,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function FreeDiagnosticPage() {
+export default async function FreeDiagnosticPage() {
+  const benchmarks = await getDiagnosticBenchmarks(null);
+
   return (
     <div className="bg-dot-grid min-h-screen bg-white">
       <SiteHeader />
-      <FreeDiagnosticFlow />
+      <main className="px-4 py-8 sm:px-8 sm:py-12 lg:px-12 lg:py-16">
+        <GrowthDiagnostic benchmarks={benchmarks} fullPage />
+      </main>
     </div>
   );
 }

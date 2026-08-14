@@ -45,7 +45,7 @@ export function HeroSection() {
         <div className="relative mx-auto w-full max-w-[580px] pt-6 pb-10 lg:pt-0">
           <div
             aria-hidden
-            className="absolute -bottom-6 left-1/2 size-56 -translate-x-1/2 rounded-full bg-accent/15 blur-3xl"
+            className="pointer-events-none absolute -bottom-6 left-1/2 size-56 -translate-x-1/2 rounded-full bg-accent/15 blur-3xl"
           />
           <DashboardMockup ariaLabel={t("hero.mockupAlt")} />
           <Falco
@@ -53,7 +53,7 @@ export function HeroSection() {
             size="xl"
             animate="enter"
             priority
-            className="absolute -bottom-10 -left-6 w-[110px] drop-shadow-[0_16px_28px_rgba(0,0,0,0.18)] sm:-left-20 sm:w-[150px] lg:-left-36 lg:w-[180px]"
+            className="pointer-events-none absolute -bottom-10 -left-6 w-[110px] drop-shadow-[0_16px_28px_rgba(0,0,0,0.18)] sm:-left-20 sm:w-[150px] lg:-left-36 lg:w-[180px]"
           />
         </div>
       </div>
