@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CalendarX2 } from "lucide-react";
 import { after } from "next/server";
+import { getTranslations } from "next-intl/server";
 
 import { track } from "@/lib/analytics";
 import { getPublicNativeBookingEvent } from "@/lib/native-booking/queries";
@@ -33,6 +34,7 @@ export default async function PublicBookingRoute({ params }: { params: Promise<{
   }
 
   after(() => track("booking_page_viewed_public", event.userId, { event_id: event.id }));
+  const t = await getTranslations("app.booking");
 
   return (
     <PublicBookingPage
@@ -52,6 +54,11 @@ export default async function PublicBookingRoute({ params }: { params: Promise<{
         bookingInstructions: event.bookingInstructions,
         questions: event.questions,
         customization: event.customization,
+      }}
+      copy={{
+        confirmationInProgress: t("confirmationInProgress"),
+        bookingVerificationInProgress: t("bookingVerificationInProgress"),
+        bookingVerificationFailed: t("bookingVerificationFailed"),
       }}
     />
   );

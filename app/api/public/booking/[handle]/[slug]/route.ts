@@ -1,19 +1,20 @@
 import { after, NextResponse, type NextRequest } from "next/server";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { track } from "@/lib/analytics";
 import { nativeBookingEvents, nativeBookings, users } from "@/db/schema";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
-import { createNativeBooking, createNativeBookingHold } from "@/lib/native-booking/booking";
+import { createNativeBooking, createNativeBookingHold, scheduleNativeBookingSideEffects } from "@/lib/native-booking/booking";
 import { cancelNativeBookingByToken, getPublicNativeBookingRescheduleSlots, rescheduleNativeBookingByToken } from "@/lib/native-booking/mutations";
 import { getPublicNativeBookingEvent, getPublicNativeBookingSlots, hasFutureNativeBooking } from "@/lib/native-booking/queries";
 import { touchPublicBookingLead, upsertPublicBookingLead } from "@/lib/native-booking/leads";
 import { validateNativeBookingAnswers } from "@/lib/native-booking/questions";
 import { hashBookingManagementToken } from "@/lib/native-booking/tokens";
-import { bookingManagementTokenSchema, normalizePhone, publicBookingCancelSchema, publicBookingRequestSchema, publicBookingRescheduleSchema, publicBookingRescheduleSlotsSchema, publicBookingRouteSchema, publicQualificationSchema, publicLeadCaptureSchema, publicLeadTouchSchema, publicPhoneStageSchema, sanitizeUtm } from "@/lib/native-booking/validation";
+import { bookingIdempotencyKeySchema, bookingManagementTokenSchema, normalizePhone, publicBookingCancelSchema, publicBookingRequestSchema, publicBookingRescheduleSchema, publicBookingRescheduleSlotsSchema, publicBookingRouteSchema, publicQualificationSchema, publicLeadCaptureSchema, publicLeadTouchSchema, publicPhoneStageSchema, sanitizeUtm } from "@/lib/native-booking/validation";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
+import { decrypt } from "@/lib/crypto";
 
 type RouteContext = { params: Promise<{ handle: string; slug: string }> };
 
@@ -25,6 +26,43 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { handle, slug } = await context.params;
   if (isRateLimited("native-booking-manage:" + getClientIp(request) + ":" + handle + ":" + slug, 60, 60_000)) {
     return jsonError("Trop de demandes. Réessaie dans un instant.", 429, "rate_limited");
+  }
+  const rawIdempotencyKey = request.nextUrl.searchParams.get("idempotencyKey")?.trim() ?? "";
+  if (rawIdempotencyKey) {
+    const parsedIdempotencyKey = bookingIdempotencyKeySchema.safeParse(rawIdempotencyKey);
+    if (!parsedIdempotencyKey.success) return jsonError("Clé de réservation invalide.", 400, "invalid_idempotency_key");
+
+    const owner = alias(users, "owner");
+    const [booking] = await db
+      .select({ booking: nativeBookings, event: nativeBookingEvents, closer: users })
+      .from(nativeBookings)
+      .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
+      .innerJoin(owner, eq(owner.id, nativeBookingEvents.userId))
+      .leftJoin(users, eq(nativeBookings.closerUserId, users.id))
+      .where(
+        and(
+          eq(owner.bookingHandle, handle),
+          eq(nativeBookingEvents.slug, slug),
+          eq(nativeBookings.idempotencyKey, parsedIdempotencyKey.data),
+          inArray(nativeBookings.status, ["confirmed", "sync_failed"]),
+        ),
+      )
+      .limit(1);
+
+    if (!booking) return NextResponse.json({ booking: null }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(
+      {
+        booking: {
+          startAt: booking.booking.startAt.toISOString(),
+          endAt: booking.booking.endAt.toISOString(),
+          closerName: booking.closer?.displayName || booking.closer?.email || "ton closer",
+          meetingUrl: booking.booking.meetingUrl ?? booking.event.meetingUrl,
+          cancellationToken: booking.booking.cancellationTokenEncrypted ? decrypt(booking.booking.cancellationTokenEncrypted) : null,
+          rescheduleToken: booking.booking.rescheduleTokenEncrypted ? decrypt(booking.booking.rescheduleTokenEncrypted) : null,
+        },
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
   const rawRescheduleToken = request.nextUrl.searchParams.get("manage")?.trim() ?? "";
   const rawCancellationToken = request.nextUrl.searchParams.get("cancel")?.trim() ?? "";
@@ -260,7 +298,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return jsonError("Tu as déjà un rendez-vous à venir. Tu ne peux pas en réserver un second pour le moment.", 409, "existing_booking");
       }
       if (result.error === "slot_unavailable") return jsonError("Ce créneau vient d’être pris. Choisis-en un autre.", 409, "slot_unavailable");
-      if (result.error === "calendar_pending") return jsonError("La réservation n’a pas pu être confirmée. Réessaie.", 409, "calendar_pending");
       return jsonError("La réservation n’a pas pu être confirmée. Réessaie.", 500, "booking_failed");
     }
     if (mode === "hold") {
@@ -274,8 +311,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
         },
       });
     }
+    if (!("bookingId" in result)) return jsonError("La réservation n’a pas pu être confirmée. Réessaie.", 500, "booking_failed");
     revalidateBusinessData(event.userId);
-    after(() => track("booking_completed", event.userId, { event_id: event.id }));
+    after(async () => {
+      await Promise.allSettled([
+        scheduleNativeBookingSideEffects(result.bookingId),
+        Promise.resolve(track("booking_completed", event.userId, { event_id: event.id })),
+      ]);
+    });
     return NextResponse.json({ booking: { ...result, startAt: result.startAt.toISOString(), endAt: result.endAt.toISOString() } });
   }
 

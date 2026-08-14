@@ -154,6 +154,32 @@ export async function createNativeBookingEventAction(input: unknown): Promise<Ac
   }
 }
 
+export async function deleteNativeBookingEventAction(input: unknown): Promise<ActionResult> {
+  const access = await getBookingAccess();
+  if (isActionError(access)) return { error: "delete_event_failed" };
+  const managementError = requireAccountWideBookingAccess(access);
+  if (managementError) return { error: "delete_event_failed" };
+
+  const parsed = eventActionSchema.safeParse(input);
+  if (!parsed.success) return { error: "delete_event_failed" };
+
+  try {
+    const [deleted] = await db
+      .delete(nativeBookingEvents)
+      .where(and(eq(nativeBookingEvents.id, parsed.data.eventId), eq(nativeBookingEvents.userId, access.accountId)))
+      .returning({ id: nativeBookingEvents.id });
+    if (!deleted) return { error: "delete_event_failed" };
+
+    revalidatePath("/ventes/rdv");
+    revalidatePath(`/ventes/rdv/${parsed.data.eventId}`);
+    revalidateBusinessData(access.accountId);
+    return { error: null };
+  } catch (error) {
+    console.error("[native-booking] delete event", error);
+    return { error: "delete_event_failed" };
+  }
+}
+
 export async function updateBookingHandleAction(input: unknown): Promise<ActionResult> {
   const access = await getBookingAccess();
   if (isActionError(access)) return access;

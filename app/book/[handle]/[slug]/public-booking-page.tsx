@@ -136,6 +136,10 @@ function getDraftKey(slug: string) {
   return `native-booking-draft:${slug}`;
 }
 
+function getBookingKeyStorageKey(slug: string) {
+  return `native-booking-idempotency:${slug}`;
+}
+
 function getUtmMetadata() {
   const params = new URLSearchParams(window.location.search);
   const tracking = getBrowserMetaTracking();
@@ -154,7 +158,61 @@ function getUtmMetadata() {
 
 type BookingPageStyle = CSSProperties & Record<string, string | number | undefined>;
 
-export function PublicBookingPage({ event, preview = false }: { event: PublicEvent; preview?: boolean }) {
+export type PublicBookingCopy = {
+  confirmationInProgress: string;
+  bookingVerificationInProgress: string;
+  bookingVerificationFailed: string;
+};
+
+type BookingConfirmation = {
+  startAt: string;
+  endAt: string;
+  closerName: string;
+  meetingUrl: string | null;
+  cancellationToken: string | null;
+  rescheduleToken: string | null;
+  calendarSyncWarning?: boolean;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function bookingConfirmationFromPayload(payload: unknown): BookingConfirmation | null {
+  if (!isRecord(payload) || !isRecord(payload.booking)) return null;
+  const booking = payload.booking;
+  if (
+    typeof booking.startAt !== "string" ||
+    typeof booking.endAt !== "string" ||
+    typeof booking.closerName !== "string" ||
+    !(typeof booking.meetingUrl === "string" || booking.meetingUrl === null) ||
+    !(typeof booking.cancellationToken === "string" || booking.cancellationToken === null) ||
+    !(typeof booking.rescheduleToken === "string" || booking.rescheduleToken === null)
+  ) return null;
+  return {
+    startAt: booking.startAt,
+    endAt: booking.endAt,
+    closerName: booking.closerName,
+    meetingUrl: booking.meetingUrl,
+    cancellationToken: booking.cancellationToken,
+    rescheduleToken: booking.rescheduleToken,
+    ...(typeof booking.calendarSyncWarning === "boolean" ? { calendarSyncWarning: booking.calendarSyncWarning } : {}),
+  };
+}
+
+function errorFromPayload(payload: unknown, fallback: string): string {
+  return isRecord(payload) && typeof payload.error === "string" ? payload.error : fallback;
+}
+
+async function readJson(response: Response): Promise<unknown> {
+  return response.json().catch(() => null);
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+export function PublicBookingPage({ event, preview = false, copy }: { event: PublicEvent; preview?: boolean; copy: PublicBookingCopy }) {
   const [stage, setStage] = useState<Stage>(() => (preview ? 4 : 1));
   const [contact, setContact] = useState<Contact>(EMPTY_CONTACT);
   const [countryCode, setCountryCode] = useState<CountryCode>("FR");
@@ -169,18 +227,11 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
   const [referrer, setReferrer] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>(() => (preview ? PREVIEW_SLOTS : []));
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-  const [confirmation, setConfirmation] = useState<null | {
-    startAt: string;
-    endAt: string;
-    closerName: string;
-    meetingUrl: string | null;
-    cancellationToken: string | null;
-    rescheduleToken: string | null;
-    calendarSyncWarning?: boolean;
-  }>(null);
+  const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [isHolding, setIsHolding] = useState(false);
   const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
   const [manageSlots, setManageSlots] = useState<Slot[]>([]);
@@ -254,6 +305,11 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
 
     const sessionKey = `native-booking-session:${window.location.pathname}`;
     if (!window.sessionStorage.getItem(sessionKey)) window.sessionStorage.setItem(sessionKey, crypto.randomUUID());
+    const idempotencyStorageKey = getBookingKeyStorageKey(event.slug);
+    const storedBookingKey = window.sessionStorage.getItem(idempotencyStorageKey);
+    const nextBookingKey = storedBookingKey || crypto.randomUUID();
+    if (!storedBookingKey) window.sessionStorage.setItem(idempotencyStorageKey, nextBookingKey);
+    setBookingKey(nextBookingKey);
     const rawDraft = window.sessionStorage.getItem(getDraftKey(event.slug));
     const manageToken = params.get("manage") ?? params.get("cancel");
     if (manageToken) {
@@ -536,13 +592,41 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
     }
   }
 
+  function ensureBookingKey(): string {
+    const storageKey = getBookingKeyStorageKey(event.slug);
+    const storedKey = window.sessionStorage.getItem(storageKey);
+    const nextKey = bookingKey || storedKey || crypto.randomUUID();
+    window.sessionStorage.setItem(storageKey, nextKey);
+    setBookingKey(nextKey);
+    return nextKey;
+  }
+
+  async function verifyBooking(idempotencyKey: string): Promise<BookingConfirmation | null> {
+    try {
+      const params = new URLSearchParams({ idempotencyKey });
+      const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}?${params.toString()}`, { cache: "no-store" });
+      const payload = await readJson(response);
+      return response.ok ? bookingConfirmationFromPayload(payload) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function waitForBooking(idempotencyKey: string): Promise<BookingConfirmation | null> {
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const booking = await verifyBooking(idempotencyKey);
+      if (booking) return booking;
+      if (attempt < 5) await wait(1000);
+    }
+    return null;
+  }
+
   async function holdSlot(slot: Slot) {
     setError(null);
     setSelectedSlot(slot);
     setHoldExpiresAt(null);
     setIsHolding(true);
-    const idempotencyKey = bookingKey || crypto.randomUUID();
-    setBookingKey(idempotencyKey);
+    const idempotencyKey = ensureBookingKey();
     try {
       const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
@@ -568,28 +652,64 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
 
   async function confirmBooking() {
     if (!selectedSlot) return;
-    const idempotencyKey = bookingKey || crypto.randomUUID();
-    setBookingKey(idempotencyKey);
+    const idempotencyKey = ensureBookingKey();
     setError(null);
     setIsPending(true);
+    setIsConfirming(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
     try {
       const response = await fetch(`/api/public/booking/${event.handle}/${event.slug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ mode: "book", ...buildContactPayload(), answers, guestTimeZone, startAt: selectedSlot.startAt, idempotencyKey, leadId, utm, landingPage, referrer, linkId, metaTouchpointToken: getUtmMetadata().metaTouchpointToken ?? metaTouchpointToken }),
       });
-      const payload = await response.json();
+      const payload = await readJson(response);
+      window.clearTimeout(timeout);
+      const booking = bookingConfirmationFromPayload(payload);
       if (!response.ok) {
-        setError(payload.error ?? "Ce créneau n’est plus disponible.");
+        if (response.status >= 500) {
+          const verified = await waitForBooking(idempotencyKey);
+          if (verified) {
+            setConfirmation(verified);
+            window.sessionStorage.removeItem(getDraftKey(event.slug));
+            window.sessionStorage.removeItem(getBookingKeyStorageKey(event.slug));
+            return;
+          }
+        }
+        setError(errorFromPayload(payload, "Ce créneau n’est plus disponible."));
         void touchLead("booking_failed", selectedSlot);
-        if (payload.code === "slot_unavailable") setSlots((current) => current.filter((slot) => slot.startAt !== selectedSlot.startAt));
+        if (isRecord(payload) && payload.code === "slot_unavailable") setSlots((current) => current.filter((slot) => slot.startAt !== selectedSlot.startAt));
         return;
       }
-      setConfirmation(payload.booking);
+      if (!booking) {
+        const verified = await waitForBooking(idempotencyKey);
+        if (!verified) {
+          setError(copy.bookingVerificationFailed);
+          void touchLead("booking_failed", selectedSlot);
+          return;
+        }
+        setConfirmation(verified);
+      } else {
+        setConfirmation(booking);
+      }
       window.sessionStorage.removeItem(getDraftKey(event.slug));
-    } catch {
-      setError("La réservation n’a pas pu être confirmée. Réessaie.");
+      window.sessionStorage.removeItem(getBookingKeyStorageKey(event.slug));
+    } catch (cause: unknown) {
+      window.clearTimeout(timeout);
+      const isTimeout = cause instanceof Error && cause.name === "AbortError";
+      const verified = await waitForBooking(idempotencyKey);
+      if (verified) {
+        setConfirmation(verified);
+        window.sessionStorage.removeItem(getDraftKey(event.slug));
+        window.sessionStorage.removeItem(getBookingKeyStorageKey(event.slug));
+      } else {
+        setError(isTimeout ? copy.bookingVerificationFailed : "La réservation n’a pas pu être confirmée. Réessaie.");
+        void touchLead("booking_failed", selectedSlot);
+      }
     } finally {
+      setIsConfirming(false);
       setIsPending(false);
     }
   }
@@ -676,9 +796,9 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
   if (confirmation) {
     const icsHref = confirmation.rescheduleToken ? `/api/public/booking/${event.handle}/${event.slug}/ics?token=${encodeURIComponent(confirmation.rescheduleToken)}` : null;
     return (
-      <PublicRoot className="public-booking-page booking-public min-h-screen px-4 py-8 sm:px-6 sm:py-12" style={pageStyle} data-theme={customization.theme}>
-        <div className="mx-auto flex max-w-3xl flex-col gap-6">
-          <div className="sticker-card flex flex-col items-center gap-4 p-8 text-center sm:p-12">
+      <PublicRoot className="public-booking-page booking-public booking-public-shell" style={pageStyle} data-theme={customization.theme}>
+        <div className="booking-public-container booking-public-confirmation-container mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-4">
+          <div className="booking-public-confirmation-card sticker-card flex min-h-0 flex-col items-center gap-4 overflow-y-auto p-6 text-center sm:p-10">
             <BookingBrand customization={customization} />
             <div className="flex size-14 items-center justify-center rounded-full bg-state-healthy-bg text-state-healthy"><ShieldCheck className="size-7" /></div>
             <div>
@@ -729,8 +849,8 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
 
   if (managementMode === "loading") {
     return (
-      <PublicRoot className="public-booking-page booking-public flex min-h-screen items-center justify-center px-4 py-10" style={pageStyle} data-theme={customization.theme}>
-        <div className="sticker-card max-w-md p-8 text-center" role="status" aria-live="polite">
+      <PublicRoot className="public-booking-page booking-public booking-public-shell booking-public-centered" style={pageStyle} data-theme={customization.theme}>
+        <div className="booking-public-centered-card sticker-card max-w-md p-8 text-center" role="status" aria-live="polite">
           <div className="mx-auto size-8 animate-spin rounded-full border-2 border-border border-t-accent" />
           <p className="mt-4 font-bold">Chargement de ton rendez-vous…</p>
         </div>
@@ -740,8 +860,8 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
 
   if (managementMode === "invalid") {
     return (
-      <PublicRoot className="public-booking-page booking-public flex min-h-screen items-center justify-center px-4 py-10" style={pageStyle} data-theme={customization.theme}>
-        <div className="sticker-card max-w-md p-8 text-center">
+      <PublicRoot className="public-booking-page booking-public booking-public-shell booking-public-centered" style={pageStyle} data-theme={customization.theme}>
+        <div className="booking-public-centered-card sticker-card max-w-md p-8 text-center">
           <p className="font-bold">Ce lien de gestion n’est plus valide</p>
           <p className="mt-2 text-sm text-muted-foreground">Demande un nouveau lien depuis ton email de confirmation.</p>
           {manageError && <p className="mt-4 text-xs text-state-critical" role="alert">{manageError}</p>}
@@ -751,9 +871,9 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
   }
 
   return (
-    <PublicRoot className="public-booking-page booking-public min-h-screen px-4 py-6 sm:px-6 sm:py-10" style={pageStyle} data-theme={customization.theme} data-preview={preview ? "true" : undefined}>
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-3 px-1">
+    <PublicRoot className="public-booking-page booking-public booking-public-shell" style={pageStyle} data-theme={customization.theme} data-preview={preview ? "true" : undefined}>
+      <div className="booking-public-container mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-3 sm:gap-4">
+        <header className="booking-public-context flex flex-wrap items-center justify-between gap-3 px-1">
           <div className="min-w-0">
             <p className="truncate text-sm font-bold tracking-wide text-accent uppercase">{event.name}</p>
             <p className="mt-1 text-xs text-muted-foreground">{event.durationMinutes} minutes · {event.timeZone}</p>
@@ -761,8 +881,8 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
           <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground"><ShieldCheck className="size-4 text-state-healthy" /> Réservation sécurisée</div>
         </header>
 
-        <div className="sticker-card overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 pt-5 sm:px-8">
+        <div className="booking-public-card sticker-card flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="booking-public-card-header flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
             <BookingBrand customization={customization} />
             <p className="text-xs font-bold text-muted-foreground">{event.durationMinutes} min · {event.meetingLabel}</p>
           </div>
@@ -770,10 +890,10 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
             <StepIndicator active={stage >= 1} current={stage < 4} label="Tes coordonnées" />
             <StepIndicator active={stage >= 4} current={stage === 4} label="Ton créneau" />
           </div>
-          <div className={`grid min-w-0 gap-0 ${hasSideMedia ? "lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]" : "lg:grid-cols-2"}`}>
-            <section className="min-w-0 p-6 sm:p-8">
+          <div className={`booking-public-content-grid grid min-h-0 min-w-0 flex-1 gap-0 ${hasSideMedia ? "lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]" : "lg:grid-cols-2"}`}>
+            <section className="booking-public-details min-w-0 p-5 sm:p-6">
               {hasSideMedia && (
-                <div className="-mx-6 -mt-1 mb-7 sm:-mx-8">
+                <div className="booking-public-media-frame -mx-5 -mt-1 mb-5 sm:-mx-6">
                   <SideMedia customization={customization} safeEmbedUrl={safeEmbedUrl} />
                 </div>
               )}
@@ -846,7 +966,7 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
               </div>
             </section>
 
-            <section ref={calendarRef} tabIndex={-1} aria-label="Disponibilités" className="relative min-w-0 min-h-[520px] border-t border-border bg-muted/20 p-5 outline-none focus-visible:ring-3 focus-visible:ring-accent/20 lg:border-t-0 lg:border-l sm:p-7">
+            <section ref={calendarRef} tabIndex={-1} aria-label="Disponibilités" className="booking-public-calendar relative min-w-0 border-t border-border bg-muted/20 p-4 outline-none focus-visible:ring-3 focus-visible:ring-accent/20 lg:border-t-0 lg:border-l sm:p-5">
               {stage < 4 ? (
                 <div className="absolute inset-0 flex items-center justify-center p-6">
                   <div aria-hidden="true" className="pointer-events-none w-full select-none opacity-40 blur-[1.4px]"><SlotSkeleton /></div>
@@ -876,11 +996,12 @@ export function PublicBookingPage({ event, preview = false }: { event: PublicEve
                     <div className="mt-10 rounded-[var(--radius-card)] border border-dashed border-border p-8 text-center"><p className="font-bold">Aucun créneau disponible</p><p className="mt-1 text-sm text-muted-foreground">Reviens un peu plus tard ou contacte-nous directement.</p></div>
                   ) : (
                     <div className="mt-6 flex flex-col gap-6">
-                      {groupedSlots.map((group) => <div key={group.label}><h3 className="text-sm font-bold capitalize">{group.label}</h3><div className="mt-3 grid gap-2 sm:grid-cols-3">{group.slots.map((slot) => { const selected = selectedSlot?.startAt === slot.startAt; return <div key={slot.startAt} className={selected ? "flex min-w-0 gap-2 sm:col-span-2" : "min-w-0"}><button type="button" disabled={isHolding || isPending} onClick={() => void holdSlot(slot)} className={`min-h-11 rounded-full border px-3 py-2 text-sm font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${selected ? "min-w-0 flex-1 border-accent bg-accent text-primary-foreground" : "w-full border-border bg-background hover:border-accent hover:bg-accent/5"}`}>{formatSlot(slot.startAt, displayTimeZone)}</button>{selected && <button type="button" disabled={isPending || isHolding || !holdExpiresAt} onClick={confirmBooking} className="public-booking-primary public-booking-inline min-h-11 shrink-0 px-4">{isPending ? "…" : "Confirmer"}</button>}</div>; })}</div></div>)}
+                      {groupedSlots.map((group) => <div key={group.label}><h3 className="text-sm font-bold capitalize">{group.label}</h3><div className="mt-3 grid gap-2 sm:grid-cols-3">{group.slots.map((slot) => { const selected = selectedSlot?.startAt === slot.startAt; return <div key={slot.startAt} className={selected ? "flex min-w-0 gap-2 sm:col-span-2" : "min-w-0"}><button type="button" disabled={isHolding || isPending} onClick={() => void holdSlot(slot)} className={`min-h-11 rounded-full border px-3 py-2 text-sm font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${selected ? "min-w-0 flex-1 border-accent bg-accent text-primary-foreground" : "w-full border-border bg-background hover:border-accent hover:bg-accent/5"}`}>{formatSlot(slot.startAt, displayTimeZone)}</button>{selected && <button type="button" disabled={isPending || isHolding || !holdExpiresAt} onClick={() => void confirmBooking()} className="public-booking-primary public-booking-inline min-h-11 shrink-0 px-4">{isConfirming ? copy.confirmationInProgress : "Confirmer"}</button>}</div>; })}</div></div>)}
                     </div>
                   )}
                   <div className="mt-7 border-t border-border pt-5">
                     <div className="flex flex-col gap-1 text-xs text-muted-foreground"><p><MapPin className="mr-1 inline size-3.5" />{event.meetingLabel}</p>{holdExpiresAt && <p role="status">Créneau réservé temporairement, confirme pour le garder.</p>}</div>
+                    {isConfirming && <p className="mt-3 text-sm font-bold text-accent" role="status" aria-live="polite">{copy.bookingVerificationInProgress}</p>}
                   </div>
                 </div>
               )}
@@ -913,7 +1034,7 @@ function BookingBrand({ customization }: { customization: BookingPageSettingsVie
 
 function SideMedia({ customization, safeEmbedUrl }: { customization: BookingPageSettingsView; safeEmbedUrl: string | null }) {
   const caption = customization.sideMediaCaption || customization.ownerName || customization.companyName;
-  const mediaClassName = "relative min-h-64 overflow-hidden bg-black/10 sm:min-h-72 lg:min-h-80";
+  const mediaClassName = "booking-public-media relative h-28 overflow-hidden bg-black/10 sm:h-36 lg:h-40";
   if (customization.sideMediaType === "image" && customization.sideMediaAssetUrl) {
     return (
       <div

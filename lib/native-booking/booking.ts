@@ -60,7 +60,7 @@ export type NativeBookingHoldResult = {
 
 const BOOKING_HOLD_DURATION_MS = 5 * 60_000;
 
-type NativeBookingError = { error: "not_found" | "existing_booking" | "slot_unavailable" | "invalid" | "calendar_pending" };
+type NativeBookingError = { error: "not_found" | "existing_booking" | "slot_unavailable" | "invalid" };
 type BookingMode = "hold" | "confirm";
 type InternalNativeBookingResult = {
   bookingId: string;
@@ -455,67 +455,11 @@ async function createNativeBookingInternal(handle: string, slug: string, request
   });
 
   if ("error" in transactionResult) return transactionResult;
-  let calendarSyncWarning = Boolean(transactionResult.calendarSyncWarning);
-  let resolvedMeetingUrl = transactionResult.meetingUrl;
-  if (transactionResult.mode === "confirm" && transactionResult.shouldSyncCalendar && transactionResult.calendarConnection) {
-    try {
-      const externalEvent = await createExternalCalendarEvent({
-        connection: transactionResult.calendarConnection,
-        calendarId: transactionResult.calendarId,
-        idempotencyKey: transactionResult.idempotencyKey,
-        title: transactionResult.meetingLabel,
-        description: eventRow.description,
-        startAt: transactionResult.startAt,
-        endAt: transactionResult.endAt,
-        guestName: `${request.firstName.trim()} ${request.lastName.trim()}`,
-        guestEmail: request.email.trim(),
-        meetingUrl: transactionResult.meetingUrl,
-      });
-      resolvedMeetingUrl = externalEvent.meetingUrl ?? transactionResult.meetingUrl;
-      const requiresGoogleMeeting = transactionResult.calendarConnection.provider === "google";
-      const hasRequiredMeeting = !requiresGoogleMeeting || Boolean(externalEvent.meetingUrl);
-      await db
-        .update(nativeBookings)
-        .set({
-          syncStatus: hasRequiredMeeting ? "synced" : "failed",
-          status: hasRequiredMeeting ? "confirmed" : "sync_failed",
-          externalEventId: externalEvent.id,
-          externalEventUrl: externalEvent.url,
-          meetingUrl: externalEvent.meetingUrl,
-          syncError: hasRequiredMeeting ? null : "Le lien Google Meet est encore en préparation.",
-          holdExpiresAt: hasRequiredMeeting ? null : new Date(Date.now() + 15 * 60_000),
-          updatedAt: new Date(),
-        })
-        .where(eq(nativeBookings.id, transactionResult.bookingId));
-      calendarSyncWarning = !hasRequiredMeeting;
-      if (calendarSyncWarning) {
-        try {
-          await inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId: transactionResult.bookingId }));
-        } catch (scheduleError) {
-          console.error("[native-booking] calendar retry scheduling failed", scheduleError);
-        }
-      }
-    } catch (error) {
-      console.error("[native-booking] external calendar event creation failed", error);
-      await db
-        .update(nativeBookings)
-        .set({ syncStatus: "failed", status: "sync_failed", syncError: "La synchronisation du calendrier a échoué.", updatedAt: new Date() })
-        .where(eq(nativeBookings.id, transactionResult.bookingId));
-      try {
-        await inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId: transactionResult.bookingId }));
-      } catch (scheduleError) {
-        console.error("[native-booking] calendar retry scheduling failed", scheduleError);
-      }
-      calendarSyncWarning = true;
-    }
-  }
-
-  if (transactionResult.mode === "confirm" && !calendarSyncWarning) {
-    await scheduleNativeBookingNotification(transactionResult.bookingId, "confirmation");
-    await scheduleNativeBookingReminders(transactionResult.bookingId);
-  }
-
-  return { ...transactionResult, meetingUrl: resolvedMeetingUrl, ...(calendarSyncWarning ? { calendarSyncWarning: true } : {}) };
+  // The booking row is already confirmed at this point. Calendar, email and
+  // reminder jobs are deliberately dispatched by the route after the response
+  // is ready so a provider timeout can never turn a real booking into an API
+  // error.
+  return transactionResult;
 }
 
 export async function createNativeBooking(
@@ -526,7 +470,6 @@ export async function createNativeBooking(
   const result = await createNativeBookingInternal(handle, slug, request, "confirm");
   if ("error" in result) return result;
   if (!result.callId) return { error: "invalid" };
-  if (result.calendarSyncWarning || !result.meetingUrl) return { error: "calendar_pending" };
   return {
     bookingId: result.bookingId,
     callId: result.callId,
@@ -538,8 +481,41 @@ export async function createNativeBooking(
     eventTimeZone: result.eventTimeZone,
     cancellationToken: result.cancellationToken,
     rescheduleToken: result.rescheduleToken,
-    ...(result.calendarSyncWarning ? { calendarSyncWarning: true } : {}),
   };
+}
+
+export async function scheduleNativeBookingSideEffects(bookingId: string): Promise<void> {
+  const [booking] = await db
+    .select({
+      id: nativeBookings.id,
+      status: nativeBookings.status,
+      syncStatus: nativeBookings.syncStatus,
+      calendarConnectionId: nativeBookings.calendarConnectionId,
+    })
+    .from(nativeBookings)
+    .where(eq(nativeBookings.id, bookingId))
+    .limit(1);
+  if (!booking || (booking.status !== "confirmed" && booking.status !== "sync_failed")) return;
+
+  if (booking.calendarConnectionId && booking.syncStatus !== "synced") {
+    try {
+      await inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId }));
+    } catch (error) {
+      console.error("[native-booking] calendar job scheduling failed", { bookingId, error });
+    }
+  }
+
+  try {
+    await scheduleNativeBookingNotification(bookingId, "confirmation");
+  } catch (error) {
+    console.error("[native-booking] confirmation notification scheduling failed", { bookingId, error });
+  }
+
+  try {
+    await scheduleNativeBookingReminders(bookingId);
+  } catch (error) {
+    console.error("[native-booking] reminder scheduling failed", { bookingId, error });
+  }
 }
 
 export async function createNativeBookingHold(

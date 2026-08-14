@@ -16,7 +16,7 @@ import {
   type BookingPageSettingsView,
 } from "@/lib/booking-page/config";
 import { bookingAssetResponseSchema } from "@/lib/booking-page/schema";
-import { PublicBookingPage, type PublicEvent } from "@/app/book/[handle]/[slug]/public-booking-page";
+import { PublicBookingPage, type PublicBookingCopy, type PublicEvent } from "@/app/book/[handle]/[slug]/public-booking-page";
 
 import { resetBookingPageSettings, saveBookingPageSettings } from "./actions";
 
@@ -73,6 +73,7 @@ function inputValue(value: string | null): string {
 
 export function ReservationCustomizationForm({ initialSettings, events, initialEventId, initialPublicUrl }: Props) {
   const t = useTranslations("app.booking.customization");
+  const tBooking = useTranslations("app.booking");
   const router = useRouter();
   const [settings, setSettings] = useState<BookingPageSettingsView>(initialSettings);
   const [selectedEventId, setSelectedEventId] = useState(initialEventId);
@@ -106,6 +107,11 @@ export function ReservationCustomizationForm({ initialSettings, events, initialE
     questions: [],
     customization: settings,
   }), [selectedEvent, settings, t]);
+  const previewCopy: PublicBookingCopy = {
+    confirmationInProgress: tBooking("confirmationInProgress"),
+    bookingVerificationInProgress: tBooking("bookingVerificationInProgress"),
+    bookingVerificationFailed: tBooking("bookingVerificationFailed"),
+  };
 
   function updateSetting<Key extends keyof BookingPageSettingsData>(key: Key, value: BookingPageSettingsData[Key]) {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -367,7 +373,7 @@ export function ReservationCustomizationForm({ initialSettings, events, initialE
         <div className="overflow-auto rounded-[var(--radius-card)] border border-border bg-[#202126] p-3 sm:p-5">
           <div className={`mx-auto overflow-hidden rounded-[var(--radius-card)] border border-white/10 bg-black shadow-2xl transition-all ${previewMode === "mobile" ? "max-w-[390px]" : "w-full"}`}>
             <div className="flex h-7 items-center gap-1.5 border-b border-white/10 bg-black/40 px-3"><span className="size-2 rounded-full bg-[#e8663c]" /><span className="size-2 rounded-full bg-white/25" /><span className="size-2 rounded-full bg-white/25" /><span className="ml-2 h-3 flex-1 rounded bg-white/10" /></div>
-            <div className="pointer-events-none select-none"><PublicBookingPage event={previewEvent} preview /></div>
+            <div className="pointer-events-none select-none"><PublicBookingPage event={previewEvent} preview copy={previewCopy} /></div>
           </div>
         </div>
 

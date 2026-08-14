@@ -22,6 +22,7 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { CreateEventForm } from "./create-event-form";
 import { AbandonedLeadsPanel } from "./abandoned-leads-panel";
 import { CopyLinkButton } from "./copy-link-button";
+import { DeleteEventButton } from "./delete-event-button";
 import { EventStatusButton } from "./event-status-button";
 import { UnifiedAgenda } from "./unified-agenda";
 
@@ -267,6 +268,7 @@ export default async function NativeBookingEventsPage({
                         </a>
                       </Button>
                       <CopyLinkButton url={`/book/${publicHandle}/${event.slug}`} compact />
+                      {viewer.isAccountWide && <DeleteEventButton eventId={event.id} eventName={event.name} />}
                     </div>
                   </article>
                 ))}

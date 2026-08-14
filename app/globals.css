@@ -442,6 +442,160 @@
     transition: background-color 180ms ease, color 180ms ease;
   }
 
+  .booking-public-shell {
+    display: flex;
+    height: 100dvh;
+    min-height: 100dvh;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 1.5rem;
+  }
+
+  .booking-public-container {
+    height: min(680px, calc(100dvh - 3rem));
+    max-height: calc(100dvh - 3rem);
+  }
+
+  .booking-public-card,
+  .booking-public-confirmation-card {
+    min-height: 0;
+  }
+
+  .booking-public-content-grid {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .booking-public-details,
+  .booking-public-calendar {
+    min-height: 0;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--booking-border, var(--border-value)) transparent;
+    scrollbar-width: thin;
+  }
+
+  .booking-public-details {
+    overflow-y: hidden;
+  }
+
+  .booking-public-calendar {
+    overflow-y: auto;
+  }
+
+  .booking-public-media {
+    flex: none;
+    max-height: 10rem;
+  }
+
+  .booking-public-confirmation-container {
+    height: min(680px, calc(100dvh - 3rem));
+    max-height: calc(100dvh - 3rem);
+  }
+
+  .booking-public-centered-card {
+    max-height: calc(100dvh - 3rem);
+    overflow-y: auto;
+  }
+
+  .booking-public[data-preview="true"] {
+    display: block;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .booking-public[data-preview="true"] .booking-public-container {
+    height: auto;
+    max-height: none;
+    max-width: none;
+  }
+
+  .booking-public[data-preview="true"] .booking-public-card {
+    overflow: visible;
+  }
+
+  .booking-public[data-preview="true"] .booking-public-content-grid,
+  .booking-public[data-preview="true"] .booking-public-details,
+  .booking-public[data-preview="true"] .booking-public-calendar {
+    max-height: none;
+    overflow: visible;
+  }
+
+  @media (max-width: 767px) {
+    .booking-public-shell {
+      align-items: stretch;
+      padding: 0;
+    }
+
+    .booking-public-container,
+    .booking-public-confirmation-container {
+      height: 100%;
+      max-height: none;
+      gap: 0;
+    }
+
+    .booking-public-context {
+      flex: none;
+      padding: 0.75rem 1rem;
+    }
+
+    .booking-public-card {
+      flex: 1;
+      border-right: 0;
+      border-left: 0;
+      border-radius: 0;
+    }
+
+    .booking-public-content-grid {
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-color: var(--booking-border, var(--border-value)) transparent;
+      scrollbar-width: thin;
+    }
+
+    .booking-public-details {
+      flex: none;
+      max-height: none;
+      overflow: visible;
+      padding: 1rem;
+    }
+
+    .booking-public-calendar {
+      flex: none;
+      min-height: 520px;
+      overflow: visible;
+      border-left: 0;
+      border-top: 1px solid var(--booking-border, var(--border-value));
+      padding: 1rem;
+    }
+
+    .booking-public-media-frame {
+      margin-right: -1rem;
+      margin-left: -1rem;
+      margin-bottom: 1rem;
+    }
+
+    .booking-public-media {
+      height: 7rem;
+      max-height: 7rem;
+    }
+
+    .booking-public-confirmation-container {
+      padding: 1rem;
+    }
+
+    .booking-public-confirmation-card {
+      max-height: none;
+      border-radius: var(--radius-card);
+    }
+  }
+
   .booking-public .sticker-card {
     border-color: var(--booking-border, var(--border-value));
     background: var(--booking-surface, var(--surface));

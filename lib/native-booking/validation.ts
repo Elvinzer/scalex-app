@@ -201,9 +201,11 @@ export const publicQualificationSchema = publicContactSchema.extend({
   answers: z.record(z.string().uuid(), z.union([z.string().trim().max(5000), z.array(z.string().trim().max(500)).max(20)])).default({}),
 });
 
+export const bookingIdempotencyKeySchema = z.string().uuid();
+
 export const publicBookingRequestSchema = publicQualificationSchema.extend({
   startAt: z.string().datetime({ offset: true }),
-  idempotencyKey: z.string().uuid(),
+  idempotencyKey: bookingIdempotencyKeySchema,
   leadId: z.string().uuid().nullable().default(null),
 });
 
