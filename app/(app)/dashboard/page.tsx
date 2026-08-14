@@ -443,7 +443,7 @@ async function renderDashboardPage({
         <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
       </Suspense>
 
-      <div>
+      <div className="py-4">
         <h2 className="text-base font-bold">{t("monthContext")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t("monthContextHelp")}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

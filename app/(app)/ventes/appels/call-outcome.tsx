@@ -7,6 +7,8 @@ import type { SalesCallRow } from "@/lib/iclosed/calls";
 
 import { setCallAmounts, setCallDecisionDue, setCallResult } from "./actions";
 
+export type CallPaymentType = "one_shot" | "installments";
+
 export type Result = "no_show" | "not_closed" | "awaiting_decision" | "closed";
 
 // Trigger tint per outcome — reuses the existing DA state tokens. "Attente
@@ -69,6 +71,8 @@ export function useCallOutcome(call: SalesCallRow | null) {
   const [result, setResult] = useState<Result | null>(call ? deriveResult(call) : null);
   const [contracted, setContracted] = useState(call?.contracted != null ? String(call.contracted) : "");
   const [collected, setCollected] = useState(call?.collected != null ? String(call.collected) : "");
+  const [paymentType, setPaymentType] = useState<CallPaymentType>(call?.installmentCount && call.installmentCount > 1 ? "installments" : "one_shot");
+  const [installmentCount, setInstallmentCount] = useState(call?.installmentCount && call.installmentCount > 1 ? call.installmentCount : 3);
   const [dueDate, setDueDate] = useState(call?.decisionDueAt ? call.decisionDueAt.slice(0, 10) : "");
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -82,6 +86,8 @@ export function useCallOutcome(call: SalesCallRow | null) {
     setResult(call ? deriveResult(call) : null);
     setContracted(call?.contracted != null ? String(call.contracted) : "");
     setCollected(call?.collected != null ? String(call.collected) : "");
+    setPaymentType(call?.installmentCount && call.installmentCount > 1 ? "installments" : "one_shot");
+    setInstallmentCount(call?.installmentCount && call.installmentCount > 1 ? call.installmentCount : 3);
     setDueDate(call?.decisionDueAt ? call.decisionDueAt.slice(0, 10) : "");
     setError(null);
     // Depend on the id, not the call object itself — a revalidatePath after
@@ -99,6 +105,8 @@ export function useCallOutcome(call: SalesCallRow | null) {
     if (value !== "closed") {
       setContracted("");
       setCollected("");
+      setPaymentType("one_shot");
+      setInstallmentCount(3);
     }
     if (value !== "awaiting_decision") setDueDate("");
     if (value) {
@@ -123,13 +131,27 @@ export function useCallOutcome(call: SalesCallRow | null) {
   function commitAmounts() {
     if (!call) return;
     setError(null);
+    const contractedValue = Number.parseInt(contracted || "0", 10);
+    const collectedValue = Number.parseInt(collected || "0", 10);
+    const effectivePaymentType: CallPaymentType = paymentType === "installments" || collectedValue < contractedValue ? "installments" : "one_shot";
+    const effectiveInstallmentCount = effectivePaymentType === "installments" ? Math.min(12, Math.max(2, installmentCount)) : null;
     startTransition(async () => {
       const res = await setCallAmounts(
         call.id,
-        Number.parseInt(contracted || "0", 10),
-        Number.parseInt(collected || "0", 10)
+        contractedValue,
+        collectedValue,
+        effectivePaymentType,
+        effectiveInstallmentCount,
       );
-      if (res.error) setError(res.error);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      // A partial one-shot entry cannot be represented faithfully. The server
+      // normalizes it to the legacy two-row schedule, so keep the controls in
+      // sync until the user explicitly chooses a different count.
+      if (effectivePaymentType !== paymentType) setPaymentType(effectivePaymentType);
+      if (effectiveInstallmentCount !== null) setInstallmentCount(effectiveInstallmentCount);
     });
   }
 
@@ -145,6 +167,10 @@ export function useCallOutcome(call: SalesCallRow | null) {
     setContracted,
     collected,
     setCollected,
+    paymentType,
+    setPaymentType,
+    installmentCount,
+    setInstallmentCount,
     dueDate,
     error,
     chooseResult,
@@ -153,6 +179,55 @@ export function useCallOutcome(call: SalesCallRow | null) {
     onAmountKey,
     dueUrgency,
   };
+}
+
+export function PaymentPlanControl({
+  paymentType,
+  installmentCount,
+  onPaymentTypeChange,
+  onInstallmentCountChange,
+  onCommit,
+  className,
+}: {
+  paymentType: CallPaymentType;
+  installmentCount: number;
+  onPaymentTypeChange: (value: CallPaymentType) => void;
+  onInstallmentCountChange: (value: number) => void;
+  onCommit: () => void;
+  className?: string;
+}) {
+  const t = useTranslations("app.calls");
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${className ?? ""}`}>
+      <label className="flex items-center gap-1.5 text-xs">
+        <span className="text-muted-foreground">{t("payment")}</span>
+        <select
+          aria-label={t("payment")}
+          value={paymentType}
+          onChange={(event) => onPaymentTypeChange(event.target.value as CallPaymentType)}
+          onBlur={onCommit}
+          className="min-h-9 rounded-[var(--radius-control)] border border-border bg-background px-2 text-xs outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+        >
+          <option value="one_shot">{t("oneShot")}</option>
+          <option value="installments">{t("installments")}</option>
+        </select>
+      </label>
+      {paymentType === "installments" && (
+        <label className="flex items-center gap-1.5 text-xs">
+          <span className="text-muted-foreground">{t("installmentCount")}</span>
+          <input
+            type="number"
+            min={2}
+            max={12}
+            value={installmentCount}
+            onChange={(event) => onInstallmentCountChange(Number(event.target.value) || 2)}
+            onBlur={onCommit}
+            className="w-14 rounded-[var(--radius-control)] border border-border bg-background px-2 py-1.5 text-xs outline-none tabular-nums focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+          />
+        </label>
+      )}
+    </div>
+  );
 }
 
 export function CallResultSelect({ result, onChange }: { result: Result | null; onChange: (next: Result | "") => void }) {

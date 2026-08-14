@@ -15,10 +15,10 @@ import { requirePermission } from "@/lib/team/context";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 
 // Inline disposition — no modal. `setCallResult` is the one-click outcome
-// (no-show / non closé / closé); `setCallAmounts` handles the two inline number
-// cells shown only when a call is "closé". Money still lives only on the linked
-// sale ("no double entry"): a positive contracted amount creates/updates it, a
-// cleared amount removes it.
+// (no-show / non closé / closé); `setCallAmounts` handles the inline amounts
+// and payment plan shown only when a call is "closé". Money still lives only
+// on the linked sale ("no double entry"): a positive contracted amount
+// creates/updates it, a cleared amount removes it.
 
 const resultSchema = z.object({
   callId: z.string().uuid(),
@@ -170,12 +170,16 @@ const amountsSchema = z.object({
   callId: z.string().uuid(),
   contracted: z.number().int().min(0),
   collected: z.number().int().min(0),
+  paymentType: z.enum(["one_shot", "installments"]).default("one_shot"),
+  installmentCount: z.number().int().min(2).max(12).nullable().default(null),
 });
 
 export async function setCallAmounts(
   callId: string,
   contracted: unknown,
-  collected: unknown
+  collected: unknown,
+  paymentType: unknown = "one_shot",
+  installmentCount: unknown = null,
 ): Promise<{ error: string | null }> {
   const userId = await requireUserId();
   if (typeof userId !== "string") return userId;
@@ -183,7 +187,7 @@ export async function setCallAmounts(
   if (!access) return { error: "Tu n'as pas accès à cette section." };
   const { accountId } = access;
 
-  const parsed = amountsSchema.safeParse({ callId, contracted, collected });
+  const parsed = amountsSchema.safeParse({ callId, contracted, collected, paymentType, installmentCount });
   if (!parsed.success) return { error: "Montant invalide" };
 
   const call = await loadCall(accountId, callId);
@@ -208,6 +212,8 @@ export async function setCallAmounts(
       contracted: parsed.data.contracted,
       collected: parsed.data.collected,
       saleDate: call.scheduledAt.toISOString().slice(0, 10),
+      paymentType: parsed.data.paymentType,
+      installmentCount: parsed.data.installmentCount ?? undefined,
     });
     if (call.saleId) {
       await updateSale(accountId, call.saleId, saleInput);

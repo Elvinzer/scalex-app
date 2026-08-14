@@ -84,7 +84,6 @@ export type AcquisitionSidebarSubpage = {
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { type: "link", href: "/roadmap", labelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
-  { type: "link", href: "/datas", labelKey: "data", icon: Database, permission: "datas" },
   {
     type: "link",
     href: "/acquisition",
@@ -116,6 +115,7 @@ const topEntries: LinkEntry[] = [
     icon: HeartHandshake,
     anyOfPermissions: ["delivrabilite:suivi-client", "delivrabilite:temoignages"],
   },
+  { type: "link", href: "/datas", labelKey: "data", icon: Database, permission: "datas" },
   { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
   // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
   // même permission que le Copilote partout ailleurs dans l'app.

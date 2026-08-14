@@ -33,6 +33,7 @@ export type SalesCallRow = {
   saleId: string | null;
   contracted: number | null;
   collected: number | null;
+  installmentCount: number | null;
   outcomeSetAt: string | null;
   // Expected answer date (ISO) while outcome is "awaiting_decision", else null.
   decisionDueAt: string | null;
@@ -76,6 +77,7 @@ export const getSalesCalls = cache(async (accountId: string): Promise<SalesCallR
     saleId: call.saleId,
     contracted: sale ? sale.totalPrice : null,
     collected: sale ? summarize(sale.totalPrice, sale.installments).paidTotal : null,
+    installmentCount: sale ? (sale.paymentType === "installments" ? sale.installments?.length ?? 2 : 1) : null,
     outcomeSetAt: call.outcomeSetAt ? call.outcomeSetAt.toISOString() : null,
     decisionDueAt: call.decisionDueAt ? call.decisionDueAt.toISOString() : null,
     commentCount: countMap.get(call.id) ?? 0,

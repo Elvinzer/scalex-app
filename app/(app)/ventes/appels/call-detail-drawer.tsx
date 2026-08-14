@@ -9,7 +9,7 @@ import { CallContactActions } from "@/components/call-contact-actions";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import type { SalesCallRow } from "@/lib/iclosed/calls";
 
-import { AmountInput, CallResultSelect, TONE_TEXT, useCallOutcome } from "./call-outcome";
+import { AmountInput, CallResultSelect, PaymentPlanControl, TONE_TEXT, useCallOutcome } from "./call-outcome";
 import { addCallComment, deleteCallComment, getCallComments, type CallComment } from "./comment-actions";
 
 export function CallDetailDrawer({
@@ -147,25 +147,34 @@ export function CallDetailDrawer({
                   </div>
                 )}
                 {outcome.result === "closed" && (
-                  <div className="flex items-center gap-5">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">{t("contracted")}</span>
-                      <AmountInput
-                        value={outcome.contracted}
-                        onChange={outcome.setContracted}
-                        onCommit={outcome.commitAmounts}
-                        onKey={outcome.onAmountKey}
-                      />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-wrap items-center gap-5">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-muted-foreground">{t("contracted")}</span>
+                        <AmountInput
+                          value={outcome.contracted}
+                          onChange={outcome.setContracted}
+                          onCommit={outcome.commitAmounts}
+                          onKey={outcome.onAmountKey}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-muted-foreground">{t("collected")}</span>
+                        <AmountInput
+                          value={outcome.collected}
+                          onChange={outcome.setCollected}
+                          onCommit={outcome.commitAmounts}
+                          onKey={outcome.onAmountKey}
+                        />
+                      </div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs text-muted-foreground">{t("collected")}</span>
-                      <AmountInput
-                        value={outcome.collected}
-                        onChange={outcome.setCollected}
-                        onCommit={outcome.commitAmounts}
-                        onKey={outcome.onAmountKey}
-                      />
-                    </div>
+                    <PaymentPlanControl
+                      paymentType={outcome.paymentType}
+                      installmentCount={outcome.installmentCount}
+                      onPaymentTypeChange={outcome.setPaymentType}
+                      onInstallmentCountChange={outcome.setInstallmentCount}
+                      onCommit={outcome.commitAmounts}
+                    />
                   </div>
                 )}
                 {outcome.result === null && isFuture && (

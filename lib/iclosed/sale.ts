@@ -1,5 +1,8 @@
 import type { SaleInput } from "@/lib/sales/schema";
+import { generateSchedule } from "@/lib/sales/installments";
 import type { SaleInstallment } from "@/lib/sales/types";
+
+type CallPaymentType = "one_shot" | "installments";
 
 // Builds the SaleInput for a call marked "closed" — the single place that turns
 // (contracted, collected) into the existing sale/installment model, shared by
@@ -13,36 +16,45 @@ export function buildSaleInput(params: {
   contracted: number;
   collected: number;
   saleDate: string; // "YYYY-MM-DD"
+  paymentType?: CallPaymentType;
+  installmentCount?: number;
 }): SaleInput {
   const contracted = Math.max(0, Math.round(params.contracted));
   const collected = Math.min(contracted, Math.max(0, Math.round(params.collected)));
 
-  // Fully collected → one-shot; partial → a paid slice + an upcoming remainder
-  // (summarize() then reports paidTotal = collected).
-  let paymentType: SaleInput["paymentType"] = "one_shot";
+  // A call only exposes aggregate contracted/collected amounts. When the
+  // closer explicitly chooses an installment plan, keep that count in the
+  // sale JSON instead of collapsing every partial payment into two rows.
+  // Partial collections keep the amount already received as the first paid
+  // installment and split the remaining balance across the remaining rows.
+  const requestedCount = Number.isInteger(params.installmentCount) ? Math.max(2, Math.min(12, params.installmentCount ?? 2)) : 2;
+  const shouldUseInstallments = params.paymentType === "installments" || collected < contracted;
+  const paymentType: SaleInput["paymentType"] = shouldUseInstallments ? "installments" : "one_shot";
   let installments: SaleInstallment[] | null = null;
-  if (collected < contracted) {
-    paymentType = "installments";
-    installments = [
-      {
-        amount: collected,
-        dueDate: params.saleDate,
+
+  if (shouldUseInstallments) {
+    if (collected <= 0) {
+      installments = generateSchedule(contracted, requestedCount, params.saleDate);
+    } else if (collected >= contracted) {
+      installments = generateSchedule(contracted, requestedCount, params.saleDate).map((installment) => ({
+        ...installment,
         status: "paid",
         paidAt: params.saleDate,
-        stripeChargeId: null,
-        failureReason: null,
-        acknowledgedAt: null,
-      },
-      {
-        amount: contracted - collected,
-        dueDate: params.saleDate,
-        status: "upcoming",
-        paidAt: null,
-        stripeChargeId: null,
-        failureReason: null,
-        acknowledgedAt: null,
-      },
-    ];
+      }));
+    } else {
+      installments = [
+        {
+          amount: collected,
+          dueDate: params.saleDate,
+          status: "paid",
+          paidAt: params.saleDate,
+          stripeChargeId: null,
+          failureReason: null,
+          acknowledgedAt: null,
+        },
+        ...generateSchedule(contracted - collected, requestedCount - 1, params.saleDate),
+      ];
+    }
   }
 
   return {

@@ -9,7 +9,7 @@ import type { ActiveCloser } from "@/lib/closers/types";
 import { CallContactActions } from "@/components/call-contact-actions";
 
 import { CallDetailDrawer } from "./call-detail-drawer";
-import { AmountInput, CallResultSelect, TONE_DOT, TONE_TEXT, decisionUrgency, useCallOutcome } from "./call-outcome";
+import { AmountInput, CallResultSelect, PaymentPlanControl, TONE_DOT, TONE_TEXT, decisionUrgency, useCallOutcome } from "./call-outcome";
 
 export function CallsTable({
   calls,
@@ -185,6 +185,10 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
     setContracted,
     collected,
     setCollected,
+    paymentType,
+    setPaymentType,
+    installmentCount,
+    setInstallmentCount,
     dueDate,
     error,
     chooseResult,
@@ -248,6 +252,16 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
                   <span className="text-[10px] text-muted-foreground">{t("expectedResponse")}</span>
                 )}
               </div>
+            )}
+            {result === "closed" && (
+              <PaymentPlanControl
+                paymentType={paymentType}
+                installmentCount={installmentCount}
+                onPaymentTypeChange={setPaymentType}
+                onInstallmentCountChange={setInstallmentCount}
+                onCommit={commitAmounts}
+                className="mt-2"
+              />
             )}
           </div>
         )}

@@ -30,6 +30,7 @@ import { KpiTile } from "@/components/kpi-tile";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { computeDeliveryMetrics } from "@/lib/deliverability/metrics";
 import type { DeliveryBoardColumn, DeliveryBoardData, DeliveryClientCard, JourneyDetails } from "@/lib/deliverability/queries";
 import type { ClientJourneyColumnType } from "@/lib/deliverability/types";
 
@@ -61,6 +62,34 @@ function percent(value: number | null) {
 
 function formatPrice(value: number | null, locale: string) {
   return value === null ? null : new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
+}
+
+function moveClientOptimistically(data: DeliveryBoardData, journeyId: string, targetColumnId: string): DeliveryBoardData {
+  const sourceColumn = data.columns.find((column) => column.clients.some((client) => client.id === journeyId));
+  const targetColumn = data.columns.find((column) => column.id === targetColumnId);
+  const client = sourceColumn?.clients.find((item) => item.id === journeyId);
+
+  if (!sourceColumn || !targetColumn || !client || sourceColumn.id === targetColumn.id) return data;
+
+  const now = new Date().toISOString();
+  const nextStatus = targetColumn.type === "end" ? "completed" : client.status === "completed" ? "active" : client.status;
+  const movedClient: DeliveryClientCard = {
+    ...client,
+    columnId: targetColumn.id,
+    columnType: targetColumn.type,
+    columnUpdatedAt: now,
+    lastActivityAt: now,
+    status: nextStatus,
+    inactive: nextStatus === "abandoned",
+  };
+  const columns = data.columns.map((column) => {
+    if (column.id === sourceColumn.id) return { ...column, clients: column.clients.filter((item) => item.id !== journeyId) };
+    if (column.id === targetColumn.id) return { ...column, clients: [...column.clients, movedClient] };
+    return column;
+  });
+  const rows = columns.flatMap((column) => column.clients);
+
+  return { ...data, columns, stats: computeDeliveryMetrics(rows) };
 }
 
 function SortableColumn({ column, children, onDropClient }: { column: DeliveryBoardColumn; children: React.ReactNode; onDropClient: (journeyId: string) => void }) {
@@ -278,15 +307,26 @@ export function ClientTrackingBoard({ initialData }: { initialData: DeliveryBoar
     const oldIndex = data.columns.findIndex((column) => column.id === active.id);
     const newIndex = data.columns.findIndex((column) => column.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
+    const previous = data;
     const next = [...data.columns];
     const [moved] = next.splice(oldIndex, 1);
     next.splice(newIndex, 0, moved);
     setData((current) => ({ ...current, columns: next.map((column, index) => ({ ...column, position: index })) }));
-    startTransition(async () => { await reorderJourneyColumns(next.map((column) => column.id)); refresh(); });
+    startTransition(async () => {
+      const result = await reorderJourneyColumns(next.map((column) => column.id));
+      if (result.error) setData(previous);
+    });
   }
 
   function handleDropClient(journeyId: string, columnId: string) {
-    startTransition(async () => { const result = await moveJourney(journeyId, columnId); if (!result.error) refresh(); });
+    const previous = data;
+    const next = moveClientOptimistically(data, journeyId, columnId);
+    if (next === data) return;
+    setData(next);
+    startTransition(async () => {
+      const result = await moveJourney(journeyId, columnId);
+      if (result.error) setData(previous);
+    });
   }
 
   function statInfo(content: string) { return { ariaLabel: t("stats.calculation"), content }; }
