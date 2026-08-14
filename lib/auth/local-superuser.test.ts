@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getLocalSuperuserConfig, hostnameFromHostHeader } from "./local-superuser";
+import {
+  getLocalSuperuserConfig,
+  hostnameFromHostHeader,
+  isLocalSuperuserDisabled,
+  LOCAL_SUPERUSER_DISABLED_COOKIE_VALUE,
+} from "./local-superuser";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -32,5 +37,11 @@ describe("local superuser guard", () => {
     expect(hostnameFromHostHeader("localhost:3000")).toBe("localhost");
     expect(hostnameFromHostHeader("[::1]:3000")).toBe("::1");
     expect(hostnameFromHostHeader("example.com:443")).toBe("example.com");
+  });
+
+  it("recognizes the local auto-login bypass cookie", () => {
+    expect(isLocalSuperuserDisabled(LOCAL_SUPERUSER_DISABLED_COOKIE_VALUE)).toBe(true);
+    expect(isLocalSuperuserDisabled(undefined)).toBe(false);
+    expect(isLocalSuperuserDisabled("other-value")).toBe(false);
   });
 });

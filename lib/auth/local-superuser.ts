@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const LOCAL_SUPERUSER_COOKIE = "minaly_local_superuser";
 export const LOCAL_SUPERUSER_COOKIE_VALUE = "enabled";
+export const LOCAL_SUPERUSER_DISABLED_COOKIE = "minaly_local_superuser_disabled";
+export const LOCAL_SUPERUSER_DISABLED_COOKIE_VALUE = "enabled";
 
 const localSuperuserConfigSchema = z.object({
   id: z.string().uuid(),
@@ -9,6 +11,10 @@ const localSuperuserConfigSchema = z.object({
 });
 
 export type LocalSuperuserConfig = z.infer<typeof localSuperuserConfigSchema>;
+
+export function isLocalSuperuserDisabled(value: string | undefined): boolean {
+  return value === LOCAL_SUPERUSER_DISABLED_COOKIE_VALUE;
+}
 
 function isLocalhost(hostname: string): boolean {
   const normalizedHostname = hostname.toLowerCase().replace(/^\[|\]$/g, "");
