@@ -22,7 +22,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // sets initialSyncStatus to "failed" (never left stuck on "pending"), and a
 // plan/permission rejection is treated as permanent (no pointless retries).
 export const syncIclosedAccount = inngest.createFunction(
-  { id: "sync-iclosed-account", triggers: [iclosedAccountConnected] },
+  { id: "sync-iclosed-account", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [iclosedAccountConnected] },
   async ({ event, step }) => {
     const { userId, connectionId } = event.data;
 
@@ -47,7 +47,7 @@ export const syncIclosedAccount = inngest.createFunction(
           .where(eq(iclosedConnections.id, connectionId));
       });
 
-      revalidateBusinessData();
+      revalidateBusinessData(userId);
       await track("iclosed_sync_completed", userId, { calls_backfilled: inserted });
     } catch (error) {
       const noAccess = error instanceof IclosedNoApiAccessError;

@@ -62,7 +62,7 @@ export async function selectMetaAdAccount(externalId: string): Promise<{ error: 
   }
   revalidatePath("/integrations");
   revalidatePath("/acquisition/ads");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -87,7 +87,7 @@ export async function refreshMetaAdAccounts(): Promise<{ error: string | null; i
     }
     revalidatePath("/integrations");
     revalidatePath("/acquisition/ads");
-    revalidateBusinessData();
+    revalidateBusinessData(access.accountId);
     return { error: null, imported: result.imported, syncTriggered: Boolean(result.selectedAdAccountId) };
   } catch {
     return { error: "Impossible de récupérer les comptes publicitaires Meta pour l'instant." };
@@ -129,6 +129,6 @@ export async function disconnectMetaAds(): Promise<{ error: string | null }> {
   await db.update(users).set({ metaAdsConnected: false }).where(eq(users.id, access.accountId));
   revalidatePath("/integrations");
   revalidatePath("/acquisition/ads");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

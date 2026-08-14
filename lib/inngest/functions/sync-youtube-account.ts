@@ -17,7 +17,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // Keeping numbers fresh afterwards is refresh-youtube-insights.ts's
 // recurring cron, not this one-time job.
 export const syncYoutubeAccount = inngest.createFunction(
-  { id: "sync-youtube-account", triggers: [youtubeAccountConnected] },
+  { id: "sync-youtube-account", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [youtubeAccountConnected] },
   async ({ event, step }) => {
     const { userId } = event.data;
 
@@ -46,7 +46,7 @@ export const syncYoutubeAccount = inngest.createFunction(
         await step.sendEvent("continue-backfill", youtubeBackfillContinue.create({ userId }));
       }
 
-      revalidateBusinessData();
+      revalidateBusinessData(userId);
       await track("youtube_sync_completed", userId, { videos_backfilled: result.processed });
     } catch (error) {
       const revoked = error instanceof YoutubeTokenRevokedError;

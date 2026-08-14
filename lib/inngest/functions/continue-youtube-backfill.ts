@@ -16,7 +16,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // to catch up videos never seen before, regardless of age; backfillYoutubeVideos's
 // onConflictDoUpdate upserts make repeated/overlapping runs safe either way.
 export const continueYoutubeBackfill = inngest.createFunction(
-  { id: "continue-youtube-backfill", triggers: [youtubeBackfillContinue] },
+  { id: "continue-youtube-backfill", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [youtubeBackfillContinue] },
   async ({ event, step }) => {
     const { userId } = event.data;
 
@@ -37,7 +37,7 @@ export const continueYoutubeBackfill = inngest.createFunction(
         await step.sendEvent("chain-continue", youtubeBackfillContinue.create({ userId }));
       }
 
-      revalidateBusinessData();
+      revalidateBusinessData(userId);
       return result;
     } catch (error) {
       const revoked = error instanceof YoutubeTokenRevokedError;

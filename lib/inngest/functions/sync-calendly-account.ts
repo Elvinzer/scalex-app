@@ -20,7 +20,7 @@ import { getAppUrl } from "@/lib/utils";
 // webhook cannot be registered, because live delivery is the source of truth
 // after the initial backfill.
 export const syncCalendlyAccount = inngest.createFunction(
-  { id: "sync-calendly-account", triggers: [calendlyAccountConnected] },
+  { id: "sync-calendly-account", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [calendlyAccountConnected] },
   async ({ event, step }) => {
     const { userId, connectionId } = event.data;
 
@@ -65,7 +65,7 @@ export const syncCalendlyAccount = inngest.createFunction(
           .where(eq(calendlyConnections.id, connectionId));
       });
 
-      revalidateBusinessData();
+      revalidateBusinessData(userId);
       await track("calendly_sync_completed", userId, { calls_backfilled: inserted });
     } catch (error) {
       const noAccess = error instanceof CalendlyNoAccessError;

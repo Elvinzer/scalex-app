@@ -105,7 +105,7 @@ export async function connectIclosed(formData: FormData): Promise<{ error: strin
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -164,6 +164,6 @@ export async function disconnectIclosed(): Promise<{ error: string | null }> {
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

@@ -24,7 +24,7 @@ export async function toggleLeverStep(leverKey: string, stepOrder: number): Prom
   await toggleStarterStep(access.accountId, leverKey, stepOrder);
   await track("lever_starter_step_done", userId, { lever: leverKey, stepOrder });
   revalidatePath(`/demarrer/${leverKey}`);
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -42,6 +42,6 @@ export async function activateLever(leverKey: string): Promise<{ error: string |
     await track("lever_started", userId, { lever: leverKey, source: "demarrer_page" });
   }
   revalidatePath(`/demarrer/${leverKey}`);
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

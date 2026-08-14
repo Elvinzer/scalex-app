@@ -19,7 +19,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // afterwards is refresh-instagram-insights.ts's recurring cron, not this
 // one-time job.
 export const syncInstagramAccount = inngest.createFunction(
-  { id: "sync-instagram-account", triggers: [instagramAccountConnected] },
+  { id: "sync-instagram-account", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [instagramAccountConnected] },
   async ({ event, step }) => {
     const { userId } = event.data;
 
@@ -51,7 +51,7 @@ export const syncInstagramAccount = inngest.createFunction(
         await step.sendEvent("continue-backfill", instagramBackfillContinue.create({ userId }));
       }
 
-      revalidateBusinessData();
+      revalidateBusinessData(userId);
       await track("instagram_sync_completed", userId, { posts_backfilled: result.processed });
     } catch (error) {
       const notProfessional = error instanceof InstagramNotProfessionalAccountError;

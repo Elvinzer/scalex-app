@@ -66,7 +66,7 @@ export async function saveSale(id: string | null, data: unknown): Promise<{ erro
   revalidatePath("/ventes/suivi");
   revalidatePath("/acquisition/contenu/youtube");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }
 
@@ -100,7 +100,7 @@ export async function createSaleFromOrphan(saleId: string, data: unknown): Promi
 
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -113,7 +113,7 @@ export async function removeSale(id: string): Promise<{ error: string | null }> 
   await deleteSale(access.accountId, id);
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -153,7 +153,7 @@ export async function setInstallmentStatus(
 
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }
 
@@ -188,6 +188,6 @@ export async function acknowledgeFailedInstallment(saleId: string, installmentIn
   await db.update(sales).set({ installments }).where(and(eq(sales.id, saleId), eq(sales.userId, accountId)));
 
   revalidatePath("/ventes/suivi");
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }

@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       console.error("inngest.send(youtubeAccountConnected) failed, YouTube connection saved anyway", error);
     }
 
-    revalidateBusinessData();
+    revalidateBusinessData(access.accountId);
 
     const response = NextResponse.redirect(new URL("/acquisition/contenu", origin));
     response.cookies.delete("youtube_oauth_state");

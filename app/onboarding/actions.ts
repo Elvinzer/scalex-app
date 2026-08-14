@@ -177,7 +177,7 @@ async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingG
   revalidatePath("/dashboard");
   revalidatePath("/roadmap");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(userId);
 
   return { result };
 }

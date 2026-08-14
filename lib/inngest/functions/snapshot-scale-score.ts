@@ -22,7 +22,7 @@ import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 // modal never read from this table for the CURRENT score — only for
 // 7d/30d deltas and the 8-week sparkline (lib/scale-score-history/queries.ts).
 export const snapshotScaleScore = inngest.createFunction(
-  { id: "snapshot-scale-score", triggers: [cron("0 6 * * *")] },
+  { id: "snapshot-scale-score", concurrency: { limit: 1 }, triggers: [cron("0 6 * * *")] },
   async ({ step }) => {
     const accounts = await step.run("load-accounts", async () => {
       return db

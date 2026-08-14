@@ -41,7 +41,7 @@ export async function disconnectInstagram(): Promise<{ error: string | null }> {
 
   revalidatePath("/integrations");
   revalidatePath("/acquisition/contenu");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -98,7 +98,7 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
     }
 
     revalidatePath("/acquisition/contenu");
-    revalidateBusinessData();
+    revalidateBusinessData(accountId);
     return { error: null, imported: result.processed, completed: result.completed };
   } catch (error) {
     const notProfessional = error instanceof InstagramNotProfessionalAccountError;

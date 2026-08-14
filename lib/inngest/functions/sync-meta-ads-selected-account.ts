@@ -7,7 +7,7 @@ import { inngest, metaAdsSyncRequested } from "@/lib/inngest/client";
 import { syncSelectedMetaAdAccount } from "@/lib/meta-ads/sync";
 
 export const syncMetaAdsSelectedAccount = inngest.createFunction(
-  { id: "sync-meta-ads-selected-account", triggers: [metaAdsSyncRequested] },
+  { id: "sync-meta-ads-selected-account", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [metaAdsSyncRequested] },
   async ({ event, step }) => {
     await step.run("load-connection", async () => {
       const [row] = await db

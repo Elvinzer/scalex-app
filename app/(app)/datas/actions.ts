@@ -106,6 +106,6 @@ export async function saveMonthlyMetrics(
   revalidatePath("/diagnostic-app");
   revalidatePath("/ventes/pipeline");
   revalidatePath("/ventes/pipeline/funnel");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

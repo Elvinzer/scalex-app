@@ -23,7 +23,7 @@ import { getAppUrl } from "@/lib/utils";
 // "tu vas perdre ta série", no mention of the streak's length at all, since
 // the length is exactly what would turn a reminder into a threat.
 export const refreshStreaks = inngest.createFunction(
-  { id: "refresh-streaks", triggers: [cron("0 19 * * *")] },
+  { id: "refresh-streaks", concurrency: { limit: 1 }, triggers: [cron("0 19 * * *")] },
   async ({ step }) => {
     const accounts = await step.run("load-accounts", async () => {
       return db

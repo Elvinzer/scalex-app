@@ -123,7 +123,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       step: "contact_submitted",
     });
     if (!leadId) return jsonError("Impossible d’enregistrer cette information. Réessaie dans un instant.", 500, "lead_capture_failed");
-    revalidateBusinessData();
+    revalidateBusinessData(event.userId);
 
     return NextResponse.json({ leadId });
   }
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       answers: answerValidation.snapshot,
     });
     if (!leadId) return jsonError("Impossible d’enregistrer ta demande. Réessaie dans un instant.", 500, "lead_capture_failed");
-    revalidateBusinessData();
+    revalidateBusinessData(slots.event.userId);
 
     return NextResponse.json({
       leadId,
@@ -205,16 +205,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       selectedStartAt: startAt,
       selectedEndAt: endAt,
     });
-    revalidateBusinessData();
+    revalidateBusinessData(event.userId);
     return NextResponse.json({ ok: true });
   }
 
   if (mode === "cancel") {
     const parsed = publicBookingCancelSchema.safeParse(body);
     if (!parsed.success) return jsonError("Lien de gestion invalide.", 422, "invalid_token");
+    const event = await getPublicNativeBookingEvent(handle, slug);
     const result = await cancelNativeBookingByToken(handle, slug, parsed.data.token);
     if ("error" in result) return jsonError("Ce lien de gestion n’est plus valide.", 404, "not_found");
-    revalidateBusinessData();
+    if (event) revalidateBusinessData(event.userId);
     return NextResponse.json({ ok: true, calendarSyncWarning: result.calendarSyncWarning ?? false });
   }
 
@@ -229,13 +230,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (mode === "reschedule") {
     const parsed = publicBookingRescheduleSchema.safeParse(body);
     if (!parsed.success) return jsonError("Nouvel horaire invalide.", 422, "invalid_reschedule");
+    const event = await getPublicNativeBookingEvent(handle, slug);
     const result = await rescheduleNativeBookingByToken(handle, slug, parsed.data.token, new Date(parsed.data.startAt));
     if ("error" in result) {
       if (result.error === "not_found") return jsonError("Ce lien de gestion n’est plus valide.", 404, "not_found");
       if (result.error === "slot_unavailable") return jsonError("Ce créneau n’est plus disponible.", 409, "slot_unavailable");
       return jsonError("Le rendez-vous n’a pas pu être déplacé.", 500, "reschedule_failed");
     }
-    revalidateBusinessData();
+    if (event) revalidateBusinessData(event.userId);
     return NextResponse.json({ booking: { ...result, startAt: result.startAt.toISOString(), endAt: result.endAt.toISOString() } });
   }
 
@@ -248,6 +250,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
+    const event = await getPublicNativeBookingEvent(handle, slug);
+    if (!event) return jsonError("Cette page de réservation n’est plus disponible.", 404, "not_found");
     const result = mode === "hold" ? await createNativeBookingHold(handle, slug, parsed.data) : await createNativeBooking(handle, slug, parsed.data);
     if ("error" in result) {
       if (result.error === "not_found") return jsonError("Cette page de réservation n’est plus disponible.", 404, "not_found");
@@ -269,7 +273,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         },
       });
     }
-    revalidateBusinessData();
+    revalidateBusinessData(event.userId);
     return NextResponse.json({ booking: { ...result, startAt: result.startAt.toISOString(), endAt: result.endAt.toISOString() } });
   }
 

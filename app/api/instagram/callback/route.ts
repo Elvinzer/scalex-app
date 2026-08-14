@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       console.error("inngest.send(instagramAccountConnected) failed, Instagram connection saved anyway", error);
     }
 
-    revalidateBusinessData();
+    revalidateBusinessData(access.accountId);
 
     const response = NextResponse.redirect(new URL("/acquisition/contenu", origin));
     response.cookies.delete("instagram_oauth_state");

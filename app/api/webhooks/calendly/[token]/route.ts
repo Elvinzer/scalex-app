@@ -227,7 +227,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         });
     }
 
-    revalidateBusinessData();
+    revalidateBusinessData(connection.userId);
     await markProcessed(connection.id, eventId, parsed.eventType);
   } catch {
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });

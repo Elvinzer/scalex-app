@@ -64,7 +64,7 @@ export async function saveLeverAnswer(
     await track("discovery_completed", userId);
   }
 
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }
 
@@ -105,6 +105,6 @@ export async function updateLeverStats(leverKey: string, stats: Record<string, n
     .set({ stats: parsed.data.stats, updatedAt: new Date() })
     .where(and(eq(businessLevers.userId, accountId), eq(businessLevers.leverKey, parsed.data.leverKey)));
 
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }

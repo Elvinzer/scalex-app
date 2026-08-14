@@ -36,7 +36,7 @@ export async function createTodo(label: string): Promise<{ error: string | null 
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Tâche invalide" };
 
   await db.insert(todos).values({ userId: access.accountId, label: parsed.data.label });
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }
 
@@ -56,7 +56,7 @@ export async function updateTodo(input: z.infer<typeof updateTodoSchema>): Promi
   const { id, ...patch } = parsed.data;
 
   await db.update(todos).set(patch).where(and(eq(todos.id, id), eq(todos.userId, access.accountId)));
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }
 
@@ -65,7 +65,7 @@ export async function deleteTodo(id: string): Promise<{ error: string | null }> 
   if ("error" in access) return access;
 
   await db.delete(todos).where(and(eq(todos.id, id), eq(todos.userId, access.accountId)));
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }
 
@@ -103,7 +103,7 @@ export async function toggleTodo(id: string, done: boolean): Promise<{ error: st
   await syncInitiativesForTodo(access.accountId, id, done, before.label);
 
   await track("todo_completed", access.userId, { is_business_improvement: isBusinessEvent });
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }
 
@@ -139,7 +139,7 @@ export async function createProject(input: z.infer<typeof createProjectSchema>):
     milestones,
   });
 
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }
 
@@ -191,7 +191,7 @@ export async function toggleMilestone(
     await syncInitiativesForProject(access.accountId, projectId, allDone, project.name);
   }
 
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null, justCompleted };
 }
 
@@ -214,7 +214,7 @@ export async function saveJournalNote(date: string, content: string): Promise<{ 
     });
 
   await track("journal_note_written", access.userId, {});
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }
 
@@ -256,6 +256,6 @@ export async function markTodayActionDone(metricKey: string, label: string): Pro
     await track("insight_marked_done", userId, { metric_key: metricKey });
   }
 
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }

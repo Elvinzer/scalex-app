@@ -247,7 +247,7 @@ export async function generateFunnelStageInsight(
 
   revalidatePath("/diagnostic-app");
   revalidatePath("/ventes/pipeline/funnel");
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(accountId);
   return { insightText: result.text, insightId: savedInsight.id, error: null };
 }
 
@@ -333,6 +333,6 @@ export async function setInsightImplemented(
   }
 
   revalidatePath("/diagnostic-app");
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(accountId);
   return { error: null };
 }

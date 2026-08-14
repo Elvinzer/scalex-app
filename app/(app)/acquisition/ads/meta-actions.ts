@@ -379,7 +379,7 @@ export async function setMetaCampaignProfile(input: unknown): Promise<{ error: s
   await refreshCurrentMetaInsights(access.accountId);
 
   revalidatePath("/acquisition/ads");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   revalidatePath(`/acquisition/ads/meta/${campaign.id}`);
   return { error: null };
 }
@@ -442,7 +442,7 @@ export async function setMetaCampaignTargets(input: unknown): Promise<{ error: s
 
   revalidatePath(`/acquisition/ads/meta/${campaign.id}`);
   revalidatePath("/acquisition/ads");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -818,7 +818,7 @@ export async function applyMetaCampaignAction(input: unknown): Promise<MetaActio
     await updateMetaActionTargetCache(target, access.accountId, resultState, desiredStatus, requestedBudget, verifiedBudget, completedAt);
     revalidatePath("/acquisition/ads");
   revalidatePath(`/acquisition/ads/meta/${target.campaignId}`);
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
     return { error: null, status: "succeeded" };
   } catch (error) {
     const message = error instanceof MetaApiError ? error.message : "La modification Meta a échoué.";

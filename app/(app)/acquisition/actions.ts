@@ -164,7 +164,7 @@ export async function saveAcquisitionFunnelConfiguration(
     fields: Object.keys(parsedConfig.data),
     kind: "configuration",
   }));
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -213,7 +213,7 @@ export async function saveAcquisitionFunnelMetrics(
     kind: "metrics",
     month: `${parsedYear.data}-${String(parsedMonth.data).padStart(2, "0")}`,
   }));
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -302,7 +302,7 @@ export async function saveFunnelBlockMetrics(data: unknown): Promise<{ error: st
     kind: "metrics",
     month: `${parsed.data.year}-${String(parsed.data.month).padStart(2, "0")}`,
   }));
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -343,7 +343,7 @@ export async function saveFunnelBlockConfiguration(data: unknown): Promise<{ err
     .values({ userId: access.accountId, ...EMPTY_BUSINESS_PROFILE, acquisition: persisted })
     .onConflictDoUpdate({ target: businessProfile.userId, set: { acquisition: persisted, updatedAt: new Date() } });
   after(() => track("acquisition_data_saved", userId, { block_key: parsed.data.blockKey, fields: Object.keys(parsed.data.values), kind: "configuration" }));
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 

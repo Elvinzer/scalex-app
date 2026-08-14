@@ -1,8 +1,10 @@
 import { cache } from "react";
 import { eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 
 import { db } from "@/db";
 import { emailCampaigns, metaAdMetricsDaily, nativeBookingLeads } from "@/db/schema";
+import { diagnosticDataCacheTag } from "@/lib/diagnostic/cache-tags";
 import { getClosingKpiEntries, getAllMonthlyMetrics, getSalesCallKpiRecords, getSettingKpiEntries } from "@/lib/monthly-metrics/queries";
 import { aggregateSalesCallsByMonth } from "@/lib/monthly-metrics/call-source";
 import { getLeadStageHistory, getLeads } from "@/lib/leads/queries";
@@ -14,31 +16,47 @@ import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { getInFlight } from "@/lib/perf/in-flight";
 import { measureAsync } from "@/lib/perf/timing";
 
+const DIAGNOSTIC_CACHE_REVALIDATE_SECONDS = 30;
+
+// Cache each source independently instead of serializing the complete
+// diagnostic snapshot as one Data Cache entry. Historical insight/content
+// rows can grow beyond Next's per-entry limit; smaller account-scoped entries
+// keep the hot path reusable across requests without sharing data between
+// businesses.
+function getCachedDiagnosticSource<T>(
+  source: string,
+  accountId: string,
+  loader: () => Promise<T>
+): Promise<T> {
+  return unstable_cache(loader, ["diagnostic-source", source, accountId], {
+    revalidate: DIAGNOSTIC_CACHE_REVALIDATE_SECONDS,
+    tags: [diagnosticDataCacheTag(accountId)],
+  })();
+}
+
 // The React `cache()` wrapper deduplicates calls inside one render. The
-// snapshot intentionally stays out of Next's persistent Data Cache: it grows
-// with an account's historical content and insight rows, and one cache entry
-// can exceed Next's 2 MB limit. app/(app)/layout.tsx (Scale Score badge,
-// mounted on every page) and the page itself (Dashboard, Diagnostic, Roadmap,
-// Copilote, Ads) still share one source read during the request. Downstream
-// math (aggregatePeriodTotals, computeDiagnosticPoints, computeScaleScore...)
-// stays pure and cheap, so it is intentionally recomputed per projection.
+// in-flight map additionally protects separate concurrent route requests in
+// the same Vercel instance while the account's source entries are warming.
+// Downstream math (aggregatePeriodTotals, computeDiagnosticPoints,
+// computeScaleScore...) stays pure and cheap, so it is intentionally
+// recomputed per projection.
 async function fetchDiagnosticKpiRawData(accountId: string) {
   return measureAsync("db.diagnostic.raw", async () => {
-    const [allSettingEntries, allClosingEntries, allMonthlyRows, allCallRecords, allSales, allLeads, allLeadStageHistory, youtubeInsightsMap, instagramInsightsMap, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads] = await Promise.all([
-      measureAsync("db.diagnostic.setting", () => getSettingKpiEntries(accountId)),
-      measureAsync("db.diagnostic.closing", () => getClosingKpiEntries(accountId)),
-      measureAsync("db.diagnostic.monthly", () => getAllMonthlyMetrics(accountId)),
-      measureAsync("db.diagnostic.call-records", () => getSalesCallKpiRecords(accountId)),
-      measureAsync("db.diagnostic.sales", () => getSales(accountId)),
-      measureAsync("db.diagnostic.leads", () => getLeads(accountId)),
-      measureAsync("db.diagnostic.lead-history", () => getLeadStageHistory(accountId)),
-      measureAsync("db.diagnostic.youtube", () => getYoutubeVideoInsightsMap(accountId)),
-      measureAsync("db.diagnostic.instagram", () => getInstagramPostInsightsMap(accountId)),
-      measureAsync("db.diagnostic.content", () => getContentPosts(accountId)),
-      measureAsync("db.diagnostic.video-attribution", () => getVideoAttributionTotals(accountId)),
-      measureAsync("db.diagnostic.email", () => db.select().from(emailCampaigns).where(eq(emailCampaigns.userId, accountId))),
-      measureAsync("db.diagnostic.meta", () => db.select().from(metaAdMetricsDaily).where(eq(metaAdMetricsDaily.userId, accountId))),
-      measureAsync("db.diagnostic.native-booking", () => db.select().from(nativeBookingLeads).where(eq(nativeBookingLeads.userId, accountId))),
+    const [allSettingEntries, allClosingEntries, allMonthlyRows, allCallRecords, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads] = await Promise.all([
+      getCachedDiagnosticSource("setting", accountId, () => measureAsync("db.diagnostic.setting", () => getSettingKpiEntries(accountId))),
+      getCachedDiagnosticSource("closing", accountId, () => measureAsync("db.diagnostic.closing", () => getClosingKpiEntries(accountId))),
+      getCachedDiagnosticSource("monthly", accountId, () => measureAsync("db.diagnostic.monthly", () => getAllMonthlyMetrics(accountId))),
+      getCachedDiagnosticSource("call-records", accountId, () => measureAsync("db.diagnostic.call-records", () => getSalesCallKpiRecords(accountId))),
+      getCachedDiagnosticSource("sales", accountId, () => measureAsync("db.diagnostic.sales", () => getSales(accountId))),
+      getCachedDiagnosticSource("leads", accountId, () => measureAsync("db.diagnostic.leads", () => getLeads(accountId))),
+      getCachedDiagnosticSource("lead-history", accountId, () => measureAsync("db.diagnostic.lead-history", () => getLeadStageHistory(accountId))),
+      getCachedDiagnosticSource("youtube", accountId, async () => Array.from((await measureAsync("db.diagnostic.youtube", () => getYoutubeVideoInsightsMap(accountId))).values())),
+      getCachedDiagnosticSource("instagram", accountId, async () => Array.from((await measureAsync("db.diagnostic.instagram", () => getInstagramPostInsightsMap(accountId))).values())),
+      getCachedDiagnosticSource("content", accountId, () => measureAsync("db.diagnostic.content", () => getContentPosts(accountId))),
+      getCachedDiagnosticSource("video-attribution", accountId, async () => Array.from((await measureAsync("db.diagnostic.video-attribution", () => getVideoAttributionTotals(accountId))).entries())),
+      getCachedDiagnosticSource("email", accountId, () => measureAsync("db.diagnostic.email", () => db.select().from(emailCampaigns).where(eq(emailCampaigns.userId, accountId)))),
+      getCachedDiagnosticSource("meta", accountId, () => measureAsync("db.diagnostic.meta", () => db.select().from(metaAdMetricsDaily).where(eq(metaAdMetricsDaily.userId, accountId)))),
+      getCachedDiagnosticSource("native-booking", accountId, () => measureAsync("db.diagnostic.native-booking", () => db.select().from(nativeBookingLeads).where(eq(nativeBookingLeads.userId, accountId)))),
     ]);
     return {
       allSettingEntries,
@@ -49,8 +67,8 @@ async function fetchDiagnosticKpiRawData(accountId: string) {
       allSales,
       allLeads,
       allLeadStageHistory,
-      allYoutubeVideoInsights: Array.from(youtubeInsightsMap.values()),
-      allInstagramPostInsights: Array.from(instagramInsightsMap.values()),
+      allYoutubeVideoInsights,
+      allInstagramPostInsights,
       allContentPosts,
       allVideoAttributionTotals,
       allEmailCampaigns,
@@ -63,23 +81,18 @@ async function fetchDiagnosticKpiRawData(accountId: string) {
 type DiagnosticKpiRawData = Awaited<ReturnType<typeof fetchDiagnosticKpiRawData>>;
 
 // React's cache() is scoped to one render/request. A sidebar and a page can
-// still start the same large snapshot at the same time from separate route
+// still start the same snapshot at the same time from separate route
 // requests. Share only the in-flight promise so concurrent requests do not fan
-// out into the same 14-query snapshot. The entry is removed as soon as it
+// out into the same 14-source snapshot. The entry is removed as soon as it
 // settles, which avoids serving stale data after a mutation and keeps account
 // data isolated by the accountId key.
 const inFlightDiagnosticSnapshots = new Map<string, Promise<DiagnosticKpiRawData>>();
 
-// Keep the Map serializable inside the request-level memoized value. Unlike
-// `unstable_cache`, React `cache()` does not persist this potentially large
-// snapshot in Next's Data Cache.
-const getCachedDiagnosticKpiRawData = cache(async (accountId: string) => {
-  const snapshot = await getInFlight(inFlightDiagnosticSnapshots, accountId, () => fetchDiagnosticKpiRawData(accountId));
-  return {
-    ...snapshot,
-    allVideoAttributionTotals: Array.from(snapshot.allVideoAttributionTotals.entries()),
-  };
-});
+// The source-level cache already returns plain arrays for the two Maps. The
+// request-level wrapper only shares the assembled value while it is in flight.
+const getCachedDiagnosticKpiRawData = cache(async (accountId: string) =>
+  getInFlight(inFlightDiagnosticSnapshots, accountId, () => fetchDiagnosticKpiRawData(accountId))
+);
 
 type CachedDiagnosticKpiRawData = Awaited<ReturnType<typeof getCachedDiagnosticKpiRawData>>;
 
@@ -164,9 +177,9 @@ export type ScaleScoreInputs = {
 async function fetchScaleScoreInputs(accountId: string): Promise<ScaleScoreInputs> {
   return measureAsync("db.scale-score.inputs", async () => {
     const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-      measureAsync("db.scale-score.setting", () => getSettingKpiEntries(accountId)),
-      measureAsync("db.scale-score.closing", () => getClosingKpiEntries(accountId)),
-      measureAsync("db.scale-score.monthly", () => getAllMonthlyMetrics(accountId)),
+      getCachedDiagnosticSource("setting", accountId, () => measureAsync("db.scale-score.setting", () => getSettingKpiEntries(accountId))),
+      getCachedDiagnosticSource("closing", accountId, () => measureAsync("db.scale-score.closing", () => getClosingKpiEntries(accountId))),
+      getCachedDiagnosticSource("monthly", accountId, () => measureAsync("db.scale-score.monthly", () => getAllMonthlyMetrics(accountId))),
     ]);
 
     return { allSettingEntries, allClosingEntries, allMonthlyRows };

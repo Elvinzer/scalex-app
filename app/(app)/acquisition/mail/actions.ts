@@ -31,7 +31,7 @@ export async function saveEmailCampaign(id: string | null, data: unknown): Promi
   }
 
   revalidatePath("/acquisition/mail");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -43,7 +43,7 @@ export async function removeEmailCampaign(id: string): Promise<{ error: string |
 
   await deleteEmailCampaign(access.accountId, id);
   revalidatePath("/acquisition/mail");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -63,6 +63,6 @@ export async function saveMailDiscoveryAnswer(
   if (justActivated) await track("lever_started", userId, { lever: LEVER_KEY, source: "discovery" });
 
   revalidatePath("/acquisition/mail");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

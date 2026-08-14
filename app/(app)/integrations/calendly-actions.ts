@@ -86,7 +86,7 @@ export async function connectCalendly(formData: FormData): Promise<{ error: stri
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -123,6 +123,6 @@ export async function disconnectCalendly(): Promise<{ error: string | null }> {
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

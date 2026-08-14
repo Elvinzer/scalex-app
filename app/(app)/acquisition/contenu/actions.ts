@@ -22,6 +22,6 @@ export async function updatePostCommercialStats(source: string, externalId: stri
 
   await updateContentPostCommercialStats(access.accountId, source, externalId, parsed.data);
   revalidatePath("/acquisition/contenu");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

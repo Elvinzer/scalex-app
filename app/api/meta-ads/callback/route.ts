@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
     }
 
     const writeStatus = isWriteStepUp ? (scopes.includes("ads_management") ? "write_ready" : "write_declined") : "connected";
-    revalidateBusinessData();
+    revalidateBusinessData(access.accountId);
     const destination = new URL(returnTo ?? "/integrations", origin);
     destination.searchParams.set("meta_ads", writeStatus);
     const response = NextResponse.redirect(destination);

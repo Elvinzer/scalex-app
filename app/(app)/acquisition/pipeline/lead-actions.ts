@@ -46,7 +46,7 @@ export async function createLeadAction(data: unknown): Promise<{ error: string |
   const lead = await createLead(access.accountId, parsed.data);
   after(() => track("lead_created", userId, { source: lead.source }));
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -61,7 +61,7 @@ export async function updateLeadAction(id: string, data: unknown): Promise<{ err
 
   await updateLead(access.accountId, id, parsed.data);
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -73,7 +73,7 @@ export async function deleteLeadAction(id: string): Promise<{ error: string | nu
 
   await deleteLead(access.accountId, id);
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -94,7 +94,7 @@ export async function changeStageAction(id: string, data: unknown): Promise<{ er
 
   after(() => track("lead_stage_changed", userId, { to_stage: parsed.data.toStage }));
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -106,7 +106,7 @@ export async function recoverFromNoShowAction(id: string): Promise<{ error: stri
 
   const result = await recoverFromNoShow(access.accountId, id);
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return result;
 }
 
@@ -118,7 +118,7 @@ export async function setNoShowAction(id: string, value: boolean): Promise<{ err
 
   await setNoShow(access.accountId, id, value);
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -133,7 +133,7 @@ export async function addCommentAction(leadId: string, data: unknown): Promise<{
 
   await addComment(access.accountId, leadId, parsed.data.body);
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -148,7 +148,7 @@ export async function setReminderAction(leadId: string, data: unknown): Promise<
 
   await setReminder(access.accountId, leadId, parsed.data.reminderDate, parsed.data.reminderNote);
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -160,6 +160,6 @@ export async function toggleReminderDoneAction(leadId: string, done: boolean): P
 
   await toggleReminderDone(access.accountId, leadId, done);
   revalidatePath("/ventes/pipeline");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

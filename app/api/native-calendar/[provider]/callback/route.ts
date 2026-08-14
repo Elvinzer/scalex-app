@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
       await db.insert(nativeCalendarConnections).values(values);
     }
 
-    revalidateBusinessData();
+    revalidateBusinessData(access.accountId);
 
     const response = NextResponse.redirect(new URL(`${returnTo}?calendar=connected`, request.url));
     response.cookies.delete("native_calendar_oauth_state");

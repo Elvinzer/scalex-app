@@ -119,7 +119,7 @@ export async function saveBusinessSection(
   revalidatePath("/dashboard");
   revalidatePath("/diagnostic-app");
   revalidatePath("/datas");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 

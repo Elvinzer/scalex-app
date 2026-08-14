@@ -60,7 +60,7 @@ export async function saveSettingKpiEntry(
   revalidatePath("/ventes/pipeline/funnel");
   revalidatePath("/diagnostic-app");
   revalidatePath("/dashboard");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -100,7 +100,7 @@ export async function updateSettingKpiEntryField(
 
   revalidatePath("/ventes/pipeline/funnel");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -142,6 +142,6 @@ export async function importSettingKpiCsv(rawCsv: string): Promise<ImportSetting
 
   revalidatePath("/ventes/pipeline/funnel");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { imported: rows.length, errors };
 }

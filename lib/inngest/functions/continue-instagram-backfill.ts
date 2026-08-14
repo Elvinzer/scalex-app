@@ -18,7 +18,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // age, and backfillInstagramPosts's onConflictDoUpdate upserts make
 // repeated/overlapping runs safe either way.
 export const continueInstagramBackfill = inngest.createFunction(
-  { id: "continue-instagram-backfill", triggers: [instagramBackfillContinue] },
+  { id: "continue-instagram-backfill", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [instagramBackfillContinue] },
   async ({ event, step }) => {
     const { userId } = event.data;
 
@@ -41,7 +41,7 @@ export const continueInstagramBackfill = inngest.createFunction(
         await step.sendEvent("chain-continue", instagramBackfillContinue.create({ userId }));
       }
 
-      revalidateBusinessData();
+      revalidateBusinessData(userId);
       return result;
     } catch (error) {
       const notProfessional = error instanceof InstagramNotProfessionalAccountError;

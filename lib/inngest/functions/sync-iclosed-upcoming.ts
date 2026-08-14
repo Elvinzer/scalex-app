@@ -15,7 +15,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 const UPCOMING_SYNC_COOLDOWN_MS = 5 * 60 * 1000;
 
 export const syncIclosedUpcoming = inngest.createFunction(
-  { id: "sync-iclosed-upcoming", retries: 2, triggers: [iclosedUpcomingSyncRequested] },
+  { id: "sync-iclosed-upcoming", concurrency: { limit: 1, key: "event.data.userId" }, retries: 2, triggers: [iclosedUpcomingSyncRequested] },
   async ({ event, step }) => {
     const { userId, connectionId } = event.data;
     const claimed = await step.run("claim-upcoming-sync", async () => {
@@ -56,7 +56,7 @@ export const syncIclosedUpcoming = inngest.createFunction(
         return reconcileIclosedUpcomingCalls(userId, decrypt(connection.apiKeyEncrypted));
       });
 
-      if (result.inserted > 0 || result.updated > 0) revalidateBusinessData();
+      if (result.inserted > 0 || result.updated > 0) revalidateBusinessData(userId);
       return result;
     } catch (error) {
       // A failed attempt should not suppress the next visible page-open check.

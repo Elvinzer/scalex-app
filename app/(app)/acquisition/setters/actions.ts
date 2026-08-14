@@ -27,7 +27,7 @@ export async function saveSetter(id: string | null, data: unknown): Promise<{ er
     await track("setter_added", userId, { setter_id: setter.id });
   }
 
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }
 
@@ -38,6 +38,6 @@ export async function toggleSetterActive(id: string, active: boolean): Promise<{
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
   await updateSetter(access.accountId, id, { active });
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     console.error("inngest.send(stripeAccountConnected) failed, Stripe connection saved anyway", error);
   }
 
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
 
   const response = NextResponse.redirect(new URL("/integrations", origin));
   response.cookies.delete("stripe_oauth_state");

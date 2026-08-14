@@ -188,7 +188,7 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
   revalidatePath("/dashboard");
   revalidatePath("/datas");
   revalidatePath("/ventes/suivi");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -254,7 +254,7 @@ export async function resetAccountData(): Promise<{ error: string | null }> {
 
   revalidatePath("/dashboard");
   revalidatePath("/settings");
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }
 

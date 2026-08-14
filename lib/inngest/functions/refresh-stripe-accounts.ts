@@ -8,7 +8,7 @@ import { inngest, stripeSyncRequested } from "@/lib/inngest/client";
 // account at the top level so each account gets the same retry/idempotency
 // behavior as a manually requested refresh.
 export const refreshStripeAccounts = inngest.createFunction(
-  { id: "refresh-stripe-accounts", triggers: [cron("0 4 * * *")] },
+  { id: "refresh-stripe-accounts", concurrency: { limit: 1 }, triggers: [cron("0 4 * * *")] },
   async ({ step }) => {
     const connections = await step.run("load-stripe-connections", async () =>
       db.select({ userId: stripeConnections.userId }).from(stripeConnections),
@@ -24,4 +24,3 @@ export const refreshStripeAccounts = inngest.createFunction(
     return { requested: connections.length };
   },
 );
-

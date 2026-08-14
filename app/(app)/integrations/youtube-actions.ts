@@ -40,7 +40,7 @@ export async function disconnectYoutube(): Promise<{ error: string | null }> {
 
   revalidatePath("/integrations");
   revalidatePath("/acquisition/contenu");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -78,7 +78,7 @@ export async function refreshYoutubeVideos(): Promise<{ error: string | null; im
       .where(eq(youtubeConnections.userId, accountId));
 
     revalidatePath("/acquisition/contenu");
-    revalidateBusinessData();
+    revalidateBusinessData(accountId);
     return { error: null, imported: result.processed, completed: result.completed };
   } catch (error) {
     const revoked = error instanceof YoutubeTokenRevokedError;

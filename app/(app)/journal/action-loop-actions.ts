@@ -100,7 +100,7 @@ export async function startJournalAction(input: unknown): Promise<{ error: strin
 
   if (created && initiativeId) await recordInitiativeLaunched(access.accountId, initiativeId, record.title);
   await track("action_started", access.userId, { type: parsed.data.type });
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null, initiativeId };
 }
 
@@ -124,7 +124,7 @@ export async function completeJournalAction(input: unknown): Promise<{ error: st
       sourceId: updated.id,
     });
     await track("action_completed", access.userId, { type: parsed.data.type, metric_key: "followupRecovery" });
-    revalidateJournalSurfaces();
+    revalidateJournalSurfaces(access.accountId);
     return { error: null };
   }
 
@@ -158,7 +158,7 @@ export async function completeJournalAction(input: unknown): Promise<{ error: st
   if (!initiativeId) return { error: "Impossible d'enregistrer cette action." };
   await markInitiativeCompleted(access.accountId, initiativeId, record.title);
   await track("action_completed", access.userId, { type: parsed.data.type, metric_key: record.metricKey });
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }
 
@@ -176,7 +176,7 @@ export async function snoozeJournalAction(input: unknown): Promise<{ error: stri
   await db.update(insightRecords).set({ decision: "later", resumeAt: until, updatedAt: now }).where(and(eq(insightRecords.id, record.id), eq(insightRecords.userId, access.accountId)));
   await db.update(improvementInitiatives).set({ snoozedUntil: until, lastActivityAt: now, updatedAt: now }).where(and(eq(improvementInitiatives.insightRecordId, record.id), eq(improvementInitiatives.userId, access.accountId)));
   await track("action_snoozed", access.userId, { type: parsed.data.type });
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }
 
@@ -193,6 +193,6 @@ export async function dismissJournalAction(input: unknown): Promise<{ error: str
   await db.update(insightRecords).set({ decision: "dismissed", resumeAt: null, updatedAt: now }).where(and(eq(insightRecords.id, record.id), eq(insightRecords.userId, access.accountId)));
   await db.update(improvementInitiatives).set({ status: "cancelled", lastActivityAt: now, updatedAt: now }).where(and(eq(improvementInitiatives.insightRecordId, record.id), eq(improvementInitiatives.userId, access.accountId)));
   await track("action_dismissed", access.userId, { type: parsed.data.type });
-  revalidateJournalSurfaces();
+  revalidateJournalSurfaces(access.accountId);
   return { error: null };
 }

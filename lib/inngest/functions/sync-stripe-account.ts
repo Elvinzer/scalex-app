@@ -16,7 +16,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 const STRIPE_SYNC_MONTHS_BACK = 12;
 
 export const syncStripeAccount = inngest.createFunction(
-  { id: "sync-stripe-account", triggers: [stripeAccountConnected, stripeSyncRequested] },
+  { id: "sync-stripe-account", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [stripeAccountConnected, stripeSyncRequested] },
   async ({ event, step }) => {
     const { userId } = event.data;
 
@@ -140,7 +140,7 @@ export const syncStripeAccount = inngest.createFunction(
         invalid_transaction_rows: transactionProjection.invalidCharges,
         invalid_refund_rows: transactionProjection.invalidRefunds,
       });
-      revalidateBusinessData();
+      revalidateBusinessData(userId);
     } catch (error) {
       await step.run("mark-sync-failed", async () => {
         await db

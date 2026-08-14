@@ -41,7 +41,7 @@ export async function regenerateYoutubeRecommendations(): Promise<Recommendation
 
   revalidatePath("/acquisition/contenu");
   revalidatePath("/acquisition/contenu/youtube");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return {
     error: result.state === "generation_failed" ? "Falco n'a pas pu régénérer les idées. Réessaie dans un instant." : null,
     state: result.state,
@@ -91,7 +91,7 @@ export async function acceptYoutubeRecommendation(recommendationId: string): Pro
   revalidatePath("/acquisition/contenu");
   revalidatePath("/acquisition/contenu/youtube");
   revalidatePath("/roadmap");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }
 
@@ -122,6 +122,6 @@ export async function linkYoutubeRecommendationToVideo(
   await track("content_reco_published", access.userId, { reco_id: parsedRecommendationId.data });
   revalidatePath("/acquisition/contenu");
   revalidatePath("/acquisition/contenu/youtube");
-  revalidateBusinessData();
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

@@ -75,7 +75,7 @@ export async function createManualCallAction(data: unknown): Promise<{ error: st
   });
 
   revalidatePath("/ventes/appels");
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }
 
@@ -124,7 +124,7 @@ export async function setCallResult(callId: string, result: unknown): Promise<{ 
   revalidatePath("/ventes/appels");
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }
 
@@ -157,7 +157,7 @@ export async function setCallDecisionDue(callId: string, dueDate: unknown): Prom
     .where(and(eq(salesCalls.id, callId), eq(salesCalls.userId, accountId)));
 
   revalidatePath("/ventes/appels");
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }
 
@@ -230,6 +230,6 @@ export async function setCallAmounts(
   revalidatePath("/ventes/appels");
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic-app");
-  revalidateBusinessData();
+  revalidateBusinessData(accountId);
   return { error: null };
 }

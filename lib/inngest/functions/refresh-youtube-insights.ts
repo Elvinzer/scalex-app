@@ -19,7 +19,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // step.run isolation (same pattern as refresh-instagram-insights.ts) so one
 // account's failure never blocks another.
 export const refreshYoutubeInsights = inngest.createFunction(
-  { id: "refresh-youtube-insights", triggers: [cron("15 */6 * * *")] },
+  { id: "refresh-youtube-insights", concurrency: { limit: 1 }, triggers: [cron("15 */6 * * *")] },
   async ({ step }) => {
     const connections = await step.run("load-connections", async () => db.select().from(youtubeConnections));
 
@@ -57,8 +57,9 @@ export const refreshYoutubeInsights = inngest.createFunction(
       }
     }
 
-    const refreshed = results.filter((r) => !r.skipped).length;
-    if (refreshed > 0) revalidateBusinessData();
+    const refreshedResults = results.filter((r) => !r.skipped);
+    for (const result of refreshedResults) revalidateBusinessData(result.userId);
+    const refreshed = refreshedResults.length;
     return { total: connections.length, refreshed };
   }
 );

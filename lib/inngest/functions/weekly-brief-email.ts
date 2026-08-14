@@ -34,7 +34,7 @@ import { ensureWeeklyNudges, getActiveNudge } from "@/lib/insight-execution/foll
 // two different questions ("how did last week go" vs "have you checked in
 // yet this week").
 export const weeklyBriefEmail = inngest.createFunction(
-  { id: "weekly-brief-email", triggers: [cron("0 8 * * 1")] },
+  { id: "weekly-brief-email", concurrency: { limit: 1 }, triggers: [cron("0 8 * * 1")] },
   async ({ step }) => {
     const recipients = await step.run("load-recipients", async () => {
       return db

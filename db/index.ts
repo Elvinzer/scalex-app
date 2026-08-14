@@ -15,6 +15,9 @@ if (process.env.NODE_ENV === "development" && poolConnection.port === "6543") {
   poolConnection.port = "5432";
 }
 
+const configuredPoolMax = Number.parseInt(process.env.DB_POOL_MAX ?? "5", 10);
+const poolMax = Number.isInteger(configuredPoolMax) && configuredPoolMax >= 1 && configuredPoolMax <= 20 ? configuredPoolMax : 5;
+
 // prepare: false — required with Supabase's Supavisor pooler in transaction
 // mode, which doesn't support prepared statements. Explicitly pin the schema
 // path as well: Drizzle emits public table names without a schema qualifier,
@@ -24,7 +27,7 @@ const client = postgres(poolConnection.toString(), {
   // Keep a small client-side pool for Supabase's pooler. App Router pages
   // already batch independent reads with Promise.all; this avoids multiplying
   // those batches across too many pooler sessions.
-  max: 3,
+  max: poolMax,
   idle_timeout: 30,
   connect_timeout: 10,
   keep_alive: 30,

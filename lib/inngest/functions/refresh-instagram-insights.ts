@@ -19,7 +19,7 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // well ahead of that deadline. Per-account step.run isolation (same pattern
 // as snapshot-scale-score.ts) so one account's failure never blocks another.
 export const refreshInstagramInsights = inngest.createFunction(
-  { id: "refresh-instagram-insights", triggers: [cron("0 */6 * * *")] },
+  { id: "refresh-instagram-insights", concurrency: { limit: 1 }, triggers: [cron("0 */6 * * *")] },
   async ({ step }) => {
     const connections = await step.run("load-connections", async () => db.select().from(instagramConnections));
 
@@ -98,8 +98,9 @@ export const refreshInstagramInsights = inngest.createFunction(
       }
     }
 
-    const refreshed = results.filter((r) => !r.skipped).length;
-    if (refreshed > 0) revalidateBusinessData();
+    const refreshedResults = results.filter((r) => !r.skipped);
+    for (const result of refreshedResults) revalidateBusinessData(result.userId);
+    const refreshed = refreshedResults.length;
     return { total: connections.length, refreshed };
   }
 );
