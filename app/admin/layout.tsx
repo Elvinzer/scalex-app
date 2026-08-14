@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentUser } from "@/lib/current-user";
 import { isAdminEmail } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
+
+import { AdminNav } from "./admin-nav";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
@@ -35,9 +38,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/dashboard");
   }
 
+  const t = await getTranslations("navigation");
+
   return (
     <div className="min-h-screen bg-panel px-8 py-10 sm:px-12 lg:px-16">
-      <div className="mx-auto max-w-5xl">
+      <header className="mx-auto max-w-6xl">
         <a
           href="/dashboard"
           className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground"
@@ -45,8 +50,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <ArrowLeft className="size-4" />
           Retour au dashboard
         </a>
-      </div>
-      {children}
+        <AdminNav
+          labels={{
+            ariaLabel: t("adminNavigation"),
+            dashboard: t("dashboard"),
+            ideas: t("adminIdeas"),
+            subscriptions: t("adminSubscriptions"),
+            plans: t("adminPlans"),
+            referrals: t("referral"),
+          }}
+        />
+      </header>
+      <main id="main-content">{children}</main>
     </div>
   );
 }

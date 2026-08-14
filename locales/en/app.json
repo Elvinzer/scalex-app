@@ -1473,6 +1473,59 @@
     "syncing": "Syncing…",
     "close": "Close"
   },
+  "adminIdeas": {
+    "title": "Product ideas",
+    "subtitle": "Keep Minaly improvement ideas in one place and make the next priorities visible.",
+    "boardTitle": "Internal roadmap",
+    "boardHelp": "Drag a card into another column. The change saves right away.",
+    "add": "New idea",
+    "ideaCount": {
+      "zero": "No ideas",
+      "one": "{count} idea",
+      "other": "{count} ideas"
+    },
+    "columns": {
+      "backlog": {
+        "title": "Ideas",
+        "description": "Ideas to review and prioritize."
+      },
+      "in_progress": {
+        "title": "In progress",
+        "description": "Ideas currently being built."
+      },
+      "completed": {
+        "title": "Completed",
+        "description": "Improvements already shipped."
+      }
+    },
+    "empty": {
+      "backlog": "No ideas yet.",
+      "in_progress": "Nothing in progress.",
+      "completed": "No completed ideas yet."
+    },
+    "form": {
+      "title": "Add an idea",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Example: Add a CSV export",
+      "descriptionLabel": "Context (optional)",
+      "descriptionPlaceholder": "Why does this improvement matter?",
+      "cancel": "Cancel",
+      "create": "Add idea",
+      "creating": "Adding…"
+    },
+    "card": {
+      "createdAt": "Added on {date}",
+      "dragHint": "Drag to move",
+      "moveTo": "Move to {status}"
+    },
+    "saving": "Saving…",
+    "errors": {
+      "invalid": "Check the idea title.",
+      "create_failed": "The idea could not be added. Try again.",
+      "not_found": "This idea no longer exists. Reload the page.",
+      "move_failed": "The move could not be saved. The card was put back."
+    }
+  },
   "integrations": {
     "title": "Integrations",
     "subtitle": "The data sources Minaly uses for your diagnostic.",

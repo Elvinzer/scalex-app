@@ -1489,6 +1489,59 @@
     "syncing": "Synchronisation…",
     "close": "Fermer"
   },
+  "adminIdeas": {
+    "title": "Idées produit",
+    "subtitle": "Centralise les idées d’amélioration de Minaly et rends les prochaines priorités visibles.",
+    "boardTitle": "Roadmap interne",
+    "boardHelp": "Glisse une carte dans une autre colonne. Le changement est enregistré immédiatement.",
+    "add": "Nouvelle idée",
+    "ideaCount": {
+      "zero": "Aucune idée",
+      "one": "{count} idée",
+      "other": "{count} idées"
+    },
+    "columns": {
+      "backlog": {
+        "title": "Idées",
+        "description": "À étudier et à prioriser."
+      },
+      "in_progress": {
+        "title": "En cours",
+        "description": "Les idées actuellement en construction."
+      },
+      "completed": {
+        "title": "Terminées",
+        "description": "Les améliorations déjà livrées."
+      }
+    },
+    "empty": {
+      "backlog": "Aucune idée pour le moment.",
+      "in_progress": "Rien en cours.",
+      "completed": "Aucune idée terminée."
+    },
+    "form": {
+      "title": "Ajouter une idée",
+      "titleLabel": "Titre",
+      "titlePlaceholder": "Ex. Ajouter un export CSV",
+      "descriptionLabel": "Contexte (optionnel)",
+      "descriptionPlaceholder": "Pourquoi cette amélioration compte-t-elle ?",
+      "cancel": "Annuler",
+      "create": "Ajouter l’idée",
+      "creating": "Ajout…"
+    },
+    "card": {
+      "createdAt": "Ajoutée le {date}",
+      "dragHint": "Glisser pour déplacer",
+      "moveTo": "Déplacer vers {status}"
+    },
+    "saving": "Enregistrement…",
+    "errors": {
+      "invalid": "Vérifie le titre de l’idée.",
+      "create_failed": "L’idée n’a pas pu être ajoutée. Réessaie.",
+      "not_found": "Cette idée n’existe plus. Recharge la page.",
+      "move_failed": "Le déplacement n’a pas pu être enregistré. La carte a été remise à sa place."
+    }
+  },
   "integrations": {
     "title": "Intégrations",
     "subtitle": "Les sources de données que Minaly utilise pour ton diagnostic.",

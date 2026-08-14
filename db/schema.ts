@@ -3879,3 +3879,29 @@ export const testimonials = pgTable(
     }),
   ],
 ).enableRLS();
+
+// Founder-only product ideas. Access is enforced at the application boundary
+// by app/admin/layout.tsx and every admin Server Action via requireAdmin().
+// The table stays separate from user-scoped product data because these ideas
+// belong to the Minaly team, not to an individual customer account.
+export const adminIdeaStatus = pgEnum("admin_idea_status", ["backlog", "in_progress", "completed"]);
+
+export const adminIdeas = pgTable(
+  "admin_ideas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    status: adminIdeaStatus("status").notNull().default("backlog"),
+    position: integer("position").notNull().default(0),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("admin_ideas_status_position_idx").on(table.status, table.position),
+    index("admin_ideas_created_by_idx").on(table.createdByUserId),
+  ],
+).enableRLS();

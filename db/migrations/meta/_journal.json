@@ -288,6 +288,13 @@
       "when": 1786724324000,
       "tag": "0040_deliverability_storage_team_access",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1786731826664,
+      "tag": "0041_clever_stone_men",
+      "breakpoints": true
     }
   ]
 }
