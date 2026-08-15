@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const migration = readFileSync(new URL("../../db/migrations/0042_last_violations.sql", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../../db/migrations/0037_hot_landau.sql", import.meta.url), "utf8");
 
 describe("support migration", () => {
   it("creates private capture storage and staff-only reads", () => {
