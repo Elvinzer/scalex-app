@@ -53,6 +53,23 @@
     "save": "Save",
     "reduceAnimations": "Reduce Falco animations",
     "reduceAnimationsHelp": "Falco stays present but animates his bubbles less (independent of your system settings).",
+    "themePreference": "Appearance",
+    "themePreferenceHelp": "Choose how Minaly looks. Adaptive follows your device setting, which can follow sunrise and sunset.",
+    "themePreferenceSaveError": "We could not save this choice. Try again.",
+    "themeOptions": {
+      "light": {
+        "label": "Light",
+        "help": "Keep the light theme"
+      },
+      "dark": {
+        "label": "Dark",
+        "help": "Keep the dark theme"
+      },
+      "system": {
+        "label": "Adaptive",
+        "help": "Follow your device setting"
+      }
+    },
     "resetData": "Reset my data",
     "resetDataHelp": "Erases your figures, diagnostic, journal and team. Your account, API key and Stripe connection stay intact. You return to onboarding as a new account.",
     "reset": "Reset",

@@ -14,6 +14,7 @@ import { DangerZoneForm } from "./danger-zone-form";
 import { FalcoPreferencesForm } from "./falco-preferences-form";
 import { LanguageForm } from "./language-form";
 import { ProfileForm } from "./profile-form";
+import { ThemePreferenceForm } from "./theme-preference-form";
 
 // Owner-only: BYOK key, Stripe Connect, billing, team & role management are
 // all account-level actions, never delegable to a role — see
@@ -71,6 +72,9 @@ export default async function SettingsPage() {
         <p className="text-sm font-bold text-muted-foreground">{tPreferences("title")}</p>
         <div className="mt-4">
           <LanguageForm initialLocale={resolvedLocale} showNewLanguageNotice={storedLocale === null} />
+        </div>
+        <div className="mt-6 border-t border-border pt-6">
+          <ThemePreferenceForm initialPreference={user?.themePreference ?? "light"} />
         </div>
       </div>
 

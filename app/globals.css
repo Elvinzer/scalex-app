@@ -237,12 +237,84 @@
 }
 
 .dark {
+  /* Nocturne surfaces: desaturated blue-black grounds keep the coral action
+     color readable without turning every card into a black rectangle. */
+  --canvas: #161826;
+  --surface: #232532;
+  --surface-dark: #10111a;
+  --surface-dark-2: #2b2d3d;
+  --surface-sunken: #1d1f2a;
+
+  --border-value: #3f424d;
+  --border-hover: #595d6c;
+
+  --text-primary: #f3f5fe;
+  --text-secondary: #b2b6ca;
+  --text-on-dark: #f3f5fe;
+  --text-on-dark-muted: #b2b6ca;
+
+  --accent: #ee6c37;
+  --accent-hover: #ff8250;
+  --accent-soft: rgba(238, 108, 55, 0.16);
+  --accent-border: rgba(238, 108, 55, 0.52);
+  --accent-text: #ffb49b;
+  --accent-glow: rgba(238, 108, 55, 0.32);
+
+  --bottleneck-stage-1: #5a3e34;
+  --bottleneck-stage-2: #8c593f;
+  --bottleneck-stage-3: #b96c47;
+  --bottleneck-stage-4: var(--accent);
+  --bottleneck-stage-5: #d95e32;
+  --bottleneck-stage-6: #e9855e;
+  --bottleneck-stage-7: var(--surface-dark);
+  --bottleneck-highlight: #ffab89;
+  --bottleneck-icon-border: #7f5241;
+
+  --accent-2: #a7a1db;
+  --accent-2-hover: #beb8f1;
+  --accent-2-soft: rgba(167, 161, 219, 0.16);
+  --accent-2-border: rgba(167, 161, 219, 0.48);
+  --accent-2-text: #d2cefd;
+  --accent-2-glow: rgba(167, 161, 219, 0.28);
+
+  --gradient-accent: linear-gradient(135deg, #ff8d61 0%, var(--accent) 55%, #d9552c 100%);
+  --gradient-accent-2: linear-gradient(135deg, #c1bbff 0%, var(--accent-2) 55%, #7972a9 100%);
+  --gradient-dark: linear-gradient(160deg, #25283b 0%, var(--surface-dark) 58%, #0d0e15 100%);
+  --gradient-mesh: radial-gradient(circle at 15% 20%, rgba(238, 108, 55, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(167, 161, 219, 0.14), transparent 40%);
+
+  --positive: #73d1a7;
+  --positive-on-dark: #91e5bd;
+  --positive-soft: rgba(115, 209, 167, 0.16);
+  --negative: #ff9292;
+  --warning-text: #f6cf82;
+  --warning-soft: rgba(246, 207, 130, 0.16);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.26);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(243, 245, 254, 0.04);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(243, 245, 254, 0.05);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.48), 0 0 0 1px rgba(243, 245, 254, 0.06);
+  --shadow-float: var(--shadow-md);
+
+  /* Legacy names are kept semantic. --mist is intentionally still a light
+     neutral because it is used for text and overlays on the fixed dark
+     sidebar and spotlight surfaces. --ink remains the scrim/dark-fill token. */
+  --ink: var(--surface-dark);
+  --mist: #f3f5fe;
   --vault: var(--surface);
-  --violet: #8778f8;
+  --paper-alt: var(--accent-soft);
+  --panel: var(--surface);
+  --signal: var(--accent);
+  --violet: var(--accent-2);
+  --gain: var(--accent);
   --state-critical: var(--negative);
+  --state-critical-bg: rgba(255, 146, 146, 0.16);
   --state-caution: var(--warning-text);
+  --state-caution-bg: var(--warning-soft);
   --state-healthy: var(--positive);
+  --state-healthy-bg: var(--positive-soft);
   --state-unknown: var(--text-secondary);
+  --state-unknown-bg: var(--surface-sunken);
 
   --background: var(--canvas);
   --foreground: var(--text-primary);
@@ -261,18 +333,18 @@
   --border: var(--border-value);
   --input: var(--border-value);
   --ring: var(--accent);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --chart-1: #ff9a75;
+  --chart-2: #a7a1db;
+  --chart-3: #73d1a7;
+  --chart-4: #f6cf82;
+  --chart-5: #b2b6ca;
   --sidebar: var(--surface-dark);
   --sidebar-foreground: var(--text-on-dark);
   --sidebar-primary: var(--surface-dark);
   --sidebar-primary-foreground: var(--text-on-dark);
-  --sidebar-accent: var(--surface-dark);
+  --sidebar-accent: var(--surface-dark-2);
   --sidebar-accent-foreground: var(--text-on-dark);
-  --sidebar-border: color-mix(in oklch, var(--text-on-dark) 12%, transparent);
+  --sidebar-border: color-mix(in oklch, var(--text-on-dark) 16%, transparent);
   --sidebar-ring: var(--accent);
 }
 

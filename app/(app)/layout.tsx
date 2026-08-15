@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
 import { AppSidebarWithScaleScore } from "@/components/app-sidebar-with-scale-score";
 import { PostHogInit } from "@/components/posthog-init";
+import { AppThemeProvider } from "@/components/theme/app-theme-provider";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
 import { FloatingChatBubble } from "@/components/floating-chat-bubble";
 import { SupportDrawer } from "@/components/support/support-drawer";
@@ -135,29 +136,31 @@ export default async function AppLayout({
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <FalcoPreferencesProvider reduceAnimations={currentUserRow?.reduceFalcoAnimations ?? false}>
-      <PostHogInit />
-      {/* Portraits are tiny (<20 Ko each) — preloaded once globally so the
-          floating chat bubble's crossfade never waits on a first fetch,
-          wherever navigation lands first. */}
-      {FALCO_SKIN_KEYS.map((skin) => (
-        <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
-      ))}
-      <div className="flex min-h-screen bg-panel">
-        <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
-          <AppChrome userId={userId} accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} />
-        </Suspense>
-        {/* The sidebar is fixed, so reserve its width in normal document flow
-            on desktop; mobile opens it as an overlay instead. */}
-        <div aria-hidden="true" className="w-0 shrink-0 md:w-64" />
-        <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-24 md:px-16 md:pb-10">
-          {/* Mobile keeps its compact header; desktop starts directly beside
-              the sidebar because the empty horizontal bar is gone. */}
-          <div aria-hidden="true" className="h-24 shrink-0 md:h-16" />
-          <div className="mx-auto max-w-6xl">{children}</div>
-        </main>
-      </div>
-      </FalcoPreferencesProvider>
+      <AppThemeProvider initialPreference={currentUserRow?.themePreference ?? "light"}>
+        <FalcoPreferencesProvider reduceAnimations={currentUserRow?.reduceFalcoAnimations ?? false}>
+          <PostHogInit />
+          {/* Portraits are tiny (<20 Ko each) — preloaded once globally so the
+              floating chat bubble's crossfade never waits on a first fetch,
+              wherever navigation lands first. */}
+          {FALCO_SKIN_KEYS.map((skin) => (
+            <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
+          ))}
+          <div className="flex min-h-screen bg-panel">
+            <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+              <AppChrome userId={userId} accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} />
+            </Suspense>
+            {/* The sidebar is fixed, so reserve its width in normal document flow
+                on desktop; mobile opens it as an overlay instead. */}
+            <div aria-hidden="true" className="w-0 shrink-0 md:w-64" />
+            <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-24 md:px-16 md:pb-10">
+              {/* Mobile keeps its compact header; desktop starts directly beside
+                  the sidebar because the empty horizontal bar is gone. */}
+              <div aria-hidden="true" className="h-24 shrink-0 md:h-16" />
+              <div className="mx-auto max-w-6xl">{children}</div>
+            </main>
+          </div>
+        </FalcoPreferencesProvider>
+      </AppThemeProvider>
     </NextIntlClientProvider>
   );
 }

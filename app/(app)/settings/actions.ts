@@ -2,6 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -37,6 +38,12 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
+import {
+  isThemePreference,
+  THEME_PREFERENCE_COOKIE,
+  THEME_PREFERENCE_COOKIE_MAX_AGE,
+  type ThemePreference,
+} from "@/lib/theme/config";
 import { requireEnv } from "@/lib/utils";
 
 const apiKeySchema = z
@@ -130,6 +137,37 @@ export async function updateFalcoPreferences(reduceFalcoAnimations: boolean): Pr
   await db.update(users).set({ reduceFalcoAnimations }).where(eq(users.id, data.claims.sub as string));
 
   revalidatePath("/settings");
+  return { error: null };
+}
+
+// Personal appearance preference — the database follows the user across
+// devices while the cookie lets the next server render start in the chosen
+// theme before the authenticated app tree hydrates.
+export async function saveThemePreference(next: string): Promise<{ error: string | null }> {
+  if (!isThemePreference(next)) {
+    return { error: "Préférence de thème invalide." };
+  }
+  const preference: ThemePreference = next;
+
+  const cookieStore = await cookies();
+  cookieStore.set(THEME_PREFERENCE_COOKIE, preference, {
+    maxAge: THEME_PREFERENCE_COOKIE_MAX_AGE,
+    path: "/",
+    sameSite: "lax",
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub as string | undefined;
+  if (!userId) {
+    return { error: "Session expirée, reconnecte-toi." };
+  }
+
+  await db.update(users).set({ themePreference: preference }).where(eq(users.id, userId));
+
+  revalidatePath("/", "layout");
   return { error: null };
 }
 

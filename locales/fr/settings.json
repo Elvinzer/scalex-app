@@ -53,6 +53,23 @@
     "save": "Enregistrer",
     "reduceAnimations": "Réduire les animations de Falco",
     "reduceAnimationsHelp": "Falco reste présent mais anime moins ses bulles (indépendant des réglages de ton système).",
+    "themePreference": "Apparence",
+    "themePreferenceHelp": "Choisis l’apparence de Minaly. Le mode adaptatif suit le réglage de ton appareil, qui peut suivre le coucher du soleil.",
+    "themePreferenceSaveError": "Impossible d’enregistrer ce choix. Réessaie.",
+    "themeOptions": {
+      "light": {
+        "label": "Clair",
+        "help": "Garder le thème clair"
+      },
+      "dark": {
+        "label": "Sombre",
+        "help": "Garder le thème sombre"
+      },
+      "system": {
+        "label": "Adaptatif",
+        "help": "Suivre le réglage de l’appareil"
+      }
+    },
     "resetData": "Réinitialiser mes données",
     "resetDataHelp": "Efface tes chiffres, ton diagnostic, ton journal et ton équipe. Ton compte, ta clé API et Stripe restent intacts. Tu repars sur l’onboarding, comme un nouveau compte.",
     "reset": "Réinitialiser",

@@ -176,6 +176,14 @@ export const users = pgTable("users", {
   // components/falco/falco-context.tsx's useFalcoAnimationsEnabled, which
   // combines both signals.
   reduceFalcoAnimations: boolean("reduce_falco_animations").notNull().default(false),
+  // Per-individual app appearance preference. "system" follows the device's
+  // light/dark schedule (which can be configured to follow sunrise/sunset by
+  // the operating system). It is separate from booking_page_settings.theme,
+  // which controls the public reservation page only.
+  themePreference: text("theme_preference")
+    .$type<"light" | "dark" | "system">()
+    .notNull()
+    .default("light"),
   // Handle public URL-safe qui namespace les liens de réservation natifs
   // (/book/{handle}/{slug}). Unique globalement (index partiel ci-dessous —
   // NULL autorisés pour les comptes sans event de booking). Généré paresseusement
