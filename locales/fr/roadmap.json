@@ -3,6 +3,12 @@
   "title": "Roadmap",
   "subtitle": "Trois actions utiles maintenant, puis une vue claire de ce qui vient après.",
   "active": "En mouvement",
+  "noAccess": {
+    "eyebrow": "ACCÈS À L’APPLICATION",
+    "title": "Aucun accès pour le moment",
+    "description": "Tu n’as actuellement aucun droit sur l’application. Contacte la personne qui t’a ajouté pour qu’elle t’accorde un accès.",
+    "support": "Ouvrir le support"
+  },
   "intro": {
     "label": "Comment lire ta Roadmap :",
     "body": "Falco choisit une action dans chaque zone de ton activité à partir de tes chiffres. Tu peux la faire avec lui ou la valider quand elle est terminée.",

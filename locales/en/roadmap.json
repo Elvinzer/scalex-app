@@ -3,6 +3,12 @@
   "title": "Roadmap",
   "subtitle": "Three useful actions now, then a clear view of what comes next.",
   "active": "In motion",
+  "noAccess": {
+    "eyebrow": "APP ACCESS",
+    "title": "No access yet",
+    "description": "You do not currently have any permissions in the app. Contact the person who invited you so they can grant you access.",
+    "support": "Open support"
+  },
   "intro": {
     "label": "How to read your Roadmap:",
     "body": "Falco chooses one action in each area of your business from your numbers. Work on it with Falco or mark it done when it is complete.",

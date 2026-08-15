@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { eq } from "drizzle-orm";
-
-import { db } from "@/db";
-import { users } from "@/db/schema";
 import { ensureUserRow } from "@/lib/current-user";
 import { createClient } from "@/lib/supabase/server";
-import { getAccountContext } from "@/lib/team/context";
+import { getPostAuthDestination } from "@/lib/team/context";
 
 import { PublicLocaleSwitcher } from "@/components/i18n/public-locale-switcher";
 import { getRequestLocale } from "@/lib/i18n/locale";
@@ -42,16 +38,7 @@ export default async function SignInPage({
     if (intent === "trial") {
       redirect(`/api/billing/checkout?plan=${trialPlan}&trial=7&billing=${billing}`);
     }
-    // Le statut d'onboarding suit le compte (owner) auquel l'utilisateur est
-    // rattaché, pas sa propre ligne — cf. lib/current-user.ts.
-    const context = await getAccountContext(userId);
-    const accountId = context?.accountId ?? userId;
-    const [user] = await db
-      .select({ onboardingCompleted: users.onboardingCompleted })
-      .from(users)
-      .where(eq(users.id, accountId))
-      .limit(1);
-    redirect(user?.onboardingCompleted ? "/roadmap" : "/onboarding");
+    redirect(await getPostAuthDestination(userId));
   }
 
   const locale = await getRequestLocale();

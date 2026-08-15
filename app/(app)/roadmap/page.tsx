@@ -1,12 +1,13 @@
 import { after } from "next/server";
 
+import { NoAccessState } from "./no-access-state";
 import { RoadmapView } from "./roadmap-view";
 import { track } from "@/lib/analytics";
 import { getCurrentUser } from "@/lib/current-user";
 import { getJournalActionLoopData, measureDueJournalActions } from "@/lib/journal/action-loop";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { getStreakSnapshot } from "@/lib/streak/queries";
-import { requirePermissionOrRedirect } from "@/lib/team/context";
+import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 import { measureAsync } from "@/lib/perf/timing";
 
 export default function RoadmapPage() {
@@ -15,6 +16,10 @@ export default function RoadmapPage() {
 
 async function renderRoadmapPage() {
   const { userId, accountId } = await getCurrentUser();
+  const context = await getAccountContext(userId);
+  if (context && !context.isOwner && !context.permissions.has("dashboard")) {
+    return <NoAccessState />;
+  }
   await requirePermissionOrRedirect(userId, "dashboard");
 
   const [data, streak, weeklyReports] = await Promise.all([
