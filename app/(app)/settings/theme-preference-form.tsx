@@ -2,7 +2,6 @@
 
 import { MonitorCog, Moon, Sun } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { useAppTheme } from "@/components/theme/app-theme-provider";
@@ -20,7 +19,6 @@ const THEME_ICONS = {
 } as const;
 
 export function ThemePreferenceForm({ initialPreference }: { initialPreference: ThemePreference }) {
-  const router = useRouter();
   const t = useTranslations("settings.page");
   const tStates = useTranslations("common.states");
   const { preference, setPreference } = useAppTheme();
@@ -38,7 +36,6 @@ export function ThemePreferenceForm({ initialPreference }: { initialPreference: 
       try {
         const result = await saveThemePreference(nextPreference);
         if (!result.error) {
-          router.refresh();
           setSaved(true);
           return;
         }

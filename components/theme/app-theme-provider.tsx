@@ -23,6 +23,13 @@ function applyTheme(resolvedTheme: ResolvedTheme) {
   root.style.colorScheme = resolvedTheme;
 }
 
+function clearTheme() {
+  const root = document.documentElement;
+  root.classList.remove("dark");
+  delete root.dataset.theme;
+  root.style.colorScheme = "";
+}
+
 export function AppThemeProvider({
   children,
   initialPreference,
@@ -42,9 +49,7 @@ export function AppThemeProvider({
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const syncTheme = () => {
-      const nextTheme = resolveThemePreference(preference, mediaQuery.matches);
-      setResolvedTheme(nextTheme);
-      applyTheme(nextTheme);
+      setResolvedTheme(resolveThemePreference(preference, mediaQuery.matches));
     };
 
     syncTheme();
@@ -57,11 +62,16 @@ export function AppThemeProvider({
       if (preference === "system") {
         mediaQuery.removeEventListener("change", syncTheme);
       }
-      document.documentElement.classList.remove("dark");
-      delete document.documentElement.dataset.theme;
-      document.documentElement.style.colorScheme = "";
     };
   }, [preference]);
+
+  useEffect(() => {
+    applyTheme(resolvedTheme);
+  }, [resolvedTheme]);
+
+  useEffect(() => {
+    return () => clearTheme();
+  }, []);
 
   const value = useMemo(
     () => ({ preference, resolvedTheme, setPreference }),
