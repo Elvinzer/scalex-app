@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { ArrowLeft, Percent, WalletCards } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { formatReferralMoney } from "@/lib/referrals/format";
 import { getAdminReferralData } from "@/lib/referrals/queries";
+import { requireAdmin } from "@/lib/admin";
 
 import { ReferralOverrideForm, ReferralPayoutForm, ReferralRateHint, ReferralSettingsForm } from "./referral-admin-forms";
 
@@ -13,6 +15,11 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminReferralsPage() {
+  try {
+    await requireAdmin();
+  } catch {
+    redirect("/admin/support");
+  }
   const data = await getAdminReferralData();
 
   return (

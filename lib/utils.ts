@@ -25,13 +25,16 @@ const PRODUCTION_APP_URL = "https://www.minaly.io"
  */
 export function getAppUrl(): string {
   const explicit = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL
+  const isProduction =
+    process.env.VERCEL_ENV === "production" ||
+    (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV !== "preview")
+  if (isProduction && explicit?.includes(".vercel.app")) {
+    return PRODUCTION_APP_URL
+  }
   if (explicit) {
     return explicit.replace(/\/$/, "")
   }
-  if (
-    process.env.VERCEL_ENV === "production" ||
-    (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV !== "preview")
-  ) {
+  if (isProduction) {
     return PRODUCTION_APP_URL
   }
   if (process.env.VERCEL_URL) {

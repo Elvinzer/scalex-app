@@ -9,6 +9,7 @@ import {
   HeartHandshake,
   Handshake,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Menu,
   Megaphone,
@@ -34,6 +35,7 @@ import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 import { signOut } from "@/lib/supabase/client";
+import { requestSupportDrawer } from "@/components/support/support-drawer";
 import type { PermissionKey } from "@/lib/team/permissions";
 import { cn } from "@/lib/utils";
 
@@ -315,6 +317,7 @@ function ProfileMenu({
   permissions,
   onSignOut,
   businessCompletionCount,
+  supportHasUnseenActivity,
 }: {
   businessName: string;
   displayName: string | null;
@@ -324,9 +327,11 @@ function ProfileMenu({
   permissions: readonly PermissionKey[];
   onSignOut: () => void;
   businessCompletionCount: number;
+  supportHasUnseenActivity: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const t = useTranslations("navigation");
+  const supportT = useTranslations("support");
   const initial = email.charAt(0).toUpperCase() || "?";
   const entries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
 
@@ -375,11 +380,31 @@ function ProfileMenu({
             );
           })}
 
+          <div className="my-1.5 h-px bg-border" />
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              requestSupportDrawer();
+            }}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-left text-[13px] font-bold text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+          >
+            <LifeBuoy className="size-4 text-muted-foreground" />
+            <span className="min-w-0 flex-1">{supportT("nav.helpAndSupport")}</span>
+            {supportHasUnseenActivity && (
+              <span
+                className="size-2 shrink-0 rounded-full bg-accent"
+                title={supportT("nav.unseenActivity")}
+                aria-label={supportT("nav.unseenActivity")}
+              />
+            )}
+          </button>
+
           {/* Sign-out moved in here from a bare icon button that used to sit
               beside the trigger — a destructive action reads better as a
               labelled item inside the account menu than as an unlabelled
               icon one mis-tap away from the avatar. */}
-          {entries.length > 0 && <div className="my-1.5 h-px bg-border" />}
+          <div className="my-1.5 h-px bg-border" />
           <button
             type="button"
             onClick={() => {
@@ -414,6 +439,7 @@ export type AppSidebarProps = {
   currentMonthlyRevenue: number | null;
   potentialMonthlyRevenue: number | null;
   acquisitionSubpages?: readonly AcquisitionSidebarSubpage[];
+  supportHasUnseenActivity: boolean;
 };
 
 export function AppSidebar({
@@ -434,6 +460,7 @@ export function AppSidebar({
   currentMonthlyRevenue,
   potentialMonthlyRevenue,
   acquisitionSubpages = [],
+  supportHasUnseenActivity,
 }: AppSidebarProps) {
   const t = useTranslations("navigation");
   const pathname = usePathname();
@@ -565,6 +592,7 @@ export function AppSidebar({
               permissions={permissions}
               onSignOut={handleSignOut}
               businessCompletionCount={businessCompletionCount}
+              supportHasUnseenActivity={supportHasUnseenActivity}
             />
           </div>
         </div>

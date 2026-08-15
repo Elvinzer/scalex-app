@@ -42,6 +42,7 @@ import type {
 } from "@/lib/meta-ads/types";
 import type { AcquisitionFunnelCatalogEntry } from "@/lib/acquisition-funnels/types";
 import type { FunnelBlockCatalogEntry } from "@/lib/funnel-blocks/types";
+import type { SupportTicketContext, SupportTicketDetails } from "@/lib/support/types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -182,6 +183,10 @@ export const users = pgTable("users", {
   // lib/native-booking/handle.ts. Distinct de businessName (texte libre, éditable
   // pour d'autres raisons, non URL-safe).
   bookingHandle: text("booking_handle"),
+  // Last time this individual opened the support inbox. It powers the small
+  // activity dot in the profile menu without exposing ticket data in the
+  // global app chrome.
+  supportLastSeenAt: timestamp("support_last_seen_at", { withTimezone: true }),
 }, (table) => [
   uniqueIndex("users_booking_handle_idx")
     .on(table.bookingHandle)
@@ -2882,6 +2887,228 @@ export const teamMemberRoles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.teamMemberId, table.roleId] })]
+).enableRLS();
+
+// --- Support ---------------------------------------------------------------
+// Support staff is deliberately separate from customer team permissions. A
+// customer can grant access to their Minaly account, but never to the global
+// support queue. Founders remain the ADMIN_EMAILS allowlist, while support
+// agents/managers are provisioned here with an explicit module role.
+export const staffMemberRole = pgEnum("staff_member_role", ["support_agent", "support_manager"]);
+export const staffMemberStatus = pgEnum("staff_member_status", ["invited", "active", "suspended"]);
+export const supportTicketType = pgEnum("support_ticket_type", ["bug", "feature", "question"]);
+export const supportTicketStatus = pgEnum("support_ticket_status", [
+  "new",
+  "triage",
+  "in_progress",
+  "waiting_on_user",
+  "resolved",
+  "closed",
+  "duplicate",
+  "declined",
+]);
+export const supportTicketPriority = pgEnum("support_ticket_priority", ["low", "medium", "high", "blocking"]);
+export const supportTicketNotificationStatus = pgEnum("support_ticket_notification_status", ["pending", "sent", "failed"]);
+export const supportTicketMessageVisibility = pgEnum("support_ticket_message_visibility", ["public", "internal"]);
+
+export const staffMembers = pgTable(
+  "staff_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: staffMemberRole("role").notNull().default("support_agent"),
+    status: staffMemberStatus("status").notNull().default("invited"),
+    invitedByUserId: uuid("invited_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("staff_members_status_idx").on(table.status),
+    pgPolicy("staff_members_self_read", {
+      for: "select",
+      to: "authenticated",
+      using: sql`user_id = (select auth.uid())`,
+    }),
+  ]
+).enableRLS();
+
+const activeSupportStaff = sql`exists (
+  select 1
+  from public.staff_members as support_staff
+  where support_staff.user_id = (select auth.uid())
+    and support_staff.status = 'active'
+)`;
+
+export const supportTickets = pgTable(
+  "support_tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reference: text("reference").notNull().unique(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    submittedByUserId: uuid("submitted_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: supportTicketType("type").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    details: jsonb("details").notNull().$type<SupportTicketDetails>().default({}),
+    context: jsonb("context").notNull().$type<SupportTicketContext>(),
+    status: supportTicketStatus("status").notNull().default("new"),
+    priority: supportTicketPriority("priority").notNull().default("medium"),
+    assignedStaffId: uuid("assigned_staff_id").references(() => staffMembers.id, { onDelete: "set null" }),
+    duplicateOfTicketId: uuid("duplicate_of_ticket_id").references((): AnyPgColumn => supportTickets.id, { onDelete: "set null" }),
+    notificationStatus: supportTicketNotificationStatus("notification_status").notNull().default("pending"),
+    discordMessageId: text("discord_message_id"),
+    discordLastError: text("discord_last_error"),
+    discordLastAttemptAt: timestamp("discord_last_attempt_at", { withTimezone: true }),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("support_tickets_submitter_idempotency_idx").on(table.submittedByUserId, table.idempotencyKey),
+    index("support_tickets_account_activity_idx").on(table.accountId, table.lastActivityAt),
+    index("support_tickets_status_activity_idx").on(table.status, table.lastActivityAt),
+    index("support_tickets_assigned_status_idx").on(table.assignedStaffId, table.status),
+    index("support_tickets_priority_idx").on(table.priority, table.lastActivityAt),
+    pgPolicy("support_tickets_read", {
+      for: "select",
+      to: "authenticated",
+      using: sql`(
+        account_id = (select auth.uid())
+        or submitted_by_user_id = (select auth.uid())
+        or ${activeSupportStaff}
+      )`,
+    }),
+    pgPolicy("support_tickets_insert", {
+      for: "insert",
+      to: "authenticated",
+      withCheck: sql`(
+        submitted_by_user_id = (select auth.uid())
+        and public.native_booking_account_member(account_id)
+      )`,
+    }),
+    pgPolicy("support_tickets_staff_update", {
+      for: "update",
+      to: "authenticated",
+      using: activeSupportStaff,
+      withCheck: activeSupportStaff,
+    }),
+  ]
+).enableRLS();
+
+export const supportTicketMessages = pgTable(
+  "support_ticket_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => supportTickets.id, { onDelete: "cascade" }),
+    authorUserId: uuid("author_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    staffMemberId: uuid("staff_member_id").references(() => staffMembers.id, { onDelete: "set null" }),
+    visibility: supportTicketMessageVisibility("visibility").notNull().default("public"),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("support_ticket_messages_ticket_created_idx").on(table.ticketId, table.createdAt),
+    pgPolicy("support_ticket_messages_read", {
+      for: "select",
+      to: "authenticated",
+      using: sql`(
+        (${table.visibility} = 'public' and exists (
+          select 1 from public.support_tickets as ticket
+          where ticket.id = ${table.ticketId}
+            and (ticket.account_id = (select auth.uid()) or ticket.submitted_by_user_id = (select auth.uid()))
+        ))
+        or ${activeSupportStaff}
+      )`,
+    }),
+    pgPolicy("support_ticket_messages_insert", {
+      for: "insert",
+      to: "authenticated",
+      withCheck: sql`(
+        ${table.visibility} = 'public'
+        and author_user_id = (select auth.uid())
+        and exists (
+          select 1 from public.support_tickets as ticket
+          where ticket.id = ${table.ticketId}
+            and public.native_booking_account_member(ticket.account_id)
+        )
+      ) or (${table.visibility} = 'internal' and ${activeSupportStaff})`,
+    }),
+  ]
+).enableRLS();
+
+export const supportTicketEvents = pgTable(
+  "support_ticket_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => supportTickets.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    staffMemberId: uuid("staff_member_id").references(() => staffMembers.id, { onDelete: "set null" }),
+    eventType: text("event_type").notNull(),
+    previousValue: jsonb("previous_value").$type<Record<string, unknown> | null>(),
+    newValue: jsonb("new_value").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("support_ticket_events_ticket_created_idx").on(table.ticketId, table.createdAt),
+    pgPolicy("support_ticket_events_staff_read", {
+      for: "select",
+      to: "authenticated",
+      using: activeSupportStaff,
+    }),
+    pgPolicy("support_ticket_events_staff_insert", {
+      for: "insert",
+      to: "authenticated",
+      withCheck: activeSupportStaff,
+    }),
+  ]
+).enableRLS();
+
+export const supportTicketAttachments = pgTable(
+  "support_ticket_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => supportTickets.id, { onDelete: "cascade" }),
+    submittedByUserId: uuid("submitted_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    storagePath: text("storage_path").notNull(),
+    mimeType: text("mime_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    source: text("source").notNull().default("capture"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("support_ticket_attachments_ticket_idx").on(table.ticketId),
+    index("support_ticket_attachments_expiry_idx").on(table.expiresAt),
+    pgPolicy("support_ticket_attachments_staff_read", {
+      for: "select",
+      to: "authenticated",
+      using: activeSupportStaff,
+    }),
+  ]
 ).enableRLS();
 
 // --- Minaly's own SaaS billing ---------------------------------------------

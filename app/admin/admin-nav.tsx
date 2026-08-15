@@ -12,6 +12,7 @@ export type AdminNavLabels = {
   subscriptions: string;
   plans: string;
   referrals: string;
+  support: string;
 };
 
 export function AdminNav({ labels }: { labels: AdminNavLabels }) {
@@ -22,6 +23,7 @@ export function AdminNav({ labels }: { labels: AdminNavLabels }) {
     { href: "/admin/subscriptions", label: labels.subscriptions },
     { href: "/admin/plans", label: labels.plans },
     { href: "/admin/referrals", label: labels.referrals },
+    { href: "/admin/support", label: labels.support },
   ];
 
   return (

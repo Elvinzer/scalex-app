@@ -7,8 +7,10 @@ import {
 } from "@/lib/posthog-query";
 import { ArrowUpRight, CreditCard, Layers3 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { requireAdmin } from "@/lib/admin";
 
 async function safe<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
@@ -20,6 +22,11 @@ async function safe<T>(fn: () => Promise<T>): Promise<T | null> {
 }
 
 export default async function AdminPage() {
+  try {
+    await requireAdmin();
+  } catch {
+    redirect("/admin/support");
+  }
   const [northStarCount, northStarTrend, funnel, medianMinutes, retentionRate] = await Promise.all([
     safe(getNorthStarCount),
     safe(getNorthStarTrend),

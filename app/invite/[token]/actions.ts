@@ -7,9 +7,10 @@ import { teamMembers } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { ensureUserRow } from "@/lib/current-user";
 import { createClient } from "@/lib/supabase/server";
+import { getDefaultAppRoute, getAccountContext } from "@/lib/team/context";
 import { getInviteByToken } from "@/lib/team/queries";
 
-export async function acceptInvite(token: string): Promise<{ error: string | null }> {
+export async function acceptInvite(token: string): Promise<{ error: string | null; redirectTo?: string }> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) {
@@ -38,5 +39,6 @@ export async function acceptInvite(token: string): Promise<{ error: string | nul
 
   await track("team_invite_accepted", userId);
 
-  return { error: null };
+  const context = await getAccountContext(userId);
+  return { error: null, redirectTo: getDefaultAppRoute(context) };
 }

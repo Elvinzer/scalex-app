@@ -1,14 +1,21 @@
 import { Plus } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { subscriptionPlans } from "@/db/schema";
 import { formatUsdCents } from "@/lib/currency";
+import { requireAdmin } from "@/lib/admin";
 
 import { PlanActiveToggle } from "./plan-active-toggle";
 import { PlanFormDialog } from "./plan-form-dialog";
 
 export default async function AdminPlansPage() {
+  try {
+    await requireAdmin();
+  } catch {
+    redirect("/admin/support");
+  }
   const plans = await db.select().from(subscriptionPlans).orderBy(subscriptionPlans.priceMonthlyCents);
 
   return (

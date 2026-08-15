@@ -1,0 +1,204 @@
+{
+  "nav": {
+    "helpAndSupport": "Help & support",
+    "unseenActivity": "New activity on your support tickets"
+  },
+  "page": {
+    "eyebrow": "Support",
+    "title": "How can we help?",
+    "description": "Send a ticket and follow every update from one place.",
+    "newTicket": "New ticket",
+    "emptyTitle": "No tickets yet",
+    "emptyDescription": "If something feels wrong or you have an idea, send us the context and we will take a look.",
+    "lastActivity": "Last activity {time}",
+    "createdAt": "Created {time}",
+    "openTicket": "Open ticket",
+    "backToDashboard": "Back to dashboard"
+  },
+  "form": {
+    "title": "New support ticket",
+    "description": "Give us enough context to reproduce the issue or understand the request.",
+    "typeLabel": "Request type",
+    "type": {
+      "bug": "Problem",
+      "feature": "Feature request",
+      "question": "Question"
+    },
+    "titleLabel": "Short title",
+    "titlePlaceholder": "Example: The diagnostic PDF does not download",
+    "descriptionLabel": "What happened?",
+    "descriptionPlaceholder": "Describe what you tried and what you expected to happen.",
+    "expectedLabel": "Expected result",
+    "expectedPlaceholder": "What should have happened?",
+    "observedLabel": "Observed result",
+    "observedPlaceholder": "What did you see instead?",
+    "stepsLabel": "Steps to reproduce",
+    "stepsPlaceholder": "1. Open ... 2. Click ... 3. ...",
+    "impactLabel": "Impact",
+    "impactPlaceholder": "How does this block you?",
+    "optional": "Optional",
+    "contextLabel": "Context included automatically",
+    "contextHelp": "We include the current page, browser and viewport. We never include passwords, tokens or private notes.",
+    "contextPage": "Page",
+    "contextBrowser": "Browser",
+    "contextViewport": "Viewport",
+    "capture": {
+      "label": "Attach a screen capture",
+      "button": "Capture current screen",
+      "warning": "Check that the image does not show sensitive information before sending.",
+      "remove": "Remove capture",
+      "unavailable": "The screen capture could not be created. You can still send the ticket."
+    },
+    "cancel": "Cancel",
+    "submit": "Send ticket",
+    "sending": "Sending...",
+    "error": {
+      "generic": "Something went wrong while sending. Your text is still here. Try again.",
+      "validation": "Check the required fields before sending.",
+      "rateLimited": "Too many attempts. Wait a moment and try again.",
+      "captureTooLarge": "The capture is too large. Remove it or send the ticket without it."
+    },
+    "success": {
+      "title": "Ticket sent",
+      "reference": "Reference {reference}",
+      "description": "We will keep the conversation in your support space.",
+      "view": "View my tickets",
+      "close": "Close"
+    }
+  },
+  "status": {
+    "new": "New",
+    "triage": "In triage",
+    "in_progress": "In progress",
+    "waiting_on_user": "Waiting for your reply",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "duplicate": "Duplicate",
+    "declined": "Declined"
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "blocking": "Blocking"
+  },
+  "ticket": {
+    "supportTeam": "Minaly",
+    "reference": "Reference",
+    "type": "Type",
+    "description": "Description",
+    "details": "Details",
+    "expected": "Expected result",
+    "observed": "Observed result",
+    "steps": "Reproduction steps",
+    "impact": "Impact",
+    "attachment": "Private screen capture",
+    "conversation": "Conversation",
+    "replyLabel": "Reply to support",
+    "replyPlaceholder": "Write your reply...",
+    "replySend": "Send reply",
+    "replySending": "Sending...",
+    "replyError": "Your reply could not be sent. Try again.",
+    "noMessages": "No reply yet.",
+    "back": "Back to support",
+    "notFound": "This ticket is not available.",
+    "ownerOnly": "Only the requester and account owner can view this conversation."
+  },
+    "admin": {
+    "navTitle": "Support",
+    "title": "Support queue",
+    "description": "Review, assign and resolve customer tickets.",
+    "permission": "Access is limited to founders and active support staff.",
+    "ticketCount": "{count} tickets",
+    "backToDashboard": "Back to dashboard",
+    "filters": {
+      "search": "Search by reference, title or requester",
+      "status": "Status",
+      "type": "Type",
+      "priority": "Priority",
+      "assignee": "Assigned to",
+      "all": "All",
+      "unassigned": "Unassigned",
+      "assigned": "Assigned",
+      "apply": "Apply filters",
+      "reset": "Reset"
+    },
+    "views": {
+      "table": "Table view",
+      "kanban": "Kanban view"
+    },
+    "counters": {
+      "new": "New",
+      "triage": "In triage",
+      "waiting": "Waiting",
+      "priority": "Priority",
+      "recent": "Active recently"
+    },
+    "table": {
+      "reference": "Reference",
+      "type": "Type",
+      "title": "Title",
+      "account": "Account",
+      "requester": "Requester",
+      "priority": "Priority",
+      "status": "Status",
+      "assignee": "Assignee",
+      "activity": "Activity",
+      "open": "Open"
+    },
+    "empty": {
+      "title": "No ticket matches these filters",
+      "description": "Try a wider period or reset the filters."
+    },
+    "loading": "Loading tickets...",
+    "error": "The queue could not be loaded.",
+    "kanban": {
+      "new": "New",
+      "triage": "In triage",
+      "inProgress": "In progress",
+      "waiting": "Waiting for user",
+      "resolved": "Resolved"
+    },
+    "detail": {
+      "title": "Ticket detail",
+      "requester": "Requester",
+      "account": "Account",
+      "screen": "Screen",
+      "browser": "Browser",
+      "os": "Operating system",
+      "viewport": "Viewport",
+      "deployment": "Deployment",
+      "created": "Created",
+      "updated": "Last activity",
+      "assignment": "Assignment",
+      "status": "Status",
+      "priority": "Priority",
+      "assignedTo": "Assigned to",
+      "none": "No one",
+      "duplicateOf": "Duplicate of",
+      "save": "Save changes",
+      "saved": "Changes saved",
+      "saveError": "Changes could not be saved.",
+      "publicReply": "Public reply",
+      "internalNote": "Internal note",
+      "messagePlaceholder": "Write a message...",
+      "send": "Send",
+      "sending": "Sending...",
+      "messageError": "The message could not be sent.",
+      "history": "History",
+      "noHistory": "No history yet.",
+      "capture": "Open private capture",
+      "noCapture": "No capture attached",
+      "duplicatePlaceholder": "Ticket reference",
+      "notAvailable": "Not available"
+    },
+    "discord": {
+      "title": "Discord",
+      "sent": "Discord notification sent",
+      "failed": "Discord notification failed",
+      "pending": "Discord notification pending",
+      "retry": "Retry notification",
+      "notConfigured": "Discord is not configured"
+    }
+  }
+}

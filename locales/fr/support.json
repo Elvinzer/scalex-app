@@ -1,0 +1,204 @@
+{
+  "nav": {
+    "helpAndSupport": "Aide & support",
+    "unseenActivity": "Nouvelle activité sur tes tickets support"
+  },
+  "page": {
+    "eyebrow": "Support",
+    "title": "Comment peut-on t’aider ?",
+    "description": "Envoie un ticket et suis chaque mise à jour au même endroit.",
+    "newTicket": "Nouveau ticket",
+    "emptyTitle": "Aucun ticket pour le moment",
+    "emptyDescription": "Si quelque chose bloque ou si tu as une idée, envoie-nous le contexte et on regarde.",
+    "lastActivity": "Dernière activité {time}",
+    "createdAt": "Créé {time}",
+    "openTicket": "Ouvrir le ticket",
+    "backToDashboard": "Retour au dashboard"
+  },
+  "form": {
+    "title": "Nouveau ticket support",
+    "description": "Donne-nous assez de contexte pour reproduire le problème ou comprendre la demande.",
+    "typeLabel": "Type de demande",
+    "type": {
+      "bug": "Problème",
+      "feature": "Évolution",
+      "question": "Question"
+    },
+    "titleLabel": "Titre court",
+    "titlePlaceholder": "Exemple : Le PDF du diagnostic ne se télécharge pas",
+    "descriptionLabel": "Que s’est-il passé ?",
+    "descriptionPlaceholder": "Décris ce que tu as essayé et ce que tu attendais.",
+    "expectedLabel": "Résultat attendu",
+    "expectedPlaceholder": "Que devait-il se passer ?",
+    "observedLabel": "Résultat observé",
+    "observedPlaceholder": "Qu’as-tu vu à la place ?",
+    "stepsLabel": "Étapes pour reproduire",
+    "stepsPlaceholder": "1. Ouvre ... 2. Clique sur ... 3. ...",
+    "impactLabel": "Impact",
+    "impactPlaceholder": "En quoi cela te bloque ?",
+    "optional": "Optionnel",
+    "contextLabel": "Contexte ajouté automatiquement",
+    "contextHelp": "Nous ajoutons la page, le navigateur et la taille de fenêtre. Aucun mot de passe, token ou note privée n’est envoyé.",
+    "contextPage": "Page",
+    "contextBrowser": "Navigateur",
+    "contextViewport": "Fenêtre",
+    "capture": {
+      "label": "Joindre une capture d’écran",
+      "button": "Capturer l’écran actuel",
+      "warning": "Vérifie que l’image ne montre aucune information sensible avant l’envoi.",
+      "remove": "Retirer la capture",
+      "unavailable": "La capture n’a pas pu être créée. Tu peux tout de même envoyer le ticket."
+    },
+    "cancel": "Annuler",
+    "submit": "Envoyer le ticket",
+    "sending": "Envoi...",
+    "error": {
+      "generic": "L’envoi a échoué. Ton texte est toujours là. Réessaie.",
+      "validation": "Vérifie les champs obligatoires avant l’envoi.",
+      "rateLimited": "Trop de tentatives. Attends un instant puis réessaie.",
+      "captureTooLarge": "La capture est trop lourde. Retire-la ou envoie le ticket sans elle."
+    },
+    "success": {
+      "title": "Ticket envoyé",
+      "reference": "Référence {reference}",
+      "description": "La conversation restera accessible dans ton espace support.",
+      "view": "Voir mes tickets",
+      "close": "Fermer"
+    }
+  },
+  "status": {
+    "new": "Nouveau",
+    "triage": "En triage",
+    "in_progress": "En cours",
+    "waiting_on_user": "En attente de ta réponse",
+    "resolved": "Résolu",
+    "closed": "Fermé",
+    "duplicate": "Doublon",
+    "declined": "Non retenu"
+  },
+  "priority": {
+    "low": "Basse",
+    "medium": "Normale",
+    "high": "Haute",
+    "blocking": "Bloquante"
+  },
+  "ticket": {
+    "supportTeam": "Minaly",
+    "reference": "Référence",
+    "type": "Type",
+    "description": "Description",
+    "details": "Détails",
+    "expected": "Résultat attendu",
+    "observed": "Résultat observé",
+    "steps": "Étapes pour reproduire",
+    "impact": "Impact",
+    "attachment": "Capture privée",
+    "conversation": "Conversation",
+    "replyLabel": "Répondre au support",
+    "replyPlaceholder": "Écris ta réponse...",
+    "replySend": "Envoyer la réponse",
+    "replySending": "Envoi...",
+    "replyError": "La réponse n’a pas pu être envoyée. Réessaie.",
+    "noMessages": "Aucune réponse pour le moment.",
+    "back": "Retour au support",
+    "notFound": "Ce ticket n’est pas disponible.",
+    "ownerOnly": "Seuls le demandeur et le propriétaire du compte peuvent voir cette conversation."
+  },
+  "admin": {
+    "navTitle": "Support",
+    "title": "File support",
+    "description": "Consulte, assigne et résous les tickets clients.",
+    "permission": "L’accès est réservé aux fondateurs et aux membres actifs du support.",
+    "ticketCount": "{count} tickets",
+    "backToDashboard": "Retour au dashboard",
+    "filters": {
+      "search": "Chercher une référence, un titre ou un demandeur",
+      "status": "Statut",
+      "type": "Type",
+      "priority": "Priorité",
+      "assignee": "Assigné à",
+      "all": "Tous",
+      "unassigned": "Non assignés",
+      "assigned": "Assignés",
+      "apply": "Appliquer les filtres",
+      "reset": "Réinitialiser"
+    },
+    "views": {
+      "table": "Vue liste",
+      "kanban": "Vue Kanban"
+    },
+    "counters": {
+      "new": "Nouveaux",
+      "triage": "En triage",
+      "waiting": "En attente",
+      "priority": "Prioritaires",
+      "recent": "Actifs récemment"
+    },
+    "table": {
+      "reference": "Réf.",
+      "type": "Type",
+      "title": "Titre",
+      "account": "Compte",
+      "requester": "Demandeur",
+      "priority": "Priorité",
+      "status": "Statut",
+      "assignee": "Assigné",
+      "activity": "Activité",
+      "open": "Ouvrir"
+    },
+    "empty": {
+      "title": "Aucun ticket ne correspond aux filtres",
+      "description": "Essaie d’élargir la période ou de réinitialiser les filtres."
+    },
+    "loading": "Chargement des tickets...",
+    "error": "La file support n’a pas pu être chargée.",
+    "kanban": {
+      "new": "Nouveau",
+      "triage": "En triage",
+      "inProgress": "En cours",
+      "waiting": "En attente",
+      "resolved": "Résolu"
+    },
+    "detail": {
+      "title": "Détail du ticket",
+      "requester": "Demandeur",
+      "account": "Compte",
+      "screen": "Écran",
+      "browser": "Navigateur",
+      "os": "Système",
+      "viewport": "Fenêtre",
+      "deployment": "Déploiement",
+      "created": "Créé",
+      "updated": "Dernière activité",
+      "assignment": "Traitement",
+      "status": "Statut",
+      "priority": "Priorité",
+      "assignedTo": "Assigné à",
+      "none": "Personne",
+      "duplicateOf": "Doublon de",
+      "save": "Enregistrer",
+      "saved": "Modifications enregistrées",
+      "saveError": "Les modifications n’ont pas pu être enregistrées.",
+      "publicReply": "Réponse publique",
+      "internalNote": "Note interne",
+      "messagePlaceholder": "Écris un message...",
+      "send": "Envoyer",
+      "sending": "Envoi...",
+      "messageError": "Le message n’a pas pu être envoyé.",
+      "history": "Historique",
+      "noHistory": "Aucun historique pour le moment.",
+      "capture": "Ouvrir la capture privée",
+      "noCapture": "Aucune capture jointe",
+      "duplicatePlaceholder": "Référence du ticket",
+      "notAvailable": "Non disponible"
+    },
+    "discord": {
+      "title": "Discord",
+      "sent": "Notification Discord envoyée",
+      "failed": "Échec de la notification Discord",
+      "pending": "Notification Discord en attente",
+      "retry": "Réessayer la notification",
+      "notConfigured": "Discord n’est pas configuré"
+    }
+  }
+}

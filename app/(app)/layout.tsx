@@ -9,6 +9,7 @@ import { AppSidebarWithScaleScore } from "@/components/app-sidebar-with-scale-sc
 import { PostHogInit } from "@/components/posthog-init";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
 import { FloatingChatBubble } from "@/components/floating-chat-bubble";
+import { SupportDrawer } from "@/components/support/support-drawer";
 import { isAdminEmail } from "@/lib/admin";
 import { FALCO_SKIN_KEYS } from "@/lib/falco-skins";
 import { getBusinessProfile } from "@/lib/business/queries";
@@ -17,6 +18,7 @@ import { getAuthIdentity } from "@/lib/auth/request";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
 import { getUserById } from "@/lib/current-user";
 import { getAccountContext } from "@/lib/team/context";
+import { getSupportUnseenActivity } from "@/lib/support/queries";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
 
 export const metadata: Metadata = {
@@ -28,10 +30,12 @@ type SidebarBaseProps = Pick<AppSidebarProps, "email" | "isOwner" | "permissions
 };
 
 async function AppChrome({
+  userId,
   accountId,
   canSeeScaleScore,
   sidebarBaseProps,
 }: {
+  userId: string;
   accountId: string;
   canSeeScaleScore: boolean;
   sidebarBaseProps: SidebarBaseProps;
@@ -40,6 +44,7 @@ async function AppChrome({
     getBusinessProfile(accountId),
     getUserById(accountId),
   ]);
+  const currentUserRow = userId === accountId ? userRow : await getUserById(userId);
   const businessCompletion = computeGlobalCompletion(businessProfile);
   const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
   const sidebarProps = {
@@ -48,12 +53,18 @@ async function AppChrome({
     displayName: userRow?.displayName ?? sidebarBaseProps.displayName,
     avatarUrl: userRow?.avatarUrl ?? null,
     businessCompletionCount,
+    supportHasUnseenActivity: await getSupportUnseenActivity({
+      userId,
+      accountId,
+      isOwner: sidebarBaseProps.isOwner,
+      lastSeenAt: currentUserRow?.supportLastSeenAt,
+    }),
   };
   const hasUnseenInsight = !isBusinessProfileThin(businessProfile) && !userRow?.lastImproveMetricKey;
 
   return (
     <>
-      <Suspense fallback={<AppSidebar {...sidebarProps} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+      <Suspense fallback={<AppSidebar {...sidebarProps} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
         <AppSidebarWithScaleScore
           {...sidebarProps}
           accountId={accountId}
@@ -63,6 +74,7 @@ async function AppChrome({
         />
       </Suspense>
       <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
+      <SupportDrawer />
     </>
   );
 }
@@ -132,8 +144,8 @@ export default async function AppLayout({
         <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
       ))}
       <div className="flex min-h-screen bg-panel">
-        <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
-          <AppChrome accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} />
+        <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+          <AppChrome userId={userId} accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} />
         </Suspense>
         {/* The sidebar is fixed, so reserve its width in normal document flow
             on desktop; mobile opens it as an overlay instead. */}

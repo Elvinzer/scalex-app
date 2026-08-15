@@ -39,6 +39,15 @@ describe("getAppUrl", () => {
     expect(getAppUrl()).toBe("https://www.minaly.io");
   });
 
+  it("does not leak an explicit Vercel URL into production links", () => {
+    clearAppUrlEnvironment();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("APP_URL", "https://minaly-preview.vercel.app/");
+
+    expect(getAppUrl()).toBe("https://www.minaly.io");
+  });
+
   it("keeps the deployment URL for Vercel previews", () => {
     clearAppUrlEnvironment();
     vi.stubEnv("VERCEL_ENV", "preview");
