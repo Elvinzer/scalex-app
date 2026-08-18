@@ -78,7 +78,7 @@ export type AcquisitionSidebarSubpage = {
 // sidebar hover flyout used to duplicate that same list one click earlier,
 // but hover has no touch-device equivalent and it's fully redundant with
 // the tabs, so it was removed rather than reimplemented as a
-// tap-to-expand accordion. Setting/Ads/Closing (the former "Avancé"
+// tap-to-expand accordion. Ads/Closing (the former "Avancé"
 // showcase modules) are deliberately set aside again — not rendered as
 // tabs by their pillar layout, not linked anywhere. Copilote (below)
 // replaces the old "Avancé" nav entry.
@@ -158,6 +158,7 @@ const subpageLabelKeys: Record<string, string> = {
   "/acquisition/contenu": "content",
   "/acquisition/mail": "mail",
   "/ventes/pipeline": "pipeline",
+  "/ventes/setters": "setters",
   "/acquisition/ads": "ads",
   "/ventes/suivi": "salesTracking",
   "/ventes/appels": "callsTracking",

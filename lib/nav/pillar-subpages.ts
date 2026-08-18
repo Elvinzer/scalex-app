@@ -8,7 +8,7 @@ export type PillarSubpage = { href: string; label: string; permission: Permissio
 // (components/app-sidebar.tsx) uses the same list for its expandable groups.
 // Pipeline is a sales-execution page, so it lives under Vente even though its
 // permission key remains acquisition-scoped for backwards compatibility with
-// existing team roles. Setter management lives under account team settings.
+// existing team roles. Setter management belongs to the Vente pillar.
 export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
   "/acquisition": [
     { href: "/acquisition/contenu", label: "Contenu", permission: "acquisition:contenu" },
@@ -18,6 +18,7 @@ export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
   "/ventes": [
     { href: "/ventes/suivi", label: "Suivi des ventes", permission: "ventes:suivi" },
     { href: "/ventes/pipeline", label: "Pipeline", permission: "acquisition:pipeline" },
+    { href: "/ventes/setters", label: "Setters", permission: "acquisition:setters" },
     { href: "/ventes/appels", label: "Suivi des appels", permission: "ventes:appels" },
     { href: "/ventes/rdv", label: "Rendez-vous", permission: "ventes:rdv" },
   ],
