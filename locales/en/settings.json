@@ -142,12 +142,14 @@
     "permissionGroup": {
       "overview": "Core access",
       "acquisition": "Acquisition",
-      "sales": "Sales"
+      "sales": "Sales",
+      "delivrabilite": "Delivery"
     },
     "permissionGroupHelp": {
       "overview": "Workspace overview and business information.",
       "acquisition": "Content, lead generation, and appointment setting.",
-      "sales": "Sales tracking, closing, and appointments."
+      "sales": "Sales tracking, closing, and appointments.",
+      "delivrabilite": "Client tracking and testimonials."
     },
     "permission": {
       "dashboard": "Dashboard",
@@ -166,6 +168,8 @@
       "ventes_closing": "Sales: Closing",
       "ventes_appels": "Sales: Call tracking (iClosed)",
       "ventes_upsell": "My business: Upsell (legacy)",
+      "delivrabilite_suivi-client": "Delivery: Client tracking",
+      "delivrabilite_temoignages": "Delivery: Testimonials",
       "business": "My business"
     }
   },

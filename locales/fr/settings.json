@@ -142,12 +142,14 @@
     "permissionGroup": {
       "overview": "Accès principaux",
       "acquisition": "Acquisition",
-      "sales": "Ventes"
+      "sales": "Ventes",
+      "delivrabilite": "Délivrabilité"
     },
     "permissionGroupHelp": {
       "overview": "Vue d’ensemble du business et informations principales.",
       "acquisition": "Contenu, acquisition de leads et prise de rendez-vous.",
-      "sales": "Suivi des ventes, closing et rendez-vous."
+      "sales": "Suivi des ventes, closing et rendez-vous.",
+      "delivrabilite": "Suivi client et témoignages."
     },
     "permission": {
       "dashboard": "Dashboard",
@@ -166,6 +168,8 @@
       "ventes_closing": "Ventes — Closing",
       "ventes_appels": "Ventes — Suivi des appels (iClosed)",
       "ventes_upsell": "Mon business — Upsell (ancien)",
+      "delivrabilite_suivi-client": "Délivrabilité — Suivi client",
+      "delivrabilite_temoignages": "Délivrabilité — Témoignages",
       "business": "Mon business"
     }
   },
