@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
+import { getStripeConnectRedirectUri, StripeRedirectUriConfigError } from "@/lib/stripe/redirect-uri";
 import { requireOwner } from "@/lib/team/context";
 
 export async function GET(request: NextRequest) {
@@ -40,10 +41,17 @@ export async function GET(request: NextRequest) {
   // Extension-only, a different platform category. Write access is blocked
   // at the code level instead: see lib/stripe/read-only-client.ts.
   authorizeUrl.searchParams.set("scope", "read_write");
-  authorizeUrl.searchParams.set(
-    "redirect_uri",
-    new URL("/api/stripe/callback", origin).toString()
-  );
+  let redirectUri: string;
+  try {
+    redirectUri = getStripeConnectRedirectUri(origin);
+  } catch (error) {
+    if (error instanceof StripeRedirectUriConfigError) {
+      console.error("[stripe] STRIPE_CONNECT_REDIRECT_URI is missing or invalid");
+      return NextResponse.redirect(new URL("/integrations?stripe_error=redirect_uri", origin));
+    }
+    throw error;
+  }
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("state", state);
 
   const response = NextResponse.redirect(authorizeUrl);

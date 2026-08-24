@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const funnelKeySchema = z.enum(ACQUISITION_FUNNEL_KEYS);
 const nullableCount = z.number().int().min(0).nullable();
+const nullableAmount = z.number().finite().min(0).nullable();
 
 const configSchemas: Record<AcquisitionFunnelKey, z.ZodTypeAny> = {
   lead_magnet: z.object({
@@ -79,8 +80,8 @@ const configSchemas: Record<AcquisitionFunnelKey, z.ZodTypeAny> = {
 
 const funnelMetricUpdatesSchema = z.object({
   scalar: z.object({
-    cashCollected: nullableCount,
-    cashContracted: nullableCount,
+    cashCollected: nullableAmount,
+    cashContracted: nullableAmount,
     newFollowers: nullableCount,
     firstMessages: nullableCount,
     conversations: nullableCount,

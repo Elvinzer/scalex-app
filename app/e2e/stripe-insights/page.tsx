@@ -4,9 +4,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { StripeInsightsSection } from "@/app/(app)/ventes/suivi/stripe-insights-section";
 import { getRequestLocale } from "@/lib/i18n/locale";
 import { loadMessagesFor } from "@/lib/i18n/messages";
-import { resolvePeriod, isInPeriod } from "@/lib/period";
+import { resolvePeriod } from "@/lib/period";
 import {
-  buildStripeInsightSignals,
   buildStripeInsightSnapshot,
   buildStripeTrend,
   listStripeCurrencies,
@@ -42,9 +41,7 @@ export default async function StripeInsightsE2EFixturePage({
   const fixtureTransactions = isEmpty ? [] : transactions;
   const fixtureRefunds = isEmpty ? [] : refunds;
   const snapshot = isEmpty ? null : buildStripeInsightSnapshot(fixtureTransactions, fixtureRefunds, period, "eur");
-  const signals = snapshot ? buildStripeInsightSignals(snapshot) : [];
   const trend = isEmpty ? [] : buildStripeTrend(fixtureTransactions, fixtureRefunds, period, "eur");
-  const visibleTransactions = fixtureTransactions.filter((transaction) => isInPeriod(period, new Date(transaction.occurredAt)));
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
@@ -65,9 +62,7 @@ export default async function StripeInsightsE2EFixturePage({
             availableCurrencies={listStripeCurrencies(fixtureTransactions, fixtureRefunds)}
             activeCurrency={isEmpty ? null : "eur"}
             snapshot={snapshot}
-            signals={signals}
             trend={trend}
-            visibleTransactions={visibleTransactions}
           />
         </div>
       </main>

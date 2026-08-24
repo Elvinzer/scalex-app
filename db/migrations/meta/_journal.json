@@ -337,6 +337,13 @@
       "when": 1787607232805,
       "tag": "0047_mighty_wither",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1787609349130,
+      "tag": "0048_steady_edwin_jarvis",
+      "breakpoints": true
     }
   ]
 }

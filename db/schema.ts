@@ -44,6 +44,7 @@ import type {
 import type { AcquisitionFunnelCatalogEntry } from "@/lib/acquisition-funnels/types";
 import type { FunnelBlockCatalogEntry } from "@/lib/funnel-blocks/types";
 import type { SupportTicketContext, SupportTicketDetails } from "@/lib/support/types";
+import type { FalcoCallAnalysis } from "@/lib/closing-videos/types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -2615,6 +2616,7 @@ export const closingVideos = pgTable(
     transcript: text("transcript"),
     notes: text("notes"),
     outcome: closingVideoOutcome("outcome").notNull(),
+    falcoAnalysis: jsonb("falco_analysis").$type<FalcoCallAnalysis | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

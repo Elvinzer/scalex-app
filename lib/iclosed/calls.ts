@@ -2,9 +2,10 @@ import { desc, eq, sql } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { sales, salesCallComments, salesCalls } from "@/db/schema";
+import { closingVideos, sales, salesCallComments, salesCalls } from "@/db/schema";
 
 import { summarize } from "@/lib/sales/installments";
+import type { ClosingVideoRow } from "@/lib/closing-videos/types";
 
 export type CallAttendance = "booked" | "showed" | "no_show" | "cancelled";
 export type CallOutcome = "pending" | "closed" | "not_closed" | "awaiting_decision";
@@ -38,10 +39,11 @@ export type SalesCallRow = {
   // Expected answer date (ISO) while outcome is "awaiting_decision", else null.
   decisionDueAt: string | null;
   commentCount: number;
+  closingVideo: ClosingVideoRow | null;
 };
 
 export const getSalesCalls = cache(async (accountId: string): Promise<SalesCallRow[]> => {
-  const [rows, counts] = await Promise.all([
+  const [rows, counts, videos] = await Promise.all([
     db
       .select({ call: salesCalls, sale: sales })
       .from(salesCalls)
@@ -54,8 +56,30 @@ export const getSalesCalls = cache(async (accountId: string): Promise<SalesCallR
       .innerJoin(salesCalls, eq(salesCallComments.callId, salesCalls.id))
       .where(eq(salesCalls.userId, accountId))
       .groupBy(salesCallComments.callId),
+    db
+      .select()
+      .from(closingVideos)
+      .where(eq(closingVideos.userId, accountId))
+      .orderBy(desc(closingVideos.createdAt)),
   ]);
   const countMap = new Map(counts.map((c) => [c.callId, c.n]));
+  const videoMap = new Map<string, ClosingVideoRow>();
+  for (const row of videos) {
+    if (row.salesCallId && !videoMap.has(row.salesCallId)) {
+      videoMap.set(row.salesCallId, {
+        id: row.id,
+        salesCallId: row.salesCallId,
+        clientName: row.clientName,
+        callDate: row.callDate,
+        url: row.url,
+        transcript: row.transcript,
+        notes: row.notes,
+        outcome: row.outcome,
+        falcoAnalysis: row.falcoAnalysis,
+        createdAt: row.createdAt.toISOString(),
+      });
+    }
+  }
 
   return rows.map(({ call, sale }) => ({
     id: call.id,
@@ -81,5 +105,6 @@ export const getSalesCalls = cache(async (accountId: string): Promise<SalesCallR
     outcomeSetAt: call.outcomeSetAt ? call.outcomeSetAt.toISOString() : null,
     decisionDueAt: call.decisionDueAt ? call.decisionDueAt.toISOString() : null,
     commentCount: countMap.get(call.id) ?? 0,
+    closingVideo: videoMap.get(call.id) ?? null,
   }));
 });

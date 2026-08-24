@@ -180,6 +180,11 @@
     "dragHint": "Fais glisser cette carte vers une autre colonne.",
     "dragRole": "carte de roadmap déplaçable"
   },
+  "callRecommendations": {
+    "title": "Améliorations issues des appels",
+    "help": "Falco place ici les chantiers structurels détectés dans tes analyses de closing.",
+    "openCall": "Revoir l’appel"
+  },
   "weekly": {
     "eyebrow": "BILAN DE LA SEMAINE",
     "title": "Tes repères en un coup d’œil",

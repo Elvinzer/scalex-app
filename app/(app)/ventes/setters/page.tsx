@@ -1,5 +1,7 @@
 // Compatibility wrapper: the setter implementation is shared with the
 // former Acquisition route and rendered here inside the Vente layout.
-import SettersPage from "@/app/(app)/acquisition/setters/page";
+import { redirect } from "next/navigation";
 
-export default SettersPage;
+export default function SettersRedirectPage() {
+  redirect("/settings/equipe");
+}

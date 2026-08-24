@@ -20,6 +20,8 @@ type MetricField = {
 };
 
 const SCALAR_KEYS = new Set([
+  "cash_collected",
+  "cash_contracted",
   "new_followers",
   "first_messages",
   "conversations",
@@ -29,7 +31,11 @@ const SCALAR_KEYS = new Set([
   "sales_closed",
 ]);
 
+const AMOUNT_KEYS = new Set(["cash_collected", "cash_contracted"]);
+
 const SCALAR_BY_INPUT: Record<string, string> = {
+  cash_collected: "cashCollected",
+  cash_contracted: "cashContracted",
   new_followers: "newFollowers",
   first_messages: "firstMessages",
   conversations: "conversations",
@@ -81,7 +87,8 @@ export function AcquisitionFunnelDataForm({
       if (values[field.inputMetricKey] === savedValues[field.inputMetricKey]) continue;
       const raw = values[field.inputMetricKey]?.trim() ?? "";
       const value = raw === "" ? null : Number(raw);
-      if (value !== null && (!Number.isInteger(value) || value < 0)) {
+      const isAmount = AMOUNT_KEYS.has(field.inputMetricKey);
+      if (value !== null && (!Number.isFinite(value) || value < 0 || (!isAmount && !Number.isInteger(value)))) {
         setError(t("invalidNumber"));
         return;
       }
@@ -127,8 +134,8 @@ export function AcquisitionFunnelDataForm({
             <input
               type="number"
               min={0}
-              step={1}
-              inputMode="numeric"
+              step={AMOUNT_KEYS.has(field.inputMetricKey) ? 0.01 : 1}
+              inputMode={AMOUNT_KEYS.has(field.inputMetricKey) ? "decimal" : "numeric"}
               value={values[field.inputMetricKey] ?? ""}
               onChange={(event) => update(field.inputMetricKey, event.target.value)}
               placeholder="—"

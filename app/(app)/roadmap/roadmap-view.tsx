@@ -55,6 +55,7 @@ import type {
   RoadmapStage,
 } from "@/lib/journal/action-loop";
 import type { StreakSnapshot } from "@/lib/streak/service";
+import type { CallRoadmapRecommendation } from "@/lib/closing-videos/types";
 import { cn } from "@/lib/utils";
 
 import {
@@ -68,6 +69,7 @@ type RoadmapViewProps = {
   data: JournalActionLoopData;
   streak: StreakSnapshot;
   weeklyReports: WeeklyReportRow[];
+  callRoadmapRecommendations?: CallRoadmapRecommendation[];
   accountId?: string;
   fixtureMode?: boolean;
 };
@@ -740,7 +742,7 @@ function WeeklySummary({
   );
 }
 
-export function RoadmapView({ data, streak, weeklyReports, accountId, fixtureMode = false }: RoadmapViewProps) {
+export function RoadmapView({ data, streak, weeklyReports, callRoadmapRecommendations = [], accountId, fixtureMode = false }: RoadmapViewProps) {
   const locale = useLocale();
   const translate = useTranslations("roadmap");
   const translateDiagnostic = useTranslations("diagnostic");
@@ -905,6 +907,24 @@ export function RoadmapView({ data, streak, weeklyReports, accountId, fixtureMod
           storageKey={accountId ? `minaly:roadmap-stages:${accountId}` : null}
         />
       )}
+
+      {callRoadmapRecommendations.length > 0 ? (
+        <section className="flex flex-col gap-3" aria-labelledby="call-roadmap-recommendations-title">
+          <div>
+            <h2 id="call-roadmap-recommendations-title" className="text-lg font-bold">{translate("callRecommendations.title")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{translate("callRecommendations.help")}</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {callRoadmapRecommendations.map((recommendation) => (
+              <Link key={recommendation.id} href={recommendation.href} className="sticker-card p-4 transition-colors hover:border-accent-2-border hover:bg-accent-2-soft/30 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
+                <p className="text-sm font-bold">{recommendation.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{recommendation.description}</p>
+                <span className="mt-3 inline-flex text-xs font-bold text-accent-2-text">{translate("callRecommendations.openCall")} →</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <WeeklySummary reports={weeklyReports} actionsDone={data.momentum.actionsDoneThisWeek} checkInDone={data.checkInDoneThisWeek} translate={translate} locale={locale} />
 

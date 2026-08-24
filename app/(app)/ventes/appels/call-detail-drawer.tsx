@@ -1,7 +1,9 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, Sparkles, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +12,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui
 import type { SalesCallRow } from "@/lib/iclosed/calls";
 
 import { AmountInput, CallResultSelect, PaymentPlanControl, TONE_TEXT, useCallOutcome } from "./call-outcome";
+import { analyzeCallWithFalco, saveCallRecording } from "./call-analysis-actions";
 import { addCallComment, deleteCallComment, getCallComments, type CallComment } from "./comment-actions";
 
 export function CallDetailDrawer({
@@ -23,10 +26,14 @@ export function CallDetailDrawer({
 }) {
   const locale = useLocale();
   const t = useTranslations("app.calls");
+  const router = useRouter();
   const [comments, setComments] = useState<CallComment[]>([]);
   const [loading, setLoading] = useState(false);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [recordingUrl, setRecordingUrl] = useState("");
+  const [transcript, setTranscript] = useState("");
+  const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
   const outcome = useCallOutcome(call);
 
@@ -47,6 +54,13 @@ export function CallDetailDrawer({
       active = false;
     };
   }, [open, callId]);
+
+  useEffect(() => {
+    if (!call) return;
+    setRecordingUrl(call.closingVideo?.url ?? "");
+    setTranscript(call.closingVideo?.transcript ?? "");
+    setNotes(call.closingVideo?.notes ?? "");
+  }, [call]);
 
   async function reload() {
     if (!callId) return;
@@ -79,6 +93,32 @@ export function CallDetailDrawer({
     });
   }
 
+  function handleSaveRecording() {
+    if (!callId) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await saveCallRecording({ callId, url: recordingUrl, transcript, notes });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function handleAnalyze() {
+    if (!callId) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await analyzeCallWithFalco(callId);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   if (!call) return null;
 
   const cancelled = call.attendance === "cancelled";
@@ -88,7 +128,7 @@ export function CallDetailDrawer({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <div className="flex items-center justify-between border-b border-border p-5">
-          <DrawerTitle className="text-lg font-bold">{call.inviteeName ?? "Appel"}</DrawerTitle>
+          <DrawerTitle className="text-lg font-bold">{call.inviteeName ?? t("callFallback")}</DrawerTitle>
           <DrawerClose asChild>
             <Button type="button" variant="ghost" size="icon-sm" aria-label={t("close")}>
               ×
@@ -184,6 +224,89 @@ export function CallDetailDrawer({
             )}
             {outcome.error && <p className="text-xs text-state-critical">{outcome.error}</p>}
           </div>
+
+          <section className="flex flex-col gap-4 rounded-[var(--radius-control)] border border-border p-4" aria-labelledby="call-recording-title">
+            <div>
+              <p id="call-recording-title" className="text-sm font-bold">{t("recordingTitle")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("recordingHelp")}</p>
+            </div>
+            {call.closingVideo?.url ? (
+              <a href={call.closingVideo.url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm font-bold text-accent-2-text underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
+                <ExternalLink className="size-4" aria-hidden="true" />
+                {t("openRecording")}
+              </a>
+            ) : null}
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-muted-foreground">{t("recordingUrl")}</span>
+              <input
+                type="url"
+                value={recordingUrl}
+                onChange={(event) => setRecordingUrl(event.target.value)}
+                placeholder={t("recordingUrlPlaceholder")}
+                className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-muted-foreground">{t("transcript")}</span>
+              <textarea
+                value={transcript}
+                onChange={(event) => setTranscript(event.target.value)}
+                rows={6}
+                placeholder={t("transcriptPlaceholder")}
+                className="resize-y rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-muted-foreground">{t("callNotes")}</span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={3}
+                placeholder={t("callNotesPlaceholder")}
+                className="resize-y rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+              />
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" onClick={handleSaveRecording} disabled={isPending}>
+                {isPending ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
+                {isPending ? t("saving") : t("saveRecording")}
+              </Button>
+              <Button type="button" variant="accent2" onClick={handleAnalyze} disabled={isPending || (!transcript.trim() && !notes.trim())}>
+                {isPending ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}
+                {isPending ? t("analysisPending") : t("analyzeWithFalco")}
+              </Button>
+            </div>
+            {call.closingVideo?.falcoAnalysis ? (
+              <div className="flex flex-col gap-4 border-t border-border pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-bold">{t("analysisTitle")}</p>
+                  <span className="rounded-full bg-accent-2-soft px-3 py-1 text-sm font-bold text-accent-2-text">{t("score", { score: call.closingVideo.falcoAnalysis.score })}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{call.closingVideo.falcoAnalysis.summary}</p>
+                {call.closingVideo.falcoAnalysis.strengths.length > 0 ? (
+                  <div>
+                    <p className="text-xs font-bold text-state-healthy">{t("strengths")}</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{call.closingVideo.falcoAnalysis.strengths.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </div>
+                ) : null}
+                {call.closingVideo.falcoAnalysis.improvements.length > 0 ? (
+                  <div>
+                    <p className="text-xs font-bold text-accent-2-text">{t("improvements")}</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{call.closingVideo.falcoAnalysis.improvements.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </div>
+                ) : null}
+                {call.closingVideo.falcoAnalysis.roadmap.length > 0 ? (
+                  <div className="rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/50 p-3">
+                    <p className="text-xs font-bold text-accent-2-text">{t("roadmapIdeas")}</p>
+                    <ul className="mt-2 space-y-2 text-sm">
+                      {call.closingVideo.falcoAnalysis.roadmap.map((item) => <li key={item.id}><p className="font-bold">{item.title}</p><p className="mt-0.5 text-muted-foreground">{item.description}</p></li>)}
+                    </ul>
+                    <Link href="/roadmap" className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-accent-2-text underline-offset-4 hover:underline">{t("openRoadmap")} <ExternalLink className="size-3.5" aria-hidden="true" /></Link>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
 
           <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">

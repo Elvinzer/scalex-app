@@ -439,7 +439,6 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         campaignType={detail.campaign.campaignType}
         conversionGoal={detail.campaign.conversionGoal}
         metaObjective={detail.campaign.objective}
-        typeSource={detail.campaign.typeSource}
       />
 
       {metaAdsErrorMessageText && (
@@ -773,7 +772,6 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
           </div>
           <div className="mt-5 space-y-4">
             <ProgressRow locale={locale} label={locale === "en" ? "Click / impression" : "Clic / impression"} numerator={linkClicks} denominator={impressions} unavailableReason={locale === "en" ? "Meta clicks or impressions unavailable for this period" : "Clics ou impressions Meta indisponibles sur la période"} />
-            {!campaignConfigured && <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">{t("genericFunnel")}</p>}
             {campaignConfigured && detail.campaign.campaignType === "vsl" && <ProgressRow locale={locale} label={locale === "en" ? "3-sec view" : "Vue 3 sec."} numerator={video3sViews} denominator={impressions} unavailableReason={locale === "en" ? "Meta video source unavailable for this period" : "Source vidéo Meta indisponible sur la période"} />}
             {campaignConfigured && detail.campaign.campaignType === "vsl" && <ProgressRow locale={locale} label="ThruPlay / view" numerator={videoThruplay} denominator={video3sViews} unavailableReason={locale === "en" ? "Meta video source unavailable for this period" : "Source vidéo Meta indisponible sur la période"} />}
             {campaignConfigured && detail.campaign.campaignType === "vsl" && <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">{t("vslUnavailable")}</p>}

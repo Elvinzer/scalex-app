@@ -13,13 +13,11 @@ export function MetaCampaignProfileSelector({
   campaignType,
   conversionGoal,
   metaObjective,
-  typeSource,
 }: {
   campaignId: string;
   campaignType: MetaCampaignType | null;
   conversionGoal: MetaConversionGoal | null;
   metaObjective: string | null;
-  typeSource: string;
 }) {
   const t = useTranslations("app.ads.profile");
   const router = useRouter();
@@ -118,7 +116,6 @@ export function MetaCampaignProfileSelector({
         )}
       </div>
 
-      {typeSource === "pending" && <p className="mt-4 text-xs font-bold text-state-caution">{t("pendingHelp")}</p>}
       {error && <p className="mt-4 text-sm font-bold text-state-critical" role="alert">{error}</p>}
       {message && <p className="mt-4 text-sm font-bold text-state-healthy" role="status">{message}</p>}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">

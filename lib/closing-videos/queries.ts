@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { closingVideos, salesCalls } from "@/db/schema";
 
 import type { ClosingVideoInput } from "./schema";
-import type { ClosingVideoCallOption, ClosingVideoRow } from "./types";
+import type { CallRoadmapRecommendation, ClosingVideoCallOption, ClosingVideoRow } from "./types";
 
 function toRow(row: typeof closingVideos.$inferSelect): ClosingVideoRow {
   return {
@@ -16,6 +16,7 @@ function toRow(row: typeof closingVideos.$inferSelect): ClosingVideoRow {
     transcript: row.transcript,
     notes: row.notes,
     outcome: row.outcome,
+    falcoAnalysis: row.falcoAnalysis,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -61,6 +62,18 @@ export async function getClosingVideo(userId: string, id: string): Promise<Closi
     .limit(1);
 
   return row ? toRow(row) : null;
+}
+
+export async function getCallRoadmapRecommendations(userId: string): Promise<CallRoadmapRecommendation[]> {
+  const rows = await db
+    .select({ id: closingVideos.id, salesCallId: closingVideos.salesCallId, falcoAnalysis: closingVideos.falcoAnalysis })
+    .from(closingVideos)
+    .where(eq(closingVideos.userId, userId))
+    .orderBy(desc(closingVideos.createdAt));
+  return rows.flatMap((row) => (row.falcoAnalysis?.roadmap ?? []).map((item) => ({
+    ...item,
+    href: row.salesCallId ? `/ventes/appels?call=${encodeURIComponent(row.salesCallId)}` : "/ventes/appels",
+  })));
 }
 
 export async function createClosingVideo(userId: string, data: ClosingVideoInput): Promise<void> {

@@ -180,6 +180,11 @@
     "dragHint": "Drag this card to another column.",
     "dragRole": "draggable roadmap card"
   },
+  "callRecommendations": {
+    "title": "Improvements from call reviews",
+    "help": "Falco puts structural improvements from your closing call reviews here.",
+    "openCall": "Review the call"
+  },
   "weekly": {
     "eyebrow": "WEEKLY REVIEW",
     "title": "Your key signals at a glance",

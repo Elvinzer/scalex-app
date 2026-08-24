@@ -81,6 +81,7 @@ export function CallsTable({
                   <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("invitee")}</th>
                   <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("closer")}</th>
                   <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("outcome")}</th>
+                  <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("falcoScore")}</th>
                   <th className="p-3 text-right text-xs font-bold text-muted-foreground">{t("contracted")}</th>
                   <th className="p-3 text-right text-xs font-bold text-muted-foreground">{t("collected")}</th>
                   <th className="p-3" />
@@ -269,6 +270,15 @@ function CallRow({ call, onOpenComments }: { call: SalesCallRow; onOpenComments:
           <p className="mt-1 text-[10px] text-muted-foreground">{t("upcoming")}</p>
         )}
         {error && <p className="mt-1 text-xs text-state-critical">{error}</p>}
+      </td>
+      <td className="p-3 align-top">
+        {call.closingVideo?.falcoAnalysis ? (
+          <span className="rounded-full bg-accent-2-soft px-2 py-0.5 text-xs font-bold text-accent-2-text">
+            {t("scoreShort", { score: call.closingVideo.falcoAnalysis.score })}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </td>
       <td className="p-3 text-right align-top tabular-nums">
         {result === "closed" ? (

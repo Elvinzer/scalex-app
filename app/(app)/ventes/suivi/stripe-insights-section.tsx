@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertCircle, CheckCircle2, Clock3, Filter, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, RefreshCw } from "lucide-react";
 
 import { KpiTile } from "@/components/kpi-tile";
-import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  type StripeInsightSignal,
   type StripeInsightSnapshot,
-  type StripeInsightTransaction,
   type StripeTrendPoint,
 } from "@/lib/stripe/transaction-insights";
 
@@ -29,22 +26,6 @@ type SyncState = {
   lastSyncCompletedAt: string | null;
   lastSyncError: string | null;
 };
-
-type StatusFilter = "all" | "succeeded" | "pending" | "failed" | "refunded";
-type PaymentTypeFilter = "all" | "one_shot" | "subscription";
-
-const STATUS_FILTER_OPTIONS: StatusFilter[] = ["all", "succeeded", "pending", "failed", "refunded"];
-const PAYMENT_TYPE_FILTER_OPTIONS: PaymentTypeFilter[] = ["all", "one_shot", "subscription"];
-
-function parseStatusFilter(value: string): StatusFilter {
-  for (const option of STATUS_FILTER_OPTIONS) if (option === value) return option;
-  return "all";
-}
-
-function parsePaymentTypeFilter(value: string): PaymentTypeFilter {
-  for (const option of PAYMENT_TYPE_FILTER_OPTIONS) if (option === value) return option;
-  return "all";
-}
 
 function formatMoney(cents: number, currency: string, locale: string): string {
   try {
@@ -81,43 +62,6 @@ function comparisonDelta(value: StripeInsightSnapshot["comparison"]["netCents"],
   };
 }
 
-function statusForTransaction(transaction: StripeInsightTransaction): StatusFilter {
-  if (transaction.status === "partially_refunded" || transaction.status === "refunded") return "refunded";
-  return transaction.status;
-}
-
-function transactionStatusKey(transaction: StripeInsightTransaction): "succeeded" | "pending" | "failed" | "partially_refunded" | "refunded" {
-  switch (transaction.status) {
-    case "succeeded":
-      return "succeeded";
-    case "pending":
-      return "pending";
-    case "failed":
-      return "failed";
-    case "partially_refunded":
-      return "partially_refunded";
-    case "refunded":
-      return "refunded";
-  }
-}
-
-function paymentTypeKey(paymentType: StripeInsightTransaction["paymentType"]): "subscription" | "one_shot" {
-  if (paymentType === "subscription") return "subscription";
-  return "one_shot";
-}
-
-function priorityKey(priority: StripeInsightSignal["priority"]): "highPriority" | "mediumPriority" | "watch" {
-  if (priority === "high") return "highPriority";
-  if (priority === "medium") return "mediumPriority";
-  return "watch";
-}
-
-function priorityClass(priority: StripeInsightSignal["priority"]): string {
-  if (priority === "high") return "bg-state-critical-bg text-state-critical";
-  if (priority === "medium") return "bg-state-caution-bg text-state-caution";
-  return "bg-accent-2-soft text-accent-2-text";
-}
-
 function syncMessage(connection: SyncState, locale: string, unknownDate: string): { messageKey?: "syncPending" | "dataCurrent" | "syncNotDone"; date?: string; label?: string; tone: "healthy" | "caution" | "critical" } {
   if (connection.lastSyncError) return { label: connection.lastSyncError, tone: "critical" };
   if (connection.initialSyncStatus === "pending") return { messageKey: "syncPending", tone: "caution" };
@@ -137,18 +81,14 @@ export function StripeInsightsSection({
   availableCurrencies,
   activeCurrency,
   snapshot,
-  signals,
   trend,
-  visibleTransactions,
 }: {
   connected: boolean;
   connection: SyncState | null;
   availableCurrencies: string[];
   activeCurrency: string | null;
   snapshot: StripeInsightSnapshot | null;
-  signals: StripeInsightSignal[];
   trend: StripeTrendPoint[];
-  visibleTransactions: StripeInsightTransaction[];
 }) {
   const locale = useLocale();
   const t = useTranslations("sales.insights");
@@ -159,9 +99,6 @@ export function StripeInsightsSection({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackIsError, setFeedbackIsError] = useState(false);
   const [syncRequested, setSyncRequested] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [paymentTypeFilter, setPaymentTypeFilter] = useState<PaymentTypeFilter>("all");
-  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
 
   const isSyncing = connection?.initialSyncStatus === "pending";
   const shouldPollSync = syncRequested || isSyncing;
@@ -206,17 +143,6 @@ export function StripeInsightsSection({
       label: "labelKey" in result && result.labelKey ? t(result.labelKey) : t("vsPrevious", { value: result.labelValue ?? "" }),
     };
   };
-  const filteredTransactions = useMemo(
-    () =>
-      visibleTransactions.filter((transaction) => {
-        const statusMatches = statusFilter === "all" || statusForTransaction(transaction) === statusFilter;
-        const typeMatches = paymentTypeFilter === "all" || transaction.paymentType === paymentTypeFilter;
-        return statusMatches && typeMatches;
-      }),
-    [paymentTypeFilter, statusFilter, visibleTransactions],
-  );
-  const selectedTransaction = visibleTransactions.find((transaction) => transaction.id === selectedTransactionId) ?? null;
-
   function selectCurrency(currency: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("currency", currency);
@@ -349,102 +275,6 @@ export function StripeInsightsSection({
             </article>
           </div>
 
-          {signals.length > 0 ? (
-            <section className="min-w-0" aria-labelledby="stripe-signals-title">
-              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h3 id="stripe-signals-title" className="text-lg font-bold">{t("signalsTitle")}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{t("signalsHelp")}</p>
-                </div>
-              </div>
-              <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-                {signals.map((signal) => (
-                  <article key={signal.type} className="sticker-card min-w-0 p-5" aria-labelledby={`stripe-signal-${signal.type}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <span className={cn("mt-0.5 rounded-full px-2.5 py-1 text-[11px] font-bold", priorityClass(signal.priority))}>{t(priorityKey(signal.priority))}</span>
-                        <h4 id={`stripe-signal-${signal.type}`} className="min-w-0 text-base font-bold">{signal.title}</h4>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-sm text-muted-foreground">{signal.summary}</p>
-                    <ul className="mt-3 space-y-1.5 text-sm font-bold">
-                      {signal.evidence.map((evidence) => <li key={evidence} className="flex gap-2"><span className="text-accent-2-text" aria-hidden="true">•</span><span>{evidence}</span></li>)}
-                    </ul>
-                    <p className="mt-4 border-t border-border pt-3 text-sm font-bold text-accent-2-text">
-                      <Link href={signal.actionHref} className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
-                        {t("nextAction", { action: signal.action })}
-                      </Link>
-                    </p>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          <section id="stripe-transactions" className="sticker-card min-w-0 scroll-mt-6 p-5 sm:p-6" aria-labelledby="stripe-transactions-title">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h3 id="stripe-transactions-title" className="text-lg font-bold">{t("transactionsTitle")}</h3>
-              </div>
-              <div className="flex min-w-0 flex-wrap items-center gap-2" role="group" aria-label={t("transactionFilters")}>
-                <Filter className="size-4 text-muted-foreground" aria-hidden="true" />
-                <label htmlFor="stripe-status-filter" className="sr-only">{t("statusFilter")}</label>
-                <select id="stripe-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(parseStatusFilter(event.target.value))} className="min-h-9 max-w-full rounded-[var(--radius-control)] border border-border bg-card px-2.5 text-xs font-bold outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12">
-                  {STATUS_FILTER_OPTIONS.map((value) => <option key={value} value={value}>{t(`statusLabels.${value}`)}</option>)}
-                </select>
-                <label htmlFor="stripe-type-filter" className="sr-only">{t("typeFilter")}</label>
-                <select id="stripe-type-filter" value={paymentTypeFilter} onChange={(event) => setPaymentTypeFilter(parsePaymentTypeFilter(event.target.value))} className="min-h-9 max-w-full rounded-[var(--radius-control)] border border-border bg-card px-2.5 text-xs font-bold outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12">
-                  {PAYMENT_TYPE_FILTER_OPTIONS.map((value) => <option key={value} value={value}>{t(`paymentTypeLabels.${value}`)}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {selectedTransaction ? (
-              <aside className="mt-4 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft p-4" aria-labelledby="stripe-transaction-detail-title">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div><p id="stripe-transaction-detail-title" className="text-sm font-bold">{t("transactionDetail")}</p>{selectedTransaction.customerName ? <p className="mt-1 text-xs text-muted-foreground">{selectedTransaction.customerName}</p> : null}</div>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedTransactionId(null)}>{t("closeDetail")}</Button>
-                </div>
-                <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-4">
-                  <div><dt className="text-xs text-muted-foreground">{t("date")}</dt><dd className="font-bold">{formatDate(selectedTransaction.occurredAt, locale, t("unknownDate"))}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">{t("amount")}</dt><dd className="font-bold">{formatMoney(selectedTransaction.amountCents, activeCurrency, locale)}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">{t("refunded")}</dt><dd className="font-bold">{formatMoney(selectedTransaction.amountRefundedCents, activeCurrency, locale)}</dd></div>
-                </dl>
-              </aside>
-            ) : null}
-
-            <div className="mt-5 max-w-full overflow-x-auto rounded-[var(--radius-control)] border border-border">
-              <table className="w-full min-w-[680px] border-collapse text-left text-sm">
-              <caption className="sr-only">{t("caption")}</caption>
-                <thead className="bg-surface-sunken text-xs text-muted-foreground">
-                  <tr>
-                    <th scope="col" className="px-3 py-3 font-bold">{t("client")}</th>
-                    <th scope="col" className="px-3 py-3 font-bold">{t("date")}</th>
-                    <th scope="col" className="px-3 py-3 font-bold">{t("amount")}</th>
-                    <th scope="col" className="px-3 py-3 font-bold">{t("type")}</th>
-                    <th scope="col" className="px-3 py-3 font-bold">{t("status")}</th>
-                    <th scope="col" className="px-3 py-3 text-right font-bold">{t("detail")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredTransactions.map((transaction) => (
-                    <tr key={transaction.id} className="transition-colors hover:bg-muted/40">
-                      <th scope="row" className="max-w-[170px] truncate px-3 py-3 font-bold" title={transaction.customerName ?? undefined}>{transaction.customerName ?? ""}</th>
-                      <td className="whitespace-nowrap px-3 py-3 text-muted-foreground">{formatDate(transaction.occurredAt, locale, t("unknownDate"))}</td>
-                      <td className="whitespace-nowrap px-3 py-3 font-bold tabular-nums">
-                        {formatMoney(transaction.amountCents, activeCurrency, locale)}
-                        {transaction.amountRefundedCents > 0 ? <span className="block text-xs font-normal text-state-caution">− {formatMoney(transaction.amountRefundedCents, activeCurrency, locale)} {t("refundedSuffix")}</span> : null}
-                      </td>
-                      <td className="px-3 py-3 text-muted-foreground">{t(`paymentTypes.${paymentTypeKey(transaction.paymentType)}`)}</td>
-                      <td className="px-3 py-3"><StatusBadge status={t(`transactionStatuses.${transactionStatusKey(transaction)}`)} /></td>
-                      <td className="px-3 py-3 text-right"><Button type="button" variant="ghost" size="sm" onClick={() => setSelectedTransactionId(transaction.id)} aria-label={t("viewTransaction", { id: transaction.id })}>{t("view")}</Button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredTransactions.length === 0 ? <p className="px-4 py-8 text-center text-sm text-muted-foreground">{t("noFilterMatch")}</p> : null}
-            </div>
-          </section>
         </>
       )}
     </section>

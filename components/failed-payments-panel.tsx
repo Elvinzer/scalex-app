@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCcw, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronUp, RotateCcw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -40,6 +40,7 @@ export function FailedPaymentsPanel({
   const [processed, setProcessed] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [isPending, startTransition] = useTransition();
   const visibleItems = items.filter((item) => !processed.has(item.id));
   const failureSignal = signal?.type === "failures" ? signal : null;
@@ -74,7 +75,7 @@ export function FailedPaymentsPanel({
   }
 
   return (
-    <section id="failed-payments" data-testid="failed-payments-warning" className={cn("scroll-mt-6 overflow-hidden rounded-[var(--radius-card)] border border-state-caution/40 bg-state-caution-bg", className)} aria-labelledby="failed-payments-title" aria-describedby="failed-payments-help" role="alert">
+    <section id="failed-payments" data-testid="failed-payments-warning" className={cn("scroll-mt-6 overflow-hidden rounded-[var(--radius-card)] border border-state-caution/40 bg-state-caution-bg", className)} aria-labelledby="failed-payments-title" aria-describedby={isMinimized ? undefined : "failed-payments-help"} role="alert">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-state-caution/30 px-5 py-4 sm:px-6">
         <div className="flex min-w-0 items-start gap-3">
           <TriangleAlert className="mt-0.5 size-5 shrink-0 text-state-caution" aria-hidden="true" />
@@ -96,10 +97,25 @@ export function FailedPaymentsPanel({
             <p id="failed-payments-help" className="mt-2 max-w-2xl text-sm text-foreground">{help}</p>
           </div>
         </div>
-        <Button asChild variant="outline" className="min-h-11">
-          <Link href={reviewHref}>{reviewLabel}</Link>
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsMinimized((value) => !value)}
+            aria-expanded={!isMinimized}
+            aria-controls="failed-payments-content"
+            className="min-h-11"
+          >
+            {isMinimized ? <ChevronDown className="size-4" aria-hidden="true" /> : <ChevronUp className="size-4" aria-hidden="true" />}
+            {isMinimized ? t("expandWarning") : t("minimizeWarning")}
+          </Button>
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href={reviewHref}>{reviewLabel}</Link>
+          </Button>
+        </div>
       </div>
+      {isMinimized ? null : <div id="failed-payments-content">
       {failureSignal ? (
         <p className="border-b border-state-caution/20 px-5 py-3 text-sm font-bold text-state-caution sm:px-6">
           <Link href={reviewHref} className="underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
@@ -142,6 +158,7 @@ export function FailedPaymentsPanel({
         </>
       ) : null}
       {feedback ? <p className="border-t border-state-caution/30 px-5 py-3 text-sm font-bold text-state-critical" role="alert">{feedback}</p> : null}
+      </div>}
     </section>
   );
 }

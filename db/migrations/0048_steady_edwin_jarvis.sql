@@ -1,0 +1,1 @@
+ALTER TABLE "closing_videos" ADD COLUMN "falco_analysis" jsonb;

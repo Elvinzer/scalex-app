@@ -44,6 +44,8 @@ export default async function IntegrationsPage({
   const stripeErrorMessage =
     stripeError === "config"
       ? t("stripeConfigError")
+      : stripeError === "redirect_uri"
+        ? t("stripeRedirectUriError")
       : stripeError === "oauth"
         ? t("stripeOauthError")
         : null;

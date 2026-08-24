@@ -208,12 +208,22 @@ export function SaleFormDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">{t("sourceChannelOptional")}</span>
-              <input
-                type="text"
+              <select
                 name="sourceChannel"
                 defaultValue={sale?.sourceChannel ?? ""}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
-              />
+              >
+                <option value="">{t("sourceChannelNone")}</option>
+                {sale?.sourceChannel && !["Instagram", "TikTok", "Newsletter", "VSL", "Webinaire", "LinkedIn"].includes(sale.sourceChannel) ? (
+                  <option value={sale.sourceChannel}>{sale.sourceChannel}</option>
+                ) : null}
+                <option value="Instagram">{t("sourceChannels.instagram")}</option>
+                <option value="TikTok">{t("sourceChannels.tiktok")}</option>
+                <option value="Newsletter">{t("sourceChannels.newsletter")}</option>
+                <option value="VSL">{t("sourceChannels.vsl")}</option>
+                <option value="Webinaire">{t("sourceChannels.webinar")}</option>
+                <option value="LinkedIn">{t("sourceChannels.linkedin")}</option>
+              </select>
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-muted-foreground">{t("closerOptional")}</span>

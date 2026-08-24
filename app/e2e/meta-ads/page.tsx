@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { NextIntlClientProvider } from "next-intl";
 import { z } from "zod";
 
 import { MetaAdsConnectionCard } from "@/components/meta-ads/meta-ads-connection-card";
@@ -6,6 +7,8 @@ import { MetaAdsDashboard } from "@/components/meta-ads/meta-ads-dashboard";
 import type { MetaAdsDashboard as MetaAdsDashboardData, MetaCampaignDashboardRow, MetaMetricKey, MetaMetricTotals } from "@/lib/meta-ads/queries";
 import { META_PERIOD_RANGE_OPTIONS, comparisonMetaPeriod, normalizeMetaPeriodSelection, resolveMetaPeriod, type MetaPeriodSelection } from "@/lib/meta-ads/protocol";
 import { META_CAMPAIGN_TYPES, type MetaCampaignType } from "@/lib/meta-ads/types";
+import { getRequestLocale } from "@/lib/i18n/locale";
+import { loadMessagesFor } from "@/lib/i18n/messages";
 
 const ALL_METRICS: MetaMetricKey[] = [
   "spendCents",
@@ -201,13 +204,16 @@ function buildDashboard(selectedType: MetaCampaignType | undefined, periodSelect
 
 export default async function MetaAdsE2EFixturePage({ searchParams }: { searchParams: Promise<{ module?: string; meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string }> }) {
   if (process.env.NODE_ENV === "production") notFound();
+  const locale = await getRequestLocale();
+  const messages = await loadMessagesFor(locale, ["common", "app"]);
   const parsedSearchParams = fixtureSearchParamsSchema.safeParse(await searchParams);
   const search = parsedSearchParams.success ? parsedSearchParams.data : {};
   const selectedType = search.module;
   const periodSelection = normalizeMetaPeriodSelection(search, new Date(`${FIXTURE_NOW}T12:00:00.000Z`));
 
   return (
-    <main className="min-h-screen overflow-x-clip bg-panel px-4 py-8 md:px-16">
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <main className="min-h-screen overflow-x-clip bg-panel px-4 py-8 md:px-16">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <div>
           <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Fixture locale uniquement · Meta Ads</p>
@@ -237,6 +243,7 @@ export default async function MetaAdsE2EFixturePage({ searchParams }: { searchPa
 
         <MetaAdsDashboard data={buildDashboard(selectedType, periodSelection)} periodSelection={periodSelection} canManageCampaigns />
       </div>
-    </main>
+      </main>
+    </NextIntlClientProvider>
   );
 }

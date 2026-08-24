@@ -353,7 +353,7 @@ export async function MetaAdsDashboard({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">{t("source", { account: data.account.name })}</p>
-          <h2 id="meta-ads-dashboard-title" className="mt-1 text-xl font-bold">{t("performance", { days: data.period.days })}</h2>
+          <h2 id="meta-ads-dashboard-title" className="mt-1 text-xl font-bold">{t("performance")}</h2>
           <p className="mt-1 text-xs text-muted-foreground">{t("comparison", { start: data.comparisonPeriod.start, end: data.comparisonPeriod.end })}</p>
           <p className="mt-2 text-xs font-bold text-muted-foreground">
             {data.period.consolidatedThrough

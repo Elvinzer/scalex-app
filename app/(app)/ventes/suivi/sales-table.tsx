@@ -11,6 +11,7 @@ import type { ActiveCloser } from "@/lib/closers/types";
 import { displayInstallments, summarize } from "@/lib/sales/installments";
 import type { OverallSaleStatus, SaleRow } from "@/lib/sales/types";
 import type { SetterRow } from "@/lib/setters/types";
+import type { StripeInsightTransaction } from "@/lib/stripe/transaction-insights";
 
 import { removeSale } from "./actions";
 import { SaleDetailDrawer } from "./sale-detail-drawer";
@@ -51,12 +52,29 @@ function closerName(closers: ActiveCloser[], closerId: string): string | null {
   return closers.find((closer) => closer.id === closerId)?.name ?? null;
 }
 
+function stripeStatusKey(transaction: StripeInsightTransaction): "succeeded" | "pending" | "failed" | "partially_refunded" | "refunded" {
+  return transaction.status;
+}
+
+function stripePaymentTypeKey(transaction: StripeInsightTransaction): "subscription" | "one_shot" {
+  return transaction.paymentType === "subscription" ? "subscription" : "one_shot";
+}
+
+function formatStripeMoney(cents: number, currency: string, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale, { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: 0 }).format(cents / 100);
+  } catch {
+    return `${Math.round(cents / 100).toLocaleString(locale)} ${currency.toUpperCase()}`;
+  }
+}
+
 export function SalesTable({
   sales,
   allSales,
   setters,
   closers,
   offers,
+  stripeTransactions = [],
   stripeConnection,
 }: {
   sales: SaleRow[];
@@ -64,12 +82,16 @@ export function SalesTable({
   setters: SetterRow[];
   closers: ActiveCloser[];
   offers: Offer[];
+  stripeTransactions?: StripeInsightTransaction[];
   stripeConnection?: { accountId: string; livemode: boolean } | null;
 }) {
   const locale = useLocale();
   const t = useTranslations("sales");
+  const insightT = useTranslations("sales.insights");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const selected = selectedId ? (sales.find((sale) => sale.id === selectedId) ?? null) : null;
+  const selectedTransaction = selectedTransactionId ? (stripeTransactions.find((transaction) => transaction.id === selectedTransactionId) ?? null) : null;
   const [setterFilter, setSetterFilter] = useState("");
   const [closerFilter, setCloserFilter] = useState("");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
@@ -119,7 +141,7 @@ export function SalesTable({
     return setters.find((s) => s.id === setterId)?.name ?? "—";
   }
 
-  if (sales.length === 0) {
+  if (sales.length === 0 && stripeTransactions.length === 0) {
     return (
       <div className="sticker-card-dashed p-6 text-center">
         <p className="text-sm font-bold">{t("noSales")}</p>
@@ -207,7 +229,7 @@ export function SalesTable({
         </label>
       </div>
 
-      {displayRows.length === 0 ? (
+      {displayRows.length === 0 && stripeTransactions.length === 0 ? (
         <div className="sticker-card-dashed p-6 text-center">
           <p className="text-sm font-bold">{t("noFilterMatch")}</p>
           <p className="mt-1 text-sm text-muted-foreground">{t("resetFilter")}</p>
@@ -288,6 +310,21 @@ export function SalesTable({
                   </td>
                 </tr>
               ))}
+              {stripeTransactions.map((transaction) => (
+                <tr key={`stripe-${transaction.id}`} className="border-b border-border last:border-0 hover:bg-muted/40">
+                  <td className="p-3 whitespace-nowrap text-muted-foreground">{new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(transaction.occurredAt))}</td>
+                  <td className="p-3 font-bold">{transaction.customerName ?? insightT("stripeCustomerUnknown")}</td>
+                  <td className="p-3 text-right font-bold tabular-nums">{formatStripeMoney(transaction.amountCents, transaction.currency, locale)}</td>
+                  <td className="p-3"><span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">{insightT(`paymentTypes.${stripePaymentTypeKey(transaction)}`)}</span></td>
+                  <td className="p-3 text-right tabular-nums">{formatStripeMoney(Math.max(0, transaction.amountCents - transaction.amountRefundedCents), transaction.currency, locale)}</td>
+                  <td className="p-3 text-muted-foreground">—</td>
+                  <td className="p-3"><SourceBadge source="Stripe" /></td>
+                  <td className="p-3 text-muted-foreground">—</td>
+                  <td className="p-3 text-muted-foreground">—</td>
+                  <td className="p-3"><StatusBadge status={insightT(`transactionStatuses.${stripeStatusKey(transaction)}`)} /></td>
+                  <td className="p-3 text-right"><Button type="button" variant="ghost" size="sm" onClick={() => setSelectedTransactionId(transaction.id)} aria-label={insightT("viewTransaction", { id: transaction.id })}>{insightT("view")}</Button></td>
+                </tr>
+              ))}
             </tbody>
           </table>
           </div>
@@ -325,9 +362,42 @@ export function SalesTable({
                 </div>
               </article>
             ))}
+            {stripeTransactions.map((transaction) => (
+              <article key={`stripe-mobile-${transaction.id}`} className="sticker-card flex flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold">{transaction.customerName ?? insightT("stripeCustomerUnknown")}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(transaction.occurredAt))} · Stripe</p>
+                  </div>
+                  <StatusBadge status={insightT(`transactionStatuses.${stripeStatusKey(transaction)}`)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><p className="text-xs text-muted-foreground">{t("deal")}</p><p className="font-bold tabular-nums">{formatStripeMoney(transaction.amountCents, transaction.currency, locale)}</p></div>
+                  <div><p className="text-xs text-muted-foreground">{t("collected")}</p><p className="font-bold tabular-nums">{formatStripeMoney(Math.max(0, transaction.amountCents - transaction.amountRefundedCents), transaction.currency, locale)}</p></div>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSelectedTransactionId(transaction.id)}>{insightT("view")}</Button>
+              </article>
+            ))}
           </div>
         </>
       )}
+
+      {selectedTransaction ? (
+        <aside className="mt-4 rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft p-4" aria-labelledby="stripe-transaction-detail-title">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p id="stripe-transaction-detail-title" className="text-sm font-bold">{insightT("transactionDetail")}</p>
+              {selectedTransaction.customerName ? <p className="mt-1 text-xs text-muted-foreground">{selectedTransaction.customerName}</p> : null}
+            </div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedTransactionId(null)}>{insightT("closeDetail")}</Button>
+          </div>
+          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-4">
+            <div><dt className="text-xs text-muted-foreground">{insightT("date")}</dt><dd className="font-bold">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(selectedTransaction.occurredAt))}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{insightT("amount")}</dt><dd className="font-bold">{formatStripeMoney(selectedTransaction.amountCents, selectedTransaction.currency, locale)}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{insightT("refunded")}</dt><dd className="font-bold">{formatStripeMoney(selectedTransaction.amountRefundedCents, selectedTransaction.currency, locale)}</dd></div>
+          </dl>
+        </aside>
+      ) : null}
 
       <SaleDetailDrawer
         sale={selected}

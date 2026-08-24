@@ -18,7 +18,6 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { KanbanBoard } from "./kanban-board";
 import { NewLeadDialog } from "./new-lead-dialog";
 import { PipelineStatsBanner } from "./pipeline-stats-banner";
-import { TodayPipelineView } from "./today-view";
 
 function monthsAgoRange(monthsBack: number): DateRange {
   const today = todayUtc();
@@ -26,14 +25,13 @@ function monthsAgoRange(monthsBack: number): DateRange {
   return { from: toIsoDate(start), to: toIsoDate(today) };
 }
 
-export default async function PipelinePage({ searchParams }: { searchParams: Promise<{ period?: string; lead?: string; from?: string; view?: string }> }) {
+export default async function PipelinePage({ searchParams }: { searchParams: Promise<{ period?: string; lead?: string; from?: string }> }) {
   const t = await getTranslations("pipeline");
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:pipeline");
   const params = await searchParams;
   const period = params.period === "3-months" ? "3-months" : "current-month";
   const fromDashboard = params.from === "dashboard";
-  const view = params.view === "stage" ? "stage" : "today";
   const targetLeadId = z.string().uuid().safeParse(params.lead).success ? params.lead ?? null : null;
 
   const range = period === "3-months" ? monthsAgoRange(2) : monthsAgoRange(0);
@@ -71,52 +69,26 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
               ← {t("backDashboard")}
             </Link>
           )}
-          <Link href="/ventes/pipeline/funnel" className="text-sm font-bold text-muted-foreground hover:underline">
-            {t("dailyFunnel")} →
-          </Link>
           <NewLeadDialog offers={offers} setters={setters} closers={closers} />
         </div>
       </div>
 
-      <div className="flex w-fit items-center gap-1 rounded-[var(--radius-control)] border border-border bg-muted p-1" role="group" aria-label={t("viewAria")}>
-        <Link
-          href="/ventes/pipeline?view=today"
-          aria-current={view === "today" ? "page" : undefined}
-          className={`min-h-11 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold ${view === "today" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          {t("todayView")}
-        </Link>
-        <Link
-          href="/ventes/pipeline?view=stage"
-          aria-current={view === "stage" ? "page" : undefined}
-          className={`min-h-11 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold ${view === "stage" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          {t("stageView")}
-        </Link>
-      </div>
-
-      {view === "today" ? (
-        <TodayPipelineView leads={leads} offers={offers} setters={setters} />
-      ) : (
-        <>
-          <AgentBanner
-            stateText={t("agentState")}
-            ctaLabel={t("improve")}
-            chatContext={chatContext}
-            mode="optimiser"
-            falcoSkin={falcoSkin}
-          />
-          <PipelineStatsBanner stats={stats} period={period} />
-          <KanbanBoard
-            initialLeads={leads}
-            offers={offers}
-            setters={setters}
-            closers={closers}
-            commentCounts={commentCounts}
-            initialLeadId={targetLeadId}
-          />
-        </>
-      )}
+      <AgentBanner
+        stateText={t("agentState")}
+        ctaLabel={t("improve")}
+        chatContext={chatContext}
+        mode="optimiser"
+        falcoSkin={falcoSkin}
+      />
+      <PipelineStatsBanner stats={stats} period={period} />
+      <KanbanBoard
+        initialLeads={leads}
+        offers={offers}
+        setters={setters}
+        closers={closers}
+        commentCounts={commentCounts}
+        initialLeadId={targetLeadId}
+      />
     </div>
   );
 }

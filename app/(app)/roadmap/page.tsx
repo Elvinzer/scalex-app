@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getJournalActionLoopData, measureDueJournalActions } from "@/lib/journal/action-loop";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { getStreakSnapshot } from "@/lib/streak/queries";
+import { getCallRoadmapRecommendations } from "@/lib/closing-videos/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 import { measureAsync } from "@/lib/perf/timing";
 
@@ -22,12 +23,13 @@ async function renderRoadmapPage() {
   }
   await requirePermissionOrRedirect(userId, "dashboard");
 
-  const [data, streak, weeklyReports] = await Promise.all([
+  const [data, streak, weeklyReports, callRoadmapRecommendations] = await Promise.all([
     getJournalActionLoopData(accountId),
     // The app shell has already refreshed this request's snapshot for the
     // sidebar flame, so this is a request-local cache hit.
     getStreakSnapshot(accountId),
     getRecentWeeklyReports(accountId, 4),
+    getCallRoadmapRecommendations(accountId),
   ]);
 
   after(() => {
@@ -35,5 +37,5 @@ async function renderRoadmapPage() {
     void measureDueJournalActions(accountId, userId);
   });
 
-  return <RoadmapView accountId={accountId} data={data} streak={streak} weeklyReports={weeklyReports} />;
+  return <RoadmapView accountId={accountId} data={data} streak={streak} weeklyReports={weeklyReports} callRoadmapRecommendations={callRoadmapRecommendations} />;
 }

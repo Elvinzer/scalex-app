@@ -93,8 +93,8 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
       <CallsFreshnessProbe enabled={Boolean(iclosedConnection)} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Suivi d&apos;appel</h1>
-              <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {fromDashboard && (
