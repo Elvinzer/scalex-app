@@ -5,6 +5,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgSchema,
   pgTable,
@@ -2058,7 +2059,7 @@ export const monthlyMetrics = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     year: integer("year").notNull(),
     month: integer("month").notNull(), // 1-12
-    cashCollected: integer("cash_collected"), // euros
+    cashCollected: numeric("cash_collected", { mode: "number" }), // euros, decimals preserved
     // "stripe" | "stripe_stale" | null (null = manual/unset) — set by
     // lib/stripe/sync.ts, never by the manual save path. "stale" means the
     // account disconnected (app/(app)/settings/actions.ts's disconnectStripe):
@@ -2071,8 +2072,8 @@ export const monthlyMetrics = pgTable(
     // — captured once, never overwritten again (even on re-sync), per
     // CLAUDE.md's rule that a prior manual entry is never destroyed, only
     // masked.
-    cashCollectedManualBackup: integer("cash_collected_manual_backup"),
-    cashContracted: integer("cash_contracted"), // euros
+    cashCollectedManualBackup: numeric("cash_collected_manual_backup", { mode: "number" }),
+    cashContracted: numeric("cash_contracted", { mode: "number" }), // euros, decimals preserved
     // Top-of-funnel leads/audience growth (newSubscribers in the Setting
     // funnel, see lib/monthly-metrics/rates.ts's toFunnelTotals) — NOT the
     // same concept as newCustomers below (Stripe's paying-customer count).

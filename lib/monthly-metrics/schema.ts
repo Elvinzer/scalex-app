@@ -4,11 +4,12 @@ import { z } from "zod";
 // month blob is trusted, per CLAUDE.md's rule against unvalidated `as` on
 // external input. Every field optional/nullable: no field in "Datas" is
 // mandatory.
+const nonNegativeAmountOrNull = z.number().finite().min(0).nullable();
 const nonNegativeIntOrNull = z.number().int().min(0).nullable();
 
 export const monthlyMetricsInputSchema = z.object({
-  cashCollected: nonNegativeIntOrNull,
-  cashContracted: nonNegativeIntOrNull,
+  cashCollected: nonNegativeAmountOrNull,
+  cashContracted: nonNegativeAmountOrNull,
   newFollowers: nonNegativeIntOrNull,
   firstMessages: nonNegativeIntOrNull,
   conversations: nonNegativeIntOrNull,
