@@ -9,7 +9,7 @@ import { setMetaCampaignProfile } from "@/app/(app)/acquisition/ads/meta-actions
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import { safeRatio as ratio } from "@/lib/meta-ads/derived-metrics";
-import type { MetaAdsDashboard, MetaCampaignDashboardRow, MetaMetricKey, MetaMetricTotals } from "@/lib/meta-ads/queries";
+import type { MetaCampaignDashboardRow, MetaMetricKey, MetaMetricTotals } from "@/lib/meta-ads/queries";
 import { campaignTypeNeedsConversionGoal, META_CAMPAIGN_TYPES, META_CONVERSION_GOALS, type MetaCampaignType, type MetaConversionGoal } from "@/lib/meta-ads/types";
 import { targetVarianceLabel } from "@/lib/meta-ads/targets";
 import { formatPercent } from "@/lib/setting/funnel";
@@ -25,7 +25,7 @@ const followerCostFormatter = new Intl.NumberFormat("fr-FR", {
 const typeLabels: Record<MetaCampaignType, string> = {
   vsl: "VSL",
   webinar: "Webinaire",
-  instagram_profile_growth: "Trafic Instagram",
+  instagram_profile_growth: "Visite de profil",
   retargeting: "Retargeting",
 };
 
@@ -89,7 +89,7 @@ function TableMetric({ value, provenance, detail }: { value: string; provenance:
   );
 }
 
-function deriveMetrics(campaign: MetaCampaignDashboardRow, instagramFollowerCount: number | null): CampaignTableMetrics {
+function deriveMetrics(campaign: MetaCampaignDashboardRow): CampaignTableMetrics {
   const impressions = metricValue(campaign.metrics, "impressions");
   const linkClicks = metricValue(campaign.metrics, "linkClicks");
   const spendCents = metricValue(campaign.metrics, "spendCents");
@@ -101,8 +101,9 @@ function deriveMetrics(campaign: MetaCampaignDashboardRow, instagramFollowerCoun
   const roas = !instagramGrowth && purchaseValue !== null && spendCents !== null && spendCents > 0 ? purchaseValue / spendCents : null;
   const targetCpaEuros = campaign.targets?.targetCpaCents === null || campaign.targets?.targetCpaCents === undefined ? null : campaign.targets.targetCpaCents / 100;
   const targetRoas = campaign.targets?.targetRoas ?? null;
-  const followerCost = instagramGrowth && instagramFollowerCount !== null && instagramFollowerCount > 0 && spendCents !== null
-    ? spendCents / instagramFollowerCount / 100
+  const campaignFollowers = campaign.targets?.attributedFollowers ?? null;
+  const followerCost = instagramGrowth && campaignFollowers !== null && campaignFollowers > 0 && spendCents !== null
+    ? spendCents / campaignFollowers / 100
     : null;
 
   return {
@@ -311,20 +312,23 @@ export function MetaCampaignsTable({
   campaigns,
   periodQuery,
   canManageCampaigns,
-  instagramFollowerCount,
-  instagramFollowerCountUpdatedAt,
+  followerCopy,
 }: {
   campaigns: MetaCampaignDashboardRow[];
   periodQuery: string;
   canManageCampaigns: boolean;
-  instagramFollowerCount: MetaAdsDashboard["instagramFollowerCount"];
-  instagramFollowerCountUpdatedAt: MetaAdsDashboard["instagramFollowerCountUpdatedAt"];
+  followerCopy: {
+    help: string;
+    manual: string;
+    missing: string;
+    measured: string;
+    notApplicable: string;
+  };
 }) {
   const [filterType, setFilterType] = useState<CampaignFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const followerCount = instagramFollowerCount ?? null;
-  const rows = useMemo(() => campaigns.map((campaign) => deriveMetrics(campaign, followerCount)), [campaigns, followerCount]);
+  const rows = useMemo(() => campaigns.map((campaign) => deriveMetrics(campaign)), [campaigns]);
   const filteredRows = useMemo(() => {
     const visible = filterType === "all"
       ? rows
@@ -334,7 +338,7 @@ export function MetaCampaignsTable({
     return [...visible].sort((a, b) => compareRows(a, b, sortKey, sortDirection));
   }, [filterType, rows, sortDirection, sortKey]);
   const hasInstagramCampaign = campaigns.some((campaign) => campaign.campaignType === "instagram_profile_growth");
-  const showFollowerCost = followerCount !== null && hasInstagramCampaign;
+  const showFollowerCost = hasInstagramCampaign;
 
   function changeSort(nextSortKey: SortKey) {
     if (nextSortKey === sortKey) {
@@ -388,8 +392,7 @@ export function MetaCampaignsTable({
           <summary className="inline-flex min-h-11 cursor-pointer items-center font-bold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/12">À propos de la liste</summary>
           <div className="mt-1 space-y-1 border-l border-border pl-3">
             <p>Tri initial : mise à jour Meta, puis dépenses.</p>
-            {hasInstagramCampaign && followerCount !== null && <p>Coût / follower : repère dérivé de {number(followerCount)} followers Instagram{instagramFollowerCountUpdatedAt ? ` relevé le ${new Intl.DateTimeFormat("fr-FR").format(new Date(instagramFollowerCountUpdatedAt))}` : ""}; non attribué individuellement.</p>}
-            {hasInstagramCampaign && followerCount === null && <p className="text-state-caution">Coût / follower indisponible : nombre de followers Instagram manquant.</p>}
+            {hasInstagramCampaign && <p>{followerCopy.help}</p>}
           </div>
         </details>
       </div>
@@ -435,7 +438,7 @@ export function MetaCampaignsTable({
                     <TableMetric value={instagramGrowth || roas === null ? "—" : `${roas.toFixed(2)}×`} provenance={metricProvenance("dérivée", !instagramGrowth && roas !== null)} detail={instagramGrowth ? "Non applicable · objectif profil" : undefined} />
                     {!instagramGrowth && targetRoas !== null && <span className="block text-xs text-muted-foreground">cible {targetRoas.toFixed(2)}× · {targetRoasGap ?? "écart non calculable"}</span>}
                   </td>
-                  {showFollowerCost && <td className="px-5 py-4 text-right align-top tabular-nums"><TableMetric value={!instagramGrowth || followerCost === null ? "—" : followerCostFormatter.format(followerCost)} provenance={instagramGrowth && followerCost !== null ? "Meta + Instagram · dérivée · estimée" : metricProvenance("dérivée", false)} detail={!instagramGrowth ? "Non applicable" : followerCost === null ? "Dépenses Meta indisponibles" : "Repère · non attribué"} /></td>}
+                  {showFollowerCost && <td className="px-5 py-4 text-right align-top tabular-nums"><TableMetric value={!instagramGrowth || followerCost === null ? "—" : followerCostFormatter.format(followerCost)} provenance={instagramGrowth && followerCost !== null ? followerCopy.manual : metricProvenance("dérivée", false)} detail={!instagramGrowth ? followerCopy.notApplicable : followerCost === null ? followerCopy.missing : followerCopy.measured} /></td>}
                   <td className="px-5 py-4 text-right align-top text-xs font-bold text-muted-foreground">{statusLabel(campaign.effectiveStatus)}</td>
                 </tr>
               );

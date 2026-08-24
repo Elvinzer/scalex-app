@@ -770,6 +770,10 @@ export const metaCampaignProfiles = pgTable(
     targetCpaCents: integer("target_cpa_cents"),
     targetRoas: real("target_roas"),
     leadValueCents: integer("lead_value_cents"),
+    // Manually entered result count for campaigns whose outcome is not
+    // reliably returned by Meta (for example followers gained from a profile
+    // visit campaign). It is scoped to the selected reporting period.
+    attributedFollowers: integer("attributed_followers"),
     attributionNote: text("attribution_note"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

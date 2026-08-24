@@ -181,7 +181,6 @@ export const GROWTH_QUESTIONS: ReadonlyArray<GrowthQuestion> = [
     questionKey: "questions.systemeAcq",
     helpKey: "help.systemeAcq",
     options: [
-      { labelKey: "options.systemCall", value: "call" },
       { labelKey: "options.systemLeadMagnet", value: "magnet" },
       { labelKey: "options.systemVsl", value: "vsl" },
       { labelKey: "options.systemWebinar", value: "webinaire" },
@@ -621,4 +620,3 @@ export function calculateGrowthDiagnostic(
     levers,
   };
 }
-

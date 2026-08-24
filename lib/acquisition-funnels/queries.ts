@@ -21,8 +21,12 @@ function normalizeCatalogRow(row: typeof acquisitionFunnels.$inferSelect): Acqui
 
 export const getAcquisitionFunnelCatalog = cache(async (): Promise<AcquisitionFunnelCatalogEntry[]> => {
   const rows = await db.select().from(acquisitionFunnels).where(eq(acquisitionFunnels.enabled, true));
-  const catalog = rows.map(normalizeCatalogRow).filter((entry): entry is AcquisitionFunnelCatalogEntry => entry !== null);
-  return catalog.length > 0 ? catalog : DEFAULT_ACQUISITION_FUNNELS;
+  const catalog = rows
+    .map(normalizeCatalogRow)
+    .filter((entry): entry is AcquisitionFunnelCatalogEntry => entry !== null)
+    .filter((entry) => entry.funnelKey !== "appel_direct");
+  const fallback = DEFAULT_ACQUISITION_FUNNELS.filter((entry) => entry.funnelKey !== "appel_direct");
+  return catalog.length > 0 ? catalog : fallback;
 });
 
 export const getAcquisitionFunnelBenchmarks = cache(async (

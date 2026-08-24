@@ -13,6 +13,8 @@ import { db } from "@/db";
 import { metaAdAccounts, metaAdsConnections } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { activeFunnelBlockEntries, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
@@ -48,6 +50,8 @@ const adsSearchParamsSchema = z.object({
 export default async function AdsPage({ searchParams }: { searchParams: Promise<{ meta_days?: string; meta_range?: string; meta_from?: string; meta_to?: string; meta_ads?: string; meta_ads_error?: string }> }) {
   const locale = await getLocale();
   const t = await getTranslations("app.ads");
+  const tFunnelCatalog = await getTranslations("funnelBlocks.catalog");
+  const tFunnelMetrics = await getTranslations("funnelBlocks.metrics");
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:ads");
   const parsedSearchParams = adsSearchParamsSchema.safeParse(await searchParams);
@@ -60,9 +64,10 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
     </div>
   ) : null;
   const ownerAccess = await requireOwner(userId);
-  const [profile, lever, metaDashboard, metaConnectionRows, metaAdAccountRows, subscriptionActive] = await Promise.all([
+  const [profile, lever, funnelBlockCatalog, metaDashboard, metaConnectionRows, metaAdAccountRows, subscriptionActive] = await Promise.all([
     getBusinessProfile(accountId),
     getLeverStatus(accountId, LEVER_KEY),
+    getFunnelBlockCatalog(),
     getMetaAdsDashboard(accountId, periodSelection),
     ownerAccess
       ? db.select().from(metaAdsConnections).where(eq(metaAdsConnections.userId, accountId)).limit(1)
@@ -85,6 +90,12 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   ]);
   const [metaConnection] = metaConnectionRows;
   const metaAccounts: MetaAdAccountOption[] = metaAdAccountRows;
+  const funnelSelection = normalizeFunnelBlockSelection(profile.acquisition, funnelBlockCatalog);
+  const activeAdsFunnel = activeFunnelBlockEntries(funnelSelection, funnelBlockCatalog).map((entry) => ({
+    blockKey: entry.blockKey,
+    label: tFunnelCatalog.has(`${entry.blockKey}.label`) ? tFunnelCatalog(`${entry.blockKey}.label`) : entry.label,
+    metricLabels: entry.steps.map((step) => tFunnelMetrics.has(`${step.metricKey}.label`) ? tFunnelMetrics(`${step.metricKey}.label`) : step.label),
+  }));
   const metaAdsConnected = Boolean(metaConnection && metaConnection.status !== "disconnected");
   const metaConnectionCard = ownerAccess ? (
     <MetaAdsConnectionCard
@@ -220,7 +231,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
 
       {metaAdsErrorAlert}
       {metaConnectionCard}
-      {metaDashboard && <MetaAdsDashboard data={metaDashboard} periodSelection={periodSelection} canManageCampaigns={Boolean(ownerAccess)} />}
+      {metaDashboard && <MetaAdsDashboard data={metaDashboard} periodSelection={periodSelection} canManageCampaigns={Boolean(ownerAccess)} activeFunnel={activeAdsFunnel} />}
 
       {profile.sales.offers.length === 0 && (
         <div className="sticker-card-dashed p-6 text-center">

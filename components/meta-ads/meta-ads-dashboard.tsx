@@ -1,4 +1,4 @@
-import { ArrowUpRight, BarChart3, Eye, MousePointerClick, Play, UserPlus } from "lucide-react";
+import { ArrowUpRight, Eye, MousePointerClick, Play, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
@@ -9,22 +9,15 @@ import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import { safeRatio as ratio } from "@/lib/meta-ads/derived-metrics";
 import { trendLabel } from "@/lib/meta-ads/metric-comparison";
-import { DEFAULT_META_PERIOD_SELECTION, formatMetaPeriodRange, metaPeriodSelectionLabel, serializeMetaPeriodSelection, type MetaPeriodSelection } from "@/lib/meta-ads/protocol";
+import { DEFAULT_META_PERIOD_SELECTION, serializeMetaPeriodSelection, type MetaPeriodSelection } from "@/lib/meta-ads/protocol";
 import { formatPercent } from "@/lib/setting/funnel";
-import { metricValue, rawMetaMetricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaInstagramObservation, type MetaMetricTotals } from "@/lib/meta-ads/queries";
-import { campaignTypeNeedsConversionGoal } from "@/lib/meta-ads/types";
+import { metricValue, rawMetaMetricValue, type MetaAdsDashboard, type MetaCampaignDashboardRow, type MetaMetricKey, type MetaMetricTotals } from "@/lib/meta-ads/queries";
 
 function number(value: number, locale: string): string {
   return new Intl.NumberFormat(locale).format(value);
 }
 
-function metricProvenance(calculation: "brute" | "dérivée", available: boolean, locale: string): string {
-  const isEnglish = locale === "en";
-  const readableCalculation = calculation === "brute" ? (isEnglish ? "raw" : "brute") : (isEnglish ? "derived" : "dérivée");
-  return `Meta · ${readableCalculation} · ${available ? (isEnglish ? "direct" : "directe") : (isEnglish ? "unavailable" : "indisponible")}`;
-}
-
-function Kpi({ label, value, detail, comparison, provenance, icon }: { label: string; value: string; detail: string; comparison: string; provenance: string; icon: React.ReactNode }) {
+function Kpi({ label, value, detail, comparison, icon }: { label: string; value: string; detail: string; comparison: string; icon: React.ReactNode }) {
   return (
     <div className="sticker-card p-5">
       <div className="flex items-center justify-between text-muted-foreground">
@@ -34,7 +27,6 @@ function Kpi({ label, value, detail, comparison, provenance, icon }: { label: st
       <p className="mt-3 text-2xl font-bold tabular-nums">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
       <p className="mt-2 text-xs font-bold text-muted-foreground">{comparison}</p>
-      <p className="mt-2 text-[11px] font-bold text-muted-foreground">{provenance}</p>
     </div>
   );
 }
@@ -94,7 +86,49 @@ function FunnelTable({ rows, locale, labels }: { rows: FunnelTableRow[]; locale:
   );
 }
 
-async function FunnelCard({ totals, campaignType, instagramObservation, frequencySaturationThreshold }: { totals: MetaMetricTotals; campaignType: MetaCampaignDashboardRow["campaignType"]; instagramObservation: MetaInstagramObservation; frequencySaturationThreshold: number }) {
+function aggregateCampaignTotals(campaigns: MetaCampaignDashboardRow[]): MetaMetricTotals {
+  const available = {} as Record<MetaMetricKey, boolean>;
+  const sum = (key: MetaMetricKey): number => {
+    const values = campaigns.map((campaign) => metricValue(campaign.metrics, key));
+    const complete = values.length > 0 && values.every((value): value is number => value !== null);
+    available[key] = complete;
+    return complete ? values.reduce((total, value) => total + value, 0) : 0;
+  };
+
+  return {
+    spendCents: sum("spendCents"),
+    impressions: sum("impressions"),
+    reach: sum("reach"),
+    clicks: sum("clicks"),
+    linkClicks: sum("linkClicks"),
+    leads: sum("leads"),
+    landingPageViews: sum("landingPageViews"),
+    video3sViews: sum("video3sViews"),
+    videoThruplay: sum("videoThruplay"),
+    profileVisits: sum("profileVisits"),
+    follows: sum("follows"),
+    registrations: sum("registrations"),
+    purchases: sum("purchases"),
+    purchaseValueCents: sum("purchaseValueCents"),
+    messages: sum("messages"),
+    metaProvided: {
+      ctr: null,
+      cpcCents: null,
+      cpmCents: null,
+      rowCount: 0,
+      availableRows: { ctr: 0, cpcCents: 0, cpmCents: 0 },
+    },
+    available,
+  };
+}
+
+function sumNullable(values: Array<number | null>): number | null {
+  return values.length > 0 && values.every((value): value is number => value !== null)
+    ? values.reduce((total, value) => total + value, 0)
+    : null;
+}
+
+async function FunnelCard({ totals, campaignType, campaignFollowers, campaignSales, customerAcquisitionCostBenchmarkCents, frequencySaturationThreshold }: { totals: MetaMetricTotals; campaignType: NonNullable<MetaCampaignDashboardRow["campaignType"]>; campaignFollowers: number | null; campaignSales: number | null; customerAcquisitionCostBenchmarkCents: number | null; frequencySaturationThreshold: number }) {
   const locale = await getLocale();
   const t = await getTranslations("app.ads.dashboard");
   const tableLabels = {
@@ -114,16 +148,7 @@ async function FunnelCard({ totals, campaignType, instagramObservation, frequenc
   const leads = metricValue(totals, "leads");
   const registrations = metricValue(totals, "registrations");
   const profileVisits = metricValue(totals, "profileVisits");
-  const observedFollows = instagramObservation.current.follows;
   const spendCents = metricValue(totals, "spendCents");
-  if (campaignType === null) {
-    return (
-      <div className="sticker-card-dashed p-6">
-        <p className="font-bold">{t("funnelPendingTitle")}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{t("funnelPendingHelp")}</p>
-      </div>
-    );
-  }
   if (campaignType === "vsl") {
     return (
       <div className="sticker-card p-6">
@@ -182,6 +207,12 @@ async function FunnelCard({ totals, campaignType, instagramObservation, frequenc
     );
   }
   if (campaignType === "instagram_profile_growth") {
+    const followerCost = spendCents !== null && campaignFollowers !== null && campaignFollowers > 0
+      ? spendCents / campaignFollowers / 100
+      : null;
+    const customerAcquisitionCost = spendCents !== null && campaignSales !== null && campaignSales > 0
+      ? spendCents / campaignSales / 100
+      : null;
     return (
       <div className="sticker-card p-6">
         <div className="flex items-start justify-between gap-3">
@@ -194,14 +225,18 @@ async function FunnelCard({ totals, campaignType, instagramObservation, frequenc
         <div className="mt-5 space-y-3">
           <FunnelStep locale={locale} label={t("impressions")} value={impressions} base={impressions ?? 0} tone="accent" />
           <FunnelStep locale={locale} label={t("profileVisits")} value={profileVisits} base={impressions ?? 0} unavailableReason={t("profileVisitsUnavailable")} />
-          <FunnelStep locale={locale} label={t("observedFollows")} value={observedFollows} base={profileVisits ?? 0} tone="accent" unavailableReason={instagramObservation.connected ? t("instagramObservationUnavailable") : t("instagramMissing")} />
+          <FunnelStep locale={locale} label={t("campaignFollowers")} value={campaignFollowers} base={profileVisits ?? 0} tone="accent" unavailableReason={t("campaignFollowersMissing")} />
           <p className="text-xs text-muted-foreground">
-            {t("observedFollowerCost", { cost: spendCents !== null && observedFollows !== null && observedFollows > 0 ? formatEur(spendCents / observedFollows / 100, locale) : "—" })} {instagramObservation.connected ? t("followsObserved") : t("connectInstagram")}
+            {t("campaignFollowerCost", { cost: followerCost === null ? "—" : formatEur(followerCost, locale) })} · {customerAcquisitionCost === null
+              ? t("customerAcquisitionCostMissing")
+              : customerAcquisitionCostBenchmarkCents !== null
+                ? t("customerAcquisitionCostBenchmark", { cost: formatEur(customerAcquisitionCost, locale), benchmark: formatEur(customerAcquisitionCostBenchmarkCents / 100, locale) })
+                : t("customerAcquisitionCostValue", { cost: formatEur(customerAcquisitionCost, locale) })}
           </p>
           <FunnelTable locale={locale} labels={tableLabels} rows={[
             { label: t("impressions"), value: impressions, base: impressions },
             { label: t("profileVisits"), value: profileVisits, base: impressions },
-            { label: t("observedFollows"), value: observedFollows, base: profileVisits, unavailableReason: instagramObservation.connected ? undefined : t("instagramMissing") },
+            { label: t("campaignFollowers"), value: campaignFollowers, base: profileVisits, unavailableReason: t("campaignFollowersMissing") },
           ]} />
           <p className="text-[11px] text-muted-foreground">{t("instagramProvenance")}</p>
         </div>
@@ -263,10 +298,12 @@ export async function MetaAdsDashboard({
   data,
   canManageCampaigns = false,
   periodSelection = DEFAULT_META_PERIOD_SELECTION,
+  activeFunnel = [],
 }: {
   data: MetaAdsDashboard;
   canManageCampaigns?: boolean;
   periodSelection?: MetaPeriodSelection;
+  activeFunnel?: Array<{ blockKey: string; label: string; metricLabels: string[] }>;
 }) {
   const locale = await getLocale();
   const t = await getTranslations("app.ads.dashboard");
@@ -277,7 +314,6 @@ export async function MetaAdsDashboard({
   const linkClicks = metricValue(data.totals, "linkClicks");
   const comparisonLinkClicks = metricValue(data.comparisonTotals, "linkClicks");
   const leads = metricValue(data.totals, "leads");
-  const comparisonLeads = metricValue(data.comparisonTotals, "leads");
   const rawCtr = rawMetaMetricValue(data.totals, "ctr");
   const rawComparisonCtr = rawMetaMetricValue(data.comparisonTotals, "ctr");
   const ctr = rawCtr ?? (impressions !== null && linkClicks !== null ? ratio(linkClicks, impressions) : null);
@@ -294,37 +330,23 @@ export async function MetaAdsDashboard({
     : comparisonLinkClicks !== null && comparisonLinkClicks > 0 && comparisonSpendCents !== null
       ? comparisonSpendCents / comparisonLinkClicks / 100
       : null;
-  const cpl = leads !== null && leads > 0 && spendCents !== null ? spendCents / leads / 100 : null;
-  const comparisonCpl = comparisonLeads !== null && comparisonLeads > 0 && comparisonSpendCents !== null ? comparisonSpendCents / comparisonLeads / 100 : null;
-  const rawCpmCents = rawMetaMetricValue(data.totals, "cpmCents");
-  const rawComparisonCpmCents = rawMetaMetricValue(data.comparisonTotals, "cpmCents");
-  const cpm = rawCpmCents !== null
-    ? rawCpmCents / 100
-    : impressions !== null && impressions > 0 && spendCents !== null
-      ? (spendCents / impressions) * 1000 / 100
-      : null;
-  const comparisonCpm = rawComparisonCpmCents !== null
-    ? rawComparisonCpmCents / 100
-    : comparisonImpressions !== null && comparisonImpressions > 0 && comparisonSpendCents !== null
-      ? (comparisonSpendCents / comparisonImpressions) * 1000 / 100
-      : null;
   const campaignTypes = [...new Set(data.campaigns.map((campaign) => campaign.campaignType).filter((type): type is NonNullable<typeof type> => type !== null))];
-  const allCampaignsConfigured = data.campaigns.length > 0 && data.campaigns.every((campaign) => campaign.campaignType !== null && (!campaignTypeNeedsConversionGoal(campaign.campaignType) || campaign.conversionGoal !== null));
-  const primaryType = allCampaignsConfigured && campaignTypes.length === 1 ? campaignTypes[0]! : null;
+  const funnelGroups = campaignTypes.map((campaignType) => {
+    const campaigns = data.campaigns.filter((campaign) => campaign.campaignType === campaignType);
+    const campaignFollowers = sumNullable(campaigns.map((campaign) => campaign.targets?.attributedFollowers ?? null));
+    const campaignSales = sumNullable(campaigns.map((campaign) => campaign.cash?.available ? campaign.cash.sales : null));
+    const benchmarkValues = Array.from(new Set(campaigns.map((campaign) => campaign.targets?.targetCpaCents ?? null).filter((value): value is number => value !== null)));
+    return {
+      campaignType,
+      totals: aggregateCampaignTotals(campaigns),
+      campaignFollowers,
+      campaignSales,
+      customerAcquisitionCostBenchmarkCents: benchmarkValues.length === 1 ? benchmarkValues[0]! : null,
+    };
+  });
   const coverageValues = data.campaigns.map((campaign) => campaign.metricCoverageRate).filter((value): value is number => value !== null && value !== undefined);
   const minimumCoverage = coverageValues.length > 0 ? Math.min(...coverageValues) : null;
   const periodQuery = serializeMetaPeriodSelection(periodSelection);
-  const cplTargetCount = data.campaigns.filter((campaign) => campaign.campaignType !== "instagram_profile_growth" && campaign.targets?.targetCpaCents !== null && campaign.targets?.targetCpaCents !== undefined).length;
-  const cplApplicable = primaryType !== "instagram_profile_growth";
-  const cplDetail = primaryType === "instagram_profile_growth"
-    ? t("notApplicableFollower")
-    : leads === null
-      ? t("leadsUnavailable")
-      : leads === 0
-        ? locale === "en" ? "No leads measured" : "Aucun lead mesuré sur la période"
-        : spendCents === null
-          ? `${number(leads, locale)} lead(s) · ${locale === "en" ? "spend unavailable" : "dépenses Meta indisponibles"}`
-          : `${number(leads, locale)} ${locale === "en" ? "lead(s) measured" : "lead(s) mesuré(s)"}`;
 
   return (
     <section className="flex flex-col gap-5" aria-labelledby="meta-ads-dashboard-title">
@@ -332,16 +354,11 @@ export async function MetaAdsDashboard({
         <div>
           <p className="text-xs font-bold tracking-wide text-accent-2 uppercase">{t("source", { account: data.account.name })}</p>
           <h2 id="meta-ads-dashboard-title" className="mt-1 text-xl font-bold">{t("performance", { days: data.period.days })}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t("insightsUpdated", { start: data.period.start, end: data.period.end })}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{metaPeriodSelectionLabel(periodSelection)} · {formatMetaPeriodRange(data.period)}</p>
           <p className="mt-1 text-xs text-muted-foreground">{t("comparison", { start: data.comparisonPeriod.start, end: data.comparisonPeriod.end })}</p>
           <p className="mt-2 text-xs font-bold text-muted-foreground">
             {data.period.consolidatedThrough
               ? t("consolidated", { date: new Intl.DateTimeFormat(locale).format(new Date(`${data.period.consolidatedThrough}T12:00:00Z`)) })
               : t("consolidating")}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {t("minimumCoverage", { value: minimumCoverage === null ? "—" : formatPercent(minimumCoverage, locale) })}
           </p>
           {data.missingMetricDates.length > 0 && (
             <p className="mt-1 text-xs font-bold text-state-caution" role="status">
@@ -363,12 +380,24 @@ export async function MetaAdsDashboard({
         initialSyncStatus={data.connection.initialSyncStatus}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Kpi label={t("spend")} value={spendCents === null ? "—" : formatEur(spendCents / 100, locale)} detail={`${impressions === null ? "—" : number(impressions, locale)} ${t("impressions")}`} comparison={trendLabel(spendCents, comparisonSpendCents, locale)} provenance={metricProvenance("brute", spendCents !== null, locale)} icon={<Eye className="size-4" />} />
-        <Kpi label={t("linkCtr")} value={ctr === null ? "—" : formatPercent(ctr, locale)} detail={`${linkClicks === null ? "—" : number(linkClicks, locale)} ${t("linkClicks")}`} comparison={trendLabel(ctr, comparisonCtr, locale)} provenance={metricProvenance(rawCtr !== null ? "brute" : "dérivée", ctr !== null, locale)} icon={<MousePointerClick className="size-4" />} />
-        <Kpi label={t("linkCpc")} value={cpc === null ? "—" : formatEur(cpc, locale)} detail={t("outboundCost")} comparison={trendLabel(cpc, comparisonCpc, locale)} provenance={metricProvenance(rawCpcCents !== null ? "brute" : "dérivée", cpc !== null, locale)} icon={<MousePointerClick className="size-4" />} />
-        <Kpi label={t("costPerLead")} value={!cplApplicable || cpl === null ? "—" : formatEur(cpl, locale)} detail={[cplDetail, cplTargetCount > 0 ? t("targetCount", { count: number(cplTargetCount, locale) }) : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl, locale) : t("notApplicable")} provenance={metricProvenance("dérivée", cplApplicable && cpl !== null, locale)} icon={<UserPlus className="size-4" />} />
-        <Kpi label={t("cpm")} value={cpm === null ? "—" : formatEur(cpm, locale)} detail={t("cpmDetail")} comparison={trendLabel(cpm, comparisonCpm, locale)} provenance={metricProvenance(rawCpmCents !== null ? "brute" : "dérivée", cpm !== null, locale)} icon={<BarChart3 className="size-4" />} />
+      {activeFunnel.length > 0 && (
+        <div className="rounded-[var(--radius-control)] border border-accent-border bg-accent-soft/45 px-4 py-3" aria-label={t("businessFunnel")}>
+          <p className="text-xs font-bold tracking-wide text-accent-text uppercase">{t("businessFunnel")}</p>
+          <p className="mt-1 text-sm font-bold">{activeFunnel.map((block) => block.label).join(" → ")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("businessFunnelHelp")}</p>
+          {activeFunnel.some((block) => block.metricLabels.length > 0) && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t("businessFunnelMetrics", { metrics: activeFunnel.flatMap((block) => block.metricLabels).join(" · ") })}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi label={t("spend")} value={spendCents === null ? "—" : formatEur(spendCents / 100, locale)} detail={`${impressions === null ? "—" : number(impressions, locale)} ${t("impressions")}`} comparison={trendLabel(spendCents, comparisonSpendCents, locale)} icon={<Eye className="size-4" />} />
+        <Kpi label={t("linkCtr")} value={ctr === null ? "—" : formatPercent(ctr, locale)} detail={`${linkClicks === null ? "—" : number(linkClicks, locale)} ${t("linkClicks")}`} comparison={trendLabel(ctr, comparisonCtr, locale)} icon={<MousePointerClick className="size-4" />} />
+        <Kpi label={t("linkCpc")} value={cpc === null ? "—" : formatEur(cpc, locale)} detail={t("outboundCost")} comparison={trendLabel(cpc, comparisonCpc, locale)} icon={<MousePointerClick className="size-4" />} />
+        <Kpi label={t("leads")} value={leads === null ? "—" : number(leads, locale)} detail={t("leadsMeasuredShort")} comparison={trendLabel(leads, metricValue(data.comparisonTotals, "leads"), locale)} icon={<UserPlus className="size-4" />} />
       </div>
 
       {data.connection.initialSyncStatus !== "completed" && (
@@ -377,15 +406,30 @@ export async function MetaAdsDashboard({
         </div>
       )}
 
-      <FunnelCard totals={data.totals} campaignType={primaryType} instagramObservation={data.instagramObservation} frequencySaturationThreshold={data.frequencySaturationThreshold} />
+      {funnelGroups.map((group) => (
+        <FunnelCard
+          key={group.campaignType}
+          totals={group.totals}
+          campaignType={group.campaignType}
+          campaignFollowers={group.campaignFollowers}
+          campaignSales={group.campaignSales}
+          customerAcquisitionCostBenchmarkCents={group.customerAcquisitionCostBenchmarkCents}
+          frequencySaturationThreshold={data.frequencySaturationThreshold}
+        />
+      ))}
 
       <div className="sticker-card overflow-x-auto" tabIndex={0} role="region" aria-label={t("campaignTableAria")}>
         <MetaCampaignsTable
           campaigns={data.campaigns}
           periodQuery={periodQuery}
           canManageCampaigns={canManageCampaigns}
-          instagramFollowerCount={data.instagramFollowerCount}
-          instagramFollowerCountUpdatedAt={data.instagramFollowerCountUpdatedAt}
+          followerCopy={{
+            help: t("campaignFollowerCostHelp"),
+            manual: t("campaignFollowerCostManual"),
+            missing: t("campaignFollowerCostMissing"),
+            measured: t("campaignFollowerCostMeasured"),
+            notApplicable: t("notApplicable"),
+          }}
         />
       </div>
     </section>

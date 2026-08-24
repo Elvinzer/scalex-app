@@ -71,6 +71,7 @@ export type MetaCampaignDashboardRow = {
     targetCpaCents: number | null;
     targetRoas: number | null;
     leadValueCents: number | null;
+    attributedFollowers?: number | null;
   };
   metrics: MetaMetricTotals;
   comparisonMetrics: MetaMetricTotals;
@@ -720,6 +721,7 @@ async function fetchMetaAdsDashboard(accountId: string, requestedPeriod: unknown
         targetCpaCents: profile?.targetCpaCents ?? null,
         targetRoas: profile?.targetRoas ?? null,
         leadValueCents: profile?.leadValueCents ?? null,
+        attributedFollowers: profile?.attributedFollowers ?? null,
       },
       metrics: byCampaign.get(campaign.externalId) ?? emptyTotals(),
       comparisonMetrics: comparisonByCampaign.get(campaign.externalId) ?? emptyTotals(),

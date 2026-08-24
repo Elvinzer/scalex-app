@@ -7,12 +7,15 @@ import { useState, useTransition } from "react";
 
 import { setMetaCampaignTargets } from "@/app/(app)/acquisition/ads/meta-actions";
 import { Button } from "@/components/ui/button";
+import type { MetaCampaignType } from "@/lib/meta-ads/types";
 
 type Props = {
   campaignId: string;
+  campaignType: MetaCampaignType | null;
   targetCpaCents: number | null;
   targetRoas: number | null;
   leadValueCents: number | null;
+  attributedFollowers: number | null;
   suggestedLeadValueCents?: number | null;
 };
 
@@ -20,12 +23,14 @@ function initialEuros(cents: number | null): string {
   return cents === null ? "" : String(Math.round(cents) / 100);
 }
 
-export function MetaCampaignTargets({ campaignId, targetCpaCents, targetRoas, leadValueCents, suggestedLeadValueCents }: Props) {
+export function MetaCampaignTargets({ campaignId, campaignType, targetCpaCents, targetRoas, leadValueCents, attributedFollowers, suggestedLeadValueCents }: Props) {
   const t = useTranslations("app.ads.targets");
   const router = useRouter();
+  const isProfileGrowth = campaignType === "instagram_profile_growth";
   const [targetCpa, setTargetCpa] = useState(initialEuros(targetCpaCents));
   const [targetRoasValue, setTargetRoasValue] = useState(targetRoas === null ? "" : String(targetRoas));
   const [leadValue, setLeadValue] = useState(initialEuros(leadValueCents ?? suggestedLeadValueCents ?? null));
+  const [attributedFollowersValue, setAttributedFollowersValue] = useState(attributedFollowers === null ? "" : String(attributedFollowers));
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -36,17 +41,24 @@ export function MetaCampaignTargets({ campaignId, targetCpaCents, targetRoas, le
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function optionalInteger(value: string): number | null {
+    const parsed = optionalNumber(value);
+    return parsed === null || !Number.isInteger(parsed) ? null : parsed;
+  }
+
   function save() {
     setMessage(null);
     const cpaEuros = optionalNumber(targetCpa);
     const roas = optionalNumber(targetRoasValue);
     const leadEuros = optionalNumber(leadValue);
+    const followers = optionalInteger(attributedFollowersValue);
     startTransition(async () => {
       const result = await setMetaCampaignTargets({
         campaignId,
         targetCpaCents: cpaEuros === null ? null : Math.round(cpaEuros * 100),
-        targetRoas: roas,
-        leadValueCents: leadEuros === null ? null : Math.round(leadEuros * 100),
+        targetRoas: isProfileGrowth ? null : roas,
+        leadValueCents: isProfileGrowth || leadEuros === null ? null : Math.round(leadEuros * 100),
+        attributedFollowers: isProfileGrowth ? followers : null,
       });
       setMessage(result.error ?? t("saved"));
       if (!result.error) router.refresh();
@@ -63,18 +75,28 @@ export function MetaCampaignTargets({ campaignId, targetCpaCents, targetRoas, le
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {isProfileGrowth && (
+          <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
+            {t("attributedFollowers")}
+            <input value={attributedFollowersValue} onChange={(event) => setAttributedFollowersValue(event.target.value)} inputMode="numeric" type="number" min="0" step="1" placeholder={t("placeholderFollowers")} className="h-9 rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" />
+          </label>
+        )}
         <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
-          {t("targetCpa")}
+          {isProfileGrowth ? t("targetCustomerAcquisitionCost") : t("targetCpa")}
           <input value={targetCpa} onChange={(event) => setTargetCpa(event.target.value)} inputMode="decimal" type="number" min="0" step="0.01" placeholder={t("placeholderCpa")} className="h-9 rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
-          {t("targetRoas")}
-          <input value={targetRoasValue} onChange={(event) => setTargetRoasValue(event.target.value)} inputMode="decimal" type="number" min="0" step="0.1" placeholder={t("placeholderRoas")} className="h-9 rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
-          {t("leadValue")}
-          <input value={leadValue} onChange={(event) => setLeadValue(event.target.value)} inputMode="decimal" type="number" min="0" step="0.01" placeholder={t("placeholderLead")} className="h-9 rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" />
-        </label>
+        {!isProfileGrowth && (
+          <>
+            <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
+              {t("targetRoas")}
+              <input value={targetRoasValue} onChange={(event) => setTargetRoasValue(event.target.value)} inputMode="decimal" type="number" min="0" step="0.1" placeholder={t("placeholderRoas")} className="h-9 rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
+              {t("leadValue")}
+              <input value={leadValue} onChange={(event) => setLeadValue(event.target.value)} inputMode="decimal" type="number" min="0" step="0.01" placeholder={t("placeholderLead")} className="h-9 rounded-[var(--radius-control)] border border-border bg-card px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12" />
+            </label>
+          </>
+        )}
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button variant="accent2" onClick={save} disabled={isPending}>

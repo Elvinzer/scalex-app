@@ -313,6 +313,7 @@ const campaignTargetsSchema = z.object({
   targetCpaCents: z.number().int().min(1).max(10_000_000).nullable(),
   targetRoas: z.number().min(0).max(100).nullable(),
   leadValueCents: z.number().int().min(0).max(100_000_000).nullable(),
+  attributedFollowers: z.number().int().min(0).max(100_000_000).nullable(),
 });
 
 async function refreshCurrentMetaInsights(accountId: string): Promise<void> {
@@ -366,11 +367,18 @@ export async function setMetaCampaignProfile(input: unknown): Promise<{ error: s
       campaignType: parsed.data.campaignType,
       conversionGoal: parsed.data.conversionGoal,
       typeSource: "manual",
+      attributedFollowers: null,
       updatedAt: now,
     })
     .onConflictDoUpdate({
       target: [metaCampaignProfiles.userId, metaCampaignProfiles.campaignId],
-      set: { campaignType: parsed.data.campaignType, conversionGoal: parsed.data.conversionGoal, typeSource: "manual", updatedAt: now },
+      set: {
+        campaignType: parsed.data.campaignType,
+        conversionGoal: parsed.data.conversionGoal,
+        typeSource: "manual",
+        ...(parsed.data.campaignType === "instagram_profile_growth" ? {} : { attributedFollowers: null }),
+        updatedAt: now,
+      },
     });
 
   // Re-evaluate the current period immediately. The detail page filters out
@@ -426,6 +434,7 @@ export async function setMetaCampaignTargets(input: unknown): Promise<{ error: s
       targetCpaCents: parsed.data.targetCpaCents,
       targetRoas: parsed.data.targetRoas,
       leadValueCents: parsed.data.leadValueCents,
+      attributedFollowers: parsed.data.attributedFollowers,
       updatedAt: now,
     })
     .onConflictDoUpdate({
@@ -434,6 +443,7 @@ export async function setMetaCampaignTargets(input: unknown): Promise<{ error: s
         targetCpaCents: parsed.data.targetCpaCents,
         targetRoas: parsed.data.targetRoas,
         leadValueCents: parsed.data.leadValueCents,
+        attributedFollowers: parsed.data.attributedFollowers,
         updatedAt: now,
       },
     });

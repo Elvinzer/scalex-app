@@ -53,18 +53,6 @@ export const DEFAULT_ACQUISITION_FUNNELS: AcquisitionFunnelCatalogEntry[] = [
     ],
   },
   {
-    funnelKey: "appel_direct",
-    label: "Appel direct",
-    description: "Ils réservent directement depuis ton contenu.",
-    steps: [
-      step(1, "audience", "content_views", "Audience", "vues", null),
-      step(2, "booking_link_clicks", "booking_link_clicks", "Clics lien de réservation", "clics", "direct_booking_link_rate"),
-      step(3, "booked_calls", "calls_booked", "RDV réservés", "RDV", "direct_booking_rate"),
-      step(4, "attended_calls", "calls_attended", "RDV honorés", "RDV", "direct_show_up_rate"),
-      step(5, "sales_closed", "sales_closed", "Ventes", "ventes", "direct_closing_rate"),
-    ],
-  },
-  {
     funnelKey: "setting_dm",
     label: "DM",
     description: "Tu leur écris ou ils répondent à tes stories.",

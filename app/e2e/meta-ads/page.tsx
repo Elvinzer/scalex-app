@@ -95,7 +95,12 @@ function campaign(
     campaignType,
     conversionGoal: campaignType === "vsl" || campaignType === "webinar" ? "sale" : null,
     typeSource: campaignType ? "manual" : "pending",
-    targets: { targetCpaCents, targetRoas: 3, leadValueCents: 12_000 },
+    targets: {
+      targetCpaCents,
+      targetRoas: 3,
+      leadValueCents: 12_000,
+      attributedFollowers: campaignType === "instagram_profile_growth" ? 132 : null,
+    },
     metrics: campaignMetrics,
     comparisonMetrics: metrics({
       spendCents: Math.round(campaignMetrics.spendCents * 0.86),
@@ -133,7 +138,7 @@ function buildDashboard(selectedType: MetaCampaignType | undefined, periodSelect
   const allCampaigns = [
     campaign("11111111-1111-4111-8111-111111111111", "VSL — Angle douleur principale", "vsl", metrics({ spendCents: 186_000, impressions: 48_200, reach: 31_400, clicks: 2_100, linkClicks: 1_460, leads: 64, landingPageViews: 1_110, video3sViews: 18_500, videoThruplay: 7_100, purchases: 4, purchaseValueCents: 48_000 }), 3_500),
     campaign("22222222-2222-4222-8222-222222222222", "Webinaire — Session août", "webinar", metrics({ spendCents: 124_000, impressions: 32_800, reach: 23_200, clicks: 1_260, linkClicks: 920, leads: 48, registrations: 42, purchases: 2, purchaseValueCents: 24_000 }), 2_800),
-    campaign("33333333-3333-4333-8333-333333333333", "Profil Instagram — Preuve sociale", "instagram_profile_growth", metrics({ spendCents: 72_000, impressions: 21_400, reach: 14_900, clicks: 860, linkClicks: 540, profileVisits: 390, follows: 0 }), null),
+    campaign("33333333-3333-4333-8333-333333333333", "Profil Instagram — Preuve sociale", "instagram_profile_growth", metrics({ spendCents: 72_000, impressions: 21_400, reach: 14_900, clicks: 860, linkClicks: 540, profileVisits: 390, follows: 0 }), 250),
     campaign("44444444-4444-4444-8444-444444444444", "Retargeting — 30 jours", "retargeting", metrics({ spendCents: 98_000, impressions: 15_600, reach: 4_200, clicks: 740, linkClicks: 510, leads: 31, purchases: 3, purchaseValueCents: 36_000 }), 3_200),
     campaign("55555555-5555-4555-8555-555555555555", "Campagne sans typage", null, metrics({ spendCents: 45_000, impressions: 8_500, reach: 5_400, clicks: 210, linkClicks: 160 }), null),
   ];

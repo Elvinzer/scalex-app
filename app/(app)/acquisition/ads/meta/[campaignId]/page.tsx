@@ -32,7 +32,7 @@ import { requirePermissionOrRedirect } from "@/lib/team/context";
 function typeLabel(value: string | null, locale: string): string {
   if (value === "vsl") return "VSL";
   if (value === "webinar") return locale === "en" ? "Webinar" : "Webinaire";
-  if (value === "instagram_profile_growth") return locale === "en" ? "Instagram traffic" : "Trafic Instagram";
+  if (value === "instagram_profile_growth") return locale === "en" ? "Profile visits" : "Visite de profil";
   if (value === "retargeting") return "Retargeting";
   return locale === "en" ? "Type to define" : "Type à définir";
 }
@@ -224,7 +224,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const video3sViews = metricValue(metrics, "video3sViews");
   const videoThruplay = metricValue(metrics, "videoThruplay");
   const profileVisits = metricValue(metrics, "profileVisits");
-  const observedFollows = detail.dashboard.instagramObservation.current.follows;
+  const campaignFollowers = detail.campaign.targets?.attributedFollowers ?? null;
   const registrations = metricValue(metrics, "registrations");
   const webinarObservation = detail.campaign.webinarObservation;
   const webinarParticipants = webinarObservation?.current.participants ?? null;
@@ -275,6 +275,9 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const maxSpend = Math.max(1, ...detail.daily.map((point) => point.spendCents ?? 0));
   const targets = detail.campaign.targets ?? { targetCpaCents: null, targetRoas: null, leadValueCents: null };
   const targetCpaEuros = targets.targetCpaCents === null ? null : targets.targetCpaCents / 100;
+  const campaignFollowerCost = instagramGrowth && campaignFollowers !== null && campaignFollowers > 0 && spendCents !== null
+    ? spendCents / campaignFollowers / 100
+    : null;
   const cplApplicable = !instagramGrowth;
   const cplTargetLabel = cplApplicable ? targetVarianceLabel(cpl, targetCpaEuros, locale) : null;
   const roasTargetLabel = targetVarianceLabel(metaRoas, targets.targetRoas, locale);
@@ -282,6 +285,9 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
   const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain && offer.price !== null);
   const managerUrl = metaAdsManagerUrl(detail.dashboard.account.externalId, detail.campaign.externalId);
   const attribution = detail.attributionQuality;
+  const customerAcquisitionCost = instagramGrowth && attribution.status !== "unavailable" && attribution.sales > 0 && spendCents !== null
+    ? spendCents / attribution.sales / 100
+    : null;
   const attributionLabel = attribution.status === "verified" ? (locale === "en" ? "Verified" : "Vérifiée") : attribution.status === "partial" ? (locale === "en" ? "Partial" : "Partielle") : (locale === "en" ? "Not calculable" : "Non calculable");
   const conversionGoalRequired = campaignTypeNeedsConversionGoal(detail.campaign.campaignType);
   const campaignConfigured = detail.campaign.campaignType !== null
@@ -363,7 +369,7 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
     );
   }
   if (campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth") {
-    funnelRows.push({ label: locale === "en" ? "Follow / visit" : "Follow / visite", numerator: observedFollows, denominator: profileVisits, unavailableReason: detail.dashboard.instagramObservation.connected ? undefined : (locale === "en" ? "Missing source: Instagram connection" : "Source manquante : connexion Instagram") });
+    funnelRows.push({ label: t("campaignFollowers"), numerator: campaignFollowers, denominator: profileVisits, unavailableReason: campaignFollowers === null ? t("campaignFollowersMissing") : undefined });
   }
   if (campaignConfigured && detail.campaign.campaignType === "retargeting") {
     funnelRows.push({ label: t("frequency"), numerator: impressions, denominator: metricValue(metrics, "reach") });
@@ -457,9 +463,11 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
 
       <MetaCampaignTargets
         campaignId={detail.campaign.id}
+        campaignType={detail.campaign.campaignType}
         targetCpaCents={targets.targetCpaCents}
         targetRoas={targets.targetRoas}
         leadValueCents={targets.leadValueCents}
+        attributedFollowers={targets.attributedFollowers ?? null}
         suggestedLeadValueCents={mainOffer?.price === null || mainOffer?.price === undefined ? null : Math.round(mainOffer.price * 100)}
       />
 
@@ -468,8 +476,20 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
         <Metric label={t("linkCtr")} value={ctr === null ? "—" : formatPercent(ctr, locale)} detail={`${linkClicks === null ? "—" : linkClicks.toLocaleString(locale)} ${t("linkClicks")} `} comparison={trendLabel(ctr, comparisonCtr, locale)} provenance={metricProvenance("Meta", rawCtr !== null ? "brute" : "dérivée", ctr !== null, "directe", locale)} />
         <Metric label={t("linkCpc")} value={cpc === null ? "—" : formatEur(cpc, locale)} detail={t("outboundCost")} comparison={trendLabel(cpc, comparisonCpc, locale)} provenance={metricProvenance("Meta", rawCpcCents !== null ? "brute" : "dérivée", cpc !== null, "directe", locale)} />
         <Metric label={t("cpm")} value={cpm === null ? "—" : formatEur(cpm, locale)} detail={t("cpmDetail")} comparison={trendLabel(cpm, comparisonCpm, locale)} provenance={metricProvenance("Meta", rawCpmCents !== null ? "brute" : "dérivée", cpm !== null, "directe", locale)} />
-        <Metric label={t("costPerLead")} value={!cplApplicable || cpl === null ? "—" : formatEur(cpl, locale)} detail={[cplDetail, cplApplicable ? leadValueLabel : null, cplApplicable && targetCpaEuros !== null ? t("target", { value: formatEur(targetCpaEuros, locale), gap: cplTargetLabel ?? t("gapUnavailable") }) : null].filter(Boolean).join(" · ")} comparison={cplApplicable ? trendLabel(cpl, comparisonCpl, locale) : t("notApplicable")} provenance={metricProvenance("Meta", "dérivée", cplApplicable && cpl !== null, "directe", locale)} />
-        <Metric label={t("roas")} value={instagramGrowth ? "—" : metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={instagramGrowth ? t("notApplicableProfile") : [purchaseValueCents === null ? t("purchaseValueUnavailable") : t("purchaseValue", { value: formatEur(purchaseValueCents / 100, locale) }), targets.targetRoas === null ? null : t("target", { value: `${targets.targetRoas.toFixed(2)}×`, gap: roasTargetLabel ?? t("gapUnavailable") })].filter(Boolean).join(" · ")} comparison={instagramGrowth ? t("notApplicable") : trendLabel(metaRoas, comparisonRoas, locale)} provenance={metricProvenance("Meta", "dérivée", !instagramGrowth && metaRoas !== null, "directe", locale)} />
+        <Metric
+          label={instagramGrowth ? t("costPerFollower") : t("costPerLead")}
+          value={instagramGrowth
+            ? campaignFollowerCost === null ? "—" : formatEur(campaignFollowerCost, locale)
+            : cpl === null ? "—" : formatEur(cpl, locale)}
+          detail={instagramGrowth
+            ? campaignFollowers === null
+              ? t("campaignFollowersMissing")
+              : t("campaignFollowersEntered", { count: campaignFollowers.toLocaleString(locale) })
+            : [cplDetail, leadValueLabel, cplTargetLabel === null ? null : t("target", { value: formatEur(targetCpaEuros ?? 0, locale), gap: cplTargetLabel })].filter(Boolean).join(" · ")}
+          comparison={instagramGrowth ? t("manualPeriod") : trendLabel(cpl, comparisonCpl, locale)}
+          provenance={metricProvenance("Meta", "dérivée", instagramGrowth ? campaignFollowerCost !== null : cpl !== null, "directe", locale)}
+        />
+        <Metric label={instagramGrowth ? t("customerAcquisitionCost") : t("roas")} value={instagramGrowth ? (customerAcquisitionCost === null ? "—" : formatEur(customerAcquisitionCost, locale)) : metaRoas === null ? "—" : `${metaRoas.toFixed(2)}×`} detail={instagramGrowth ? (customerAcquisitionCost === null ? t("customerAcquisitionCostMissing") : targetCpaEuros === null ? t("manualPeriod") : t("customerAcquisitionCostBenchmark", { cost: formatEur(customerAcquisitionCost, locale), benchmark: formatEur(targetCpaEuros, locale) })) : [purchaseValueCents === null ? t("purchaseValueUnavailable") : t("purchaseValue", { value: formatEur(purchaseValueCents / 100, locale) }), targets.targetRoas === null ? null : t("target", { value: `${targets.targetRoas.toFixed(2)}×`, gap: roasTargetLabel ?? t("gapUnavailable") })].filter(Boolean).join(" · ")} comparison={instagramGrowth ? t("notApplicable") : trendLabel(metaRoas, comparisonRoas, locale)} provenance={metricProvenance("Meta", "dérivée", instagramGrowth ? customerAcquisitionCost !== null : metaRoas !== null, "directe", locale)} />
         <Metric label={t("cashRevenue")} value={attribution.revenueCents === null ? "—" : formatEur(attribution.revenueCents / 100, locale)} detail={attribution.revenueCents === null ? t("coverageInsufficient") : t("salesCount", { count: attribution.sales.toLocaleString(locale) })} provenance={metricProvenance("Stripe + Meta", "dérivée", attribution.revenueCents !== null, "jointe", locale)} />
         <Metric label={t("status")} value={detail.campaign.effectiveStatus ?? "—"} detail={detail.campaign.dailyBudgetCents === null ? t("metaBudgetMissing") : `${formatEur(detail.campaign.dailyBudgetCents / 100, locale)} ${t("perDay")}`} provenance={metricProvenance("Meta", "brute", detail.campaign.effectiveStatus !== null, "directe", locale)} />
       </div>
@@ -758,8 +778,8 @@ export default async function MetaCampaignDetailPage({ params, searchParams }: {
             {campaignConfigured && detail.campaign.campaignType === "vsl" && <ProgressRow locale={locale} label="ThruPlay / view" numerator={videoThruplay} denominator={video3sViews} unavailableReason={locale === "en" ? "Meta video source unavailable for this period" : "Source vidéo Meta indisponible sur la période"} />}
             {campaignConfigured && detail.campaign.campaignType === "vsl" && <p className="rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm text-state-caution">{t("vslUnavailable")}</p>}
             {campaignConfigured && detail.campaign.campaignType === "vsl" && <ProgressRow locale={locale} label={conversionMetricLabel} numerator={conversionMetricValue} denominator={conversionMetricBase} unavailableReason={conversionUnavailableReason} />}
-            {campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth" && <ProgressRow locale={locale} label={locale === "en" ? "Follow / visit" : "Follow / visite"} numerator={observedFollows} denominator={profileVisits} unavailableReason={detail.dashboard.instagramObservation.connected ? (locale === "en" ? "Instagram observation unavailable for this period" : "Observation Instagram indisponible sur la période") : (locale === "en" ? "Missing source: Instagram connection" : "Source manquante : connexion Instagram")} />}
-            {campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth" && <p className="text-xs text-muted-foreground">{t("instagramCost", { cost: spendCents !== null && observedFollows !== null && observedFollows > 0 ? formatEur(spendCents / observedFollows / 100, locale) : "—" })} · {detail.dashboard.instagramObservation.connected ? t("instagramSeparate") : t("instagramConnect")}</p>}
+            {campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth" && <ProgressRow locale={locale} label={t("campaignFollowers")} numerator={campaignFollowers} denominator={profileVisits} unavailableReason={campaignFollowers === null ? t("campaignFollowersMissing") : undefined} />}
+            {campaignConfigured && detail.campaign.campaignType === "instagram_profile_growth" && <p className="text-xs text-muted-foreground">{t("campaignFollowerCost", { cost: campaignFollowerCost === null ? "—" : formatEur(campaignFollowerCost, locale) })} · {customerAcquisitionCost === null ? t("customerAcquisitionCostMissing") : targetCpaEuros === null ? t("customerAcquisitionCostValue", { cost: formatEur(customerAcquisitionCost, locale) }) : t("customerAcquisitionCostBenchmark", { cost: formatEur(customerAcquisitionCost, locale), benchmark: formatEur(targetCpaEuros, locale) })}</p>}
             {campaignConfigured && detail.campaign.campaignType === "webinar" && (
               <>
                 <ProgressRow locale={locale} label={locale === "en" ? "Registrations" : "Inscriptions"} numerator={registrations} denominator={linkClicks} unavailableReason={locale === "en" ? "Meta registrations unavailable for this period" : "Inscriptions Meta indisponibles sur la période"} />

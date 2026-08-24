@@ -1,0 +1,1 @@
+ALTER TABLE "meta_campaign_profiles" ADD COLUMN "attributed_followers" integer;
