@@ -134,10 +134,15 @@ export function DatasPageClient({
             <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
           </div>
         </div>
-        <Button variant="secondary" onClick={() => setImportOpen(true)}>
-          <Upload className="size-4" />
-          {t("import")}
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button asChild variant="outline">
+            <Link href="/datas/goulot">{t("bottleneckLink")}</Link>
+          </Button>
+          <Button variant="secondary" onClick={() => setImportOpen(true)}>
+            <Upload className="size-4" />
+            {t("import")}
+          </Button>
+        </div>
       </div>
 
       <Drawer open={importOpen} onOpenChange={setImportOpen}>

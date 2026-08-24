@@ -127,6 +127,11 @@
     "notEnoughHelp": "Falco Créateur ne propose pas d'idées hors-sol : il lui faut au moins {count} vidéos publiques analysables.",
     "emptyTitle": "Falco prépare tes prochaines idées.",
     "emptyHelp": "Régénère les idées quand tes données YouTube sont à jour.",
+    "firstGenerationTitle": "Génère ta première série d’idées.",
+    "firstGenerationHelp": "Falco va partir de tes vidéos publiques analysables pour proposer des sujets ancrés dans ce qui fonctionne déjà sur ta chaîne.",
+    "generateFirst": "Générer les idées",
+    "generating": "Analyse en cours…",
+    "impactMethod": "L’impact est basé sur la médiane des vues de tes vidéos sources, avec une fourchette prudente. C’est un repère de planification, pas une promesse.",
     "impactBasisFallback": "Estimation prudente basée sur les performances de tes vidéos sources — ce n'est pas une garantie.",
     "falcoCreator": "Falco Créateur"
   }

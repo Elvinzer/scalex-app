@@ -1,6 +1,7 @@
 {
   "title": "Mes chiffres",
   "subtitle": "Remplis tes chiffres mois par mois. Tout le reste de l’app se met à jour automatiquement.",
+  "bottleneckLink": "Voir les données du goulot actif",
   "import": "Importer",
   "importNumbers": "Importer tes chiffres",
   "loadingImport": "Chargement…",
@@ -34,6 +35,25 @@
   "trend6": "6 derniers mois",
   "trend12": "12 mois",
   "trendYear": "Année en cours",
+  "bottleneck": {
+    "back": "Retour à Mes chiffres",
+    "title": "Données du goulot actif",
+    "subtitle": "Retrouve ici les étapes et les volumes déjà présents dans l’app pour le parcours actif. Un changement de parcours ne crée plus de pages dans Acquisition.",
+    "activeJourney": "PARCOURS ACTIF",
+    "journeyHelp": "Chaque étape reprend la donnée canonique utilisée par le dashboard et le diagnostic.",
+    "currentEyebrow": "CE MOIS-CI",
+    "currentTitle": "Les données de chaque étape",
+    "currentHelp": "Volumes enregistrés pour {month}. Un tiret signifie que la donnée n’est pas encore mesurée.",
+    "emptyTitle": "Aucune étape à afficher",
+    "emptyHelp": "Configure ton parcours dans Mon business pour afficher les données nécessaires.",
+    "yourRate": "Ton taux",
+    "benchmark": "Benchmark",
+    "historyEyebrow": "HISTORIQUE",
+    "historyTitle": "Les 8 derniers mois",
+    "historyHelp": "Les mêmes étapes sont suivies dans le temps, sans recréer de métriques.",
+    "stage": "Étape",
+    "canonicalSource": "Source canonique : ces volumes sont lus depuis les données déjà enregistrées dans Mes chiffres, les intégrations et les suivis de ventes."
+  },
   "modal": {
     "settingSource": "Calculé depuis ton suivi quotidien. Modifiable dans Pipeline → Funnel journalier.",
     "closingSource": "Calculé depuis ton suivi quotidien. Vérifie les appels dans Suivi d'appel.",

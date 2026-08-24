@@ -12,7 +12,7 @@ export type PillarSubpage = { href: string; label: string; permission: Permissio
 export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
   "/acquisition": [
     { href: "/acquisition/contenu", label: "Contenu", permission: "acquisition:contenu" },
-    { href: "/acquisition/mail", label: "Mail", permission: "acquisition:mail" },
+    { href: "/acquisition/mail", label: "Newsletter", permission: "acquisition:mail" },
     { href: "/acquisition/ads", label: "Ads", permission: "acquisition:ads" },
   ],
   "/ventes": [

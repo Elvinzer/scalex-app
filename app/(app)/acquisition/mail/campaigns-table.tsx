@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ItemScoreButton } from "@/components/item-score-button";
+import { computeEmailContentScore } from "@/lib/email-campaigns/content-score";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 import { computeCampaignScore, computeEmailCampaignMetrics } from "@/lib/email-campaigns/metrics";
@@ -53,7 +54,8 @@ export function CampaignsTable({
     const withMetrics = campaigns.map((campaign) => ({
       campaign,
       metrics: computeEmailCampaignMetrics(campaign),
-      score: computeCampaignScore(campaign),
+      score: computeEmailContentScore(campaign).score,
+      performanceScore: computeCampaignScore(campaign),
     }));
 
     withMetrics.sort((a, b) => {
@@ -125,7 +127,7 @@ export function CampaignsTable({
           </tr>
         </thead>
         <tbody>
-          {sorted.map(({ campaign, metrics, score }) => (
+          {sorted.map(({ campaign, metrics, score, performanceScore }) => (
             <tr key={campaign.id} className="border-b border-border last:border-0">
               <td className="p-3">
                 <div className="flex items-center gap-2">
@@ -152,16 +154,22 @@ export function CampaignsTable({
                 {score === null ? (
                   <span className="text-muted-foreground">—</span>
                 ) : (
-                  <ItemScoreButton
-                    score={score}
-                    chatContext={
-                      { topicType: "lever", topicKey: "email_marketing", topicLabel: t("topicLabel"), sourcePage: "acquisition_mail_score" } satisfies ChatContext
-                    }
-                    seedQuestion={locale === "en"
-                      ? `Why does my campaign "${campaign.name}" have a score of ${score}/100? How can I improve it?`
-                      : `Pourquoi ma campagne "${campaign.name}" a un score de ${score}/100 ? Comment je peux l'améliorer ?`}
-                    falcoSkin={falcoSkin}
-                  />
+                  <span className="font-bold tabular-nums text-accent-2-text">{score}/100</span>
+                )}
+                <p className="mt-0.5 text-xs text-muted-foreground">{t("table.contentScore")}</p>
+                {performanceScore !== null && (
+                  <div className="mt-1">
+                    <ItemScoreButton
+                      score={performanceScore}
+                      chatContext={
+                        { topicType: "lever", topicKey: "email_marketing", topicLabel: t("topicLabel"), sourcePage: "acquisition_newsletter_score" } satisfies ChatContext
+                      }
+                      seedQuestion={locale === "en"
+                        ? `Why does my campaign "${campaign.name}" have a performance score of ${performanceScore}/100? How can I improve it?`
+                        : `Pourquoi ma campagne "${campaign.name}" a un score de performance de ${performanceScore}/100 ? Comment je peux l'améliorer ?`}
+                      falcoSkin={falcoSkin}
+                    />
+                  </div>
                 )}
               </td>
               <td className="p-3">

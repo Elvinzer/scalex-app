@@ -3,6 +3,7 @@ export type EmailCampaignRow = {
   name: string;
   sentAt: string; // "YYYY-MM-DD"
   subject: string | null;
+  body: string | null;
   sends: number;
   opens: number | null;
   clicks: number | null;

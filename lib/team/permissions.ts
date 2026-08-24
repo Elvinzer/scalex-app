@@ -105,7 +105,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "acquisition:contenu": "Acquisition — Contenu",
   "acquisition:setting": "Acquisition — Setting",
   "acquisition:ads": "Acquisition — Ads",
-  "acquisition:mail": "Acquisition — Mail",
+  "acquisition:mail": "Acquisition — Newsletter",
   "acquisition:pipeline": "Acquisition — Pipeline",
   "acquisition:setters": "Acquisition — Setters",
   "ventes:suivi": "Ventes — Suivi des ventes",

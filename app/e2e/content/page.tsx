@@ -157,6 +157,7 @@ export default async function ContentE2EFixturePage({
           youtubeSyncStatus={youtubeConnected ? "completed" : null}
           youtubeLastSyncAt={youtubeConnected ? FIXTURE_SYNCED_AT : null}
           youtubeSubscriberCount={youtubeConnected ? 386 : null}
+          youtubeAnalyzableVideoCount={youtubeConnected ? youtubeVideos.length : 0}
           subscriptionActive
           hasConnectedPlatform={instagramConnected || youtubeConnected}
         />

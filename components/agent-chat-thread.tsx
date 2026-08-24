@@ -6,7 +6,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { z } from "zod";
 
 import { ChatMessageContent } from "@/components/chat-message-content";
-import { Falco } from "@/components/falco/falco";
+import { FalcoChatAvatar } from "@/components/falco/falco-chat-avatar";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { InsightActionCard } from "@/components/insight-execution/insight-action-card";
 import { Button } from "@/components/ui/button";
@@ -445,11 +445,7 @@ export const AgentChatThread = forwardRef<
               </div>
             ) : message.content ? (
               <div key={index} className="flex gap-2">
-                {falcoSkin ? (
-                  <Falco skin={falcoSkin} portrait skinSizePx={24} className="mt-0.5 rounded-full" />
-                ) : (
-                  <Falco pose="neutral" size="xs" className="mt-0.5" />
-                )}
+                <FalcoChatAvatar skin={falcoSkin} compact className="mt-0.5" />
                 <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
                   <div className={`text-sm break-words ${message.isError ? "text-state-critical" : "text-foreground"}`}>
                     <ChatMessageContent text={removeFalcoInsightProtocol(message.content)} />

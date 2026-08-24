@@ -5,7 +5,7 @@ import { useRef } from "react";
 
 import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-chat-thread";
 import { ChatErrorBoundary } from "@/components/chat-error-boundary";
-import { Falco } from "@/components/falco/falco";
+import { FalcoChatAvatar } from "@/components/falco/falco-chat-avatar";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
 import { useFalcoConversationEngagement } from "@/components/use-falco-conversation-guard";
 import type { ChatContext } from "@/lib/chat-context";
@@ -52,12 +52,8 @@ export function ImproveChat({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-border p-4">
-        <div className="flex items-start gap-3">
-          {falcoSkin ? (
-            <Falco skin={falcoSkin} portrait skinSizePx={32} className="rounded-full" priority />
-          ) : (
-            <Falco pose="neutral" size="sm" />
-          )}
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <FalcoChatAvatar skin={falcoSkin} />
           <div className="min-w-0">
             <DrawerTitle className="text-base font-bold">Falco</DrawerTitle>
             {context.topicLabel && <p className="truncate text-xs text-muted-foreground">{context.topicLabel}</p>}

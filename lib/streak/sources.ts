@@ -15,7 +15,7 @@ export const ACTIVITY_SOURCE_LABELS: Record<ActivitySource, string> = {
 
 export const ACTIVITY_SOURCE_DETAILS: Record<ActivitySource, string> = {
   content_published: "Un post, un Reel, un Short, une story ou une vidéo YouTube — détecté automatiquement à la synchronisation.",
-  email_sent: "Une campagne envoyée depuis ton module Mail.",
+  email_sent: "Une campagne envoyée depuis ton module Newsletter.",
   business_progress: "Une action du Journal cochée, un levier démarré, une amélioration marquée comme faite.",
   checkin_filled: "Une saisie de tes chiffres setting ou closing.",
   lead_worked: "Un commentaire sur un lead ou un lead déplacé dans ton pipeline.",

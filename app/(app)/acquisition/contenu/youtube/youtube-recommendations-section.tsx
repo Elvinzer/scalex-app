@@ -98,10 +98,12 @@ export function YoutubeRecommendationsSection({
           </div>
           <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button type="button" variant="secondary" size="sm" onClick={regenerate} disabled={isPending}>
-          <RotateCw className={isPending ? "animate-spin" : undefined} />
-          {t("regenerate")}
-        </Button>
+        {visibleRecommendations.length > 0 && (
+          <Button type="button" variant="secondary" size="sm" onClick={regenerate} disabled={isPending}>
+            <RotateCw className={isPending ? "animate-spin" : undefined} />
+            {t("regenerate")}
+          </Button>
+        )}
       </div>
 
       {error && <p className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">{error}</p>}
@@ -114,9 +116,17 @@ export function YoutubeRecommendationsSection({
           </p>
         </div>
       ) : visibleRecommendations.length === 0 ? (
-        <div className="sticker-card-dashed p-6 text-center">
-          <p className="text-sm font-bold">{t("emptyTitle")}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{t("emptyHelp")}</p>
+        <div className="sticker-card-dashed flex flex-col items-center p-8 text-center">
+          <span className="flex size-12 items-center justify-center rounded-full bg-accent-2/10 text-accent-2-text" aria-hidden="true">
+            <Sparkles className="size-5" />
+          </span>
+          <p className="mt-4 text-sm font-bold">{t("firstGenerationTitle")}</p>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t("firstGenerationHelp")}</p>
+          <Button type="button" variant="accent2" className="mt-5" onClick={regenerate} disabled={isPending}>
+            <Sparkles />
+            {isPending ? t("generating") : t("generateFirst")}
+          </Button>
+          <p className="mt-3 max-w-lg text-xs text-muted-foreground">{t("impactMethod")}</p>
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">

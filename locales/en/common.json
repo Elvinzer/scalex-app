@@ -202,7 +202,7 @@
     "close": "Close",
     "sources": {
       "content_published": { "label": "Publish content", "detail": "A post, Reel, Short, story or YouTube video. Sync detects it automatically." },
-      "email_sent": { "label": "Send an email campaign", "detail": "A campaign sent from your Mail module." },
+      "email_sent": { "label": "Send an email campaign", "detail": "A campaign sent from your Newsletter module." },
       "business_progress": { "label": "Move your business forward", "detail": "A Journal action checked, a lever started, or an improvement marked as done." },
       "checkin_filled": { "label": "Enter your numbers", "detail": "A setting or closing numbers entry." },
       "lead_worked": { "label": "Work your pipeline", "detail": "A lead comment or a lead moved in your pipeline." }

@@ -1,5 +1,8 @@
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTypescript from "eslint-config-next/typescript";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const nextVitals = require("eslint-config-next/core-web-vitals");
+const nextTypescript = require("eslint-config-next/typescript");
 
 const eslintConfig = [
   ...nextVitals,

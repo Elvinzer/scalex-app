@@ -13,6 +13,7 @@ function toRow(row: typeof emailCampaigns.$inferSelect): EmailCampaignRow {
     name: row.name,
     sentAt: row.sentAt,
     subject: row.subject,
+    body: row.body,
     sends: row.sends,
     opens: row.opens,
     clicks: row.clicks,

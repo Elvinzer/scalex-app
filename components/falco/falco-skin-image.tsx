@@ -29,7 +29,7 @@ export function FalcoSkinImage({
   const base = `/falco/skins/${dir ? `${dir}/` : ""}${name}`;
 
   return (
-    <picture>
+    <picture className="block shrink-0 leading-none">
       <source type="image/webp" srcSet={`${base}.webp 1x, ${base}@2x.webp 2x`} />
       <img
         src={`${base}.png`}
@@ -38,7 +38,7 @@ export function FalcoSkinImage({
         width={sizePx}
         height={sizePx}
         loading={priority ? "eager" : "lazy"}
-        className={cn("shrink-0 select-none object-contain", className)}
+        className={cn("block shrink-0 select-none object-contain", className)}
         style={{ width: sizePx, height: sizePx }}
         onError={(event) => {
           // Silent fallback to the base Falco bust — belt-and-suspenders on

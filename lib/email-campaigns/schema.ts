@@ -9,6 +9,7 @@ export const emailCampaignInputSchema = z.object({
   name: z.string().min(1, "Le nom de la campagne est requis"),
   sentAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   subject: z.string().max(200).nullable(),
+  body: z.string().max(20_000).nullable(),
   sends: z.number().int().min(0),
   opens: nonNegativeIntOrNull,
   clicks: nonNegativeIntOrNull,

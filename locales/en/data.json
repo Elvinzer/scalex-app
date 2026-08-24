@@ -1,6 +1,7 @@
 {
   "title": "My numbers",
   "subtitle": "Enter your numbers month by month. The rest of the app updates automatically.",
+  "bottleneckLink": "View active bottleneck data",
   "import": "Import",
   "importNumbers": "Import your numbers",
   "loadingImport": "Loading…",
@@ -34,6 +35,25 @@
   "trend6": "Last 6 months",
   "trend12": "12 months",
   "trendYear": "Year to date",
+  "bottleneck": {
+    "back": "Back to My numbers",
+    "title": "Active bottleneck data",
+    "subtitle": "Find the steps and volumes already present in the app for the active journey. Changing the journey no longer creates pages in Acquisition.",
+    "activeJourney": "ACTIVE JOURNEY",
+    "journeyHelp": "Each step uses the canonical data shared by the dashboard and diagnostic.",
+    "currentEyebrow": "THIS MONTH",
+    "currentTitle": "Data for every step",
+    "currentHelp": "Volumes recorded for {month}. A dash means the data has not been measured yet.",
+    "emptyTitle": "No steps to show",
+    "emptyHelp": "Configure your journey in My business to show the required data.",
+    "yourRate": "Your rate",
+    "benchmark": "Benchmark",
+    "historyEyebrow": "HISTORY",
+    "historyTitle": "The last 8 months",
+    "historyHelp": "The same steps are tracked over time without creating new metrics.",
+    "stage": "Step",
+    "canonicalSource": "Canonical source: these volumes are read from data already saved in My numbers, connected integrations and sales tracking."
+  },
   "modal": {
     "settingSource": "Calculated from your daily tracking. Editable in Pipeline → Daily funnel.",
     "closingSource": "Calculated from your daily tracking. Review the call records in Call tracking.",

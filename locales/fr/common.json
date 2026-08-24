@@ -202,7 +202,7 @@
     "close": "Fermer",
     "sources": {
       "content_published": { "label": "Publier du contenu", "detail": "Un post, un Reel, un Short, une story ou une vidéo YouTube — détecté automatiquement à la synchronisation." },
-      "email_sent": { "label": "Envoyer une campagne email", "detail": "Une campagne envoyée depuis ton module Mail." },
+      "email_sent": { "label": "Envoyer une campagne email", "detail": "Une campagne envoyée depuis ton module Newsletter." },
       "business_progress": { "label": "Faire avancer ton business", "detail": "Une action du Journal cochée, un levier démarré, une amélioration marquée comme faite." },
       "checkin_filled": { "label": "Remplir tes chiffres", "detail": "Une saisie de tes chiffres setting ou closing." },
       "lead_worked": { "label": "Travailler ton pipeline", "detail": "Un commentaire sur un lead ou un lead déplacé dans ton pipeline." }

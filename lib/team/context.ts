@@ -50,7 +50,7 @@ export async function getPostAuthDestination(userId: string): Promise<string> {
     .where(eq(users.id, accountId))
     .limit(1);
 
-  return user?.onboardingCompleted ? "/roadmap" : "/onboarding";
+  return user?.onboardingCompleted ? "/dashboard" : "/onboarding";
 }
 
 // Resolves which account a Supabase Auth user id acts on behalf of, and

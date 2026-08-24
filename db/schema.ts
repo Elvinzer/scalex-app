@@ -2661,6 +2661,7 @@ export const emailCampaigns = pgTable(
     name: text("name").notNull(),
     sentAt: date("sent_at", { mode: "string" }).notNull(),
     subject: text("subject"),
+    body: text("body"),
     sends: integer("sends").notNull(),
     opens: integer("opens"),
     clicks: integer("clicks"),

@@ -1,5 +1,4 @@
 import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
-import { getTranslations } from "next-intl/server";
 import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
@@ -9,7 +8,6 @@ import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-s
 import { getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
-import { activeFunnelRoutes } from "@/lib/acquisition-funnels/routes";
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
@@ -52,19 +50,7 @@ export async function AppSidebarWithScaleScore({
     canSeeScaleScore ? getScaleScoreInputs(accountId) : Promise.resolve(null),
     canSeeScaleScore ? getDiagnosticBenchmarks(sector) : Promise.resolve(null),
   ]);
-  const tAcquisition = await getTranslations("app.acquisition");
-  const tCatalog = await getTranslations("funnelBlocks.catalog");
-
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
-  const acquisitionSubpages = [
-    ...activeFunnelRoutes(acquisitionSelection, acquisitionCatalog).map((route) => ({
-      href: route.href,
-      label: route.primary
-        ? `${tCatalog.has(`${route.key}.label`) ? tCatalog(`${route.key}.label`) : route.label} · ${tAcquisition("journey.primary")}`
-        : tCatalog.has(`${route.key}.label`) ? tCatalog(`${route.key}.label`) : route.label,
-    })),
-    { href: "/business#acquisition", label: tAcquisition("addFunnel") },
-  ];
 
   if (canSeeScaleScore && scaleScoreInputs && benchmarks && acquisitionCatalog) {
     const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
@@ -132,7 +118,6 @@ export async function AppSidebarWithScaleScore({
       scaleScoreSparkline={scaleScoreSparkline}
       currentMonthlyRevenue={currentMonthlyRevenue}
       potentialMonthlyRevenue={potentialMonthlyRevenue}
-      acquisitionSubpages={acquisitionSubpages}
     />
   );
 }

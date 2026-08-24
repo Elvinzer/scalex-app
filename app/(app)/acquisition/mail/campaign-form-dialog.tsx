@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { EmailCampaignContentScore } from "@/components/email-campaign-content-score";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { EmailCampaignRow } from "@/lib/email-campaigns/types";
 
@@ -12,9 +13,6 @@ import { saveEmailCampaign } from "./actions";
 const COUNT_FIELDS = [
   { name: "opens", key: "opens" },
   { name: "clicks", key: "clicks" },
-  { name: "revenueAttributed", key: "revenueAttributed" },
-  { name: "bookings", key: "bookings" },
-  { name: "dealsClosed", key: "dealsClosed" },
 ] as const;
 
 function today(): string {
@@ -25,6 +23,8 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
   const t = useTranslations("app.mail");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [subject, setSubject] = useState(campaign?.subject ?? "");
+  const [body, setBody] = useState(campaign?.body ?? "");
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -40,13 +40,11 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
     const data = {
       name: String(formData.get("name") ?? ""),
       sentAt: String(formData.get("sentAt") ?? today()),
-      subject: String(formData.get("subject") ?? "") || null,
+      subject: subject.trim() || null,
+      body: body.trim() || null,
       sends: Number(formData.get("sends") ?? 0),
       opens: numberOrNull("opens"),
       clicks: numberOrNull("clicks"),
-      revenueAttributed: numberOrNull("revenueAttributed"),
-      bookings: numberOrNull("bookings"),
-      dealsClosed: numberOrNull("dealsClosed"),
     };
 
     startTransition(async () => {
@@ -62,7 +60,7 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[min(90vh,760px)] overflow-y-auto">
         <DialogTitle className="text-lg font-bold">
           {campaign ? t("editSend") : t("addSend")}
         </DialogTitle>
@@ -96,10 +94,26 @@ export function CampaignFormDialog({ campaign, trigger }: { campaign?: EmailCamp
             <input
               type="text"
               name="subject"
-              defaultValue={campaign?.subject ?? ""}
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
               className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
             />
           </label>
+
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-muted-foreground">{t("bodyLabel")}</span>
+            <span className="text-xs text-muted-foreground">{t("bodyHelp")}</span>
+            <textarea
+              name="body"
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+              rows={8}
+              maxLength={20_000}
+              className="resize-y rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm leading-6 outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            />
+          </label>
+
+          <EmailCampaignContentScore subject={subject} body={body} />
 
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="text-muted-foreground">{t("sends")}</span>

@@ -186,6 +186,11 @@
     "notEnoughHelp": "Creator Falco needs at least {count} analyzable public videos to suggest ideas.",
     "emptyTitle": "Your next ideas are being prepared.",
     "emptyHelp": "Regenerate ideas when your YouTube data is up to date.",
+    "firstGenerationTitle": "Generate your first set of ideas.",
+    "firstGenerationHelp": "Falco will use your analyzable public videos to suggest topics grounded in what already works on your channel.",
+    "generateFirst": "Generate ideas",
+    "generating": "Analyzing…",
+    "impactMethod": "Impact uses the median views of your source videos with a cautious range. It is a planning signal, not a promise.",
     "impactBasisFallback": "A cautious estimate based on your source videos' performance. It is not a promise.",
     "falcoCreator": "Creator Falco"
   }

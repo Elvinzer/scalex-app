@@ -116,7 +116,7 @@ const EN_STARTER_PLAN_COPY: Record<string, Record<number, StarterStepCopy>> = {
     1: { title: "Choose an email marketing tool", detail: "MailerLite, ConvertKit or Brevo are good places to start. They are free or inexpensive for a few thousand contacts." },
     2: { title: "Define your welcome sequence (Falco can help write it)", detail: "Create 3 to 5 automated emails: explain who you are, the result you help clients reach, share a client story and make your offer." },
     3: { title: "Send your first email", detail: "Email your current list, even if it is small. Sending teaches you what works." },
-    4: { title: "Record your first numbers", detail: "Enter sends, opens and clicks in Mail so Falco can track your progress." },
+    4: { title: "Record your first numbers", detail: "Enter sends, opens and clicks in Newsletter so Falco can track your progress." },
   },
   ads: {
     1: { title: "Define the offer and test budget", detail: "Choose one offer and a modest budget you are willing to spend to learn." },

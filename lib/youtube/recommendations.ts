@@ -15,6 +15,7 @@ import { getVideoAttributionTotals } from "./attribution";
 import { conversionPerThousandViews } from "./attribution-rules";
 import { isPublicVideo } from "./format";
 import { getYoutubeVideoInsightsMap, type YoutubeVideoInsightRow } from "./queries";
+import { estimateYoutubeRecommendationImpact } from "./recommendation-impact";
 import type {
   YoutubePatternExample,
   YoutubePatternGroup,
@@ -447,7 +448,7 @@ function buildPrompt(
     }),
     "Contraintes : videos doit classifier chaque video_id utile. recommendations doit contenir 3 à 5 objets. " +
       "Chaque recommandation cite une ou plusieurs sources via source_video_ids et son rationale mentionne une donnée réelle. " +
-      "est_impact est une estimation prudente de vues, jamais une garantie, basée sur la moyenne des vidéos sources. " +
+      "est_impact est une estimation prudente de vues, jamais une garantie, basée sur la médiane des vidéos sources. " +
       "Ne propose aucun sujet générique si les sources ne permettent pas de l'ancrer.",
   ].join("\n");
 }
@@ -482,20 +483,19 @@ function recommendationRecords(
     const sourceEntries = sourceVideoIds.map((id) => byId.get(id)).filter((entry): entry is VideoPerformance => entry !== undefined);
     if (sourceEntries.length === 0) return recommendations;
 
-    const averageSourceViews = average(sourceEntries.map((entry) => entry.video.views ?? 0)) ?? 0;
-    const modelImpact = item.est_impact;
-    const conservativeCeiling = Math.max(1, Math.round(averageSourceViews * 1.25));
-    const conservativeFloor = Math.max(1, Math.round(averageSourceViews * 0.5));
-    const estImpact = Math.max(conservativeFloor, Math.min(modelImpact ?? Math.round(averageSourceViews), conservativeCeiling));
+    const impact = estimateYoutubeRecommendationImpact(
+      sourceEntries.map((entry) => entry.video.views ?? 0),
+      item.est_impact,
+    );
     const sourceTheme = patterns.themes.find((theme) => theme.examples.some((example) => sourceVideoIds.includes(example.videoId)));
-    const basis = `Moyenne observée sur ${sourceEntries.length} vidéo${sourceEntries.length > 1 ? "s" : ""} source${sourceEntries.length > 1 ? "s" : ""}${sourceTheme ? ` du thème « ${sourceTheme.label} »` : ""} : ${formatViews(averageSourceViews)}. Estimation prudente, pas une garantie.`;
+    const basis = `Médiane observée sur ${sourceEntries.length} vidéo${sourceEntries.length > 1 ? "s" : ""} source${sourceEntries.length > 1 ? "s" : ""}${sourceTheme ? ` du thème « ${sourceTheme.label} »` : ""} : ${formatViews(impact.baseline)}. Fourchette prudente : ${formatViews(impact.floor)} à ${formatViews(impact.ceiling)}, pas une garantie.`;
 
     seenTitles.add(titleKey);
     recommendations.push({
       title: item.title,
       angle: item.angle,
       rationale: `${item.rationale} ${evidenceForRecommendation(sourceEntries)}`.trim(),
-      estImpact,
+      estImpact: impact.value,
       impactBasis: basis,
       effort: effortLabel(item.effort),
       sourceVideoIds,

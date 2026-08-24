@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { useRef } from "react";
 
 import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-chat-thread";
-import { Falco } from "@/components/falco/falco";
+import { FalcoChatAvatar } from "@/components/falco/falco-chat-avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ConversationRow, ConversationTopicType } from "@/lib/agent/chat-history";
 import type { ChatContext } from "@/lib/chat-context";
@@ -46,12 +46,8 @@ export function CopiloteChatPanel({
   return (
     <div className="flex h-full flex-1 flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-border p-4">
-        <div className="flex items-center gap-3">
-          {skin ? (
-            <Falco skin={skin} portrait skinSizePx={32} className="rounded-full" priority />
-          ) : (
-            <Falco pose="neutral" size="sm" />
-          )}
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <FalcoChatAvatar skin={skin} />
           <div className="min-w-0">
             <p className="truncate text-base font-bold">Falco</p>
             {topicLabel && <p className="truncate text-xs text-muted-foreground">{topicLabel}</p>}
