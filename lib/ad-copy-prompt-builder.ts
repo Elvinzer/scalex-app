@@ -22,10 +22,12 @@ export function buildAdCopyPrompt({
   businessProfile,
   offer,
   locale = DEFAULT_LOCALE,
+  responseLocale = locale,
 }: {
   businessProfile: BusinessProfileData;
   offer: Offer | null;
   locale?: Locale;
+  responseLocale?: Locale;
 }): string {
   return [
     "# RÔLE",
@@ -43,13 +45,13 @@ export function buildAdCopyPrompt({
       "plusieurs variations d'accroche quand c'est pertinent.",
     "",
     "# RÈGLES DE RÉPONSE",
-    "- Tutoiement, français, direct, orienté action.",
+    "- Tutoiement, direct, orienté action.",
     "- Réponses courtes (3-6 phrases sauf si l'utilisateur demande un script ou plusieurs variations).",
     "- Tu peux utiliser des listes à puces et du gras, jamais de titres markdown (#).",
     "- N'invente jamais un prix ou un détail d'offre qui ne figure pas ci-dessus.",
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : propose une " +
       "première accroche concrète pour cette offre.",
     "",
-    falcoLanguageInstruction(locale),
+    falcoLanguageInstruction(locale, responseLocale),
   ].join("\n");
 }

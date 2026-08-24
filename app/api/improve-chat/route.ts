@@ -11,6 +11,7 @@ import { resolvePageAgentData } from "@/lib/agent/page-agent-data";
 import { getPageContextByKey } from "@/lib/agent/page-context";
 import { createSseAccumulatorStream } from "@/lib/agent/sse-accumulator";
 import { extractFalcoInsightEvent } from "@/lib/agent/falco-insight-proposal";
+import { resolveFalcoResponseLocale } from "@/lib/agent/language-instruction";
 import { track } from "@/lib/analytics";
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -93,6 +94,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
   }
   const { context: clientContext, followupKey, period, mode, messages, conversationId } = parsed.data;
+  const latestUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content;
+  const responseLocale = resolveFalcoResponseLocale(locale, latestUserMessage);
 
   // Every persisted topic (anything but "metric") must already have a real
   // conversation row by the time it reaches here — never created on the fly
@@ -329,6 +332,7 @@ export async function POST(request: NextRequest) {
     winningPatterns: contentWinningPatterns,
     unifiedSourceContext,
     locale,
+    responseLocale,
   });
 
   // "messages" already includes the just-submitted user message — nothing
@@ -346,7 +350,7 @@ export async function POST(request: NextRequest) {
 
   let upstream: Response;
   try {
-    upstream = await requestFalcoStream(falcoProvider, systemPrompt, messages, agent?.temperature);
+    upstream = await requestFalcoStream(falcoProvider, systemPrompt, messages, agent?.temperature, responseLocale);
   } catch (error) {
     console.error("[improve-chat] Falco upstream request failed", {
       provider: falcoProvider.kind,

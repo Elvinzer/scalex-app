@@ -182,6 +182,7 @@ export function buildImprovePrompt({
   winningPatterns,
   unifiedSourceContext,
   locale,
+  responseLocale,
 }: {
   context: ChatContext;
   businessProfile: BusinessProfileData;
@@ -211,6 +212,7 @@ export function buildImprovePrompt({
   // re-adding or reconciling raw source rows itself.
   unifiedSourceContext?: string | null;
   locale?: Locale;
+  responseLocale?: Locale;
 }): string {
   const isGeneral = context.topicType === "general";
   const isLever = context.topicType === "lever";
@@ -242,6 +244,7 @@ export function buildImprovePrompt({
   const topicLabel = context.topicLabel ?? "";
   const leverMode: LeverMode = mode ?? "optimiser";
   const resolvedLocale = locale ?? DEFAULT_LOCALE;
+  const resolvedResponseLocale = responseLocale ?? resolvedLocale;
 
   return [
     "# RÔLE",
@@ -294,7 +297,7 @@ export function buildImprovePrompt({
           "ci-dessus (sa niche, son offre, son prix, ses chiffres) — jamais des conseils génériques.",
     "",
     "# RÈGLES DE RÉPONSE",
-    "- Tutoiement, français, direct, concret : scripts prêts à copier-coller, étapes précises, jamais un conseil générique du type \"améliore ton copywriting\".",
+    "- Tutoiement, direct, concret : scripts prêts à copier-coller, étapes précises, jamais un conseil générique du type \"améliore ton copywriting\".",
     "- Tu peux utiliser des listes à puces et du gras, jamais de titres markdown (#).",
     "- N'invente jamais un chiffre qui ne figure pas dans les données ci-dessus.",
     "- Maximum 300 mots par réponse. Termine TOUJOURS par une seule question qui fait avancer.",
@@ -335,6 +338,6 @@ export function buildImprovePrompt({
             : "commence par un message qui résume en une phrase le problème et propose une première piste concrète."
           : "commence par un résumé en une phrase de l'état général du business et demande sur quoi on bosse aujourd'hui."),
     "",
-    falcoLanguageInstruction(resolvedLocale),
+    falcoLanguageInstruction(resolvedLocale, resolvedResponseLocale),
   ].join("\n");
 }

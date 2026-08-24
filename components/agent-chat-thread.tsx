@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { z } from "zod";
 
+import { ChatMessageContent } from "@/components/chat-message-content";
 import { Falco } from "@/components/falco/falco";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
 import { InsightActionCard } from "@/components/insight-execution/insight-action-card";
@@ -36,54 +37,6 @@ function conversationTopicKeyForContext(context: ChatContext): string | null {
   // page data on a later visit.
   if (context.topicType === "general" && context.sourcePage.startsWith("page_")) return context.sourcePage;
   return context.topicKey;
-}
-
-// Only bold and unordered lists are required (design system doc) — hand
-// rolled rather than pulling in a markdown library for two constructs.
-function renderMarkdownLite(text: string) {
-  const lines = text.split("\n");
-  const nodes: React.ReactNode[] = [];
-  let listBuffer: string[] = [];
-
-  function flushList(key: string) {
-    if (listBuffer.length === 0) return;
-    nodes.push(
-      <ul key={key} className="list-disc space-y-1 pl-5">
-        {listBuffer.map((item, i) => (
-          <li key={i}>{renderInline(item)}</li>
-        ))}
-      </ul>
-    );
-    listBuffer = [];
-  }
-
-  function renderInline(line: string) {
-    const parts = line.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((part, i) =>
-      part.startsWith("**") && part.endsWith("**") ? (
-        <strong key={i} className="font-bold">
-          {part.slice(2, -2)}
-        </strong>
-      ) : (
-        <span key={i}>{part}</span>
-      )
-    );
-  }
-
-  lines.forEach((line, index) => {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("- ")) {
-      listBuffer.push(trimmed.slice(2));
-    } else {
-      flushList(`list-${index}`);
-      if (trimmed.length > 0) {
-        nodes.push(<p key={index}>{renderInline(line)}</p>);
-      }
-    }
-  });
-  flushList("list-end");
-
-  return <div className="flex flex-col gap-2">{nodes}</div>;
 }
 
 // Two distinct deadlines, per the anti-hang requirement: CONNECT covers
@@ -499,7 +452,7 @@ export const AgentChatThread = forwardRef<
                 )}
                 <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
                   <div className={`text-sm break-words ${message.isError ? "text-state-critical" : "text-foreground"}`}>
-                    {renderMarkdownLite(removeFalcoInsightProtocol(message.content))}
+                    <ChatMessageContent text={removeFalcoInsightProtocol(message.content)} />
                   </div>
                   {message.insightEvent && index === latestInsightEventIndex && (
                     <InsightActionCard

@@ -32,10 +32,12 @@ export function buildCallAnalysisPrompt({
   businessProfile,
   video,
   locale = DEFAULT_LOCALE,
+  responseLocale = locale,
 }: {
   businessProfile: BusinessProfileData;
   video: ClosingVideoRow;
   locale?: Locale;
+  responseLocale?: Locale;
 }): string {
   return [
     "# RÔLE",
@@ -54,13 +56,13 @@ export function buildCallAnalysisPrompt({
       "prochaines étapes concrètes.",
     "",
     "# RÈGLES DE RÉPONSE",
-    "- Tutoiement, français, direct, orienté action.",
+    "- Tutoiement, direct, orienté action.",
     "- Réponses courtes (3-6 phrases sauf si l'utilisateur demande un script ou une liste détaillée).",
     "- Tu peux utiliser des listes à puces et du gras, jamais de titres markdown (#).",
     "- N'invente jamais un détail qui ne figure pas dans la transcription/les notes ci-dessus.",
     "- Tu ouvres TOUJOURS la conversation en premier, sans attendre que l'utilisateur écrive : commence par un " +
       "résumé en une phrase de ce qui ressort le plus de cet appel, positif ou négatif.",
     "",
-    falcoLanguageInstruction(locale),
+    falcoLanguageInstruction(locale, responseLocale),
   ].join("\n");
 }

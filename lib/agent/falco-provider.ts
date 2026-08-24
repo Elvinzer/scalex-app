@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai-provider";
+import type { Locale } from "@/lib/i18n/config";
 
 import { NoAgentKeyAvailableError, resolveAgentKey, type AgentKey } from "./client";
 
@@ -53,13 +54,24 @@ export async function requestFalcoStream(
   provider: FalcoProvider,
   systemPrompt: string,
   messages: FalcoMessage[],
-  temperature: number | null | undefined
+  temperature: number | null | undefined,
+  responseLocale: Locale,
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
   const safeTemperature = typeof temperature === "number" ? temperature : undefined;
   const effectiveMessages =
-    messages.length > 0 ? messages : [{ role: "user" as const, content: "Commence par ton message d'ouverture." }];
+    messages.length > 0
+      ? messages
+      : [
+          {
+            role: "user" as const,
+            content:
+              responseLocale === "fr"
+                ? "Commence par le message d'ouverture prévu dans tes consignes."
+                : "Start with the opening message requested by your instructions.",
+          },
+        ];
 
   try {
     if (provider.kind === "anthropic") {

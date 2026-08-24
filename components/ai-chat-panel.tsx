@@ -4,61 +4,12 @@ import { Send, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
+import { ChatMessageContent } from "@/components/chat-message-content";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const MAX_MESSAGES = 20;
-
-// Only bold and unordered lists are required (design system doc) — hand
-// rolled rather than pulling in a markdown library for two constructs. Kept
-// as its own copy (not imported from components/improve-chat.tsx) so that
-// already-shipped feature stays completely untouched.
-function renderMarkdownLite(text: string) {
-  const lines = text.split("\n");
-  const nodes: React.ReactNode[] = [];
-  let listBuffer: string[] = [];
-
-  function flushList(key: string) {
-    if (listBuffer.length === 0) return;
-    nodes.push(
-      <ul key={key} className="list-disc space-y-1 pl-5">
-        {listBuffer.map((item, i) => (
-          <li key={i}>{renderInline(item)}</li>
-        ))}
-      </ul>
-    );
-    listBuffer = [];
-  }
-
-  function renderInline(line: string) {
-    const parts = line.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((part, i) =>
-      part.startsWith("**") && part.endsWith("**") ? (
-        <strong key={i} className="font-bold">
-          {part.slice(2, -2)}
-        </strong>
-      ) : (
-        <span key={i}>{part}</span>
-      )
-    );
-  }
-
-  lines.forEach((line, index) => {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("- ")) {
-      listBuffer.push(trimmed.slice(2));
-    } else {
-      flushList(`list-${index}`);
-      if (trimmed.length > 0) {
-        nodes.push(<p key={index}>{renderInline(line)}</p>);
-      }
-    }
-  });
-  flushList("list-end");
-
-  return <div className="flex flex-col gap-2">{nodes}</div>;
-}
 
 async function streamChat(
   endpoint: string,
@@ -202,7 +153,7 @@ export function AiChatPanel({
               </div>
             ) : (
               <div key={index} className="text-sm text-foreground break-words">
-                {message.content ? renderMarkdownLite(message.content) : isStreaming && index === messages.length - 1 ? (
+                {message.content ? <ChatMessageContent text={message.content} /> : isStreaming && index === messages.length - 1 ? (
                   <span className="text-muted-foreground">…</span>
                 ) : null}
               </div>

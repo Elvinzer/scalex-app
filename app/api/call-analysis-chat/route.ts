@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRequestLocale } from "@/lib/i18n/locale";
+import { resolveFalcoResponseLocale } from "@/lib/agent/language-instruction";
 import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai-provider";
@@ -64,8 +65,10 @@ export async function POST(request: NextRequest) {
   }
   const businessProfile = await getBusinessProfile(accountId);
   const locale = await getRequestLocale();
+  const latestUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content;
+  const responseLocale = resolveFalcoResponseLocale(locale, latestUserMessage);
 
-  const systemPrompt = buildCallAnalysisPrompt({ businessProfile, video, locale });
+  const systemPrompt = buildCallAnalysisPrompt({ businessProfile, video, locale, responseLocale });
 
   let provider;
   try {
