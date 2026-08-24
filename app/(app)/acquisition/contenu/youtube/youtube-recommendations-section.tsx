@@ -6,10 +6,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { InfoPopover } from "@/components/info-popover";
 import { QuickInsightLaunchButton } from "@/components/insight-execution/quick-insight-launch-button";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import type { YoutubeRecommendationRecord } from "@/lib/youtube/recommendation-types";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
@@ -212,7 +213,7 @@ export function YoutubeRecommendationsSection({
         </div>
       )}
 
-      <Drawer open={activeRecommendation !== null} onOpenChange={(open) => !open && setActiveRecommendation(null)}>
+      <FalcoDrawer open={activeRecommendation !== null} onOpenChange={(open) => !open && setActiveRecommendation(null)}>
         <DrawerContent>
           {activeRecommendation && (
             <LazyImproveChat
@@ -228,7 +229,7 @@ export function YoutubeRecommendationsSection({
             />
           )}
         </DrawerContent>
-      </Drawer>
+      </FalcoDrawer>
     </section>
   );
 }

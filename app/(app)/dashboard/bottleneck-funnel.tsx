@@ -12,10 +12,11 @@ import { METRIC_KEYS } from "@/lib/diagnostic/metric-keys";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { formatPercent } from "@/lib/setting/funnel";
 import { Falco } from "@/components/falco/falco";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 
 const STAGE_LABEL_KEYS: Record<BottleneckStageId, string> = {
   views: "views",
@@ -482,7 +483,7 @@ export function BottleneckFunnel({
         </DialogContent>
       </Dialog>
 
-      <Drawer open={chatStageId !== null} onOpenChange={(open) => !open && setChatStageId(null)}>
+      <FalcoDrawer open={chatStageId !== null} onOpenChange={(open) => !open && setChatStageId(null)}>
         <DrawerContent>
           {chatStage && (
             <LazyImproveChat
@@ -497,7 +498,7 @@ export function BottleneckFunnel({
             />
           )}
         </DrawerContent>
-      </Drawer>
+      </FalcoDrawer>
     </>
   );
 }

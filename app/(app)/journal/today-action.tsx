@@ -5,9 +5,10 @@ import { useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { FalcoPageGreet } from "@/components/falco/falco-page-greet";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
@@ -100,11 +101,11 @@ export function TodayActionCard({ action }: { action: TodayAction }) {
         </div>
       </section>
 
-      <Drawer open={chatOpen} onOpenChange={handleChatOpenChange}>
+      <FalcoDrawer open={chatOpen} onOpenChange={handleChatOpenChange}>
         <DrawerContent>
           <LazyImproveChat context={action.chatContext} period="3-months" gapBadge={null} />
         </DrawerContent>
-      </Drawer>
+      </FalcoDrawer>
     </>
   );
 }

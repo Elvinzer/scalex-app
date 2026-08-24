@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
@@ -53,7 +54,7 @@ export function ItemScoreButton({
         {score}/100
       </button>
 
-      <Drawer open={open} onOpenChange={handleOpenChange}>
+      <FalcoDrawer open={open} onOpenChange={handleOpenChange}>
         <DrawerContent>
           {open && (
             <LazyImproveChat
@@ -65,7 +66,7 @@ export function ItemScoreButton({
             />
           )}
         </DrawerContent>
-      </Drawer>
+      </FalcoDrawer>
     </>
   );
 }

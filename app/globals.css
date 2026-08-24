@@ -384,6 +384,15 @@
 }
 
 @layer utilities {
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Faint dot grid — structure/relief for otherwise flat white sections
      (marketing page). Dots use --border-value (the same light gray already
      used for card borders everywhere) so it reads as "texture", not a new

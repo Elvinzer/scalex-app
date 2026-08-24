@@ -1,4 +1,4 @@
-import { CalendarPlus, ExternalLink, Link2 } from "lucide-react";
+import { CalendarPlus, ExternalLink, Link2, Palette } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
@@ -159,6 +159,14 @@ export default async function NativeBookingEventsPage({
             <CalendarPlus className="size-4 text-accent" />
             {entitlements.maxEvents === null ? t("eventCount", { count: usage, plural: usage > 1 ? "s" : "" }) : t("eventLimit", { count: usage, max: entitlements.maxEvents, plural: entitlements.maxEvents > 1 ? "s" : "" })}
           </div>
+          {viewer.isAccountWide && (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/settings/reservation">
+                <Palette className="size-3.5" />
+                {t("customizeBookingPage")}
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

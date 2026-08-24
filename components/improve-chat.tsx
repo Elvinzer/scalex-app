@@ -7,6 +7,7 @@ import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-
 import { ChatErrorBoundary } from "@/components/chat-error-boundary";
 import { Falco } from "@/components/falco/falco";
 import { DrawerClose, DrawerTitle } from "@/components/ui/drawer";
+import { useFalcoConversationEngagement } from "@/components/use-falco-conversation-guard";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 
@@ -46,6 +47,7 @@ export function ImproveChat({
 }) {
   const isPersisted = context.topicType !== "metric";
   const threadRef = useRef<AgentChatThreadHandle>(null);
+  const drawerEngagement = useFalcoConversationEngagement();
 
   return (
     <div className="flex h-full flex-col">
@@ -93,7 +95,7 @@ export function ImproveChat({
           mode={mode}
           falcoSkin={falcoSkin}
           seedQuestion={seedQuestion}
-          onEngaged={onEngaged}
+          onEngaged={onEngaged ?? drawerEngagement ?? undefined}
         />
       </ChatErrorBoundary>
     </div>

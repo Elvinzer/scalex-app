@@ -4,7 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { labelFor } from "@/lib/diagnostic/cascade";
 import { METRIC_KEYS, type MetricKey } from "@/lib/diagnostic/metric-keys";
@@ -54,8 +55,8 @@ export function AutoOpenImprove() {
   if (!context) return null;
 
   return (
-    <Drawer open={open} onOpenChange={setOpen}>
+    <FalcoDrawer open={open} onOpenChange={setOpen}>
       <DrawerContent>{open && <LazyImproveChat context={context} period="3-months" gapBadge={null} />}</DrawerContent>
-    </Drawer>
+    </FalcoDrawer>
   );
 }

@@ -34,10 +34,11 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Falco } from "@/components/falco/falco";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
+import { Button } from "@/components/ui/button";
+import { DrawerContent } from "@/components/ui/drawer";
 import { StreakMomentum } from "@/components/streak/streak-momentum";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
@@ -907,11 +908,11 @@ export function RoadmapView({ data, streak, weeklyReports, accountId, fixtureMod
 
       <WeeklySummary reports={weeklyReports} actionsDone={data.momentum.actionsDoneThisWeek} checkInDone={data.checkInDoneThisWeek} translate={translate} locale={locale} />
 
-      <Drawer open={chatContext !== null} onOpenChange={(open) => { if (!open) setChatContext(null); }}>
+      <FalcoDrawer open={chatContext !== null} onOpenChange={(open) => { if (!open) setChatContext(null); }}>
         <DrawerContent>
           {chatContext && <LazyImproveChat context={chatContext} period="3-months" gapBadge={null} />}
         </DrawerContent>
-      </Drawer>
+      </FalcoDrawer>
     </div>
   );
 }

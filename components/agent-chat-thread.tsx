@@ -191,12 +191,10 @@ export const AgentChatThread = forwardRef<
     // this SAME persisted lever thread rather than a one-off conversation.
     // Fires exactly once per mount, after history (if any) has loaded.
     seedQuestion?: string;
-    // Fired once, the first time the user actually engages this session —
-    // a real submitted message (handleSubmit) or a seedQuestion-triggered
-    // send, never just viewing pre-existing history on mount or the
-    // automatic opening greeting. Lets a container (e.g. the floating chat
-    // bubble) warn before closing mid-conversation instead of silently
-    // discarding the user's place in it.
+    // Fired once the session contains conversation activity — a submitted
+    // message, a seed question, assistant generation starting, or saved
+    // history loaded on mount. Lets a drawer owner warn before closing
+    // mid-conversation instead of silently discarding the user's place in it.
     onEngaged?: () => void;
   }
 >(function AgentChatThread(
@@ -264,6 +262,7 @@ export const AgentChatThread = forwardRef<
         setMessages(history);
         void send([...history, { role: "user", content: seedQuestion }]);
       } else if (history.length > 0) {
+        onEngaged?.();
         setMessages(history);
       } else {
         void send([]);
@@ -295,6 +294,7 @@ export const AgentChatThread = forwardRef<
   }, [isPersisted, isStreaming]);
 
   async function send(history: ChatMessage[]) {
+    onEngaged?.();
     setIsStreaming(true);
     setMessages([...history, { role: "assistant", content: "" }]);
 

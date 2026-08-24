@@ -716,7 +716,8 @@
       "serverUnavailable": "Could not reach the server. Check your connection and try again.",
       "aiUnavailable": "The AI could not respond. Try again in a moment.",
       "generationInterrupted": "Generation was interrupted. Try again.",
-      "conversationResetConfirm": "Start this conversation over from scratch?"
+      "conversationResetConfirm": "Start this conversation over from scratch?",
+      "leaveConfirmation": "Leave this window? Your conversation history with Falco will remain available in Copilot."
     },
     "history": {
       "choose": "Choose a conversation",
@@ -874,6 +875,7 @@
     "duration": "Duration",
     "timeZone": "Time zone",
     "configure": "Configure",
+    "customizeBookingPage": "Customize the appointment page",
     "viewPage": "View page",
     "limitReached": "You have reached your plan's event limit. Upgrade to create another one.",
     "createEvent": "Create an event",

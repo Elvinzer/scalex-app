@@ -716,7 +716,8 @@
       "serverUnavailable": "Impossible de joindre le serveur. Vérifie ta connexion et réessaie.",
       "aiUnavailable": "L’IA n’a pas pu répondre. Réessaie dans un instant.",
       "generationInterrupted": "La génération s’est interrompue. Réessaie.",
-      "conversationResetConfirm": "Recommencer cette conversation à zéro ?"
+      "conversationResetConfirm": "Recommencer cette conversation à zéro ?",
+      "leaveConfirmation": "Quitter cette fenêtre ? L’historique de ta conversation avec Falco reste disponible dans la page Copilote."
     },
     "history": {
       "choose": "Choisis une conversation",
@@ -874,6 +875,7 @@
     "duration": "Durée",
     "timeZone": "Fuseau",
     "configure": "Configurer",
+    "customizeBookingPage": "Personnaliser la page de rendez-vous",
     "viewPage": "Voir la page",
     "limitReached": "Tu as atteint la limite d'événements de ton abonnement. Passe au niveau supérieur pour en créer un nouveau.",
     "createEvent": "Créer un événement",

@@ -5,10 +5,11 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { CalcPopover } from "@/components/calc-popover";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { LeverBenchmarkBar } from "@/components/lever-benchmark-bar";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import { recordDiagnosticAddClicked, recordImproveChatOpened } from "@/lib/improve-chat-tracking";
@@ -161,9 +162,9 @@ export function DiscoveryOpportunityCard({
       </div>
 
       {currentValue !== undefined && (
-        <Drawer open={open} onOpenChange={handleOpenChange}>
+        <FalcoDrawer open={open} onOpenChange={handleOpenChange}>
           <DrawerContent>{open && <LazyImproveChat context={chatContext} period="3-months" gapBadge={gapBadge} />}</DrawerContent>
-        </Drawer>
+        </FalcoDrawer>
       )}
     </>
   );

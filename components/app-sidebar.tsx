@@ -535,7 +535,7 @@ export function AppSidebar({
           </Link>
         </div>
 
-        <nav aria-label={t("primaryNavigation")} className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain pt-6">
+        <nav aria-label={t("primaryNavigation")} className="scrollbar-hidden flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain pt-6">
           {visibleTopEntries.map((entry) => (
             <Fragment key={entry.href}>
               {/* PillarNavGroup falls back to a plain NavLink for any entry

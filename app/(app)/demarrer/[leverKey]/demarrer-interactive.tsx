@@ -5,10 +5,11 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { LeverStarterPlanCard } from "@/components/lever-starter-plan-card";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 import { recordLeverGuideChatOpened } from "@/lib/levers/demarrer-tracking";
@@ -84,7 +85,7 @@ export function DemarrerInteractive({
         </Button>
       </div>
 
-      <Drawer open={chatOpen} onOpenChange={setChatOpen}>
+      <FalcoDrawer open={chatOpen} onOpenChange={setChatOpen}>
         <DrawerContent>
           {chatOpen && (
             <LazyImproveChat
@@ -98,7 +99,7 @@ export function DemarrerInteractive({
             />
           )}
         </DrawerContent>
-      </Drawer>
+      </FalcoDrawer>
     </div>
   );
 }

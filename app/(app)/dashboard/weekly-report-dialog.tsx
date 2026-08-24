@@ -7,10 +7,11 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { CheckinModal } from "./checkin-modal";
 import { Falco } from "@/components/falco/falco";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import type { WeeklyReportRow } from "@/lib/dashboard/weekly-report";
@@ -232,9 +233,9 @@ export function WeeklyReportDialog({
       </Dialog>
 
       {bottleneckContext && (
-        <Drawer open={chatOpen} onOpenChange={setChatOpen}>
+        <FalcoDrawer open={chatOpen} onOpenChange={setChatOpen}>
           <DrawerContent>{chatOpen && <LazyImproveChat context={bottleneckContext} period="3-months" gapBadge={null} />}</DrawerContent>
-        </Drawer>
+        </FalcoDrawer>
       )}
 
       <CheckinModal

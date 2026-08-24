@@ -7,8 +7,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
 import { useFalcoAnimationsEnabled } from "@/components/falco/falco-context";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { FalcoSkinImage } from "@/components/falco/falco-skin-image";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { resolvePageContext } from "@/lib/agent/page-context";
 import type { ChatContext } from "@/lib/chat-context";
 import { FALCO_SKIN_CHAT_LABEL, resolveAgentKeyForRoute, resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
@@ -104,10 +105,6 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
   const skin = resolveFalcoSkin(pathname);
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
-  // Set the moment the user actually engages this open (see AgentChatThread's
-  // onEngaged doc) — reset on every fresh open below. Ref, not state: read
-  // synchronously inside handleOpenChange, no re-render needed for it alone.
-  const engagedRef = useRef(false);
   const showNotification = hasUnseenInsight && !dismissed;
   const chatLabel = skin ? FALCO_SKIN_CHAT_LABEL[skin] : "Falco, ton copilote IA";
   // Page-scoped context: sourcePage carries the page identity to the API
@@ -133,24 +130,15 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
   })();
 
   function handleOpenChange(next: boolean) {
-    // Closing (outside click, Escape, or the drawer's own X) while mid-
-    // conversation used to silently drop the user out — confirm first.
-    // window.confirm, same pattern already used for "Nouvelle conversation"
-    // (components/agent-chat-thread.tsx's handleNewConversation).
-    if (!next && engagedRef.current) {
-      const confirmed = window.confirm("Tu es en pleine conversation avec Falco. Si tu fermes, tu quittes la discussion. Continuer ?");
-      if (!confirmed) return;
-    }
     setOpen(next);
     if (next) {
-      engagedRef.current = false;
       setDismissed(true);
       void recordImproveChatOpened(chatContext);
     }
   }
 
   return (
-    <Drawer open={open} onOpenChange={handleOpenChange}>
+    <FalcoDrawer open={open} onOpenChange={handleOpenChange}>
       <DrawerTrigger asChild>
         <button
           type="button"
@@ -187,14 +175,11 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
                 period="3-months"
                 gapBadge={null}
                 falcoSkin={skin}
-                onEngaged={() => {
-                  engagedRef.current = true;
-                }}
               />
             </div>
           </div>
         )}
       </DrawerContent>
-    </Drawer>
+    </FalcoDrawer>
   );
 }

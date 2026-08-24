@@ -17,12 +17,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Falco } from "@/components/falco/falco";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { StreakMomentum } from "@/components/streak/streak-momentum";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
 import type { JournalActionCandidate, JournalActionState, JournalEffort } from "@/lib/journal/action-generator";
@@ -691,11 +692,11 @@ export function JournalView({ data, todos, projects, streak = null, fixtureMode 
         </div>
       )}
 
-      <Drawer open={chatContext !== null} onOpenChange={(open) => { if (!open) setChatContext(null); }}>
+      <FalcoDrawer open={chatContext !== null} onOpenChange={(open) => { if (!open) setChatContext(null); }}>
         <DrawerContent>
           {chatContext && <LazyImproveChat context={chatContext} period="3-months" gapBadge={null} />}
         </DrawerContent>
-      </Drawer>
+      </FalcoDrawer>
     </div>
   );
 }

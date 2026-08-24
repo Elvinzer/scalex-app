@@ -3,9 +3,10 @@
 import { useState } from "react";
 
 import { Falco, type FalcoPose } from "@/components/falco/falco";
+import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
@@ -66,7 +67,7 @@ export function AgentBanner({
         </Button>
       </div>
 
-      <Drawer open={open} onOpenChange={handleOpenChange}>
+      <FalcoDrawer open={open} onOpenChange={handleOpenChange}>
         <DrawerContent>
           {open && (
             <LazyImproveChat
@@ -78,7 +79,7 @@ export function AgentBanner({
             />
           )}
         </DrawerContent>
-      </Drawer>
+      </FalcoDrawer>
     </>
   );
 }
