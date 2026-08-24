@@ -88,6 +88,15 @@
   "scaleScore": {
     "needNumbers": "I need your numbers to score you.",
     "fillNumbers": "Enter my numbers",
+    "missingDataTitle": "Missing data",
+    "missingDataHelp": "This is what blocks the calculation and where you can complete it.",
+    "missingData": {
+      "month": "Month to fill: {month}",
+      "acquisition": "Acquisition data",
+      "sales": "Sales data",
+      "delivery": "Deliverability data",
+      "open": "Open"
+    },
     "title": "Your Scale Score",
     "lastCalculated": "Last calculated:",
     "over30Days": "over 30 days",

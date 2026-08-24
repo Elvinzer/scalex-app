@@ -3,10 +3,7 @@ import { after } from "next/server";
 import { Suspense } from "react";
 
 import { AutoOpenImprove } from "../diagnostic/auto-open-improve";
-import { DiscoveryOpportunityCard } from "../diagnostic/discovery-opportunity-card";
-import { getDiscoveryProgress } from "../diagnostic/discovery-actions";
 import { DiscoveryTab } from "../diagnostic/discovery-tab";
-import { OptimisationEntryCard } from "../diagnostic/optimisation-entry-card";
 import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { scoreCandidates } from "@/lib/diagnostic/priority";
 import { getPriorityRules } from "@/lib/diagnostic/priority-rules";
@@ -49,6 +46,7 @@ import {
 } from "@/lib/diagnostic/cascade";
 import { computeContentGain } from "@/lib/diagnostic/content-gain";
 import { adviceFor } from "@/lib/diagnostic/lever-advice";
+import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { computeFollowupCompliance } from "@/lib/diagnostic/followups";
@@ -182,10 +180,9 @@ async function renderDiagnosticPage({
     );
   }
 
-  const [businessProfile, rawData, discoveryProgress, acquisitionCatalog, funnelBlockCatalog, testimonialProof] = await Promise.all([
+  const [businessProfile, rawData, acquisitionCatalog, funnelBlockCatalog, testimonialProof] = await Promise.all([
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
-    getDiscoveryProgress(accountId),
     getAcquisitionFunnelCatalog(),
     getFunnelBlockCatalog(),
     getTestimonialProof(accountId),
@@ -198,8 +195,6 @@ async function renderDiagnosticPage({
   const activeLegacyKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
   const activeContentKeys = activeContentMetricKeys(acquisitionSelection, acquisitionCatalog);
   const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = rawData;
-  const discoveryRemaining = discoveryProgress.total - discoveryProgress.answered;
-
   const months = period === "current-month" ? [currentMonthWindow()] : lastCompletedMonths(period === "12-months" ? 12 : 3);
 
   const { settingTotals, closingTotals, cashContractedTotal, hasAnySourceData } = aggregatePeriodTotals({
@@ -214,6 +209,7 @@ async function renderDiagnosticPage({
     allEmailCampaigns,
     allMetaMetrics,
     allNativeBookingLeads,
+    callTrackingConnected: Boolean(user?.iclosedConnected || user?.calendlyConnected),
   });
 
   if (!hasAnySourceData) {
@@ -238,6 +234,37 @@ async function renderDiagnosticPage({
     getContentDiagnosticBenchmarks(user?.sector ?? null),
     getPriorityRules(),
   ]);
+
+  const projectionMonths = lastCompletedMonths(REVENUE_PROJECTION_MONTHS);
+  const projectionTotals = aggregatePeriodTotals({
+    months: projectionMonths,
+    allMonthlyRows,
+    allSettingEntries,
+    allClosingEntries,
+    callSourcesByMonth: allCallSourcesByMonth,
+    callTrackingConnected: Boolean(user?.iclosedConnected || user?.calendlyConnected),
+    allSales,
+    allLeads,
+    allLeadStageHistory,
+    allEmailCampaigns,
+    allMetaMetrics,
+    allNativeBookingLeads,
+  });
+  const projectionPoints = projectionTotals.hasAnySourceData
+    ? computeDiagnosticPoints({
+        settingTotals: projectionTotals.settingTotals,
+        closingTotals: projectionTotals.closingTotals,
+        benchmarks,
+        businessProfile,
+        cashContractedTotal: projectionTotals.cashContractedTotal,
+        activeMetricKeys: activeLegacyKeys,
+      })
+    : [];
+  const revenueProjection = buildRevenueProjection({
+    cashContractedTotal: projectionTotals.cashContractedTotal,
+    monthsCount: REVENUE_PROJECTION_MONTHS,
+    bottleneckGain: projectionPoints[0]?.monthlyGain ?? null,
+  });
 
   const visibleContentPosts = filterVisibleContentPosts(allContentPosts, rawData.allYoutubeVideoInsights);
   const contentTotals = aggregateContentTotals(months, visibleContentPosts, allVideoAttributionTotals);
@@ -265,7 +292,7 @@ async function renderDiagnosticPage({
   });
   const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks, activeMetricKeys: activeLegacyKeys });
   const followups = computeFollowupCompliance(businessProfile);
-  const { toImplement: discoveryOpportunities, toWatch, strong } = await computeLeverOpportunities({
+  const { toWatch, strong } = await computeLeverOpportunities({
     accountId,
     businessProfile,
     settingTotals,
@@ -342,23 +369,6 @@ async function renderDiagnosticPage({
   // existing pertinence rules (lever_revenue_gate/lever_requires_main_offer
   // — e.g. "ne pas proposer les ads sans budget") shape the sort order
   // instead of a raw impact-only sort.
-  const addList = scoreCandidates({
-    points: [],
-    leverCandidates: discoveryOpportunities.map((opportunity) => ({
-      leverKey: opportunity.leverKey,
-      label: opportunity.label,
-      category: opportunity.category,
-      impactAmountEur: opportunity.impactAmountEur,
-      effort: opportunity.effort,
-      healthScore: 0,
-      isActive: false,
-    })),
-    businessProfile,
-    monthlyRevenueEur,
-    rules: priorityRules,
-  });
-  const addByKey = new Map(discoveryOpportunities.map((o) => [o.leverKey, o]));
-
   // Under benchmark, but no € could be attached (no offer price, no sale
   // closed) — see the empty state below.
   const unpricedPoints = points.filter((point) => point.monthlyGain === null);
@@ -366,7 +376,6 @@ async function renderDiagnosticPage({
   const strongCount = summaries.filter((s) => s.status === "ok").length + strong.length;
 
   after(() => track("diagnostic_points_viewed", userId, { count: optimizeList.length + contentPoints.length }));
-  after(() => track("diagnostic_add_viewed", userId, { opportunities_count: addList.length }));
   // The CTA in Section 1 is a plain <a href="/diagnostic-app?open=..."> (or
   // ?openLever=...) — clicking it reloads this exact page, so the click is
   // observable server-side on the very next render, no client wiring needed.
@@ -383,11 +392,8 @@ async function renderDiagnosticPage({
     activeMetricKeys: activeLegacyKeys,
   });
 
-  const topPoints = points.slice(0, 3);
-  const totalExtraClients = Math.round(topPoints.reduce((sum, p) => sum + p.extraClients, 0) * 10) / 10;
-  const totalMonthlyGain = topPoints.some((p) => p.monthlyGain === null)
-    ? null
-    : topPoints.reduce((sum, p) => sum + (p.monthlyGain ?? 0), 0);
+  const topPoints = projectionPoints.slice(0, 3);
+  const totalMonthlyGain = revenueProjection.optimizedMonthlyRevenue;
   const isThin = isBusinessProfileThin(businessProfile);
 
   // Falco's one-line verdict for the overview header (the single content
@@ -396,7 +402,7 @@ async function renderDiagnosticPage({
     topPoints.length > 0
       ? t("verdictWithBottleneck", {
           label: localizedMetricLabel(topPoints[0].key),
-          amount: totalMonthlyGain !== null ? `, ≈${formatEur(totalMonthlyGain, locale)}${t("perMonthToRecover")}` : "",
+          amount: revenueProjection.bottleneckGain !== null ? `, ≈${formatEur(revenueProjection.bottleneckGain, locale)}${t("perMonthToRecover")}` : "",
         })
       : t("verdictSolid");
 
@@ -507,7 +513,7 @@ async function renderDiagnosticPage({
             {totalMonthlyGain === null ? "—" : `${formatEur(totalMonthlyGain, locale)}${t("perMonthSuffix")}`}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {t("extraClients", { count: totalExtraClients, points: topPoints.length })}
+            {t("projectionMethod")}
           </p>
           <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
             {contentDealPrice.source === "main_offer" ? (
@@ -778,43 +784,12 @@ async function renderDiagnosticPage({
           <h2 className="text-lg font-bold">{t("addTitle")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t("addHelp")}</p>
         </div>
-
-        {addList.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {addList.map(({ candidate }) => {
-              const opportunity = addByKey.get(candidate.key)!;
-              return (
-                <DiscoveryOpportunityCard
-                  key={opportunity.leverKey}
-                  leverKey={opportunity.leverKey}
-                  label={localizedLeverLabel(opportunity.leverKey, opportunity.label)}
-                  category={localizedCategory(opportunity.category)}
-                  effort={opportunity.effort}
-                  impactAmountEur={opportunity.impactAmountEur}
-                  impactRangeEur={opportunity.impactRangeEur}
-                  impactExplanation={opportunity.impactExplanation}
-                  contextSentence={opportunity.contextSentence}
-                  warning={opportunity.warning}
-                  ctaLabel={t("discover")}
-                  sourcePage="diagnostic_overview"
-                  insightSourceId={opportunity.leverKey}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">
-            {t("noneAdditional")}
-          </div>
-        )}
-
-        {discoveryRemaining > 0 && (
-          <OptimisationEntryCard
-            answered={discoveryProgress.answered}
-            total={discoveryProgress.total}
-            remaining={discoveryRemaining}
-          />
-        )}
+        <div className="sticker-card flex flex-wrap items-center justify-between gap-4 p-6">
+          <p className="max-w-2xl text-sm text-muted-foreground">{t("addPageHelp")}</p>
+          <Button asChild variant="outline">
+            <Link href="/diagnostic-app/leviers" prefetch={true}>{t("openAddLevers")}</Link>
+          </Button>
+        </div>
       </div>
 
       {/* Bloc 3 — La vue complète */}

@@ -81,6 +81,8 @@
     "completeReminder": "Marquer comme fait",
     "history": "Historique du parcours",
     "historyEmpty": "L'historique apparaîtra dès que le client change de colonne.",
+    "testimonialPromptTitle": "Résultat atteint : récupère son témoignage",
+    "testimonialPromptHelp": "Les informations du client seront déjà préremplies dans la page Témoignages.",
     "requestTestimonial": "Demander un témoignage",
     "inactive": "Inactif depuis plus de 14 jours",
     "entered": "Entré le {date}",

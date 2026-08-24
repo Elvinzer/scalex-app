@@ -17,6 +17,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import {
   ArrowRight,
+  CalendarClock,
   Check,
   CheckCircle2,
   Circle,
@@ -881,6 +882,37 @@ export function RoadmapView({ data, streak, weeklyReports, callRoadmapRecommenda
           ))}
         </div>
       </section>
+
+      {data.clientReminders.length > 0 && (
+        <section aria-labelledby="client-reminders-title">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold tracking-[0.12em] text-accent-2 uppercase">{translate("clientReminders.eyebrow")}</p>
+              <h2 id="client-reminders-title" className="mt-1 text-lg font-bold">{translate("clientReminders.title")}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{translate("clientReminders.help")}</p>
+            </div>
+            <CalendarClock className="size-5 text-accent-2" aria-hidden="true" />
+          </div>
+          <div className="sticker-card mt-4 divide-y divide-border overflow-hidden">
+            {data.clientReminders.map((reminder) => (
+              <Link
+                key={reminder.id}
+                href={`/delivrabilite/suivi-client?journeyId=${encodeURIComponent(reminder.journeyId)}`}
+                className="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+              >
+                <CalendarClock className="size-4 shrink-0 text-accent-2" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold">{reminder.clientName}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{reminder.note}</span>
+                </span>
+                <time className={cn("shrink-0 text-xs font-bold", reminder.overdue ? "text-state-caution" : "text-muted-foreground")} dateTime={reminder.remindAt}>
+                  {new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(reminder.remindAt))}
+                </time>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {error && (
         <p className="flex items-center gap-2 rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm text-state-critical" role="alert">

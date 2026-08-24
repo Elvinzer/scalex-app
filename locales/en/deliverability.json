@@ -81,6 +81,8 @@
     "completeReminder": "Mark as done",
     "history": "Journey history",
     "historyEmpty": "History will appear when the client changes columns.",
+    "testimonialPromptTitle": "Result reached: ask for a testimonial",
+    "testimonialPromptHelp": "The client details will already be filled in on the Testimonials page.",
     "requestTestimonial": "Request a testimonial",
     "inactive": "Inactive for more than 14 days",
     "entered": "Entered on {date}",

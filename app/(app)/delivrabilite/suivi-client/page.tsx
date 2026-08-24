@@ -10,10 +10,17 @@ import { ClientTrackingBoard } from "./client-tracking-board";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientTrackingPage() {
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function firstParam(value: string | string[] | undefined): string | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+export default async function ClientTrackingPage({ searchParams }: { searchParams?: SearchParams }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "delivrabilite:suivi-client");
   const [board, t] = await Promise.all([getDeliveryBoard(accountId), getTranslations("deliverability")]);
+  const params = searchParams ? await searchParams : {};
   const chatContext: ChatContext = {
     topicType: "general",
     topicKey: null,
@@ -29,7 +36,7 @@ export default async function ClientTrackingPage() {
         <p className="max-w-2xl text-base text-muted-foreground">{t("tracking.subtitle")}</p>
       </header>
       <AgentBanner stateText={t("tracking.agentState")} ctaLabel={t("tracking.agentCta")} chatContext={chatContext} />
-      <ClientTrackingBoard initialData={board} />
+      <ClientTrackingBoard initialData={board} initialJourneyId={firstParam(params.journeyId)} />
     </div>
   );
 }

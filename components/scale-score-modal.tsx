@@ -11,7 +11,7 @@ import { Sparkline } from "@/components/sparkline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { trackClient } from "@/lib/analytics-client";
-import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import type { ScaleScoreGapSource, ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ export function ScaleScoreModal({
   onOpenChange,
   scaleScore,
   scaleScoreGapText,
+  scaleScoreGapSources,
   scaleScoreMonthNote,
   delta30d,
   sparkline,
@@ -31,6 +32,7 @@ export function ScaleScoreModal({
   onOpenChange: (next: boolean) => void;
   scaleScore: ScaleScoreResult;
   scaleScoreGapText: string | null;
+  scaleScoreGapSources: ScaleScoreGapSource[];
   scaleScoreMonthNote: string | null;
   delta30d: number | null;
   sparkline: ScaleScoreSparklinePoint[];
@@ -78,6 +80,30 @@ export function ScaleScoreModal({
               <Button asChild className="mt-2">
                 <Link href="/datas" prefetch={true}>{t("fillNumbers")}</Link>
               </Button>
+              {scaleScoreGapSources.length > 0 && (
+                <div className="w-full rounded-[var(--radius-card)] border border-border bg-muted/40 p-4 text-left">
+                  <p className="text-sm font-bold">{t("missingDataTitle")}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("missingDataHelp")}</p>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {scaleScoreGapSources.map((source, index) => {
+                      const monthLabel = source.year !== undefined && source.month !== undefined
+                        ? new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(source.year, source.month - 1, 1)))
+                        : null;
+                      const label = source.key === "month"
+                        ? t("missingData.month", { month: monthLabel ?? "" })
+                        : t(`missingData.${source.key}`);
+                      return (
+                        <li key={`${source.key}-${source.year ?? "all"}-${source.month ?? index}`} className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border bg-card px-3 py-2">
+                          <span className="text-sm font-bold">{label}</span>
+                          <Link href={source.href} prefetch={true} className="shrink-0 text-xs font-bold text-accent-text underline-offset-2 hover:underline">
+                            {t("missingData.open")}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
               {scaleScoreMonthNote && (
                 <p className="max-w-[280px] text-xs text-muted-foreground">{scaleScoreMonthNote}</p>
               )}

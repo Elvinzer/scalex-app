@@ -23,6 +23,11 @@
     "team": "Équipe",
     "organization": "Organisation"
   },
+  "clientReminders": {
+    "eyebrow": "SUIVI CLIENT",
+    "title": "Rappels à traiter",
+    "help": "Tes rappels de suivi client apparaissent ici jusqu’à leur validation."
+  },
   "categories": {
     "content": "Contenu",
     "sales": "Ventes",

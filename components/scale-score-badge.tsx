@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { ScaleScoreRing } from "@/components/scale-score-ring";
 import { trackClient } from "@/lib/analytics-client";
-import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import type { ScaleScoreGapSource, ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 
@@ -23,6 +23,7 @@ const ScaleScoreModal = dynamic(
 export function ScaleScoreBadge({
   scaleScore,
   scaleScoreGapText,
+  scaleScoreGapSources,
   scaleScoreMonthNote,
   delta7d,
   delta30d,
@@ -32,6 +33,7 @@ export function ScaleScoreBadge({
 }: {
   scaleScore: ScaleScoreResult;
   scaleScoreGapText: string | null;
+  scaleScoreGapSources: ScaleScoreGapSource[];
   scaleScoreMonthNote: string | null;
   delta7d: number | null;
   delta30d: number | null;
@@ -97,6 +99,7 @@ export function ScaleScoreBadge({
         onOpenChange={handleOpenChange}
         scaleScore={scaleScore}
         scaleScoreGapText={scaleScoreGapText}
+        scaleScoreGapSources={scaleScoreGapSources}
         scaleScoreMonthNote={scaleScoreMonthNote}
         delta30d={delta30d}
         sparkline={sparkline}

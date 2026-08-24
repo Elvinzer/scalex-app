@@ -19,9 +19,11 @@ import type { MonthlySalesSummary } from "@/lib/sales/queries";
 import { formatEur } from "@/lib/currency";
 import { rate, formatPercent } from "@/lib/setting/funnel";
 import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
+import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
 
 import { MonthCard } from "./month-card";
 import { MonthModal } from "./month-modal";
+import { RevenueTrend } from "./revenue-trend";
 
 // ImportFlow pulls exceljs/pdf-parse/papaparse (≈380 Ko gzip combined) —
 // it only ever renders inside the Drawer below, closed by default, so a
@@ -47,9 +49,13 @@ export function DatasPageClient({
   pipelineVolumesByMonth,
   allSettingEntries,
   allClosingEntries,
+  allMonthlyRows,
   callSourcesByMonth,
   callTrackingConnected,
   activeMetricFields,
+  trendPeriod,
+  chartSeries,
+  goalValue,
 }: {
   year: number;
   monthRows: MonthlyMetricsRow[];
@@ -60,23 +66,30 @@ export function DatasPageClient({
   pipelineVolumesByMonth: Record<number, { conversations: number; callsBooked: number; callsTaken: number }>;
   allSettingEntries: (typeof settingKpiEntries.$inferSelect)[];
   allClosingEntries: (typeof closingKpiEntries.$inferSelect)[];
+  allMonthlyRows: MonthlyMetricsRow[];
   callSourcesByMonth: Record<string, MonthlyCallSource>;
   callTrackingConnected: boolean;
   activeMetricFields: AcquisitionFunnelStep[];
+  trendPeriod: string;
+  chartSeries: Record<OverviewMetricOption, ChartPoint[]>;
+  goalValue: number | null;
 }) {
   const t = useTranslations("data");
   const locale = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState<{ year: number; month: number } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [period, setPeriod] = useState<"current" | "30" | "90" | "year">("year");
 
   const rowFor = (month: number) => monthRows.find((row) => row.month === month) ?? null;
   const historicalRows = monthRows.filter((row) => row.year < currentYear || (row.year === currentYear && row.month <= currentMonth)).sort((a, b) => b.year - a.year || b.month - a.month);
-  const featuredRow = historicalRows.slice(0, period === "90" ? 3 : period === "year" ? 12 : 1)[0] ?? null;
+  const featuredRow = historicalRows[0] ?? null;
   const featuredYear = featuredRow?.year ?? currentYear;
   const featuredMonth = featuredRow?.month ?? currentMonth;
   const featuredLabel = new Date(Date.UTC(featuredYear, featuredMonth - 1, 1)).toLocaleDateString(locale, { month: "long", year: "numeric", timeZone: "UTC" });
+  const previousDate = new Date(Date.UTC(featuredYear, featuredMonth - 2, 1));
+  const previousYear = previousDate.getUTCFullYear();
+  const previousMonth = previousDate.getUTCMonth() + 1;
+  const previousRow = allMonthlyRows.find((row) => row.year === previousYear && row.month === previousMonth) ?? null;
   const callSource = callSourcesByMonth[monthKey(featuredYear, featuredMonth)] ?? null;
   const activeInputKeys = new Set(activeMetricFields.map((field) => field.inputMetricKey));
   const hasCallSource = isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected);
@@ -110,19 +123,75 @@ export function DatasPageClient({
   const featuredClosingRate = featuredSalesClosed !== null && featuredCallsTaken !== null
     ? rate(featuredSalesClosed, featuredCallsTaken)
     : null;
+  const previousCallSource = callSourcesByMonth[monthKey(previousYear, previousMonth)] ?? null;
+  const previousHasCallSource = isMonthlyCallSourceAuthoritative(previousCallSource, callTrackingConnected);
+  const previousCallsBooked = previousHasCallSource ? previousCallSource?.callsBooked ?? 0 : previousRow?.callsBooked ?? null;
+  const previousCallsTaken = previousHasCallSource ? previousCallSource?.callsTaken ?? 0 : previousRow?.callsTaken ?? null;
+  const previousSalesClosed = previousHasCallSource ? previousCallSource?.salesClosed ?? 0 : previousRow?.salesClosed ?? null;
+  const previousClosingRate = previousSalesClosed !== null && previousCallsTaken !== null ? rate(previousSalesClosed, previousCallsTaken) : null;
+
+  type RawMetricKind = "currency" | "count" | "percent";
+  type RawMetric = {
+    inputKey?: string;
+    label: string;
+    description: string;
+    current: number | null;
+    previous: number | null;
+    total: number | null;
+    kind: RawMetricKind;
+    source: MetricSource;
+  };
+  const sumRows = (read: (row: MonthlyMetricsRow) => number | null | undefined): number | null => {
+    let hasValue = false;
+    const total = monthRows.reduce((sum, row) => {
+      const value = read(row);
+      if (value === null || value === undefined) return sum;
+      hasValue = true;
+      return sum + value;
+    }, 0);
+    return hasValue ? total : null;
+  };
+  const totalCallsBooked = sumRows((row) => {
+    const source = callSourcesByMonth[monthKey(row.year, row.month)];
+    return isMonthlyCallSourceAuthoritative(source, callTrackingConnected) ? source?.callsBooked ?? 0 : row.callsBooked;
+  });
+  const totalCallsTaken = sumRows((row) => {
+    const source = callSourcesByMonth[monthKey(row.year, row.month)];
+    return isMonthlyCallSourceAuthoritative(source, callTrackingConnected) ? source?.callsTaken ?? 0 : row.callsTaken;
+  });
+  const totalSalesClosed = sumRows((row) => {
+    const source = callSourcesByMonth[monthKey(row.year, row.month)];
+    return isMonthlyCallSourceAuthoritative(source, callTrackingConnected) ? source?.salesClosed ?? 0 : row.salesClosed;
+  });
+  const formatRawValue = (value: number | null, kind: RawMetricKind): string => {
+    if (value === null) return t("notAvailable");
+    if (kind === "currency") return formatEur(value, locale);
+    if (kind === "percent") return formatPercent(value, locale);
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
+  };
+  const evolutionLabel = (current: number | null, previous: number | null, kind: RawMetricKind): string => {
+    if (current === null || previous === null) return t("notAvailable");
+    if (kind === "percent") {
+      const points = Math.round((current - previous) * 100);
+      return `${points > 0 ? "+" : ""}${points} ${t("points")}`;
+    }
+    if (previous === 0) return current === 0 ? t("noChange") : t("newValue");
+    const change = Math.round(((current - previous) / Math.abs(previous)) * 100);
+    return `${change > 0 ? "+" : ""}${change}%`;
+  };
   const metrics = ([
-    { label: t("metrics.cashCollected"), description: t("metrics.cashCollectedHelp"), value: featuredCashCollected === null ? "—" : formatEur(featuredCashCollected, locale), evolution: t("compare"), source: metricSource(salesSourceAvailable ? "Suivi des ventes" : featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
-    { label: t("metrics.cashContracted"), description: t("metrics.cashContractedHelp"), value: featuredCashContracted === null ? "—" : formatEur(featuredCashContracted, locale), evolution: t("compare"), source: salesSourceAvailable ? "Suivi des ventes" : "Saisie" },
-    { inputKey: "new_followers", label: t("metrics.leads"), description: t("metrics.leadsHelp"), value: featuredRow?.newFollowers === null || featuredRow?.newFollowers === undefined ? "—" : String(featuredRow.newFollowers), evolution: t("compare"), source: "Pipeline" },
-    { inputKey: "conversations", label: t("metrics.conversations"), description: t("metrics.conversationsHelp"), value: featuredRow?.conversations === null || featuredRow?.conversations === undefined ? "—" : String(featuredRow.conversations), evolution: t("compare"), source: "Saisie" },
-    { inputKey: "calls_booked", label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), value: featuredCallsBooked === null ? "—" : String(featuredCallsBooked), evolution: t("compare"), source: metricSource(hasCallSource ? "Suivi d'appel" : "Saisie") },
-    { inputKey: "calls_attended", label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), value: featuredCallsTaken === null ? "—" : String(featuredCallsTaken), evolution: t("compare"), source: metricSource(hasCallSource ? "Suivi d'appel" : "Saisie") },
-    { inputKey: "sales_closed", label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), value: featuredSalesClosed === null ? "—" : String(featuredSalesClosed), evolution: t("compare"), source: salesClosedSource },
-    { inputKey: "sales_closed", label: t("metrics.closingRate"), description: t("metrics.closingRateHelp"), value: featuredClosingRate === null ? "—" : formatPercent(featuredClosingRate, locale), evolution: t("compare"), source: "Calculé" },
+    { label: t("metrics.cashCollected"), description: t("metrics.cashCollectedHelp"), current: featuredCashCollected, previous: resolveMonthCashCollected(previousRow).amount, total: sumRows((row) => resolveMonthCashCollected(row).amount), kind: "currency", source: metricSource(salesSourceAvailable ? "Suivi des ventes" : featuredRow?.cashCollectedSource ? "Stripe" : "Saisie") },
+    { label: t("metrics.cashContracted"), description: t("metrics.cashContractedHelp"), current: featuredCashContracted, previous: previousRow?.cashContracted ?? null, total: sumRows((row) => row.cashContracted), kind: "currency", source: salesSourceAvailable ? "Suivi des ventes" : "Saisie" },
+    { inputKey: "new_followers", label: t("metrics.leads"), description: t("metrics.leadsHelp"), current: featuredRow?.newFollowers ?? null, previous: previousRow?.newFollowers ?? null, total: sumRows((row) => row.newFollowers), kind: "count", source: "Pipeline" },
+    { inputKey: "conversations", label: t("metrics.conversations"), description: t("metrics.conversationsHelp"), current: featuredRow?.conversations ?? null, previous: previousRow?.conversations ?? null, total: sumRows((row) => row.conversations), kind: "count", source: "Saisie" },
+    { inputKey: "calls_booked", label: t("metrics.callsBooked"), description: t("metrics.callsBookedHelp"), current: featuredCallsBooked, previous: previousCallsBooked, total: totalCallsBooked, kind: "count", source: metricSource(hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { inputKey: "calls_attended", label: t("metrics.callsTaken"), description: t("metrics.callsTakenHelp"), current: featuredCallsTaken, previous: previousCallsTaken, total: totalCallsTaken, kind: "count", source: metricSource(hasCallSource ? "Suivi d'appel" : "Saisie") },
+    { inputKey: "sales_closed", label: t("metrics.salesClosed"), description: t("metrics.salesClosedHelp"), current: featuredSalesClosed, previous: previousSalesClosed, total: totalSalesClosed, kind: "count", source: salesClosedSource },
+    { inputKey: "sales_closed", label: t("metrics.closingRate"), description: t("metrics.closingRateHelp"), current: featuredClosingRate, previous: previousClosingRate, total: totalSalesClosed !== null && totalCallsTaken !== null ? rate(totalSalesClosed, totalCallsTaken) : null, kind: "percent", source: "Calculé" },
     ...(featuredNewCustomers.amount !== null && newCustomersSource
-      ? [{ label: t("metrics.newCustomers"), description: t("metrics.newCustomersHelp"), value: String(featuredNewCustomers.amount), evolution: t("compare"), source: newCustomersSource }]
+      ? [{ label: t("metrics.newCustomers"), description: t("metrics.newCustomersHelp"), current: featuredNewCustomers.amount, previous: previousRow?.newCustomers ?? null, total: sumRows((row) => row.newCustomers), kind: "count" as const, source: newCustomersSource }]
       : []),
-  ] as Array<{ inputKey?: string; label: string; description: string; value: string; evolution: string; source: MetricSource }>).filter((metric) => metric.inputKey === undefined || activeInputKeys.has(metric.inputKey));
+  ] as RawMetric[]).filter((metric) => metric.inputKey === undefined || activeInputKeys.has(metric.inputKey));
 
   return (
     <div className="flex flex-col gap-8">
@@ -179,19 +248,6 @@ export function DatasPageClient({
         </Link>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2" aria-label={t("period")}>
-        {[
-          [t("currentMonth"), "current"],
-          [t("days30"), "30"],
-          [t("days90"), "90"],
-          [t("currentYear"), "year"],
-        ].map(([label, value]) => (
-          <button key={value} type="button" aria-pressed={period === value} onClick={() => setPeriod(value as typeof period)} className={period === value ? "min-h-11 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-sm font-bold text-accent-text" : "min-h-11 rounded-[var(--radius-control)] border border-border px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent"}>
-            {label}
-          </button>
-        ))}
-      </div>
-
       <h2 className="text-base font-bold">{t("monthlyHistory")}</h2>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -218,6 +274,8 @@ export function DatasPageClient({
         })}
       </div>
 
+      <RevenueTrend year={year} trendPeriod={trendPeriod} chartSeries={chartSeries} goalValue={goalValue} />
+
       <section className="overflow-hidden rounded-[var(--radius-card)] border-2 border-border bg-card" aria-labelledby="raw-metrics-title">
         <div className="border-b border-border bg-muted/50 px-5 py-3">
           <h2 id="raw-metrics-title" className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("rawData", { month: featuredLabel })}</h2>
@@ -225,28 +283,22 @@ export function DatasPageClient({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-muted/40 text-left text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-              <tr><th className="px-5 py-3">{t("metric")}</th><th className="px-5 py-3">{featuredLabel}</th><th className="px-5 py-3">{t("evolution")}</th><th className="px-5 py-3">{t("origin")}</th></tr>
+              <tr><th className="px-5 py-3">{t("metric")}</th><th className="px-5 py-3">{t("current")}</th><th className="px-5 py-3">{t("previous")}</th><th className="px-5 py-3">{t("evolution")}</th><th className="px-5 py-3">{t("total")}</th><th className="px-5 py-3">{t("origin")}</th></tr>
             </thead>
             <tbody>
               {metrics.map((metric) => (
                 <tr key={metric.label} className="border-t border-border">
                   <td className="px-5 py-3"><p className="font-bold">{metric.label}</p><p className="text-xs text-muted-foreground">{metric.description}</p></td>
-                  <td className="px-5 py-3 text-base font-bold tabular-nums">{metric.value}</td>
-                  <td className="px-5 py-3 text-sm font-bold text-muted-foreground">{metric.evolution}</td>
+                  <td className="px-5 py-3 text-base font-bold tabular-nums">{formatRawValue(metric.current, metric.kind)}</td>
+                  <td className="px-5 py-3 tabular-nums text-muted-foreground">{formatRawValue(metric.previous, metric.kind)}</td>
+                  <td className="px-5 py-3 text-sm font-bold text-muted-foreground">{evolutionLabel(metric.current, metric.previous, metric.kind)}</td>
+                  <td className="px-5 py-3 tabular-nums">{formatRawValue(metric.total, metric.kind)}</td>
                   <td className="px-5 py-3"><SourceBadge source={metric.source} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section className="sticker-card-dashed flex flex-wrap items-center justify-between gap-4 p-5" aria-labelledby="manual-metrics-title">
-        <div>
-          <h2 id="manual-metrics-title" className="text-sm font-bold">{t("manualTitle")}</h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t(callTrackingConnected ? "manualHelpConnected" : "manualHelp")}</p>
-        </div>
-        <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setOpen({ year, month: featuredMonth })}>{t("enter")}</Button><Button type="button" variant="outline" onClick={() => setImportOpen(true)}>{t("import")}</Button></div>
       </section>
 
       {open && (

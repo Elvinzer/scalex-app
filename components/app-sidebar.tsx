@@ -31,7 +31,7 @@ import { Fragment, useEffect, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { ScaleScoreResult } from "@/lib/diagnostic/scale-score";
+import type { ScaleScoreGapSource, ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 import { signOut } from "@/lib/supabase/client";
@@ -81,6 +81,8 @@ type LinkEntry = {
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { type: "link", href: "/roadmap", labelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
+  { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
+  { type: "link", href: "/datas", labelKey: "data", icon: Database, permission: "datas" },
   {
     type: "link",
     href: "/acquisition",
@@ -112,8 +114,6 @@ const topEntries: LinkEntry[] = [
     icon: HeartHandshake,
     anyOfPermissions: ["delivrabilite:suivi-client", "delivrabilite:temoignages"],
   },
-  { type: "link", href: "/datas", labelKey: "data", icon: Database, permission: "datas" },
-  { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
   // Hub central des conversations avec les agents Falco (app/(app)/copilote/) —
   // même permission que le Copilote partout ailleurs dans l'app.
   { type: "link", href: "/copilote", labelKey: "copilot", icon: MessageCircle, permission: "diagnostic" },
@@ -122,9 +122,9 @@ const topEntries: LinkEntry[] = [
 const mobileNavEntries = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
   { type: "link", href: "/roadmap", labelKey: "roadmap", mobileLabelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
+  { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
   { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
   { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "acquisition:setters", "ventes:suivi", "ventes:appels", "ventes:closing"] },
-  { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
 ] satisfies Array<LinkEntry & { mobileLabelKey: string }>;
 
 // COMPTE — account-level settings behind the avatar/profile dropdown
@@ -422,6 +422,7 @@ export type AppSidebarProps = {
   businessCompletionCount: number;
   scaleScore: ScaleScoreResult | null;
   scaleScoreGapText: string | null;
+  scaleScoreGapSources: ScaleScoreGapSource[];
   scaleScoreMonthNote: string | null;
   scaleScoreDelta7d: number | null;
   scaleScoreDelta30d: number | null;
@@ -442,6 +443,7 @@ export function AppSidebar({
   businessCompletionCount,
   scaleScore,
   scaleScoreGapText,
+  scaleScoreGapSources,
   scaleScoreMonthNote,
   scaleScoreDelta7d,
   scaleScoreDelta30d,
@@ -560,6 +562,7 @@ export function AppSidebar({
               <ScaleScoreBadge
                 scaleScore={scaleScore}
                 scaleScoreGapText={scaleScoreGapText}
+                scaleScoreGapSources={scaleScoreGapSources}
                 scaleScoreMonthNote={scaleScoreMonthNote}
                 delta7d={scaleScoreDelta7d}
                 delta30d={scaleScoreDelta30d}

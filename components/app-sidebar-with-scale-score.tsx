@@ -3,14 +3,15 @@ import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
-import { computeScaleScore, describeScaleScoreGap } from "@/lib/diagnostic/scale-score";
+import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
+import { computeScaleScore, describeScaleScoreGap, scaleScoreGapSources as getScaleScoreGapSources } from "@/lib/diagnostic/scale-score";
 import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
-import { getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
+import { getDiagnosticKpiRawData, getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
+import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
-import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { SectorKey } from "@/lib/benchmarks";
@@ -19,12 +20,13 @@ const SCALE_SCORE_PERIOD_MONTHS = 3;
 
 type AppSidebarWithScaleScoreProps = Omit<
   AppSidebarProps,
-  "scaleScore" | "scaleScoreGapText" | "scaleScoreMonthNote" | "scaleScoreDelta7d" | "scaleScoreDelta30d" | "scaleScoreSparkline" | "currentMonthlyRevenue" | "potentialMonthlyRevenue"
+  "scaleScore" | "scaleScoreGapText" | "scaleScoreGapSources" | "scaleScoreMonthNote" | "scaleScoreDelta7d" | "scaleScoreDelta30d" | "scaleScoreSparkline" | "currentMonthlyRevenue" | "potentialMonthlyRevenue"
 > & {
   accountId: string;
   businessProfile: BusinessProfileData;
   sector: SectorKey | null;
   canSeeScaleScore: boolean;
+  callTrackingConnected: boolean;
 };
 
 // The Scale Score is useful chrome, but it is not part of the page the user
@@ -35,10 +37,12 @@ export async function AppSidebarWithScaleScore({
   businessProfile,
   sector,
   canSeeScaleScore,
+  callTrackingConnected,
   ...sidebarProps
 }: AppSidebarWithScaleScoreProps) {
   let scaleScore: AppSidebarProps["scaleScore"] = null;
   let scaleScoreGapText: string | null = null;
+  let scaleScoreGapSources: AppSidebarProps["scaleScoreGapSources"] = [];
   let scaleScoreMonthNote: string | null = null;
   let scaleScoreDelta7d: number | null = null;
   let scaleScoreDelta30d: number | null = null;
@@ -54,11 +58,13 @@ export async function AppSidebarWithScaleScore({
 
   if (canSeeScaleScore && scaleScoreInputs && benchmarks && acquisitionCatalog) {
     const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
+    const scaleScoreMonths = lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS);
     const { settingTotals, closingTotals, cashContractedTotal, emptyMonths } = aggregatePeriodTotals({
-      months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),
+      months: scaleScoreMonths,
       allMonthlyRows,
       allSettingEntries,
       allClosingEntries,
+      callTrackingConnected,
     });
     scaleScore = computeScaleScore({
       settingTotals,
@@ -72,6 +78,7 @@ export async function AppSidebarWithScaleScore({
     if (scaleScore.score === null) {
       const gap = describeScaleScoreGap(emptyMonths, scaleScore.pillars);
       scaleScoreGapText = gap ? scaleScoreGapMessage(gap) : null;
+      scaleScoreGapSources = getScaleScoreGapSources(gap);
 
       const currentMonth = currentMonthWindow();
       const currentMonthRow = allMonthlyRows.find((row) => row.year === currentMonth.year && row.month === currentMonth.month) ?? null;
@@ -83,20 +90,39 @@ export async function AppSidebarWithScaleScore({
       if (monthStatus(computeCompletion(currentMonthData)) !== "empty") scaleScoreMonthNote = currentMonthNote(currentMonth);
     }
 
-    if (cashContractedTotal > 0) {
-      const { toImplement } = await computeLeverOpportunities({
-        accountId,
-        businessProfile,
-        settingTotals,
-        closingTotals,
-        cashContractedTotal,
-        periodMonths: SCALE_SCORE_PERIOD_MONTHS,
-        months: lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS),
-      });
-      const topDiscoveryGain = toImplement.slice(0, 3).reduce((sum, opportunity) => sum + (opportunity.impactAmountEur ?? 0), 0);
-      currentMonthlyRevenue = cashContractedTotal / SCALE_SCORE_PERIOD_MONTHS;
-      potentialMonthlyRevenue = currentMonthlyRevenue + topDiscoveryGain;
-    }
+    const rawData = await getDiagnosticKpiRawData(accountId);
+    const projectionMonths = lastCompletedMonths(REVENUE_PROJECTION_MONTHS);
+    const projectionTotals = aggregatePeriodTotals({
+      months: projectionMonths,
+      allMonthlyRows: rawData.allMonthlyRows,
+      allSettingEntries: rawData.allSettingEntries,
+      allClosingEntries: rawData.allClosingEntries,
+      callSourcesByMonth: rawData.allCallSourcesByMonth,
+      callTrackingConnected,
+      allSales: rawData.allSales,
+      allLeads: rawData.allLeads,
+      allLeadStageHistory: rawData.allLeadStageHistory,
+      allEmailCampaigns: rawData.allEmailCampaigns,
+      allMetaMetrics: rawData.allMetaMetrics,
+      allNativeBookingLeads: rawData.allNativeBookingLeads,
+    });
+    const projectionPoints = projectionTotals.hasAnySourceData
+      ? computeDiagnosticPoints({
+          settingTotals: projectionTotals.settingTotals,
+          closingTotals: projectionTotals.closingTotals,
+          benchmarks,
+          businessProfile,
+          cashContractedTotal: projectionTotals.cashContractedTotal,
+          activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+        })
+      : [];
+    const revenueProjection = buildRevenueProjection({
+      cashContractedTotal: projectionTotals.cashContractedTotal,
+      monthsCount: REVENUE_PROJECTION_MONTHS,
+      bottleneckGain: projectionPoints[0]?.monthlyGain ?? null,
+    });
+    currentMonthlyRevenue = revenueProjection.averageMonthlyRevenue;
+    potentialMonthlyRevenue = revenueProjection.optimizedMonthlyRevenue;
 
     if (scaleScore.score !== null) {
       [scaleScoreDelta7d, scaleScoreDelta30d, scaleScoreSparkline] = await Promise.all([
@@ -112,6 +138,7 @@ export async function AppSidebarWithScaleScore({
       {...sidebarProps}
       scaleScore={scaleScore}
       scaleScoreGapText={scaleScoreGapText}
+      scaleScoreGapSources={scaleScoreGapSources}
       scaleScoreMonthNote={scaleScoreMonthNote}
       scaleScoreDelta7d={scaleScoreDelta7d}
       scaleScoreDelta30d={scaleScoreDelta30d}

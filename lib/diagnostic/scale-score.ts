@@ -41,6 +41,33 @@ export type ScaleScoreGap =
   | { type: "missing_months"; months: MonthWindow[] }
   | { type: "low_coverage"; pillarLabels: string[] };
 
+export type ScaleScoreGapSource = {
+  key: "month" | "acquisition" | "sales" | "delivery";
+  href: string;
+  year?: number;
+  month?: number;
+};
+
+export function scaleScoreGapSources(gap: ScaleScoreGap | null): ScaleScoreGapSource[] {
+  if (!gap) return [];
+  if (gap.type === "missing_months") {
+    return gap.months.map((month) => ({
+      key: "month" as const,
+      href: `/datas?year=${month.year}`,
+      year: month.year,
+      month: month.month,
+    }));
+  }
+
+  return gap.pillarLabels.flatMap((label): ScaleScoreGapSource[] => {
+    const normalized = label.toLowerCase();
+    if (normalized.includes("acquisition")) return [{ key: "acquisition", href: "/datas" }];
+    if (normalized.includes("vente")) return [{ key: "sales", href: "/ventes/appels" }];
+    if (normalized.includes("délivr") || normalized.includes("delivr")) return [{ key: "delivery", href: "/business" }];
+    return [];
+  });
+}
+
 // Only meaningful when score === null. `covered === true` always implies a
 // non-null pillar score (see computeScaleScore below), so score === null
 // with no empty months guarantees at least 2 of the 3 pillars are uncovered

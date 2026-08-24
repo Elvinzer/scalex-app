@@ -16,7 +16,7 @@ import { monthDateRange } from "@/lib/date-range";
 import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
-import { CLOSING_FIELDS, resolveDailySourceOverlay, resolveMonthNewCustomers, SETTING_FIELDS, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
+import { CLOSING_FIELDS, resolveDailySourceOverlay, resolveMonthCashCollected, resolveMonthNewCustomers, SETTING_FIELDS, stripDailySourcedFields } from "@/lib/monthly-metrics/resolve";
 import { revenuePerCall, toClosingTotals, toFunnelTotals } from "@/lib/monthly-metrics/rates";
 import type { MonthlySalesSummary } from "@/lib/sales/queries";
 import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
@@ -216,7 +216,7 @@ export function MonthModal({
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initial);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [entryMode, setEntryMode] = useState<"import" | "manual">("import");
+  const [entryMode, setEntryMode] = useState<"import" | "manual">(initialData ? "manual" : "import");
   const [importAppliedCount, setImportAppliedCount] = useState<number | null>(null);
   const [importUsage, setImportUsage] = useState<MonthlyKpiImportUsage | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -234,7 +234,7 @@ export function MonthModal({
     setDraft({ ...toDraft(initialData), ...persistedOverlay.overrides });
     setImportAppliedCount(null);
     setImportUsage(null);
-    setEntryMode("import");
+    setEntryMode(initialData ? "manual" : "import");
   }, [year, month, initialData, allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource, callTrackingConnected, salesThisMonth]);
 
   const isDirty =
@@ -371,6 +371,13 @@ export function MonthModal({
   const cumulCollected = monthRowsThisYear
     .filter((row) => row.month <= month)
     .reduce((sum, row) => sum + (row.month === month ? (draft.cashCollected ?? 0) : (row.cashCollected ?? 0)), 0);
+  const previousMonthRow = monthRowsThisYear.find((row) => row.month === month - 1) ?? null;
+  const previousCollected = resolveMonthCashCollected(previousMonthRow).amount;
+  const comparisonEvolution = draft.cashCollected === null || previousCollected === null
+    ? null
+    : previousCollected === 0
+      ? draft.cashCollected === 0 ? 0 : null
+      : Math.round(((draft.cashCollected - previousCollected) / Math.abs(previousCollected)) * 100);
 
   const settingRates = computeFunnelRates(toFunnelTotals(draft));
   const closingRates = computeClosingRates(toClosingTotals(draft), draft.callsBooked ?? 0);
@@ -456,6 +463,30 @@ export function MonthModal({
                 {t("intro", { month: monthLabel })}
               </p>
             </div>
+
+            <section className="mx-6 mt-4 rounded-[var(--radius-card)] border border-border bg-muted/40 p-4" aria-labelledby="month-comparison-title">
+              <p id="month-comparison-title" className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("comparisonTitle")}</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("currentValue")}</p>
+                  <p className="mt-1 font-display text-lg font-bold tabular-nums">{draft.cashCollected === null ? t("notAvailable") : formatEur(draft.cashCollected, locale)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("previousValue")}</p>
+                  <p className="mt-1 font-display text-lg font-bold tabular-nums">{previousCollected === null ? t("notAvailable") : formatEur(previousCollected, locale)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("yearTotal")}</p>
+                  <p className="mt-1 font-display text-lg font-bold tabular-nums">{formatEur(cumulCollected, locale)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("evolution")}</p>
+                  <p className="mt-1 font-display text-lg font-bold tabular-nums">
+                    {comparisonEvolution === null ? t("notAvailable") : comparisonEvolution === 0 ? t("noChange") : `${comparisonEvolution > 0 ? "+" : ""}${comparisonEvolution}%`}
+                  </p>
+                </div>
+              </div>
+            </section>
 
             <div className="mx-6 mt-5 grid grid-cols-2 gap-1 rounded-[var(--radius-control)] border border-border bg-surface-sunken p-1" role="tablist" aria-label={t("inputMethod")}>
               <button

@@ -111,6 +111,9 @@ export function buildFixtureData(): JournalActionLoopData {
       { id: leadAction.sourceId, leadName: "Camille Martin", note: "Reprendre la discussion sur l'offre principale", reminderDate: today, overdueDays: 0 },
       { id: "99999999-9999-4999-8999-999999999999", leadName: "Noah Williams", note: "Envoyer l'étude de cas", reminderDate: "2026-08-01", overdueDays: 7 },
     ],
+    clientReminders: [
+      { id: "client-reminder-1", journeyId: "journey-camille", clientName: "Camille Martin", note: "Vérifier l’avancement du plan", remindAt: "2026-08-09T10:00:00.000Z", overdue: false },
+    ],
     results: [
       { id: "result-positive", title: "Réécris ton premier message de setting", sourceInsight: "Diagnostic · taux de réponse", metricKey: "responseRate", metricLabel: "Taux de réponse", completedAt: "2026-07-01T08:00:00.000Z", state: "positive", deltaValue: 0.06, beforeValue: 0.18, afterValue: 0.24, sampleSize: 42, measurementReason: null, chatContext: resultChat },
       { id: "result-neutral", title: "Simplifie ton invitation à réserver un appel", sourceInsight: "Diagnostic · prise de rendez-vous", metricKey: "bookingRate", metricLabel: "Prise de rendez-vous", completedAt: "2026-06-20T08:00:00.000Z", state: "neutral", deltaValue: -0.01, beforeValue: 0.31, afterValue: 0.3, sampleSize: 36, measurementReason: null, chatContext: { topicType: "metric", topicKey: "bookingRate", topicLabel: "Prise de rendez-vous", sourcePage: "journal_result" } },

@@ -23,6 +23,11 @@
     "team": "Team",
     "organization": "Organization"
   },
+  "clientReminders": {
+    "eyebrow": "CLIENT FOLLOW-UP",
+    "title": "Reminders to handle",
+    "help": "Your client follow-up reminders stay here until you mark them done."
+  },
   "categories": {
     "content": "Content",
     "sales": "Sales",

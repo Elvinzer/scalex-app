@@ -65,13 +65,14 @@ async function AppChrome({
 
   return (
     <>
-      <Suspense fallback={<AppSidebar {...sidebarProps} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+      <Suspense fallback={<AppSidebar {...sidebarProps} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreGapSources={[]} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
         <AppSidebarWithScaleScore
           {...sidebarProps}
           accountId={accountId}
           businessProfile={businessProfile}
           sector={userRow?.sector ?? null}
           canSeeScaleScore={canSeeScaleScore}
+          callTrackingConnected={Boolean(userRow?.iclosedConnected || userRow?.calendlyConnected)}
         />
       </Suspense>
       <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
@@ -146,7 +147,7 @@ export default async function AppLayout({
             <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
           ))}
           <div className="flex min-h-screen bg-panel">
-            <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
+            <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreGapSources={[]} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
               <AppChrome userId={userId} accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} />
             </Suspense>
             {/* The sidebar is fixed, so reserve its width in normal document flow

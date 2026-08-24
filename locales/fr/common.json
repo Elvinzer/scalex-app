@@ -88,6 +88,15 @@
   "scaleScore": {
     "needNumbers": "Il me faut tes chiffres pour te noter.",
     "fillNumbers": "Remplir mes chiffres",
+    "missingDataTitle": "Données manquantes",
+    "missingDataHelp": "Voici ce qui bloque le calcul et la page où tu peux compléter la donnée.",
+    "missingData": {
+      "month": "Mois à renseigner : {month}",
+      "acquisition": "Données d’acquisition",
+      "sales": "Données de vente",
+      "delivery": "Données de délivrabilité",
+      "open": "Ouvrir"
+    },
     "title": "Ton Scale Score",
     "lastCalculated": "Dernier calcul :",
     "over30Days": "sur 30 jours",

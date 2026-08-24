@@ -19,7 +19,6 @@ import { activeFunnelEntries, normalizeAcquisitionSelection } from "@/lib/acquis
 import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
 
 import { DatasPageClient } from "./datas-page-client";
-import { RevenueTrend } from "./revenue-trend";
 
 const TREND_PERIODS = ["3", "6", "12", "year"];
 
@@ -126,11 +125,14 @@ export default async function DatasPage({
         pipelineVolumesByMonth={pipelineVolumesByMonth}
         allSettingEntries={rawData.allSettingEntries}
         allClosingEntries={rawData.allClosingEntries}
+        allMonthlyRows={rawData.allMonthlyRows}
         callSourcesByMonth={rawData.allCallSourcesByMonth}
         callTrackingConnected={callTrackingConnected}
         activeMetricFields={activeMetricFields}
+        trendPeriod={trendPeriod}
+        chartSeries={chartSeries}
+        goalValue={businessProfile.identity.mrrGoal}
       />
-      <RevenueTrend year={year} trendPeriod={trendPeriod} chartSeries={chartSeries} goalValue={businessProfile.identity.mrrGoal} />
     </div>
   );
 }

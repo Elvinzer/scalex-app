@@ -1,10 +1,12 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import {
   improvementEvents,
   improvementInitiatives,
   initiativeMeasurements,
   insightRecords,
+  clientJourneys,
+  clientReminders,
   settingKpiEntries,
   closingKpiEntries,
   users,
@@ -129,6 +131,15 @@ export type RoadmapItem = {
   staleDays?: number | null;
 };
 
+export type RoadmapClientReminder = {
+  id: string;
+  journeyId: string;
+  clientName: string;
+  note: string;
+  remindAt: string;
+  overdue: boolean;
+};
+
 export type JournalActionLoopData = {
   todayAction: JournalActionCandidate | null;
   nextActions: JournalActionCandidate[];
@@ -143,6 +154,7 @@ export type JournalActionLoopData = {
   bottleneck: RoadmapBottleneck | null;
   roadmapItems: RoadmapItem[];
   roadmapVisible: boolean;
+  clientReminders: RoadmapClientReminder[];
   checkInDoneThisWeek: boolean;
 };
 
@@ -511,7 +523,7 @@ function buildResult(
 export async function getJournalActionLoopData(accountId: string): Promise<JournalActionLoopData> {
   const now = todayUtc();
   const today = toIsoDate(now);
-  const [businessProfile, [user], rawData, contentRows, setterRows, records, initiatives, measurements, events, priorityRules, leverCatalog, acquisitionCatalog] = await Promise.all([
+  const [businessProfile, [user], rawData, contentRows, setterRows, records, initiatives, measurements, events, priorityRules, leverCatalog, acquisitionCatalog, clientReminderRows] = await Promise.all([
     getBusinessProfile(accountId),
     db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1),
     getDiagnosticKpiRawData(accountId),
@@ -524,6 +536,13 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     getPriorityRules(),
     getLeversCatalog(),
     getAcquisitionFunnelCatalog(),
+    db
+      .select({ id: clientReminders.id, journeyId: clientReminders.clientJourneyId, clientName: clientJourneys.clientName, note: clientReminders.note, remindAt: clientReminders.remindAt })
+      .from(clientReminders)
+      .innerJoin(clientJourneys, eq(clientReminders.clientJourneyId, clientJourneys.id))
+      .where(and(eq(clientReminders.userId, accountId), eq(clientReminders.completed, false)))
+      .orderBy(asc(clientReminders.remindAt))
+      .limit(20),
   ]);
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const activeMetricKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
@@ -672,6 +691,14 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
       overdueDays: lead.reminderDate && lead.reminderDate < today ? dateDifference(today, lead.reminderDate) : 0,
     }))
     .sort((left, right) => right.overdueDays - left.overdueDays || left.reminderDate.localeCompare(right.reminderDate));
+  const clientRemindersForRoadmap: RoadmapClientReminder[] = clientReminderRows.map((reminder) => ({
+    id: reminder.id,
+    journeyId: reminder.journeyId,
+    clientName: reminder.clientName,
+    note: reminder.note,
+    remindAt: reminder.remindAt.toISOString(),
+    overdue: reminder.remindAt.getTime() <= now.getTime(),
+  }));
   for (const reminder of reminders) {
     actions.push(makeLeadAction({
       leadId: reminder.id,
@@ -788,6 +815,7 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     bottleneck,
     roadmapItems,
     roadmapVisible: roadmapItems.length >= 2,
+    clientReminders: clientRemindersForRoadmap,
     checkInDoneThisWeek,
   };
 }

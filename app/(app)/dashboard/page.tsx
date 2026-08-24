@@ -16,17 +16,12 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
-import { getContentDiagnosticBenchmarks } from "@/lib/diagnostic/content-benchmarks";
-import { getPipelineDiagnosticBenchmark } from "@/lib/diagnostic/pipeline-metrics";
-import { computeContentRetentionSummary } from "@/lib/diagnostic/content-retention";
+import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
 import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { isSameReportingMonth, resolveContentReportingMonth } from "@/lib/content-posts/reporting-period";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
-import { buildBottleneckFunnel } from "@/lib/dashboard/bottleneck";
-import type { BottleneckFunnelVariant } from "@/lib/dashboard/bottleneck";
-import { buildAdaptiveFunnel } from "@/lib/acquisition-funnels/metrics";
-import { getAcquisitionFunnelBenchmarks, getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
+import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeFunnelEntries, activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
 import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
@@ -40,7 +35,6 @@ import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/conte
 import { measureAsync } from "@/lib/perf/timing";
 import { getLocale, getTranslations } from "next-intl/server";
 import { track } from "@/lib/analytics";
-import { buildAcquisitionStageVolumes } from "@/lib/acquisition-funnels/stage-volumes";
 import { BottleneckFunnel } from "./bottleneck-funnel";
 import { FunnelSourceFilter } from "@/components/funnel-source-filter";
 import { buildFunnelBlockBottleneck, buildFunnelBlockMetricValues } from "@/lib/funnel-blocks/bottleneck";
@@ -49,7 +43,6 @@ import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { availableFunnelSources } from "@/lib/funnel-blocks/metrics";
 import { isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
 
-const PERIOD_MONTHS = 3;
 // buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
 // swap — excluded here so Dashboard's existing grid doesn't silently gain a
 // 7th card nobody asked for on this page.
@@ -97,13 +90,11 @@ async function renderDashboardPage({
   // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
   // per request, so this is deduped against app/(app)/layout.tsx's own call
   // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, contentBenchmarks, pipelineBenchmark, weeklyReports, acquisitionCatalog, funnelBlockCatalog] =
+  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, weeklyReports, acquisitionCatalog, funnelBlockCatalog] =
     await Promise.all([
       getBusinessProfile(accountId),
       getDiagnosticKpiRawData(accountId),
       getDiagnosticBenchmarks(user?.sector ?? null),
-      getContentDiagnosticBenchmarks(user?.sector ?? null),
-      getPipelineDiagnosticBenchmark(user?.sector ?? null),
       getRecentWeeklyReports(accountId),
       getAcquisitionFunnelCatalog(),
       getFunnelBlockCatalog(),
@@ -116,7 +107,6 @@ async function renderDashboardPage({
     // keeps the event reliable when navigation is interrupted.
     after(() => track("source_filter_used", userId, { source, page: "dashboard" }));
   }
-  const acquisitionBenchmarks = await getAcquisitionFunnelBenchmarks(acquisitionSelection.funnels, user?.sector ?? null);
   const funnelBlockBenchmarks = await getFunnelBlockBenchmarks(funnelBlockSelection.blocks.map((item) => item.blockKey), user?.sector ?? null);
   const activeLegacyKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
   const activeMetricFields = Array.from(
@@ -165,9 +155,9 @@ async function renderDashboardPage({
 
   // Same engine and same default period as /diagnostic, so "the goulot
   // actuel" is identical on both pages — see lib/diagnostic/cascade.ts.
-  const months = lastCompletedMonths(PERIOD_MONTHS);
-  const { settingTotals, closingTotals, cashContractedTotal, hasAnySourceData } = aggregatePeriodTotals({
-    months,
+  const projectionMonths = lastCompletedMonths(REVENUE_PROJECTION_MONTHS);
+  const projectionTotals = aggregatePeriodTotals({
+    months: projectionMonths,
     allMonthlyRows,
     allSettingEntries,
     allClosingEntries,
@@ -179,6 +169,21 @@ async function renderDashboardPage({
     allEmailCampaigns,
     allMetaMetrics,
     allNativeBookingLeads,
+  });
+  const projectionPoints = projectionTotals.hasAnySourceData
+    ? computeDiagnosticPoints({
+        settingTotals: projectionTotals.settingTotals,
+        closingTotals: projectionTotals.closingTotals,
+        benchmarks,
+        businessProfile,
+        cashContractedTotal: projectionTotals.cashContractedTotal,
+        activeMetricKeys: activeLegacyKeys,
+      })
+    : [];
+  const revenueProjection = buildRevenueProjection({
+    cashContractedTotal: projectionTotals.cashContractedTotal,
+    monthsCount: REVENUE_PROJECTION_MONTHS,
+    bottleneckGain: projectionPoints[0]?.monthlyGain ?? null,
   });
 
   // The visual handoff deliberately says “ce mois” and “/mois”. Keep the
@@ -193,7 +198,6 @@ async function renderDashboardPage({
     settingTotals: bottleneckSettingTotals,
     closingTotals: bottleneckClosingTotals,
     cashContractedTotal: bottleneckCashContractedTotal,
-    pipelineTotals: bottleneckPipelineTotals,
     acquisitionTotals: bottleneckAcquisitionTotals,
   } = aggregatePeriodTotals({
     months: bottleneckMonths,
@@ -230,12 +234,6 @@ async function renderDashboardPage({
   const bottleneckContentMetricMonth = bottleneckContentIsAligned ? bottleneckContentMonth : bottleneckMonth;
   const bottleneckContentMonths = [bottleneckContentMetricMonth];
   const bottleneckContentTotals = aggregateContentTotals(bottleneckContentMonths, visibleContentPosts, allVideoAttributionTotals);
-  const bottleneckRetention = computeContentRetentionSummary({
-    months: bottleneckContentMonths,
-    youtubeVideos: allYoutubeVideoInsights,
-    instagramPosts: allInstagramPostInsights,
-  });
-  const bottleneckPostsInPeriod = visibleContentPosts.filter((post) => inRange(post.publishedAt, bottleneckContentMetricMonth.range)).length;
   const hasBottleneckSettingData =
     bottleneckSettingEntries.length > 0 ||
     [
@@ -255,38 +253,7 @@ async function renderDashboardPage({
     allSales.some((sale) => !sale.isOrphan && inRange(sale.saleDate, bottleneckMonth.range));
   const hasBottleneckRevenueData = bottleneckCashContractedTotal > 0 || typeof bottleneckMonthlyRow?.cashContracted === "number";
 
-  const allPoints = hasAnySourceData
-    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys: activeLegacyKeys })
-    : [];
-  const points = allPoints.slice(0, 3);
-  const bottleneckPoints = hasBottleneckSettingData || hasBottleneckClosingData || hasBottleneckRevenueData
-    ? computeDiagnosticPoints({
-        settingTotals: bottleneckSettingTotals,
-        closingTotals: bottleneckClosingTotals,
-        benchmarks,
-        businessProfile,
-        cashContractedTotal: bottleneckCashContractedTotal,
-        activeMetricKeys: activeLegacyKeys,
-      })
-    : [];
-  const legacyBottleneckFunnel = buildBottleneckFunnel({
-    contentTotals: bottleneckContentTotals,
-    contentPostsCount: bottleneckPostsInPeriod,
-    contentBenchmarks,
-    settingTotals: bottleneckSettingTotals,
-    closingTotals: bottleneckClosingTotals,
-    funnelBenchmarks: benchmarks,
-    businessProfile,
-    cashContractedTotal: bottleneckCashContractedTotal,
-    diagnosticPoints: bottleneckPoints,
-    hasSettingData: hasBottleneckSettingData,
-    hasClosingData: hasBottleneckClosingData,
-    hasRevenueData: hasBottleneckRevenueData,
-    retention: bottleneckRetention,
-    pipelineTotals: bottleneckPipelineTotals,
-    pipelineBenchmarkRate: pipelineBenchmark,
-    locale,
-  });
+  const points = projectionPoints.slice(0, 3);
   const dealPrice = resolveDealPrice(businessProfile, bottleneckClosingTotals, bottleneckCashContractedTotal);
   const blockMetricValues = buildFunnelBlockMetricValues({
     row: bottleneckMonthlyRow,
@@ -321,33 +288,6 @@ async function renderDashboardPage({
         : stage.unit,
     })),
   };
-  const adaptiveVariants: BottleneckFunnelVariant[] = activeFunnelEntries(acquisitionSelection, acquisitionCatalog).map((entry) =>
-    buildAdaptiveFunnel({
-      entry,
-      stageVolumes: buildAcquisitionStageVolumes({
-        entry,
-        monthlyRow: bottleneckMonthlyRow,
-        contentTotals: bottleneckContentTotals,
-        contentPostsCount: bottleneckPostsInPeriod,
-        settingTotals: bottleneckSettingTotals,
-        closingTotals: bottleneckClosingTotals,
-        acquisitionTotals: bottleneckAcquisitionTotals,
-        hasSettingData: hasBottleneckSettingData,
-        hasClosingData: hasBottleneckClosingData,
-      }),
-      benchmarks: acquisitionBenchmarks,
-      dealPrice: dealPrice.price,
-      revenue: hasBottleneckRevenueData ? bottleneckCashContractedTotal : null,
-    })
-  );
-  const primaryAdaptiveVariant = adaptiveVariants.find((variant) => variant.catalogKey === acquisitionSelection.primaryFunnel) ?? adaptiveVariants[0];
-  const bottleneckFunnel = primaryAdaptiveVariant
-    ? {
-        ...primaryAdaptiveVariant,
-        variants: adaptiveVariants,
-        activeFunnelKey: acquisitionSelection.primaryFunnel,
-      }
-    : legacyBottleneckFunnel;
   const bottleneckLabel = points[0] ? tDiagnostic(`metrics.${points[0].key}`) : t("there");
 
   const weekRange = currentIsoWeekRange();
@@ -417,15 +357,9 @@ async function renderDashboardPage({
 
       <Suspense fallback={<DashboardLossHeroSkeleton />}>
         <DashboardLossHero
-          accountId={accountId}
-          businessProfile={businessProfile}
-          settingTotals={settingTotals}
-          closingTotals={closingTotals}
-          cashContractedTotal={cashContractedTotal}
-          hasAnyData={hasAnySourceData}
-          months={months}
+          hasAnyData={projectionTotals.hasAnySourceData}
           points={points}
-          bottleneckGain={bottleneckFunnel.totalPotential}
+          potentialMonthlyRevenue={revenueProjection.optimizedMonthlyRevenue}
           locale={locale}
           bottleneckLabel={bottleneckLabel}
         />
