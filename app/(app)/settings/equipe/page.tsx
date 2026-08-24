@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
@@ -51,15 +50,7 @@ export default async function EquipePage() {
           </p>
         </div>
         {subscriptionActive && (
-          <InviteMemberDialog
-            roles={roles}
-            trigger={
-              <Button type="button">
-                <Plus className="size-4" />
-                {t("invite")}
-              </Button>
-            }
-          />
+          <InviteMemberDialog roles={roles} triggerLabel={t("invite")} />
         )}
       </div>
 
@@ -117,12 +108,8 @@ export default async function EquipePage() {
             <InviteMemberDialog
               roles={roles}
               defaultRoleIds={roles.filter((role) => role.key === "closing").map((role) => role.id)}
-              trigger={
-                <Button type="button" variant="outline">
-                  <Plus className="size-4" />
-                  {t("addCloser")}
-                </Button>
-              }
+              triggerLabel={t("addCloser")}
+              triggerVariant="outline"
             />
           )}
         </div>

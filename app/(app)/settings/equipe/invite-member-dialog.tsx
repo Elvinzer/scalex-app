@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,13 @@ type RoleOption = { id: string; name: string };
 
 export function InviteMemberDialog({
   roles,
-  trigger,
+  triggerLabel,
+  triggerVariant = "default",
   defaultRoleIds = [],
 }: {
   roles: RoleOption[];
-  trigger: React.ReactNode;
+  triggerLabel: string;
+  triggerVariant?: "default" | "outline";
   defaultRoleIds?: string[];
 }) {
   const t = useTranslations("settings.team");
@@ -71,7 +74,12 @@ export function InviteMemberDialog({
         if (!next) reset();
       }}
     >
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger asChild>
+        <Button type="button" variant={triggerVariant}>
+          <Plus className="size-4" />
+          {triggerLabel}
+        </Button>
+      </DialogTrigger>
       <DialogContent>
         <DialogTitle className="text-lg font-bold">{t("invite")}</DialogTitle>
 
