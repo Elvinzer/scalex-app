@@ -530,11 +530,9 @@ export function MonthModal({
               <p className="text-sm text-muted-foreground">
                 {t("intro", { month: monthLabel })}
               </p>
-              {scaleScoreTarget && (
+              {scaleScoreTarget && scaleScoreTargetField && (
                 <div role="status" className="mt-3 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-xs font-bold text-accent-text">
-                  {scaleScoreTargetField
-                    ? t("scaleScoreTargetNotice", { field: scaleScoreTargetField.label })
-                    : t("scaleScoreSectionNotice")}
+                  {t("scaleScoreTargetNotice", { field: scaleScoreTargetField.label })}
                 </div>
               )}
             </div>
