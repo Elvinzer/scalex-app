@@ -11,6 +11,7 @@ import { getCallRoadmapRecommendations } from "@/lib/closing-videos/queries";
 import { toIsoDate, todayUtc } from "@/lib/date-range";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 import { measureAsync } from "@/lib/perf/timing";
+import { withTimeout } from "@/lib/perf/with-timeout";
 
 type RoadmapPageProps = {
   searchParams: Promise<{ year?: string | string[]; month?: string | string[] }>;
@@ -42,16 +43,20 @@ async function renderRoadmapPage({ searchParams }: RoadmapPageProps) {
   }
   await requirePermissionOrRedirect(userId, "dashboard");
 
-  const [data, streak, callRoadmapRecommendations, journalTodos, journalProjects, journalDays] = await Promise.all([
-    getJournalActionLoopData(accountId),
-    // The app shell has already refreshed this request's snapshot for the
-    // sidebar flame, so this is a request-local cache hit.
-    getStreakSnapshot(accountId),
-    getCallRoadmapRecommendations(accountId),
-    getJournalTodos(accountId),
-    getJournalProjects(accountId),
-    getJournalMonth(accountId, year, month),
-  ]);
+  const [data, streak, callRoadmapRecommendations, journalTodos, journalProjects, journalDays] = await withTimeout(
+    Promise.all([
+      getJournalActionLoopData(accountId),
+      // The app shell has already refreshed this request's snapshot for the
+      // sidebar flame, so this is a request-local cache hit.
+      getStreakSnapshot(accountId),
+      getCallRoadmapRecommendations(accountId),
+      getJournalTodos(accountId),
+      getJournalProjects(accountId),
+      getJournalMonth(accountId, year, month),
+    ]),
+    18_000,
+    "roadmap-data",
+  );
 
   const todos: RoadmapTodo[] = journalTodos.map((todo) => ({
     id: todo.id,

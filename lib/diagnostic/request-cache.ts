@@ -15,6 +15,7 @@ import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { getInFlight } from "@/lib/perf/in-flight";
 import { measureAsync } from "@/lib/perf/timing";
+import { withTimeout } from "@/lib/perf/with-timeout";
 
 const DIAGNOSTIC_CACHE_REVALIDATE_SECONDS = 30;
 
@@ -165,7 +166,11 @@ function restoreDiagnosticDates(snapshot: CachedDiagnosticKpiRawData) {
 }
 
 export const getDiagnosticKpiRawData = cache(async (accountId: string) => {
-  return restoreDiagnosticDates(await getCachedDiagnosticKpiRawData(accountId));
+  // Fail fast if the snapshot stalls (a wedged Data Cache read, an exhausted
+  // pool) instead of hanging the dashboard render to Vercel's 300s kill. The
+  // labelled error is caught by (app)/error.tsx and shipped to the client-error
+  // log, so the culprit source shows up in Vercel next time it happens.
+  return restoreDiagnosticDates(await withTimeout(getCachedDiagnosticKpiRawData(accountId), 18_000, "diagnostic-kpi-raw"));
 });
 
 export type ScaleScoreInputs = {
