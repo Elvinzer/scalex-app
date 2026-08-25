@@ -76,6 +76,8 @@
     "nextMonth": "Next month",
     "close": "Close",
     "intro": "Add {month} data in seconds. Falco can recognize your table automatically.",
+    "scaleScoreTargetNotice": "Enter {field} to calculate your Scale Score.",
+    "scaleScoreSectionNotice": "Complete the missing data in this section to calculate your Scale Score.",
     "comparisonTitle": "Cash collected · comparison",
     "currentValue": "Selected month",
     "previousValue": "Previous month",

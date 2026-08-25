@@ -30,6 +30,7 @@ export function BusinessPageClient({
   canViewSalesPerformance,
   offerPerformance,
   upsellPerformance,
+  scaleScoreTarget,
 }: {
   initialProfile: BusinessProfileData;
   funnelBlocks: FunnelBlockCatalogEntry[];
@@ -37,6 +38,7 @@ export function BusinessPageClient({
   canViewSalesPerformance: boolean;
   offerPerformance: OfferPerformance[];
   upsellPerformance: UpsellPerformance;
+  scaleScoreTarget: boolean;
 }) {
   const t = useTranslations("business");
   const [profile, setProfile] = useState(initialProfile);
@@ -170,6 +172,7 @@ export function BusinessPageClient({
           offers={profile.sales.offers}
           showPerformance={canViewSalesPerformance}
           upsellPerformance={upsellPerformance}
+          scaleScoreTarget={scaleScoreTarget}
           onChange={(delivery) => setProfile((prev) => ({ ...prev, delivery }))}
         />
       </section>

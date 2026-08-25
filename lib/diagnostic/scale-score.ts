@@ -48,12 +48,14 @@ export type ScaleScoreGapSource = {
   month?: number;
 };
 
+export type ScaleScoreTarget = ScaleScoreGapSource["key"];
+
 export function scaleScoreGapSources(gap: ScaleScoreGap | null): ScaleScoreGapSource[] {
   if (!gap) return [];
   if (gap.type === "missing_months") {
     return gap.months.map((month) => ({
       key: "month" as const,
-      href: `/datas?year=${month.year}`,
+      href: `/datas?year=${month.year}&month=${month.month}&scaleScore=month`,
       year: month.year,
       month: month.month,
     }));
@@ -61,9 +63,9 @@ export function scaleScoreGapSources(gap: ScaleScoreGap | null): ScaleScoreGapSo
 
   return gap.pillarLabels.flatMap((label): ScaleScoreGapSource[] => {
     const normalized = label.toLowerCase();
-    if (normalized.includes("acquisition")) return [{ key: "acquisition", href: "/datas" }];
-    if (normalized.includes("vente")) return [{ key: "sales", href: "/ventes/appels" }];
-    if (normalized.includes("délivr") || normalized.includes("delivr")) return [{ key: "delivery", href: "/business" }];
+    if (normalized.includes("acquisition")) return [{ key: "acquisition", href: "/datas?scaleScore=acquisition" }];
+    if (normalized.includes("vente")) return [{ key: "sales", href: "/ventes/appels?scaleScore=sales" }];
+    if (normalized.includes("délivr") || normalized.includes("delivr")) return [{ key: "delivery", href: "/business?scaleScore=delivery#livraison" }];
     return [];
   });
 }

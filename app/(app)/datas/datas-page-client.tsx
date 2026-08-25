@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
 import { SourceBadge, type MetricSource } from "@/components/source-badge";
@@ -19,11 +19,14 @@ import type { MonthlySalesSummary } from "@/lib/sales/queries";
 import { formatEur } from "@/lib/currency";
 import { rate, formatPercent } from "@/lib/setting/funnel";
 import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
+import type { ScaleScoreTarget } from "@/lib/diagnostic/scale-score";
 import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
 
 import { MonthCard } from "./month-card";
 import { MonthModal } from "./month-modal";
 import { RevenueTrend } from "./revenue-trend";
+
+type DataScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition">;
 
 // ImportFlow pulls exceljs/pdf-parse/papaparse (≈380 Ko gzip combined) —
 // it only ever renders inside the Drawer below, closed by default, so a
@@ -56,6 +59,8 @@ export function DatasPageClient({
   trendPeriod,
   chartSeries,
   goalValue,
+  scaleScoreTarget,
+  initialOpenMonth,
 }: {
   year: number;
   monthRows: MonthlyMetricsRow[];
@@ -73,12 +78,36 @@ export function DatasPageClient({
   trendPeriod: string;
   chartSeries: Record<OverviewMetricOption, ChartPoint[]>;
   goalValue: number | null;
+  scaleScoreTarget: DataScaleScoreTarget | null;
+  initialOpenMonth: { year: number; month: number } | null;
 }) {
   const t = useTranslations("data");
   const locale = useLocale();
   const router = useRouter();
-  const [open, setOpen] = useState<{ year: number; month: number } | null>(null);
+  const initialAutoOpenKey = initialOpenMonth && scaleScoreTarget
+    ? `${scaleScoreTarget}:${initialOpenMonth.year}-${initialOpenMonth.month}`
+    : null;
+  const autoOpenKeyRef = useRef(initialAutoOpenKey);
+  const [open, setOpen] = useState<{ year: number; month: number } | null>(initialOpenMonth);
   const [importOpen, setImportOpen] = useState(false);
+
+  useEffect(() => {
+    if (!initialOpenMonth || !scaleScoreTarget) {
+      autoOpenKeyRef.current = null;
+      return;
+    }
+    const nextKey = `${scaleScoreTarget}:${initialOpenMonth.year}-${initialOpenMonth.month}`;
+    if (autoOpenKeyRef.current === nextKey) return;
+    autoOpenKeyRef.current = nextKey;
+    setOpen(initialOpenMonth);
+  }, [initialOpenMonth, scaleScoreTarget]);
+
+  function closeMonthModal() {
+    setOpen(null);
+    if (scaleScoreTarget) {
+      router.replace(`/datas?year=${year}&trendPeriod=${trendPeriod}`, { scroll: false });
+    }
+  }
 
   const rowFor = (month: number) => monthRows.find((row) => row.month === month) ?? null;
   const historicalRows = monthRows.filter((row) => row.year < currentYear || (row.year === currentYear && row.month <= currentMonth)).sort((a, b) => b.year - a.year || b.month - a.month);
@@ -318,7 +347,8 @@ export function DatasPageClient({
           callSource={callSourcesByMonth[monthKey(open.year, open.month)] ?? null}
           callTrackingConnected={callTrackingConnected}
           activeMetricFields={activeMetricFields}
-          onClose={() => setOpen(null)}
+          scaleScoreTarget={scaleScoreTarget}
+          onClose={closeMonthModal}
           onNavigate={(nextYear, nextMonth) => setOpen({ year: nextYear, month: nextMonth })}
         />
       )}

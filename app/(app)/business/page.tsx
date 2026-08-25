@@ -13,9 +13,11 @@ import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
 
 import { BusinessPageClient } from "./business-page-client";
 
-export default async function BusinessPage() {
+export default async function BusinessPage({ searchParams }: { searchParams: Promise<{ scaleScore?: string }> }) {
   const { userId, accountId } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "business");
+  const params = await searchParams;
+  const scaleScoreTarget = params.scaleScore === "delivery";
   // getAccountContext is memoized per request (already resolved by the guard
   // above), so this is free — used only to gate the owner-only Équipe card.
   const context = await getAccountContext(userId);
@@ -74,6 +76,7 @@ export default async function BusinessPage() {
       canViewSalesPerformance={canViewSalesPerformance}
       offerPerformance={buildOfferPerformance(profile.sales.offers, monthSales)}
       upsellPerformance={buildUpsellPerformance(profile.sales.offers, monthSales)}
+      scaleScoreTarget={scaleScoreTarget}
     />
   );
 }

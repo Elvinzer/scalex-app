@@ -37,7 +37,7 @@ function connectionStatus(status?: string | null): IntegrationStatus {
   return "connected";
 }
 
-export default async function PriseDappelPage({ searchParams }: { searchParams: Promise<{ period?: string; call?: string; from?: string }> }) {
+export default async function PriseDappelPage({ searchParams }: { searchParams: Promise<{ period?: string; call?: string; from?: string; scaleScore?: string }> }) {
   const locale = await getLocale();
   const t = await getTranslations("app.calls");
   const { userId, accountId, user } = await getCurrentUser();
@@ -47,6 +47,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
   const period = resolvePeriod(params.period);
   const fromDashboard = params.from === "dashboard";
   const targetCallId = z.string().uuid().safeParse(params.call).success ? params.call ?? null : null;
+  const scaleScoreTarget = params.scaleScore === "sales";
 
   const context = await getAccountContext(userId);
   const isOwner = context?.isOwner ?? false;
@@ -103,9 +104,15 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
             </Link>
           )}
           {(anyConnected || calls.length > 0) && <PeriodFilter current={period.key} />}
-          <ManualCallDialog setters={setters} closers={closers} />
+          <ManualCallDialog setters={setters} closers={closers} autoOpen={scaleScoreTarget} />
         </div>
       </div>
+
+      {scaleScoreTarget && (
+        <div role="status" className="rounded-[var(--radius-card)] border border-accent-border bg-accent-soft px-4 py-3 text-sm font-bold text-accent-text">
+          {t("scaleScoreTargetNotice")}
+        </div>
+      )}
 
       {anyConnected && (
         <section aria-label={t("connectedIntegrations")} className="grid gap-3 sm:grid-cols-2">

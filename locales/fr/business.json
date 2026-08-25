@@ -96,6 +96,8 @@
   "delivery": {
     "title": "Délivrabilité",
     "help": "Ce qui se passe une fois que quelqu’un a acheté.",
+    "scaleScoreTargetNotice": "Renseigne {field} pour calculer ton Scale Score.",
+    "scaleScoreSectionNotice": "Complète les données manquantes de cette section pour calculer ton Scale Score.",
     "clientOnboarding": "Onboarding client",
     "onboardingHelp": "Décris le parcours des 7 premiers jours.",
     "supportFormat": "Suivi client — format",

@@ -76,6 +76,8 @@
     "nextMonth": "Mois suivant",
     "close": "Fermer",
     "intro": "Ajoute les données de {month} en quelques secondes. Falco peut reconnaître ton tableau automatiquement.",
+    "scaleScoreTargetNotice": "Renseigne {field} pour calculer ton Scale Score.",
+    "scaleScoreSectionNotice": "Complète les données manquantes de cette section pour calculer ton Scale Score.",
     "comparisonTitle": "CA collecté · comparaison",
     "currentValue": "Mois sélectionné",
     "previousValue": "Mois précédent",

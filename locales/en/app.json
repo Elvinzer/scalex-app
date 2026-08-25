@@ -1421,6 +1421,7 @@
   "calls": {
     "title": "Call tracking",
     "subtitle": "Your closing calls, synced from iClosed or Calendly, or added manually. Mark the outcome and amount. A closed call feeds revenue tracking.",
+    "scaleScoreTargetNotice": "Add a call and record its outcome to calculate your Scale Score.",
     "backDashboard": "Back to Dashboard",
     "connectedIntegrations": "Connected call integrations",
     "manage": "Manage",

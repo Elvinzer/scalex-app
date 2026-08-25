@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MonthWindow } from "./completed-months";
 import type { ScaleScorePillar } from "./scale-score";
-import { describeScaleScoreGap } from "./scale-score";
+import { describeScaleScoreGap, scaleScoreGapSources } from "./scale-score";
 import { currentMonthNote, scaleScoreGapMessage } from "./scale-score-copy";
 
 function month(year: number, month: number): MonthWindow {
@@ -58,6 +58,22 @@ describe("scaleScoreGapMessage", () => {
     expect(scaleScoreGapMessage({ type: "low_coverage", pillarLabels: ["Acquisition", "Vente"] })).toBe(
       "Il me manque des données côté Acquisition et Vente pour te noter."
     );
+  });
+});
+
+describe("scaleScoreGapSources", () => {
+  it("opens the relevant month modal for missing months", () => {
+    expect(scaleScoreGapSources({ type: "missing_months", months: [month(2026, 6)] })).toEqual([
+      { key: "month", href: "/datas?year=2026&month=6&scaleScore=month", year: 2026, month: 6 },
+    ]);
+  });
+
+  it("opens the relevant destination for uncovered pillars", () => {
+    expect(scaleScoreGapSources({ type: "low_coverage", pillarLabels: ["Acquisition", "Vente", "Délivrabilité"] })).toEqual([
+      { key: "acquisition", href: "/datas?scaleScore=acquisition" },
+      { key: "sales", href: "/ventes/appels?scaleScore=sales" },
+      { key: "delivery", href: "/business?scaleScore=delivery#livraison" },
+    ]);
   });
 });
 

@@ -15,17 +15,19 @@ import { getSalesSummaryByMonth } from "@/lib/sales/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeFunnelEntries, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
+import type { ScaleScoreTarget } from "@/lib/diagnostic/scale-score";
 
 import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
 
 import { DatasPageClient } from "./datas-page-client";
 
 const TREND_PERIODS = ["3", "6", "12", "year"];
+type DataScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition">;
 
 export default async function DatasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; trendPeriod?: string }>;
+  searchParams: Promise<{ year?: string; month?: string; trendPeriod?: string; scaleScore?: string }>;
 }) {
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "datas");
@@ -35,8 +37,14 @@ export default async function DatasPage({
   const currentMonth = today.getUTCMonth() + 1;
   const callTrackingConnected = Boolean(user?.iclosedConnected || user?.calendlyConnected);
 
-  const year = params.year ? Number(params.year) : currentYear;
+  const yearCandidate = params.year ? Number(params.year) : currentYear;
+  const year = Number.isInteger(yearCandidate) && yearCandidate >= 2000 && yearCandidate <= 2100 ? yearCandidate : currentYear;
   const trendPeriod = params.trendPeriod && TREND_PERIODS.includes(params.trendPeriod) ? params.trendPeriod : "6";
+  const scaleScoreTarget: DataScaleScoreTarget | null = params.scaleScore === "month" || params.scaleScore === "acquisition"
+    ? params.scaleScore
+    : null;
+  const monthCandidate = params.month ? Number(params.month) : Number.NaN;
+  const targetMonth = Number.isInteger(monthCandidate) && monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : currentMonth;
 
   const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, rawData, acquisitionCatalog] =
     await Promise.all([
@@ -132,6 +140,8 @@ export default async function DatasPage({
         trendPeriod={trendPeriod}
         chartSeries={chartSeries}
         goalValue={businessProfile.identity.mrrGoal}
+        scaleScoreTarget={scaleScoreTarget}
+        initialOpenMonth={scaleScoreTarget ? { year, month: targetMonth } : null}
       />
     </div>
   );

@@ -96,6 +96,8 @@
   "delivery": {
     "title": "Delivery",
     "help": "What happens after someone buys.",
+    "scaleScoreTargetNotice": "Complete {field} to calculate your Scale Score.",
+    "scaleScoreSectionNotice": "Complete the missing data in this section to calculate your Scale Score.",
     "clientOnboarding": "Client onboarding",
     "onboardingHelp": "Describe the first 7 days.",
     "supportFormat": "Client support: format",

@@ -1436,7 +1436,8 @@
   },
   "calls": {
     "title": "Suivi d'appel",
-    "subtitle": "Tes appels de closing, réservés automatiquement depuis iClosed ou Calendly, ou ajoutés à la main. Marque l'issue et le montant ; un appel closé alimente ton CA dans le suivi des ventes.",
+    "subtitle": "Tes appels de closing, réservés automatiquement depuis iClosed ou Calendly, ou ajoutés à la main. Marque l’issue et le montant ; un appel closé alimente ton CA dans le suivi des ventes.",
+    "scaleScoreTargetNotice": "Ajoute un appel et renseigne son issue pour calculer ton Scale Score.",
     "backDashboard": "Retour au Dashboard",
     "connectedIntegrations": "Intégrations d'appels connectées",
     "manage": "Gérer",

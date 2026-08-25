@@ -16,17 +16,19 @@ export function KpiNumberField({
   onChange,
   warning,
   disabledReason,
+  highlight = false,
 }: {
   label: string;
   value: number | null;
   onChange: (next: number | null) => void;
   warning?: string;
   disabledReason?: KpiFieldSource;
+  highlight?: boolean;
 }) {
   const disabled = disabledReason !== undefined;
 
   return (
-    <label className="flex flex-col gap-1 text-sm">
+    <label className={cn("flex flex-col gap-1 text-sm", highlight && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")}>
       <span className="flex items-center gap-1 font-bold">
         {label}
         {disabledReason && <SourcePopover {...disabledReason} />}
@@ -36,8 +38,11 @@ export function KpiNumberField({
         min={0}
         value={value ?? ""}
         disabled={disabled}
+        autoFocus={highlight}
+        aria-invalid={highlight || undefined}
+        data-scale-score-target={highlight ? "true" : undefined}
         onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))}
-        className={cn(inputClass, disabled && "cursor-not-allowed bg-muted text-muted-foreground")}
+        className={cn(inputClass, disabled && "cursor-not-allowed bg-muted text-muted-foreground", highlight && "border-accent ring-3 ring-accent/20")}
       />
       {warning && <span className="text-xs font-bold text-state-caution">{warning}</span>}
     </label>

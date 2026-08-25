@@ -7,6 +7,7 @@ import { computeSectionCompletion } from "@/lib/business/completion";
 import type { UpsellPerformance } from "@/lib/business/performance";
 import type { BusinessDelivery, Offer, SupportFormat } from "@/lib/business/types";
 import { formatEur } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 import { saveBusinessSection } from "./actions";
 import { CompletionBadge, SaveIndicator } from "./save-indicator";
@@ -43,12 +44,14 @@ export function DeliverySection({
   offers,
   showPerformance,
   upsellPerformance,
+  scaleScoreTarget,
   onChange,
 }: {
   value: BusinessDelivery;
   offers: Offer[];
   showPerformance: boolean;
   upsellPerformance: UpsellPerformance;
+  scaleScoreTarget: boolean;
   onChange: (next: BusinessDelivery) => void;
 }) {
   const locale = useLocale();
@@ -79,6 +82,18 @@ export function DeliverySection({
   const defaultUpsellOffer = offers.find((offer) => offer.isUpsell) ?? offers[0];
   const upsellOffers = offers.filter((offer) => offer.isUpsell);
   const upsellStatsByOfferId = new Map(upsellPerformance.offers.map((stats) => [stats.offerId, stats]));
+  const scaleScoreTargetFields = [
+    { key: "onboardingDescription", label: t("clientOnboarding"), filled: value.onboardingDescription.trim().length > 0 },
+    { key: "supportFormat", label: t("supportFormat"), filled: value.support.format !== null },
+    { key: "frequency", label: t("frequency"), filled: value.support.frequency.trim().length > 0 },
+    { key: "testimonialsCount", label: t("countManaged"), filled: value.testimonials.count !== null },
+    { key: "displayedOn", label: t("testimonials"), filled: value.testimonials.displayedOn.length > 0 },
+    { key: "upsellOfferId", label: t("upsell"), filled: value.upsellOfferId !== null },
+  ];
+  const scaleScoreTargetField = scaleScoreTarget
+    ? scaleScoreTargetFields.find((field) => !field.filled) ?? null
+    : null;
+  const isTargetField = (key: string) => scaleScoreTargetField?.key === key;
 
   return (
     <div className="sticker-card p-8">
@@ -93,8 +108,16 @@ export function DeliverySection({
         </div>
       </div>
 
+      {scaleScoreTarget && (
+        <div role="status" className="mt-4 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-xs font-bold text-accent-text">
+          {scaleScoreTargetField
+            ? t("scaleScoreTargetNotice", { field: scaleScoreTargetField.label })
+            : t("scaleScoreSectionNotice")}
+        </div>
+      )}
+
       <div className="mt-6 flex flex-col gap-5">
-        <label className="flex flex-col gap-1.5 text-sm">
+        <label className={cn("flex flex-col gap-1.5 text-sm", isTargetField("onboardingDescription") && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")}>
           <span className="font-bold">{t("clientOnboarding")}</span>
           <span className="text-xs text-muted-foreground">
             {t("onboardingHelp")}
@@ -108,7 +131,7 @@ export function DeliverySection({
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5 text-sm">
+          <label className={cn("flex flex-col gap-1.5 text-sm", isTargetField("supportFormat") && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")}>
             <span className="font-bold">{t("supportFormat")}</span>
             <select
               value={value.support.format ?? ""}
@@ -130,7 +153,7 @@ export function DeliverySection({
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1.5 text-sm">
+          <label className={cn("flex flex-col gap-1.5 text-sm", isTargetField("frequency") && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")}>
             <span className="font-bold">{t("frequency")}</span>
             <input
               type="text"
@@ -142,7 +165,7 @@ export function DeliverySection({
           </label>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className={cn("flex flex-col gap-3", isTargetField("testimonialsCount") && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")}>
           <p className="text-sm font-bold">{t("testimonials")}</p>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border bg-muted/35 p-4">
             <div>
@@ -156,7 +179,7 @@ export function DeliverySection({
               {t("openTestimonials")}
             </Link>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className={cn("flex flex-wrap gap-2", isTargetField("displayedOn") && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")}>
             {TESTIMONIAL_CHANNELS.map((channel) => {
               const active = value.testimonials.displayedOn.includes(channel);
               return (
@@ -177,7 +200,7 @@ export function DeliverySection({
           </div>
         </div>
 
-        <div id="upsell" className="scroll-mt-28 rounded-xl border border-border p-4">
+        <div id="upsell" className={cn("scroll-mt-28 rounded-xl border border-border p-4", isTargetField("upsellOfferId") && "border-accent/40 bg-accent-soft/40 ring-2 ring-accent/20")}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-bold">{t("upsell")}</p>

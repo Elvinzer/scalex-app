@@ -21,6 +21,7 @@ import { revenuePerCall, toClosingTotals, toFunnelTotals } from "@/lib/monthly-m
 import type { MonthlySalesSummary } from "@/lib/sales/queries";
 import { computeFunnelRates, formatPercent } from "@/lib/setting/funnel";
 import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
+import type { ScaleScoreTarget } from "@/lib/diagnostic/scale-score";
 
 import { saveMonthlyMetrics } from "./actions";
 
@@ -81,6 +82,14 @@ function SuggestionBanner({ text, actionLabel, onApply }: { text: string; action
 }
 
 type PendingAction = null | "close" | { type: "navigate"; delta: number };
+type MonthlyScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition">;
+type ScaleScoreFieldCandidate = {
+  key: string;
+  label: string;
+  value: number | null;
+  section: "finance" | "acquisition" | "closing";
+  disabled: boolean;
+};
 
 export function MonthModal({
   year,
@@ -95,6 +104,7 @@ export function MonthModal({
   callSource = null,
   callTrackingConnected,
   activeMetricFields,
+  scaleScoreTarget = null,
   onClose,
   onNavigate,
 }: {
@@ -110,6 +120,7 @@ export function MonthModal({
   callSource?: MonthlyCallSource | null;
   callTrackingConnected: boolean;
   activeMetricFields: AcquisitionFunnelStep[];
+  scaleScoreTarget?: MonthlyScaleScoreTarget | null;
   onClose: () => void;
   onNavigate: (nextYear: number, nextMonth: number) => void;
 }) {
@@ -216,10 +227,62 @@ export function MonthModal({
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initial);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [entryMode, setEntryMode] = useState<"import" | "manual">(initialData ? "manual" : "import");
+  const [entryMode, setEntryMode] = useState<"import" | "manual">(scaleScoreTarget || initialData ? "manual" : "import");
   const [importAppliedCount, setImportAppliedCount] = useState<number | null>(null);
   const [importUsage, setImportUsage] = useState<MonthlyKpiImportUsage | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const scaleScoreFieldCandidates: ScaleScoreFieldCandidate[] = [
+    {
+      key: "cashCollected",
+      label: t("cashCollected"),
+      value: draft.cashCollected,
+      section: "finance",
+      disabled: cashCollectedSynced,
+    },
+    {
+      key: "cashContracted",
+      label: t("cashContracted"),
+      value: draft.cashContracted,
+      section: "finance",
+      disabled: false,
+    },
+    ...(activeInputKeys.has("new_followers")
+      ? [{ key: "newFollowers", label: t("newFollowers"), value: draft.newFollowers, section: "acquisition" as const, disabled: settingSourced && !sourceEditMode.setting }]
+      : []),
+    ...(activeInputKeys.has("first_messages")
+      ? [{ key: "firstMessages", label: t("firstMessages"), value: draft.firstMessages, section: "acquisition" as const, disabled: settingSourced && !sourceEditMode.setting }]
+      : []),
+    ...(activeInputKeys.has("conversations")
+      ? [{ key: "conversations", label: t("conversations"), value: draft.conversations, section: "acquisition" as const, disabled: settingSourced && !sourceEditMode.setting }]
+      : []),
+    ...(activeInputKeys.has("calls_proposed")
+      ? [{ key: "callsProposed", label: t("callsProposed"), value: draft.callsProposed, section: "acquisition" as const, disabled: settingSourced && !sourceEditMode.setting }]
+      : []),
+    ...(activeInputKeys.has("calls_booked")
+      ? [{ key: "callsBooked", label: t("callsBooked"), value: draft.callsBooked, section: "acquisition" as const, disabled: callsBookedSourced || (settingSourced && !sourceEditMode.setting) }]
+      : []),
+    ...customMetricFields.map((field) => ({
+      key: field.inputMetricKey,
+      label: `${field.label} (${field.unit})`,
+      value: draft.acquisitionMetrics?.[field.inputMetricKey] ?? null,
+      section: "acquisition" as const,
+      disabled: false,
+    })),
+    ...(activeInputKeys.has("calls_attended")
+      ? [{ key: "callsTaken", label: t("callsTaken"), value: draft.callsTaken, section: "closing" as const, disabled: callsTakenFieldSource !== undefined }]
+      : []),
+    ...(activeInputKeys.has("sales_closed")
+      ? [{ key: "salesClosed", label: t("salesClosed"), value: draft.salesClosed, section: "closing" as const, disabled: salesClosedFieldSource !== undefined }]
+      : []),
+  ];
+  const scaleScoreTargetField = scaleScoreTarget
+    ? scaleScoreFieldCandidates.find((field) => {
+        const isRelevant = scaleScoreTarget === "month" || field.section === scaleScoreTarget;
+        return isRelevant && field.value === null && !field.disabled;
+      }) ?? null
+    : null;
+  const scaleScoreTargetFieldKey = scaleScoreTargetField?.key ?? null;
 
   useEffect(() => {
     const persistedOverlay = resolveDailySourceOverlay(monthDateRange(year, month), allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource, {
@@ -234,8 +297,8 @@ export function MonthModal({
     setDraft({ ...toDraft(initialData), ...persistedOverlay.overrides });
     setImportAppliedCount(null);
     setImportUsage(null);
-    setEntryMode(initialData ? "manual" : "import");
-  }, [year, month, initialData, allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource, callTrackingConnected, salesThisMonth]);
+    setEntryMode(scaleScoreTarget || initialData ? "manual" : "import");
+  }, [year, month, initialData, allSettingEntries, allClosingEntries, persistedSourceOverrides, callSource, callTrackingConnected, salesThisMonth, scaleScoreTarget]);
 
   const isDirty =
     !sameDraft(draft, initial) ||
@@ -462,6 +525,13 @@ export function MonthModal({
               <p className="text-sm text-muted-foreground">
                 {t("intro", { month: monthLabel })}
               </p>
+              {scaleScoreTarget && (
+                <div role="status" className="mt-3 rounded-[var(--radius-control)] border border-accent-border bg-accent-soft px-3 py-2 text-xs font-bold text-accent-text">
+                  {scaleScoreTargetField
+                    ? t("scaleScoreTargetNotice", { field: scaleScoreTargetField.label })
+                    : t("scaleScoreSectionNotice")}
+                </div>
+              )}
             </div>
 
             <section className="mx-6 mt-4 rounded-[var(--radius-card)] border border-border bg-muted/40 p-4" aria-labelledby="month-comparison-title">
@@ -593,11 +663,13 @@ export function MonthModal({
                     value={draft.cashCollected}
                     onChange={(v) => update({ cashCollected: v })}
                     disabledReason={cashCollectedSynced ? stripeSource(initialData?.cashCollectedSyncedAt ?? null, locale, t("stripeSynced"), t("viewIntegrations")) : undefined}
+                    highlight={scaleScoreTargetFieldKey === "cashCollected"}
                   />
                   <KpiNumberField
                     label={t("cashContracted")}
                     value={draft.cashContracted}
                     onChange={(v) => update({ cashContracted: v })}
+                    highlight={scaleScoreTargetFieldKey === "cashContracted"}
                   />
                   {newCustomersFieldSource && (
                     <KpiNumberField
@@ -650,11 +722,11 @@ export function MonthModal({
                 )}
                 {activeInputKeys.has("new_followers") || activeInputKeys.has("first_messages") || activeInputKeys.has("conversations") || activeInputKeys.has("calls_proposed") || activeInputKeys.has("calls_booked") ? (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {activeInputKeys.has("new_followers") && <KpiNumberField label={t("newFollowers")} value={draft.newFollowers} onChange={(v) => updateSourceField("setting", "newFollowers", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
-                    {activeInputKeys.has("first_messages") && <KpiNumberField label={t("firstMessages")} value={draft.firstMessages} onChange={(v) => updateSourceField("setting", "firstMessages", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
-                    {activeInputKeys.has("conversations") && <KpiNumberField label={t("conversations")} value={draft.conversations} onChange={(v) => updateSourceField("setting", "conversations", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
-                    {activeInputKeys.has("calls_proposed") && <KpiNumberField label={t("callsProposed")} value={draft.callsProposed} onChange={(v) => updateSourceField("setting", "callsProposed", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
-                    {activeInputKeys.has("calls_booked") && <KpiNumberField label={t("callsBooked")} value={draft.callsBooked} onChange={(v) => updateSourceField("setting", "callsBooked", v)} disabledReason={callsBookedSourced ? settingCallsBookedSource : settingSourced && !sourceEditMode.setting ? settingSource : undefined} />}
+                    {activeInputKeys.has("new_followers") && <KpiNumberField label={t("newFollowers")} value={draft.newFollowers} onChange={(v) => updateSourceField("setting", "newFollowers", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} highlight={scaleScoreTargetFieldKey === "newFollowers"} />}
+                    {activeInputKeys.has("first_messages") && <KpiNumberField label={t("firstMessages")} value={draft.firstMessages} onChange={(v) => updateSourceField("setting", "firstMessages", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} highlight={scaleScoreTargetFieldKey === "firstMessages"} />}
+                    {activeInputKeys.has("conversations") && <KpiNumberField label={t("conversations")} value={draft.conversations} onChange={(v) => updateSourceField("setting", "conversations", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} highlight={scaleScoreTargetFieldKey === "conversations"} />}
+                    {activeInputKeys.has("calls_proposed") && <KpiNumberField label={t("callsProposed")} value={draft.callsProposed} onChange={(v) => updateSourceField("setting", "callsProposed", v)} disabledReason={settingSourced && !sourceEditMode.setting ? settingSource : undefined} highlight={scaleScoreTargetFieldKey === "callsProposed"} />}
+                    {activeInputKeys.has("calls_booked") && <KpiNumberField label={t("callsBooked")} value={draft.callsBooked} onChange={(v) => updateSourceField("setting", "callsBooked", v)} disabledReason={callsBookedSourced ? settingCallsBookedSource : settingSourced && !sourceEditMode.setting ? settingSource : undefined} highlight={scaleScoreTargetFieldKey === "callsBooked"} />}
                   </div>
                 ) : null}
                 {customMetricFields.length > 0 && (
@@ -665,6 +737,7 @@ export function MonthModal({
                         label={`${field.label} (${field.unit})`}
                         value={draft.acquisitionMetrics?.[field.inputMetricKey] ?? null}
                         onChange={(value) => update({ acquisitionMetrics: { ...(draft.acquisitionMetrics ?? {}), [field.inputMetricKey]: value } })}
+                        highlight={scaleScoreTargetFieldKey === field.inputMetricKey}
                       />
                     ))}
                   </div>
@@ -741,8 +814,8 @@ export function MonthModal({
                   </div>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {activeInputKeys.has("calls_attended") && <KpiNumberField label={t("callsTaken")} value={draft.callsTaken} onChange={(v) => updateSourceField("closing", "callsTaken", v)} warning={callsTakenWarning} disabledReason={callsTakenSourced ? callTrackingFieldSource : callsTakenFieldSource} />}
-                  {activeInputKeys.has("sales_closed") && <KpiNumberField label={t("salesClosed")} value={draft.salesClosed} onChange={(v) => updateSourceField("closing", "salesClosed", v)} warning={salesClosedWarning} disabledReason={salesClosedFieldSource} />}
+                  {activeInputKeys.has("calls_attended") && <KpiNumberField label={t("callsTaken")} value={draft.callsTaken} onChange={(v) => updateSourceField("closing", "callsTaken", v)} warning={callsTakenWarning} disabledReason={callsTakenSourced ? callTrackingFieldSource : callsTakenFieldSource} highlight={scaleScoreTargetFieldKey === "callsTaken"} />}
+                  {activeInputKeys.has("sales_closed") && <KpiNumberField label={t("salesClosed")} value={draft.salesClosed} onChange={(v) => updateSourceField("closing", "salesClosed", v)} warning={salesClosedWarning} disabledReason={salesClosedFieldSource} highlight={scaleScoreTargetFieldKey === "salesClosed"} />}
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span>

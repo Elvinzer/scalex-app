@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,11 +22,15 @@ function today(): string {
 // booking itself (source: "manual"). Outcome (closé/non closé/attente
 // décision) and amounts are set afterwards through the exact same inline
 // controls as any synced call (calls-table.tsx), never duplicated here.
-export function ManualCallDialog({ setters, closers }: { setters: SetterRow[]; closers: ActiveCloser[] }) {
+export function ManualCallDialog({ setters, closers, autoOpen = false }: { setters: SetterRow[]; closers: ActiveCloser[]; autoOpen?: boolean }) {
   const t = useTranslations("app.calls");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (autoOpen) setOpen(true);
+  }, [autoOpen]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
