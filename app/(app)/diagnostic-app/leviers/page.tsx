@@ -82,7 +82,7 @@ export default async function DiagnosticLeversPage() {
     allNativeBookingLeads,
   });
   const points = hasAnySourceData
-    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys })
+    ? computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys, periodMonths: months.length })
     : [];
   const { toImplement } = await computeLeverOpportunities({
     accountId,

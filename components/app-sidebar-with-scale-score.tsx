@@ -114,6 +114,7 @@ export async function AppSidebarWithScaleScore({
           businessProfile,
           cashContractedTotal: projectionTotals.cashContractedTotal,
           activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+          periodMonths: projectionMonths.length,
         })
       : [];
     const revenueProjection = buildRevenueProjection({

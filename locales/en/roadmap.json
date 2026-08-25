@@ -23,6 +23,37 @@
     "team": "Team",
     "organization": "Organization"
   },
+  "planner": {
+    "eyebrow": "WORK ON NEXT",
+    "title": "Every action in one place",
+    "subtitle": "Falco brings together actions from across your business, deadlines, and decisions you made together so you always know what comes next.",
+    "todayEyebrow": "TODAY",
+    "todayTitle": "Your to-do list for today",
+    "todayHelp": "Falco brings urgent actions, follow-ups, and client reminders to the top.",
+    "todayEmpty": "Nothing is a priority for today.",
+    "personalTasks": "Personal tasks for today",
+    "calendarHelp": "Dots show planned actions, tasks, and reminders. Select a day to see the details.",
+    "queueEyebrow": "ALL ACTIONS",
+    "queueTitle": "Actions to prioritize",
+    "queueHelp": "Falco ranks them by expected impact, effort, and urgency.",
+    "actionCount": "{count} action(s)",
+    "priority": "Falco priority · {score}/100",
+    "priorityTiers": {
+      "high": "High priority",
+      "medium": "Plan next",
+      "low": "When you have time"
+    },
+    "effort": "Effort: {level}",
+    "effortLevels": {
+      "faible": "low",
+      "moyen": "medium",
+      "eleve": "high"
+    },
+    "due": "Due {date}",
+    "openData": "Enter my numbers",
+    "noActions": "No open action right now. Keep entering your numbers so Falco can set the next direction.",
+    "falcoActionsEyebrow": "ACTIONS REVIEWED WITH FALCO"
+  },
   "clientReminders": {
     "eyebrow": "CLIENT FOLLOW-UP",
     "title": "Reminders to handle",

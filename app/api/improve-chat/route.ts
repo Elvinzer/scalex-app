@@ -212,6 +212,7 @@ export async function POST(request: NextRequest) {
     businessProfile,
     cashContractedTotal,
     activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+    periodMonths: months.length,
   });
 
   // No silent fallback to "general" when a specific topic was requested —

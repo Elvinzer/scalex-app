@@ -314,16 +314,18 @@ function estimateVslAbsent(
     closingTotals,
     businessProfile,
     cashContractedTotal,
+    periodMonths,
   }: {
     settingTotals: FunnelTotals;
     closingTotals: ClosingTotals;
     businessProfile: BusinessProfileData;
     cashContractedTotal: number;
+    periodMonths: number;
   }
 ): ImpactEstimate {
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
   const closingRate = buildRates(settingTotals, closingTotals).closingRate;
-  const callsBooked = settingTotals.callsBooked;
+  const callsBooked = settingTotals.callsBooked / Math.max(1, periodMonths);
 
   if (dealPrice.price === null || closingRate === null || callsBooked === 0) {
     return {
@@ -369,7 +371,7 @@ function estimateImpact(
   }
 
   if (lever.formulaType === "traffic_uplift_x_price") {
-    return estimateVslAbsent(lever, { settingTotals, closingTotals, businessProfile, cashContractedTotal });
+    return estimateVslAbsent(lever, { settingTotals, closingTotals, businessProfile, cashContractedTotal, periodMonths });
   }
 
   if (lever.formulaType === "leads_x_rate_x_closing_x_price") {
@@ -380,10 +382,11 @@ function estimateImpact(
     if (closingRate === null || dealPrice.price === null || leadsActifs === 0) {
       return fallback();
     }
-    const amount = round(leadsActifs * rate * closingRate * dealPrice.price);
+    const leadsPerMonth = leadsActifs / Math.max(1, periodMonths);
+    const amount = round(leadsPerMonth * rate * closingRate * dealPrice.price);
     return {
       amountEur: amount,
-      explanation: `${leadsActifs} leads actifs × ${Math.round(rate * 100)}% de clic × ${Math.round(closingRate * 100)}% de closing réel × ${Math.round(dealPrice.price)}€ (prix de ton offre principale).`,
+      explanation: `${round1(leadsPerMonth)} leads actifs/mois × ${Math.round(rate * 100)}% de clic × ${Math.round(closingRate * 100)}% de closing réel × ${Math.round(dealPrice.price)}€ (prix de ton offre principale).`,
     };
   }
 
@@ -428,11 +431,13 @@ function estimateWatchImpact(
     closingTotals,
     businessProfile,
     cashContractedTotal,
+    periodMonths,
   }: {
     settingTotals: FunnelTotals;
     closingTotals: ClosingTotals;
     businessProfile: BusinessProfileData;
     cashContractedTotal: number;
+    periodMonths: number;
   }
 ): { amountEur: number | null; explanation: string } {
   if (lever.formulaType !== "leads_x_rate_x_closing_x_price") {
@@ -443,7 +448,7 @@ function estimateWatchImpact(
   const closingRate = buildRates(settingTotals, closingTotals).closingRate;
   const audienceStatKey = LEVER_AUDIENCE_STAT_KEY[lever.leverKey];
   const rawAudience = audienceStatKey ? stats[audienceStatKey] : undefined;
-  const audience = typeof rawAudience === "number" ? rawAudience : settingTotals.newSubscribers;
+  const audience = typeof rawAudience === "number" ? rawAudience : settingTotals.newSubscribers / Math.max(1, periodMonths);
 
   if (closingRate === null || dealPrice.price === null || audience <= 0) {
     return { amountEur: null, explanation: "Pas encore assez de données pour chiffrer ce gain." };
@@ -622,6 +627,7 @@ export async function computeLeverOpportunities({
           closingTotals,
           businessProfile,
           cashContractedTotal,
+          periodMonths,
         });
         toWatch.push({
           leverKey: lever.leverKey,

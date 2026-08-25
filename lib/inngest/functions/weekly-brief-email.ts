@@ -77,7 +77,7 @@ export const weeklyBriefEmail = inngest.createFunction(
           if (!hasAnySourceData) return; // nothing to report yet
 
           const benchmarks = await getDiagnosticBenchmarks(user.sector ?? null);
-          const points = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys });
+          const points = computeDiagnosticPoints({ settingTotals, closingTotals, benchmarks, businessProfile, cashContractedTotal, activeMetricKeys, periodMonths: months.length });
           const { toImplement, toWatch } = await computeLeverOpportunities({
             accountId: user.id,
             businessProfile,

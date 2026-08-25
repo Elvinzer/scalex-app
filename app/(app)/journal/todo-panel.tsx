@@ -143,7 +143,15 @@ function TodoRow({ todo, projects }: { todo: Todo; projects: { id: string; name:
   );
 }
 
-export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: string; name: string }[] }) {
+export function TodoPanel({
+  todos,
+  projects,
+  title,
+}: {
+  todos: Todo[];
+  projects: { id: string; name: string }[];
+  title?: string;
+}) {
   const t = useTranslations("journal");
   const [draft, setDraft] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -173,7 +181,7 @@ export function TodoPanel({ todos, projects }: { todos: Todo[]; projects: { id: 
   return (
     <div className="sticker-card p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-bold">{t("myTasks")}</h2>
+        <h2 className="text-base font-bold">{title ?? t("myTasks")}</h2>
         <span className="text-xs font-bold text-muted-foreground">
           {todos.filter((t) => t.done).length}/{todos.length}
         </span>

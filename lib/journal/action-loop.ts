@@ -573,6 +573,7 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
         businessProfile,
         cashContractedTotal: totals.cashContractedTotal,
         activeMetricKeys,
+        periodMonths: months.length,
       })
     : [];
   const opportunities = totals.hasAnySourceData

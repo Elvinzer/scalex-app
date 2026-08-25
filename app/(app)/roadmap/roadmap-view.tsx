@@ -23,14 +23,11 @@ import {
   Circle,
   CircleAlert,
   GripVertical,
-  Handshake,
   ListChecks,
   Loader2,
-  PenLine,
   Sparkles,
   Target,
   TrendingUp,
-  UsersRound,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -43,8 +40,9 @@ import { DrawerContent } from "@/components/ui/drawer";
 import { StreakMomentum } from "@/components/streak/streak-momentum";
 import type { ChatContext } from "@/lib/chat-context";
 import { formatEur } from "@/lib/currency";
-import type { WeeklyReportRow } from "@/lib/dashboard/weekly-report";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
+import { JournalCalendar, type JournalCalendarEvent } from "@/app/(app)/journal/journal-calendar";
+import { TodoPanel } from "@/app/(app)/journal/todo-panel";
 import type {
   JournalActionCandidate,
 } from "@/lib/journal/action-generator";
@@ -57,6 +55,7 @@ import type {
 } from "@/lib/journal/action-loop";
 import type { StreakSnapshot } from "@/lib/streak/service";
 import type { CallRoadmapRecommendation } from "@/lib/closing-videos/types";
+import type { JournalDay } from "@/lib/journal/queries";
 import { cn } from "@/lib/utils";
 
 import {
@@ -69,16 +68,29 @@ import {
 type RoadmapViewProps = {
   data: JournalActionLoopData;
   streak: StreakSnapshot;
-  weeklyReports: WeeklyReportRow[];
   callRoadmapRecommendations?: CallRoadmapRecommendation[];
   accountId?: string;
   fixtureMode?: boolean;
+  todos?: RoadmapTodo[];
+  projects?: RoadmapProject[];
+  journalDays?: JournalDay[];
+  calendarYear?: number;
+  calendarMonth?: number;
+  todayIso?: string;
 };
 
-const CATEGORY_ICONS: Record<RoadmapActionCategory, LucideIcon> = {
-  content: PenLine,
-  sales: Handshake,
-  team: UsersRound,
+export type RoadmapTodo = {
+  id: string;
+  label: string;
+  dueDate: string | null;
+  done: boolean;
+  projectId: string | null;
+  isBusinessImprovement: boolean;
+};
+
+export type RoadmapProject = {
+  id: string;
+  name: string;
 };
 
 const STAGE_ICONS: Record<RoadmapStage, LucideIcon> = {
@@ -97,13 +109,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function numberLabel(value: number, locale: string): string {
   return new Intl.NumberFormat(locale === "en" ? "en-US" : "fr-FR", { maximumFractionDigits: 0 }).format(value);
-}
-
-function weeklyDeltaLabel(
-  label: string | null,
-  translate: (key: string, values?: Record<string, string | number>) => string,
-): string | null {
-  return label?.replace("vs semaine précédente", translate("weekly.previousWeek")) ?? null;
 }
 
 function contentTitle(action: JournalActionCandidate): string {
@@ -216,118 +221,6 @@ function itemContextLabel(
   if (item.type !== "content" || item.staleDays === undefined) return null;
   if (item.staleDays === null) return translate("journey.noActivity");
   return translate("journey.stale", { days: item.staleDays });
-}
-
-function Delta({ direction, label }: { direction: "up" | "down" | null; label: string | null }) {
-  if (!label) return null;
-  return (
-    <span
-      className={cn(
-        "text-[11px] font-bold",
-        direction === "up" && "text-state-healthy",
-        direction === "down" && "text-state-critical",
-        direction === null && "text-muted-foreground",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function CategoryIcon({ category }: { category: RoadmapActionCategory }) {
-  const Icon = CATEGORY_ICONS[category];
-  return <Icon className="size-4" aria-hidden="true" />;
-}
-
-function DailyActionRow({
-  item,
-  completed,
-  pending,
-  onStart,
-  onComplete,
-  translate,
-  translateDiagnostic,
-  locale,
-}: {
-  item: RoadmapDailyAction;
-  completed: boolean;
-  pending: boolean;
-  onStart: (action: JournalActionCandidate) => void;
-  onComplete: (item: RoadmapDailyAction) => void;
-  translate: (key: string, values?: Record<string, string | number>) => string;
-  translateDiagnostic: (key: string) => string;
-  locale: string;
-}) {
-  const action = item.action;
-  const categoryLabel = translate(`categories.${item.labelKey}`);
-  const title = action
-    ? actionTitle(action, translate, translateDiagnostic)
-    : translate(`fallback.${item.labelKey}.title`);
-  const origin = action
-    ? actionOrigin(action, translate, translateDiagnostic)
-    : translate(`fallback.${item.labelKey}.body`);
-  const impact = action ? impactLabel(action, translate, locale) : null;
-  const isOverdue = Boolean(action?.overdue);
-
-  return (
-    <article className={cn("flex min-w-0 flex-col gap-3 p-3 sm:p-4", completed && "bg-surface-sunken/60")}>
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={completed}
-          aria-label={completed ? translate("actions.markedDone") : translate("actions.markDone", { title })}
-          disabled={!action || completed || pending}
-          onClick={() => onComplete(item)}
-          className={cn(
-            "mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full border transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-            completed
-              ? "border-state-healthy bg-state-healthy text-text-on-dark"
-              : action
-                ? "border-border bg-card text-transparent hover:border-accent hover:text-accent"
-                : "border-border bg-surface-sunken text-transparent",
-          )}
-        >
-          {completed ? <Check className="size-4" aria-hidden="true" /> : <Circle className="size-4" aria-hidden="true" />}
-        </button>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-2-soft px-2 py-1 text-[11px] font-bold text-accent-2-text">
-              <CategoryIcon category={item.category} />
-              {categoryLabel}
-            </span>
-            {isOverdue && <span className="text-[11px] font-semibold text-state-caution">{translate("deferred")}</span>}
-          </div>
-          <h3 className={cn("mt-2 text-sm font-bold leading-5", completed && "text-muted-foreground line-through")}>{title}</h3>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">{origin}</p>
-          {impact && <p className="mt-1 text-xs font-semibold text-foreground">{impact}</p>}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 pl-14">
-        {action ? (
-          <>
-            <Button type="button" size="sm" variant="outline" className="min-h-10 px-2.5 text-xs" disabled={pending || completed} onClick={() => onStart(action)}>
-              {pending ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles className="size-3.5 text-accent-2" aria-hidden="true" />}
-              {translate("actions.withFalco")}
-            </Button>
-            <Button type="button" size="sm" variant="secondary" className="min-h-10 px-2.5 text-xs" disabled={pending || completed} onClick={() => onComplete(item)}>
-              {pending ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
-              {completed ? translate("actions.completed") : translate("actions.done")}
-            </Button>
-          </>
-        ) : (
-          <Button type="button" size="sm" variant="outline" className="min-h-10 px-2.5 text-xs" asChild>
-            <Link href="/diagnostic-app">
-              {translate("fallback.openDiagnostic")}
-              <ArrowRight className="size-3.5" aria-hidden="true" />
-            </Link>
-          </Button>
-        )}
-      </div>
-    </article>
-  );
 }
 
 function BottleneckBlock({
@@ -671,79 +564,321 @@ function RoadmapJourney({
   );
 }
 
-function WeeklySummary({
-  reports,
-  actionsDone,
-  checkInDone,
+function actionCategory(action: JournalActionCandidate): RoadmapActionCategory {
+  if (action.type === "content") return "content";
+  if (action.type === "bottleneck" || action.type === "lead_reminder") return "sales";
+
+  const source = normalizedText(action.sourceInsight);
+  if (source.includes("vente") || source.includes("closing") || source.includes("pipeline")) return "sales";
+  if (source.includes("acquisition") || source.includes("contenu") || source.includes("youtube") || source.includes("newsletter")) return "content";
+  return "team";
+}
+
+function priorityTier(score: number): "high" | "medium" | "low" {
+  if (score >= 80) return "high";
+  if (score >= 55) return "medium";
+  return "low";
+}
+
+type RoadmapActionStart = (action: JournalActionCandidate, category: RoadmapActionCategory) => void;
+type RoadmapActionComplete = (item: RoadmapDailyAction) => void;
+
+function PlannerActionRow({
+  action,
+  completed,
+  pending,
+  compact = false,
+  onStart,
+  onComplete,
   translate,
+  translateDiagnostic,
   locale,
 }: {
-  reports: WeeklyReportRow[];
-  actionsDone: number;
-  checkInDone: boolean;
+  action: JournalActionCandidate;
+  completed: boolean;
+  pending: boolean;
+  compact?: boolean;
+  onStart: RoadmapActionStart;
+  onComplete: RoadmapActionComplete;
   translate: (key: string, values?: Record<string, string | number>) => string;
+  translateDiagnostic: (key: string) => string;
   locale: string;
 }) {
-  const report = reports[0] ?? null;
-  const reportStats = report?.statsSnapshot.slice(0, 4) ?? [];
+  const category = actionCategory(action);
+  const tier = priorityTier(action.priorityScore);
+  const title = actionTitle(action, translate, translateDiagnostic);
+  const impact = impactLabel(action, translate, locale);
+  const dueLabel = action.dueDate
+    ? translate("planner.due", {
+        date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(new Date(`${action.dueDate}T00:00:00Z`)),
+      })
+    : null;
+  const item: RoadmapDailyAction = { category, labelKey: category, action };
 
   return (
-    <section className="sticker-card p-4 sm:p-5" aria-labelledby="roadmap-weekly-title">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">{translate("weekly.eyebrow")}</p>
-          <h2 id="roadmap-weekly-title" className="mt-1 text-lg font-bold">{translate("weekly.title")}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{translate("weekly.subtitle")}</p>
+    <article className={cn("flex min-w-0 flex-col gap-3 p-3 sm:p-4", completed && "bg-surface-sunken/60", compact && "p-3")}>
+      <div className="flex min-w-0 items-start gap-3">
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={completed}
+          aria-label={completed ? translate("actions.markedDone") : translate("actions.markDone", { title })}
+          disabled={completed || pending}
+          onClick={() => onComplete(item)}
+          className={cn(
+            "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full border transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+            completed
+              ? "border-state-healthy bg-state-healthy text-text-on-dark"
+              : "border-border bg-card text-transparent hover:border-accent hover:text-accent",
+          )}
+        >
+          {completed ? <Check className="size-4" aria-hidden="true" /> : <Circle className="size-4" aria-hidden="true" />}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center rounded-full bg-accent-2-soft px-2 py-1 text-[10px] font-bold text-accent-2-text">
+              {translate(`categories.${category}`)}
+            </span>
+            <span className="inline-flex items-center rounded-full bg-surface-sunken px-2 py-1 text-[10px] font-bold text-muted-foreground">
+              {translate("planner.priority", { score: action.priorityScore })}: {translate(`planner.priorityTiers.${tier}`)}
+            </span>
+            <span className="text-[10px] font-semibold text-muted-foreground">
+              {translate("planner.effort", { level: translate(`planner.effortLevels.${action.effort}`) })}
+            </span>
+          </div>
+          <h3 className={cn("mt-2 text-sm font-bold leading-5", completed && "text-muted-foreground line-through")}>{title}</h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{actionOrigin(action, translate, translateDiagnostic)}</p>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+            <span className="font-semibold text-foreground">{impact}</span>
+            {dueLabel && <span className="text-muted-foreground">{dueLabel}</span>}
+          </div>
         </div>
-        <TrendingUp className="size-5 text-accent-2" aria-hidden="true" />
       </div>
 
-      {report ? (
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          {reportStats.map((stat) => (
-            <div key={stat.key} className="rounded-[var(--radius-control)] bg-surface-sunken p-3">
-              <p className="text-[11px] font-bold text-muted-foreground">{translate(`weekly.stats.${stat.key}`)}</p>
-              <p className="mt-1 text-base font-bold tabular-nums">{stat.valueLabel}</p>
-              <Delta direction={stat.deltaDirection} label={weeklyDeltaLabel(stat.deltaLabel, translate)} />
-            </div>
-          ))}
-          <div className="rounded-[var(--radius-control)] bg-surface-sunken p-3">
-            <p className="text-[11px] font-bold text-muted-foreground">Scale Score</p>
-            <p className="mt-1 text-base font-bold tabular-nums">{report.score === null ? "—" : `${report.score}/100`}</p>
-            <Delta direction={report.scoreDelta === null ? null : report.scoreDelta > 0 ? "up" : report.scoreDelta < 0 ? "down" : null} label={report.scoreDelta === null ? null : `${report.scoreDelta > 0 ? "+" : ""}${report.scoreDelta}`} />
-          </div>
-          <div className="rounded-[var(--radius-control)] bg-surface-sunken p-3">
-            <p className="text-[11px] font-bold text-muted-foreground">{translate("weekly.actionsDone")}</p>
-            <p className="mt-1 text-base font-bold tabular-nums">{numberLabel(actionsDone, locale)}</p>
-            <span className="text-[11px] text-muted-foreground">{translate("weekly.thisWeek")}</span>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-4 rounded-[var(--radius-control)] bg-surface-sunken px-3 py-4 text-sm text-muted-foreground">{translate("weekly.empty")}</div>
-      )}
-
-      {!checkInDone && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] bg-accent-2-soft px-3 py-3">
-          <p className="text-sm font-semibold text-accent-2-text">{translate("weekly.checkinReminder")}</p>
-          <Button size="sm" variant="outline" className="min-h-11" asChild>
-            <Link href="/datas">{translate("weekly.openData")}</Link>
+      <div className="flex flex-wrap gap-1.5 pl-13">
+        {action.type === "data_checkin" ? (
+          <Button type="button" size="sm" variant="outline" className="min-h-10 px-2.5 text-xs" asChild>
+            <Link href={action.href}>
+              {translate("planner.openData")}
+              <ArrowRight className="size-3.5" aria-hidden="true" />
+            </Link>
           </Button>
+        ) : (
+          <>
+            <Button type="button" size="sm" variant="outline" className="min-h-10 px-2.5 text-xs" disabled={pending || completed} onClick={() => onStart(action, category)}>
+              {pending ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Sparkles className="size-3.5 text-accent-2" aria-hidden="true" />}
+              {translate("actions.withFalco")}
+            </Button>
+            <Button type="button" size="sm" variant="secondary" className="min-h-10 px-2.5 text-xs" disabled={pending || completed} onClick={() => onComplete(item)}>
+              {pending ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
+              {completed ? translate("actions.completed") : translate("actions.done")}
+            </Button>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function RoadmapActionCenter({
+  data,
+  todos,
+  projects,
+  journalDays,
+  calendarYear,
+  calendarMonth,
+  todayIso,
+  callRoadmapRecommendations,
+  accountId,
+  fixtureMode,
+  completedIds,
+  pendingId,
+  isPending,
+  onStart,
+  onComplete,
+  translate,
+  translateDiagnostic,
+  locale,
+}: {
+  data: JournalActionLoopData;
+  todos: RoadmapTodo[];
+  projects: RoadmapProject[];
+  journalDays: JournalDay[];
+  calendarYear: number;
+  calendarMonth: number;
+  todayIso: string;
+  callRoadmapRecommendations: CallRoadmapRecommendation[];
+  accountId?: string;
+  fixtureMode: boolean;
+  completedIds: Set<string>;
+  pendingId: string | null;
+  isPending: boolean;
+  onStart: RoadmapActionStart;
+  onComplete: RoadmapActionComplete;
+  translate: (key: string, values?: Record<string, string | number>) => string;
+  translateDiagnostic: (key: string) => string;
+  locale: string;
+}) {
+  const actions = [data.todayAction, ...data.allNextActions].filter((action, index, candidates): action is JournalActionCandidate => Boolean(action) && candidates.findIndex((candidate) => candidate?.id === action?.id) === index);
+  const todayActions = actions.filter((action) => action.id === data.todayAction?.id || (action.dueDate !== null && action.dueDate <= todayIso));
+  const todayTodos = todos.filter((todo) => todo.dueDate === null || todo.dueDate <= todayIso);
+  const calendarEvents: JournalCalendarEvent[] = [
+    ...todos
+      .filter((todo) => todo.dueDate !== null)
+      .map((todo) => ({ id: `todo:${todo.id}`, date: todo.dueDate as string, label: todo.label, type: "todo_business_improvement", completed: todo.done })),
+    ...actions
+      .filter((action) => action.dueDate !== null)
+      .map((action) => ({ id: `action:${action.id}`, date: action.dueDate as string, label: actionTitle(action, translate, translateDiagnostic), type: "initiative_launched", completed: action.status === "done" })),
+    ...data.clientReminders.map((reminder) => ({ id: `client-reminder:${reminder.id}`, date: reminder.remindAt.slice(0, 10), label: `${reminder.clientName} · ${reminder.note}`, type: "todo_business_improvement" })),
+  ];
+
+  return (
+    <section aria-labelledby="roadmap-workspace-title">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold tracking-[0.12em] text-accent-2 uppercase">{translate("planner.eyebrow")}</p>
+          <h2 id="roadmap-workspace-title" className="mt-1 text-lg font-bold">{translate("planner.title")}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{translate("planner.subtitle")}</p>
         </div>
+        <ListChecks className="size-5 text-accent-2" aria-hidden="true" />
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.28fr)] xl:items-start">
+        <div className="flex min-w-0 flex-col gap-4">
+          <section className="sticker-card overflow-hidden" aria-labelledby="roadmap-today-title">
+            <div className="border-b border-border bg-surface-sunken/60 px-4 py-3">
+              <p className="text-xs font-bold tracking-[0.1em] text-accent-text uppercase">{translate("planner.todayEyebrow")}</p>
+              <h3 id="roadmap-today-title" className="mt-1 text-base font-bold">{translate("planner.todayTitle")}</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{translate("planner.todayHelp")}</p>
+            </div>
+            <div className="divide-y divide-border">
+              {todayActions.map((action) => (
+                <PlannerActionRow
+                  key={action.id}
+                  action={action}
+                  compact
+                  completed={action.status === "done" || completedIds.has(action.id)}
+                  pending={isPending && pendingId === action.id}
+                  onStart={onStart}
+                  onComplete={onComplete}
+                  translate={translate}
+                  translateDiagnostic={translateDiagnostic}
+                  locale={locale}
+                />
+              ))}
+              {data.clientReminders.filter((reminder) => reminder.remindAt.slice(0, 10) <= todayIso).map((reminder) => (
+                <Link
+                  key={reminder.id}
+                  href={`/delivrabilite/suivi-client?journeyId=${encodeURIComponent(reminder.journeyId)}`}
+                  className="flex items-start gap-3 p-3 transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+                >
+                  <CalendarClock className="mt-0.5 size-4 shrink-0 text-accent-2" aria-hidden="true" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">{reminder.clientName}</span>
+                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{reminder.note}</span>
+                  </span>
+                </Link>
+              ))}
+              {todayActions.length === 0 && data.clientReminders.every((reminder) => reminder.remindAt.slice(0, 10) > todayIso) && (
+                <p className="p-4 text-sm text-muted-foreground">{translate("planner.todayEmpty")}</p>
+              )}
+            </div>
+          </section>
+
+          <TodoPanel todos={todayTodos} projects={projects} title={translate("planner.personalTasks")} />
+        </div>
+
+        <div className="min-w-0">
+          <JournalCalendar
+            year={calendarYear}
+            month={calendarMonth}
+            days={journalDays}
+            todayIso={todayIso}
+            basePath={fixtureMode ? "/e2e/roadmap" : "/roadmap"}
+            additionalEvents={calendarEvents}
+          />
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">{translate("planner.calendarHelp")}</p>
+        </div>
+      </div>
+
+      <section className="mt-6" aria-labelledby="roadmap-queue-title">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold tracking-[0.12em] text-accent-2 uppercase">{translate("planner.queueEyebrow")}</p>
+            <h3 id="roadmap-queue-title" className="mt-1 text-lg font-bold">{translate("planner.queueTitle")}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{translate("planner.queueHelp")}</p>
+          </div>
+          <span className="rounded-full bg-accent-2-soft px-3 py-1.5 text-xs font-bold text-accent-2-text">{translate("planner.actionCount", { count: actions.length })}</span>
+        </div>
+        <div className="sticker-card mt-4 divide-y divide-border overflow-hidden">
+          {actions.length > 0 ? (
+            actions.map((action) => (
+              <PlannerActionRow
+                key={action.id}
+                action={action}
+                completed={action.status === "done" || completedIds.has(action.id)}
+                pending={isPending && pendingId === action.id}
+                onStart={onStart}
+                onComplete={onComplete}
+                translate={translate}
+                translateDiagnostic={translateDiagnostic}
+                locale={locale}
+              />
+            ))
+          ) : (
+            <p className="p-4 text-sm text-muted-foreground">{translate("planner.noActions")}</p>
+          )}
+        </div>
+      </section>
+
+      {callRoadmapRecommendations.length > 0 && (
+        <section className="mt-6" aria-labelledby="roadmap-call-actions-title">
+          <div>
+            <p className="text-xs font-bold tracking-[0.12em] text-accent-2 uppercase">{translate("planner.falcoActionsEyebrow")}</p>
+            <h3 id="roadmap-call-actions-title" className="mt-1 text-lg font-bold">{translate("callRecommendations.title")}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{translate("callRecommendations.help")}</p>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {callRoadmapRecommendations.map((recommendation) => (
+              <Link key={recommendation.id} href={recommendation.href} className="sticker-card p-4 transition-colors hover:border-accent-2-border hover:bg-accent-2-soft/30 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
+                <p className="text-sm font-bold">{recommendation.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{recommendation.description}</p>
+                <span className="mt-3 inline-flex text-xs font-bold text-accent-2-text">{translate("callRecommendations.openCall")} →</span>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
-      <div className="mt-4 flex justify-end">
-        <Button type="button" variant="link" asChild>
-          <Link href="/dashboard?report=1" prefetch>
-            {translate("weekly.fullReport")}
-            <ArrowRight className="size-3.5" aria-hidden="true" />
-          </Link>
-        </Button>
-      </div>
+      {data.roadmapVisible && (
+        <div className="mt-6">
+          <RoadmapJourney
+            items={data.roadmapItems}
+            translate={translate}
+            translateDiagnostic={translateDiagnostic}
+            locale={locale}
+            storageKey={accountId ? `minaly:roadmap-stages:${accountId}` : null}
+          />
+        </div>
+      )}
     </section>
   );
 }
 
-export function RoadmapView({ data, streak, weeklyReports, callRoadmapRecommendations = [], accountId, fixtureMode = false }: RoadmapViewProps) {
+export function RoadmapView({
+  data,
+  streak,
+  callRoadmapRecommendations = [],
+  accountId,
+  fixtureMode = false,
+  todos = [],
+  projects = [],
+  journalDays = [],
+  calendarYear = 2026,
+  calendarMonth = 1,
+  todayIso = new Date().toISOString().slice(0, 10),
+}: RoadmapViewProps) {
   const locale = useLocale();
   const translate = useTranslations("roadmap");
   const translateDiagnostic = useTranslations("diagnostic");
@@ -856,71 +991,6 @@ export function RoadmapView({ data, streak, weeklyReports, callRoadmapRecommenda
 
       <StreakMomentum snapshot={streak} />
 
-      <section aria-labelledby="roadmap-actions-title">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold tracking-[0.12em] text-accent-2 uppercase">{translate("daily.eyebrow")}</p>
-            <h2 id="roadmap-actions-title" className="mt-1 text-lg font-bold">{translate("daily.title")}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{translate("daily.subtitle")}</p>
-          </div>
-          <ListChecks className="size-5 text-accent-2" aria-hidden="true" />
-        </div>
-
-        <div className="sticker-card mt-4 grid overflow-hidden divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
-          {data.dailyActions.map((item) => (
-            <DailyActionRow
-              key={item.category}
-              item={item}
-              completed={Boolean(item.action && (item.action.status === "done" || completedIds.has(item.action.id)))}
-              pending={isPending && pendingId === item.action?.id}
-              onStart={(action) => startAction(action, item.category)}
-              onComplete={completeAction}
-              translate={translate}
-              translateDiagnostic={translateDiagnostic}
-              locale={locale}
-            />
-          ))}
-        </div>
-      </section>
-
-      {data.clientReminders.length > 0 && (
-        <section aria-labelledby="client-reminders-title">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold tracking-[0.12em] text-accent-2 uppercase">{translate("clientReminders.eyebrow")}</p>
-              <h2 id="client-reminders-title" className="mt-1 text-lg font-bold">{translate("clientReminders.title")}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{translate("clientReminders.help")}</p>
-            </div>
-            <CalendarClock className="size-5 text-accent-2" aria-hidden="true" />
-          </div>
-          <div className="sticker-card mt-4 divide-y divide-border overflow-hidden">
-            {data.clientReminders.map((reminder) => (
-              <Link
-                key={reminder.id}
-                href={`/delivrabilite/suivi-client?journeyId=${encodeURIComponent(reminder.journeyId)}`}
-                className="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
-              >
-                <CalendarClock className="size-4 shrink-0 text-accent-2" aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold">{reminder.clientName}</span>
-                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{reminder.note}</span>
-                </span>
-                <time className={cn("shrink-0 text-xs font-bold", reminder.overdue ? "text-state-caution" : "text-muted-foreground")} dateTime={reminder.remindAt}>
-                  {new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(reminder.remindAt))}
-                </time>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {error && (
-        <p className="flex items-center gap-2 rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm text-state-critical" role="alert">
-          <CircleAlert className="size-4" aria-hidden="true" />
-          {error}
-        </p>
-      )}
-
       <BottleneckBlock
         data={data}
         pending={isPending && pendingId === `bottleneck:${data.bottleneck?.key}`}
@@ -930,35 +1000,33 @@ export function RoadmapView({ data, streak, weeklyReports, callRoadmapRecommenda
         locale={locale}
       />
 
-      {data.roadmapVisible && (
-        <RoadmapJourney
-          items={data.roadmapItems}
-          translate={translate}
-          translateDiagnostic={translateDiagnostic}
-          locale={locale}
-          storageKey={accountId ? `minaly:roadmap-stages:${accountId}` : null}
-        />
+      {error && (
+        <p className="flex items-center gap-2 rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm text-state-critical" role="alert">
+          <CircleAlert className="size-4" aria-hidden="true" />
+          {error}
+        </p>
       )}
 
-      {callRoadmapRecommendations.length > 0 ? (
-        <section className="flex flex-col gap-3" aria-labelledby="call-roadmap-recommendations-title">
-          <div>
-            <h2 id="call-roadmap-recommendations-title" className="text-lg font-bold">{translate("callRecommendations.title")}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{translate("callRecommendations.help")}</p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {callRoadmapRecommendations.map((recommendation) => (
-              <Link key={recommendation.id} href={recommendation.href} className="sticker-card p-4 transition-colors hover:border-accent-2-border hover:bg-accent-2-soft/30 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
-                <p className="text-sm font-bold">{recommendation.title}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{recommendation.description}</p>
-                <span className="mt-3 inline-flex text-xs font-bold text-accent-2-text">{translate("callRecommendations.openCall")} →</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <WeeklySummary reports={weeklyReports} actionsDone={data.momentum.actionsDoneThisWeek} checkInDone={data.checkInDoneThisWeek} translate={translate} locale={locale} />
+      <RoadmapActionCenter
+        data={data}
+        todos={todos}
+        projects={projects}
+        journalDays={journalDays}
+        calendarYear={calendarYear}
+        calendarMonth={calendarMonth}
+        todayIso={todayIso}
+        callRoadmapRecommendations={callRoadmapRecommendations}
+        accountId={accountId}
+        fixtureMode={fixtureMode}
+        completedIds={completedIds}
+        pendingId={pendingId}
+        isPending={isPending}
+        onStart={startAction}
+        onComplete={completeAction}
+        translate={translate}
+        translateDiagnostic={translateDiagnostic}
+        locale={locale}
+      />
 
       <FalcoDrawer open={chatContext !== null} onOpenChange={(open) => { if (!open) setChatContext(null); }}>
         <DrawerContent>

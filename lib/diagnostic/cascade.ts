@@ -120,10 +120,12 @@ function gainForKey(
   rates: Record<MetricKey, number | null>,
   messagesSent: number,
   realSales: number | null,
-  dealPrice: DealPrice
+  dealPrice: DealPrice,
+  periodMonths = 1,
 ): { extraClients: number; monthlyGain: number | null; simulatedSales: number | null } {
   const simulatedSales = simulateSales(messagesSent, rates, { [key]: benchmark });
-  const extraClients = realSales !== null && simulatedSales !== null ? round1(simulatedSales - realSales) : 0;
+  const months = Math.max(1, periodMonths);
+  const extraClients = realSales !== null && simulatedSales !== null ? round1((simulatedSales - realSales) / months) : 0;
   const monthlyGain = dealPrice.price !== null ? Math.round(extraClients * dealPrice.price) : null;
   return { extraClients, monthlyGain, simulatedSales };
 }
@@ -222,6 +224,7 @@ export function computeDiagnosticPoints({
   businessProfile,
   cashContractedTotal,
   activeMetricKeys = METRIC_KEYS,
+  periodMonths = 1,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
@@ -229,6 +232,10 @@ export function computeDiagnosticPoints({
   businessProfile: BusinessProfileData;
   cashContractedTotal: number;
   activeMetricKeys?: MetricKey[];
+  // Totals are often aggregated over several completed months. Impacts are
+  // displayed as monthly values, so normalize the simulated delta back to
+  // the selected period's monthly average.
+  periodMonths?: number;
 }): DiagnosticPoint[] {
   const rates = buildRates(settingTotals, closingTotals);
 
@@ -246,11 +253,11 @@ export function computeDiagnosticPoints({
     if (status !== "caution" && status !== "critical") continue;
     // current, volume are non-null/large-enough here (status check guarantees it)
 
-    const { extraClients, monthlyGain, simulatedSales } = gainForKey(key, benchmark, rates, messagesSent, realSales, dealPrice);
+    const { extraClients, monthlyGain, simulatedSales } = gainForKey(key, benchmark, rates, messagesSent, realSales, dealPrice, periodMonths);
     const mainOffer = businessProfile.sales.offers.find((offer) => offer.isMain);
     const yearlyGain = monthlyGain !== null && mainOffer?.recurrence === "mensuel" ? monthlyGain * 12 : null;
 
-    const immediateGain = Math.round((benchmark - (current as number)) * volume);
+    const immediateGain = Math.round(((benchmark - (current as number)) * volume) / Math.max(1, periodMonths));
     const currentPct = Math.round((current as number) * 100);
     const benchmarkPct = Math.round(benchmark * 100);
 
@@ -324,7 +331,8 @@ export function computeMetricHealthCards({
   benchmarks,
   businessProfile,
   cashContractedTotal,
-  activeMetricKeys = METRIC_KEYS,
+    activeMetricKeys = METRIC_KEYS,
+    periodMonths = 1,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
@@ -332,6 +340,7 @@ export function computeMetricHealthCards({
   businessProfile: BusinessProfileData;
   cashContractedTotal: number;
   activeMetricKeys?: MetricKey[];
+  periodMonths?: number;
 }): MetricHealthCard[] {
   const rates = buildRates(settingTotals, closingTotals);
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
@@ -349,7 +358,7 @@ export function computeMetricHealthCards({
     // current is non-null here (status check guarantees it)
 
     const { extraClients, monthlyGain } =
-      status === "ok" ? { extraClients: 0, monthlyGain: 0 } : gainForKey(key, benchmark, rates, messagesSent, realSales, dealPrice);
+      status === "ok" ? { extraClients: 0, monthlyGain: 0 } : gainForKey(key, benchmark, rates, messagesSent, realSales, dealPrice, periodMonths);
 
     cards.push({
       key,
@@ -384,6 +393,7 @@ export function computeFullBenchmarkProjection({
   businessProfile,
   cashContractedTotal,
   activeMetricKeys = METRIC_KEYS,
+  periodMonths = 1,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
@@ -391,6 +401,7 @@ export function computeFullBenchmarkProjection({
   businessProfile: BusinessProfileData;
   cashContractedTotal: number;
   activeMetricKeys?: MetricKey[];
+  periodMonths?: number;
 }): FullBenchmarkProjection {
   if (activeMetricKeys.length < METRIC_KEYS.length) {
     return { realSales: null, simulatedSales: null, extraClients: null, monthlyGain: null };
@@ -401,7 +412,7 @@ export function computeFullBenchmarkProjection({
   const simulatedSales = simulateSales(messagesSent, rates, benchmarks);
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
 
-  const extraClients = realSales !== null && simulatedSales !== null ? round1(simulatedSales - realSales) : null;
+  const extraClients = realSales !== null && simulatedSales !== null ? round1((simulatedSales - realSales) / Math.max(1, periodMonths)) : null;
   const monthlyGain = extraClients !== null && dealPrice.price !== null ? Math.round(extraClients * dealPrice.price) : null;
 
   return { realSales, simulatedSales, extraClients, monthlyGain };

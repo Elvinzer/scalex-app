@@ -23,6 +23,37 @@
     "team": "Équipe",
     "organization": "Organisation"
   },
+  "planner": {
+    "eyebrow": "À BOSSER",
+    "title": "Toutes tes actions au même endroit",
+    "subtitle": "Falco rassemble les actions de ton activité, les échéances et les décisions prises ensemble pour que tu saches quoi faire ensuite.",
+    "todayEyebrow": "AUJOURD’HUI",
+    "todayTitle": "Ta to-do du jour",
+    "todayHelp": "Falco fait remonter ici les actions urgentes, les relances et les rappels client.",
+    "todayEmpty": "Aucune action prioritaire pour aujourd’hui.",
+    "personalTasks": "Tâches personnelles du jour",
+    "calendarHelp": "Les pastilles indiquent les actions, tâches et rappels déjà planifiés. Clique sur un jour pour voir le détail.",
+    "queueEyebrow": "TOUTES LES ACTIONS",
+    "queueTitle": "Les actions à prioriser",
+    "queueHelp": "Falco les classe selon l’impact attendu, l’effort à fournir et l’urgence.",
+    "actionCount": "{count} action(s)",
+    "priority": "Priorité Falco · {score}/100",
+    "priorityTiers": {
+      "high": "Prioritaire",
+      "medium": "À planifier",
+      "low": "Quand tu as un créneau"
+    },
+    "effort": "Effort : {level}",
+    "effortLevels": {
+      "faible": "faible",
+      "moyen": "moyen",
+      "eleve": "élevé"
+    },
+    "due": "Échéance : {date}",
+    "openData": "Renseigner mes chiffres",
+    "noActions": "Aucune action ouverte. Continue à renseigner tes chiffres pour que Falco puisse te proposer le prochain cap.",
+    "falcoActionsEyebrow": "ACTIONS VUES AVEC FALCO"
+  },
   "clientReminders": {
     "eyebrow": "SUIVI CLIENT",
     "title": "Rappels à traiter",

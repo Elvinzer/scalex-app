@@ -178,6 +178,7 @@ async function renderDashboardPage({
         businessProfile,
         cashContractedTotal: projectionTotals.cashContractedTotal,
         activeMetricKeys: activeLegacyKeys,
+        periodMonths: projectionMonths.length,
       })
     : [];
   const revenueProjection = buildRevenueProjection({

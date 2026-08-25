@@ -258,6 +258,7 @@ async function renderDiagnosticPage({
         businessProfile,
         cashContractedTotal: projectionTotals.cashContractedTotal,
         activeMetricKeys: activeLegacyKeys,
+        periodMonths: projectionMonths.length,
       })
     : [];
   const revenueProjection = buildRevenueProjection({
@@ -289,6 +290,7 @@ async function renderDiagnosticPage({
     businessProfile,
     cashContractedTotal,
     activeMetricKeys: activeLegacyKeys,
+    periodMonths: months.length,
   });
   const summaries = computeMetricSummaries({ settingTotals, closingTotals, benchmarks, activeMetricKeys: activeLegacyKeys });
   const followups = computeFollowupCompliance(businessProfile);
@@ -390,6 +392,7 @@ async function renderDiagnosticPage({
     businessProfile,
     cashContractedTotal,
     activeMetricKeys: activeLegacyKeys,
+    periodMonths: months.length,
   });
 
   const topPoints = projectionPoints.slice(0, 3);

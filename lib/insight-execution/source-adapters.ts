@@ -96,6 +96,7 @@ async function diagnosticMetricInsight(accountId: string, sourceId: string): Pro
     businessProfile,
     cashContractedTotal: totals.cashContractedTotal,
     activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+    periodMonths: months.length,
   });
   const summary = computeMetricSummaries({ settingTotals: totals.settingTotals, closingTotals: totals.closingTotals, benchmarks, activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog) }).find(
     (item) => item.key === sourceId,

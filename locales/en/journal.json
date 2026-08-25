@@ -161,6 +161,7 @@
     "today": "Today",
     "nextMonth": "Next month",
     "salesCount": "{count} sale{plural}",
-    "callsCount": "{count} call{plural}"
+    "callsCount": "{count} call{plural}",
+    "scheduledCount": "{count} planned action(s)"
   }
 }

@@ -26,6 +26,14 @@ function mondayIndex(jsDay: number): number {
 
 type CalendarCell = { date: string; day: number; isFuture: boolean; isToday: boolean };
 
+export type JournalCalendarEvent = {
+  id: string;
+  date: string;
+  label: string;
+  type: string;
+  completed?: boolean;
+};
+
 function buildGrid(year: number, month: number, todayIso: string): CalendarCell[] {
   const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -47,21 +55,31 @@ export function JournalCalendar({
   month,
   days,
   todayIso,
+  basePath = "/journal",
+  additionalEvents = [],
 }: {
   year: number;
   month: number;
   days: JournalDay[];
   todayIso: string;
+  basePath?: string;
+  additionalEvents?: JournalCalendarEvent[];
 }) {
   const locale = useLocale();
   const t = useTranslations("journal.calendar");
   const router = useRouter();
   const [selected, setSelected] = useState<JournalDay | null>(null);
   const dayByDate = new Map(days.map((d) => [d.date, d]));
+  const eventsByDate = new Map<string, JournalCalendarEvent[]>();
+  for (const event of additionalEvents) {
+    const events = eventsByDate.get(event.date) ?? [];
+    events.push(event);
+    eventsByDate.set(event.date, events);
+  }
   const cells = buildGrid(year, month, todayIso);
 
   function goToMonth(nextYear: number, nextMonth: number) {
-    router.push(`/journal?year=${nextYear}&month=${nextMonth}`);
+    router.push(`${basePath}?year=${nextYear}&month=${nextMonth}`);
   }
 
   function handlePrev() {
@@ -109,6 +127,7 @@ export function JournalCalendar({
           if (!cell.date) return <div key={`blank-${index}`} />;
 
           const journalDay = dayByDate.get(cell.date);
+          const scheduledEvents = eventsByDate.get(cell.date) ?? [];
           const tier = journalDay?.score !== null && journalDay?.score !== undefined ? getHealthTier(journalDay.score) : null;
           const keyNumber =
             journalDay && journalDay.totals.salesClosed > 0
@@ -116,14 +135,31 @@ export function JournalCalendar({
               : journalDay && journalDay.totals.callsAttended > 0
                 ? t("callsCount", { count: journalDay.totals.callsAttended, plural: journalDay.totals.callsAttended > 1 ? "s" : "" })
                 : null;
-          const hasImprovement = (journalDay?.events.length ?? 0) > 0;
+          const hasImprovement = (journalDay?.events.length ?? 0) > 0 || scheduledEvents.length > 0;
 
           return (
             <button
               key={cell.date}
               type="button"
               disabled={cell.isFuture}
-              onClick={() => setSelected(journalDay ?? { date: cell.date, totals: { newSubscribers: 0, firstMessagesSent: 0, conversationsStarted: 0, callsProposed: 0, callsBooked: 0, callsAttended: 0, salesClosed: 0 }, hasActivity: false, score: null, events: [], note: "" })}
+              onClick={() => {
+                const baseDay = journalDay ?? {
+                  date: cell.date,
+                  totals: { newSubscribers: 0, firstMessagesSent: 0, conversationsStarted: 0, callsProposed: 0, callsBooked: 0, callsAttended: 0, salesClosed: 0 },
+                  hasActivity: false,
+                  score: null,
+                  events: [],
+                  note: "",
+                };
+                const plannedEvents = scheduledEvents.map((event) => ({
+                  id: `calendar:${event.id}`,
+                  type: event.type,
+                  label: event.label,
+                  sourceId: event.id,
+                  createdAt: new Date(`${event.date}T12:00:00.000Z`),
+                }));
+                setSelected({ ...baseDay, events: [...baseDay.events, ...plannedEvents] });
+              }}
               className={cn(
                 "flex aspect-square flex-col items-center justify-start gap-1 rounded-[10px] border border-transparent p-1.5 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
                 // Neutral emphasis for "today" — coral is reserved for
@@ -142,6 +178,11 @@ export function JournalCalendar({
                   completed improvement, closer to a "good" status than an
                   action. */}
               {hasImprovement && <span className="text-[11px] leading-none text-positive">✦</span>}
+              {scheduledEvents.length > 0 && (
+                <span className="rounded-full bg-accent-2-soft px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-accent-2-text" aria-label={t("scheduledCount", { count: scheduledEvents.length })}>
+                  {scheduledEvents.length}
+                </span>
+              )}
             </button>
           );
         })}
