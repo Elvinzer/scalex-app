@@ -159,10 +159,12 @@ export async function AppSidebarWithScaleScore({
     });
     const { settingTotals, closingTotals, cashContractedTotal, emptyMonths } = aggregatePeriodTotals({
       months: scaleScoreMonths,
-      allMonthlyRows,
-      allSettingEntries,
-      allClosingEntries,
+      allMonthlyRows: rawData.allMonthlyRows,
+      allSettingEntries: rawData.allSettingEntries,
+      allClosingEntries: rawData.allClosingEntries,
+      callSourcesByMonth: rawData.allCallSourcesByMonth,
       callTrackingConnected,
+      allSales: rawData.allSales,
     });
     scaleScore = computeScaleScore({
       settingTotals,

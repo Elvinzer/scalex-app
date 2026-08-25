@@ -44,8 +44,8 @@ function volumeFor(key: MetricKey, settingTotals: FunnelTotals, closingTotals: C
   }
 }
 
-export function computeMetricStatus(current: number | null, benchmark: number, volume: number): MetricStatus {
-  if (current === null || volume < MIN_VOLUME) return "unmeasured";
+export function computeMetricStatus(current: number | null, benchmark: number, volume: number, minimumVolume = MIN_VOLUME): MetricStatus {
+  if (current === null || volume < minimumVolume) return "unmeasured";
   if (current >= benchmark) return "ok";
   const relativeGap = (benchmark - current) / benchmark;
   return relativeGap < CAUTION_THRESHOLD ? "caution" : "critical";
@@ -331,8 +331,9 @@ export function computeMetricHealthCards({
   benchmarks,
   businessProfile,
   cashContractedTotal,
-    activeMetricKeys = METRIC_KEYS,
-    periodMonths = 1,
+  activeMetricKeys = METRIC_KEYS,
+  periodMonths = 1,
+  minimumVolume = MIN_VOLUME,
 }: {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;
@@ -341,6 +342,10 @@ export function computeMetricHealthCards({
   cashContractedTotal: number;
   activeMetricKeys?: MetricKey[];
   periodMonths?: number;
+  // The diagnostic keeps the 30-observation confidence gate. Scale Score
+  // passes 0 so a real rate can contribute before the sample is statistically
+  // reliable; the calculation details explain that distinction to the user.
+  minimumVolume?: number;
 }): MetricHealthCard[] {
   const rates = buildRates(settingTotals, closingTotals);
   const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);
@@ -353,7 +358,7 @@ export function computeMetricHealthCards({
     const current = rates[key];
     const benchmark = benchmarks[key];
     const volume = volumeFor(key, settingTotals, closingTotals);
-    const status = computeMetricStatus(current, benchmark, volume);
+    const status = computeMetricStatus(current, benchmark, volume, minimumVolume);
     if (status === "unmeasured") continue;
     // current is non-null here (status check guarantees it)
 

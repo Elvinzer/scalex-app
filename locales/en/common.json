@@ -101,7 +101,7 @@
     "calculation": {
       "title": "How the Scale Score is calculated",
       "period": "It uses the last 3 completed months. The current month is not included.",
-      "funnel": "Acquisition and Sales compare the conversion rates in your active funnel with your sector benchmark. Each rate needs 30 relevant observations before it counts.",
+      "funnel": "Acquisition and Sales compare the conversion rates in your active funnel with your sector benchmark. A rate contributes as soon as it has observations. The diagnostic treats it as reliable after 30 relevant observations.",
       "formula": "Final score: the average of the covered pillar scores. At least 2 pillars must be covered. A pillar is covered when at least 40% of its active metrics are measurable.",
       "delivery": "Deliverability is the third pillar. It currently measures how complete your delivery setup is: onboarding, support, testimonials and upsell. It is a setup proxy, not a retention or client outcome score yet."
     },

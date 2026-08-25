@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { EMPTY_BUSINESS_PROFILE } from "@/lib/business/types";
+
 import type { MonthWindow } from "./completed-months";
 import type { ScaleScorePillar } from "./scale-score";
-import { describeScaleScoreGap, scaleScoreGapSources } from "./scale-score";
+import { computeScaleScore, describeScaleScoreGap, scaleScoreGapSources } from "./scale-score";
 import { currentMonthNote, scaleScoreGapMessage } from "./scale-score-copy";
 
 function month(year: number, month: number): MonthWindow {
@@ -83,6 +85,42 @@ describe("scaleScoreGapSources", () => {
 
   it("does not invent a destination without a missing month", () => {
     expect(scaleScoreGapSources({ type: "low_coverage", pillarLabels: ["Acquisition", "Vente"] })).toEqual([]);
+  });
+});
+
+describe("computeScaleScore", () => {
+  it("calculates a score from real low-volume rates instead of waiting for 30 observations", () => {
+    const result = computeScaleScore({
+      settingTotals: {
+        newSubscribers: 0,
+        firstMessagesSent: 0,
+        conversationsStarted: 0,
+        callsProposed: 0,
+        callsBooked: 10,
+      },
+      closingTotals: { callsAttended: 5, salesClosed: 1 },
+      benchmarks: {
+        responseRate: 0.5,
+        proposalRate: 0.5,
+        bookingRate: 0.5,
+        showUpRate: 0.5,
+        closingRate: 0.5,
+      },
+      businessProfile: {
+        ...EMPTY_BUSINESS_PROFILE,
+        delivery: {
+          onboardingDescription: "Onboarding",
+          support: { format: "communaute", frequency: "Chaque semaine" },
+          testimonials: { count: 3, displayedOn: ["Site"] },
+          upsellOfferId: "offer-1",
+        },
+      },
+      cashContractedTotal: 0,
+      activeMetricKeys: ["showUpRate", "closingRate"],
+    });
+
+    expect(result.score).not.toBeNull();
+    expect(result.pillars.find((pillar) => pillar.key === "vente")).toMatchObject({ covered: true });
   });
 });
 

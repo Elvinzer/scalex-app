@@ -1,10 +1,11 @@
 // Overall /100 "Scale Score" — an aggregation layer, not a new scoring
-// engine. Acquisition/Vente reuse computeMetricHealthCards' per-metric
-// scores as-is (grouped by category); Délivrabilité has no real measured
-// metric today (no churn/retention tracking exists), so it's proxied by
-// how complete the Delivery section of the business profile is — an
-// honest stand-in for "have you even defined your delivery process",
-// documented here so it isn't mistaken for a real health metric later.
+// engine. Acquisition/Vente reuse computeMetricHealthCards' scoring rules
+// (grouped by category), but allow a real rate to contribute before the
+// diagnostic's 30-observation confidence gate. Délivrabilité has no real
+// measured metric today (no churn/retention tracking exists), so it's proxied
+// by how complete the Delivery section of the business profile is — an honest
+// stand-in for "have you even defined your delivery process", documented here
+// so it isn't mistaken for a real health metric later.
 import type { ClosingTotals } from "@/lib/closing/metrics";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import type { BusinessProfileData } from "@/lib/business/types";
@@ -129,6 +130,7 @@ export function computeScaleScore({
     businessProfile,
     cashContractedTotal,
     activeMetricKeys,
+    minimumVolume: 0,
   });
 
   const settingCards = cards.filter((c) => c.category === "Setting");
