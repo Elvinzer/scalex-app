@@ -34,6 +34,15 @@ const client = postgres(poolConnection.toString(), {
   max_lifetime: 60 * 5,
   connection: {
     search_path: "public, extensions",
+    // Hard ceiling on any single query, set as a Postgres GUC on the session.
+    // Without it a query that blocks (lock contention, an exhausted pooler)
+    // runs until Vercel kills the whole function at 300s, and every request
+    // queued behind that connection times out with it — the "prod bloquée,
+    // ultra random" cascade. Killed queries free their connection instead.
+    // Migrations use a separate DIRECT_URL client (drizzle.config.ts), so this
+    // never truncates a long migration.
+    statement_timeout: 25_000,
+    idle_in_transaction_session_timeout: 15_000,
   },
 });
 

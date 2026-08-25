@@ -36,7 +36,6 @@ export function ConnectedIntegrationRow({
   connectedLabel,
   refreshLabel,
   refreshingLabel,
-  refreshDoneLabel,
   disconnectLabel,
 }: {
   id: string;
@@ -47,11 +46,14 @@ export function ConnectedIntegrationRow({
   connectedLabel: string;
   refreshLabel: string;
   refreshingLabel: string;
-  refreshDoneLabel: (count?: number) => string;
   disconnectLabel: string;
 }) {
   const router = useRouter();
   const tActions = useTranslations("common.actions");
+  // Resolved here, not passed down: a Server Component cannot hand a function
+  // to a Client Component (RSC serialization throws), and the count-bearing
+  // variant needs the imported total known only after the refresh runs.
+  const tIntegrations = useTranslations("app.integrations");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -72,7 +74,7 @@ export function ConnectedIntegrationRow({
           setError(result.error);
           return;
         }
-        setNotice(refreshDoneLabel());
+        setNotice(tIntegrations("refreshDone"));
         router.refresh();
         return;
       }
@@ -86,7 +88,7 @@ export function ConnectedIntegrationRow({
         setError(result.error);
         return;
       }
-      setNotice(refreshDoneLabel(result.imported));
+      setNotice(tIntegrations("refreshDoneCount", { count: result.imported ?? 0 }));
       router.refresh();
     });
   }

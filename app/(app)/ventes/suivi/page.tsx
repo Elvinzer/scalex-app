@@ -238,7 +238,6 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
             connectedLabel={integrationsT("connected")}
             refreshLabel={integrationsT("refresh")}
             refreshingLabel={integrationsT("refreshing")}
-            refreshDoneLabel={() => integrationsT("refreshDone")}
             disconnectLabel={integrationsT("disconnect")}
           />
         ) : (

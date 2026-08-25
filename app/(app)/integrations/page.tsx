@@ -129,7 +129,6 @@ export default async function IntegrationsPage({
                 connectedLabel={t("connected")}
                 refreshLabel={t("refresh")}
                 refreshingLabel={t("refreshing")}
-                refreshDoneLabel={() => t("refreshDone")}
                 disconnectLabel={t("disconnect")}
               />
             )}
@@ -143,7 +142,6 @@ export default async function IntegrationsPage({
                 connectedLabel={t("connected")}
                 refreshLabel={t("refresh")}
                 refreshingLabel={t("refreshing")}
-                refreshDoneLabel={(count) => t("refreshDoneCount", { count: count ?? 0 })}
                 disconnectLabel={t("disconnect")}
               />
             )}
@@ -156,7 +154,6 @@ export default async function IntegrationsPage({
                 connectedLabel={t("connected")}
                 refreshLabel={t("refresh")}
                 refreshingLabel={t("refreshing")}
-                refreshDoneLabel={() => t("refreshDone")}
                 disconnectLabel={t("disconnect")}
               />
             )}
@@ -169,7 +166,6 @@ export default async function IntegrationsPage({
                 connectedLabel={t("connected")}
                 refreshLabel={t("refresh")}
                 refreshingLabel={t("refreshing")}
-                refreshDoneLabel={() => t("refreshDone")}
                 disconnectLabel={t("disconnect")}
               />
             )}
@@ -183,7 +179,6 @@ export default async function IntegrationsPage({
                 connectedLabel={t("connected")}
                 refreshLabel={t("refresh")}
                 refreshingLabel={t("refreshing")}
-                refreshDoneLabel={(count) => t("refreshDoneCount", { count: count ?? 0 })}
                 disconnectLabel={t("disconnect")}
               />
             )}
@@ -197,7 +192,6 @@ export default async function IntegrationsPage({
                 connectedLabel={t("connected")}
                 refreshLabel={t("refresh")}
                 refreshingLabel={t("refreshing")}
-                refreshDoneLabel={(count) => t("refreshDoneCount", { count: count ?? 0 })}
                 disconnectLabel={t("disconnect")}
               />
             )}
