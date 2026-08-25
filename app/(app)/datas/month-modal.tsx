@@ -82,7 +82,7 @@ function SuggestionBanner({ text, actionLabel, onApply }: { text: string; action
 }
 
 type PendingAction = null | "close" | { type: "navigate"; delta: number };
-type MonthlyScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition">;
+type MonthlyScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition" | "sales">;
 type ScaleScoreFieldCandidate = {
   key: string;
   label: string;
@@ -278,9 +278,16 @@ export function MonthModal({
   ];
   const missingScaleScoreField = (candidates: ScaleScoreFieldCandidate[]) =>
     candidates.find((field) => field.value === null && !field.disabled) ?? null;
+  const targetSection = scaleScoreTarget === "acquisition"
+    ? "acquisition"
+    : scaleScoreTarget === "sales"
+      ? "closing"
+      : null;
   const targetCandidates = scaleScoreTarget === "month"
     ? scaleScoreFieldCandidates
-    : scaleScoreFieldCandidates.filter((field) => field.section === scaleScoreTarget);
+    : targetSection
+      ? scaleScoreFieldCandidates.filter((field) => field.section === targetSection)
+      : [];
   const fallbackCandidates = scaleScoreTarget === "acquisition" && targetCandidates.length === 0
     ? scaleScoreFieldCandidates.filter((field) => field.section === "closing")
     : [];

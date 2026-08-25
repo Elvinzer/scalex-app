@@ -1,22 +1,87 @@
 import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
-import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
-import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
+import { currentMonthWindow, lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { computeScaleScore, describeScaleScoreGap, scaleScoreGapSources as getScaleScoreGapSources } from "@/lib/diagnostic/scale-score";
 import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
 import { getDiagnosticKpiRawData, getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
 import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
 import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
-import { activeLegacyMetricKeysFromBlocks, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+import { activeFunnelBlockEntries, activeLegacyMetricKeysFromBlocks, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
+import { monthDateRange } from "@/lib/date-range";
+import { inRange } from "@/lib/dashboard/metrics";
+import { monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
+import { EMPTY_MONTHLY_METRICS, type MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
+import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
+import type { SaleRow } from "@/lib/sales/types";
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { SectorKey } from "@/lib/benchmarks";
 
 const SCALE_SCORE_PERIOD_MONTHS = 3;
+
+const SCALAR_INPUT_KEYS: Record<string, keyof Omit<MonthlyMetricsInput, "acquisitionMetrics" | "acquisitionSourceMetrics">> = {
+  new_followers: "newFollowers",
+  first_messages: "firstMessages",
+  conversations: "conversations",
+  calls_proposed: "callsProposed",
+  calls_booked: "callsBooked",
+  calls_attended: "callsTaken",
+  sales_closed: "salesClosed",
+};
+
+function metricValue(data: MonthlyMetricsInput, metricKey: string): number | null {
+  const scalarKey = SCALAR_INPUT_KEYS[metricKey];
+  return scalarKey ? data[scalarKey] ?? null : data.acquisitionMetrics?.[metricKey] ?? null;
+}
+
+function latestMissingMetricMonth({
+  months,
+  rows,
+  metricKeys,
+  settingEntries,
+  closingEntries,
+  callSourcesByMonth,
+  allSales,
+  callTrackingConnected,
+}: {
+  months: MonthWindow[];
+  rows: MonthlyMetricsRow[];
+  metricKeys: ReadonlySet<string>;
+  settingEntries: (typeof settingKpiEntries.$inferSelect)[];
+  closingEntries: (typeof closingKpiEntries.$inferSelect)[];
+  callSourcesByMonth: Record<string, MonthlyCallSource>;
+  allSales: SaleRow[];
+  callTrackingConnected: boolean;
+}): Pick<MonthWindow, "year" | "month"> | null {
+  if (metricKeys.size === 0) return null;
+
+  for (const month of months.slice().reverse()) {
+    const row = rows.find((candidate) => candidate.year === month.year && candidate.month === month.month) ?? null;
+    const salesClosed = allSales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, month.range)).length;
+    const overlay = resolveDailySourceOverlay(
+      monthDateRange(month.year, month.month),
+      settingEntries,
+      closingEntries,
+      {
+        settingManualOverride: row?.settingManualOverride,
+        closingManualOverride: row?.closingManualOverride,
+      },
+      callSourcesByMonth[monthKey(month.year, month.month)] ?? null,
+      { callTrackingConnected, ...(salesClosed > 0 ? { salesClosed } : {}) }
+    );
+    const data: MonthlyMetricsInput = { ...EMPTY_MONTHLY_METRICS, ...(row ?? {}), ...overlay.overrides };
+    if (Array.from(metricKeys).some((metricKey) => metricValue(data, metricKey) === null)) {
+      return { year: month.year, month: month.month };
+    }
+  }
+
+  return null;
+}
 
 type AppSidebarWithScaleScoreProps = Omit<
   AppSidebarProps,
@@ -55,11 +120,43 @@ export async function AppSidebarWithScaleScore({
     canSeeScaleScore ? getDiagnosticBenchmarks(sector) : Promise.resolve(null),
   ]);
   const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
+  const activeFunnelEntries = activeFunnelBlockEntries(funnelBlockSelection, funnelBlockCatalog);
   const activeMetricKeys = activeLegacyMetricKeysFromBlocks(funnelBlockSelection, funnelBlockCatalog);
 
   if (canSeeScaleScore && scaleScoreInputs && benchmarks) {
     const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
     const scaleScoreMonths = lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS);
+    const rawData = await getDiagnosticKpiRawData(accountId);
+    const acquisitionInputKeys = new Set(
+      activeFunnelEntries
+        .filter((entry) => entry.family !== "conversion")
+        .flatMap((entry) => entry.steps.map((step) => step.metricKey))
+    );
+    const salesInputKeys = new Set(
+      activeFunnelEntries
+        .filter((entry) => entry.family === "conversion")
+        .flatMap((entry) => entry.steps.map((step) => step.metricKey))
+    );
+    const acquisitionTargetMonth = latestMissingMetricMonth({
+      months: scaleScoreMonths,
+      rows: allMonthlyRows,
+      metricKeys: acquisitionInputKeys,
+      settingEntries: rawData.allSettingEntries,
+      closingEntries: rawData.allClosingEntries,
+      callSourcesByMonth: rawData.allCallSourcesByMonth,
+      allSales: rawData.allSales,
+      callTrackingConnected,
+    });
+    const salesTargetMonth = latestMissingMetricMonth({
+      months: scaleScoreMonths,
+      rows: allMonthlyRows,
+      metricKeys: salesInputKeys,
+      settingEntries: rawData.allSettingEntries,
+      closingEntries: rawData.allClosingEntries,
+      callSourcesByMonth: rawData.allCallSourcesByMonth,
+      allSales: rawData.allSales,
+      callTrackingConnected,
+    });
     const { settingTotals, closingTotals, cashContractedTotal, emptyMonths } = aggregatePeriodTotals({
       months: scaleScoreMonths,
       allMonthlyRows,
@@ -77,9 +174,17 @@ export async function AppSidebarWithScaleScore({
     });
 
     if (scaleScore.score === null) {
-      const gap = describeScaleScoreGap(emptyMonths, scaleScore.pillars);
+      const actionablePillars = scaleScore.pillars.filter((pillar) => {
+        if (pillar.key === "acquisition") return acquisitionTargetMonth !== null;
+        if (pillar.key === "vente") return salesTargetMonth !== null;
+        return true;
+      });
+      const gap = describeScaleScoreGap(emptyMonths, actionablePillars);
       scaleScoreGapText = gap ? scaleScoreGapMessage(gap) : null;
-      scaleScoreGapSources = getScaleScoreGapSources(gap);
+      scaleScoreGapSources = getScaleScoreGapSources(gap, {
+        acquisition: acquisitionTargetMonth ?? undefined,
+        sales: salesTargetMonth ?? undefined,
+      });
 
       const currentMonth = currentMonthWindow();
       const currentMonthRow = allMonthlyRows.find((row) => row.year === currentMonth.year && row.month === currentMonth.month) ?? null;
@@ -91,7 +196,6 @@ export async function AppSidebarWithScaleScore({
       if (monthStatus(computeCompletion(currentMonthData)) !== "empty") scaleScoreMonthNote = currentMonthNote(currentMonth);
     }
 
-    const rawData = await getDiagnosticKpiRawData(accountId);
     const projectionMonths = lastCompletedMonths(REVENUE_PROJECTION_MONTHS);
     const projectionTotals = aggregatePeriodTotals({
       months: projectionMonths,

@@ -26,7 +26,7 @@ import { MonthCard } from "./month-card";
 import { MonthModal } from "./month-modal";
 import { RevenueTrend } from "./revenue-trend";
 
-type DataScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition">;
+type DataScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition" | "sales">;
 
 // ImportFlow pulls exceljs/pdf-parse/papaparse (≈380 Ko gzip combined) —
 // it only ever renders inside the Drawer below, closed by default, so a

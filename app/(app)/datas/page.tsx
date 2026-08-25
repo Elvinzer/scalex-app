@@ -23,7 +23,7 @@ import type { ChartPoint, OverviewMetricOption } from "@/components/overview-rev
 import { DatasPageClient } from "./datas-page-client";
 
 const TREND_PERIODS = ["3", "6", "12", "year"];
-type DataScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition">;
+type DataScaleScoreTarget = Extract<ScaleScoreTarget, "month" | "acquisition" | "sales">;
 
 export default async function DatasPage({
   searchParams,
@@ -41,7 +41,7 @@ export default async function DatasPage({
   const yearCandidate = params.year ? Number(params.year) : currentYear;
   const year = Number.isInteger(yearCandidate) && yearCandidate >= 2000 && yearCandidate <= 2100 ? yearCandidate : currentYear;
   const trendPeriod = params.trendPeriod && TREND_PERIODS.includes(params.trendPeriod) ? params.trendPeriod : "6";
-  const scaleScoreTarget: DataScaleScoreTarget | null = params.scaleScore === "month" || params.scaleScore === "acquisition"
+  const scaleScoreTarget: DataScaleScoreTarget | null = params.scaleScore === "month" || params.scaleScore === "acquisition" || params.scaleScore === "sales"
     ? params.scaleScore
     : null;
   const monthCandidate = params.month ? Number(params.month) : Number.NaN;

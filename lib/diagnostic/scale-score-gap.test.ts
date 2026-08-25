@@ -69,11 +69,20 @@ describe("scaleScoreGapSources", () => {
   });
 
   it("opens the relevant destination for uncovered pillars", () => {
-    expect(scaleScoreGapSources({ type: "low_coverage", pillarLabels: ["Acquisition", "Vente", "Délivrabilité"] })).toEqual([
-      { key: "acquisition", href: "/datas?scaleScore=acquisition" },
-      { key: "sales", href: "/ventes/appels?scaleScore=sales" },
+    expect(scaleScoreGapSources({ type: "low_coverage", pillarLabels: ["Acquisition", "Vente", "Délivrabilité"] }, { acquisition: { year: 2026, month: 4 } })).toEqual([
+      { key: "acquisition", href: "/datas?year=2026&month=4&scaleScore=acquisition", year: 2026, month: 4 },
       { key: "delivery", href: "/business?scaleScore=delivery#livraison" },
     ]);
+  });
+
+  it("opens the exact sales month when a closing field is missing", () => {
+    expect(scaleScoreGapSources({ type: "low_coverage", pillarLabels: ["Vente"] }, { sales: { year: 2026, month: 4 } })).toEqual([
+      { key: "sales", href: "/datas?year=2026&month=4&scaleScore=sales", year: 2026, month: 4 },
+    ]);
+  });
+
+  it("does not invent a destination without a missing month", () => {
+    expect(scaleScoreGapSources({ type: "low_coverage", pillarLabels: ["Acquisition", "Vente"] })).toEqual([]);
   });
 });
 

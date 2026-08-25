@@ -49,8 +49,9 @@ export type ScaleScoreGapSource = {
 };
 
 export type ScaleScoreTarget = ScaleScoreGapSource["key"];
+export type ScaleScoreGapTargetMonths = Partial<Record<"acquisition" | "sales", Pick<MonthWindow, "year" | "month">>>;
 
-export function scaleScoreGapSources(gap: ScaleScoreGap | null): ScaleScoreGapSource[] {
+export function scaleScoreGapSources(gap: ScaleScoreGap | null, targetMonths: ScaleScoreGapTargetMonths = {}): ScaleScoreGapSource[] {
   if (!gap) return [];
   if (gap.type === "missing_months") {
     return gap.months.map((month) => ({
@@ -63,8 +64,18 @@ export function scaleScoreGapSources(gap: ScaleScoreGap | null): ScaleScoreGapSo
 
   return gap.pillarLabels.flatMap((label): ScaleScoreGapSource[] => {
     const normalized = label.toLowerCase();
-    if (normalized.includes("acquisition")) return [{ key: "acquisition", href: "/datas?scaleScore=acquisition" }];
-    if (normalized.includes("vente")) return [{ key: "sales", href: "/ventes/appels?scaleScore=sales" }];
+    if (normalized.includes("acquisition")) {
+      const targetMonth = targetMonths.acquisition;
+      return targetMonth
+        ? [{ key: "acquisition", href: `/datas?year=${targetMonth.year}&month=${targetMonth.month}&scaleScore=acquisition`, year: targetMonth.year, month: targetMonth.month }]
+        : [];
+    }
+    if (normalized.includes("vente")) {
+      const targetMonth = targetMonths.sales;
+      return targetMonth
+        ? [{ key: "sales", href: `/datas?year=${targetMonth.year}&month=${targetMonth.month}&scaleScore=sales`, year: targetMonth.year, month: targetMonth.month }]
+        : [];
+    }
     if (normalized.includes("délivr") || normalized.includes("delivr")) return [{ key: "delivery", href: "/business?scaleScore=delivery#livraison" }];
     return [];
   });

@@ -47,7 +47,7 @@ export function ScaleScoreModal({
   const tier = score !== null ? getHealthTier(score) : null;
   const hasRevenueProjection =
     score !== null && currentMonthlyRevenue !== null && potentialMonthlyRevenue !== null && potentialMonthlyRevenue > currentMonthlyRevenue;
-  const primaryTargetHref = scaleScoreGapSources[0]?.href ?? "/datas?scaleScore=acquisition";
+  const primaryTargetHref = scaleScoreGapSources[0]?.href ?? null;
 
   async function handleShare() {
     const node = shareCardRef.current;
@@ -78,9 +78,11 @@ export function ScaleScoreModal({
                 withBubble
                 bubbleText={scaleScoreGapText ?? t("needNumbers")}
               />
-              <Button asChild className="mt-2">
-                <Link href={primaryTargetHref} prefetch={true} onClick={() => onOpenChange(false)}>{t("fillNumbers")}</Link>
-              </Button>
+              {primaryTargetHref && (
+                <Button asChild className="mt-2">
+                  <Link href={primaryTargetHref} prefetch={true} onClick={() => onOpenChange(false)}>{t("fillNumbers")}</Link>
+                </Button>
+              )}
               {scaleScoreGapSources.length > 0 && (
                 <div className="w-full rounded-[var(--radius-card)] border border-border bg-muted/40 p-4 text-left">
                   <p className="text-sm font-bold">{t("missingDataTitle")}</p>
@@ -92,7 +94,7 @@ export function ScaleScoreModal({
                         : null;
                       const label = source.key === "month"
                         ? t("missingData.month", { month: monthLabel ?? "" })
-                        : t(`missingData.${source.key}`);
+                        : `${t(`missingData.${source.key}`)}${monthLabel ? ` · ${monthLabel}` : ""}`;
                       return (
                         <li key={`${source.key}-${source.year ?? "all"}-${source.month ?? index}`} className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border bg-card px-3 py-2">
                           <span className="text-sm font-bold">{label}</span>
