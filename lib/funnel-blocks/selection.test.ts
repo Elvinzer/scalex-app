@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_FUNNEL_BLOCKS } from "./catalog";
-import { normalizeFunnelBlockSelection } from "./selection";
+import { activeLegacyMetricKeysFromBlocks, normalizeFunnelBlockSelection } from "./selection";
 
 describe("normalizeFunnelBlockSelection", () => {
   it("keeps multiple capture and conversion blocks while limiting nurturing to two", () => {
@@ -40,5 +40,17 @@ describe("normalizeFunnelBlockSelection", () => {
       "sequence_email",
       "appel",
     ]);
+  });
+
+  it("does not activate lead-magnet metrics for a no-capture call journey", () => {
+    const selection = normalizeFunnelBlockSelection({
+      blocks: [
+        { blockKey: "aucune_capture", order: 1 },
+        { blockKey: "appel", order: 2 },
+      ],
+      sources: ["organique"],
+    }, DEFAULT_FUNNEL_BLOCKS);
+
+    expect(activeLegacyMetricKeysFromBlocks(selection, DEFAULT_FUNNEL_BLOCKS)).toEqual(["showUpRate", "closingRate"]);
   });
 });

@@ -13,8 +13,9 @@ import { todayUtc } from "@/lib/date-range";
 import { summarize } from "@/lib/sales/installments";
 import { getSalesSummaryByMonth } from "@/lib/sales/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
-import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
-import { activeFunnelEntries, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
+import { activeFunnelBlockEntries, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
+import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 import type { ScaleScoreTarget } from "@/lib/diagnostic/scale-score";
 
 import type { ChartPoint, OverviewMetricOption } from "@/components/overview-revenue-chart";
@@ -46,7 +47,7 @@ export default async function DatasPage({
   const monthCandidate = params.month ? Number(params.month) : Number.NaN;
   const targetMonth = Number.isInteger(monthCandidate) && monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : currentMonth;
 
-  const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, rawData, acquisitionCatalog] =
+  const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, rawData, funnelBlockCatalog] =
     await Promise.all([
       getMonthlyMetricsForYear(accountId, year),
       getPostLeadsSumByMonth(accountId, year),
@@ -57,14 +58,14 @@ export default async function DatasPage({
       // boundaries client-side (and the trend chart below spans up to 12
       // rolling months, which can itself cross a year boundary).
       getDiagnosticKpiRawData(accountId),
-      getAcquisitionFunnelCatalog(),
+      getFunnelBlockCatalog(),
     ]);
-  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
-  const activeMetricFields = Array.from(
+  const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
+  const activeMetricFields: AcquisitionFunnelStep[] = Array.from(
     new Map(
-      activeFunnelEntries(acquisitionSelection, acquisitionCatalog)
+      activeFunnelBlockEntries(funnelBlockSelection, funnelBlockCatalog)
         .flatMap((entry) => entry.steps)
-        .map((stage) => [stage.inputMetricKey, stage] as const)
+        .map((stage) => [stage.metricKey, { ...stage, inputMetricKey: stage.metricKey }] as const)
     ).values()
   );
 

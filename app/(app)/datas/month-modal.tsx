@@ -276,11 +276,16 @@ export function MonthModal({
       ? [{ key: "salesClosed", label: t("salesClosed"), value: draft.salesClosed, section: "closing" as const, disabled: salesClosedFieldSource !== undefined }]
       : []),
   ];
+  const missingScaleScoreField = (candidates: ScaleScoreFieldCandidate[]) =>
+    candidates.find((field) => field.value === null && !field.disabled) ?? null;
+  const targetCandidates = scaleScoreTarget === "month"
+    ? scaleScoreFieldCandidates
+    : scaleScoreFieldCandidates.filter((field) => field.section === scaleScoreTarget);
+  const fallbackCandidates = scaleScoreTarget === "acquisition" && targetCandidates.length === 0
+    ? scaleScoreFieldCandidates.filter((field) => field.section === "closing")
+    : [];
   const scaleScoreTargetField = scaleScoreTarget
-    ? scaleScoreFieldCandidates.find((field) => {
-        const isRelevant = scaleScoreTarget === "month" || field.section === scaleScoreTarget;
-        return isRelevant && field.value === null && !field.disabled;
-      }) ?? null
+    ? missingScaleScoreField(targetCandidates.length > 0 ? targetCandidates : fallbackCandidates)
     : null;
   const scaleScoreTargetFieldKey = scaleScoreTargetField?.key ?? null;
 

@@ -8,8 +8,8 @@ import { computeScaleScore, describeScaleScoreGap, scaleScoreGapSources as getSc
 import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
 import { getDiagnosticKpiRawData, getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
 import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
-import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
-import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
+import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { activeLegacyMetricKeysFromBlocks, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
@@ -49,14 +49,15 @@ export async function AppSidebarWithScaleScore({
   let scaleScoreSparkline: AppSidebarProps["scaleScoreSparkline"] = [];
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
-  const [acquisitionCatalog, scaleScoreInputs, benchmarks] = await Promise.all([
-    getAcquisitionFunnelCatalog(),
+  const [funnelBlockCatalog, scaleScoreInputs, benchmarks] = await Promise.all([
+    getFunnelBlockCatalog(),
     canSeeScaleScore ? getScaleScoreInputs(accountId) : Promise.resolve(null),
     canSeeScaleScore ? getDiagnosticBenchmarks(sector) : Promise.resolve(null),
   ]);
-  const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+  const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
+  const activeMetricKeys = activeLegacyMetricKeysFromBlocks(funnelBlockSelection, funnelBlockCatalog);
 
-  if (canSeeScaleScore && scaleScoreInputs && benchmarks && acquisitionCatalog) {
+  if (canSeeScaleScore && scaleScoreInputs && benchmarks) {
     const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
     const scaleScoreMonths = lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS);
     const { settingTotals, closingTotals, cashContractedTotal, emptyMonths } = aggregatePeriodTotals({
@@ -72,7 +73,7 @@ export async function AppSidebarWithScaleScore({
       benchmarks,
       businessProfile,
       cashContractedTotal,
-      activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+      activeMetricKeys,
     });
 
     if (scaleScore.score === null) {
@@ -113,7 +114,7 @@ export async function AppSidebarWithScaleScore({
           benchmarks,
           businessProfile,
           cashContractedTotal: projectionTotals.cashContractedTotal,
-          activeMetricKeys: activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog),
+          activeMetricKeys,
           periodMonths: projectionMonths.length,
         })
       : [];
