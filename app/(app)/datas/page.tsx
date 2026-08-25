@@ -45,7 +45,9 @@ export default async function DatasPage({
     ? params.scaleScore
     : null;
   const monthCandidate = params.month ? Number(params.month) : Number.NaN;
-  const targetMonth = Number.isInteger(monthCandidate) && monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : currentMonth;
+  // A score target without an explicit month is stale or incomplete. Never
+  // guess the current month: only a source with a known target may open the modal.
+  const targetMonth = Number.isInteger(monthCandidate) && monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : null;
 
   const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, rawData, funnelBlockCatalog] =
     await Promise.all([
@@ -142,7 +144,7 @@ export default async function DatasPage({
         chartSeries={chartSeries}
         goalValue={businessProfile.identity.mrrGoal}
         scaleScoreTarget={scaleScoreTarget}
-        initialOpenMonth={scaleScoreTarget ? { year, month: targetMonth } : null}
+        initialOpenMonth={scaleScoreTarget && targetMonth !== null ? { year, month: targetMonth } : null}
       />
     </div>
   );

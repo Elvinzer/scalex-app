@@ -87,6 +87,7 @@
   },
   "scaleScore": {
     "needNumbers": "Il me faut tes chiffres pour te noter.",
+    "scorePending": "Tes champs sont remplis. Il n’y a rien d’autre à saisir ici. Le score attend encore assez de volume mesuré pour être fiable.",
     "fillNumbers": "Remplir mes chiffres",
     "missingDataTitle": "Données manquantes",
     "missingDataHelp": "Voici ce qui bloque le calcul et la page où tu peux compléter la donnée.",
@@ -96,6 +97,13 @@
       "sales": "Données de vente",
       "delivery": "Données de délivrabilité",
       "open": "Ouvrir"
+    },
+    "calculation": {
+      "title": "Comment le Scale Score est calculé",
+      "period": "Il utilise les 3 derniers mois terminés. Le mois en cours n’est pas inclus.",
+      "funnel": "Acquisition et Vente comparent les taux de conversion de ton funnel actif au benchmark de ton secteur. Un taux compte seulement après 30 observations pertinentes.",
+      "formula": "Score final : moyenne des scores des piliers couverts. Au moins 2 piliers doivent être couverts. Un pilier est couvert quand au moins 40 % de ses métriques actives sont mesurables.",
+      "delivery": "La Délivrabilité est le troisième pilier. Elle mesure aujourd’hui le niveau de préparation de ton delivery : onboarding, support, témoignages et upsell. C’est un proxy de configuration, pas encore un score de rétention ou de résultats clients."
     },
     "title": "Ton Scale Score",
     "lastCalculated": "Dernier calcul :",

@@ -193,7 +193,8 @@ export async function AppSidebarWithScaleScore({
         closingManualOverride: currentMonthRow?.closingManualOverride,
       });
       const currentMonthData = { ...(currentMonthRow ?? EMPTY_MONTHLY_METRICS), ...overlay.overrides };
-      if (monthStatus(computeCompletion(currentMonthData)) !== "empty") scaleScoreMonthNote = currentMonthNote(currentMonth);
+      const hasDataEntryTarget = scaleScoreGapSources.some((source) => source.key !== "delivery");
+      if (hasDataEntryTarget && monthStatus(computeCompletion(currentMonthData)) !== "empty") scaleScoreMonthNote = currentMonthNote(currentMonth);
     }
 
     const projectionMonths = lastCompletedMonths(REVENUE_PROJECTION_MONTHS);

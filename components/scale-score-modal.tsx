@@ -48,6 +48,17 @@ export function ScaleScoreModal({
   const hasRevenueProjection =
     score !== null && currentMonthlyRevenue !== null && potentialMonthlyRevenue !== null && potentialMonthlyRevenue > currentMonthlyRevenue;
   const primaryTargetHref = scaleScoreGapSources[0]?.href ?? null;
+  const calculationDetails = (
+    <details className="w-full rounded-[var(--radius-card)] border border-border bg-muted/40 px-4 py-3 text-left">
+      <summary className="cursor-pointer list-none text-sm font-bold">{t("calculation.title")}</summary>
+      <div className="mt-3 flex flex-col gap-2 text-xs leading-relaxed text-muted-foreground">
+        <p>{t("calculation.period")}</p>
+        <p>{t("calculation.funnel")}</p>
+        <p>{t("calculation.formula")}</p>
+        <p>{t("calculation.delivery")}</p>
+      </div>
+    </details>
+  );
 
   async function handleShare() {
     const node = shareCardRef.current;
@@ -76,7 +87,7 @@ export function ScaleScoreModal({
                 size="md"
                 animate="enter"
                 withBubble
-                bubbleText={scaleScoreGapText ?? t("needNumbers")}
+                bubbleText={scaleScoreGapText ?? t("scorePending")}
               />
               {primaryTargetHref && (
                 <Button asChild className="mt-2">
@@ -172,6 +183,7 @@ export function ScaleScoreModal({
               </div>
             </>
           )}
+          {calculationDetails}
         </div>
       </DialogContent>
     </Dialog>
