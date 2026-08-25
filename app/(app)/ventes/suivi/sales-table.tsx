@@ -9,7 +9,7 @@ import { SourceBadge, type MetricSource } from "@/components/source-badge";
 import type { Offer } from "@/lib/business/types";
 import type { ActiveCloser } from "@/lib/closers/types";
 import { displayInstallments, summarize } from "@/lib/sales/installments";
-import type { OverallSaleStatus, SaleRow } from "@/lib/sales/types";
+import { isInstallmentPaymentSale, type OverallSaleStatus, type SaleRow } from "@/lib/sales/types";
 import type { SetterRow } from "@/lib/setters/types";
 import type { StripeInsightTransaction } from "@/lib/stripe/transaction-insights";
 
@@ -38,6 +38,11 @@ function statusLabel(sale: SaleRow, status: OverallSaleStatus, t: (key: string) 
   if (status === "refunded") return t("refunded");
   if (status === "in_progress") return sale.paymentMethod === "virement" ? t("transferExpected") : t("upcomingPayment");
   return t("settled");
+}
+
+function paymentLabel(sale: SaleRow, t: (key: string, values?: Record<string, string | number>) => string): string | null {
+  if (sale.paymentNumber === null || sale.paymentCount === null) return null;
+  return t("paymentNumber", { number: sale.paymentNumber, count: sale.paymentCount });
 }
 
 function sourceForSale(sale: SaleRow): MetricSource {
@@ -107,7 +112,7 @@ export function SalesTable({
           (!setterFilter || sale.setterId === setterFilter) &&
           (!closerFilter || sale.closer === closerName(closers, closerFilter)) &&
           (!paymentMethodFilter || sale.paymentMethod === paymentMethodFilter) &&
-          (!paymentTypeFilter || sale.paymentType === paymentTypeFilter) &&
+          (!paymentTypeFilter || sale.paymentType === paymentTypeFilter || (paymentTypeFilter === "installments" && isInstallmentPaymentSale(sale))) &&
           (!statusFilter || matchesStatus)
         );
       }),
@@ -265,7 +270,7 @@ export function SalesTable({
                   <td className="p-3 text-right font-bold tabular-nums">{new Intl.NumberFormat(locale).format(sale.totalPrice)} €</td>
                   <td className="p-3">
                     <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                      {sale.paymentType === "installments" ? `${t("installmentSchedule")} · ${installmentCount} ${t("times")}` : t(`paymentTypes.${sale.paymentType}`)}
+                      {paymentLabel(sale, t) ?? (sale.paymentType === "installments" ? `${t("installmentSchedule")} · ${installmentCount} ${t("times")}` : t(`paymentTypes.${sale.paymentType}`))}
                     </span>
                   </td>
                   <td className="p-3 text-right tabular-nums">{new Intl.NumberFormat(locale).format(summary.paidTotal)} €</td>
@@ -341,7 +346,7 @@ export function SalesTable({
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div><p className="text-xs text-muted-foreground">{t("deal")}</p><p className="font-bold tabular-nums">{new Intl.NumberFormat(locale).format(sale.totalPrice)} €</p></div>
                   <div><p className="text-xs text-muted-foreground">{t("collected")}</p><p className="font-bold tabular-nums">{new Intl.NumberFormat(locale).format(summary.paidTotal)} €</p></div>
-                  <div><p className="text-xs text-muted-foreground">{t("nature")}</p><p className="font-bold">{sale.paymentType === "installments" ? `${installmentCount} ${t("installments")}` : t(`paymentTypes.${sale.paymentType}`)}</p></div>
+                  <div><p className="text-xs text-muted-foreground">{t("nature")}</p><p className="font-bold">{paymentLabel(sale, t) ?? (sale.paymentType === "installments" ? `${installmentCount} ${t("installments")}` : t(`paymentTypes.${sale.paymentType}`))}</p></div>
                   <div><p className="text-xs text-muted-foreground">{t("nextPayment")}</p><p className="font-bold">{nextInstallment?.dueDate ?? "—"}</p></div>
                 </div>
                 <div className="flex items-center justify-between gap-2 border-t border-border pt-3">

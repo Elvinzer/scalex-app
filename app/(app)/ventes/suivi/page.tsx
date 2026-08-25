@@ -21,6 +21,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
+import { isInstallmentPaymentSale } from "@/lib/sales/types";
 import { buildUpcomingPaymentForecast } from "@/lib/sales/forecast";
 import { getSetters } from "@/lib/setters/queries";
 import { getStripeInsightData } from "@/lib/stripe/insight-queries";
@@ -172,11 +173,17 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
   );
 
   const periodSales = sales.filter((sale) => isInPeriod(period, dateFromDayString(sale.saleDate)));
-  const validPeriodSales = periodSales.filter((sale) => !sale.isOrphan);
+  const validPeriodSales = periodSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale));
+  const periodPaymentSales = periodSales.filter((sale) => !sale.isOrphan && isInstallmentPaymentSale(sale));
+  const parentSalesInPeriod = new Set(validPeriodSales.map((sale) => sale.id));
 
   const cashContracted = validPeriodSales.reduce((sum, sale) => sum + sale.totalPrice, 0);
   const summaries = validPeriodSales.map((sale) => summarize(sale.totalPrice, sale.installments));
-  const cashCollected = summaries.reduce((sum, summary) => sum + summary.paidTotal, 0);
+  const cashCollected =
+    summaries.reduce((sum, summary) => sum + summary.paidTotal, 0) +
+    periodPaymentSales
+      .filter((sale) => sale.parentSaleId === null || !parentSalesInPeriod.has(sale.parentSaleId))
+      .reduce((sum, sale) => sum + sale.totalPrice, 0);
   const pending = summaries.reduce((sum, summary) => sum + summary.pendingTotal, 0);
   const failed = summaries.reduce((sum, summary) => sum + summary.failedTotal, 0);
   const refunded = summaries.reduce((sum, summary) => sum + summary.refundedTotal, 0);
@@ -191,8 +198,10 @@ export default async function SuiviDesVentesPage({ searchParams }: { searchParam
   const forecast = buildUpcomingPaymentForecast(sales);
 
   const stateText =
-    periodSales.length > 0
-      ? t("stateWithSales", { count: periodSales.length, amount: new Intl.NumberFormat(locale).format(cashCollected) })
+    validPeriodSales.length > 0
+      ? t("stateWithSales", { count: validPeriodSales.length, amount: new Intl.NumberFormat(locale).format(cashCollected) })
+      : periodPaymentSales.length > 0
+        ? t("stateWithPayments", { count: periodPaymentSales.length, amount: new Intl.NumberFormat(locale).format(cashCollected) })
       : t("stateNoSales");
   // No MetricKey for Suivi des ventes in the Copilote pipeline — general topic.
   const chatContext: ChatContext = { topicType: "general", topicKey: null, topicLabel: null, sourcePage: "ventes_suivi" };

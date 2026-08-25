@@ -19,6 +19,7 @@ import { computeLeverOpportunities } from "@/lib/levers/opportunities";
 import { formatPercent } from "@/lib/setting/funnel";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import { getSales } from "@/lib/sales/queries";
+import { isInstallmentPaymentSale } from "@/lib/sales/types";
 import { todayUtc } from "@/lib/date-range";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
@@ -125,9 +126,9 @@ async function buildAdsData(ctx: LeverAgentDataContext): Promise<LeverAgentData>
 
 async function buildUpsellData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
   const [opportunity, allSales] = await Promise.all([resolveOpportunityBlock("upsell_ascension", ctx), getSales(ctx.accountId)]);
-  const periodSales = allSales.filter((s) => !s.isOrphan && ctx.months.some(({ range }) => inRange(s.saleDate, range)));
+  const periodSales = allSales.filter((s) => !s.isOrphan && !isInstallmentPaymentSale(s) && ctx.months.some(({ range }) => inRange(s.saleDate, range)));
   const takeRate = periodSales.length > 0 ? periodSales.filter((s) => s.hasUpsell).length / periodSales.length : null;
-  const recent = allSales.filter((s) => !s.isOrphan && s.hasUpsell).slice(0, 3);
+  const recent = allSales.filter((s) => !s.isOrphan && !isInstallmentPaymentSale(s) && s.hasUpsell).slice(0, 3);
   const offerName = (offerId: string | null) => ctx.businessProfile.sales.offers.find((o) => o.id === offerId)?.name ?? "offre non précisée";
   const recentLines =
     recent.length > 0
@@ -207,7 +208,7 @@ async function buildSettingData(ctx: LeverAgentDataContext): Promise<LeverAgentD
 async function buildClosingData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
   const points = ctx.points.filter((p) => p.category === "Closing");
   const base = buildDiagnosticPointsData(points, "Tous tes taux de closing sont actuellement au niveau du benchmark.");
-  const recentSales = (await getSales(ctx.accountId)).filter((sale) => !sale.isOrphan).slice(0, 3);
+    const recentSales = (await getSales(ctx.accountId)).filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale)).slice(0, 3);
   const recentLines =
     recentSales.length > 0
       ? recentSales.map((s) => `- ${s.clientName} (${s.saleDate}) : ${formatEur(s.totalPrice)}, closer ${s.closer ?? "non précisé"}.`).join("\n")
@@ -218,7 +219,7 @@ async function buildClosingData(ctx: LeverAgentDataContext): Promise<LeverAgentD
 async function buildProduitsData(ctx: LeverAgentDataContext): Promise<LeverAgentData> {
   const offers = ctx.businessProfile.sales.offers;
   const today = todayUtc();
-  const monthSales = (await getSales(ctx.accountId)).filter((s) => !s.isOrphan && (ctx.months.some(({ range }) => inRange(s.saleDate, range)) || (s.saleDate.startsWith(`${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`))));
+    const monthSales = (await getSales(ctx.accountId)).filter((s) => !s.isOrphan && !isInstallmentPaymentSale(s) && (ctx.months.some(({ range }) => inRange(s.saleDate, range)) || (s.saleDate.startsWith(`${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}`))));
 
   const lines =
     offers.length > 0

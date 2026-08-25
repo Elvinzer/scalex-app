@@ -18,6 +18,7 @@ import { getSalesCalls } from "@/lib/iclosed/calls";
 import { dateFromDayString, isInPeriod, resolvePeriod } from "@/lib/period";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
+import { isInstallmentPaymentSale } from "@/lib/sales/types";
 import { getSetters } from "@/lib/setters/queries";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
 
@@ -73,7 +74,7 @@ export default async function PriseDappelPage({ searchParams }: { searchParams: 
   // Funnel for the selected period, computed in code (never pre-aggregated).
   const periodCalls = calls.filter((c) => isInPeriod(period, new Date(c.scheduledAt)));
   const activePeriodCalls = periodCalls.filter((c) => c.attendance !== "cancelled");
-  const periodSales = sales.filter((sale) => !sale.isOrphan && isInPeriod(period, dateFromDayString(sale.saleDate)));
+  const periodSales = sales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && isInPeriod(period, dateFromDayString(sale.saleDate)));
   const reserved = activePeriodCalls.length;
   const shown = activePeriodCalls.filter((c) => c.attendance === "showed").length;
   const noShow = activePeriodCalls.filter((c) => c.attendance === "no_show").length;

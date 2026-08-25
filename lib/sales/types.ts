@@ -44,8 +44,17 @@ export type SaleRow = {
   // plain manual /ventes/suivi form, not the Kanban.
   setterId: string | null;
   leadId: string | null;
+  // Non-null only for a ledger row representing one collected installment
+  // linked to the original programme sale.
+  parentSaleId: string | null;
+  paymentNumber: number | null;
+  paymentCount: number | null;
   createdAt: string;
 };
+
+export function isInstallmentPaymentSale(sale: Pick<SaleRow, "parentSaleId">): boolean {
+  return sale.parentSaleId !== null;
+}
 
 export type OverallSaleStatus = "paid_full" | "in_progress" | "failed" | "refunded";
 

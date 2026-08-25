@@ -10,7 +10,7 @@ import { sales } from "@/db/schema";
 import { saleInputSchema } from "@/lib/sales/schema";
 import { attributeSaleToVideo, removeSaleAttribution } from "@/lib/youtube/attribution";
 import { track } from "@/lib/analytics";
-import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
+import { createInstallmentPaymentSale, createSale, deleteSale, updateSale } from "@/lib/sales/queries";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
 import type { InstallmentStatus } from "@/lib/sales/types";
@@ -22,6 +22,11 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 // and the credit has its own provenance (declared vs estimated).
 const saleAttributionSchema = z.object({ sourceVideoId: z.string().nullable().optional() });
 const saleIdSchema = z.string().uuid();
+const installmentStatusSchema = z.object({
+  saleId: saleIdSchema,
+  installmentIndex: z.number().int().min(0).max(11),
+  status: z.enum(["paid", "failed"]),
+});
 
 export async function saveSale(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
@@ -110,7 +115,47 @@ export async function removeSale(id: string): Promise<{ error: string | null }> 
   const access = await requirePermission(userId, "ventes:suivi");
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
-  await deleteSale(access.accountId, id);
+  const parsedSaleId = saleIdSchema.safeParse(id);
+  if (!parsedSaleId.success) return { error: "Vente introuvable" };
+
+  const [row] = await db
+    .select({ parentSaleId: sales.parentSaleId, paymentNumber: sales.paymentNumber, source: sales.source })
+    .from(sales)
+    .where(and(eq(sales.id, parsedSaleId.data), eq(sales.userId, access.accountId)))
+    .limit(1);
+
+  const parentSaleId = row?.parentSaleId;
+  const paymentNumber = row?.paymentNumber;
+  if (row?.source === "manual_installment_payment" && parentSaleId && paymentNumber !== null) {
+    const [parent] = await db
+      .select({ installments: sales.installments })
+      .from(sales)
+      .where(and(eq(sales.id, parentSaleId), eq(sales.userId, access.accountId)))
+      .limit(1);
+    const installmentIndex = paymentNumber - 1;
+    if (parent?.installments?.[installmentIndex]) {
+      const installments = [...parent.installments];
+      installments[installmentIndex] = {
+        ...installments[installmentIndex],
+        status: "upcoming",
+        paidAt: null,
+        stripeChargeId: null,
+        failureReason: null,
+        acknowledgedAt: null,
+      };
+      await db.transaction(async (transaction) => {
+        await transaction
+          .update(sales)
+          .set({ installments })
+          .where(and(eq(sales.id, parentSaleId), eq(sales.userId, access.accountId)));
+        await transaction.delete(sales).where(and(eq(sales.id, parsedSaleId.data), eq(sales.userId, access.accountId)));
+      });
+    } else {
+      await deleteSale(access.accountId, parsedSaleId.data);
+    }
+  } else {
+    await deleteSale(access.accountId, parsedSaleId.data);
+  }
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic-app");
   revalidateBusinessData(access.accountId);
@@ -118,9 +163,8 @@ export async function removeSale(id: string): Promise<{ error: string | null }> 
 }
 
 // Toggles a single installment's status (paid/failed) from the detail drawer
-// — reads the row, patches just that one entry, writes it back. Only these
-// two terminal statuses are settable by hand; "upcoming" is the default a
-// generated schedule starts in.
+// — reads the row, patches just that one entry, writes it back. When a payment
+// is confirmed, an idempotent child sale is also created for the ledger.
 export async function setInstallmentStatus(
   saleId: string,
   installmentIndex: number,
@@ -132,24 +176,32 @@ export async function setInstallmentStatus(
   if (!access) return { error: "Tu n'as pas accès à cette section." };
   const { accountId } = access;
 
+  const parsed = installmentStatusSchema.safeParse({ saleId, installmentIndex, status });
+  if (!parsed.success) return { error: "Échéance invalide" };
+
   const [row] = await db
     .select()
     .from(sales)
-    .where(and(eq(sales.id, saleId), eq(sales.userId, accountId)))
+    .where(and(eq(sales.id, parsed.data.saleId), eq(sales.userId, accountId)))
     .limit(1);
 
-  if (!row || !row.installments || !row.installments[installmentIndex]) {
+  if (!row || !row.installments || !row.installments[parsed.data.installmentIndex]) {
     return { error: "Échéance introuvable" };
   }
 
   const installments = [...row.installments];
-  installments[installmentIndex] = {
-    ...installments[installmentIndex],
-    status,
-    paidAt: status === "paid" ? new Date().toISOString().slice(0, 10) : installments[installmentIndex].paidAt,
+  const paidAt = parsed.data.status === "paid" ? new Date().toISOString().slice(0, 10) : null;
+  installments[parsed.data.installmentIndex] = {
+    ...installments[parsed.data.installmentIndex],
+    status: parsed.data.status,
+    paidAt: paidAt ?? installments[parsed.data.installmentIndex].paidAt,
   };
 
-  await db.update(sales).set({ installments }).where(and(eq(sales.id, saleId), eq(sales.userId, accountId)));
+  await db.update(sales).set({ installments }).where(and(eq(sales.id, parsed.data.saleId), eq(sales.userId, accountId)));
+
+  if (paidAt) {
+    await createInstallmentPaymentSale(accountId, parsed.data.saleId, parsed.data.installmentIndex, paidAt);
+  }
 
   revalidatePath("/ventes/suivi");
   revalidatePath("/diagnostic-app");

@@ -80,7 +80,7 @@ export default async function DatasPage({
     const dailySetting = rawData.allSettingEntries.filter((e) => inRange(e.date, range));
     const dailyClosing = rawData.allClosingEntries.filter((e) => inRange(e.date, range));
     const callSource = rawData.allCallSourcesByMonth[`${mYear}-${String(mMonth).padStart(2, "0")}`] ?? null;
-    const validSales = rawData.allSales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, range));
+    const validSales = rawData.allSales.filter((sale) => !sale.isOrphan && sale.parentSaleId === null && inRange(sale.saleDate, range));
     const monthTotals = aggregatePeriodTotals({
       months: [{ year: mYear, month: mMonth, range }],
       allMonthlyRows: rawData.allMonthlyRows,

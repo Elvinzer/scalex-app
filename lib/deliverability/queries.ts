@@ -15,7 +15,7 @@ import {
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { Offer } from "@/lib/business/types";
 import { getSales } from "@/lib/sales/queries";
-import type { SaleRow } from "@/lib/sales/types";
+import { isInstallmentPaymentSale, type SaleRow } from "@/lib/sales/types";
 import { getSetters } from "@/lib/setters/queries";
 import { createBookingAssetSignedUrl } from "@/lib/booking-page/storage";
 
@@ -222,7 +222,7 @@ export async function getDeliveryBoard(accountId: string): Promise<DeliveryBoard
   }));
   const trackedSaleIds = new Set(journeys.flatMap((journey) => (journey.saleId ? [journey.saleId] : [])));
   const untrackedSales = sales
-    .filter((sale) => !sale.isOrphan && !trackedSaleIds.has(sale.id))
+    .filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && !trackedSaleIds.has(sale.id))
     .slice(0, 10)
     .map((sale) => ({
       id: sale.id,

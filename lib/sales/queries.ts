@@ -6,7 +6,7 @@ import { sales } from "@/db/schema";
 
 import { summarize } from "./installments";
 import type { SaleInput } from "./schema";
-import type { SaleRow } from "./types";
+import { isInstallmentPaymentSale, type SaleRow } from "./types";
 
 export type MonthlySalesSummary = {
   contracted: number;
@@ -36,6 +36,9 @@ function toRow(row: typeof sales.$inferSelect): SaleRow {
     upsellAmount: row.upsellAmount,
     setterId: row.setterId,
     leadId: row.leadId,
+    parentSaleId: row.parentSaleId,
+    paymentNumber: row.paymentNumber,
+    paymentCount: row.paymentCount,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -78,7 +81,7 @@ export async function getSalesSummaryByMonth(
   const byMonth: Record<number, MonthlySalesSummary> = {};
 
   for (const row of rows) {
-    if (row.isOrphan) continue;
+    if (row.isOrphan || isInstallmentPaymentSale(row)) continue;
     const [rowYear, rowMonth] = row.saleDate.split("-").map(Number);
     if (rowYear !== year) continue;
 
@@ -99,6 +102,70 @@ export async function getSalesSummaryByMonth(
 // (/ventes/suivi/actions.ts's saveSale) already discards the return value.
 export async function createSale(userId: string, data: SaleInput): Promise<{ id: string }> {
   const [row] = await db.insert(sales).values({ userId, ...data }).returning({ id: sales.id });
+  return row;
+}
+
+export async function createInstallmentPaymentSale(
+  userId: string,
+  parentSaleId: string,
+  installmentIndex: number,
+  paidAt: string,
+): Promise<{ id: string } | null> {
+  const [parent] = await db
+    .select()
+    .from(sales)
+    .where(and(eq(sales.id, parentSaleId), eq(sales.userId, userId)))
+    .limit(1);
+
+  const installment = parent?.installments?.[installmentIndex];
+  if (!parent || !parent.installments || !installment || installment.status !== "paid") return null;
+
+  const paymentNumber = installmentIndex + 1;
+  const existing = await db
+    .select({ id: sales.id })
+    .from(sales)
+    .where(and(eq(sales.userId, userId), eq(sales.parentSaleId, parentSaleId), eq(sales.paymentNumber, paymentNumber)))
+    .limit(1);
+  if (existing[0]) return existing[0];
+
+  const [row] = await db
+    .insert(sales)
+    .values({
+      userId,
+      clientName: parent.clientName,
+      clientEmail: parent.clientEmail,
+      sourceChannel: parent.sourceChannel,
+      offerId: parent.offerId,
+      totalPrice: installment.amount,
+      paymentType: "one_shot",
+      paymentMethod: parent.paymentMethod,
+      source: "manual_installment_payment",
+      isOrphan: false,
+      stripeCustomerId: parent.stripeCustomerId,
+      installments: null,
+      saleDate: paidAt,
+      closer: parent.closer,
+      hasUpsell: false,
+      upsellOfferId: null,
+      upsellAmount: null,
+      setterId: parent.setterId,
+      leadId: parent.leadId,
+      parentSaleId,
+      paymentNumber,
+      paymentCount: parent.installments.length,
+    })
+    .onConflictDoNothing({ target: [sales.parentSaleId, sales.paymentNumber] })
+    .returning({ id: sales.id });
+
+  if (!row) {
+    const [existingRow] = await db
+      .select({ id: sales.id })
+      .from(sales)
+      .where(and(eq(sales.userId, userId), eq(sales.parentSaleId, parentSaleId), eq(sales.paymentNumber, paymentNumber)))
+      .limit(1);
+    return existingRow ?? null;
+  }
+
   return row;
 }
 

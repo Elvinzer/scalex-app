@@ -77,7 +77,7 @@ export function SaleDetailDrawer({
         <div className="flex items-center justify-between border-b border-border p-5">
           <DrawerTitle className="text-lg font-bold">{sale.clientName}</DrawerTitle>
           <div className="flex items-center gap-1">
-            <SaleFormDialog offers={offers} setters={setters} closers={closers} sale={sale} trigger={<Button type="button" variant="outline" size="sm">{t("edit")}</Button>} />
+            {!sale.parentSaleId && <SaleFormDialog offers={offers} setters={setters} closers={closers} sale={sale} trigger={<Button type="button" variant="outline" size="sm">{t("edit")}</Button>} />}
             <DrawerClose asChild>
               <Button type="button" variant="ghost" size="icon-sm" aria-label={t("close")}>
                 ×
@@ -89,6 +89,7 @@ export function SaleDetailDrawer({
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5">
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {offerName && <span>{offerName}</span>}
+            {sale.paymentNumber !== null && sale.paymentCount !== null && <span>{t("paymentOf", { number: sale.paymentNumber, count: sale.paymentCount })}</span>}
             {sale.sourceChannel && <span>{t("source", { value: sale.sourceChannel })}</span>}
             {setterName && <span>{t("setter", { value: setterName })}</span>}
             {sale.closer && <span>{t("closer", { value: sale.closer })}</span>}
@@ -139,10 +140,11 @@ export function SaleDetailDrawer({
             <div>
               <p className="mb-2 text-sm font-bold">{t("installments")}</p>
               <ul className="flex flex-col gap-2">
-                {displayInstallments(sale.totalPrice, sale.saleDate, sale.installments).map(({ installment, index }) => (
+                {displayInstallments(sale.totalPrice, sale.saleDate, sale.installments).map(({ installment, index, synthetic }) => (
                   <li key={index} className="flex flex-col gap-2 rounded-[var(--radius-control)] border border-border p-3 text-sm">
                     <div className="flex items-center justify-between gap-3">
                       <div>
+                        {!synthetic && sale.paymentType === "installments" && <p className="text-xs font-bold text-accent-2-text">{t("paymentOf", { number: index + 1, count: sale.installments?.length ?? 0 })}</p>}
                         <p className="font-bold">{numberFormat.format(installment.amount)} €</p>
                         <p className="text-xs text-muted-foreground">
                           {installment.dueDate} — {t(`statuses.${installment.status}`)}

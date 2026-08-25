@@ -8,7 +8,7 @@ import { toIsoDate, todayUtc, type DateRange } from "@/lib/date-range";
 import { countDelta, inRange, rateDelta } from "@/lib/dashboard/metrics";
 import { aggregateSalesCallsInRange, isMonthlyCallSourceAvailable, type SalesCallKpiRecord } from "@/lib/monthly-metrics/call-source";
 import { formatPercent } from "@/lib/setting/funnel";
-import type { SaleRow } from "@/lib/sales/types";
+import { isInstallmentPaymentSale, type SaleRow } from "@/lib/sales/types";
 
 import type { WeeklyReportBottleneck, WeeklyReportStatCard } from "./weekly-report-types";
 
@@ -61,8 +61,8 @@ export function computeWeeklyStatCards({
   closingEntries: ClosingEntry[];
   callRecords?: SalesCallKpiRecord[];
 }): WeeklyReportStatCard[] {
-  const salesThisWeek = sales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, weekRange));
-  const salesPreviousWeek = sales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, previousWeekRange));
+  const salesThisWeek = sales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, weekRange));
+  const salesPreviousWeek = sales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, previousWeekRange));
 
   const settingThisWeek = settingEntries.filter((entry) => inRange(entry.date, weekRange));
   const settingPreviousWeek = settingEntries.filter((entry) => inRange(entry.date, previousWeekRange));

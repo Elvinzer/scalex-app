@@ -7,7 +7,7 @@ import { resolveDailySourceOverlay, resolveMonthClosingTotals, resolveMonthSetti
 import { EMPTY_MONTHLY_METRICS } from "@/lib/monthly-metrics/types";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import { isMonthlyCallSourceAuthoritative, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
-import type { SaleRow } from "@/lib/sales/types";
+import { isInstallmentPaymentSale, type SaleRow } from "@/lib/sales/types";
 import type { LeadRow } from "@/lib/leads/types";
 import { aggregateAcquisitionSources, emptyAcquisitionSourceTotals, type AcquisitionSourceTotals } from "@/lib/diagnostic/acquisition-sources";
 import type { emailCampaigns, metaAdMetricsDaily, nativeBookingLeads } from "@/db/schema";
@@ -138,7 +138,7 @@ export function aggregatePeriodTotals({
     const { year, month, range } = monthWindow;
     const monthlyRow = allMonthlyRows.find((row) => row.year === year && row.month === month) ?? null;
     const callSource = callSourcesByMonth[monthKey(year, month)] ?? null;
-    const validSalesInMonth = allSales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, range));
+    const validSalesInMonth = allSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, range));
     const hasSalesSource = validSalesInMonth.length > 0;
     for (const sale of validSalesInMonth) {
       if (sale.leadId === null) continue;

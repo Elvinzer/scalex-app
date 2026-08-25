@@ -8,6 +8,7 @@ import { lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/complete
 import { buildRates } from "@/lib/diagnostic/cascade";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import type { MetricKey } from "@/lib/diagnostic/metric-keys";
+import { isInstallmentPaymentSale } from "@/lib/sales/types";
 
 import type { BaselineSnapshot, MeasurementSnapshot } from "./types";
 import type { InsightSnapshot } from "./types";
@@ -99,7 +100,7 @@ function cashValueForMonths(allMonthlyRows: KpiData["allMonthlyRows"], months: M
   let total = 0;
   for (const month of months) {
     const salesTotal = allSales
-      .filter((sale) => !sale.isOrphan && sale.saleDate >= month.range.from && sale.saleDate <= month.range.to)
+      .filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && sale.saleDate >= month.range.from && sale.saleDate <= month.range.to)
       .reduce((sum, sale) => sum + sale.totalPrice, 0);
     const row = allMonthlyRows.find((item) => item.year === month.year && item.month === month.month);
     if (salesTotal > 0) {
@@ -120,7 +121,7 @@ export async function calculateCashSnapshot(accountId: string, months = lastComp
   const value = cashValueForMonths(data.allMonthlyRows, months, data.allSales);
   if (value === null) return null;
   const sampleSize = months.filter((month) => {
-    const hasSale = data.allSales.some((sale) => !sale.isOrphan && sale.saleDate >= month.range.from && sale.saleDate <= month.range.to);
+    const hasSale = data.allSales.some((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && sale.saleDate >= month.range.from && sale.saleDate <= month.range.to);
     const row = data.allMonthlyRows.find((item) => item.year === month.year && item.month === month.month);
     return hasSale || row?.cashContracted !== null;
   }).length;

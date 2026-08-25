@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { dataImports, monthlyMetrics, sales } from "@/db/schema";
 import { getUserById } from "@/lib/current-user";
 import { getSales } from "@/lib/sales/queries";
+import { isInstallmentPaymentSale } from "@/lib/sales/types";
 import { aggregateSalesCallsByMonth, monthKey } from "@/lib/monthly-metrics/call-source";
 import { monthDateRange } from "@/lib/date-range";
 import { commitImportPayloadSchema, type CommitImportPayload } from "@/lib/import/schema";
@@ -61,7 +62,7 @@ async function protectedFieldsForMonth(accountId: string, year: number, month: n
   });
 
   const callSource = aggregateSalesCallsByMonth(calls)[monthKey(year, month)] ?? null;
-  const validSalesCount = allSales.filter((sale) => !sale.isOrphan && sale.saleDate >= range.from && sale.saleDate <= range.to).length;
+  const validSalesCount = allSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && sale.saleDate >= range.from && sale.saleDate <= range.to).length;
   const overlay = resolveDailySourceOverlay(range, dailySetting, dailyClosing, {}, callSource, {
     callTrackingConnected: Boolean(accountUser?.iclosedConnected || accountUser?.calendlyConnected),
     salesClosed: validSalesCount > 0 ? validSalesCount : undefined,

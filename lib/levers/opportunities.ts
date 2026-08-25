@@ -9,6 +9,7 @@ import { inRange } from "@/lib/dashboard/metrics";
 import { buildRates, resolveDealPrice } from "@/lib/diagnostic/cascade";
 import type { MonthWindow } from "@/lib/diagnostic/completed-months";
 import { getSales } from "@/lib/sales/queries";
+import { isInstallmentPaymentSale } from "@/lib/sales/types";
 import { scoreAgainstBenchmark } from "@/lib/scoring";
 import type { FunnelTotals } from "@/lib/setting/funnel";
 import type { BusinessProfileData } from "@/lib/business/types";
@@ -591,7 +592,7 @@ export async function computeLeverOpportunities({
     // on a rate that a couple of sales could swing wildly.
     if (status === "active" && lever.leverKey === "upsell_ascension") {
       const allSales = await getSales(accountId);
-      const periodSales = allSales.filter((sale) => !sale.isOrphan && months.some(({ range }) => inRange(sale.saleDate, range)));
+      const periodSales = allSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && months.some(({ range }) => inRange(sale.saleDate, range)));
       if (periodSales.length >= UPSELL_MIN_SALES) {
         const takeRate = periodSales.filter((sale) => sale.hasUpsell).length / periodSales.length;
         const dealPrice = resolveDealPrice(businessProfile, closingTotals, cashContractedTotal);

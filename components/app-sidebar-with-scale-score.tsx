@@ -18,7 +18,7 @@ import type { MonthlyMetricsRow } from "@/lib/monthly-metrics/queries";
 import { computeCompletion, monthStatus } from "@/lib/monthly-metrics/completion";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
 import { getScaleScoreDelta, getScaleScoreSparkline } from "@/lib/scale-score-history/queries";
-import type { SaleRow } from "@/lib/sales/types";
+import { isInstallmentPaymentSale, type SaleRow } from "@/lib/sales/types";
 import type { BusinessProfileData } from "@/lib/business/types";
 import type { SectorKey } from "@/lib/benchmarks";
 
@@ -62,7 +62,7 @@ function latestMissingMetricMonth({
 
   for (const month of months.slice().reverse()) {
     const row = rows.find((candidate) => candidate.year === month.year && candidate.month === month.month) ?? null;
-    const salesClosed = allSales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, month.range)).length;
+    const salesClosed = allSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, month.range)).length;
     const overlay = resolveDailySourceOverlay(
       monthDateRange(month.year, month.month),
       settingEntries,

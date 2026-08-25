@@ -1,4 +1,4 @@
-import type { SaleRow } from "@/lib/sales/types";
+import { isInstallmentPaymentSale, type SaleRow } from "@/lib/sales/types";
 
 import type { Offer } from "./types";
 
@@ -37,7 +37,7 @@ function scoreAgainstBenchmark(current: number, benchmark: number): number {
 }
 
 export function buildOfferPerformance(offers: Offer[], monthSales: SaleRow[]): OfferPerformance[] {
-  const validSales = monthSales.filter((sale) => !sale.isOrphan);
+  const validSales = monthSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale));
   return offers.map((offer) => {
     const offerSales = validSales.filter((sale) => sale.offerId === offer.id);
     const revenue = offerSales.reduce((sum, sale) => sum + sale.totalPrice, 0);
@@ -52,7 +52,7 @@ export function buildOfferPerformance(offers: Offer[], monthSales: SaleRow[]): O
 }
 
 export function buildUpsellPerformance(offers: Offer[], monthSales: SaleRow[]): UpsellPerformance {
-  const validSales = monthSales.filter((sale) => !sale.isOrphan);
+  const validSales = monthSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale));
   const upsellSales = validSales.filter((sale) => sale.hasUpsell);
   const saleCount = validSales.length;
   const takeRate = saleCount > 0 ? upsellSales.length / saleCount : null;
@@ -66,7 +66,7 @@ export function buildUpsellPerformance(offers: Offer[], monthSales: SaleRow[]): 
     avgWithUpsell: average(upsellSales.map((sale) => sale.totalPrice + (sale.upsellAmount ?? 0))),
     avgWithoutUpsell: average(validSales.filter((sale) => !sale.hasUpsell).map((sale) => sale.totalPrice)),
     offers: upsellOffers.map((offer) => {
-      const offerSales = monthSales.filter((sale) => sale.upsellOfferId === offer.id);
+      const offerSales = monthSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && sale.upsellOfferId === offer.id);
       const offerTakeRate = saleCount > 0 ? offerSales.length / saleCount : null;
 
       return {

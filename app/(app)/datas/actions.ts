@@ -64,11 +64,11 @@ export async function saveMonthlyMetrics(
   const overrides = parsedSourceOverrides?.success ? parsedSourceOverrides.data : undefined;
   const [monthlyCallSource, salesRows] = await Promise.all([
     getSalesCallKpiRecords(accountId),
-    db.select({ saleDate: sales.saleDate, isOrphan: sales.isOrphan }).from(sales).where(eq(sales.userId, accountId)),
+    db.select({ saleDate: sales.saleDate, isOrphan: sales.isOrphan, parentSaleId: sales.parentSaleId }).from(sales).where(eq(sales.userId, accountId)),
   ]);
   const range = monthDateRange(year, month);
   const callSource = aggregateSalesCallsByMonth(monthlyCallSource)[monthKey(year, month)] ?? null;
-  const salesClosedRows = salesRows.filter((row) => !row.isOrphan && row.saleDate >= range.from && row.saleDate <= range.to);
+  const salesClosedRows = salesRows.filter((row) => !row.isOrphan && row.parentSaleId === null && row.saleDate >= range.from && row.saleDate <= range.to);
   const currentUser = await getUserById(accountId);
   const saveOverlay = resolveDailySourceOverlay(range, [], [], overrides ?? {}, callSource, {
     callTrackingConnected: Boolean(currentUser?.iclosedConnected || currentUser?.calendlyConnected),

@@ -27,6 +27,7 @@ import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/
 import { buildTechnicalAlerts } from "@/lib/dashboard/technical-alerts";
 import { getRecentWeeklyReports } from "@/lib/dashboard/weekly-report";
 import { getCurrentUser } from "@/lib/current-user";
+import { isInstallmentPaymentSale } from "@/lib/sales/types";
 import { isMonthlyCallSourceAuthoritative, monthKey, type MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import { emptyMonthRow } from "@/lib/monthly-metrics/queries";
 import { resolveDailySourceOverlay } from "@/lib/monthly-metrics/resolve";
@@ -251,7 +252,7 @@ async function renderDashboardPage({
       (value) => value !== null && value !== undefined
     ) ||
     isMonthlyCallSourceAuthoritative(bottleneckCallSource, callTrackingConnected) ||
-    allSales.some((sale) => !sale.isOrphan && inRange(sale.saleDate, bottleneckMonth.range));
+    allSales.some((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, bottleneckMonth.range));
   const hasBottleneckRevenueData = bottleneckCashContractedTotal > 0 || typeof bottleneckMonthlyRow?.cashContracted === "number";
 
   const points = projectionPoints.slice(0, 3);
@@ -297,7 +298,7 @@ async function renderDashboardPage({
   const currentMonthlyRow = allMonthlyRows.find((row) => row.year === currentYear && row.month === currentMonth);
   const currentCallSource: MonthlyCallSource | null = allCallSourcesByMonth[monthKey(currentYear, currentMonth)] ?? null;
   const currentSalesCount = allSales.filter(
-    (sale) => !sale.isOrphan && inRange(sale.saleDate, monthDateRange(currentYear, currentMonth))
+    (sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, monthDateRange(currentYear, currentMonth))
   ).length;
   const dailySourceOverlay = resolveDailySourceOverlay(
     monthDateRange(currentYear, currentMonth),

@@ -13,7 +13,7 @@ import {
 } from "@/lib/monthly-metrics/resolve";
 import { formatPercent } from "@/lib/setting/funnel";
 import { summarize } from "@/lib/sales/installments";
-import type { SaleRow } from "@/lib/sales/types";
+import { isInstallmentPaymentSale, type SaleRow } from "@/lib/sales/types";
 
 type SettingEntry = typeof settingKpiEntries.$inferSelect;
 type ClosingEntry = typeof closingKpiEntries.$inferSelect;
@@ -158,7 +158,7 @@ export function buildMetricCards({
     // closing correction must not hide the same month's canonical booked-call
     // source from the acquisition cards.
     const callSource = callSourcesByMonth[monthKey(bucket.year, bucket.month)] ?? null;
-    const validSalesInMonth = allSales.filter((sale) => !sale.isOrphan && inRange(sale.saleDate, bucket.range));
+    const validSalesInMonth = allSales.filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, bucket.range));
 
     const baseSettingTotals = resolveMonthSettingTotals(monthlyRow, dailySetting);
     const callSourceIsAvailable = isMonthlyCallSourceAuthoritative(callSource, callTrackingConnected);
@@ -176,7 +176,7 @@ export function buildMetricCards({
     };
     const closingRates = computeClosingRates(closingTotals, settingTotals.callsBooked);
     const salesCollected = allSales
-      .filter((sale) => !sale.isOrphan && inRange(sale.saleDate, bucket.range))
+      .filter((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, bucket.range))
       .reduce((sum, sale) => sum + summarize(sale.totalPrice, sale.installments).paidTotal, 0);
     const stripeOrManualCash = resolveMonthCashCollected(monthlyRow);
     const cash = salesCollected > 0 ? { amount: salesCollected, source: "sales" as const } : stripeOrManualCash;
@@ -195,7 +195,7 @@ export function buildMetricCards({
     allClosingEntries.length > 0 ||
     Object.values(callSourcesByMonth).some((source) => isMonthlyCallSourceAuthoritative(source, callTrackingConnected)) ||
     allMonthlyRows.some((row) => row.callsTaken !== null || row.salesClosed !== null) ||
-    allSales.some((sale) => !sale.isOrphan);
+    allSales.some((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale));
   const directSalePage = businessProfile.acquisition.setting.enabled === "no";
 
   const cards: MetricCard[] = [];

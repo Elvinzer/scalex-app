@@ -6,7 +6,7 @@ import { setters } from "@/db/schema";
 import type { Offer } from "@/lib/business/types";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
-import type { SaleRow } from "@/lib/sales/types";
+import { isInstallmentPaymentSale, type SaleRow } from "@/lib/sales/types";
 
 import type { SetterInput } from "./schema";
 import type { SetterCommissions, SetterMonthlyCommission, SetterRow, SetterSaleDetail } from "./types";
@@ -120,7 +120,7 @@ export async function computeSetterCommissions(
   defaultCommissionPct: number,
   offers: Offer[]
 ): Promise<SetterCommissions> {
-  const setterSales = (await getSales(userId)).filter((sale) => sale.setterId === setterId && !sale.isOrphan);
+  const setterSales = (await getSales(userId)).filter((sale) => sale.setterId === setterId && !sale.isOrphan && !isInstallmentPaymentSale(sale));
   return buildCommissions(setterSales, defaultCommissionPct, offers);
 }
 
@@ -132,7 +132,7 @@ export async function computeSettersCommissions(userId: string, settersList: Set
   if (settersList.length === 0) return [];
 
   const setterIds = new Set(settersList.map((setter) => setter.id));
-  const allSales = (await getSales(userId)).filter((sale) => sale.setterId !== null && setterIds.has(sale.setterId) && !sale.isOrphan);
+  const allSales = (await getSales(userId)).filter((sale) => sale.setterId !== null && setterIds.has(sale.setterId) && !sale.isOrphan && !isInstallmentPaymentSale(sale));
 
   const salesBySetterId = new Map<string, SaleRow[]>();
   for (const sale of allSales) {

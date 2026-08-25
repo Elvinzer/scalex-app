@@ -37,6 +37,9 @@ const sale = (overrides: Partial<SaleRow> = {}): SaleRow => ({
   upsellAmount: null,
   setterId: null,
   leadId: null,
+  parentSaleId: null,
+  paymentNumber: null,
+  paymentCount: null,
   createdAt: "2026-08-07T00:00:00.000Z",
   ...overrides,
 });
@@ -76,5 +79,17 @@ describe("business performance", () => {
       revenue: 300,
       score: 100,
     });
+  });
+
+  it("does not count installment payment rows as new deals", () => {
+    const stats = buildOfferPerformance(
+      [offer()],
+      [
+        sale(),
+        sale({ id: "sale_payment_2", totalPrice: 500, parentSaleId: "sale_1", paymentNumber: 2, paymentCount: 3 }),
+      ],
+    );
+
+    expect(stats[0]).toMatchObject({ salesCount: 1, revenue: 1500, avgBasket: 1500 });
   });
 });

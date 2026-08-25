@@ -2423,6 +2423,13 @@ export const sales = pgTable(
     // the plain manual /ventes/suivi form, not the pipeline.
     setterId: uuid("setter_id").references(() => setters.id, { onDelete: "set null" }),
     leadId: uuid("lead_id").references((): AnyPgColumn => leads.id, { onDelete: "set null" }),
+    // Payment tracking rows are child sales created when an installment is
+    // confirmed as paid. They keep the original programme sale as the
+    // financial source of truth while giving the ledger one dated row per
+    // collected payment (for example, payment 2/3).
+    parentSaleId: uuid("parent_sale_id").references((): AnyPgColumn => sales.id, { onDelete: "cascade" }),
+    paymentNumber: integer("payment_number"),
+    paymentCount: integer("payment_count"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -2431,6 +2438,8 @@ export const sales = pgTable(
     index("sales_user_stripe_customer_idx").on(table.userId, table.stripeCustomerId),
     index("sales_setter_idx").on(table.setterId),
     index("sales_lead_idx").on(table.leadId),
+    index("sales_parent_sale_idx").on(table.parentSaleId),
+    uniqueIndex("sales_parent_payment_idx").on(table.parentSaleId, table.paymentNumber),
     pgPolicy("sales_account_access", {
       for: "all",
       to: "authenticated",

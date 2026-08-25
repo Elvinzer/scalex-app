@@ -17,6 +17,7 @@ import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { currentMonthWindow, lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
 import { resolveDealPrice } from "@/lib/diagnostic/cascade";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
+import { isInstallmentPaymentSale } from "@/lib/sales/types";
 import { getAcquisitionFunnelBenchmarks, getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { getFunnelBlockBenchmarks, getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
 import { funnelBlockKeyFromSlug } from "@/lib/funnel-blocks/routes";
@@ -259,7 +260,7 @@ export default async function AcquisitionFunnelPage({ params, searchParams }: Fu
       monthClosingEntries.length > 0 ||
       [monthlyRow?.callsTaken, monthlyRow?.salesClosed].some((value) => value !== null && value !== undefined) ||
       isMonthlyCallSourceAvailable(callSource) ||
-      rawData.allSales.some((sale) => !sale.isOrphan && inRange(sale.saleDate, month.range));
+      rawData.allSales.some((sale) => !sale.isOrphan && !isInstallmentPaymentSale(sale) && inRange(sale.saleDate, month.range));
     const dealPrice = resolveDealPrice(profile, periodTotals.closingTotals, periodTotals.cashContractedTotal);
     return {
       month,
