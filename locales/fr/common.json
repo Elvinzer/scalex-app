@@ -164,6 +164,9 @@
     "writeMessage": "Écris ton message…"
     ,"writeHook": "Rédiger une accroche"
     ,"writeHookFor": "Rédiger une accroche : {offer}"
+    ,"appErrorTitle": "Cette section a rencontré une erreur"
+    ,"appErrorBody": "Le reste de l’app fonctionne toujours. Réessaie, ou recharge la page si ça persiste."
+    ,"appErrorReload": "Recharger la page"
   },
   "integration": {
     "connected": "Connecté",

@@ -277,34 +277,46 @@ export function CallDetailDrawer({
               </Button>
             </div>
             {call.closingVideo?.falcoAnalysis ? (
-              <div className="flex flex-col gap-4 border-t border-border pt-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-bold">{t("analysisTitle")}</p>
-                  <span className="rounded-full bg-accent-2-soft px-3 py-1 text-sm font-bold text-accent-2-text">{t("score", { score: call.closingVideo.falcoAnalysis.score })}</span>
-                </div>
-                <p className="text-sm text-muted-foreground">{call.closingVideo.falcoAnalysis.summary}</p>
-                {call.closingVideo.falcoAnalysis.strengths.length > 0 ? (
-                  <div>
-                    <p className="text-xs font-bold text-state-healthy">{t("strengths")}</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{call.closingVideo.falcoAnalysis.strengths.map((item) => <li key={item}>{item}</li>)}</ul>
+              (() => {
+                // Defensive against legacy/partial jsonb rows: falcoAnalysis is
+                // a `$type`-cast column, so an older record can lack the array
+                // fields the current schema guarantees. Fall back to [] rather
+                // than let `.length`/`.map` throw and take the whole app down.
+                const fa = call.closingVideo.falcoAnalysis;
+                const strengths = fa.strengths ?? [];
+                const improvements = fa.improvements ?? [];
+                const roadmap = fa.roadmap ?? [];
+                return (
+                  <div className="flex flex-col gap-4 border-t border-border pt-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm font-bold">{t("analysisTitle")}</p>
+                      <span className="rounded-full bg-accent-2-soft px-3 py-1 text-sm font-bold text-accent-2-text">{t("score", { score: fa.score })}</span>
+                    </div>
+                    {fa.summary && <p className="text-sm text-muted-foreground">{fa.summary}</p>}
+                    {strengths.length > 0 ? (
+                      <div>
+                        <p className="text-xs font-bold text-state-healthy">{t("strengths")}</p>
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{strengths.map((item) => <li key={item}>{item}</li>)}</ul>
+                      </div>
+                    ) : null}
+                    {improvements.length > 0 ? (
+                      <div>
+                        <p className="text-xs font-bold text-accent-2-text">{t("improvements")}</p>
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{improvements.map((item) => <li key={item}>{item}</li>)}</ul>
+                      </div>
+                    ) : null}
+                    {roadmap.length > 0 ? (
+                      <div className="rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/50 p-3">
+                        <p className="text-xs font-bold text-accent-2-text">{t("roadmapIdeas")}</p>
+                        <ul className="mt-2 space-y-2 text-sm">
+                          {roadmap.map((item) => <li key={item.id}><p className="font-bold">{item.title}</p><p className="mt-0.5 text-muted-foreground">{item.description}</p></li>)}
+                        </ul>
+                        <Link href="/roadmap" className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-accent-2-text underline-offset-4 hover:underline">{t("openRoadmap")} <ExternalLink className="size-3.5" aria-hidden="true" /></Link>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-                {call.closingVideo.falcoAnalysis.improvements.length > 0 ? (
-                  <div>
-                    <p className="text-xs font-bold text-accent-2-text">{t("improvements")}</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{call.closingVideo.falcoAnalysis.improvements.map((item) => <li key={item}>{item}</li>)}</ul>
-                  </div>
-                ) : null}
-                {call.closingVideo.falcoAnalysis.roadmap.length > 0 ? (
-                  <div className="rounded-[var(--radius-control)] border border-accent-2-border bg-accent-2-soft/50 p-3">
-                    <p className="text-xs font-bold text-accent-2-text">{t("roadmapIdeas")}</p>
-                    <ul className="mt-2 space-y-2 text-sm">
-                      {call.closingVideo.falcoAnalysis.roadmap.map((item) => <li key={item.id}><p className="font-bold">{item.title}</p><p className="mt-0.5 text-muted-foreground">{item.description}</p></li>)}
-                    </ul>
-                    <Link href="/roadmap" className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-accent-2-text underline-offset-4 hover:underline">{t("openRoadmap")} <ExternalLink className="size-3.5" aria-hidden="true" /></Link>
-                  </div>
-                ) : null}
-              </div>
+                );
+              })()
             ) : null}
           </section>
 

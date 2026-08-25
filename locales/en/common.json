@@ -164,6 +164,9 @@
     "writeMessage": "Write your message…"
     ,"writeHook": "Write an ad hook"
     ,"writeHookFor": "Write an ad hook: {offer}"
+    ,"appErrorTitle": "This section ran into an error"
+    ,"appErrorBody": "The rest of the app still works. Try again, or reload if it keeps happening."
+    ,"appErrorReload": "Reload the page"
   },
   "integration": {
     "connected": "Connected",
