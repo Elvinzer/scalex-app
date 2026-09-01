@@ -13,6 +13,7 @@ export const NAMESPACES = [
   "diagnostic",
   "content",
   "pipeline",
+  "crm",
   "business",
   "data",
   "integrations",

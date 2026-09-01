@@ -72,7 +72,7 @@ export async function getCallRoadmapRecommendations(userId: string): Promise<Cal
     .orderBy(desc(closingVideos.createdAt));
   return rows.flatMap((row) => (row.falcoAnalysis?.roadmap ?? []).map((item) => ({
     ...item,
-    href: row.salesCallId ? `/ventes/appels?call=${encodeURIComponent(row.salesCallId)}` : "/ventes/appels",
+    href: row.salesCallId ? `/crm/appels?call=${encodeURIComponent(row.salesCallId)}` : "/crm/appels",
   })));
 }
 

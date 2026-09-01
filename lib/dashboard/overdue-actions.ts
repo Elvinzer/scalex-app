@@ -54,7 +54,7 @@ export function buildOverdueActions({
       icon: "call",
       title: call.inviteeName ?? "Appel sans nom",
       detail: "Décision de closing en attente",
-      href: "/ventes/appels",
+      href: "/crm/appels",
       urgencyLabel: lateLabel(days),
       daysLate: days,
     });
@@ -69,7 +69,7 @@ export function buildOverdueActions({
       icon: "lead",
       title: `${lead.firstName} ${lead.lastName}`,
       detail: lead.reminderNote?.trim() || "Relance à faire",
-      href: "/ventes/pipeline",
+      href: "/crm/pipeline",
       urgencyLabel: lateLabel(days),
       daysLate: days,
     });

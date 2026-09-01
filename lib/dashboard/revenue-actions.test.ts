@@ -60,7 +60,7 @@ describe("buildRevenueActions", () => {
     expect(actions[0]?.urgencyLabel).toBe("En retard de 1 j");
     expect(actions[1]?.urgencyLabel).toBe("À faire aujourd’hui");
     expect(actions[2]?.reason).toBe("Créneaux consultés sans réservation");
-    expect(actions[1]?.href).toBe("/ventes/pipeline?lead=lead-1&from=dashboard");
+    expect(actions[1]?.href).toBe("/crm/pipeline?lead=lead-1&from=dashboard");
   });
 
   it("prioritizes a no-show over the reminder attached to the same manual lead", () => {
@@ -153,5 +153,35 @@ describe("buildRevenueActions", () => {
 
     expect(actions[0]?.phone).toBe("+15551234567");
     expect(JSON.stringify(actions)).not.toContain("email");
+  });
+
+  it("does not duplicate a canonical call decision already represented by a CRM action", () => {
+    const actions = buildRevenueActions({
+      calls: [call({ id: "call-1" })],
+      leads: [],
+      nativeBookingLeads: [],
+      crmActions: [{ id: "action-1", leadId: "lead-1", title: "Relancer après l'appel", category: "sales", type: "call_decision", dueAt: "2026-08-05T10:00:00.000Z", sourceId: "call-1" }],
+      useCrmActions: true,
+      permissions: ALL_ACCESS,
+      now: NOW,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.id).toBe("crm_action:action-1");
+    expect(actions[0]?.sourceId).toBe("call-1");
+  });
+
+  it("does not project a CRM action into a destination the member cannot access", () => {
+    const actions = buildRevenueActions({
+      calls: [],
+      leads: [],
+      nativeBookingLeads: [],
+      crmActions: [{ id: "action-1", leadId: "lead-1", title: "Relancer le lead", category: "prospecting", type: "follow_up", dueAt: "2026-08-05T10:00:00.000Z" }],
+      useCrmActions: true,
+      permissions: { pipeline: false, calls: true, booking: true },
+      now: NOW,
+    });
+
+    expect(actions).toEqual([]);
   });
 });

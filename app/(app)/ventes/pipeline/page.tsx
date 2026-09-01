@@ -1,5 +1,6 @@
-// Compatibility wrapper: the implementation remains shared with the former
-// Acquisition route while the page is now rendered inside the Vente layout.
-import PipelinePage from "@/app/(app)/acquisition/pipeline/page";
+import { redirect } from "next/navigation";
 
-export default PipelinePage;
+// Compatibility URL. CRM is the canonical home for pipeline work.
+export default function LegacyPipelinePage() {
+  redirect("/crm/pipeline");
+}

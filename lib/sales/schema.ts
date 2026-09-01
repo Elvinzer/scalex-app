@@ -32,3 +32,12 @@ export const saleInputSchema = z.object({
 });
 
 export type SaleInput = z.infer<typeof saleInputSchema>;
+
+// CRM sale validation is a separate command because it must always identify
+// one lead and carry a replay key. The regular sales form stays unchanged.
+export const crmSaleValidationSchema = saleInputSchema.extend({
+  leadId: z.string().uuid(),
+  idempotencyKey: z.string().trim().min(8).max(240),
+});
+
+export type CrmSaleValidationInput = z.infer<typeof crmSaleValidationSchema>;

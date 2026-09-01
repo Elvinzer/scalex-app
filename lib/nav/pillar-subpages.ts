@@ -17,9 +17,14 @@ export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
   ],
   "/ventes": [
     { href: "/ventes/suivi", label: "Suivi des ventes", permission: "ventes:suivi" },
-    { href: "/ventes/pipeline", label: "Pipeline", permission: "acquisition:pipeline" },
-    { href: "/ventes/appels", label: "Suivi des appels", permission: "ventes:appels" },
     { href: "/ventes/rdv", label: "Rendez-vous", permission: "ventes:rdv" },
+  ],
+  "/crm": [
+    { href: "/crm", label: "Aujourd'hui", permission: "crm:view" },
+    { href: "/crm/pipeline", label: "Pipeline", permission: "crm:view" },
+    { href: "/crm/leads", label: "Leads", permission: "crm:view" },
+    { href: "/crm/actions", label: "Actions", permission: "crm:view" },
+    { href: "/crm/appels", label: "Appels", permission: "crm:view" },
   ],
   "/delivrabilite": [
     { href: "/delivrabilite/suivi-client", label: "Suivi client", permission: "delivrabilite:suivi-client" },

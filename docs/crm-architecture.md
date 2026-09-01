@@ -1,12 +1,12 @@
-# Architecture cible — CRM Minaly
+# Architecture implémentée — CRM Minaly
 
-Statut : cadrage cible, sans implémentation.
+Statut : V1 implémentée, migrations appliquées et parcours contrôlés localement
+le 1 septembre 2026.
 
-Ce document décrit l’architecture cible du module CRM et de l’extension Chrome. Il ne
-constitue pas encore une autorisation de développer. Les décisions métier prises par
-le owner du produit et les règles du repository restent prioritaires sur tout
-document de handoff design. Les exigences normatives et la checklist de réalisation
-sont dans `openspec/changes/add-crm-lead-capture/`.
+Ce document décrit l’architecture livrée du module CRM et de l’extension Chrome.
+Les décisions métier prises par le owner du produit et les règles du repository
+restent prioritaires sur tout document de handoff design. Les exigences normatives
+et la checklist de réalisation sont dans `openspec/changes/add-crm-lead-capture/`.
 
 ## 1. Objectif et positionnement
 
@@ -46,8 +46,9 @@ Les sources existantes à réutiliser sont notamment :
 - app/(app)/ventes/suivi/ pour les ventes et les paiements ;
 - lib/team/ pour les rôles, le contexte de compte et les permissions.
 
-Le contrat de synchronisation partagé devra ensuite intégrer les nouvelles
-projections CRM sans dupliquer les calculs.
+Le contrat de synchronisation partagé intègre les projections CRM sans dupliquer
+les calculs. Le rapport de migration et les contrôles sont dans
+`docs/crm-migration-report.md`.
 
 ### 2.2 Isolation par entreprise
 
@@ -141,14 +142,14 @@ Lorsque le CRM est désactivé, la navigation actuelle est conservée.
 
 ### 3.3 Points d’intégration dans le repository
 
-La navigation cible devra s’appuyer sur :
+La navigation livrée s’appuie sur :
 
 - components/app-sidebar.tsx pour l’entrée desktop et mobile ;
 - lib/nav/pillar-subpages.ts pour les sous-pages ;
 - app/(app)/ventes/layout.tsx pour retirer les anciennes entrées Pipeline et
   Appels de la navigation Ventes ;
 - app/(app)/settings/equipe/ pour la gestion des rôles et accès ;
-- une nouvelle section de paramètres Modules > CRM pour l’activation owner-only.
+- `app/(app)/settings/modules/crm/` pour l’activation owner-only.
 
 ## 4. Modules et responsabilités des pages
 
@@ -224,14 +225,13 @@ Champs fonctionnels cibles :
 - displayName ;
 - firstName, facultatif ;
 - lastName, facultatif ;
-- avatarUrl, facultatif ;
 - offerId, facultatif ;
 - source ;
-- responsibleSetterId ;
-- pipelineStage ;
-- outcome ;
+- setterId / responsable courant ;
+- crmStage ;
+- crmOutcome ;
 - isNoShow ;
-- nextActionAt ;
+- actions CRM ouvertes ;
 - createdAt ;
 - updatedAt.
 
@@ -623,7 +623,9 @@ restauration lorsque ces opérations seront spécifiées.
 
 ## 12. Migration de l’existant
 
-La migration devra être séparée de la création de nouvelles fonctions.
+La migration est séparée de la création de nouvelles fonctions et a été livrée
+dans les migrations 0050 à 0054. Le détail des volumes contrôlables, des clés
+stables et du rollback est dans `docs/crm-migration-report.md`.
 
 Mapping indicatif des anciens statuts :
 
@@ -647,42 +649,51 @@ Autres migrations :
 - les appels historiques sont reliés aux leads seulement lorsque la
   correspondance est suffisamment fiable.
 
-Chaque règle de migration devra être testée sur un échantillon avant toute
-application en environnement partagé.
+Chaque règle est additive et rejouable. Les migrations ont été générées,
+inspectées puis appliquées sur la base partagée ; les appels historiques restent
+non reliés tant qu’une association fiable n’est pas confirmée.
 
-## 13. Décisions encore ouvertes
+## 13. Décisions V1 implémentées
 
-Les sujets suivants doivent être arbitrés avant le schéma final et l’OpenSpec :
+Les choix ci-dessous sont les décisions techniques implémentées dans la V1.
+Les sujets de conservation et de raccordement manuel des appels restent ouverts
+pour la mise en production.
 
-1. période et cohorte exactes des KPI ;
-2. nombre d’actions ouvertes autorisées par lead ;
-3. comportement définitif des actions lors d’une réassignation ;
-4. création manuelle d’un lead en complément de l’extension ;
-5. authentification et révocation de session de l’extension ;
-6. rapprochement manuel ou non entre Instagram et LinkedIn ;
-7. listes account-scoped des offres et sources ;
-8. lien fiable entre appels historiques et leads ;
-9. fuseau horaire des dates sociales, actions et rendez-vous ;
-10. politique d’archivage et de suppression conforme au cadre légal.
+| Sujet | Décision V1 | Conséquence attendue |
+|---|---|---|
+| Période et cohorte KPI | Les bornes sont des jours calendaires en UTC dans la V1. La cohorte contient les leads dont le premier événement `first_message_sent` tombe dans la période. Les milestones sont comptés une fois par lead jusqu’à la date de consultation. | Stocker les dates en UTC et afficher explicitement la période, le fuseau UTC, la cohorte et la date de calcul. |
+| Actions ouvertes | Plusieurs actions ouvertes sont autorisées pour un lead. Aujourd’hui affiche une action principale déterminée par échéance puis priorité ; CRM Actions affiche la totalité. Aucun plafond métier n’est imposé en V1. | Ne pas utiliser un champ de relance unique sur le lead et ne pas masquer les actions secondaires. |
+| Réassignation | Les actions de prospection ouvertes suivent le nouveau responsable. Les actions terminées, événements, appels et ventes gardent leur attribution historique. | Une réassignation ne modifie jamais rétroactivement les KPI ni l’auteur d’une activité. |
+| Création manuelle | Un lead peut être créé depuis l’application ou l’extension. Les deux flux utilisent la même commande transactionnelle et la même clé de déduplication. | La capture manuelle ne contourne ni l’isolation compte ni les règles d’idempotence ; aucun enrichissement externe n’est ajouté. |
+| Authentification extension | Une page Minaly authentifiée émet une session d’extension courte via échange explicite. Le service worker conserve uniquement le jeton court, renouvelable par ré-authentification ; la session Supabase brute n’est jamais copiée. | La révocation intervient à l’expiration, à la désactivation du CRM, à la rotation du secret ou à la déconnexion explicite. |
+| Identité Instagram/LinkedIn | Les identités restent séparées en V1. Une similarité inter-plateforme peut seulement produire `ambiguous`; aucune fusion automatique n’est faite. | Une fusion future sera un changement de modèle distinct, avec audit et consentement explicite. |
+| Offres et sources | Les offres et sources sont des options account-scoped. Une valeur absente reste nullable ; un identifiant d’un autre compte est refusé côté serveur. | Les listes de sélection sont filtrées par compte et les événements conservent le contexte utile sans copier de données sensibles. |
+| Appels historiques | Un appel est lié à un lead uniquement par association explicite et fiable. Les appels non reliés restent dans la source canonique et ne créent pas de lead par déduction. | Les anciennes lignes sont mesurées dans un rapport de raccordement avant toute migration automatique. |
+| Fuseau horaire | Le CRM V1 utilise UTC pour les périodes KPI, les échéances et les dates affichées. Un fuseau configurable par compte fera l’objet d’un changement post-V1. | Les comparaisons de date ne dépendent pas du fuseau du navigateur de l’utilisateur ; l’interface affiche le périmètre en UTC. |
+| Conservation | Aucune purge destructive n’est introduite par le CRM V1. La durée de conservation, l’archivage, l’export et la suppression doivent suivre la politique légale applicable et constituent une condition de mise en production. | Les migrations et le rollback conservent les événements ; une suppression future fera l’objet d’un changement dédié. |
 
-## 14. Découpage futur, après autorisation de développement
+Les contrats de frontière et la checklist de validation associée sont détaillés
+dans `docs/crm-api-contract.md` et `docs/crm-implementation-readiness.md`.
 
-Ce découpage est indicatif et ne constitue pas un lancement de développement :
+## 14. Découpage livré et suites
 
-### Lot 0 — spécification
+Les lots 1 à 5 ci-dessous sont livrés. Les suites sont séparées du périmètre V1 :
 
-- valider les décisions ouvertes ;
-- produire l’OpenSpec ;
-- définir le contrat de données et la migration.
+### Lot 0 — spécification et entrée en développement (livré)
 
-### Lot 1 — fondations CRM
+- valider les décisions V1 et la condition de conservation ;
+- faire relire l’OpenSpec, le contrat API et la checklist de readiness ;
+- définir le contrat de données, la migration et le plan de rollback ;
+- confirmer les contrôles de sortie et le plan de pilote.
+
+### Lot 1 — fondations CRM (livré)
 
 - flag account-level CRM ;
 - permissions ;
 - navigation et routes ;
 - projections de leads et pipeline.
 
-### Lot 2 — actions et appels
+### Lot 2 — actions et appels (livré)
 
 - moteur d’actions partagé ;
 - Aujourd’hui ;
@@ -690,26 +701,34 @@ Ce découpage est indicatif et ne constitue pas un lancement de développement :
 - Appels ;
 - raccordement des données existantes.
 
-### Lot 3 — extension
+### Lot 3 — extension (livré)
 
 - capture DOM Instagram ;
 - résolution tenant-scoped ;
 - création et mise à jour confirmées ;
 - états inconnu, connu, ambigu et fermé.
 
-### Lot 4 — KPIs et migration
+### Lot 4 — KPIs et migration (livré)
 
 - événements et attribution ;
 - KPI setter/équipe ;
 - migration de l’existant ;
 - contrôles de cohérence.
 
-### Lot 5 — validation
+### Lot 5 — validation (livré localement)
 
 - tests de permissions et isolation entreprise ;
 - tests d’idempotence ;
 - vérification UX responsive ;
 - vérification runtime et régression.
 
-Aucun de ces lots ne doit démarrer avant une instruction explicite de lancement
-du développement et l’utilisation du mode Goal demandé par le owner du produit.
+## 15. Suites post-V1
+
+- maintenir les adaptateurs DOM Instagram/LinkedIn au fil des changements de
+  leurs interfaces ;
+- définir la durée de conservation et le parcours d’archivage/export avec la
+  politique légale ;
+- associer manuellement les appels historiques restants lorsque la preuve
+  d’identité est disponible ;
+- supprimer les champs legacy uniquement dans un changement séparé après
+  validation en production.

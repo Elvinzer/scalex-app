@@ -10,6 +10,7 @@ function memberContext(permissions: string[]): AccountContext {
     accountId: "account-id",
     permissions: new Set(permissions),
     advancedModulesEnabled: false,
+    crmEnabled: false,
   };
 }
 

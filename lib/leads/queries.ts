@@ -38,7 +38,7 @@ function toHistoryRow(row: typeof leadStageHistory.$inferSelect): LeadStageHisto
 }
 
 export const getLeads = cache(async (userId: string): Promise<LeadRow[]> => {
-  const rows = await db.select().from(leads).where(eq(leads.userId, userId)).orderBy(desc(leads.createdAt));
+  const rows = await db.select().from(leads).where(eq(leads.accountId, userId)).orderBy(desc(leads.createdAt));
   return rows.map(toRow);
 });
 
@@ -51,7 +51,7 @@ export const getLeadStageHistory = cache(async (userId: string) => {
     })
     .from(leadStageHistory)
     .innerJoin(leads, eq(leadStageHistory.leadId, leads.id))
-    .where(eq(leads.userId, userId));
+    .where(eq(leads.accountId, userId));
 });
 
 // Bulk comment counts for the board's cards — one query instead of N,
@@ -61,7 +61,7 @@ export const getCommentCounts = cache(async (userId: string): Promise<Record<str
     .select({ leadId: leadComments.leadId })
     .from(leadComments)
     .innerJoin(leads, eq(leadComments.leadId, leads.id))
-    .where(eq(leads.userId, userId));
+    .where(eq(leads.accountId, userId));
 
   const counts: Record<string, number> = {};
   for (const row of rows) {
@@ -71,7 +71,7 @@ export const getCommentCounts = cache(async (userId: string): Promise<Record<str
 });
 
 export async function getLead(userId: string, id: string): Promise<LeadWithRelations | null> {
-  const [row] = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.userId, userId))).limit(1);
+  const [row] = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.accountId, userId))).limit(1);
   if (!row) return null;
 
   const [comments, history] = await Promise.all([
@@ -86,7 +86,7 @@ export async function getLead(userId: string, id: string): Promise<LeadWithRelat
 // a lead never exists without at least one history entry.
 export async function createLead(userId: string, data: LeadInput): Promise<LeadRow> {
   return db.transaction(async (tx) => {
-    const [row] = await tx.insert(leads).values({ userId, ...data }).returning();
+    const [row] = await tx.insert(leads).values({ userId, accountId: userId, ...data }).returning();
     await tx.insert(leadStageHistory).values({ leadId: row.id, fromStage: null, toStage: row.stage });
     return toRow(row);
   });
@@ -95,7 +95,7 @@ export async function createLead(userId: string, data: LeadInput): Promise<LeadR
 // Assignment/field edits only — never touches stage/isNoShow/lostReason/saleId
 // (those go through changeLeadStage/setNoShow/linkLeadToSale below).
 export async function updateLead(userId: string, id: string, data: Partial<LeadInput>): Promise<void> {
-  await db.update(leads).set(data).where(and(eq(leads.id, id), eq(leads.userId, userId)));
+  await db.update(leads).set(data).where(and(eq(leads.id, id), eq(leads.accountId, userId)));
 }
 
 export async function changeLeadStage(
@@ -108,7 +108,7 @@ export async function changeLeadStage(
     return { error: "Un motif est requis pour un lead perdu." };
   }
 
-  const [current] = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.userId, userId))).limit(1);
+  const [current] = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.accountId, userId))).limit(1);
   if (!current) return { error: "Lead introuvable." };
 
   await db.transaction(async (tx) => {
@@ -122,7 +122,7 @@ export async function changeLeadStage(
         isNoShow: toStage === "rdv_fixe" ? current.isNoShow : false,
         updatedAt: new Date(),
       })
-      .where(and(eq(leads.id, id), eq(leads.userId, userId)));
+      .where(and(eq(leads.id, id), eq(leads.accountId, userId)));
     await tx.insert(leadStageHistory).values({ leadId: id, fromStage: current.stage, toStage });
   });
 
@@ -130,7 +130,7 @@ export async function changeLeadStage(
 }
 
 export async function setNoShow(userId: string, id: string, value: boolean): Promise<void> {
-  await db.update(leads).set({ isNoShow: value, updatedAt: new Date() }).where(and(eq(leads.id, id), eq(leads.userId, userId)));
+  await db.update(leads).set({ isNoShow: value, updatedAt: new Date() }).where(and(eq(leads.id, id), eq(leads.accountId, userId)));
 }
 
 // Recoverable no-show: back into "conversation" for re-booking, flag cleared.
@@ -143,14 +143,14 @@ export async function recoverFromNoShow(userId: string, id: string): Promise<{ e
 // — never by the Kanban drag handler directly, which opens the validation
 // modal instead of calling this.
 export async function linkLeadToSale(userId: string, leadId: string, saleId: string): Promise<void> {
-  const [current] = await db.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.userId, userId))).limit(1);
+  const [current] = await db.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, userId))).limit(1);
   if (!current) return;
 
   await db.transaction(async (tx) => {
     await tx
       .update(leads)
       .set({ stage: "close", saleId, isNoShow: false, updatedAt: new Date() })
-      .where(and(eq(leads.id, leadId), eq(leads.userId, userId)));
+      .where(and(eq(leads.id, leadId), eq(leads.accountId, userId)));
     await tx.insert(leadStageHistory).values({ leadId, fromStage: current.stage, toStage: "close" });
   });
 }
@@ -164,16 +164,16 @@ export async function setReminder(userId: string, leadId: string, date: string |
   await db
     .update(leads)
     .set({ reminderDate: date, reminderNote: note, reminderDone: false, updatedAt: new Date() })
-    .where(and(eq(leads.id, leadId), eq(leads.userId, userId)));
+    .where(and(eq(leads.id, leadId), eq(leads.accountId, userId)));
 }
 
 export async function toggleReminderDone(userId: string, leadId: string, done: boolean): Promise<void> {
-  await db.update(leads).set({ reminderDone: done, updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.userId, userId)));
+  await db.update(leads).set({ reminderDone: done, updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.accountId, userId)));
 }
 
 // leadStageHistory/leadComments cascade-delete (onDelete: "cascade");
 // sales.leadId nulls out (onDelete: "set null") rather than deleting the
 // sale itself — deleting a lead never deletes a real recorded sale.
 export async function deleteLead(userId: string, id: string): Promise<void> {
-  await db.delete(leads).where(and(eq(leads.id, id), eq(leads.userId, userId)));
+  await db.delete(leads).where(and(eq(leads.id, id), eq(leads.accountId, userId)));
 }

@@ -35,6 +35,9 @@
     "integrations": "Integrations",
     "integrationsHelp": "Stripe, iClosed, Calendly, Instagram and YouTube are the sources for your diagnostic.",
     "viewIntegrations": "View integrations →",
+    "crmModule": "CRM module",
+    "crmModuleHelp": "Activate CRM to centralize your team leads, actions and calls.",
+    "manageCrm": "Manage CRM",
     "deleteData": "Delete data",
     "apiKeyLabel": "New Anthropic API key",
     "apiKeyPlaceholder": "sk-ant-…",
@@ -142,12 +145,14 @@
     "permissionGroup": {
       "overview": "Core access",
       "acquisition": "Acquisition",
+      "crm": "CRM",
       "sales": "Sales",
       "delivrabilite": "Delivery"
     },
     "permissionGroupHelp": {
       "overview": "Workspace overview and business information.",
       "acquisition": "Content, lead generation, and appointment setting.",
+      "crm": "Company leads, pipeline, actions and calls.",
       "sales": "Sales tracking, closing, and appointments.",
       "delivrabilite": "Client tracking and testimonials."
     },
@@ -156,6 +161,11 @@
       "funnel": "Funnel",
       "datas": "Data (monthly metrics, cash)",
       "diagnostic": "Diagnostic",
+      "crm_view": "CRM",
+      "crm_view-team": "CRM: Team view",
+      "crm_assign": "CRM: Reassign leads",
+      "crm_manage-pipeline": "CRM: Manage pipeline",
+      "crm_validate-sale": "CRM: Validate a sale",
       "acquisition_contenu": "Acquisition: Content",
       "acquisition_setting": "Acquisition: Setting",
       "acquisition_ads": "Acquisition: Ads",

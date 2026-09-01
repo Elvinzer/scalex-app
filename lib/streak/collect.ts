@@ -70,7 +70,7 @@ export async function collectActivityDays(userId: string, fromDate: string): Pro
       .select({ date: sql<string>`(${leadStageHistory.changedAt} at time zone 'utc')::date::text` })
       .from(leadStageHistory)
       .innerJoin(leads, eq(leadStageHistory.leadId, leads.id))
-      .where(and(eq(leads.userId, userId), gte(sql`(${leadStageHistory.changedAt} at time zone 'utc')::date`, fromDate))),
+      .where(and(eq(leads.accountId, userId), gte(sql`(${leadStageHistory.changedAt} at time zone 'utc')::date`, fromDate))),
   ]);
 
   const byDate = new Map<string, Set<ActivitySource>>();

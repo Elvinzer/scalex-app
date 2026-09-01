@@ -1,6 +1,6 @@
 import type { LeadStage } from "@/lib/leads/types";
 
-export type RevenueActionSource = "lead_reminder" | "call_decision" | "lead_no_show" | "native_booking_lead";
+export type RevenueActionSource = "lead_reminder" | "call_decision" | "lead_no_show" | "native_booking_lead" | "crm_action";
 
 export type RevenueActionDestination = "pipeline" | "calls" | "booking";
 
@@ -35,6 +35,16 @@ export type RevenueNativeBookingLeadInput = {
   eventName: string;
   lastStep: "contact_submitted" | "slots_revealed" | "slot_selected" | "booking_failed" | "converted";
   lastSeenAt: string;
+};
+
+export type RevenueCrmActionInput = {
+  id: string;
+  leadId: string;
+  title: string;
+  category: "prospecting" | "sales" | "appointment";
+  type: string;
+  dueAt: string;
+  sourceId?: string | null;
 };
 
 export type RevenueAction = {
@@ -131,8 +141,8 @@ function nativeLeadReason(step: RevenueNativeBookingLeadInput["lastStep"]): stri
 
 function withDestination(action: Omit<RevenueAction, "href" | "destinationLabel">): RevenueAction {
   const destination = {
-    pipeline: { label: "Pipeline", path: "/ventes/pipeline", queryKey: "lead" },
-    calls: { label: "Appels", path: "/ventes/appels", queryKey: "call" },
+    pipeline: { label: "Pipeline", path: "/crm/pipeline", queryKey: "lead" },
+    calls: { label: "Appels", path: "/crm/appels", queryKey: "call" },
     booking: { label: "Rendez-vous", path: "/ventes/rdv", queryKey: "lead" },
   }[action.destination];
 
@@ -165,24 +175,54 @@ function toPublicAction(action: SortableRevenueAction): RevenueAction {
  * this function only creates navigation data and never mutates a source.
  *
  * Deep-link contract:
- * - lead actions: /ventes/pipeline?lead=<leadId>&from=dashboard
- * - closing decisions: /ventes/appels?call=<callId>&from=dashboard
+ * - lead actions: /crm/pipeline?lead=<leadId>&from=dashboard
+ * - closing decisions: /crm/appels?call=<callId>&from=dashboard
  * - native booking leads: /ventes/rdv?lead=<leadId>&from=dashboard
  */
 export function buildRevenueActions({
   calls,
   leads,
   nativeBookingLeads,
+  crmActions = [],
+  useCrmActions = false,
   permissions,
   now = new Date(),
 }: {
   calls: RevenueCallInput[];
   leads: RevenueLeadInput[];
   nativeBookingLeads: RevenueNativeBookingLeadInput[];
+  crmActions?: RevenueCrmActionInput[];
+  useCrmActions?: boolean;
   permissions: RevenueActionAccess;
   now?: Date;
 }): RevenueAction[] {
   const sortable: SortableRevenueAction[] = [];
+  const crmDecisionSourceIds = new Set(
+    crmActions
+      .filter((action) => action.type === "call_decision" && action.sourceId)
+      .map((action) => action.sourceId)
+  );
+
+  if (crmActions.length > 0) {
+    for (const action of crmActions) {
+      const due = dueState(action.dueAt, now, "Échéance prévue");
+      const destination: RevenueActionDestination = action.category === "prospecting" ? "pipeline" : "calls";
+      if (!permissions[destination]) continue;
+      const projected = withDestination({
+        id: `crm_action:${action.id}`,
+        source: "crm_action",
+        sourceId: action.sourceId ?? action.leadId,
+        title: action.title,
+        phone: null,
+        reason: "Action CRM",
+        urgencyLabel: due.urgencyLabel,
+        referenceAt: action.dueAt,
+        valueEur: null,
+        destination,
+      });
+      sortable.push({ ...projected, sortGroup: due.sortGroup, sortAt: due.sortAt, sortDirection: due.sortDirection });
+    }
+  }
   const noShowLeadIds = new Set(
     leads.filter((lead) => lead.stage === "rdv_fixe" && lead.isNoShow).map((lead) => lead.id)
   );
@@ -190,6 +230,7 @@ export function buildRevenueActions({
   if (permissions.calls) {
     for (const call of calls) {
       if (call.outcome !== "awaiting_decision") continue;
+      if (useCrmActions && crmDecisionSourceIds.has(call.id)) continue;
       const due = dueState(call.decisionDueAt, now, "Réponse attendue");
       const action = withDestination({
         id: `call_decision:${call.id}`,
@@ -207,7 +248,7 @@ export function buildRevenueActions({
     }
   }
 
-  if (permissions.pipeline) {
+  if (permissions.pipeline && !useCrmActions) {
     for (const lead of leads) {
       if (lead.stage === "rdv_fixe" && lead.isNoShow) {
         const action = withDestination({

@@ -16,6 +16,7 @@ const ICONS: Record<RevenueActionSource, typeof UserRound> = {
   call_decision: PhoneCall,
   lead_no_show: CalendarX2,
   native_booking_lead: CalendarClock,
+  crm_action: UserRound,
 };
 const MAX_VISIBLE_ACTIONS = 5;
 
@@ -136,13 +137,19 @@ export function RevenueActionCenterSkeleton() {
 export async function RevenueActionCenter({
   accountId,
   permissions,
+  crmEnabled = false,
+  crmUserId,
+  crmViewTeam = false,
 }: {
   accountId: string;
   permissions: RevenueActionAccess;
+  crmEnabled?: boolean;
+  crmUserId?: string;
+  crmViewTeam?: boolean;
 }) {
   const t = await getTranslations("dashboard");
   try {
-    const actions = await getRevenueActions({ accountId, permissions });
+    const actions = await getRevenueActions({ accountId, permissions, crmEnabled, crmUserId, crmViewTeam });
     return <RevenueActionCenterContent actions={actions} />;
   } catch {
     // Keep a transient query failure from making the rest of the Dashboard

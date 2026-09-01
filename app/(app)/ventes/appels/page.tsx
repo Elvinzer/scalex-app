@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { z } from "zod";
 
@@ -39,6 +40,7 @@ function connectionStatus(status?: string | null): IntegrationStatus {
 }
 
 export default async function PriseDappelPage({ searchParams }: { searchParams: Promise<{ period?: string; call?: string; from?: string; scaleScore?: string }> }) {
+  redirect("/crm/appels");
   const locale = await getLocale();
   const t = await getTranslations("app.calls");
   const { userId, accountId, user } = await getCurrentUser();

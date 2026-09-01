@@ -45,6 +45,16 @@ import type { AcquisitionFunnelCatalogEntry } from "@/lib/acquisition-funnels/ty
 import type { FunnelBlockCatalogEntry } from "@/lib/funnel-blocks/types";
 import type { SupportTicketContext, SupportTicketDetails } from "@/lib/support/types";
 import type { FalcoCallAnalysis } from "@/lib/closing-videos/types";
+import {
+  CRM_ACTION_CATEGORIES,
+  CRM_ACTION_STATUSES,
+  CRM_EVENT_SOURCES,
+  CRM_EVENT_TYPES,
+  CRM_LEAD_OUTCOMES,
+  CRM_LEAD_STAGES,
+  CRM_PLATFORMS,
+  type CrmEventMetadata,
+} from "@/lib/crm/types";
 
 // Supabase-managed schema — referenced only to type the FK below, never
 // created or altered by our own migrations (drizzle-kit only touches
@@ -60,6 +70,12 @@ const authUsers = authSchema.table("users", {
 // order quirks.
 const nativeBookingAccountAccess = (accountId: AnyPgColumn) =>
   sql`public.native_booking_account_member(${accountId})`;
+
+const crmLeadAccountAccess = (accountId: AnyPgColumn, leadId: AnyPgColumn) =>
+  sql`public.native_booking_account_member(${accountId}) and exists (select 1 from public.leads as l where l.id = ${leadId} and l.account_id = ${accountId})`;
+
+const crmCallAccountAccess = (accountId: AnyPgColumn, leadId: AnyPgColumn, salesCallId: AnyPgColumn) =>
+  sql`public.native_booking_account_member(${accountId}) and exists (select 1 from public.leads as l where l.id = ${leadId} and l.account_id = ${accountId}) and exists (select 1 from public.sales_calls as c where c.id = ${salesCallId} and c.user_id = ${accountId})`;
 
 // Used to pick which row of lib/setting/benchmarks.ts to compare a user's
 // KPI rates against — null means "not set", falls back to the global (all
@@ -171,6 +187,9 @@ export const users = pgTable("users", {
   // rows, so pre-existing accounts stayed true and every signup after that
   // second push starts false (self-activatable from /avance).
   advancedModulesEnabled: boolean("advanced_modules_enabled").notNull().default(false),
+  // Optional CRM module. Unlike advancedModulesEnabled, this is a separate
+  // account-level switch controlled only by the company owner.
+  crmEnabled: boolean("crm_enabled").notNull().default(false),
   // Per-INDIVIDUAL preference (written via the logged-in userId, same
   // pattern as displayName/avatarUrl above — never accountId), independent
   // of the OS-level prefers-reduced-motion: some users want fewer Falco
@@ -2295,6 +2314,14 @@ export const leadLostReasonEnum = pgEnum("lead_lost_reason", [
   "pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "autre",
 ]);
 
+export const crmLeadPlatformEnum = pgEnum("crm_lead_platform", CRM_PLATFORMS);
+export const crmLeadStageEnum = pgEnum("crm_lead_stage", CRM_LEAD_STAGES);
+export const crmLeadOutcomeEnum = pgEnum("crm_lead_outcome", CRM_LEAD_OUTCOMES);
+export const crmActionCategoryEnum = pgEnum("crm_action_category", CRM_ACTION_CATEGORIES);
+export const crmActionStatusEnum = pgEnum("crm_action_status", CRM_ACTION_STATUSES);
+export const crmEventSourceEnum = pgEnum("crm_event_source", CRM_EVENT_SOURCES);
+export const crmEventTypeEnum = pgEnum("crm_event_type", CRM_EVENT_TYPES);
+
 // The "/acquisition/pipeline" Kanban — replaces the old Setting KPI-entry
 // page in the visible UX (settingKpiEntries/lib/setting/funnel.ts are
 // untouched, still feed the diagnostic cascade independently of this).
@@ -2307,15 +2334,29 @@ export const leads = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    // Explicit account scope for CRM and delegated team access. During the
+    // additive migration this is backfilled from userId, which is the owner
+    // account key used by the legacy lead model.
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     source: leadSourceEnum("source").notNull(),
+    platform: crmLeadPlatformEnum("platform"),
+    canonicalProfileUrl: text("canonical_profile_url"),
+    normalizedHandle: text("normalized_handle"),
+    displayName: text("display_name"),
+    socialFirstName: text("social_first_name"),
+    socialLastName: text("social_last_name"),
     metaTouchpointId: uuid("meta_touchpoint_id").references(() => metaAdTouchpoints.id, { onDelete: "set null" }),
     offerId: text("offer_id"),
     potentialValueEur: integer("potential_value_eur").notNull().default(0), // pre-filled from offer.price, editable
     setterId: uuid("setter_id").references(() => setters.id, { onDelete: "set null" }),
     closer: text("closer"),
     stage: leadStageEnum("stage").notNull().default("nouveau_lead"),
+    crmStage: crmLeadStageEnum("crm_stage").notNull().default("first_message_sent"),
+    crmOutcome: crmLeadOutcomeEnum("crm_outcome").notNull().default("none"),
+    messageOccurredAt: timestamp("message_occurred_at", { withTimezone: true }),
+    capturedAt: timestamp("captured_at", { withTimezone: true }),
     // A STATUS on an "rdv_fixe" lead (red badge, recoverable back into
     // "conversation") — deliberately NOT a terminal stage/column.
     isNoShow: boolean("is_no_show").notNull().default(false),
@@ -2339,6 +2380,15 @@ export const leads = pgTable(
     index("leads_user_stage_idx").on(table.userId, table.stage),
     index("leads_user_created_idx").on(table.userId, table.createdAt),
     index("leads_setter_idx").on(table.setterId),
+    index("leads_account_crm_stage_idx").on(table.accountId, table.crmStage),
+    index("leads_account_platform_handle_idx").on(table.accountId, table.platform, table.normalizedHandle),
+    uniqueIndex("leads_account_profile_url_idx").on(table.accountId, table.platform, table.canonicalProfileUrl),
+    pgPolicy("leads_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.accountId),
+      withCheck: nativeBookingAccountAccess(table.accountId),
+    }),
   ]
 ).enableRLS();
 
@@ -2356,7 +2406,15 @@ export const leadStageHistory = pgTable(
     toStage: leadStageEnum("to_stage").notNull(),
     changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("lead_stage_history_lead_idx").on(table.leadId, table.changedAt)]
+  (table) => [
+    index("lead_stage_history_lead_idx").on(table.leadId, table.changedAt),
+    pgPolicy("lead_stage_history_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: sql.raw("exists (select 1 from public.leads as l where l.id = lead_id and public.native_booking_account_member(l.account_id))"),
+      withCheck: sql.raw("exists (select 1 from public.leads as l where l.id = lead_id and public.native_booking_account_member(l.account_id))"),
+    }),
+  ]
 ).enableRLS();
 
 // Comment thread per lead — same "own table, independently rendered/
@@ -2370,7 +2428,130 @@ export const leadComments = pgTable(
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("lead_comments_lead_idx").on(table.leadId, table.createdAt)]
+  (table) => [
+    index("lead_comments_lead_idx").on(table.leadId, table.createdAt),
+    pgPolicy("lead_comments_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: sql.raw("exists (select 1 from public.leads as l where l.id = lead_id and public.native_booking_account_member(l.account_id))"),
+      withCheck: sql.raw("exists (select 1 from public.leads as l where l.id = lead_id and public.native_booking_account_member(l.account_id))"),
+    }),
+  ]
+).enableRLS();
+
+export const crmLeadEvents = pgTable(
+  "crm_lead_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    type: crmEventTypeEnum("type").notNull(),
+    source: crmEventSourceEnum("source").notNull(),
+    sourceEventKey: text("source_event_key"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }),
+    capturedAt: timestamp("captured_at", { withTimezone: true }),
+    metadata: jsonb("metadata").notNull().$type<CrmEventMetadata>().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("crm_lead_events_account_created_idx").on(table.accountId, table.createdAt),
+    index("crm_lead_events_lead_created_idx").on(table.leadId, table.createdAt),
+    index("crm_lead_events_account_type_idx").on(table.accountId, table.type, table.createdAt),
+    uniqueIndex("crm_lead_events_source_key_idx").on(table.accountId, table.leadId, table.type, table.sourceEventKey),
+    pgPolicy("crm_lead_events_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: crmLeadAccountAccess(table.accountId, table.leadId),
+      withCheck: crmLeadAccountAccess(table.accountId, table.leadId),
+    }),
+  ]
+).enableRLS();
+
+export const crmLeadStageHistory = pgTable(
+  "crm_lead_stage_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    fromStage: crmLeadStageEnum("from_stage"),
+    toStage: crmLeadStageEnum("to_stage").notNull(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    responsibleSetterId: uuid("responsible_setter_id").references(() => setters.id, { onDelete: "set null" }),
+    source: crmEventSourceEnum("source").notNull(),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("crm_lead_stage_history_account_idx").on(table.accountId, table.changedAt),
+    index("crm_lead_stage_history_lead_idx").on(table.leadId, table.changedAt),
+    pgPolicy("crm_lead_stage_history_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: crmLeadAccountAccess(table.accountId, table.leadId),
+      withCheck: crmLeadAccountAccess(table.accountId, table.leadId),
+    }),
+  ]
+).enableRLS();
+
+export const crmResponsibilityHistory = pgTable(
+  "crm_responsibility_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    previousSetterId: uuid("previous_setter_id").references(() => setters.id, { onDelete: "set null" }),
+    nextSetterId: uuid("next_setter_id").references(() => setters.id, { onDelete: "set null" }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("crm_responsibility_history_account_idx").on(table.accountId, table.changedAt),
+    index("crm_responsibility_history_lead_idx").on(table.leadId, table.changedAt),
+    pgPolicy("crm_responsibility_history_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: crmLeadAccountAccess(table.accountId, table.leadId),
+      withCheck: crmLeadAccountAccess(table.accountId, table.leadId),
+    }),
+  ]
+).enableRLS();
+
+export const crmActions = pgTable(
+  "crm_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    category: crmActionCategoryEnum("category").notNull(),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    status: crmActionStatusEnum("status").notNull().default("open"),
+    priority: integer("priority").notNull().default(0),
+    responsibleUserId: uuid("responsible_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedByUserId: uuid("completed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    source: crmEventSourceEnum("source").notNull().default("app"),
+    sourceId: text("source_id"),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("crm_actions_account_due_idx").on(table.accountId, table.status, table.dueAt),
+    index("crm_actions_account_responsible_idx").on(table.accountId, table.responsibleUserId, table.status),
+    index("crm_actions_lead_idx").on(table.leadId, table.createdAt),
+    index("crm_actions_account_source_idx").on(table.accountId, table.source, table.sourceId),
+    uniqueIndex("crm_actions_account_idempotency_idx").on(table.accountId, table.idempotencyKey),
+    pgPolicy("crm_actions_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: crmLeadAccountAccess(table.accountId, table.leadId),
+      withCheck: crmLeadAccountAccess(table.accountId, table.leadId),
+    }),
+  ]
 ).enableRLS();
 
 // Manual entry (the "/ventes/suivi" page). offerId refers to an id inside
@@ -2578,6 +2759,38 @@ export const salesCalls = pgTable(
     index("sales_calls_setter_idx").on(table.setterId),
     index("sales_calls_sale_idx").on(table.saleId),
     index("sales_calls_closer_idx").on(table.closerUserId),
+    pgPolicy("sales_calls_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ]
+).enableRLS();
+
+export const crmCallLinks = pgTable(
+  "crm_call_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    salesCallId: uuid("sales_call_id").notNull().references(() => salesCalls.id, { onDelete: "cascade" }),
+    source: crmEventSourceEnum("source").notNull().default("app"),
+    confidence: text("confidence").notNull().default("reliable"),
+    linkedByUserId: uuid("linked_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    linkedAt: timestamp("linked_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("crm_call_links_account_call_idx").on(table.accountId, table.salesCallId),
+    uniqueIndex("crm_call_links_account_lead_call_idx").on(table.accountId, table.leadId, table.salesCallId),
+    index("crm_call_links_account_lead_idx").on(table.accountId, table.leadId),
+    pgPolicy("crm_call_links_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: crmCallAccountAccess(table.accountId, table.leadId, table.salesCallId),
+      withCheck: crmCallAccountAccess(table.accountId, table.leadId, table.salesCallId),
+    }),
   ]
 ).enableRLS();
 

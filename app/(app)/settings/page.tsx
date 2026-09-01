@@ -179,6 +179,14 @@ export default async function SettingsPage() {
         </Button>
       </div>
 
+      <div className="sticker-card p-8">
+        <p className="text-sm font-bold text-muted-foreground">{tPage("crmModule")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{tPage("crmModuleHelp")}</p>
+        <Button asChild variant="outline" className="mt-4">
+          <Link href="/settings/modules/crm" prefetch={true}>{tPage("manageCrm")}</Link>
+        </Button>
+      </div>
+
       <div className="sticker-card border-state-critical/30 p-8">
         <p className="text-sm font-bold text-state-critical">{tPage("deleteData")}</p>
         <div className="mt-4">

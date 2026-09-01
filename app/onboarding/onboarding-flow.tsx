@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 
 import { completeOnboardingAfterImport, saveOnboardingBlocks, saveOnboardingMonth, saveOnboardingOffer, skipOnboarding } from "./actions";
 import { LanguageStep } from "./language-step";
+import { setCrmEnabled } from "@/app/(app)/settings/modules/crm/actions";
 
 // Same reasoning as app/(app)/datas/datas-page-client.tsx: ImportFlow pulls
 // exceljs/pdf-parse/papaparse (≈380 Ko gzip) but only renders once the user
@@ -119,6 +120,32 @@ function DiscoveryInvite({ count, onStart }: { count: number; onStart: () => voi
       <Button type="button" variant="outline" onClick={onStart} className="w-full">
         {t("answerQuestionnaire")}
       </Button>
+    </div>
+  );
+}
+
+function CrmActivationInvite({ onActivated }: { onActivated: () => void }) {
+  const t = useTranslations("onboarding");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function activate() {
+    setPending(true);
+    setError(null);
+    const result = await setCrmEnabled({ enabled: true });
+    setPending(false);
+    if (result.error) {
+      setError(t("crmActivationError"));
+      return;
+    }
+    onActivated();
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-3 border-t border-border pt-4">
+      <p className="text-sm text-muted-foreground">{t("crmInvite")}</p>
+      <Button type="button" variant="outline" disabled={pending} onClick={() => void activate()}>{pending ? t("loading") : t("activateCrm")}</Button>
+      {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
     </div>
   );
 }
@@ -636,6 +663,7 @@ export function OnboardingFlow({
           </Button>
 
           <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />
+          <CrmActivationInvite onActivated={() => router.push("/crm")} />
         </div>
       )}
 
@@ -649,6 +677,7 @@ export function OnboardingFlow({
           </Button>
 
           <DiscoveryInvite count={discoveryLevers.length} onStart={() => setShowDiscovery(true)} />
+          <CrmActivationInvite onActivated={() => router.push("/crm")} />
         </div>
       )}
     </div>

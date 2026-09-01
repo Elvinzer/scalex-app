@@ -1,5 +1,8 @@
 # Contrat de synchronisation des données métier
 
+Statut : contrat appliqué aux projections CRM V1 et contrôlé avec les tests et
+le build du 1 septembre 2026.
+
 Ce contrat formalise les 14 flux qui doivent rester cohérents entre les pages. Les pages peuvent présenter une projection différente (période, filtre ou permission), mais elles ne doivent pas réinventer la source ni le calcul.
 
 | # | Source canonique | Projections raccordées |
@@ -28,3 +31,9 @@ Ce contrat formalise les 14 flux qui doivent rester cohérents entre les pages. 
 - Les lectures répétées d’une même source sont mémorisées au niveau de la requête (`React cache()`), ce qui évite qu’une page composée ou un agent relise plusieurs fois les mêmes lignes.
 - Les écrans CRM ne copient pas les appels, rendez-vous ou ventes : `sales_calls`, les réservations et `sales` restent canoniques ; CRM conserve seulement les événements opérationnels et les associations fiables nécessaires à ses projections.
 - Les KPI CRM calculent leurs comptes et conversions à partir d’événements uniques, d’une cohorte et d’une période explicitement affichées. Une réassignation, une réouverture ou une capture répétée ne doit pas créer une nouvelle conversion.
+
+Le contrat des frontières d’écriture et de lecture CRM est détaillé dans
+`docs/crm-api-contract.md`. La checklist de readiness
+(`docs/crm-implementation-readiness.md`) reprend les invariants contrôlés sur
+chaque projection. Le détail du backfill et du rollback est dans
+`docs/crm-migration-report.md`.

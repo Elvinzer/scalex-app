@@ -27,7 +27,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useId, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -54,6 +54,7 @@ type LinkEntry = {
   icon: IconType;
   permission?: PermissionKey;
   anyOfPermissions?: readonly PermissionKey[];
+  requiresCrm?: boolean;
 };
 
 // CŒUR — the value-loop pages, always visible (permission-gated as before).
@@ -80,6 +81,7 @@ type LinkEntry = {
 //
 const topEntries: LinkEntry[] = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
+  { type: "link", href: "/crm", labelKey: "crm", icon: Users, permission: "crm:view", requiresCrm: true },
   { type: "link", href: "/roadmap", labelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
   { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
   { type: "link", href: "/datas", labelKey: "data", icon: Database, permission: "datas" },
@@ -99,13 +101,7 @@ const topEntries: LinkEntry[] = [
     icon: Handshake,
     // Pipeline keeps its acquisition-scoped permission key so existing team
     // roles retain access after the navigation move.
-    anyOfPermissions: [
-      "acquisition:pipeline",
-      "acquisition:setters",
-      "ventes:suivi",
-      "ventes:appels",
-      "ventes:closing",
-    ],
+    anyOfPermissions: ["acquisition:pipeline", "acquisition:setters", "ventes:suivi", "ventes:rdv", "ventes:closing"],
   },
   {
     type: "link",
@@ -121,10 +117,10 @@ const topEntries: LinkEntry[] = [
 
 const mobileNavEntries = [
   { type: "link", href: "/dashboard", labelKey: "dashboard", mobileLabelKey: "dashboard", icon: LayoutDashboard, permission: "dashboard" },
-  { type: "link", href: "/roadmap", labelKey: "roadmap", mobileLabelKey: "roadmap", icon: CalendarDays, permission: "dashboard" },
+  { type: "link", href: "/crm", labelKey: "crm", mobileLabelKey: "crm", icon: Users, permission: "crm:view", requiresCrm: true },
   { type: "link", href: "/diagnostic-app", labelKey: "diagnostic", mobileLabelKey: "diagnostic", icon: Stethoscope, permission: "diagnostic" },
   { type: "link", href: "/datas", labelKey: "data", mobileLabelKey: "data", icon: Database, permission: "datas" },
-  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "acquisition:setters", "ventes:suivi", "ventes:appels", "ventes:closing"] },
+  { type: "link", href: "/ventes", labelKey: "sales", mobileLabelKey: "sales", icon: Handshake, anyOfPermissions: ["acquisition:pipeline", "acquisition:setters", "ventes:suivi", "ventes:rdv", "ventes:closing"] },
 ] satisfies Array<LinkEntry & { mobileLabelKey: string }>;
 
 // COMPTE — account-level settings behind the avatar/profile dropdown
@@ -157,6 +153,11 @@ const subpageLabelKeys: Record<string, string> = {
   "/ventes/suivi": "salesTracking",
   "/ventes/appels": "callsTracking",
   "/ventes/rdv": "appointments",
+  "/crm": "today",
+  "/crm/pipeline": "pipeline",
+  "/crm/leads": "leads",
+  "/crm/actions": "actions",
+  "/crm/appels": "calls",
   "/delivrabilite/suivi-client": "clientTracking",
   "/delivrabilite/temoignages": "testimonials",
 };
@@ -165,7 +166,8 @@ function getSubpageLabelKey(href: string): string {
   return subpageLabelKeys[href] ?? href;
 }
 
-function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonly PermissionKey[]): boolean {
+function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonly PermissionKey[], crmEnabled: boolean): boolean {
+  if (entry.requiresCrm && !crmEnabled) return false;
   if (isOwner) return true;
   if (entry.permission !== undefined) return permissions.includes(entry.permission);
   if (entry.anyOfPermissions) return entry.anyOfPermissions.some((key) => permissions.includes(key));
@@ -305,6 +307,7 @@ function ProfileMenu({
   email,
   isOwner,
   permissions,
+  crmEnabled,
   onSignOut,
   businessCompletionCount,
   supportHasUnseenActivity,
@@ -315,6 +318,7 @@ function ProfileMenu({
   email: string;
   isOwner: boolean;
   permissions: readonly PermissionKey[];
+  crmEnabled: boolean;
   onSignOut: () => void;
   businessCompletionCount: number;
   supportHasUnseenActivity: boolean;
@@ -323,7 +327,7 @@ function ProfileMenu({
   const t = useTranslations("navigation");
   const supportT = useTranslations("support");
   const initial = email.charAt(0).toUpperCase() || "?";
-  const entries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
+  const entries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled));
 
   return (
       <Popover open={open} onOpenChange={setOpen}>
@@ -418,6 +422,7 @@ export type AppSidebarProps = {
   avatarUrl: string | null;
   isOwner: boolean;
   permissions: readonly PermissionKey[];
+  crmEnabled: boolean;
   isAdmin: boolean;
   businessCompletionCount: number;
   scaleScore: ScaleScoreResult | null;
@@ -439,6 +444,7 @@ export function AppSidebar({
   avatarUrl,
   isOwner,
   permissions,
+  crmEnabled,
   isAdmin,
   businessCompletionCount,
   scaleScore,
@@ -455,6 +461,7 @@ export function AppSidebar({
   const t = useTranslations("navigation");
   const pathname = usePathname();
   const router = useRouter();
+  const navigationId = useId();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -467,8 +474,8 @@ export function AppSidebar({
     router.refresh();
   }
 
-  const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
-  const mobileEntries = mobileNavEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions));
+  const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled));
+  const mobileEntries = mobileNavEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled));
   const mobilePageTitle = mobileEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`));
 
   return (
@@ -480,7 +487,7 @@ export function AppSidebar({
       >
         <button
           type="button"
-          aria-controls="app-navigation"
+          aria-controls={navigationId}
           aria-expanded={mobileOpen}
           aria-label={mobileOpen ? t("closeNavigation") : t("openNavigation")}
           onClick={() => setMobileOpen((open) => !open)}
@@ -509,7 +516,7 @@ export function AppSidebar({
           overlay drawer on small screens so the product content remains
           usable without sacrificing the primary navigation. */}
       <aside
-        id="app-navigation"
+        id={navigationId}
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-hidden px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out)] md:translate-x-0",
           mobileOpen ? "translate-x-0 max-md:visible" : "-translate-x-full max-md:pointer-events-none max-md:invisible"
@@ -581,6 +588,7 @@ export function AppSidebar({
               email={email}
               isOwner={isOwner}
               permissions={permissions}
+              crmEnabled={crmEnabled}
               onSignOut={handleSignOut}
               businessCompletionCount={businessCompletionCount}
               supportHasUnseenActivity={supportHasUnseenActivity}

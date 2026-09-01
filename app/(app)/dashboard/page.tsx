@@ -86,6 +86,8 @@ async function renderDashboardPage({
     calls: hasDestinationPermission("ventes:appels"),
     booking: hasDestinationPermission("ventes:rdv"),
   };
+  const canReadCrmActions = Boolean(accountContext?.crmEnabled && (accountContext.isOwner || accountContext.permissions.has("crm:view")));
+  const canReadCrmTeamActions = Boolean(accountContext?.crmEnabled && (accountContext.isOwner || accountContext.permissions.has("crm:view-team")));
 
   // All three only depend on accountId/user.sector, known above — run
   // together instead of as sequential round-trips. getBusinessProfile/
@@ -377,7 +379,7 @@ async function renderDashboardPage({
       )}
 
       <Suspense fallback={<RevenueActionCenterSkeleton />}>
-        <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} />
+        <RevenueActionCenter accountId={accountId} permissions={revenueActionPermissions} crmEnabled={canReadCrmActions} crmUserId={canReadCrmActions ? userId : undefined} crmViewTeam={canReadCrmTeamActions} />
       </Suspense>
 
       <div className="py-4">

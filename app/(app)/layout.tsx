@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-type SidebarBaseProps = Pick<AppSidebarProps, "email" | "isOwner" | "permissions" | "isAdmin"> & {
+type SidebarBaseProps = Pick<AppSidebarProps, "email" | "isOwner" | "permissions" | "isAdmin" | "crmEnabled"> & {
   displayName: string | null;
 };
 
@@ -131,6 +131,7 @@ export default async function AppLayout({
     displayName: currentUserRow?.displayName ?? null,
     isOwner,
     permissions,
+    crmEnabled: context.crmEnabled,
     isAdmin,
   };
   const messages = await messagesPromise;

@@ -26,11 +26,16 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
     "/ventes/suivi": "salesTracking",
     "/ventes/appels": "callsTracking",
     "/ventes/rdv": "appointments",
+    "/crm": "today",
+    "/crm/pipeline": "pipeline",
+    "/crm/leads": "leads",
+    "/crm/actions": "actions",
+    "/crm/appels": "calls",
   };
 
   const active = tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`))?.href ?? tabs[0].href;
   return (
-    <nav aria-label={t("primaryNavigation")} className="w-full overflow-x-auto">
+    <nav aria-label={t("sectionNavigation")} className="w-full overflow-x-auto">
       <div className="flex w-full min-w-max items-center justify-start gap-1 border-b-2 border-border md:justify-center" role="tablist">
         {tabs.map((tab) => {
           const isActive = tab.href === active;

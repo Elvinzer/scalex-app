@@ -12,6 +12,11 @@ export const PERMISSION_KEYS = [
   "datas",
   "diagnostic",
   "acquisition:contenu",
+  "crm:view",
+  "crm:view-team",
+  "crm:assign",
+  "crm:manage-pipeline",
+  "crm:validate-sale",
   // Legacy — Setting was folded into Pipeline (its content now lives at
   // /ventes/pipeline/funnel, gated by "acquisition:pipeline"). Kept
   // grantable, same reasoning as "funnel" above, purely for any role that
@@ -52,6 +57,10 @@ export const PERMISSION_GROUPS = [
       "acquisition:pipeline",
       "acquisition:setters",
     ],
+  },
+  {
+    key: "crm",
+    permissions: ["crm:view", "crm:view-team", "crm:assign", "crm:manage-pipeline", "crm:validate-sale"],
   },
   {
     key: "sales",
@@ -102,6 +111,11 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   funnel: "Funnel",
   datas: "Datas (métriques mensuelles, cash)",
   diagnostic: "Diagnostic",
+  "crm:view": "CRM",
+  "crm:view-team": "CRM — Vue équipe",
+  "crm:assign": "CRM — Réassigner les leads",
+  "crm:manage-pipeline": "CRM — Gérer le pipeline",
+  "crm:validate-sale": "CRM — Valider une vente",
   "acquisition:contenu": "Acquisition — Contenu",
   "acquisition:setting": "Acquisition — Setting",
   "acquisition:ads": "Acquisition — Ads",
@@ -125,7 +139,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
 // /settings/equipe (see lib/team/roles.ts) — freely editable afterwards,
 // including adding permissions beyond these defaults.
 export const DEFAULT_ROLES: { key: string; name: string; permissions: PermissionKey[] }[] = [
-  { key: "setting", name: "Setting", permissions: ["acquisition:pipeline", "acquisition:setters"] },
-  { key: "closing", name: "Closing", permissions: ["ventes:closing", "ventes:appels", "ventes:rdv", "delivrabilite:suivi-client", "delivrabilite:temoignages"] },
+  { key: "setting", name: "Setting", permissions: ["acquisition:pipeline", "acquisition:setters", "crm:view"] },
+  { key: "closing", name: "Closing", permissions: ["ventes:closing", "ventes:appels", "ventes:rdv", "delivrabilite:suivi-client", "delivrabilite:temoignages", "crm:view", "crm:validate-sale"] },
+  { key: "manager", name: "Manager", permissions: ["crm:view", "crm:view-team", "crm:assign", "crm:manage-pipeline", "crm:validate-sale"] },
   { key: "financier", name: "Financier", permissions: ["ventes:suivi", "datas", "dashboard"] },
 ];

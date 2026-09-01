@@ -1,12 +1,14 @@
 import { getLeads } from "@/lib/leads/queries";
 import { getSalesCalls } from "@/lib/iclosed/calls";
 import { listNativeBookingLeads } from "@/lib/native-booking/leads";
+import { getCrmActions } from "@/lib/crm/queries";
 
 import {
   buildRevenueActions,
   type RevenueAction,
   type RevenueActionAccess,
   type RevenueCallInput,
+  type RevenueCrmActionInput,
   type RevenueLeadInput,
   type RevenueNativeBookingLeadInput,
 } from "./revenue-actions";
@@ -19,14 +21,24 @@ import {
 export async function getRevenueActions({
   accountId,
   permissions,
+  crmEnabled = false,
+  crmUserId,
+  crmViewTeam = false,
 }: {
   accountId: string;
   permissions: RevenueActionAccess;
+  crmEnabled?: boolean;
+  crmUserId?: string;
+  crmViewTeam?: boolean;
 }): Promise<RevenueAction[]> {
-  const [calls, leads, nativeBookingLeads] = await Promise.all([
+  const useCrmActions = crmEnabled && Boolean(crmUserId);
+  const [calls, leads, nativeBookingLeads, crmActions] = await Promise.all([
     permissions.calls ? getSalesCalls(accountId) : Promise.resolve([]),
-    permissions.pipeline ? getLeads(accountId) : Promise.resolve([]),
+    permissions.pipeline && !useCrmActions ? getLeads(accountId) : Promise.resolve([]),
     permissions.booking ? listNativeBookingLeads(accountId) : Promise.resolve([]),
+    useCrmActions
+      ? getCrmActions(accountId, { status: "open", responsibleUserId: crmViewTeam ? undefined : crmUserId })
+      : Promise.resolve([]),
   ]);
 
   const callInputs: RevenueCallInput[] = calls.map((call) => ({
@@ -63,10 +75,22 @@ export async function getRevenueActions({
     ];
   });
 
+  const crmActionInputs: RevenueCrmActionInput[] = crmActions.map((action) => ({
+    id: action.id,
+    leadId: action.leadId,
+    title: action.title,
+    category: action.category,
+    type: action.type,
+    dueAt: action.dueAt,
+    sourceId: action.sourceId,
+  }));
+
   return buildRevenueActions({
     calls: callInputs,
     leads: leadInputs,
     nativeBookingLeads: nativeLeadInputs,
+    crmActions: crmActionInputs,
+    useCrmActions,
     permissions,
   });
 }

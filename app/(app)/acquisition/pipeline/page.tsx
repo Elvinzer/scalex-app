@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getTranslations } from "next-intl/server";
 
@@ -26,6 +27,7 @@ function monthsAgoRange(monthsBack: number): DateRange {
 }
 
 export default async function PipelinePage({ searchParams }: { searchParams: Promise<{ period?: string; lead?: string; from?: string }> }) {
+  redirect("/crm/pipeline");
   const t = await getTranslations("pipeline");
   const { userId, accountId, user } = await getCurrentUser();
   await requirePermissionOrRedirect(userId, "acquisition:pipeline");

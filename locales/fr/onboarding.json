@@ -51,5 +51,9 @@
   "improveTogether": "On s’en occupe ensemble ?",
   "improveNow": "Améliorer ça maintenant",
   "noGapFound": "Tes chiffres sont déjà solides 🎉 Sur ce que tu as pu mesurer, rien n’est sous les standards de ta niche. Continue à remplir tes chiffres pour affiner ton diagnostic.",
-  "openJournal": "Ouvrir ma Roadmap"
+  "openJournal": "Ouvrir ma Roadmap",
+  "crmInvite": "Tu peux aussi activer le CRM pour centraliser tes leads et tes relances.",
+  "activateCrm": "Activer le CRM",
+  "crmActivated": "CRM activé",
+  "crmActivationError": "Impossible d'activer le CRM pour l'instant."
 }

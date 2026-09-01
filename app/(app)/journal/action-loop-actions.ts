@@ -57,7 +57,7 @@ export async function startJournalAction(input: unknown): Promise<{ error: strin
   if (parsed.data.type === "lead_reminder") {
     const leadId = z.string().uuid().safeParse(parsed.data.sourceId);
     if (!leadId.success) return { error: "Relance invalide." };
-    const [lead] = await db.select({ id: leads.id, reminderDone: leads.reminderDone }).from(leads).where(and(eq(leads.id, leadId.data), eq(leads.userId, access.accountId))).limit(1);
+    const [lead] = await db.select({ id: leads.id, reminderDone: leads.reminderDone }).from(leads).where(and(eq(leads.id, leadId.data), eq(leads.accountId, access.accountId))).limit(1);
     if (!lead || lead.reminderDone) return { error: "Cette relance n'est plus disponible." };
     await track("action_started", access.userId, { type: parsed.data.type });
     return { error: null };
@@ -114,7 +114,7 @@ export async function completeJournalAction(input: unknown): Promise<{ error: st
   if (parsed.data.type === "lead_reminder") {
     const leadId = z.string().uuid().safeParse(parsed.data.sourceId);
     if (!leadId.success) return { error: "Relance invalide." };
-    const [updated] = await db.update(leads).set({ reminderDone: true, updatedAt: new Date() }).where(and(eq(leads.id, leadId.data), eq(leads.userId, access.accountId))).returning({ id: leads.id });
+    const [updated] = await db.update(leads).set({ reminderDone: true, updatedAt: new Date() }).where(and(eq(leads.id, leadId.data), eq(leads.accountId, access.accountId))).returning({ id: leads.id });
     if (!updated) return { error: "Relance introuvable." };
     await db.insert(improvementEvents).values({
       userId: access.accountId,

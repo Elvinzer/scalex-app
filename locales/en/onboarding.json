@@ -51,5 +51,9 @@
   "improveTogether": "Shall we work on it together?",
   "improveNow": "Improve this now",
   "noGapFound": "Your numbers are already solid. Nothing you measured is below your niche benchmarks. Keep adding numbers to refine the diagnostic.",
-  "openJournal": "Open my Roadmap"
+  "openJournal": "Open my Roadmap",
+  "crmInvite": "You can also activate CRM to centralize your leads and follow-ups.",
+  "activateCrm": "Activate CRM",
+  "crmActivated": "CRM enabled",
+  "crmActivationError": "We could not activate CRM right now."
 }

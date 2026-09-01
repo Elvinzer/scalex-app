@@ -10,11 +10,12 @@ import { getInFlight } from "@/lib/perf/in-flight";
 import { expandPermissionKeys, type PermissionKey } from "@/lib/team/permissions";
 
 export type AccountContext =
-  | { isOwner: true; accountId: string; permissions: "all"; advancedModulesEnabled: boolean }
-  | { isOwner: false; accountId: string; permissions: Set<string>; advancedModulesEnabled: boolean };
+  | { isOwner: true; accountId: string; permissions: "all"; advancedModulesEnabled: boolean; crmEnabled: boolean }
+  | { isOwner: false; accountId: string; permissions: Set<string>; advancedModulesEnabled: boolean; crmEnabled: boolean };
 
 const MEMBER_LANDING_ROUTES: readonly { permission: PermissionKey; href: string }[] = [
   { permission: "dashboard", href: "/dashboard" },
+  { permission: "crm:view", href: "/crm" },
   { permission: "acquisition:pipeline", href: "/ventes/pipeline" },
   { permission: "acquisition:setters", href: "/ventes/setters" },
   { permission: "ventes:suivi", href: "/ventes/suivi" },
@@ -75,7 +76,7 @@ export async function getPostAuthDestination(userId: string): Promise<string> {
 // subscription directly rather than through this function).
 async function fetchAccountContext(userId: string): Promise<AccountContext | null> {
   const [[userRow], [membership]] = await Promise.all([
-    db.select({ email: users.email, advancedModulesEnabled: users.advancedModulesEnabled }).from(users).where(eq(users.id, userId)).limit(1),
+    db.select({ email: users.email, advancedModulesEnabled: users.advancedModulesEnabled, crmEnabled: users.crmEnabled }).from(users).where(eq(users.id, userId)).limit(1),
     db
       .select({ id: teamMembers.id, accountId: teamMembers.accountId })
       .from(teamMembers)
@@ -85,11 +86,11 @@ async function fetchAccountContext(userId: string): Promise<AccountContext | nul
   ]);
 
   if (userRow && isAdminEmail(userRow.email)) {
-    return { isOwner: true, accountId: userId, permissions: "all", advancedModulesEnabled: userRow.advancedModulesEnabled };
+    return { isOwner: true, accountId: userId, permissions: "all", advancedModulesEnabled: userRow.advancedModulesEnabled, crmEnabled: userRow.crmEnabled };
   }
 
   if (!membership) {
-    return { isOwner: true, accountId: userId, permissions: "all", advancedModulesEnabled: userRow?.advancedModulesEnabled ?? false };
+    return { isOwner: true, accountId: userId, permissions: "all", advancedModulesEnabled: userRow?.advancedModulesEnabled ?? false, crmEnabled: userRow?.crmEnabled ?? false };
   }
 
   const subscriptionActive = await hasActiveTeamSubscription(membership.accountId);
@@ -100,7 +101,7 @@ async function fetchAccountContext(userId: string): Promise<AccountContext | nul
   // The Avancé flag is account-level (the owner's row), not per-member — a
   // team member inherits their account's flag rather than having their own.
   const [[accountRow], roles] = await Promise.all([
-    db.select({ advancedModulesEnabled: users.advancedModulesEnabled }).from(users).where(eq(users.id, membership.accountId)).limit(1),
+    db.select({ advancedModulesEnabled: users.advancedModulesEnabled, crmEnabled: users.crmEnabled }).from(users).where(eq(users.id, membership.accountId)).limit(1),
     db
       .select({ permissions: teamRoles.permissions })
       .from(teamMemberRoles)
@@ -115,6 +116,7 @@ async function fetchAccountContext(userId: string): Promise<AccountContext | nul
     accountId: membership.accountId,
     permissions,
     advancedModulesEnabled: accountRow?.advancedModulesEnabled ?? false,
+    crmEnabled: accountRow?.crmEnabled ?? false,
   };
 }
 

@@ -51,8 +51,8 @@ additive, derrière un flag de module, avec des adaptateurs de compatibilité.
 - Construire un moteur de scoring ou une attribution probabiliste fondée sur le
   seul nom.
 - Supprimer immédiatement les anciens écrans, champs ou URLs.
-- Modifier maintenant db/schema.ts, les routes applicatives, l'extension ou les
-  migrations : cette phase s'arrête à la documentation et au plan.
+- Remplacer immédiatement les champs legacy ou supprimer les alias : la V1
+  reste additive et réversible.
 
 ## Decisions
 
@@ -440,11 +440,19 @@ La suppression des champs legacy, la bascule définitive des anciennes
 permissions et l'abandon des alias feront l'objet d'un changement ultérieur
 après validation en production.
 
-## Open Questions
+## Open Questions restantes
 
-- Les sélecteurs et routes exactes de chaque version Instagram/LinkedIn seront
+Les décisions V1 de période KPI, actions ouvertes, réassignation, création
+manuelle, session d’extension, rapprochement inter-plateforme, catalogues,
+appels historiques et fuseau horaire sont figées dans
+`docs/crm-architecture.md`. Les frontières de requête et de mutation sont
+décrites dans `docs/crm-api-contract.md`.
+
+Il reste uniquement deux sujets à traiter avant la mise en production :
+
+- les sélecteurs et routes exactes de chaque version Instagram/LinkedIn seront
   maintenus dans les adaptateurs sans modifier le contrat de résolution ou de
-  capture.
-- La durée de conservation chiffrée sera définie avec la politique légale
-  applicable avant l'implémentation de l'archivage ou de la suppression ; elle
-  ne change pas le modèle d'isolation ni le flux CRM décrit ici.
+  capture ;
+- la durée de conservation chiffrée sera définie avec la politique légale
+  applicable avant l’implémentation de l’archivage ou de la suppression ; elle
+  ne change pas le modèle d’isolation ni le flux CRM décrit ici.
