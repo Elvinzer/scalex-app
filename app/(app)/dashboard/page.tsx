@@ -43,6 +43,7 @@ import { getFunnelBlockBenchmarks, getFunnelBlockCatalog } from "@/lib/funnel-bl
 import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { availableFunnelSources } from "@/lib/funnel-blocks/metrics";
 import { isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
+import { withTimeout } from "@/lib/perf/with-timeout";
 
 // buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
 // swap — excluded here so Dashboard's existing grid doesn't silently gain a
@@ -61,7 +62,7 @@ type DashboardPageProps = {
 };
 
 export default function DashboardPage(props: DashboardPageProps) {
-  return measureAsync("page.dashboard", () => renderDashboardPage(props));
+  return measureAsync("page.dashboard", () => withTimeout(renderDashboardPage(props), 20_000, "dashboard-render"));
 }
 
 async function renderDashboardPage({

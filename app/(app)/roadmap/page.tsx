@@ -24,7 +24,7 @@ function queryNumber(value: string | string[] | undefined, fallback: number): nu
 }
 
 export default function RoadmapPage(props: RoadmapPageProps) {
-  return measureAsync("page.roadmap", () => renderRoadmapPage(props));
+  return measureAsync("page.roadmap", () => withTimeout(renderRoadmapPage(props), 20_000, "roadmap-render"));
 }
 
 async function renderRoadmapPage({ searchParams }: RoadmapPageProps) {
@@ -36,7 +36,7 @@ async function renderRoadmapPage({ searchParams }: RoadmapPageProps) {
   const monthCandidate = queryNumber(params.month, currentMonth);
   const year = yearCandidate >= 2000 && yearCandidate <= 2100 ? yearCandidate : currentYear;
   const month = monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : currentMonth;
-  const { userId, accountId } = await getCurrentUser();
+  const { userId, accountId, user } = await getCurrentUser();
   const context = await getAccountContext(userId);
   if (context && !context.isOwner && !context.permissions.has("dashboard")) {
     return <NoAccessState />;
@@ -45,7 +45,7 @@ async function renderRoadmapPage({ searchParams }: RoadmapPageProps) {
 
   const [data, streak, callRoadmapRecommendations, journalTodos, journalProjects, journalDays] = await withTimeout(
     Promise.all([
-      getJournalActionLoopData(accountId),
+      getJournalActionLoopData(accountId, user?.sector ?? null),
       // The app shell has already refreshed this request's snapshot for the
       // sidebar flame, so this is a request-local cache hit.
       getStreakSnapshot(accountId),

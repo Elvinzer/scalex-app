@@ -9,7 +9,6 @@ import {
   clientReminders,
   settingKpiEntries,
   closingKpiEntries,
-  users,
 } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
@@ -29,6 +28,7 @@ import { computeLeverOpportunities, type LeverOpportunity } from "@/lib/levers/o
 import { getLeversCatalog } from "@/lib/levers/catalog";
 import { getStarterPlan } from "@/lib/levers/starter-plan";
 import type { MetricKey } from "@/lib/diagnostic/metric-keys";
+import type { SectorKey } from "@/lib/benchmarks";
 import { calculateComparableMeasurement } from "@/lib/insight-execution/metrics";
 import { recordInitiativeMeasured } from "@/lib/insight-execution/service";
 import { getScaleScoreDelta } from "@/lib/scale-score-history/queries";
@@ -520,12 +520,11 @@ function buildResult(
   };
 }
 
-export async function getJournalActionLoopData(accountId: string): Promise<JournalActionLoopData> {
+export async function getJournalActionLoopData(accountId: string, sector: SectorKey | null): Promise<JournalActionLoopData> {
   const now = todayUtc();
   const today = toIsoDate(now);
-  const [businessProfile, [user], rawData, contentRows, setterRows, records, initiatives, measurements, events, priorityRules, leverCatalog, acquisitionCatalog, clientReminderRows] = await Promise.all([
+  const [businessProfile, rawData, contentRows, setterRows, records, initiatives, measurements, events, priorityRules, leverCatalog, acquisitionCatalog, clientReminderRows] = await Promise.all([
     getBusinessProfile(accountId),
-    db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1),
     getDiagnosticKpiRawData(accountId),
     getContentRecommendations(accountId),
     getSetters(accountId),
@@ -564,7 +563,7 @@ export async function getJournalActionLoopData(accountId: string): Promise<Journ
     allMetaMetrics: rawData.allMetaMetrics,
     allNativeBookingLeads: rawData.allNativeBookingLeads,
   });
-  const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
+  const benchmarks = await getDiagnosticBenchmarks(sector);
   const points = totals.hasAnySourceData
     ? computeDiagnosticPoints({
         settingTotals: totals.settingTotals,

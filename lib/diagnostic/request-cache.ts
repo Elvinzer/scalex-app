@@ -15,7 +15,6 @@ import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { getInFlight } from "@/lib/perf/in-flight";
 import { measureAsync } from "@/lib/perf/timing";
-import { withTimeout } from "@/lib/perf/with-timeout";
 
 const DIAGNOSTIC_CACHE_REVALIDATE_SECONDS = 30;
 
@@ -92,7 +91,10 @@ const inFlightDiagnosticSnapshots = new Map<string, Promise<DiagnosticKpiRawData
 // The source-level cache already returns plain arrays for the two Maps. The
 // request-level wrapper only shares the assembled value while it is in flight.
 const getCachedDiagnosticKpiRawData = cache(async (accountId: string) =>
-  getInFlight(inFlightDiagnosticSnapshots, accountId, () => fetchDiagnosticKpiRawData(accountId))
+  getInFlight(inFlightDiagnosticSnapshots, accountId, () => fetchDiagnosticKpiRawData(accountId), {
+    timeoutMs: 18_000,
+    timeoutLabel: "diagnostic-kpi-raw",
+  })
 );
 
 type CachedDiagnosticKpiRawData = Awaited<ReturnType<typeof getCachedDiagnosticKpiRawData>>;
@@ -166,11 +168,7 @@ function restoreDiagnosticDates(snapshot: CachedDiagnosticKpiRawData) {
 }
 
 export const getDiagnosticKpiRawData = cache(async (accountId: string) => {
-  // Fail fast if the snapshot stalls (a wedged Data Cache read, an exhausted
-  // pool) instead of hanging the dashboard render to Vercel's 300s kill. The
-  // labelled error is caught by (app)/error.tsx and shipped to the client-error
-  // log, so the culprit source shows up in Vercel next time it happens.
-  return restoreDiagnosticDates(await withTimeout(getCachedDiagnosticKpiRawData(accountId), 18_000, "diagnostic-kpi-raw"));
+  return restoreDiagnosticDates(await getCachedDiagnosticKpiRawData(accountId));
 });
 
 export type ScaleScoreInputs = {
