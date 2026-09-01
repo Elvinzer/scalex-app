@@ -34,14 +34,12 @@ export async function enqueueCrmCallMatchSuggestions(accountId: string, callIds:
     .where(and(eq(salesCalls.userId, accountId), inArray(salesCalls.id, uniqueCallIds), isNull(crmCallLinks.id)));
   if (rows.length === 0) return 0;
 
-  let queued = 0;
-  for (const row of rows) {
-    try {
-      await inngest.send(crmCallMatchRequested.create({ accountId, salesCallId: row.callId }));
-      queued += 1;
-    } catch (error) {
-      console.error("crm call match queue failed", { error: error instanceof Error ? error.name : "unknown" });
-    }
+  try {
+    const events = rows.map((row) => crmCallMatchRequested.create({ accountId, salesCallId: row.callId }));
+    const result = await inngest.send(events);
+    return result.ids.length;
+  } catch (error) {
+    console.error("crm call match queue failed", { error: error instanceof Error ? error.name : "unknown" });
+    return 0;
   }
-  return queued;
 }
