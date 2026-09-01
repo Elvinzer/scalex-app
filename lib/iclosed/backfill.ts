@@ -2,6 +2,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { sales, salesCalls } from "@/db/schema";
+import { enqueueCrmCallMatchSuggestions } from "@/lib/crm/call-match-queue";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 import { createSale } from "@/lib/sales/queries";
 
@@ -67,6 +68,8 @@ export async function backfillIclosedCalls(userId: string, apiKey: string): Prom
     )
     .onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] })
     .returning({ id: salesCalls.id, iclosedCallId: salesCalls.iclosedCallId });
+
+  await enqueueCrmCallMatchSuggestions(userId, insertedRows.map((row) => row.id));
 
   // The original import intentionally ignores conflicts so it never overwrites
   // a hand-set outcome or linked sale. Phone data is contact enrichment, so it

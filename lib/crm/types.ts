@@ -63,6 +63,70 @@ export type CrmEventType = (typeof CRM_EVENT_TYPES)[number];
 
 export type CrmEventMetadata = Record<string, string | number | boolean | null>;
 
+export const CRM_CALL_MATCH_STATUSES = [
+  "queued",
+  "ready",
+  "ambiguous",
+  "no_match",
+  "unavailable",
+  "failed",
+  "expired",
+  "accepted",
+  "rejected",
+  "dismissed",
+] as const;
+export type CrmCallMatchStatus = (typeof CRM_CALL_MATCH_STATUSES)[number];
+
+export const CRM_CALL_MATCH_DECISIONS = ["accepted", "rejected", "dismissed"] as const;
+export type CrmCallMatchDecision = (typeof CRM_CALL_MATCH_DECISIONS)[number];
+
+export const CRM_CALL_MATCH_CONFIDENCES = ["high", "medium", "low"] as const;
+export type CrmCallMatchConfidence = (typeof CRM_CALL_MATCH_CONFIDENCES)[number];
+
+export const CRM_CALL_MATCH_REASON_CODES = [
+  "exact_email",
+  "exact_phone",
+  "exact_profile",
+  "name_match",
+  "time_proximity",
+  "platform_match",
+  "attribution_match",
+  "event_type_match",
+  "missing_contact",
+  "common_name",
+  "no_candidate",
+] as const;
+export type CrmCallMatchReasonCode = (typeof CRM_CALL_MATCH_REASON_CODES)[number];
+
+export type CrmCallMatchReason = {
+  code: CrmCallMatchReasonCode;
+  label: string;
+};
+
+export type CrmCallMatchCandidateView = {
+  id: string;
+  leadId: string;
+  leadName: string;
+  leadHandle: string | null;
+  rank: number;
+  score: number;
+  confidence: CrmCallMatchConfidence;
+  reasonCodes: CrmCallMatchReasonCode[];
+  reasons: CrmCallMatchReason[];
+  missingEvidence: string[];
+};
+
+export type CrmCallMatchSuggestionView = {
+  id: string;
+  status: CrmCallMatchStatus;
+  confidence: CrmCallMatchConfidence | null;
+  candidates: CrmCallMatchCandidateView[];
+  generatedAt: string | null;
+  expiresAt: string | null;
+  modelVersion: string | null;
+  failureCode: string | null;
+};
+
 export type CrmReportingPeriod = {
   from: string;
   to: string;
@@ -152,12 +216,19 @@ export type CrmCallView = {
   leadName: string | null;
   source: string;
   inviteeName: string | null;
+  inviteeEmail: string | null;
+  inviteePhone: string | null;
   scheduledAt: string;
+  durationMinutes: number | null;
+  eventType: string | null;
+  externalReference: string;
+  nativeBookingId: string | null;
   attendance: "booked" | "showed" | "no_show" | "cancelled";
   outcome: "pending" | "closed" | "not_closed" | "awaiting_decision";
   closer: string | null;
   confidence: string | null;
   responsibleName: string | null;
+  suggestion: CrmCallMatchSuggestionView | null;
 };
 
 export type CrmLeadDetails = CrmLeadListItem & {

@@ -1,11 +1,12 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
 import { iclosedConnections, processedIclosedEvents, salesCalls } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
+import { enqueueCrmCallMatchSuggestions } from "@/lib/crm/call-match-queue";
 import { classifyEvent, parseEnvelope, readCall } from "@/lib/iclosed/events";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
@@ -241,6 +242,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // Unknown/other events are acknowledged and ignored in V1. Outcomes
         // are entered by hand, and failed writes stay retryable.
         break;
+    }
+
+    if (call) {
+      const [storedCall] = await db
+        .select({ id: salesCalls.id })
+        .from(salesCalls)
+        .where(and(eq(salesCalls.userId, connection.userId), eq(salesCalls.iclosedCallId, call.iclosedCallId)))
+        .limit(1);
+      if (storedCall) await enqueueCrmCallMatchSuggestions(connection.userId, [storedCall.id]);
     }
 
     revalidateBusinessData(connection.userId);

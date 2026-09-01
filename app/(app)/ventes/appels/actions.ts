@@ -10,6 +10,7 @@ import { track } from "@/lib/analytics";
 import { getActiveCloser } from "@/lib/closers/queries";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { buildSaleInput } from "@/lib/iclosed/sale";
+import { enqueueCrmCallMatchSuggestions } from "@/lib/crm/call-match-queue";
 import { createSale, deleteSale, updateSale } from "@/lib/sales/queries";
 import { requirePermission } from "@/lib/team/context";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
@@ -65,7 +66,7 @@ export async function createManualCallAction(data: unknown): Promise<{ error: st
   const closer = parsed.data.closerUserId ? await getActiveCloser(accountId, parsed.data.closerUserId) : null;
   if (parsed.data.closerUserId && !closer) return { error: "Closer introuvable dans ton équipe." };
 
-  await db.insert(salesCalls).values({
+  const [call] = await db.insert(salesCalls).values({
     userId: accountId,
     iclosedCallId: crypto.randomUUID(),
     source: "manual",
@@ -77,7 +78,9 @@ export async function createManualCallAction(data: unknown): Promise<{ error: st
     closerUserId: closer?.id ?? null,
     setterId: parsed.data.setterId,
     attendance: parsed.data.attendance,
-  });
+  }).returning({ id: salesCalls.id });
+
+  if (call) await enqueueCrmCallMatchSuggestions(accountId, [call.id]);
 
   revalidatePath("/ventes/appels");
   revalidateBusinessData(accountId);

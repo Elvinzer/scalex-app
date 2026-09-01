@@ -2,6 +2,7 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { salesCalls } from "@/db/schema";
+import { enqueueCrmCallMatchSuggestions } from "@/lib/crm/call-match-queue";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 
 import { listScheduledCalls } from "./client";
@@ -81,6 +82,8 @@ export async function backfillCalendlyCalls(userId: string, token: string, userU
     )
     .onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] })
     .returning({ id: salesCalls.id });
+
+  await enqueueCrmCallMatchSuggestions(userId, inserted.map((row) => row.id));
 
   // Keep contact enrichment current for calls imported before phone support was
   // added, without touching the closer's manually entered outcome or amounts.

@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { requireUserIdOrError } from "@/lib/current-user";
 import { hasCrmPermission, requireCrmAccess, requireCrmPermission } from "@/lib/crm/access";
+import { enqueueCrmCallMatchSuggestions, getUnlinkedCrmCallIdsForMatching } from "@/lib/crm/call-match-queue";
 import {
   addCrmNote,
   changeCrmStage,
@@ -21,12 +22,13 @@ import {
   setCrmCallResult as updateCrmCallResult,
   updateCrmLeadFields,
 } from "@/lib/crm/queries";
+import { confirmCrmCallMatch, decideCrmCallMatchSuggestion, generateCrmCallMatchSuggestion, type CrmCallMatchDecisionResult } from "@/lib/crm/call-match-suggestions";
 import { normalizeCapturedProfile } from "@/lib/crm/normalization";
 import { actionCompletionSchema, actionSchema, captureProfileSchema, changeStageSchema, crmLeadCaptureSchema, leadFieldsSchema, noteSchema, outcomeSchema, reopenSchema, responsibilitySchema } from "@/lib/crm/schemas";
-import type { CrmCapturedProfile, CrmProfileResolution } from "@/lib/crm/types";
+import type { CrmCallMatchStatus, CrmCapturedProfile, CrmProfileResolution } from "@/lib/crm/types";
 
 type ErrorResult = { error: string };
-type CrmErrorKey = "access" | "invalidProfile" | "ambiguousMatch" | "invalidData" | "invalidStage" | "invalidOutcome" | "leadNotFound" | "invalidResponsibility" | "responsibleAccount" | "invalidNote" | "invalidAction" | "cannotCreateAction" | "actionNotFound" | "invalidAssociation" | "leadOrCallNotFound" | "captureFailed";
+type CrmErrorKey = "access" | "invalidProfile" | "ambiguousMatch" | "invalidData" | "invalidStage" | "invalidOutcome" | "leadNotFound" | "invalidResponsibility" | "responsibleAccount" | "invalidNote" | "invalidAction" | "cannotCreateAction" | "actionNotFound" | "invalidAssociation" | "leadOrCallNotFound" | "captureFailed" | "callMatchInvalid" | "callMatchExpired" | "callMatchConflict" | "callMatchNotFound" | "callMatchQueueUnavailable";
 
 async function currentUser(): Promise<string | ErrorResult> {
   const userId = await requireUserIdOrError();
@@ -214,6 +216,81 @@ export async function linkCallAction(input: unknown): Promise<{ error: string | 
   if (!parsed.success) return { error: await crmError("invalidAssociation") };
   const result = await linkCrmCall(access.accountId, userId, parsed.data.leadId, parsed.data.salesCallId, parsed.data.confidence);
   if (!result) return { error: await crmError("leadOrCallNotFound") };
+  refreshCrm();
+  return { error: null };
+}
+
+const callMatchRequestSchema = z.object({ callId: z.string().uuid(), force: z.boolean().optional() });
+
+export async function requestCrmCallMatchAction(input: unknown): Promise<{ error: string | null; status?: CrmCallMatchStatus }> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return userId;
+  const access = await requireCrmAccess(userId);
+  if (!access) return { error: await crmError() };
+  const parsed = callMatchRequestSchema.safeParse(input);
+  if (!parsed.success) return { error: await crmError("callMatchInvalid") };
+  const suggestion = await generateCrmCallMatchSuggestion(access.accountId, parsed.data.callId, parsed.data.force === true);
+  if (!suggestion) return { error: await crmError("callMatchNotFound") };
+  refreshCrm();
+  return { error: null, status: suggestion.status };
+}
+
+const callMatchBatchSchema = z.object({ limit: z.number().int().min(1).max(25).optional() });
+
+export async function queueHistoricalCrmCallMatchesAction(input: unknown): Promise<{ error: string | null; queued: number }> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return { ...userId, queued: 0 };
+  const access = await requireCrmPermission(userId, "crm:assign");
+  if (!access) return { error: await crmError(), queued: 0 };
+  const parsed = callMatchBatchSchema.safeParse(input);
+  if (!parsed.success) return { error: await crmError("callMatchInvalid"), queued: 0 };
+  try {
+    const callIds = await getUnlinkedCrmCallIdsForMatching(access.accountId, parsed.data.limit);
+    if (callIds.length === 0) return { error: null, queued: 0 };
+    const queued = await enqueueCrmCallMatchSuggestions(access.accountId, callIds);
+    if (queued === 0) return { error: await crmError("callMatchQueueUnavailable"), queued: 0 };
+    refreshCrm();
+    return { error: null, queued };
+  } catch {
+    return { error: await crmError("callMatchQueueUnavailable"), queued: 0 };
+  }
+}
+
+const callMatchConfirmSchema = z.object({ callId: z.string().uuid(), suggestionId: z.string().uuid(), leadId: z.string().uuid() });
+
+function callMatchDecisionError(result: CrmCallMatchDecisionResult): CrmErrorKey | null {
+  if (result === "not_found") return "callMatchNotFound";
+  if (result === "expired") return "callMatchExpired";
+  if (result === "conflict") return "callMatchConflict";
+  return null;
+}
+
+export async function confirmCrmCallMatchAction(input: unknown): Promise<{ error: string | null }> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return userId;
+  const access = await requireCrmPermission(userId, "crm:assign");
+  if (!access) return { error: await crmError() };
+  const parsed = callMatchConfirmSchema.safeParse(input);
+  if (!parsed.success) return { error: await crmError("callMatchInvalid") };
+  const result = await confirmCrmCallMatch(access.accountId, userId, parsed.data.callId, parsed.data.suggestionId, parsed.data.leadId);
+  const errorKey = callMatchDecisionError(result);
+  if (errorKey) return { error: await crmError(errorKey) };
+  refreshCrm();
+  return { error: null };
+}
+
+const callMatchDecisionSchema = z.object({ suggestionId: z.string().uuid(), decision: z.enum(["rejected", "dismissed"]) });
+
+export async function decideCrmCallMatchAction(input: unknown): Promise<{ error: string | null }> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return userId;
+  const access = await requireCrmPermission(userId, "crm:assign");
+  if (!access) return { error: await crmError() };
+  const parsed = callMatchDecisionSchema.safeParse(input);
+  if (!parsed.success) return { error: await crmError("callMatchInvalid") };
+  const result = await decideCrmCallMatchSuggestion(access.accountId, userId, parsed.data.suggestionId, parsed.data.decision);
+  const errorKey = callMatchDecisionError(result);
+  if (errorKey) return { error: await crmError(errorKey) };
   refreshCrm();
   return { error: null };
 }

@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, exists, gte, ilike, inArray, lte, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, ilike, inArray, isNull, lte, lt, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
@@ -24,6 +25,8 @@ import type {
   CrmActionView,
   CrmCapturedProfile,
   CrmCallView,
+  CrmCallMatchSuggestionView,
+  CrmCallMatchStatus,
   CrmEventMetadata,
   CrmEventSource,
   CrmEventType,
@@ -37,6 +40,10 @@ import type {
   CrmResponsibilityHistoryView,
   CrmStageHistoryView,
 } from "./types";
+import { getCrmCallSuggestions } from "./call-match-suggestions";
+
+const callSetters = alias(setters, "crm_call_setter");
+const leadSetters = alias(setters, "crm_lead_setter");
 
 export type CrmLeadFilters = {
   search?: string;
@@ -70,6 +77,17 @@ export type CrmActionInput = {
   source?: CrmEventSource;
   sourceId?: string | null;
   idempotencyKey?: string | null;
+};
+
+export type CrmCallFilters = {
+  search?: string;
+  unlinkedOnly?: boolean;
+  source?: string;
+  attendance?: "booked" | "showed" | "no_show" | "cancelled";
+  outcome?: "pending" | "closed" | "not_closed" | "awaiting_decision";
+  suggestionStatus?: CrmCallMatchStatus;
+  from?: string;
+  to?: string;
 };
 
 type LeadDatabaseRow = typeof leads.$inferSelect;
@@ -194,6 +212,7 @@ function toCallView(row: {
   link: typeof crmCallLinks.$inferSelect | null;
   lead: LeadDatabaseRow | null;
   setterName?: string | null;
+  suggestion?: CrmCallMatchSuggestionView | null;
 }): CrmCallView {
   return {
     id: row.call.id,
@@ -201,12 +220,19 @@ function toCallView(row: {
     leadName: row.lead ? leadDisplayName(row.lead) : null,
     source: row.call.source,
     inviteeName: row.call.inviteeName,
+    inviteeEmail: row.call.inviteeEmail,
+    inviteePhone: row.call.inviteePhone,
     scheduledAt: row.call.scheduledAt.toISOString(),
+    durationMinutes: row.call.durationMinutes,
+    eventType: row.call.eventType,
+    externalReference: row.call.iclosedCallId,
+    nativeBookingId: row.call.nativeBookingId,
     attendance: row.call.attendance,
     outcome: row.call.outcome,
     closer: row.call.closer,
     confidence: row.link?.confidence ?? null,
     responsibleName: row.setterName ?? null,
+    suggestion: row.suggestion ?? null,
   };
 }
 
@@ -870,11 +896,41 @@ export async function completeCrmAction(accountId: string, actionId: string, act
   });
 }
 
-export async function getCrmCalls(accountId: string, leadId?: string): Promise<CrmCallView[]> {
+export async function getCrmCalls(accountId: string, leadId?: string, filters: CrmCallFilters = {}): Promise<CrmCallView[]> {
   const conditions = [eq(salesCalls.userId, accountId)];
   if (leadId) conditions.push(eq(crmCallLinks.leadId, leadId));
-  const rows = await db.select({ call: salesCalls, link: crmCallLinks, lead: leads, setterName: setters.name }).from(salesCalls).leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId))).leftJoin(leads, and(eq(crmCallLinks.leadId, leads.id), eq(leads.accountId, accountId))).leftJoin(setters, eq(leads.setterId, setters.id)).where(and(...conditions)).orderBy(desc(salesCalls.scheduledAt));
-  return rows.map(toCallView);
+  if (filters.unlinkedOnly) conditions.push(isNull(crmCallLinks.leadId));
+  if (filters.source) conditions.push(eq(salesCalls.source, filters.source));
+  if (filters.attendance) conditions.push(eq(salesCalls.attendance, filters.attendance));
+  if (filters.outcome) conditions.push(eq(salesCalls.outcome, filters.outcome));
+  if (filters.from && !Number.isNaN(Date.parse(filters.from))) conditions.push(gte(salesCalls.scheduledAt, new Date(`${filters.from}T00:00:00.000Z`)));
+  if (filters.to && !Number.isNaN(Date.parse(filters.to))) conditions.push(lte(salesCalls.scheduledAt, new Date(`${filters.to}T23:59:59.999Z`)));
+  if (filters.search?.trim()) {
+    const pattern = `%${filters.search.trim()}%`;
+    conditions.push(or(
+      ilike(salesCalls.inviteeName, pattern),
+      ilike(salesCalls.inviteeEmail, pattern),
+      ilike(salesCalls.inviteePhone, pattern),
+      ilike(salesCalls.iclosedCallId, pattern),
+      ilike(salesCalls.eventType, pattern),
+      ilike(leads.displayName, pattern),
+      ilike(leads.firstName, pattern),
+      ilike(leads.lastName, pattern),
+      ilike(leads.normalizedHandle, pattern),
+    ) ?? eq(salesCalls.id, "00000000-0000-0000-0000-000000000000"));
+  }
+  const rows = await db
+    .select({ call: salesCalls, link: crmCallLinks, lead: leads, callSetterName: callSetters.name, leadSetterName: leadSetters.name })
+    .from(salesCalls)
+    .leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId)))
+    .leftJoin(leads, and(eq(crmCallLinks.leadId, leads.id), eq(leads.accountId, accountId)))
+    .leftJoin(callSetters, eq(salesCalls.setterId, callSetters.id))
+    .leftJoin(leadSetters, eq(leads.setterId, leadSetters.id))
+    .where(and(...conditions))
+    .orderBy(desc(salesCalls.scheduledAt));
+  const suggestions = await getCrmCallSuggestions(accountId, rows.filter(({ link }) => !link?.leadId).map(({ call }) => call.id));
+  const views = rows.map((row) => toCallView({ ...row, setterName: row.callSetterName ?? row.leadSetterName, suggestion: row.link?.leadId ? null : suggestions.get(row.call.id) ?? null }));
+  return filters.suggestionStatus ? views.filter((call) => call.suggestion?.status === filters.suggestionStatus) : views;
 }
 
 export async function linkCrmCall(accountId: string, actorUserId: string, leadId: string, salesCallId: string, confidence: string): Promise<CrmCallView | null> {
@@ -882,8 +938,21 @@ export async function linkCrmCall(accountId: string, actorUserId: string, leadId
     const [lead] = await tx.select({ id: leads.id }).from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
     const [call] = await tx.select().from(salesCalls).where(and(eq(salesCalls.id, salesCallId), eq(salesCalls.userId, accountId))).limit(1);
     if (!lead || !call) return false;
+
+    const [existing] = await tx
+      .select({ leadId: crmCallLinks.leadId })
+      .from(crmCallLinks)
+      .where(and(eq(crmCallLinks.accountId, accountId), eq(crmCallLinks.salesCallId, salesCallId)))
+      .limit(1);
+    if (existing) return existing.leadId === leadId;
+
     const now = new Date();
-    await tx.insert(crmCallLinks).values({ accountId, leadId, salesCallId, source: "app", confidence, linkedByUserId: actorUserId }).onConflictDoUpdate({ target: [crmCallLinks.accountId, crmCallLinks.salesCallId], set: { leadId, confidence, linkedByUserId: actorUserId, linkedAt: now } });
+    const [inserted] = await tx
+      .insert(crmCallLinks)
+      .values({ accountId, leadId, salesCallId, source: "app", confidence, linkedByUserId: actorUserId, linkedAt: now })
+      .onConflictDoNothing({ target: [crmCallLinks.accountId, crmCallLinks.salesCallId] })
+      .returning({ id: crmCallLinks.id });
+    if (!inserted) return false;
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "match_confirmed", source: "app", sourceEventKey: `call-link:${salesCallId}`, occurredAt: call.scheduledAt, capturedAt: now, metadata: { salesCallId, confidence } })).onConflictDoNothing();
     return true;
   });

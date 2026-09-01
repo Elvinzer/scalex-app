@@ -15,6 +15,7 @@ import {
   salesCalls,
   users,
 } from "@/db/schema";
+import { enqueueCrmCallMatchSuggestions } from "@/lib/crm/call-match-queue";
 import { inngest, nativeBookingCalendarSyncRequested } from "@/lib/inngest/client";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
@@ -63,6 +64,7 @@ const BOOKING_HOLD_DURATION_MS = 5 * 60_000;
 type NativeBookingError = { error: "not_found" | "existing_booking" | "slot_unavailable" | "invalid" };
 type BookingMode = "hold" | "confirm";
 type InternalNativeBookingResult = {
+  userId: string;
   bookingId: string;
   callId: string | null;
   startAt: Date;
@@ -203,6 +205,7 @@ async function createNativeBookingInternal(handle: string, slug: string, request
         : [];
       if (closer && call) {
         return {
+          userId: eventRow.userId,
           bookingId: existingAttempt.id,
           callId: call.id,
           idempotencyKey: existingAttempt.idempotencyKey,
@@ -434,6 +437,7 @@ async function createNativeBookingInternal(handle: string, slug: string, request
     }
 
     return {
+      userId: eventRow.userId,
       bookingId: booking.id,
       callId: call?.id ?? null,
       idempotencyKey: request.idempotencyKey,
@@ -470,6 +474,7 @@ export async function createNativeBooking(
   const result = await createNativeBookingInternal(handle, slug, request, "confirm");
   if ("error" in result) return result;
   if (!result.callId) return { error: "invalid" };
+  await enqueueCrmCallMatchSuggestions(result.userId, [result.callId]);
   return {
     bookingId: result.bookingId,
     callId: result.callId,

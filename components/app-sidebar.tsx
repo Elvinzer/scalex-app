@@ -607,7 +607,7 @@ export function AppSidebar({
               href={entry.href}
               prefetch={false}
               aria-current={active ? "page" : undefined}
-              className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-[10px] font-bold transition-colors", active ? (entry.href === "/copilote" ? "text-accent-2" : "text-accent") : "text-muted-foreground")}
+              className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-[10px] font-bold transition-colors", active ? (entry.href === "/copilote" ? "text-accent-2-text" : "text-accent-text") : "text-muted-foreground")}
             >
               <Icon className="size-4" aria-hidden="true" />
               {t(entry.mobileLabelKey)}

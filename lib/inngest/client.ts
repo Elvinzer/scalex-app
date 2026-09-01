@@ -135,4 +135,13 @@ export const nativeBookingReminderRequested = eventType("native-booking/reminder
   schema: staticSchema<NativeBookingReminderRequested>(),
 });
 
+type CrmCallMatchRequested = {
+  accountId: string;
+  salesCallId: string;
+};
+
+export const crmCallMatchRequested = eventType("crm/call-match.requested", {
+  schema: staticSchema<CrmCallMatchRequested>(),
+});
+
 export const inngest = new Inngest({ id: "minaly" });

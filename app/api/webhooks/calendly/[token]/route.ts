@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
@@ -9,6 +9,7 @@ import { fetchInvitee } from "@/lib/calendly/client";
 import { classifyCalendlyEvent, parseCalendlyWebhook, readCalendlyInviteePhone } from "@/lib/calendly/events";
 import { CALENDLY_SIGNATURE_HEADER } from "@/lib/calendly/protocol";
 import { decrypt } from "@/lib/crypto";
+import { enqueueCrmCallMatchSuggestions } from "@/lib/crm/call-match-queue";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 import { readMetaTracking } from "@/lib/meta-ads/tracking";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
@@ -224,7 +225,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           // Never overwrite a disposition the closer already set (only cancel a
           // still-booked call).
           setWhere: eq(salesCalls.attendance, "booked"),
-        });
+      });
+    }
+
+    if (call) {
+      const [storedCall] = await db
+        .select({ id: salesCalls.id })
+        .from(salesCalls)
+        .where(and(eq(salesCalls.userId, connection.userId), eq(salesCalls.iclosedCallId, call.externalId)))
+        .limit(1);
+      if (storedCall) await enqueueCrmCallMatchSuggestions(connection.userId, [storedCall.id]);
     }
 
     revalidateBusinessData(connection.userId);

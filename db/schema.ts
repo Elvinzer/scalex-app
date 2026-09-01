@@ -53,6 +53,10 @@ import {
   CRM_LEAD_OUTCOMES,
   CRM_LEAD_STAGES,
   CRM_PLATFORMS,
+  type CrmCallMatchConfidence,
+  type CrmCallMatchDecision,
+  type CrmCallMatchReasonCode,
+  type CrmCallMatchStatus,
   type CrmEventMetadata,
 } from "@/lib/crm/types";
 
@@ -2768,6 +2772,74 @@ export const salesCalls = pgTable(
   ]
 ).enableRLS();
 
+// A cached, explainable matching attempt for one canonical call. This table
+// is deliberately separate from crmCallLinks: a suggestion can expire or be
+// rejected without changing the call/lead relationship, and a later run can
+// use a new input fingerprint while keeping the audit trail.
+export const crmCallMatchSuggestions = pgTable(
+  "crm_call_match_suggestions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    salesCallId: uuid("sales_call_id").notNull().references(() => salesCalls.id, { onDelete: "cascade" }),
+    status: text("status").notNull().$type<CrmCallMatchStatus>().default("queued"),
+    confidence: text("confidence").$type<CrmCallMatchConfidence>(),
+    inputFingerprint: text("input_fingerprint").notNull(),
+    candidateCount: integer("candidate_count").notNull().default(0),
+    modelVersion: text("model_version"),
+    keySource: text("key_source"),
+    failureCode: text("failure_code"),
+    decision: text("decision").$type<CrmCallMatchDecision>(),
+    decidedByUserId: uuid("decided_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    generatedAt: timestamp("generated_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("crm_call_match_suggestions_account_call_fingerprint_idx").on(table.accountId, table.salesCallId, table.inputFingerprint),
+    index("crm_call_match_suggestions_account_status_idx").on(table.accountId, table.status, table.updatedAt),
+    index("crm_call_match_suggestions_call_idx").on(table.salesCallId, table.updatedAt),
+    pgPolicy("crm_call_match_suggestions_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: sql`${nativeBookingAccountAccess(table.accountId)} and exists (select 1 from public.sales_calls as c where c.id = ${table.salesCallId} and c.user_id = ${table.accountId})`,
+      withCheck: sql`${nativeBookingAccountAccess(table.accountId)} and exists (select 1 from public.sales_calls as c where c.id = ${table.salesCallId} and c.user_id = ${table.accountId})`,
+    }),
+  ]
+).enableRLS();
+
+// Candidate rows keep the reasons shown to the user small and structured. No
+// raw prompt or provider response is stored here; the current canonical call
+// remains the source for contact details.
+export const crmCallMatchCandidates = pgTable(
+  "crm_call_match_candidates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    suggestionId: uuid("suggestion_id").notNull().references(() => crmCallMatchSuggestions.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    rank: integer("rank").notNull(),
+    score: integer("score").notNull().default(0),
+    confidence: text("confidence").notNull().$type<CrmCallMatchConfidence>().default("low"),
+    reasonCodes: jsonb("reason_codes").notNull().$type<CrmCallMatchReasonCode[]>().default([]),
+    reasons: jsonb("reasons").notNull().$type<string[]>().default([]),
+    missingEvidence: jsonb("missing_evidence").notNull().$type<string[]>().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("crm_call_match_candidates_suggestion_lead_idx").on(table.suggestionId, table.leadId),
+    uniqueIndex("crm_call_match_candidates_suggestion_rank_idx").on(table.suggestionId, table.rank),
+    index("crm_call_match_candidates_lead_idx").on(table.leadId),
+    pgPolicy("crm_call_match_candidates_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: sql.raw("exists (select 1 from public.crm_call_match_suggestions as s inner join public.leads as l on l.id = lead_id and l.account_id = s.account_id where s.id = suggestion_id and public.native_booking_account_member(s.account_id))"),
+      withCheck: sql.raw("exists (select 1 from public.crm_call_match_suggestions as s inner join public.leads as l on l.id = lead_id and l.account_id = s.account_id where s.id = suggestion_id and public.native_booking_account_member(s.account_id))"),
+    }),
+  ]
+).enableRLS();
+
 export const crmCallLinks = pgTable(
   "crm_call_links",
   {
@@ -2777,6 +2849,7 @@ export const crmCallLinks = pgTable(
     salesCallId: uuid("sales_call_id").notNull().references(() => salesCalls.id, { onDelete: "cascade" }),
     source: crmEventSourceEnum("source").notNull().default("app"),
     confidence: text("confidence").notNull().default("reliable"),
+    acceptedSuggestionId: uuid("accepted_suggestion_id").references(() => crmCallMatchSuggestions.id, { onDelete: "set null" }),
     linkedByUserId: uuid("linked_by_user_id").references(() => users.id, { onDelete: "set null" }),
     linkedAt: timestamp("linked_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
