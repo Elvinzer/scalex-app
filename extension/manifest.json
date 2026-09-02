@@ -5,7 +5,7 @@
   "description": "Capture les profils sociaux visibles dans le CRM Minaly.",
   "permissions": ["storage", "tabs"],
   "host_permissions": [
-    "https://minaly.app/*",
+    "https://www.minaly.io/*",
     "http://localhost:3000/*"
   ],
   "background": {

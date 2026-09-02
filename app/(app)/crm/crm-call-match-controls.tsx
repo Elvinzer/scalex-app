@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { CrmCallMatchStatus, CrmCallView } from "@/lib/crm/types";
 
 import { confirmCrmCallMatchAction, decideCrmCallMatchAction, requestCrmCallMatchAction } from "./crm-actions";
+import { CrmProfileLink } from "./crm-profile-link";
 
 function statusTranslationKey(status: CrmCallMatchStatus): "pending" | "candidate" | "ambiguous" | "noMatch" | "unavailable" | "failed" | "expired" | "label" {
   switch (status) {
@@ -101,7 +102,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { cal
                 <Link href={`/crm/leads/${candidate.leadId}`} className="font-bold underline-offset-2 hover:underline">{candidate.leadName}</Link>
                 {candidate.leadHandle && <p className="truncate text-xs text-muted-foreground">@{candidate.leadHandle}</p>}
               </div>
-              <span className="shrink-0 text-xs font-bold text-muted-foreground">{t(`match.${candidate.confidence}`)}</span>
+              <div className="flex shrink-0 items-center gap-1"><span className="text-xs font-bold text-muted-foreground">{t(`match.${candidate.confidence}`)}</span><CrmProfileLink href={candidate.leadProfileUrl} label={t("match.openProfile")} iconOnly /></div>
             </div>
             <div className="mt-1 flex flex-wrap gap-1">
               {candidate.reasonCodes.slice(0, 4).map((code) => <span key={code} className="rounded-full bg-muted px-1.5 py-0.5 text-[0.68rem] text-muted-foreground">{t(`match.reasonCodes.${code}`)}</span>)}

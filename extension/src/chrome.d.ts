@@ -1,8 +1,10 @@
 declare namespace chrome {
   namespace runtime {
-    type MessageListener = (message: unknown, sender: { tab?: { id?: number } }, sendResponse: (response: unknown) => void) => void | boolean;
+    type MessageListener = (message: unknown, sender: { id?: string; tab?: { id?: number } }, sendResponse: (response: unknown) => void) => void | boolean;
+    const id: string;
     const onMessage: { addListener(listener: MessageListener): void };
     function sendMessage(message: unknown): Promise<unknown>;
+    function getURL(path?: string): string;
   }
 
   namespace storage {
@@ -15,5 +17,6 @@ declare namespace chrome {
 
   namespace tabs {
     function create(createProperties: { url: string }): Promise<{ id?: number }>;
+    function sendMessage(tabId: number, message: unknown): Promise<unknown>;
   }
 }

@@ -1,7 +1,9 @@
-const minalyProductionOrigin = "https://minaly.app";
+const minalyProductionOrigin = "https://www.minaly.io";
 const minalyDevelopmentOrigin = "http://localhost:3000";
 const minalyBackgroundOriginKey = "minalyCrmExtensionOrigin";
 const minalyBackgroundTokenKey = "minalyCrmExtensionToken";
+const minalyBackgroundAuthStateKey = "minalyCrmExtensionAuthState";
+const minalyBackgroundAuthTabKey = "minalyCrmExtensionAuthTab";
 const minalyBackgroundPaths = new Set([
   "/api/crm/extension/session",
   "/api/crm/extension/resolve",
@@ -10,6 +12,24 @@ const minalyBackgroundPaths = new Set([
 ]);
 
 type MinalyBackgroundRequest = { type: "minaly-api-request"; path: string; payload?: unknown };
+type MinalyAuthCallback = { state: string; token: string | null; error: string | null };
+
+function minalyBackgroundIsRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function minalyReadBackgroundRequest(value: unknown): MinalyBackgroundRequest | null {
+  if (!minalyBackgroundIsRecord(value) || value.type !== "minaly-api-request" || typeof value.path !== "string" || !minalyBackgroundPaths.has(value.path)) return null;
+  return { type: "minaly-api-request", path: value.path, payload: value.payload };
+}
+
+function minalyReadAuthCallback(value: unknown): MinalyAuthCallback | null {
+  if (!minalyBackgroundIsRecord(value) || typeof value.state !== "string" || value.state.length < 16 || value.state.length > 128) return null;
+  const token = typeof value.token === "string" && value.token.length > 0 && value.token.length <= 2048 ? value.token : null;
+  const error = typeof value.error === "string" && value.error.length > 0 && value.error.length <= 80 ? value.error : null;
+  if ((token === null && error === null) || (token !== null && error !== null)) return null;
+  return { state: value.state, token, error };
+}
 
 async function minalyBackgroundOrigin(): Promise<string> {
   const values = await chrome.storage.local.get([minalyBackgroundOriginKey]);
@@ -28,10 +48,9 @@ async function minalyBackgroundSession(): Promise<string | null> {
     }
     if (!response.ok) continue;
     const body: unknown = await response.json().catch(() => null);
-    if (typeof body !== "object" || body === null) continue;
-    const data = "data" in body && typeof body.data === "object" && body.data !== null ? body.data : body;
-    if (!("extensionToken" in data) && !("token" in data)) continue;
-    const token = "extensionToken" in data && typeof data.extensionToken === "string" ? data.extensionToken : "token" in data && typeof data.token === "string" ? data.token : null;
+    if (!minalyBackgroundIsRecord(body)) continue;
+    const data = minalyBackgroundIsRecord(body.data) ? body.data : body;
+    const token = typeof data.extensionToken === "string" ? data.extensionToken : typeof data.token === "string" ? data.token : null;
     if (!token) continue;
     await chrome.storage.local.set({ [minalyBackgroundTokenKey]: token, [minalyBackgroundOriginKey]: origin });
     return token;
@@ -40,7 +59,6 @@ async function minalyBackgroundSession(): Promise<string | null> {
 }
 
 async function minalyBackgroundRequest(message: MinalyBackgroundRequest): Promise<{ status: number; body: unknown }> {
-  if (!minalyBackgroundPaths.has(message.path)) return { status: 400, body: { error: "invalid_path" } };
   let origin = await minalyBackgroundOrigin();
   const values = await chrome.storage.local.get([minalyBackgroundTokenKey]);
   let token = typeof values[minalyBackgroundTokenKey] === "string" ? values[minalyBackgroundTokenKey] : await minalyBackgroundSession();
@@ -52,7 +70,7 @@ async function minalyBackgroundRequest(message: MinalyBackgroundRequest): Promis
   });
   origin = await minalyBackgroundOrigin();
   let response = await request(origin, token);
-  if (response.status === 401 && message.path !== "/api/crm/extension/session") {
+  if (response.status === 401) {
     await chrome.storage.local.remove([minalyBackgroundTokenKey]);
     token = await minalyBackgroundSession();
     origin = await minalyBackgroundOrigin();
@@ -63,15 +81,53 @@ async function minalyBackgroundRequest(message: MinalyBackgroundRequest): Promis
   return { status: response.status, body };
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (typeof message !== "object" || message === null || !("type" in message)) return;
-  const type = (message as { type?: unknown }).type;
-  if (type === "minaly-open-auth") {
-    void minalyBackgroundOrigin().then((origin) => chrome.tabs.create({ url: `${origin}/sign-in?next=/crm` }));
+async function minalyOpenAuth(senderTabId?: number): Promise<void> {
+  const origin = await minalyBackgroundOrigin();
+  const state = crypto.randomUUID();
+  const callbackUrl = chrome.runtime.getURL("auth-callback.html");
+  await chrome.storage.local.set({ [minalyBackgroundAuthStateKey]: state, [minalyBackgroundAuthTabKey]: senderTabId ?? null });
+  const authUrl = new URL("/sign-in", origin);
+  authUrl.searchParams.set("extension", "1");
+  authUrl.searchParams.set("redirect_uri", callbackUrl);
+  authUrl.searchParams.set("state", state);
+  await chrome.tabs.create({ url: authUrl.toString() });
+}
+
+async function minalyCompleteAuth(value: unknown, sender: { id?: string; tab?: { id?: number } }): Promise<{ ok: boolean; error?: string }> {
+  const callback = minalyReadAuthCallback(value);
+  if (!callback || sender.id !== chrome.runtime.id) return { ok: false, error: "invalid_callback" };
+  const values = await chrome.storage.local.get([minalyBackgroundAuthStateKey, minalyBackgroundAuthTabKey]);
+  if (values[minalyBackgroundAuthStateKey] !== callback.state) return { ok: false, error: "invalid_state" };
+  const tabId = typeof values[minalyBackgroundAuthTabKey] === "number" ? values[minalyBackgroundAuthTabKey] : sender.tab?.id;
+  await chrome.storage.local.remove([minalyBackgroundAuthStateKey, minalyBackgroundAuthTabKey]);
+  if (!callback.token) {
+    if (typeof tabId === "number") void chrome.tabs.sendMessage(tabId, { type: "minaly-auth-failed", error: callback.error ?? "auth_failed" }).catch(() => undefined);
+    return { ok: false, error: callback.error ?? "auth_failed" };
+  }
+
+  const origin = await minalyBackgroundOrigin();
+  await chrome.storage.local.set({ [minalyBackgroundTokenKey]: callback.token, [minalyBackgroundOriginKey]: origin });
+  if (typeof tabId === "number") void chrome.tabs.sendMessage(tabId, { type: "minaly-authenticated" }).catch(() => undefined);
+  return { ok: true };
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!minalyBackgroundIsRecord(message) || typeof message.type !== "string") return;
+  if (message.type === "minaly-open-auth") {
+    void minalyOpenAuth(sender.tab?.id).catch(() => undefined);
     return;
   }
-  if (type === "minaly-api-request") {
-    void minalyBackgroundRequest(message as MinalyBackgroundRequest).then(sendResponse).catch(() => sendResponse({ status: 503, body: { error: "network_error" } }));
+  if (message.type === "minaly-auth-callback") {
+    void minalyCompleteAuth(message, sender).then(sendResponse).catch(() => sendResponse({ ok: false, error: "auth_failed" }));
+    return true;
+  }
+  if (message.type === "minaly-api-request") {
+    const request = minalyReadBackgroundRequest(message);
+    if (!request) {
+      sendResponse({ status: 400, body: { error: "invalid_path" } });
+      return;
+    }
+    void minalyBackgroundRequest(request).then(sendResponse).catch(() => sendResponse({ status: 503, body: { error: "network_error" } }));
     return true;
   }
 });

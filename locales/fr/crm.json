@@ -64,6 +64,7 @@
     "captured": "Profil capturé",
     "platform": "Plateforme",
     "created": "Créé le",
+    "openProfile": "Ouvrir le profil",
     "sourceOptions": {
       "instagram": "Instagram",
       "tiktok": "TikTok",
@@ -148,6 +149,7 @@
     "selectLead": "Choisir un lead",
     "linked": "Appel relié",
     "linkedLead": "Lead relié",
+    "openProfile": "Ouvrir le profil",
     "linkRestricted": "Droit requis pour relier",
     "match": {
       "label": "Rapprochement",
@@ -165,6 +167,7 @@
       "confirm": "Relier à ce lead",
       "confirmed": "Correspondance confirmée",
       "viewLead": "Voir la fiche",
+      "openProfile": "Ouvrir le profil",
       "reject": "Ce n'est pas le bon lead",
       "rejected": "Suggestion rejetée",
       "dismiss": "Ignorer",
@@ -262,7 +265,10 @@
     "loading": "Chargement du lead",
     "notFound": "Lead introuvable.",
     "unassigned": "Non attribué",
-    "unknownAuthor": "Auteur inconnu"
+    "unknownAuthor": "Auteur inconnu",
+    "profileUrl": "URL du profil",
+    "openProfile": "Ouvrir le profil",
+    "profileUrlMissing": "Aucune URL de profil enregistrée."
   },
   "salesValidation": {
     "title": "Valider la vente de {name}",

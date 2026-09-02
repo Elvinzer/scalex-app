@@ -10,5 +10,5 @@
     "rootDir": "src",
     "removeComments": false
   },
-  "include": ["src/content.ts", "src/background.ts", "src/chrome.d.ts"]
+  "include": ["src/content.ts", "src/background.ts", "src/auth-callback.ts", "src/chrome.d.ts"]
 }

@@ -12,6 +12,7 @@ import { CRM_STAGE_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS } from "@/lib/crm/machine"
 
 import { changeStageAction } from "./crm-actions";
 import { CrmLeadDrawer } from "./crm-lead-drawer";
+import { CrmProfileLink } from "./crm-profile-link";
 
 export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssign }: { initialLeads: CrmLeadListItem[]; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean }) {
   const t = useTranslations("crm");
@@ -62,12 +63,15 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
       </div>
       <div className="mt-3 flex min-h-24 flex-col gap-2">
         {stageLeads.map((lead) => <article key={lead.id} draggable={!isPending} onDragStart={(event) => startDrag(event, lead.id)} onDragEnd={() => setDraggedLeadId(null)} className={`rounded-[var(--radius-control)] border border-border bg-card p-3 shadow-sm ${draggedLeadId === lead.id ? "opacity-50" : ""}`}>
-          <button type="button" onClick={() => setDrawerLead(lead)} className="block w-full rounded text-left outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
+          <div className="flex items-start gap-2">
+          <button type="button" onClick={() => setDrawerLead(lead)} className="min-w-0 flex-1 rounded text-left outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
             <p className="font-bold">{lead.displayName}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{lead.platform ? t(`sources.${lead.platform}`) : sourceLabel(lead.source)}</p>
             {lead.responsibleSetterName && <p className="mt-1 text-xs text-muted-foreground">{t("pipeline.responsible")}: {lead.responsibleSetterName}</p>}
             {lead.outcome !== "none" && <p className="mt-2 text-xs font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</p>}
           </button>
+          <CrmProfileLink href={lead.canonicalProfileUrl} label={t("leads.openProfile")} iconOnly />
+          </div>
           <label className="mt-3 flex flex-col gap-1 text-xs font-bold text-muted-foreground">
             {t("pipeline.move")}
             <select value={lead.stage} disabled={isPending} onChange={(event) => move(lead.id, event.target.value as CrmLeadStage)} className="min-h-8 rounded border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:border-accent">

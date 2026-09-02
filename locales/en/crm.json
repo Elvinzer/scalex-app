@@ -64,6 +64,7 @@
     "captured": "Profile captured",
     "platform": "Platform",
     "created": "Created",
+    "openProfile": "Open profile",
     "sourceOptions": {
       "instagram": "Instagram",
       "tiktok": "TikTok",
@@ -148,6 +149,7 @@
     "selectLead": "Select a lead",
     "linked": "Call linked",
     "linkedLead": "Linked lead",
+    "openProfile": "Open profile",
     "linkRestricted": "You cannot link calls",
     "match": {
       "label": "Match",
@@ -165,6 +167,7 @@
       "confirm": "Link this lead",
       "confirmed": "Match confirmed",
       "viewLead": "View lead",
+      "openProfile": "Open profile",
       "reject": "This is not the right lead",
       "rejected": "Suggestion rejected",
       "dismiss": "Dismiss",
@@ -262,7 +265,10 @@
     "loading": "Loading lead",
     "notFound": "Lead not found.",
     "unassigned": "Unassigned",
-    "unknownAuthor": "Unknown author"
+    "unknownAuthor": "Unknown author",
+    "profileUrl": "Profile URL",
+    "openProfile": "Open profile",
+    "profileUrlMissing": "No profile URL saved."
   },
   "salesValidation": {
     "title": "Validate the sale for {name}",

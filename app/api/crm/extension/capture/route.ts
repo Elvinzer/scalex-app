@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { readCrmExtensionBody } from "@/lib/crm/extension-http";
+import { getBusinessProfile } from "@/lib/business/queries";
 import { getCrmExtensionAccess } from "@/lib/crm/extension-session";
 import { confirmCrmProfileMatch, createCrmLead, resolveCrmProfile } from "@/lib/crm/queries";
 import { crmCaptureCommandSchema } from "@/lib/crm/schemas";
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     try {
       const lead = await confirmCrmProfileMatch(access.accountId, parsed.data.candidateLeadId, profile, access.userId, parsed.data.idempotencyKey);
       if (!lead) return NextResponse.json({ error: "lead_not_found" }, { status: 404 });
-      return NextResponse.json({ data: { leadId: lead.id, created: false, confirmed: true, crmUrl: new URL(request.url).origin }, leadId: lead.id, created: false, confirmed: true, crmUrl: new URL(request.url).origin });
+      return NextResponse.json({ data: { leadId: lead.id, profileUrl: lead.canonicalProfileUrl, created: false, confirmed: true, crmUrl: new URL(request.url).origin }, leadId: lead.id, profileUrl: lead.canonicalProfileUrl, created: false, confirmed: true, crmUrl: new URL(request.url).origin });
     } catch (error) {
       return NextResponse.json({ error: error instanceof Error && error.message === "CRM_IDEMPOTENCY_CONFLICT" ? "idempotency_conflict" : "profile_conflict" }, { status: 409 });
     }
@@ -37,8 +38,13 @@ export async function POST(request: NextRequest) {
 
   if (resolution.kind === "ambiguous" && !parsed.data.separateFromCandidates) return NextResponse.json({ error: "ambiguous_match", resolution }, { status: 409 });
   try {
-    const result = await createCrmLead(access.accountId, { profile, actorUserId: access.userId, offerId: parsed.data.qualification?.offerId ?? null, marketingSource: parsed.data.qualification?.source, stage: parsed.data.qualification?.stage, source: "extension", sourceEventKey: parsed.data.profile.sourceEventKey ?? null, idempotencyKey: parsed.data.idempotencyKey });
-    return NextResponse.json({ data: { leadId: result.lead.id, created: result.created, crmUrl: new URL(request.url).origin }, leadId: result.lead.id, created: result.created, crmUrl: new URL(request.url).origin });
+    const requestedOfferId = parsed.data.qualification?.offerId ?? null;
+    const offerId = requestedOfferId ?? await (async () => {
+      const businessProfile = await getBusinessProfile(access.accountId);
+      return businessProfile.sales.offers.length === 1 ? businessProfile.sales.offers[0].id : null;
+    })();
+    const result = await createCrmLead(access.accountId, { profile, actorUserId: access.userId, offerId, marketingSource: parsed.data.qualification?.source, stage: parsed.data.qualification?.stage, source: "extension", sourceEventKey: parsed.data.profile.sourceEventKey ?? null, idempotencyKey: parsed.data.idempotencyKey });
+    return NextResponse.json({ data: { leadId: result.lead.id, profileUrl: result.lead.canonicalProfileUrl, created: result.created, crmUrl: new URL(request.url).origin }, leadId: result.lead.id, profileUrl: result.lead.canonicalProfileUrl, created: result.created, crmUrl: new URL(request.url).origin });
   } catch (error) {
     if (error instanceof Error && error.message === "CRM_IDEMPOTENCY_CONFLICT") return NextResponse.json({ error: "idempotency_conflict" }, { status: 409 });
     return NextResponse.json({ error: "capture_failed" }, { status: 500 });

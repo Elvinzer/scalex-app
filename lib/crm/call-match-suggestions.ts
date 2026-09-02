@@ -23,6 +23,7 @@ type CandidateRow = {
     firstName: string;
     lastName: string;
     normalizedHandle: string | null;
+    canonicalProfileUrl: string | null;
   };
 };
 
@@ -50,6 +51,7 @@ function toSuggestionView(suggestion: SuggestionRow, candidateRows: CandidateRow
         leadId: candidate.leadId,
         leadName: displayLeadName(lead),
         leadHandle: lead.normalizedHandle,
+        leadProfileUrl: lead.canonicalProfileUrl,
         rank: candidate.rank,
         score: candidate.score,
         confidence: candidate.confidence,
@@ -87,6 +89,7 @@ export async function getCrmCallSuggestions(accountId: string, callIds: string[]
         firstName: leads.firstName,
         lastName: leads.lastName,
         normalizedHandle: leads.normalizedHandle,
+        canonicalProfileUrl: leads.canonicalProfileUrl,
       },
     })
     .from(crmCallMatchCandidates)

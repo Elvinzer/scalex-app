@@ -218,6 +218,7 @@ function toCallView(row: {
     id: row.call.id,
     leadId: row.link?.leadId ?? null,
     leadName: row.lead ? leadDisplayName(row.lead) : null,
+    leadProfileUrl: row.lead?.canonicalProfileUrl ?? null,
     source: row.call.source,
     inviteeName: row.call.inviteeName,
     inviteeEmail: row.call.inviteeEmail,
@@ -266,10 +267,19 @@ async function getSetterForAccount(accountId: string, setterId: string | null | 
   return setter ?? null;
 }
 
-async function defaultSetterForActor(accountId: string, actorUserId: string): Promise<string | null> {
+export async function getCrmSetterForActor(accountId: string, actorUserId: string): Promise<{ id: string; name: string } | null> {
   const [actor] = await db.select({ email: users.email }).from(users).where(eq(users.id, actorUserId)).limit(1);
   if (!actor?.email) return null;
-  const [setter] = await db.select({ id: setters.id }).from(setters).where(and(eq(setters.userId, accountId), eq(setters.email, actor.email), eq(setters.active, true))).limit(1);
+  const [setter] = await db
+    .select({ id: setters.id, name: setters.name })
+    .from(setters)
+    .where(and(eq(setters.userId, accountId), eq(setters.email, actor.email), eq(setters.active, true)))
+    .limit(1);
+  return setter ?? null;
+}
+
+async function defaultSetterForActor(accountId: string, actorUserId: string): Promise<string | null> {
+  const setter = await getCrmSetterForActor(accountId, actorUserId);
   return setter?.id ?? null;
 }
 

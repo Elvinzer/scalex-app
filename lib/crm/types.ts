@@ -108,6 +108,7 @@ export type CrmCallMatchCandidateView = {
   leadId: string;
   leadName: string;
   leadHandle: string | null;
+  leadProfileUrl: string | null;
   rank: number;
   score: number;
   confidence: CrmCallMatchConfidence;
@@ -214,6 +215,7 @@ export type CrmCallView = {
   id: string;
   leadId: string | null;
   leadName: string | null;
+  leadProfileUrl: string | null;
   source: string;
   inviteeName: string | null;
   inviteeEmail: string | null;

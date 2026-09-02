@@ -222,6 +222,7 @@ export function rankCallMatchCandidates(call: CallMatchCallInput, leads: CallMat
         leadId: lead.id,
         leadName: candidateName,
         leadHandle: lead.normalizedHandle,
+        leadProfileUrl: lead.canonicalProfileUrl,
         rank: 0,
         score: boundedScore,
         confidence: confidenceFor(boundedScore, reasons),

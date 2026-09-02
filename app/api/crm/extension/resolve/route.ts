@@ -4,7 +4,7 @@ import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { readCrmExtensionBody } from "@/lib/crm/extension-http";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getCrmExtensionAccess } from "@/lib/crm/extension-session";
-import { getCrmSetters, resolveCrmProfile } from "@/lib/crm/queries";
+import { getCrmSetterForActor, resolveCrmProfile } from "@/lib/crm/queries";
 import { captureProfileSchema } from "@/lib/crm/schemas";
 import { normalizeCapturedProfile } from "@/lib/crm/normalization";
 import { CRM_LEAD_SOURCES, CRM_LEAD_STAGES } from "@/lib/crm/types";
@@ -24,7 +24,17 @@ export async function POST(request: NextRequest) {
   if (!profile) return NextResponse.json({ error: "invalid_profile" }, { status: 400 });
   const resolution = await resolveCrmProfile(access.accountId, profile);
   if (resolution.kind !== "unknown") return NextResponse.json({ data: { state: resolution.kind, ...resolution }, resolution });
-  const [businessProfile, setters] = await Promise.all([getBusinessProfile(access.accountId), getCrmSetters(access.accountId)]);
-  const responsible = setters.find((setter) => setter.userId === access.userId && setter.active) ?? null;
-  return NextResponse.json({ data: { state: resolution.kind, ...resolution, qualification: { offers: businessProfile.sales.offers.map(({ id, name }) => ({ id, name })), sources: CRM_LEAD_SOURCES, stages: CRM_LEAD_STAGES, responsible: responsible ? { id: responsible.id, name: responsible.name } : null } }, resolution, qualification: { offers: businessProfile.sales.offers.map(({ id, name }) => ({ id, name })), sources: CRM_LEAD_SOURCES, stages: CRM_LEAD_STAGES, responsible: responsible ? { id: responsible.id, name: responsible.name } : null } });
+  const [businessProfile, responsible] = await Promise.all([
+    getBusinessProfile(access.accountId),
+    getCrmSetterForActor(access.accountId, access.userId),
+  ]);
+  const offers = businessProfile.sales.offers.map(({ id, name }) => ({ id, name }));
+  const qualification = {
+    offers,
+    defaultOfferId: offers.length === 1 ? offers[0].id : null,
+    sources: CRM_LEAD_SOURCES,
+    stages: CRM_LEAD_STAGES,
+    responsible,
+  };
+  return NextResponse.json({ data: { state: resolution.kind, ...resolution, qualification }, resolution, qualification });
 }

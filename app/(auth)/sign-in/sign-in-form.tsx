@@ -13,11 +13,13 @@ export function SignInForm({
   intent,
   plan = "solo",
   billing = "monthly",
+  extensionCompletionPath,
 }: {
   authCallbackError?: boolean;
   intent?: "trial" | "diagnostic" | null;
   plan?: "solo" | "team";
   billing?: "monthly" | "annual";
+  extensionCompletionPath?: string | null;
 }) {
   const t = useTranslations("auth.signIn");
   const [email, setEmail] = useState("");
@@ -25,7 +27,9 @@ export function SignInForm({
 
   function getAuthCallbackUrl(): string {
     const callback = new URL("/auth/callback", window.location.origin);
-    if (intent === "trial") {
+    if (extensionCompletionPath) {
+      callback.searchParams.set("next", extensionCompletionPath);
+    } else if (intent === "trial") {
       callback.searchParams.set("next", `/api/billing/checkout?plan=${plan}&trial=7&billing=${billing}`);
     } else if (intent === "diagnostic") {
       callback.searchParams.set("next", "/onboarding?diagnostic=1");

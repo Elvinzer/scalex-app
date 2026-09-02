@@ -13,6 +13,7 @@ import type { Offer } from "@/lib/business/types";
 import { addNoteAction, changeStageAction, reopenLeadAction, reassignLeadAction, setOutcomeAction, updateLeadFieldsAction } from "./crm-actions";
 import { CrmActionForm } from "./crm-action-form";
 import { CrmSaleValidationDialog } from "./crm-sale-validation-dialog";
+import { CrmProfileLink } from "./crm-profile-link";
 
 export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, inDrawer = false }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; inDrawer?: boolean }) {
   const t = useTranslations("crm");
@@ -106,6 +107,10 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
             {!inDrawer && <Link href="/crm/leads" className="text-sm font-bold text-muted-foreground underline-offset-2 hover:underline">{t("detail.back")}</Link>}
             <h1 className={inDrawer ? "sr-only" : "mt-3 text-2xl font-bold"}>{lead.displayName}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{lead.platform ? t(`sources.${lead.platform}`) : t("sources.autre")}{lead.normalizedHandle ? ` · @${lead.normalizedHandle}` : ""}</p>
+            <div className="mt-3 flex max-w-full flex-wrap items-center gap-2 text-xs">
+              <span className="font-bold text-muted-foreground">{t("detail.profileUrl")}</span>
+              {lead.canonicalProfileUrl ? <><span className="min-w-0 max-w-full break-all text-muted-foreground">{lead.canonicalProfileUrl}</span><CrmProfileLink href={lead.canonicalProfileUrl} label={t("detail.openProfile")} /></> : <span className="text-muted-foreground">{t("detail.profileUrlMissing")}</span>}
+            </div>
           </div>
           <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span>
         </div>
