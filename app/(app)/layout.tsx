@@ -14,6 +14,7 @@ import { SupportDrawer } from "@/components/support/support-drawer";
 import { isAdminEmail } from "@/lib/admin";
 import { FALCO_SKIN_KEYS } from "@/lib/falco-skins";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { EMPTY_BUSINESS_PROFILE } from "@/lib/business/types";
 import { computeGlobalCompletion } from "@/lib/business/completion";
 import { getAuthIdentity } from "@/lib/auth/request";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
@@ -42,10 +43,21 @@ async function AppChrome({
   sidebarBaseProps: SidebarBaseProps;
 }) {
   const [businessProfile, userRow] = await Promise.all([
-    getBusinessProfile(accountId),
-    getUserById(accountId),
+    getBusinessProfile(accountId).catch(() => {
+      console.error("[app-shell] business profile unavailable");
+      return EMPTY_BUSINESS_PROFILE;
+    }),
+    getUserById(accountId).catch(() => {
+      console.error("[app-shell] account user unavailable");
+      return undefined;
+    }),
   ]);
-  const currentUserRow = userId === accountId ? userRow : await getUserById(userId);
+  const currentUserRow = userId === accountId
+    ? userRow
+    : await getUserById(userId).catch(() => {
+        console.error("[app-shell] current user unavailable");
+        return undefined;
+      });
   const businessCompletion = computeGlobalCompletion(businessProfile);
   const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
   const sidebarProps = {
@@ -59,6 +71,9 @@ async function AppChrome({
       accountId,
       isOwner: sidebarBaseProps.isOwner,
       lastSeenAt: currentUserRow?.supportLastSeenAt,
+    }).catch(() => {
+      console.error("[app-shell] support activity unavailable");
+      return false;
     }),
   };
   const hasUnseenInsight = !isBusinessProfileThin(businessProfile) && !userRow?.lastImproveMetricKey;

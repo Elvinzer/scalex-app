@@ -5,9 +5,10 @@ import { currentMonthWindow, lastCompletedMonths, type MonthWindow } from "@/lib
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { computeScaleScore, describeScaleScoreGap, scaleScoreGapSources as getScaleScoreGapSources } from "@/lib/diagnostic/scale-score";
 import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
-import { getDiagnosticKpiRawData, getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
+import { getDiagnosticKpiRawDataOrEmpty, getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
 import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
 import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
+import { DEFAULT_FUNNEL_BLOCKS } from "@/lib/funnel-blocks/catalog";
 import { activeFunnelBlockEntries, activeLegacyMetricKeysFromBlocks, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import type { closingKpiEntries, settingKpiEntries } from "@/db/schema";
 import { monthDateRange } from "@/lib/date-range";
@@ -115,9 +116,22 @@ export async function AppSidebarWithScaleScore({
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
   const [funnelBlockCatalog, scaleScoreInputs, benchmarks] = await Promise.all([
-    getFunnelBlockCatalog(),
-    canSeeScaleScore ? getScaleScoreInputs(accountId) : Promise.resolve(null),
-    canSeeScaleScore ? getDiagnosticBenchmarks(sector) : Promise.resolve(null),
+    getFunnelBlockCatalog().catch(() => {
+      console.error("[app-shell] funnel block catalogue unavailable");
+      return DEFAULT_FUNNEL_BLOCKS;
+    }),
+    canSeeScaleScore
+      ? getScaleScoreInputs(accountId).catch(() => {
+          console.error("[app-shell] scale score inputs unavailable");
+          return null;
+        })
+      : Promise.resolve(null),
+    canSeeScaleScore
+      ? getDiagnosticBenchmarks(sector).catch(() => {
+          console.error("[app-shell] scale score benchmarks unavailable");
+          return null;
+        })
+      : Promise.resolve(null),
   ]);
   const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
   const activeFunnelEntries = activeFunnelBlockEntries(funnelBlockSelection, funnelBlockCatalog);
@@ -126,7 +140,7 @@ export async function AppSidebarWithScaleScore({
   if (canSeeScaleScore && scaleScoreInputs && benchmarks) {
     const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
     const scaleScoreMonths = lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS);
-    const rawData = await getDiagnosticKpiRawData(accountId);
+    const rawData = await getDiagnosticKpiRawDataOrEmpty(accountId);
     const acquisitionInputKeys = new Set(
       activeFunnelEntries
         .filter((entry) => entry.family !== "conversion")
@@ -234,11 +248,15 @@ export async function AppSidebarWithScaleScore({
     potentialMonthlyRevenue = revenueProjection.optimizedMonthlyRevenue;
 
     if (scaleScore.score !== null) {
-      [scaleScoreDelta7d, scaleScoreDelta30d, scaleScoreSparkline] = await Promise.all([
-        getScaleScoreDelta(accountId, 7, scaleScore.score),
-        getScaleScoreDelta(accountId, 30, scaleScore.score),
-        getScaleScoreSparkline(accountId),
-      ]);
+      try {
+        [scaleScoreDelta7d, scaleScoreDelta30d, scaleScoreSparkline] = await Promise.all([
+          getScaleScoreDelta(accountId, 7, scaleScore.score),
+          getScaleScoreDelta(accountId, 30, scaleScore.score),
+          getScaleScoreSparkline(accountId),
+        ]);
+      } catch {
+        console.error("[app-shell] scale score history unavailable");
+      }
     }
   }
 

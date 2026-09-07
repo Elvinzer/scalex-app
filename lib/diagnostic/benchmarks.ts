@@ -41,6 +41,12 @@ const getBenchmarkSnapshotCached = unstable_cache(
 
 export const getBenchmarkSnapshot = cache(getBenchmarkSnapshotCached);
 
+export function emptyDiagnosticBenchmarks(): Record<MetricKey, number> {
+  const result = {} as Record<MetricKey, number>;
+  for (const key of METRIC_KEYS) result[key] = 0;
+  return result;
+}
+
 export const getDiagnosticBenchmarks = cache(async (sector: SectorKey | null): Promise<Record<MetricKey, number>> => {
   const snapshot = await getBenchmarkSnapshot(sector);
   const result = {} as Record<MetricKey, number>;

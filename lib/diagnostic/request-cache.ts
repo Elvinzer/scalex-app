@@ -11,6 +11,7 @@ import { getLeadStageHistory, getLeads } from "@/lib/leads/queries";
 import { getSales } from "@/lib/sales/queries";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
+import type { VideoAttributionTotals } from "@/lib/youtube/attribution-rules";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { getInFlight } from "@/lib/perf/in-flight";
@@ -79,6 +80,26 @@ async function fetchDiagnosticKpiRawData(accountId: string) {
 }
 
 type DiagnosticKpiRawData = Awaited<ReturnType<typeof fetchDiagnosticKpiRawData>>;
+
+export function emptyDiagnosticKpiRawData(): DiagnosticKpiSnapshot {
+  return {
+    allSettingEntries: [],
+    allClosingEntries: [],
+    allMonthlyRows: [],
+    allCallSourcesByMonth: {},
+    allCallRecords: [],
+    allSales: [],
+    allLeads: [],
+    allLeadStageHistory: [],
+    allYoutubeVideoInsights: [],
+    allInstagramPostInsights: [],
+    allContentPosts: [],
+    allVideoAttributionTotals: new Map<string, VideoAttributionTotals>(),
+    allEmailCampaigns: [],
+    allMetaMetrics: [],
+    allNativeBookingLeads: [],
+  };
+}
 
 // React's cache() is scoped to one render/request. A sidebar and a page can
 // still start the same snapshot at the same time from separate route
@@ -167,9 +188,23 @@ function restoreDiagnosticDates(snapshot: CachedDiagnosticKpiRawData) {
   };
 }
 
+export type DiagnosticKpiSnapshot = ReturnType<typeof restoreDiagnosticDates>;
+
 export const getDiagnosticKpiRawData = cache(async (accountId: string) => {
   return restoreDiagnosticDates(await getCachedDiagnosticKpiRawData(accountId));
 });
+
+// The dashboard can still render its empty state when an optional diagnostic
+// source is temporarily unavailable. Auth and permissions stay strict; this
+// fallback only prevents a source timeout from taking down the whole page.
+export async function getDiagnosticKpiRawDataOrEmpty(accountId: string): Promise<DiagnosticKpiSnapshot> {
+  try {
+    return await getDiagnosticKpiRawData(accountId);
+  } catch {
+    console.error("[dashboard] diagnostic data unavailable");
+    return emptyDiagnosticKpiRawData();
+  }
+}
 
 export type ScaleScoreInputs = {
   allSettingEntries: Awaited<ReturnType<typeof getSettingKpiEntries>>;

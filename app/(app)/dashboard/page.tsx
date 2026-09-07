@@ -12,15 +12,18 @@ import { MetricCard } from "@/components/metric-card";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { DEFAULT_ACQUISITION_FUNNELS } from "@/lib/acquisition-funnels/catalog";
+import { DEFAULT_FUNNEL_BLOCKS } from "@/lib/funnel-blocks/catalog";
+import { EMPTY_BUSINESS_PROFILE } from "@/lib/business/types";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
-import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
+import { emptyDiagnosticBenchmarks, getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
 import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
 import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { isSameReportingMonth, resolveContentReportingMonth } from "@/lib/content-posts/reporting-period";
-import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
+import { emptyDiagnosticKpiRawData, getDiagnosticKpiRawDataOrEmpty } from "@/lib/diagnostic/request-cache";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeFunnelEntries, activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
@@ -56,6 +59,15 @@ const DASHBOARD_METRIC_CARD_KEYS = [
   "closing-rate",
   "average-sale",
 ];
+
+const DASHBOARD_OPTIONAL_TIMEOUT_MS = 5_000;
+
+function dashboardOptional<T>(label: string, operation: Promise<T>, fallback: T): Promise<T> {
+  return withTimeout(operation, DASHBOARD_OPTIONAL_TIMEOUT_MS, `dashboard-${label}`).catch(() => {
+    console.error(`[dashboard] ${label} unavailable`);
+    return fallback;
+  });
+}
 
 type DashboardPageProps = {
   searchParams: Promise<{ checkin?: string; bandeau?: string; source?: string }>;
@@ -96,12 +108,16 @@ async function renderDashboardPage({
   // to the same functions for the Scale Score badge.
   const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, weeklyReports, acquisitionCatalog, funnelBlockCatalog] =
     await Promise.all([
-      getBusinessProfile(accountId),
-      getDiagnosticKpiRawData(accountId),
-      getDiagnosticBenchmarks(user?.sector ?? null),
-      getRecentWeeklyReports(accountId),
-      getAcquisitionFunnelCatalog(),
-      getFunnelBlockCatalog(),
+      dashboardOptional("business profile", getBusinessProfile(accountId), EMPTY_BUSINESS_PROFILE),
+      dashboardOptional("diagnostic data", getDiagnosticKpiRawDataOrEmpty(accountId), emptyDiagnosticKpiRawData()),
+      dashboardOptional("benchmark data", getDiagnosticBenchmarks(user?.sector ?? null), emptyDiagnosticBenchmarks()),
+      dashboardOptional("weekly reports", getRecentWeeklyReports(accountId), []),
+      dashboardOptional(
+        "acquisition catalogue",
+        getAcquisitionFunnelCatalog(),
+        DEFAULT_ACQUISITION_FUNNELS.filter((entry) => entry.funnelKey !== "appel_direct")
+      ),
+      dashboardOptional("funnel block catalogue", getFunnelBlockCatalog(), DEFAULT_FUNNEL_BLOCKS),
     ]);
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
@@ -111,7 +127,11 @@ async function renderDashboardPage({
     // keeps the event reliable when navigation is interrupted.
     after(() => track("source_filter_used", userId, { source, page: "dashboard" }));
   }
-  const funnelBlockBenchmarks = await getFunnelBlockBenchmarks(funnelBlockSelection.blocks.map((item) => item.blockKey), user?.sector ?? null);
+  const funnelBlockBenchmarks = await dashboardOptional(
+    "funnel benchmarks",
+    getFunnelBlockBenchmarks(funnelBlockSelection.blocks.map((item) => item.blockKey), user?.sector ?? null),
+    {}
+  );
   const activeLegacyKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
   const activeMetricFields = Array.from(
     new Map(
@@ -129,14 +149,20 @@ async function renderDashboardPage({
   // Technical-alert data — independent of the diagnostic engine above, so
   // fetched as its own batch rather than folded into it. Revenue actions are
   // loaded by their Suspense boundary below and remain a separate projection.
-  const [[iclosedConnection], [calendlyConnection]] = await Promise.all([
-    user?.iclosedConnected
-      ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
-      : Promise.resolve([]),
-    user?.calendlyConnected
-      ? db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
-      : Promise.resolve([]),
-  ]);
+  const [iclosedConnectionsResult, calendlyConnectionsResult] = await dashboardOptional(
+    "connection status",
+    Promise.all([
+      user?.iclosedConnected
+        ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
+        : Promise.resolve([]),
+      user?.calendlyConnected
+        ? db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
+        : Promise.resolve([]),
+    ]),
+    [[], []] as const
+  );
+  const [iclosedConnection] = iclosedConnectionsResult;
+  const [calendlyConnection] = calendlyConnectionsResult;
   const technicalAlerts = buildTechnicalAlerts({
     keyInvalid: Boolean(user?.anthropicApiKeyInvalid),
     failedSyncs: [
