@@ -160,9 +160,13 @@ export async function getLeadPipelineVolumesByMonth(
   userId: string,
   year: number
 ): Promise<Record<number, { conversations: number; callsBooked: number; callsTaken: number }>> {
+  return summarizeLeadPipelineVolumesByMonth(await getLeadStageHistory(userId), year);
+}
+
+export function summarizeLeadPipelineVolumesByMonth(history: readonly LeadStageEvent[], year: number): Record<number, { conversations: number; callsBooked: number; callsTaken: number }> {
   const from = new Date(`${year}-01-01T00:00:00Z`).getTime();
   const to = new Date(`${year}-12-31T23:59:59Z`).getTime();
-  const rows = (await getLeadStageHistory(userId)).filter((row) => {
+  const rows = history.filter((row) => {
     const changedAt = row.changedAt.getTime();
     return changedAt >= from && changedAt <= to;
   });

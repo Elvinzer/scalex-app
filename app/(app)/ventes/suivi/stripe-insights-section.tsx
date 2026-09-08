@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -100,6 +100,8 @@ export function StripeInsightsSection({
   const [feedbackIsError, setFeedbackIsError] = useState(false);
   const [syncRequested, setSyncRequested] = useState(false);
 
+  const syncCheckInFlight = useRef(false);
+
   const isSyncing = connection?.initialSyncStatus === "pending";
   const shouldPollSync = syncRequested || isSyncing;
 
@@ -107,30 +109,39 @@ export function StripeInsightsSection({
     if (!shouldPollSync) return;
 
     let stopped = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      if (!stopped) timer = setTimeout(() => void checkSyncStatus(), Math.min(2000 * 2 ** Math.floor(attempts / 3), 30_000));
+    };
     const checkSyncStatus = async () => {
-      let result: Awaited<ReturnType<typeof getStripeSyncStatus>>;
-      try {
-        result = await getStripeSyncStatus();
-      } catch {
-        // A transient network failure must not crash the page. The next
-        // polling cycle will retry the status check.
+      if (stopped) return;
+      if (document.hidden || syncCheckInFlight.current) {
+        schedule();
         return;
       }
-      if (stopped || result.error) return;
-
-      if (result.status === "completed" || result.status === "failed") {
-        setSyncRequested(false);
-        router.refresh();
+      syncCheckInFlight.current = true;
+      attempts += 1;
+      try {
+        const result = await getStripeSyncStatus();
+        if (stopped || result.error) return;
+        if (result.status === "completed" || result.status === "failed") {
+          stopped = true;
+          setSyncRequested(false);
+          router.refresh();
+        }
+      } catch {
+        // Retry after resolution with backoff, including network failures.
+      } finally {
+        syncCheckInFlight.current = false;
+        schedule();
       }
     };
-
-    const intervalId = window.setInterval(() => {
-      void checkSyncStatus();
-    }, 2000);
+    schedule();
 
     return () => {
       stopped = true;
-      window.clearInterval(intervalId);
+      clearTimeout(timer);
     };
   }, [router, shouldPollSync]);
 

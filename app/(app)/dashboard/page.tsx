@@ -1,3 +1,4 @@
+import { DataUnavailable } from "@/components/data-unavailable";
 import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { Suspense } from "react";
@@ -14,16 +15,15 @@ import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { DEFAULT_ACQUISITION_FUNNELS } from "@/lib/acquisition-funnels/catalog";
 import { DEFAULT_FUNNEL_BLOCKS } from "@/lib/funnel-blocks/catalog";
-import { EMPTY_BUSINESS_PROFILE } from "@/lib/business/types";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
-import { emptyDiagnosticBenchmarks, getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
+import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
 import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
 import { aggregateContentTotals } from "@/lib/diagnostic/content-metrics";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { isSameReportingMonth, resolveContentReportingMonth } from "@/lib/content-posts/reporting-period";
-import { emptyDiagnosticKpiRawData, getDiagnosticKpiRawDataOrEmpty } from "@/lib/diagnostic/request-cache";
+import { getDashboardDiagnosticData } from "@/lib/diagnostic/request-cache";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeFunnelEntries, activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
 import { currentIsoWeekRange, inRange, buildMetricCards } from "@/lib/dashboard/metrics";
@@ -101,16 +101,32 @@ async function renderDashboardPage({
   const canReadCrmActions = Boolean(accountContext?.crmEnabled && (accountContext.isOwner || accountContext.permissions.has("crm:view")));
   const canReadCrmTeamActions = Boolean(accountContext?.crmEnabled && (accountContext.isOwner || accountContext.permissions.has("crm:view-team")));
 
-  // All three only depend on accountId/user.sector, known above — run
-  // together instead of as sequential round-trips. getBusinessProfile/
-  // getDiagnosticKpiRawData/getDiagnosticBenchmarks are all cache()-wrapped
-  // per request, so this is deduped against app/(app)/layout.tsx's own call
-  // to the same functions for the Scale Score badge.
-  const [businessProfile, { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads }, benchmarks, weeklyReports, acquisitionCatalog, funnelBlockCatalog] =
+  // Technical-alert data — independent of the diagnostic engine above, so
+  // fetched as its own batch rather than folded into it. Revenue actions are
+  // loaded by their Suspense boundary below and remain a separate projection.
+  const connectionStatus = dashboardOptional(
+    "connection status",
+    Promise.all([
+      user?.iclosedConnected
+        ? db.select({ initialSyncStatus: iclosedConnections.initialSyncStatus }).from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
+        : Promise.resolve([]),
+      user?.calendlyConnected
+        ? db.select({ initialSyncStatus: calendlyConnections.initialSyncStatus }).from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
+        : Promise.resolve([]),
+    ]),
+    [[], []] as const
+  );
+
+  // Account sources are shared with the sidebar; connection status can load
+  // alongside them instead of adding another sequential database round trip.
+  const [businessProfile, rawData, benchmarks, weeklyReports, acquisitionCatalog, funnelBlockCatalog] =
     await Promise.all([
-      dashboardOptional("business profile", getBusinessProfile(accountId), EMPTY_BUSINESS_PROFILE),
-      dashboardOptional("diagnostic data", getDiagnosticKpiRawDataOrEmpty(accountId), emptyDiagnosticKpiRawData()),
-      dashboardOptional("benchmark data", getDiagnosticBenchmarks(user?.sector ?? null), emptyDiagnosticBenchmarks()),
+      dashboardOptional("business profile", getBusinessProfile(accountId), null),
+      getDashboardDiagnosticData(accountId).catch(() => {
+        console.error("[dashboard] diagnostic data unavailable");
+        return null;
+      }),
+      dashboardOptional("benchmark data", getDiagnosticBenchmarks(user?.sector ?? null), null),
       dashboardOptional("weekly reports", getRecentWeeklyReports(accountId), []),
       dashboardOptional(
         "acquisition catalogue",
@@ -119,6 +135,8 @@ async function renderDashboardPage({
       ),
       dashboardOptional("funnel block catalogue", getFunnelBlockCatalog(), DEFAULT_FUNNEL_BLOCKS),
     ]);
+  if (!rawData || !businessProfile || !benchmarks) return <DataUnavailable />;
+  const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = rawData;
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
   const source: FunnelSourceKey | "total" = isFunnelSourceKey(params.source) ? params.source : "total";
@@ -146,21 +164,7 @@ async function renderDashboardPage({
   // greeted by their own name. Falls back to the email local-part, as before.
   const firstName = currentUser?.displayName?.trim() || currentUser?.email.split("@")[0] || t("there");
 
-  // Technical-alert data — independent of the diagnostic engine above, so
-  // fetched as its own batch rather than folded into it. Revenue actions are
-  // loaded by their Suspense boundary below and remain a separate projection.
-  const [iclosedConnectionsResult, calendlyConnectionsResult] = await dashboardOptional(
-    "connection status",
-    Promise.all([
-      user?.iclosedConnected
-        ? db.select().from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
-        : Promise.resolve([]),
-      user?.calendlyConnected
-        ? db.select().from(calendlyConnections).where(eq(calendlyConnections.userId, accountId)).limit(1)
-        : Promise.resolve([]),
-    ]),
-    [[], []] as const
-  );
+  const [iclosedConnectionsResult, calendlyConnectionsResult] = await connectionStatus;
   const [iclosedConnection] = iclosedConnectionsResult;
   const [calendlyConnection] = calendlyConnectionsResult;
   const technicalAlerts = buildTechnicalAlerts({

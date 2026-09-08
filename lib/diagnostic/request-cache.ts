@@ -1,9 +1,9 @@
 import { cache } from "react";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db } from "@/db";
-import { emailCampaigns, metaAdMetricsDaily, nativeBookingLeads } from "@/db/schema";
+import { emailCampaigns, metaAdMetricsDaily, nativeBookingLeads, youtubeVideoInsights } from "@/db/schema";
 import { diagnosticDataCacheTag } from "@/lib/diagnostic/cache-tags";
 import { getClosingKpiEntries, getAllMonthlyMetrics, getSalesCallKpiRecords, getSettingKpiEntries } from "@/lib/monthly-metrics/queries";
 import { aggregateSalesCallsByMonth } from "@/lib/monthly-metrics/call-source";
@@ -11,7 +11,6 @@ import { getLeadStageHistory, getLeads } from "@/lib/leads/queries";
 import { getSales } from "@/lib/sales/queries";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
-import type { VideoAttributionTotals } from "@/lib/youtube/attribution-rules";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
 import { getInFlight } from "@/lib/perf/in-flight";
@@ -19,87 +18,81 @@ import { measureAsync } from "@/lib/perf/timing";
 
 const DIAGNOSTIC_CACHE_REVALIDATE_SECONDS = 30;
 
-// Cache each source independently instead of serializing the complete
-// diagnostic snapshot as one Data Cache entry. Historical insight/content
-// rows can grow beyond Next's per-entry limit; smaller account-scoped entries
-// keep the hot path reusable across requests without sharing data between
-// businesses.
-function getCachedDiagnosticSource<T>(
-  source: string,
-  accountId: string,
-  loader: () => Promise<T>
-): Promise<T> {
-  return unstable_cache(loader, ["diagnostic-source", source, accountId], {
-    revalidate: DIAGNOSTIC_CACHE_REVALIDATE_SECONDS,
-    tags: [diagnosticDataCacheTag(accountId)],
-  })();
+// Each source has one loader and one cache identity, shared by the sidebar,
+// pages and background revalidation. Keep SQL in flight after a caller times
+// out: releasing it early would let the next navigation duplicate that work.
+function diagnosticSource<T>(source: string, loader: (accountId: string) => Promise<T>) {
+  const reads = new Map<string, Promise<T>>();
+  const cacheReads = new Map<string, Promise<T>>();
+  return cache((accountId: string) => getInFlight(cacheReads, accountId, () =>
+    unstable_cache(
+      () => getInFlight(reads, accountId, () => measureAsync(`db.diagnostic.${source}`, () => loader(accountId))),
+      ["diagnostic-source-v2", source, accountId],
+      { revalidate: DIAGNOSTIC_CACHE_REVALIDATE_SECONDS, tags: [diagnosticDataCacheTag(accountId)] }
+    )(),
+    { timeoutMs: 10_000, timeoutLabel: `diagnostic-${source}`, retainUntilSettled: true }
+  ));
 }
 
-// The React `cache()` wrapper deduplicates calls inside one render. The
-// in-flight map additionally protects separate concurrent route requests in
-// the same Vercel instance while the account's source entries are warming.
-// Downstream math (aggregatePeriodTotals, computeDiagnosticPoints,
-// computeScaleScore...) stays pure and cheap, so it is intentionally
-// recomputed per projection.
+const sources = {
+  setting: diagnosticSource("setting", getSettingKpiEntries),
+  closing: diagnosticSource("closing", getClosingKpiEntries),
+  monthly: diagnosticSource("monthly", getAllMonthlyMetrics),
+  calls: diagnosticSource("call-records", getSalesCallKpiRecords),
+  sales: diagnosticSource("sales", getSales),
+  leads: diagnosticSource("leads", getLeads),
+  history: diagnosticSource("lead-history", getLeadStageHistory),
+  youtube: diagnosticSource("youtube", async (accountId) => Array.from((await getYoutubeVideoInsightsMap(accountId)).values())),
+  instagram: diagnosticSource("instagram", async (accountId) => Array.from((await getInstagramPostInsightsMap(accountId)).values())),
+  content: diagnosticSource("content", getContentPosts),
+  youtubeVisibility: diagnosticSource("youtube-visibility", async (accountId) => db.select({
+    videoId: youtubeVideoInsights.videoId,
+    privacyStatus: youtubeVideoInsights.privacyStatus,
+  }).from(youtubeVideoInsights).where(eq(youtubeVideoInsights.userId, accountId))),
+  attribution: diagnosticSource("video-attribution", async (accountId) => Array.from((await getVideoAttributionTotals(accountId)).entries())),
+  email: diagnosticSource("email", async (accountId) => db.select().from(emailCampaigns).where(eq(emailCampaigns.userId, accountId))),
+  // Diagnostics only aggregate campaign totals. Raw API payloads and the
+  // ad/adset breakdowns can exceed a megabyte even for a small account.
+  meta: diagnosticSource("meta", async (accountId) => db.select({
+    level: metaAdMetricsDaily.level,
+    date: metaAdMetricsDaily.date,
+    spendCents: metaAdMetricsDaily.spendCents,
+    impressions: metaAdMetricsDaily.impressions,
+    linkClicks: metaAdMetricsDaily.linkClicks,
+    leads: metaAdMetricsDaily.leads,
+    registrations: metaAdMetricsDaily.registrations,
+    purchases: metaAdMetricsDaily.purchases,
+    purchaseValueCents: metaAdMetricsDaily.purchaseValueCents,
+  }).from(metaAdMetricsDaily).where(and(eq(metaAdMetricsDaily.userId, accountId), eq(metaAdMetricsDaily.level, "campaign")))),
+  native: diagnosticSource("native-booking", async (accountId) => db.select({
+    createdAt: nativeBookingLeads.createdAt,
+    status: nativeBookingLeads.status,
+  }).from(nativeBookingLeads).where(eq(nativeBookingLeads.userId, accountId))),
+};
+
+const fetchDiagnosticCore = cache(async (accountId: string) => {
+  const [allSettingEntries, allClosingEntries, allMonthlyRows, allCallRecords, allSales, allLeads, allLeadStageHistory, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads] = await Promise.all([
+    sources.setting(accountId), sources.closing(accountId), sources.monthly(accountId), sources.calls(accountId),
+    sources.sales(accountId), sources.leads(accountId), sources.history(accountId), sources.email(accountId),
+    sources.meta(accountId), sources.native(accountId),
+  ]);
+  return {
+    allSettingEntries, allClosingEntries, allMonthlyRows, allCallRecords, allSales, allLeads, allLeadStageHistory,
+    allEmailCampaigns, allMetaMetrics, allNativeBookingLeads,
+    allCallSourcesByMonth: aggregateSalesCallsByMonth(allCallRecords),
+  };
+});
+
 async function fetchDiagnosticKpiRawData(accountId: string) {
   return measureAsync("db.diagnostic.raw", async () => {
-    const [allSettingEntries, allClosingEntries, allMonthlyRows, allCallRecords, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads] = await Promise.all([
-      getCachedDiagnosticSource("setting", accountId, () => measureAsync("db.diagnostic.setting", () => getSettingKpiEntries(accountId))),
-      getCachedDiagnosticSource("closing", accountId, () => measureAsync("db.diagnostic.closing", () => getClosingKpiEntries(accountId))),
-      getCachedDiagnosticSource("monthly", accountId, () => measureAsync("db.diagnostic.monthly", () => getAllMonthlyMetrics(accountId))),
-      getCachedDiagnosticSource("call-records", accountId, () => measureAsync("db.diagnostic.call-records", () => getSalesCallKpiRecords(accountId))),
-      getCachedDiagnosticSource("sales", accountId, () => measureAsync("db.diagnostic.sales", () => getSales(accountId))),
-      getCachedDiagnosticSource("leads", accountId, () => measureAsync("db.diagnostic.leads", () => getLeads(accountId))),
-      getCachedDiagnosticSource("lead-history", accountId, () => measureAsync("db.diagnostic.lead-history", () => getLeadStageHistory(accountId))),
-      getCachedDiagnosticSource("youtube", accountId, async () => Array.from((await measureAsync("db.diagnostic.youtube", () => getYoutubeVideoInsightsMap(accountId))).values())),
-      getCachedDiagnosticSource("instagram", accountId, async () => Array.from((await measureAsync("db.diagnostic.instagram", () => getInstagramPostInsightsMap(accountId))).values())),
-      getCachedDiagnosticSource("content", accountId, () => measureAsync("db.diagnostic.content", () => getContentPosts(accountId))),
-      getCachedDiagnosticSource("video-attribution", accountId, async () => Array.from((await measureAsync("db.diagnostic.video-attribution", () => getVideoAttributionTotals(accountId))).entries())),
-      getCachedDiagnosticSource("email", accountId, () => measureAsync("db.diagnostic.email", () => db.select().from(emailCampaigns).where(eq(emailCampaigns.userId, accountId)))),
-      getCachedDiagnosticSource("meta", accountId, () => measureAsync("db.diagnostic.meta", () => db.select().from(metaAdMetricsDaily).where(eq(metaAdMetricsDaily.userId, accountId)))),
-      getCachedDiagnosticSource("native-booking", accountId, () => measureAsync("db.diagnostic.native-booking", () => db.select().from(nativeBookingLeads).where(eq(nativeBookingLeads.userId, accountId)))),
+    const [core, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals] = await Promise.all([
+      fetchDiagnosticCore(accountId), sources.youtube(accountId), sources.instagram(accountId), sources.content(accountId), sources.attribution(accountId),
     ]);
-    return {
-      allSettingEntries,
-      allClosingEntries,
-      allMonthlyRows,
-      allCallSourcesByMonth: aggregateSalesCallsByMonth(allCallRecords),
-      allCallRecords,
-      allSales,
-      allLeads,
-      allLeadStageHistory,
-      allYoutubeVideoInsights,
-      allInstagramPostInsights,
-      allContentPosts,
-      allVideoAttributionTotals,
-      allEmailCampaigns,
-      allMetaMetrics,
-      allNativeBookingLeads,
-    };
+    return { ...core, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals };
   });
 }
 
 type DiagnosticKpiRawData = Awaited<ReturnType<typeof fetchDiagnosticKpiRawData>>;
-
-export function emptyDiagnosticKpiRawData(): DiagnosticKpiSnapshot {
-  return {
-    allSettingEntries: [],
-    allClosingEntries: [],
-    allMonthlyRows: [],
-    allCallSourcesByMonth: {},
-    allCallRecords: [],
-    allSales: [],
-    allLeads: [],
-    allLeadStageHistory: [],
-    allYoutubeVideoInsights: [],
-    allInstagramPostInsights: [],
-    allContentPosts: [],
-    allVideoAttributionTotals: new Map<string, VideoAttributionTotals>(),
-    allEmailCampaigns: [],
-    allMetaMetrics: [],
-    allNativeBookingLeads: [],
-  };
-}
 
 // React's cache() is scoped to one render/request. A sidebar and a page can
 // still start the same snapshot at the same time from separate route
@@ -113,8 +106,9 @@ const inFlightDiagnosticSnapshots = new Map<string, Promise<DiagnosticKpiRawData
 // request-level wrapper only shares the assembled value while it is in flight.
 const getCachedDiagnosticKpiRawData = cache(async (accountId: string) =>
   getInFlight(inFlightDiagnosticSnapshots, accountId, () => fetchDiagnosticKpiRawData(accountId), {
-    timeoutMs: 18_000,
+    timeoutMs: 12_000,
     timeoutLabel: "diagnostic-kpi-raw",
+    retainUntilSettled: true,
   })
 );
 
@@ -167,65 +161,33 @@ function restoreDiagnosticDates(snapshot: CachedDiagnosticKpiRawData) {
       ...campaign,
       createdAt: restoreDate(campaign.createdAt),
     })),
-    allMetaMetrics: snapshot.allMetaMetrics.map((metric) => ({
-      ...metric,
-      consolidationUntil: restoreDate(metric.consolidationUntil),
-      syncedAt: restoreDate(metric.syncedAt),
-    })),
     allNativeBookingLeads: snapshot.allNativeBookingLeads.map((lead) => ({
       ...lead,
-      selectedStartAt: restoreDate(lead.selectedStartAt),
-      selectedEndAt: restoreDate(lead.selectedEndAt),
-      contactConsentAt: restoreDate(lead.contactConsentAt),
-      lastSeenAt: restoreDate(lead.lastSeenAt),
-      contactedAt: restoreDate(lead.contactedAt),
-      dismissedAt: restoreDate(lead.dismissedAt),
-      convertedAt: restoreDate(lead.convertedAt),
       createdAt: restoreDate(lead.createdAt),
-      updatedAt: restoreDate(lead.updatedAt),
     })),
     allVideoAttributionTotals: new Map(snapshot.allVideoAttributionTotals),
   };
 }
 
-export type DiagnosticKpiSnapshot = ReturnType<typeof restoreDiagnosticDates>;
-
 export const getDiagnosticKpiRawData = cache(async (accountId: string) => {
   return restoreDiagnosticDates(await getCachedDiagnosticKpiRawData(accountId));
 });
 
-// The dashboard can still render its empty state when an optional diagnostic
-// source is temporarily unavailable. Auth and permissions stay strict; this
-// fallback only prevents a source timeout from taking down the whole page.
-export async function getDiagnosticKpiRawDataOrEmpty(accountId: string): Promise<DiagnosticKpiSnapshot> {
-  try {
-    return await getDiagnosticKpiRawData(accountId);
-  } catch {
-    console.error("[dashboard] diagnostic data unavailable");
-    return emptyDiagnosticKpiRawData();
-  }
-}
-
-export type ScaleScoreInputs = {
-  allSettingEntries: Awaited<ReturnType<typeof getSettingKpiEntries>>;
-  allClosingEntries: Awaited<ReturnType<typeof getClosingKpiEntries>>;
-  allMonthlyRows: Awaited<ReturnType<typeof getAllMonthlyMetrics>>;
-};
-
-async function fetchScaleScoreInputs(accountId: string): Promise<ScaleScoreInputs> {
-  return measureAsync("db.scale-score.inputs", async () => {
-    const [allSettingEntries, allClosingEntries, allMonthlyRows] = await Promise.all([
-      getCachedDiagnosticSource("setting", accountId, () => measureAsync("db.scale-score.setting", () => getSettingKpiEntries(accountId))),
-      getCachedDiagnosticSource("closing", accountId, () => measureAsync("db.scale-score.closing", () => getClosingKpiEntries(accountId))),
-      getCachedDiagnosticSource("monthly", accountId, () => measureAsync("db.scale-score.monthly", () => getAllMonthlyMetrics(accountId))),
-    ]);
-
-    return { allSettingEntries, allClosingEntries, allMonthlyRows };
+// Financial pages and the sidebar do not need social media insight payloads.
+// The complete snapshot remains available for content-aware diagnostics.
+export const getDiagnosticCoreData = cache(async (accountId: string) => {
+  if (process.env.NODE_ENV === "development") throw new Error("Simulated diagnostic source failure");
+  const core = await fetchDiagnosticCore(accountId);
+  return restoreDiagnosticDates({
+    ...core,
+    allYoutubeVideoInsights: [], allInstagramPostInsights: [], allContentPosts: [], allVideoAttributionTotals: [],
   });
-}
-
-const inFlightScaleScoreInputs = new Map<string, Promise<ScaleScoreInputs>>();
-
-export const getScaleScoreInputs = cache(async (accountId: string) => {
-  return getInFlight(inFlightScaleScoreInputs, accountId, () => fetchScaleScoreInputs(accountId));
 });
+
+export const getDashboardDiagnosticData = cache(async (accountId: string) => {
+  const [core, allYoutubeVideoInsights, allContentPosts, attribution] = await Promise.all([
+    getDiagnosticCoreData(accountId), sources.youtubeVisibility(accountId), sources.content(accountId), sources.attribution(accountId),
+  ]);
+  return { ...core, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals: new Map(attribution) };
+});
+

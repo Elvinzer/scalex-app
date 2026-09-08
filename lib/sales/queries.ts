@@ -77,7 +77,10 @@ export async function getSalesSummaryByMonth(
   userId: string,
   year: number
 ): Promise<Record<number, MonthlySalesSummary>> {
-  const rows = await getSales(userId);
+  return summarizeSalesByMonth(await getSales(userId), year);
+}
+
+export function summarizeSalesByMonth(rows: readonly SaleRow[], year: number): Record<number, MonthlySalesSummary> {
   const byMonth: Record<number, MonthlySalesSummary> = {};
 
   for (const row of rows) {

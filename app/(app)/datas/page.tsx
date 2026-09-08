@@ -1,17 +1,18 @@
+import { DataUnavailable } from "@/components/data-unavailable";
+import { withTimeout } from "@/lib/perf/with-timeout";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getPostLeadsSumByMonth } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
 import { inRange } from "@/lib/dashboard/metrics";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { periodToMonths } from "@/lib/diagnostic/completed-months";
-import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
-import { getLeadPipelineVolumesByMonth } from "@/lib/leads/stats";
-import { getMonthlyMetricsForYear } from "@/lib/monthly-metrics/queries";
+import { getDiagnosticCoreData } from "@/lib/diagnostic/request-cache";
+import { summarizeLeadPipelineVolumesByMonth } from "@/lib/leads/stats";
 import { isMonthlyCallSourceAuthoritative } from "@/lib/monthly-metrics/call-source";
 import { resolveMonthCashCollected } from "@/lib/monthly-metrics/resolve";
 import { todayUtc } from "@/lib/date-range";
 import { summarize } from "@/lib/sales/installments";
-import { getSalesSummaryByMonth } from "@/lib/sales/queries";
+import { summarizeSalesByMonth } from "@/lib/sales/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { activeFunnelBlockEntries, normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
@@ -49,19 +50,22 @@ export default async function DatasPage({
   // guess the current month: only a source with a known target may open the modal.
   const targetMonth = Number.isInteger(monthCandidate) && monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : null;
 
-  const [monthRows, postLeadsByMonth, salesByMonth, pipelineVolumesByMonth, businessProfile, rawData, funnelBlockCatalog] =
-    await Promise.all([
-      getMonthlyMetricsForYear(accountId, year),
-      getPostLeadsSumByMonth(accountId, year),
-      getSalesSummaryByMonth(accountId, year),
-      getLeadPipelineVolumesByMonth(accountId, year),
-      getBusinessProfile(accountId),
-      // Whole history, not just `year` — MonthModal can navigate across year
-      // boundaries client-side (and the trend chart below spans up to 12
-      // rolling months, which can itself cross a year boundary).
-      getDiagnosticKpiRawData(accountId),
-      getFunnelBlockCatalog(),
-    ]);
+  const data = await withTimeout(Promise.all([
+    getPostLeadsSumByMonth(accountId, year),
+    getBusinessProfile(accountId),
+    // The modal crosses year boundaries, so keep the financial history, but
+    // do not fetch social media insight payloads for this screen.
+    getDiagnosticCoreData(accountId),
+    getFunnelBlockCatalog(),
+  ]), 12_000, "datas-data").catch(() => {
+    console.error("[datas] data unavailable");
+    return null;
+  });
+  if (!data) return <DataUnavailable />;
+  const [postLeadsByMonth, businessProfile, rawData, funnelBlockCatalog] = data;
+  const monthRows = rawData.allMonthlyRows.filter((row) => row.year === year);
+  const salesByMonth = summarizeSalesByMonth(rawData.allSales, year);
+  const pipelineVolumesByMonth = summarizeLeadPipelineVolumesByMonth(rawData.allLeadStageHistory, year);
   const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
   const activeMetricFields: AcquisitionFunnelStep[] = Array.from(
     new Map(

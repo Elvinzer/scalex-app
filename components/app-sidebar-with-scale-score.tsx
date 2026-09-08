@@ -5,7 +5,7 @@ import { currentMonthWindow, lastCompletedMonths, type MonthWindow } from "@/lib
 import { computeDiagnosticPoints } from "@/lib/diagnostic/cascade";
 import { computeScaleScore, describeScaleScoreGap, scaleScoreGapSources as getScaleScoreGapSources } from "@/lib/diagnostic/scale-score";
 import { currentMonthNote, scaleScoreGapMessage } from "@/lib/diagnostic/scale-score-copy";
-import { getDiagnosticKpiRawDataOrEmpty, getScaleScoreInputs } from "@/lib/diagnostic/request-cache";
+import { getDiagnosticCoreData } from "@/lib/diagnostic/request-cache";
 import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
 import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
 import { DEFAULT_FUNNEL_BLOCKS } from "@/lib/funnel-blocks/catalog";
@@ -115,13 +115,13 @@ export async function AppSidebarWithScaleScore({
   let scaleScoreSparkline: AppSidebarProps["scaleScoreSparkline"] = [];
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
-  const [funnelBlockCatalog, scaleScoreInputs, benchmarks] = await Promise.all([
+  const [funnelBlockCatalog, rawData, benchmarks] = await Promise.all([
     getFunnelBlockCatalog().catch(() => {
       console.error("[app-shell] funnel block catalogue unavailable");
       return DEFAULT_FUNNEL_BLOCKS;
     }),
     canSeeScaleScore
-      ? getScaleScoreInputs(accountId).catch(() => {
+      ? getDiagnosticCoreData(accountId).catch(() => {
           console.error("[app-shell] scale score inputs unavailable");
           return null;
         })
@@ -137,10 +137,9 @@ export async function AppSidebarWithScaleScore({
   const activeFunnelEntries = activeFunnelBlockEntries(funnelBlockSelection, funnelBlockCatalog);
   const activeMetricKeys = activeLegacyMetricKeysFromBlocks(funnelBlockSelection, funnelBlockCatalog);
 
-  if (canSeeScaleScore && scaleScoreInputs && benchmarks) {
-    const { allSettingEntries, allClosingEntries, allMonthlyRows } = scaleScoreInputs;
+  if (canSeeScaleScore && rawData && benchmarks) {
+    const { allSettingEntries, allClosingEntries, allMonthlyRows } = rawData;
     const scaleScoreMonths = lastCompletedMonths(SCALE_SCORE_PERIOD_MONTHS);
-    const rawData = await getDiagnosticKpiRawDataOrEmpty(accountId);
     const acquisitionInputKeys = new Set(
       activeFunnelEntries
         .filter((entry) => entry.family !== "conversion")

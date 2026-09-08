@@ -1,4 +1,8 @@
 {
+  "dataUnavailable": {
+    "title": "Tes données sont temporairement indisponibles",
+    "description": "Nous n’avons pas pu charger tes chiffres. Réessaie dans un instant."
+  },
   "actions": {
     "save": "Enregistrer",
     "cancel": "Annuler",

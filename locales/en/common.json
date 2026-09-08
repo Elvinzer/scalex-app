@@ -1,4 +1,8 @@
 {
+  "dataUnavailable": {
+    "title": "Your data is temporarily unavailable",
+    "description": "We could not load your numbers. Try again in a moment."
+  },
   "actions": {
     "save": "Save",
     "cancel": "Cancel",

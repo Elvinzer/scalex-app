@@ -73,3 +73,4 @@ CLAUDE.local.md
 /agent/
 /skills-lock.json
 .claude/skills/
+.env*

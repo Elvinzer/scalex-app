@@ -10,7 +10,8 @@ import { isMonthlyCallSourceAuthoritative, monthKey, type MonthlyCallSource } fr
 import { isInstallmentPaymentSale, type SaleRow } from "@/lib/sales/types";
 import type { LeadRow } from "@/lib/leads/types";
 import { aggregateAcquisitionSources, emptyAcquisitionSourceTotals, type AcquisitionSourceTotals } from "@/lib/diagnostic/acquisition-sources";
-import type { emailCampaigns, metaAdMetricsDaily, nativeBookingLeads } from "@/db/schema";
+import type { emailCampaigns } from "@/db/schema";
+import type { MetaMetricRow, NativeBookingLead } from "./acquisition-sources";
 
 import type { MonthWindow } from "./completed-months";
 
@@ -101,8 +102,8 @@ export function aggregatePeriodTotals({
   allLeads?: LeadRow[];
   allLeadStageHistory?: LeadStageEvent[];
   allEmailCampaigns?: (typeof emailCampaigns.$inferSelect)[];
-  allMetaMetrics?: (typeof metaAdMetricsDaily.$inferSelect)[];
-  allNativeBookingLeads?: (typeof nativeBookingLeads.$inferSelect)[];
+  allMetaMetrics?: MetaMetricRow[];
+  allNativeBookingLeads?: NativeBookingLead[];
 }): {
   settingTotals: FunnelTotals;
   closingTotals: ClosingTotals;

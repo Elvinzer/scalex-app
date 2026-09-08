@@ -26,8 +26,10 @@ export type AcquisitionSourceTotals = {
 };
 
 type EmailCampaign = typeof emailCampaigns.$inferSelect;
-type MetaMetricRow = typeof metaAdMetricsDaily.$inferSelect;
-type NativeBookingLead = typeof nativeBookingLeads.$inferSelect;
+export type MetaMetricRow = Pick<typeof metaAdMetricsDaily.$inferSelect,
+  "level" | "date" | "spendCents" | "impressions" | "linkClicks" | "leads" | "registrations" | "purchases" | "purchaseValueCents"
+>;
+export type NativeBookingLead = Pick<typeof nativeBookingLeads.$inferSelect, "createdAt" | "status">;
 
 export function emptyAcquisitionSourceTotals(): AcquisitionSourceTotals {
   return {

@@ -22,7 +22,10 @@ const poolMax = Number.isInteger(configuredPoolMax) && configuredPoolMax >= 1 &&
 // mode, which doesn't support prepared statements. Explicitly pin the schema
 // path as well: Drizzle emits public table names without a schema qualifier,
 // and a reused pooler backend must resolve them consistently on every request.
-const client = postgres(poolConnection.toString(), {
+// Turbopack re-evaluates modules during HMR. Reuse the client so each edit
+// does not leave another pool connected to the shared database.
+const globalForDb = globalThis as typeof globalThis & { minalyPostgres?: ReturnType<typeof postgres> };
+const client = globalForDb.minalyPostgres ?? postgres(poolConnection.toString(), {
   prepare: false,
   // Keep a small client-side pool for Supabase's pooler. App Router pages
   // already batch independent reads with Promise.all; this avoids multiplying
@@ -34,16 +37,16 @@ const client = postgres(poolConnection.toString(), {
   max_lifetime: 60 * 5,
   connection: {
     search_path: "public, extensions",
-    // Hard ceiling on any single query, set as a Postgres GUC on the session.
-    // Without it a query that blocks (lock contention, an exhausted pooler)
-    // runs until Vercel kills the whole function at 300s, and every request
-    // queued behind that connection times out with it — the "prod bloquée,
-    // ultra random" cascade. Killed queries free their connection instead.
-    // Migrations use a separate DIRECT_URL client (drizzle.config.ts), so this
-    // never truncates a long migration.
+    // Direct/session connections can honor these startup parameters. The
+    // transaction pooler may keep its role/database settings instead; verify
+    // with current_setting rather than treating these as guaranteed limits.
+    // Page deadlines bound waiting separately and retain active reads until
+    // they settle. Migrations use a separate DIRECT_URL client.
     statement_timeout: 25_000,
     idle_in_transaction_session_timeout: 15_000,
   },
 });
+
+if (process.env.NODE_ENV === "development") globalForDb.minalyPostgres = client;
 
 export const db = drizzle(client, { schema });
