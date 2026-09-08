@@ -176,7 +176,6 @@ export const getDiagnosticKpiRawData = cache(async (accountId: string) => {
 // Financial pages and the sidebar do not need social media insight payloads.
 // The complete snapshot remains available for content-aware diagnostics.
 export const getDiagnosticCoreData = cache(async (accountId: string) => {
-  if (process.env.NODE_ENV === "development") throw new Error("Simulated diagnostic source failure");
   const core = await fetchDiagnosticCore(accountId);
   return restoreDiagnosticDates({
     ...core,
