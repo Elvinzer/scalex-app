@@ -9,6 +9,7 @@ import { AlertCircle, CheckCircle2, Clock3, RefreshCw } from "lucide-react";
 import { KpiTile } from "@/components/kpi-tile";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { startPolling } from "@/lib/perf/poll";
 import {
   type StripeInsightSnapshot,
   type StripeTrendPoint,
@@ -109,39 +110,26 @@ export function StripeInsightsSection({
     if (!shouldPollSync) return;
 
     let stopped = false;
-    let attempts = 0;
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      if (!stopped) timer = setTimeout(() => void checkSyncStatus(), Math.min(2000 * 2 ** Math.floor(attempts / 3), 30_000));
-    };
-    const checkSyncStatus = async () => {
-      if (stopped) return;
-      if (document.hidden || syncCheckInFlight.current) {
-        schedule();
-        return;
-      }
+    const stopPolling = startPolling(async () => {
       syncCheckInFlight.current = true;
-      attempts += 1;
       try {
         const result = await getStripeSyncStatus();
-        if (stopped || result.error) return;
+        if (stopped) return false;
+        if (result.error) return true;
         if (result.status === "completed" || result.status === "failed") {
-          stopped = true;
           setSyncRequested(false);
           router.refresh();
+          return false;
         }
-      } catch {
-        // Retry after resolution with backoff, including network failures.
+        return true;
       } finally {
         syncCheckInFlight.current = false;
-        schedule();
       }
-    };
-    schedule();
+    }, () => document.hidden || syncCheckInFlight.current);
 
     return () => {
       stopped = true;
-      clearTimeout(timer);
+      stopPolling();
     };
   }, [router, shouldPollSync]);
 
