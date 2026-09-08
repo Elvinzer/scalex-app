@@ -46,9 +46,9 @@ Le pooler transaction de la base retourne `statement_timeout=20s` et `idle_in_tr
 
 ## Déploiements
 
-Le code validé correspond au commit `0a2cc365b628d28f7f606d9494054008b2a42b30`, poussé pendant la session.
+Le code validé correspond au commit `dcc692d51967714a81238fc31a80fc7eef1f1927`, poussé pendant la session.
 
-- Production : [déploiement Vercel](https://scalex-f8wa9g8cc-cedrics-projects-87cca661.vercel.app), état `READY`, alias `www.minaly.io`.
+- Production : [déploiement Vercel](https://scalex-nen9amn34-cedrics-projects-87cca661.vercel.app), état `READY`, alias `www.minaly.io`.
 - Preview : [déploiement de vérification](https://scalex-duqmyqpwk-cedrics-projects-87cca661.vercel.app), build et déploiement `READY`.
 - Vérification des fichiers envoyés à Vercel : exclusion des fichiers d'environnement, dépendances locales et répertoires d'agents. Aucun motif de secret détecté dans les 21 fichiers modifiés depuis le commit initial.
 
