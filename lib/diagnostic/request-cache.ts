@@ -86,7 +86,23 @@ const fetchDiagnosticCore = cache(async (accountId: string) => {
 async function fetchDiagnosticKpiRawData(accountId: string) {
   return measureAsync("db.diagnostic.raw", async () => {
     const [core, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals] = await Promise.all([
-      fetchDiagnosticCore(accountId), sources.youtube(accountId), sources.instagram(accountId), sources.content(accountId), sources.attribution(accountId),
+      fetchDiagnosticCore(accountId),
+      sources.youtube(accountId).catch(() => {
+        console.error("[diagnostic] YouTube insights unavailable");
+        return [];
+      }),
+      sources.instagram(accountId).catch(() => {
+        console.error("[diagnostic] Instagram insights unavailable");
+        return [];
+      }),
+      sources.content(accountId).catch(() => {
+        console.error("[diagnostic] content insights unavailable");
+        return [];
+      }),
+      sources.attribution(accountId).catch(() => {
+        console.error("[diagnostic] video attribution unavailable");
+        return [];
+      }),
     ]);
     return { ...core, allYoutubeVideoInsights, allInstagramPostInsights, allContentPosts, allVideoAttributionTotals };
   });
@@ -185,8 +201,19 @@ export const getDiagnosticCoreData = cache(async (accountId: string) => {
 
 export const getDashboardDiagnosticData = cache(async (accountId: string) => {
   const [core, allYoutubeVideoInsights, allContentPosts, attribution] = await Promise.all([
-    getDiagnosticCoreData(accountId), sources.youtubeVisibility(accountId), sources.content(accountId), sources.attribution(accountId),
+    getDiagnosticCoreData(accountId),
+    sources.youtubeVisibility(accountId).catch(() => {
+      console.error("[dashboard] YouTube visibility unavailable");
+      return [];
+    }),
+    sources.content(accountId).catch(() => {
+      console.error("[dashboard] content insights unavailable");
+      return [];
+    }),
+    sources.attribution(accountId).catch(() => {
+      console.error("[dashboard] video attribution unavailable");
+      return [];
+    }),
   ]);
   return { ...core, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals: new Map(attribution) };
 });
-

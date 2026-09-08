@@ -13,10 +13,11 @@ import { MetricCard } from "@/components/metric-card";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { EMPTY_BUSINESS_PROFILE } from "@/lib/business/types";
 import { DEFAULT_ACQUISITION_FUNNELS } from "@/lib/acquisition-funnels/catalog";
 import { DEFAULT_FUNNEL_BLOCKS } from "@/lib/funnel-blocks/catalog";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
-import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
+import { emptyDiagnosticBenchmarks, getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { computeDiagnosticPoints, resolveDealPrice } from "@/lib/diagnostic/cascade";
 import { buildRevenueProjection, REVENUE_PROJECTION_MONTHS } from "@/lib/diagnostic/revenue-projection";
@@ -121,12 +122,12 @@ async function renderDashboardPage({
   // alongside them instead of adding another sequential database round trip.
   const [businessProfile, rawData, benchmarks, weeklyReports, acquisitionCatalog, funnelBlockCatalog] =
     await Promise.all([
-      dashboardOptional("business profile", getBusinessProfile(accountId), null),
+      dashboardOptional("business profile", getBusinessProfile(accountId), EMPTY_BUSINESS_PROFILE),
       getDashboardDiagnosticData(accountId).catch(() => {
         console.error("[dashboard] diagnostic data unavailable");
         return null;
       }),
-      dashboardOptional("benchmark data", getDiagnosticBenchmarks(user?.sector ?? null), null),
+      dashboardOptional("benchmark data", getDiagnosticBenchmarks(user?.sector ?? null), emptyDiagnosticBenchmarks()),
       dashboardOptional("weekly reports", getRecentWeeklyReports(accountId), []),
       dashboardOptional(
         "acquisition catalogue",
@@ -135,7 +136,7 @@ async function renderDashboardPage({
       ),
       dashboardOptional("funnel block catalogue", getFunnelBlockCatalog(), DEFAULT_FUNNEL_BLOCKS),
     ]);
-  if (!rawData || !businessProfile || !benchmarks) return <DataUnavailable />;
+  if (!rawData) return <DataUnavailable />;
   const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = rawData;
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
   const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);

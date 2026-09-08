@@ -65,8 +65,19 @@ describe("diagnostic sources", () => {
     expect(mocks.instagram).not.toHaveBeenCalled();
     expect(mocks.attribution).not.toHaveBeenCalled();
     mocks.youtube.mockRejectedValue(new Error("media unavailable"));
-    await expect(getDiagnosticKpiRawData("account")).rejects.toThrow("media unavailable");
+    const full = await getDiagnosticKpiRawData("account");
+    expect(full.allYoutubeVideoInsights).toEqual([]);
     await expect(getDiagnosticCoreData("account")).resolves.toHaveProperty("allMonthlyRows", []);
+  });
+
+  it("keeps the dashboard financial projection available when optional media reads fail", async () => {
+    const { getDashboardDiagnosticData } = await import("./request-cache");
+    mocks.content.mockRejectedValue(new Error("content unavailable"));
+    mocks.attribution.mockRejectedValue(new Error("attribution unavailable"));
+    const data = await getDashboardDiagnosticData("account");
+    expect(data.allMonthlyRows).toEqual([]);
+    expect(data.allContentPosts).toEqual([]);
+    expect(data.allVideoAttributionTotals).toEqual(new Map());
   });
 
   it("restores Dates on cache hits so pipeline and daily computations can use them", async () => {
