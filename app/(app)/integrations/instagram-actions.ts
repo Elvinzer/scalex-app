@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { instagramConnections, users } from "@/db/schema";
-import { decrypt } from "@/lib/crypto";
+import { tryDecrypt } from "@/lib/crypto";
 import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagram/backfill";
 import { fetchProfile, InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS } from "@/lib/instagram/protocol";
@@ -73,7 +73,16 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
     return { error: "Instagram n'est pas connecté." };
   }
 
-  const accessToken = decrypt(connection.accessTokenEncrypted);
+  const accessToken = tryDecrypt(connection.accessTokenEncrypted);
+  if (!accessToken) {
+    await db
+      .update(instagramConnections)
+      .set({ initialSyncStatus: "token_unreadable", initialSyncCompletedAt: new Date() })
+      .where(eq(instagramConnections.userId, accountId));
+    revalidatePath("/acquisition/contenu");
+    return { error: "token_unreadable" };
+  }
+
   try {
     const profile = await fetchProfile(accessToken);
     if (profile.followersCount !== null) {

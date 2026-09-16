@@ -23,6 +23,7 @@ type Props = {
   connected: boolean;
   username?: string | null;
   initialSyncStatus?: string | null;
+  tokenUnreadable?: boolean;
   lastSyncAt?: Date | null;
   subscriptionActive?: boolean;
   primaryCta?: boolean;
@@ -32,6 +33,7 @@ export function InstagramConnectionCard({
   connected,
   username,
   initialSyncStatus,
+  tokenUnreadable = false,
   lastSyncAt,
   subscriptionActive = true,
   primaryCta = false,
@@ -58,7 +60,7 @@ export function InstagramConnectionCard({
     startTransition(async () => {
       const result = await refreshInstagramPosts();
       if (result.error) {
-        setError(result.error);
+        setError(result.error === "token_unreadable" ? t("tokenUnreadable") : result.error);
         return;
       }
       // A large never-synced backlog can take longer than one click's time
@@ -117,6 +119,11 @@ export function InstagramConnectionCard({
           {initialSyncStatus === "token_expired" && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/40 bg-state-caution/10 px-3 py-2 text-sm font-bold text-state-caution">
               {t("tokenExpired")}
+            </div>
+          )}
+          {(tokenUnreadable || initialSyncStatus === "token_unreadable") && (
+            <div className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
+              {t("tokenUnreadable")}
             </div>
           )}
           {initialSyncStatus === "failed" && (

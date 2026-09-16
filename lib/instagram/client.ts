@@ -3,6 +3,7 @@ import {
   INSTAGRAM_GRAPH_API_BASE,
   INSTAGRAM_INSIGHTS_METRICS,
   INSTAGRAM_LONG_LIVED_TOKEN_URL,
+  INSTAGRAM_MEDIA_FIELDS,
   INSTAGRAM_MAX_BACKFILL_MEDIA,
   INSTAGRAM_PAGE_RETRY_DELAY_MS,
   INSTAGRAM_REFRESH_TOKEN_URL,
@@ -228,11 +229,7 @@ function parseMediaItem(raw: unknown): RawInstagramMedia | null {
   const id = str(item.id);
   const timestamp = str(item.timestamp);
   if (!id || !timestamp) return null;
-  // media_product_type distinguishes STORY/REELS from a plain feed
-  // media_type — prefer it when present (Meta's more precise field),
-  // fall back to media_type otherwise.
-  const productType = str(item.media_product_type)?.toUpperCase();
-  const mediaType = (productType === "STORY" ? "STORY" : str(item.media_type)?.toUpperCase()) as InstagramMediaType | undefined;
+  const mediaType = str(item.media_type)?.toUpperCase() as InstagramMediaType | undefined;
   if (!mediaType) return null;
   return {
     id,
@@ -256,10 +253,7 @@ function parseMediaItem(raw: unknown): RawInstagramMedia | null {
 export async function listMedia(accessToken: string): Promise<RawInstagramMedia[]> {
   const items: RawInstagramMedia[] = [];
   let url: URL | null = new URL(`${INSTAGRAM_GRAPH_API_BASE}/me/media`);
-  url.searchParams.set(
-    "fields",
-    "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url"
-  );
+  url.searchParams.set("fields", INSTAGRAM_MEDIA_FIELDS);
   url.searchParams.set("access_token", accessToken);
   url.searchParams.set("limit", "50");
 

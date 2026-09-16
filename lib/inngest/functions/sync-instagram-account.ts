@@ -4,7 +4,7 @@ import { NonRetriableError } from "inngest";
 import { db } from "@/db";
 import { instagramConnections } from "@/db/schema";
 import { track } from "@/lib/analytics";
-import { decrypt } from "@/lib/crypto";
+import { tryDecrypt } from "@/lib/crypto";
 import { backfillInstagramPosts } from "@/lib/instagram/backfill";
 import { InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { instagramAccountConnected, instagramBackfillContinue, inngest } from "@/lib/inngest/client";
@@ -29,7 +29,17 @@ export const syncInstagramAccount = inngest.createFunction(
       return row;
     });
 
-    const accessToken = decrypt(connection.accessTokenEncrypted);
+    const accessToken = tryDecrypt(connection.accessTokenEncrypted);
+    if (!accessToken) {
+      await step.run("mark-token-unreadable", async () => {
+        await db
+          .update(instagramConnections)
+          .set({ initialSyncStatus: "token_unreadable", initialSyncCompletedAt: new Date() })
+          .where(eq(instagramConnections.userId, userId));
+      });
+      await track("instagram_sync_failed", userId, { step: "decrypt-token", reason: "token_unreadable" });
+      return;
+    }
 
     try {
       const result = await step.run("backfill-posts", () => backfillInstagramPosts(userId, accessToken));

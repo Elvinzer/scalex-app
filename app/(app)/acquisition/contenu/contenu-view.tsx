@@ -32,6 +32,7 @@ type ContenuViewProps = {
   instagramConnected: boolean;
   instagramUsername: string | null;
   instagramSyncStatus: string | null;
+  instagramTokenUnreadable?: boolean;
   instagramLastSyncAt?: Date | null;
   youtubeVideos: YoutubeVideoInsightRow[];
   youtubeCommercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
@@ -81,6 +82,7 @@ export function ContenuView({
   instagramConnected,
   instagramUsername,
   instagramSyncStatus,
+  instagramTokenUnreadable = false,
   instagramLastSyncAt,
   youtubeVideos,
   youtubeCommercialStats,
@@ -193,6 +195,7 @@ export function ContenuView({
             connected={instagramConnected}
             username={instagramUsername}
             syncStatus={instagramSyncStatus}
+            tokenUnreadable={instagramTokenUnreadable}
             lastSyncAt={instagramLastSyncAt}
             subscriptionActive={subscriptionActive}
             posts={posts}
@@ -229,6 +232,7 @@ function InstagramPanel({
   connected,
   username,
   syncStatus,
+  tokenUnreadable,
   lastSyncAt,
   subscriptionActive,
   posts,
@@ -239,6 +243,7 @@ function InstagramPanel({
   connected: boolean;
   username: string | null;
   syncStatus: string | null;
+  tokenUnreadable: boolean;
   lastSyncAt?: Date | null;
   subscriptionActive: boolean;
   posts: ContentPostRow[];
@@ -252,6 +257,7 @@ function InstagramPanel({
         connected={connected}
         username={username}
         initialSyncStatus={syncStatus}
+        tokenUnreadable={tokenUnreadable}
         lastSyncAt={lastSyncAt}
         subscriptionActive={subscriptionActive}
         primaryCta={!connected}

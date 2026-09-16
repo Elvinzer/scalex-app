@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { instagramConnections } from "@/db/schema";
-import { decrypt } from "@/lib/crypto";
+import { tryDecrypt } from "@/lib/crypto";
 import { backfillInstagramPosts } from "@/lib/instagram/backfill";
 import { InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { instagramBackfillContinue, inngest } from "@/lib/inngest/client";
@@ -28,7 +28,16 @@ export const continueInstagramBackfill = inngest.createFunction(
     });
     if (!connection) return { skipped: true, reason: "connection_removed" };
 
-    const accessToken = decrypt(connection.accessTokenEncrypted);
+    const accessToken = tryDecrypt(connection.accessTokenEncrypted);
+    if (!accessToken) {
+      await step.run("mark-token-unreadable", async () => {
+        await db
+          .update(instagramConnections)
+          .set({ initialSyncStatus: "token_unreadable" })
+          .where(eq(instagramConnections.userId, userId));
+      });
+      return { skipped: true, reason: "token_unreadable" };
+    }
 
     try {
       const result = await step.run("continue-backfill", () => backfillInstagramPosts(userId, accessToken));

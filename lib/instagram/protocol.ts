@@ -30,7 +30,7 @@
 
 // Pinned API version — bump here (and re-verify the metric tables below)
 // when upgrading, never scattered across call sites.
-export const INSTAGRAM_GRAPH_API_VERSION = "v21.0";
+export const INSTAGRAM_GRAPH_API_VERSION = "v25.0";
 export const INSTAGRAM_GRAPH_API_BASE = `https://graph.instagram.com/${INSTAGRAM_GRAPH_API_VERSION}`;
 
 export const INSTAGRAM_AUTHORIZE_URL = "https://www.instagram.com/oauth/authorize";
@@ -88,6 +88,12 @@ export type InstagramAccountType = "BUSINESS" | "MEDIA_CREATOR" | "PERSONAL";
 
 export type InstagramMediaType = "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM" | "STORY";
 
+// Fields supported by the Instagram Login media edge. `caption` and
+// `media_product_type` are only available through the Facebook Login flow,
+// so requesting them here makes GET /me/media fail for Instagram Login users.
+export const INSTAGRAM_MEDIA_FIELDS =
+  "id,media_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url";
+
 // Per-media-type metric list for GET /{media-id}/insights?metric=... — Meta
 // rejects a metric that doesn't apply to a given media_type, so the request
 // must branch on it rather than requesting one fixed list for everything.
@@ -105,7 +111,7 @@ export const INSTAGRAM_INSIGHTS_METRICS: Record<InstagramMediaType, readonly str
     "profile_visits",
     "follows",
     "total_interactions",
-    "plays",
+    "views",
     "ig_reels_avg_watch_time",
     "ig_reels_video_view_total_time",
   ],

@@ -9,6 +9,7 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { getCurrentUser } from "@/lib/current-user";
+import { tryDecrypt } from "@/lib/crypto";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
@@ -82,6 +83,9 @@ export default async function ContenuPage({
   // column of its own, so the public set is resolved through the insights
   // map (externalId == videoId for source="youtube" rows).
   const visiblePosts = filterVisibleContentPosts(posts, Array.from(youtubeInsights.values()));
+  const instagramTokenUnreadable = Boolean(
+    instagramConnection && !tryDecrypt(instagramConnection.accessTokenEncrypted)
+  );
 
   const instagramPosts = visiblePosts.filter((post) => post.source === "instagram");
   const youtubeVideos = Array.from(youtubeInsights.values()).filter(isPublicVideo);
@@ -153,6 +157,7 @@ export default async function ContenuPage({
         instagramConnected={instagramConnected}
         instagramUsername={instagramConnection?.username ?? null}
         instagramSyncStatus={instagramConnection?.initialSyncStatus ?? null}
+        instagramTokenUnreadable={instagramTokenUnreadable}
         instagramLastSyncAt={instagramConnection?.lastInsightsSyncAt ?? null}
         youtubeVideos={youtubeVideos}
         youtubeCommercialStats={youtubeCommercialStats}

@@ -3,7 +3,7 @@ import { cron } from "inngest";
 
 import { db } from "@/db";
 import { instagramConnections } from "@/db/schema";
-import { decrypt, encrypt } from "@/lib/crypto";
+import { encrypt, tryDecrypt } from "@/lib/crypto";
 import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagram/backfill";
 import { fetchProfile, InstagramNotProfessionalAccountError, refreshLongLivedToken } from "@/lib/instagram/client";
 import { INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS, INSTAGRAM_TOKEN_REFRESH_MARGIN_DAYS } from "@/lib/instagram/protocol";
@@ -38,7 +38,16 @@ export const refreshInstagramInsights = inngest.createFunction(
             return { userId: connection.userId, skipped: true, reason: "token_expired" };
           }
 
-          let accessToken = decrypt(connection.accessTokenEncrypted);
+          const decryptedToken = tryDecrypt(connection.accessTokenEncrypted);
+          if (!decryptedToken) {
+            await db
+              .update(instagramConnections)
+              .set({ initialSyncStatus: "token_unreadable" })
+              .where(eq(instagramConnections.userId, connection.userId));
+            return { userId: connection.userId, skipped: true, reason: "token_unreadable" };
+          }
+
+          let accessToken = decryptedToken;
 
           if (tokenExpiresAt <= refreshDeadline) {
             try {

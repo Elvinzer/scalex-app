@@ -14,6 +14,7 @@
     "notProfessionalTitle": "This account is not (or is no longer) a Professional account.",
     "notProfessionalHelp": "Switch it to Business or Creator in the Instagram app, then reconnect.",
     "tokenExpired": "The connection expired. Disconnect and reconnect Instagram to keep receiving your metrics.",
+    "tokenUnreadable": "Minaly cannot read the saved Instagram connection. If the encryption key changed, restore the previous key during the rotation, or disconnect and reconnect Instagram.",
     "syncFailed": "Sync failed. Try again, or disconnect and reconnect Instagram.",
     "refreshing": "Refreshing…",
     "refreshNow": "Refresh now",

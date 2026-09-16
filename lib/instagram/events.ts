@@ -67,13 +67,13 @@ function toTitle(caption: string | null, publishedAt: Date, mediaType: Instagram
 }
 
 // "views" (content_posts, a single required number) is derived per media
-// type: video plays for VIDEO/REELS falling back to reach if plays is
+// type: video views for VIDEO/REELS falling back to reach if views is
 // unavailable, reach for IMAGE/CAROUSEL/STORY. The raw values are never
 // collapsed in instagram_post_insights — reach/videoViews stay separate
 // columns there.
 function toViews(mediaType: InstagramMediaType, insights: MediaInsights): number {
   if (mediaType === "VIDEO") {
-    return metric(insights, "plays") ?? metric(insights, "reach") ?? 0;
+    return metric(insights, "views") ?? metric(insights, "plays") ?? metric(insights, "reach") ?? 0;
   }
   return metric(insights, "reach") ?? 0;
 }
@@ -104,7 +104,7 @@ export function normalizeMedia(media: RawInstagramMedia, insights: MediaInsights
       savedCount: metric(insights, "saved"),
       sharesCount: metric(insights, "shares"),
       totalInteractions: metric(insights, "total_interactions"),
-      videoViews: metric(insights, "plays"),
+      videoViews: metric(insights, "views") ?? metric(insights, "plays"),
       avgWatchTimeMs: metric(insights, "ig_reels_avg_watch_time"),
       totalWatchTimeMs: metric(insights, "ig_reels_video_view_total_time"),
       profileVisits: metric(insights, "profile_visits"),

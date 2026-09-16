@@ -14,6 +14,7 @@
     "notProfessionalTitle": "Ce compte n’est pas (ou plus) un compte Professionnel.",
     "notProfessionalHelp": "Repasse-le en Business ou Créateur dans l’app Instagram, puis reconnecte.",
     "tokenExpired": "La connexion a expiré. Déconnecte puis reconnecte Instagram pour continuer à recevoir tes chiffres.",
+    "tokenUnreadable": "Minaly ne peut pas lire la connexion Instagram enregistrée. Si la clé de chiffrement a changé, restaure l’ancienne pendant la rotation, ou déconnecte puis reconnecte Instagram.",
     "syncFailed": "La synchronisation a échoué. Réessaie, ou déconnecte puis reconnecte Instagram.",
     "refreshing": "Rafraîchissement…",
     "refreshNow": "Rafraîchir maintenant",
