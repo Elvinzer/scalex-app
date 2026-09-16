@@ -52,12 +52,16 @@ export default async function SettingsPage() {
         <p className="mt-1 text-muted-foreground">{tPage("subtitle")}</p>
       </div>
 
-      <div className="sticker-card p-8">
+      <nav aria-label={tPage("quickNav")} className="sticky top-20 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-[var(--radius-control)] border border-border bg-background/95 p-1 backdrop-blur-sm md:top-6">
+        {(["profile", "business", "booking", "anthropicKey", "billing", "team", "integrations", "crmModule", "deleteData"] as const).map((section) => <a key={section} href={`#settings-${section}`} className="min-h-11 shrink-0 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-accent-2">{tPage(`sections.${section}`)}</a>)}
+      </nav>
+
+      <div id="settings-account" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPage("account")}</p>
         <p className="mt-2 text-lg font-bold">{user?.email}</p>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-profile" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPage("profile")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("profileHelp")}</p>
         <div className="mt-4">
@@ -68,7 +72,7 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-preferences" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPreferences("title")}</p>
         <div className="mt-4">
           <LanguageForm initialLocale={resolvedLocale} showNewLanguageNotice={storedLocale === null} />
@@ -78,7 +82,7 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-business" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPage("business")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("businessHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
@@ -86,7 +90,7 @@ export default async function SettingsPage() {
         </Button>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-booking" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tBooking("title")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tBooking("subtitle")}</p>
         <Button asChild variant="outline" className="mt-4">
@@ -94,12 +98,12 @@ export default async function SettingsPage() {
         </Button>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-anthropicKey" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPage("anthropicKey")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("anthropicKeyHelp")}</p>
 
         {maskedKey && !keyInvalid && (
-          <p className="mt-4 inline-flex items-center rounded-full bg-signal/15 px-3 py-1 font-mono text-sm font-bold text-signal">
+          <p className="mt-4 inline-flex items-center rounded-full bg-signal/15 px-3 py-1 font-mono text-sm font-bold text-accent-text">
             {maskedKey}
           </p>
         )}
@@ -108,7 +112,7 @@ export default async function SettingsPage() {
           <div className="mt-4 rounded-xl border border-state-critical/40 bg-state-critical/10 p-3">
             <p className="inline-flex items-center gap-2 font-mono text-sm font-bold text-state-critical">
               <AlertTriangle className="size-4 shrink-0" />
-              {maskedKey} : ne fonctionne plus
+              {maskedKey} : {tPage("keyInvalidLabel")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {tPage("keyInvalid")}
@@ -137,7 +141,7 @@ export default async function SettingsPage() {
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
                 rel="noreferrer"
-                className="font-bold text-signal underline"
+                className="font-bold text-accent-text underline"
               >
                 console.anthropic.com
               </a>{" "}{tPage("getKeyStep1End")}
@@ -155,7 +159,7 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-billing" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPage("billing")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("billingHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
@@ -163,7 +167,7 @@ export default async function SettingsPage() {
         </Button>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-team" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPage("team")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("teamHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
@@ -171,7 +175,7 @@ export default async function SettingsPage() {
         </Button>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-integrations" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPage("integrations")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("integrationsHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
@@ -179,7 +183,7 @@ export default async function SettingsPage() {
         </Button>
       </div>
 
-      <div className="sticker-card p-8">
+      <div id="settings-crmModule" className="sticker-card p-8">
         <p className="text-sm font-bold text-muted-foreground">{tPage("crmModule")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tPage("crmModuleHelp")}</p>
         <Button asChild variant="outline" className="mt-4">
@@ -187,7 +191,7 @@ export default async function SettingsPage() {
         </Button>
       </div>
 
-      <div className="sticker-card border-state-critical/30 p-8">
+      <div id="settings-deleteData" className="sticker-card border-state-critical/30 p-8">
         <p className="text-sm font-bold text-state-critical">{tPage("deleteData")}</p>
         <div className="mt-4">
           <DangerZoneForm email={user?.email ?? ""} />

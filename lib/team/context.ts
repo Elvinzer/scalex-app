@@ -16,10 +16,10 @@ export type AccountContext =
 const MEMBER_LANDING_ROUTES: readonly { permission: PermissionKey; href: string }[] = [
   { permission: "dashboard", href: "/dashboard" },
   { permission: "crm:view", href: "/crm" },
-  { permission: "acquisition:pipeline", href: "/ventes/pipeline" },
-  { permission: "acquisition:setters", href: "/ventes/setters" },
+  { permission: "acquisition:pipeline", href: "/crm/pipeline" },
+  { permission: "acquisition:setters", href: "/settings/equipe" },
   { permission: "ventes:suivi", href: "/ventes/suivi" },
-  { permission: "ventes:appels", href: "/ventes/appels" },
+  { permission: "ventes:appels", href: "/crm/appels" },
   { permission: "ventes:rdv", href: "/ventes/rdv" },
   { permission: "delivrabilite:suivi-client", href: "/delivrabilite/suivi-client" },
   { permission: "delivrabilite:temoignages", href: "/delivrabilite/temoignages" },

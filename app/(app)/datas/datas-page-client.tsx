@@ -278,6 +278,7 @@ export function DatasPageClient({
       </div>
 
       <h2 className="text-base font-bold">{t("monthlyHistory")}</h2>
+      <p className="-mt-5 text-sm text-muted-foreground">{t("selectMonthHelp")}</p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
@@ -309,10 +310,11 @@ export function DatasPageClient({
         <div className="border-b border-border bg-muted/50 px-5 py-3">
           <h2 id="raw-metrics-title" className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("rawData", { month: featuredLabel })}</h2>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" role="region" aria-label={t("rawDataTable")} tabIndex={0}>
           <table className="w-full min-w-[720px] text-sm">
+            <caption className="sr-only">{t("rawData", { month: featuredLabel })}</caption>
             <thead className="bg-muted/40 text-left text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
-              <tr><th className="px-5 py-3">{t("metric")}</th><th className="px-5 py-3">{t("current")}</th><th className="px-5 py-3">{t("previous")}</th><th className="px-5 py-3">{t("evolution")}</th><th className="px-5 py-3">{t("total")}</th><th className="px-5 py-3">{t("origin")}</th></tr>
+              <tr><th scope="col" className="px-5 py-3">{t("metric")}</th><th scope="col" className="px-5 py-3">{t("current")}</th><th scope="col" className="px-5 py-3">{t("previous")}</th><th scope="col" className="px-5 py-3">{t("evolution")}</th><th scope="col" className="px-5 py-3">{t("total")}</th><th scope="col" className="px-5 py-3">{t("origin")}</th></tr>
             </thead>
             <tbody>
               {metrics.map((metric) => (

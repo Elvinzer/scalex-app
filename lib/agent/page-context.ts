@@ -82,7 +82,7 @@ const PAGE_RULES: { prefix: string; context: PageAgentContext }[] = [
     },
   },
   {
-    prefix: "/ventes/pipeline",
+    prefix: "/crm/pipeline",
     context: {
       pageKey: "page_pipeline",
       label: "Pipeline",
@@ -92,7 +92,7 @@ const PAGE_RULES: { prefix: string; context: PageAgentContext }[] = [
     },
   },
   {
-    prefix: "/ventes/setters",
+    prefix: "/settings/equipe",
     context: {
       pageKey: "page_setters",
       label: "Setters",
@@ -112,7 +112,7 @@ const PAGE_RULES: { prefix: string; context: PageAgentContext }[] = [
     },
   },
   {
-    prefix: "/ventes/appels",
+    prefix: "/crm/appels",
     context: {
       pageKey: "page_appels",
       label: "Suivi des appels",

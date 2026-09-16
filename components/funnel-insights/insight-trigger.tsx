@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { FunnelStageKey } from "@/lib/agent/knowledge";
@@ -22,6 +23,7 @@ export function InsightTrigger({
   existingInsight: ExistingStageInsight;
   hasWorkingKey: boolean;
 }) {
+  const t = useTranslations("diagnostic.insight");
   const [open, setOpen] = useState(false);
 
   return (
@@ -29,10 +31,10 @@ export function InsightTrigger({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex shrink-0 items-center gap-1 whitespace-nowrap pl-2 text-[10.5px] font-bold text-signal hover:underline"
+        className="flex shrink-0 items-center gap-1 whitespace-nowrap pl-2 text-[10.5px] font-bold text-accent-text hover:underline"
       >
-        <Sparkle className="size-[11px] fill-signal" />
-        Insight
+        <Sparkle className="size-[11px] fill-accent" />
+        {t("label")}
       </button>
 
       {open && !hasWorkingKey && <KeyRequiredModal onClose={() => setOpen(false)} />}

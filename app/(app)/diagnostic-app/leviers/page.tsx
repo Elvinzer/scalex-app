@@ -128,6 +128,27 @@ export default async function DiagnosticLeversPage() {
     return key ? t(`levers.${key}`) : fallback;
   };
   const localizedCategory = (category: string) => t(`categories.${localizedCategoryKey(category)}`);
+  function renderOpportunityCard(item: (typeof addList)[number]) {
+    const opportunity = opportunityByKey.get(item.candidate.key);
+    if (!opportunity) return null;
+    return (
+      <DiscoveryOpportunityCard
+        key={opportunity.leverKey}
+        leverKey={opportunity.leverKey}
+        label={localizedLeverLabel(opportunity.leverKey, opportunity.label)}
+        category={localizedCategory(opportunity.category)}
+        effort={opportunity.effort}
+        impactAmountEur={opportunity.impactAmountEur}
+        impactRangeEur={opportunity.impactRangeEur}
+        impactExplanation={opportunity.impactExplanation}
+        contextSentence={opportunity.contextSentence}
+        warning={opportunity.warning}
+        ctaLabel={t("discover")}
+        sourcePage="diagnostic_add"
+        insightSourceId={opportunity.leverKey}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -190,29 +211,16 @@ export default async function DiagnosticLeversPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t("addHelp")}</p>
         </div>
         {addList.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {addList.map(({ candidate }) => {
-              const opportunity = opportunityByKey.get(candidate.key);
-              if (!opportunity) return null;
-              return (
-                <DiscoveryOpportunityCard
-                  key={opportunity.leverKey}
-                  leverKey={opportunity.leverKey}
-                  label={localizedLeverLabel(opportunity.leverKey, opportunity.label)}
-                  category={localizedCategory(opportunity.category)}
-                  effort={opportunity.effort}
-                  impactAmountEur={opportunity.impactAmountEur}
-                  impactRangeEur={opportunity.impactRangeEur}
-                  impactExplanation={opportunity.impactExplanation}
-                  contextSentence={opportunity.contextSentence}
-                  warning={opportunity.warning}
-                  ctaLabel={t("discover")}
-                  sourcePage="diagnostic_add"
-                  insightSourceId={opportunity.leverKey}
-                />
-              );
-            })}
-          </div>
+          <>
+            <div className="flex flex-col gap-3">
+              <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">{t("recommendedNext")}</p>
+              {renderOpportunityCard(addList[0])}
+            </div>
+            {addList.length > 1 && <details className="sticker-card overflow-hidden">
+              <summary className="cursor-pointer px-5 py-4 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("otherLevers", { count: addList.length - 1 })}</summary>
+              <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2 lg:grid-cols-3">{addList.slice(1).map(renderOpportunityCard)}</div>
+            </details>}
+          </>
         ) : (
           <div className="sticker-card-dashed p-6 text-center text-sm text-muted-foreground">{t("noneAdditional")}</div>
         )}

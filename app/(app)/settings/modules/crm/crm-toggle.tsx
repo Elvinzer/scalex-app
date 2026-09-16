@@ -14,6 +14,7 @@ export function CrmToggle({ enabled }: { enabled: boolean }) {
   const [isPending, startTransition] = useTransition();
 
   function update(next: boolean) {
+    if (isEnabled && !next && !window.confirm(t("disableConfirm"))) return;
     setError(null);
     startTransition(async () => {
       const result = await setCrmEnabled({ enabled: next });

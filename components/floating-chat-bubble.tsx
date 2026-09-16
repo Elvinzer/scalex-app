@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { Falco } from "@/components/falco/falco";
 import { useFalcoAnimationsEnabled } from "@/components/falco/falco-context";
@@ -12,7 +13,7 @@ import { FalcoSkinImage } from "@/components/falco/falco-skin-image";
 import { DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { resolvePageContext } from "@/lib/agent/page-context";
 import type { ChatContext } from "@/lib/chat-context";
-import { FALCO_SKIN_CHAT_LABEL, resolveAgentKeyForRoute, resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
+import { resolveAgentKeyForRoute, resolveFalcoSkin, type FalcoSkinKey } from "@/lib/falco-skins";
 import { recordImproveChatOpened } from "@/lib/improve-chat-tracking";
 import { cn } from "@/lib/utils";
 
@@ -101,12 +102,13 @@ function FadeLayer({ children, isTop, instant }: { children: React.ReactNode; is
 // the moment the drawer is opened, for instant feedback, independent of
 // when the underlying server-side signal itself clears.
 export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsight?: boolean }) {
+  const t = useTranslations("app.copilote");
   const pathname = usePathname();
   const skin = resolveFalcoSkin(pathname);
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const showNotification = hasUnseenInsight && !dismissed;
-  const chatLabel = skin ? FALCO_SKIN_CHAT_LABEL[skin] : "Falco, ton copilote IA";
+  const chatLabel = skin ? t(`floating.skinLabels.${skin}`) : t("falcoLabel");
   // Page-scoped context: sourcePage carries the page identity to the API
   // (the only client field it doesn't overwrite from the conversation row),
   // and topicKey gives each page its OWN conversation —
@@ -142,7 +144,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
       <DrawerTrigger asChild>
         <button
           type="button"
-          aria-label={showNotification ? `Falco a une remarque pour toi : discuter de tes datas` : `Ouvrir le chat avec ${chatLabel}`}
+          aria-label={showNotification ? t("floating.noticeAria") : t("floating.openAria", { label: chatLabel })}
           className={cn(
             // Coral — deliberately breaks from the rest of the Copilote's
             // violet identity (drawer header, send button) for this one
@@ -165,7 +167,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
           <div className="flex h-full flex-col">
             <div className="flex justify-end border-b border-border px-4 py-2">
               <Link href={copiloteHref} prefetch={true} className="text-xs font-bold text-muted-foreground hover:underline">
-                Ouvrir dans le Copilote →
+                {t("floating.openInCopilot")}
               </Link>
             </div>
             <div className="flex-1 overflow-hidden">

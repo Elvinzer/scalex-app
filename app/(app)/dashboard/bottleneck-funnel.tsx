@@ -86,13 +86,13 @@ function stageSourceHref(stage: BottleneckStage): string {
     case "retention":
       return "/acquisition/contenu";
     case "leads":
-      return stage.source === "pipeline" ? "/ventes/pipeline?view=stage" : "/acquisition/contenu";
+      return stage.source === "pipeline" ? "/crm/pipeline?view=stage" : "/acquisition/contenu";
     case "bookedCalls":
-      return "/ventes/pipeline/funnel";
+      return "/acquisition/pipeline/funnel";
     case "attendedCalls":
-      return "/ventes/appels";
+      return "/crm/appels";
     case "salesClosed":
-      return stage.source === "sales" ? "/ventes/suivi" : "/ventes/appels";
+      return stage.source === "sales" ? "/ventes/suivi" : "/crm/appels";
     default:
       return "/business#acquisition";
   }

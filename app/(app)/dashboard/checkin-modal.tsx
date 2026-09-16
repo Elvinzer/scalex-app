@@ -16,18 +16,6 @@ import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 
 import { submitWeeklyCheckin, type CheckinFeedback } from "./actions";
 
-const SETTING_SOURCE: KpiFieldSource = {
-  text: "Cette valeur vient de ta saisie journalière dans Pipeline. Modifie-la directement là-bas.",
-  href: "/ventes/pipeline/funnel",
-  linkLabel: "Aller à Pipeline",
-};
-function callsSource(source: MonthlyCallSource): KpiFieldSource {
-  return {
-    text: `Cette valeur vient de Suivi d'appel : ${source.callsBooked} appel${source.callsBooked > 1 ? "s" : ""} réservé${source.callsBooked > 1 ? "s" : ""}, ${source.callsTaken} honoré${source.callsTaken > 1 ? "s" : ""} et ${source.salesClosed} vente${source.salesClosed > 1 ? "s" : ""} conclue${source.salesClosed > 1 ? "s" : ""}. Vérifie la source avant de la remplacer.`,
-    href: "/ventes/appels",
-    linkLabel: "Vérifier le suivi d'appel",
-  };
-}
 export function CheckinModal({
   open,
   onClose,
@@ -55,7 +43,7 @@ export function CheckinModal({
   const router = useRouter();
   const closingSource: KpiFieldSource = {
     text: t("checkin.closingSource"),
-    href: "/ventes/appels",
+    href: "/crm/appels",
     linkLabel: t("checkin.goToCallTracking"),
   };
   const [draft, setDraft] = useState<MonthlyMetricsInput>(initialData);
@@ -64,9 +52,20 @@ export function CheckinModal({
   const [feedback, setFeedback] = useState<CheckinFeedback | "none" | null>(null);
   const settingSource: KpiFieldSource = {
     text: t("checkin.settingSource"),
-    href: "/ventes/pipeline/funnel",
+    href: "/acquisition/pipeline/funnel",
     linkLabel: t("checkin.goToPipeline"),
   };
+  function callTrackingSource(source: MonthlyCallSource): KpiFieldSource {
+    return {
+      text: t("checkin.callTrackingSource", {
+        booked: source.callsBooked,
+        taken: source.callsTaken,
+        closed: source.salesClosed,
+      }),
+      href: "/crm/appels",
+      linkLabel: t("checkin.goToCallTracking"),
+    };
+  }
   const activeInputKeys = new Set(activeMetricFields.map((field) => field.inputMetricKey));
   const customMetricFields = Array.from(
     new Map(
@@ -149,9 +148,9 @@ export function CheckinModal({
                 {activeInputKeys.has("first_messages") && <KpiNumberField label={t("checkin.firstMessages")} value={draft.firstMessages} onChange={(v) => update({ firstMessages: v })} disabledReason={settingSourced ? settingSource : undefined} />}
                 {activeInputKeys.has("conversations") && <KpiNumberField label={t("checkin.conversations")} value={draft.conversations} onChange={(v) => update({ conversations: v })} disabledReason={settingSourced ? settingSource : undefined} />}
                 {activeInputKeys.has("calls_proposed") && <KpiNumberField label={t("checkin.callsProposed")} value={draft.callsProposed} onChange={(v) => update({ callsProposed: v })} disabledReason={settingSourced ? settingSource : undefined} />}
-                {activeInputKeys.has("calls_booked") && <KpiNumberField label={t("checkin.callsBooked")} value={draft.callsBooked} onChange={(v) => update({ callsBooked: v })} disabledReason={settingSourced || callsBookedSourced ? (callsBookedSourced && callSource ? callsSource(callSource) : SETTING_SOURCE) : undefined} />}
-                {activeInputKeys.has("calls_attended") && <KpiNumberField label={t("checkin.callsTaken")} value={draft.callsTaken} onChange={(v) => update({ callsTaken: v })} disabledReason={closingSourced ? (callSource ? callsSource(callSource) : closingSource) : undefined} />}
-                {activeInputKeys.has("sales_closed") && <KpiNumberField label={t("checkin.salesClosed")} value={draft.salesClosed} onChange={(v) => update({ salesClosed: v })} disabledReason={closingSourced ? (callSource ? callsSource(callSource) : closingSource) : undefined} />}
+                {activeInputKeys.has("calls_booked") && <KpiNumberField label={t("checkin.callsBooked")} value={draft.callsBooked} onChange={(v) => update({ callsBooked: v })} disabledReason={settingSourced || callsBookedSourced ? (callsBookedSourced && callSource ? callTrackingSource(callSource) : settingSource) : undefined} />}
+                {activeInputKeys.has("calls_attended") && <KpiNumberField label={t("checkin.callsTaken")} value={draft.callsTaken} onChange={(v) => update({ callsTaken: v })} disabledReason={closingSourced ? (callSource ? callTrackingSource(callSource) : closingSource) : undefined} />}
+                {activeInputKeys.has("sales_closed") && <KpiNumberField label={t("checkin.salesClosed")} value={draft.salesClosed} onChange={(v) => update({ salesClosed: v })} disabledReason={closingSourced ? (callSource ? callTrackingSource(callSource) : closingSource) : undefined} />}
                 {customMetricFields.map((field) => (
                   <KpiNumberField
                     key={field.inputMetricKey}

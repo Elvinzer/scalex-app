@@ -155,13 +155,13 @@ export function DeliverySection({
           </label>
           <label className={cn("flex flex-col gap-1.5 text-sm", isTargetField("frequency") && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")}>
             <span className="font-bold">{t("frequency")}</span>
-            <input
-              type="text"
-              value={value.support.frequency}
-              onChange={(event) => update({ support: { ...value.support, frequency: event.target.value } })}
-              placeholder="Ex : 1x/semaine"
-              className={inputClass}
-            />
+              <input
+                type="text"
+                value={value.support.frequency}
+                onChange={(event) => update({ support: { ...value.support, frequency: event.target.value } })}
+              placeholder={t("frequencyPlaceholder")}
+                className={inputClass}
+              />
           </label>
         </div>
 
@@ -179,13 +179,14 @@ export function DeliverySection({
               {t("openTestimonials")}
             </Link>
           </div>
-          <div className={cn("flex flex-wrap gap-2", isTargetField("displayedOn") && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")}>
+          <div className={cn("flex flex-wrap gap-2", isTargetField("displayedOn") && "rounded-[var(--radius-control)] border border-accent/40 bg-accent-soft/40 p-2")} role="group" aria-label={t("testimonials")}>
             {TESTIMONIAL_CHANNELS.map((channel) => {
               const active = value.testimonials.displayedOn.includes(channel);
               return (
                 <button
                   key={channel}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => toggleChannel(channel, !active)}
                   className={
                     active
@@ -206,9 +207,10 @@ export function DeliverySection({
               <p className="text-sm font-bold">{t("upsell")}</p>
               <p className="mt-1 text-xs text-muted-foreground">{t("upsellHelp")}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2" role="group" aria-label={t("upsell")}>
               <button
                 type="button"
+                aria-pressed={hasUpsell}
                 onClick={() => update({ upsellOfferId: defaultUpsellOffer?.id ?? "" })}
                 className={
                   hasUpsell
@@ -220,6 +222,7 @@ export function DeliverySection({
               </button>
               <button
                 type="button"
+                aria-pressed={!hasUpsell}
                 onClick={() => update({ upsellOfferId: null })}
                 className={
                   !hasUpsell

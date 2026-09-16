@@ -12,12 +12,12 @@ import { getAllMonthlyMetrics, type MonthlyMetricsRow } from "@/lib/monthly-metr
 import { requirePermissionOrRedirect } from "@/lib/team/context";
 import { getHealthTier } from "@/lib/diagnostic/health-tier";
 
-function formatVolume(value: number | null, locale: string): string {
-  return value === null ? "—" : new Intl.NumberFormat(locale).format(Math.round(value));
+function formatVolume(value: number | null, locale: string, notMeasured: string): string {
+  return value === null ? notMeasured : new Intl.NumberFormat(locale).format(Math.round(value));
 }
 
-function formatRate(value: number | null, locale: string): string {
-  return value === null ? "—" : new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(value);
+function formatRate(value: number | null, locale: string, notMeasured: string): string {
+  return value === null ? notMeasured : new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(value);
 }
 
 function monthLabel(row: Pick<MonthlyMetricsRow, "year" | "month">, locale: string): string {
@@ -75,7 +75,7 @@ export default async function BottleneckDataPage() {
       <section className="sticker-card p-5 sm:p-6" aria-labelledby="bottleneck-journey-title">
         <p className="text-xs font-bold tracking-[0.08em] text-accent-text uppercase">{t("activeJourney")}</p>
         <h2 id="bottleneck-journey-title" className="mt-1 text-xl font-bold">
-          {entries.map((entry) => labels.get(entry.blockKey) ?? entry.label).join(" → ")}
+          {entries.length > 0 ? entries.map((entry) => labels.get(entry.blockKey) ?? entry.label).join(" → ") : t("notConfigured")}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">{t("journeyHelp")}</p>
       </section>
@@ -91,6 +91,7 @@ export default async function BottleneckDataPage() {
           <div className="sticker-card-dashed mt-4 p-6 text-center">
             <p className="text-sm font-bold">{t("emptyTitle")}</p>
             <p className="mt-1 text-sm text-muted-foreground">{t("emptyHelp")}</p>
+            <Link href="/business#acquisition" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-control)] border border-border px-4 text-sm font-bold hover:bg-muted">{t("configureJourney")}</Link>
           </div>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -105,10 +106,10 @@ export default async function BottleneckDataPage() {
                   </div>
                   <p className="mt-2 text-[11px] font-bold tracking-[0.06em] text-muted-foreground uppercase">{labels.get(stage.blockKey) ?? stage.blockKey}</p>
                   <p className="mt-1 text-sm font-bold">{metricLabel(stage.metricKey, stage.label)}</p>
-                  <p className="mt-2 text-2xl font-bold tabular-nums">{formatVolume(stage.volume, locale)} <span className="text-xs font-medium text-muted-foreground">{metricUnit(stage.metricKey, stage.unit)}</span></p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums">{formatVolume(stage.volume, locale, t("notMeasured"))} <span className="text-xs font-medium text-muted-foreground">{metricUnit(stage.metricKey, stage.unit)}</span></p>
                   <div className="mt-auto flex flex-wrap gap-x-4 gap-y-1 pt-3 text-xs text-muted-foreground">
-                    <span>{t("yourRate")}: <strong className="text-foreground">{formatRate(stage.currentRate, locale)}</strong></span>
-                    <span>{t("benchmark")}: <strong className="text-foreground">{formatRate(stage.benchmarkRate, locale)}</strong></span>
+                    <span>{t("yourRate")}: <strong className="text-foreground">{formatRate(stage.currentRate, locale, t("notMeasured"))}</strong></span>
+                    <span>{t("benchmark")}: <strong className="text-foreground">{formatRate(stage.benchmarkRate, locale, t("notMeasured"))}</strong></span>
                   </div>
                 </article>
               );
@@ -124,7 +125,7 @@ export default async function BottleneckDataPage() {
             <h2 id="bottleneck-history-title" className="mt-1 text-xl font-bold">{t("historyTitle")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t("historyHelp")}</p>
           </div>
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 overflow-x-auto" role="region" aria-label={t("historyTable")} tabIndex={0}>
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs font-bold text-muted-foreground">
@@ -141,7 +142,7 @@ export default async function BottleneckDataPage() {
                     </th>
                     {historyRows.map((row) => {
                       const historyStage = buildSequenceStages({ entries, row, source: "total", benchmarks }).find((candidate) => candidate.id === stage.id);
-                      return <td key={`${stage.id}-${row.year}-${row.month}`} className="px-3 py-3 text-right font-bold tabular-nums">{formatVolume(historyStage?.volume ?? null, locale)}</td>;
+                      return <td key={`${stage.id}-${row.year}-${row.month}`} className="px-3 py-3 text-right font-bold tabular-nums">{formatVolume(historyStage?.volume ?? null, locale, t("notMeasured"))}</td>;
                     })}
                   </tr>
                 ))}

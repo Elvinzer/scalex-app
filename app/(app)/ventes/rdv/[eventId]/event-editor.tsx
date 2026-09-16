@@ -709,7 +709,7 @@ export function EventEditor({
                         }));
                       markConfigurationDirty();
                     }}
-                    className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-accent-text hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Plus className="size-3.5" /> {t("addWindow")}
                   </button>
@@ -763,7 +763,7 @@ export function EventEditor({
                   type="button"
                   disabled={exceptionWindows.length >= 4}
                   onClick={() => setExceptionWindows((current) => [...current, { startTime: "13:00", endTime: "17:00" }])}
-                  className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-accent-text hover:underline disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Plus className="size-3.5" /> {t("addWindow")}
                 </button>
@@ -853,7 +853,7 @@ export function EventEditor({
           </div>
           {availableCandidates.length > 0 && (
             <div className="mt-4 flex gap-2">
-              <select value={selectedCloser} onChange={(input) => setSelectedCloser(input.target.value)} className="booking-admin-input min-w-0">
+              <select aria-label={t("selectCloser")} value={selectedCloser} onChange={(input) => setSelectedCloser(input.target.value)} className="booking-admin-input min-w-0">
                 {availableCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.displayName || candidate.email}</option>)}
               </select>
               <Button
@@ -903,7 +903,7 @@ export function EventEditor({
           >
             <input name="label" required placeholder={t("linkNamePlaceholder")} className="booking-admin-input" />
             <div className="grid gap-3 sm:grid-cols-2">
-              <select name="platform" defaultValue="youtube" className="booking-admin-input">
+              <select aria-label={t("selectPlatform")} name="platform" defaultValue="youtube" className="booking-admin-input">
                 <option value="youtube">YouTube</option>
                 <option value="instagram">Instagram</option>
                 <option value="tiktok">TikTok</option>
@@ -931,7 +931,7 @@ export function EventEditor({
                       <p className="mt-1 text-xs text-muted-foreground">{link.platform}{link.contentLabel ? ` · ${link.contentLabel}` : ""} · {link.isActive ? t("active") : t("disabled")}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <button type="button" disabled={!link.isActive} onClick={() => copyLink(link)} className="text-xs font-bold text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-40">
+                      <button type="button" disabled={!link.isActive} onClick={() => copyLink(link)} className="text-xs font-bold text-accent-text hover:underline disabled:cursor-not-allowed disabled:opacity-40">
                         {copiedLinkId === link.id ? t("copied") : t("copy")}
                       </button>
                       <button type="button" disabled={isPending} onClick={() => toggleLink(link)} className="text-xs font-bold text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40">

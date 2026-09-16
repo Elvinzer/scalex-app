@@ -35,6 +35,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const isTeamView = params.team === "1" && hasCrmPermission(access, "crm:view-team");
   const period = selectedPeriod(params.from, params.to);
+  const defaultPeriod = currentCrmPeriod();
   const [setters, businessProfile] = await Promise.all([getCrmSetters(access.accountId), getBusinessProfile(access.accountId)]);
   const setterId = isTeamView && setters.some((setter) => setter.id === params.setter) ? params.setter : undefined;
   const platform = params.platform === "instagram" || params.platform === "linkedin" ? params.platform : undefined;
@@ -45,6 +46,14 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
     getCrmActions(access.accountId, { status: "open", responsibleUserId: isTeamView ? undefined : userId }),
   ]);
   const kpis = computeCrmKpis({ events, calls, sales: linkedSales, period });
+  const activeFilterCount = [
+    params.platform === "instagram" || params.platform === "linkedin",
+    Boolean(offerId),
+    Boolean(source),
+    Boolean(setterId),
+    period.from.getTime() !== defaultPeriod.from.getTime() || period.to.getTime() !== defaultPeriod.to.getTime(),
+  ].filter(Boolean).length;
+  const resetHref = isTeamView ? "/crm?team=1" : "/crm";
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,17 +72,19 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
         <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.source")}<select name="source" defaultValue={source ?? ""} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allSources")}</option>{CRM_LEAD_SOURCES.map((item) => <option key={item} value={item}>{t(`sources.${item}`)}</option>)}</select></label>
         <Button type="submit" variant="outline" className="lg:col-span-1">{t("kpis.apply")}</Button>
       </form>
+      {activeFilterCount > 0 && <div className="flex flex-wrap items-center gap-3 text-sm font-bold text-muted-foreground"><span>{t("today.filtersApplied", { count: activeFilterCount })}</span><Link href={resetHref} className="inline-flex min-h-10 items-center underline underline-offset-4 hover:text-foreground">{t("kpis.reset")}</Link></div>}
       <p className="text-sm font-bold text-muted-foreground">{t("kpis.scope", { from: dateValue(period.from), to: dateValue(period.to), view: isTeamView ? t("kpis.team") : t("kpis.personal") })}</p>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("kpis.period")}>
         {KPI_KEYS.map((key) => <Link key={key} href={`/crm/leads?from=${dateValue(period.from)}&to=${dateValue(period.to)}`} className="sticker-card p-4 transition hover:-translate-y-0.5"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.${key}`)}</p><p className="mt-2 text-2xl font-bold">{kpis[key]}</p></Link>)}
       </section>
-      {kpis.incomplete && <p className="rounded-[var(--radius-control)] bg-state-warning/10 px-4 py-3 text-sm font-bold text-state-warning">{t("kpis.incomplete")}</p>}
-      <section className="sticker-card p-4" aria-labelledby="crm-kpi-rates-title"><h2 id="crm-kpi-rates-title" className="text-lg font-bold">{t("kpis.ratesTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("kpis.cohort", { count: kpis.cohortFirstMessages })}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(["response", "valueContent", "callProposed", "callBooked", "attendance", "noShow", "closing"] as const).map((key) => <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.rate${key[0].toUpperCase()}${key.slice(1)}`)}</p><p className="mt-1 text-lg font-bold">{kpis.rates[key] === null ? "—" : `${Math.round(kpis.rates[key] * 100)}%`}</p></div>)}</div></section>
+      {kpis.incomplete && <p className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.incomplete")}</p>}
+      <section className="sticker-card p-4" aria-labelledby="crm-kpi-rates-title"><h2 id="crm-kpi-rates-title" className="text-lg font-bold">{t("kpis.ratesTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("kpis.cohort", { count: kpis.cohortFirstMessages })}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(["response", "valueContent", "callProposed", "callBooked", "attendance", "noShow", "closing"] as const).map((key) => <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.rate${key[0].toUpperCase()}${key.slice(1)}`)}</p><p className="mt-1 text-lg font-bold">{kpis.rates[key] === null ? t("kpis.notMeasured") : `${Math.round(kpis.rates[key] * 100)}%`}</p></div>)}</div></section>
 
       <section className="flex flex-col gap-3" aria-labelledby="crm-today-actions-title">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="crm-today-actions-title" className="text-xl font-bold">{t("today.actionsTitle")}</h2><Button asChild variant="outline"><Link href="/crm/actions">{t("today.openActions")}</Link></Button></div>
         <CrmActionList initialActions={actions} groupedByCategory groupByDueDate />
+        {actions.length === 0 && <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{t("today.emptyHelp")}</p><Button asChild variant="outline"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div>}
       </section>
       <div className="flex flex-wrap gap-3"><Button asChild variant="outline"><Link href="/crm/pipeline">{t("today.openPipeline")}</Link></Button><Button asChild variant="outline"><Link href="/crm/leads">{t("tabs.leads")}</Link></Button></div>
     </div>

@@ -22,7 +22,7 @@ export function DialogContent({
       <RadixDialog.Overlay className="glass-overlay fixed inset-0 z-40 duration-[var(--motion-fast)] ease-[var(--ease-out)] data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
       <RadixDialog.Content
         className={cn(
-          "sticker-card elevated fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[calc(100%-2rem)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto p-6 duration-[var(--motion-fast)] ease-[var(--ease-out)] focus:outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95",
+          "sticker-card elevated fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain p-6 duration-[var(--motion-fast)] ease-[var(--ease-out)] focus:outline-none focus-visible:ring-3 focus-visible:ring-accent/20 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95",
           className
         )}
         style={style}

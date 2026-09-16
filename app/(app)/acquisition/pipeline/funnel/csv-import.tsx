@@ -43,14 +43,16 @@ export function CsvImport() {
       <a
         href="/setting-kpis-template.csv"
         download
-        className="self-start text-sm font-bold text-primary underline underline-offset-4"
+        className="self-start text-sm font-bold text-accent-text underline underline-offset-4"
       >
         {t("downloadTemplate")}
       </a>
 
+      <label htmlFor="setting-kpi-csv" className="text-sm font-bold">{t("chooseFile")}</label>
       <div>
         <input
           ref={inputRef}
+          id="setting-kpi-csv"
           type="file"
           accept=".csv,text/csv"
           onChange={handleFileChange}

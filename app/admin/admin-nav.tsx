@@ -27,7 +27,7 @@ export function AdminNav({ labels }: { labels: AdminNavLabels }) {
   ];
 
   return (
-    <nav aria-label={labels.ariaLabel} className="mb-8 flex flex-wrap gap-2 border-b border-border pb-3">
+    <nav aria-label={labels.ariaLabel} className="mb-8 flex min-w-0 gap-2 overflow-x-auto border-b border-border pb-3 [scrollbar-width:thin]">
       {items.map((item) => {
         const isActive = item.href === "/admin" ? pathname === item.href : pathname.startsWith(item.href);
         return (
@@ -35,8 +35,9 @@ export function AdminNav({ labels }: { labels: AdminNavLabels }) {
             key={item.href}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
+            title={item.label}
             className={cn(
-              "inline-flex min-h-11 items-center rounded-[var(--radius-control)] px-3 text-sm font-bold transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/12",
+              "inline-flex min-h-11 shrink-0 items-center rounded-[var(--radius-control)] px-3 text-sm font-bold transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/12",
               isActive
                 ? "bg-accent-soft text-accent-text"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"

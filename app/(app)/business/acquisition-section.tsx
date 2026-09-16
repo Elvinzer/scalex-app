@@ -135,7 +135,7 @@ export function AcquisitionSection({
           </Button>
           </div>
           <div className="mt-5 flex flex-col gap-4">
-            <div className="rounded-xl border border-border bg-background p-4" aria-labelledby="business-journey-preview-title">
+            <div role="group" className="rounded-xl border border-border bg-background p-4" aria-labelledby="business-journey-preview-title">
               <p id="business-journey-preview-title" className="text-xs font-bold tracking-[0.08em] text-accent-text uppercase">
                 {t("journeyPreviewEyebrow")}
               </p>
@@ -203,6 +203,7 @@ export function AcquisitionSection({
                 <button
                   key={platformOption.value}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => togglePlatform(platformOption.value, !active)}
                   className={
                     active
@@ -230,7 +231,7 @@ export function AcquisitionSection({
                         type="text"
                         value={platform.url}
                         onChange={(event) => updatePlatform(platform.name, { url: event.target.value })}
-                        placeholder="https://..."
+                        placeholder={t("platformUrlPlaceholder")}
                         className={inputClass}
                       />
                     </label>

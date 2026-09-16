@@ -20,6 +20,6 @@ describe("post-auth landing route", () => {
   });
 
   it("uses the first accessible member page", () => {
-    expect(getDefaultAppRoute(memberContext(["ventes:appels"]))).toBe("/ventes/appels");
+    expect(getDefaultAppRoute(memberContext(["ventes:appels"]))).toBe("/crm/appels");
   });
 });

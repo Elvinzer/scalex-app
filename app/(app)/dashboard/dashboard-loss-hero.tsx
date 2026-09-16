@@ -33,7 +33,7 @@ export async function DashboardLossHero({
         <div className="min-w-0">
           <p id="dashboard-gap-title" className="text-xs font-bold tracking-[0.08em] text-mist/60 uppercase">{t("lossDetected")}</p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <p className="figure-hero">{potentialMonthlyRevenue === null ? "—" : formatEur(potentialMonthlyRevenue, locale)}</p>
+            <p className="figure-hero">{potentialMonthlyRevenue === null ? t("notMeasured") : formatEur(potentialMonthlyRevenue, locale)}</p>
             <NatureBadge nature="Projection" />
           </div>
           <p className="mt-2 text-sm text-mist/60">{t("source")}</p>
@@ -41,7 +41,7 @@ export async function DashboardLossHero({
         <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden lg:flex" />
         <div className="flex flex-wrap gap-2">
           <Button size="lg" asChild>
-            <Link href="/diagnostic-app" prefetch={true}>{t("viewDiagnostic")}</Link>
+            <Link href={hasAnyData ? "/diagnostic-app" : "/datas"} prefetch={true}>{hasAnyData ? t("viewDiagnostic") : t("completeNumbers")}</Link>
           </Button>
           <Button size="lg" variant="outline" className="border-mist/20 bg-transparent text-text-on-dark hover:bg-mist/10 hover:text-text-on-dark" asChild>
             <Link href="/diagnostic-app#calcul" prefetch={true}>{t("howCalculated")}</Link>

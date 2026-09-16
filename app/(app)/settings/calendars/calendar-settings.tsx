@@ -133,7 +133,7 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
           <p className="mt-2 max-w-3xl text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button asChild variant="ghost" size="sm">
-          <Link href="/ventes/rdv">{t("backToBooking")}</Link>
+          <Link href="/settings/reservation">{t("backToBooking")}</Link>
         </Button>
       </div>
 

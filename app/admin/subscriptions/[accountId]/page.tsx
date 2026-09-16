@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowLeft, ExternalLink, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 
@@ -30,8 +31,9 @@ function safeDashboardUrl(resource: "customers" | "subscriptions", id: string): 
   }
 }
 
-function usageLabel(value: number, limit: number | null | undefined): string {
-  if (limit === null || limit === undefined) return `${value} / illimité`;
+function usageLabel(value: number, enabled: boolean, limit: number | null | undefined, unlimited: string, notIncluded: string): string {
+  if (!enabled) return notIncluded;
+  if (limit === null || limit === undefined) return `${value} / ${unlimited}`;
   return `${value} / ${limit}`;
 }
 
@@ -43,6 +45,7 @@ export default async function AdminSubscriptionDetailPage({ params }: AdminSubsc
 
   const detail = await getAdminSubscriptionDetail(parsedAccountId.data);
   if (!detail) notFound();
+  const t = await getTranslations("app.admin");
 
   const subscription = detail.subscription;
   const stripeCustomerUrl = detail.stripeCustomerId
@@ -56,16 +59,16 @@ export default async function AdminSubscriptionDetailPage({ params }: AdminSubsc
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <header>
         <Button asChild variant="ghost" className="min-h-11 -ml-2">
-          <Link href="/admin/subscriptions"><ArrowLeft className="size-4" /> Retour aux abonnements</Link>
+          <Link href="/admin/subscriptions"><ArrowLeft className="size-4" /> {t("subscriptions.backToList")}</Link>
         </Button>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Compte client</p>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("subscriptions.customerAccount")}</p>
             <h1 className="mt-1 text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{detail.displayName || detail.email}</h1>
             {detail.displayName && <p className="mt-1 text-sm text-muted-foreground">{detail.email}</p>}
           </div>
           <div className="flex items-center gap-2 rounded-full border border-state-healthy/30 bg-state-healthy-bg px-3 py-1.5 text-xs font-bold text-state-healthy">
-            <ShieldCheck className="size-4" aria-hidden="true" /> Session fondateur vérifiée
+            <ShieldCheck className="size-4" aria-hidden="true" /> {t("subscriptions.founderSessionVerified")}
           </div>
         </div>
       </header>
@@ -75,8 +78,8 @@ export default async function AdminSubscriptionDetailPage({ params }: AdminSubsc
           <section className="sticker-card p-5 sm:p-6" aria-labelledby="subscription-summary-title">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Abonnement</p>
-                <h2 id="subscription-summary-title" className="mt-1 text-lg font-bold">État de la facturation</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("subscriptions.subscription")}</p>
+                <h2 id="subscription-summary-title" className="mt-1 text-lg font-bold">{t("subscriptions.billingState")}</h2>
               </div>
               {subscription && <SubscriptionStatusBadge status={subscription.status} />}
             </div>
@@ -84,98 +87,98 @@ export default async function AdminSubscriptionDetailPage({ params }: AdminSubsc
             {subscription ? (
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs font-bold text-muted-foreground">Plan catalogue</p>
-                  <p className="mt-1 text-lg font-bold">{detail.plan?.name ?? "Plan introuvable"}</p>
-                  {detail.plan && <p className="mt-0.5 text-xs text-muted-foreground">Clé : {detail.plan.key}</p>}
+                  <p className="text-xs font-bold text-muted-foreground">{t("subscriptions.catalogPlan")}</p>
+                  <p className="mt-1 text-lg font-bold">{detail.plan?.name ?? t("subscriptions.planMissing")}</p>
+                  {detail.plan && <p className="mt-0.5 text-xs text-muted-foreground">{t("subscriptions.keyValue", { key: detail.plan.key })}</p>}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-muted-foreground">Price souscrit</p>
-                  <p className="mt-1 text-lg font-bold tabular-nums">{formatSubscriptionAmount(subscription.priceMonthlyCents)}{subscription.priceMonthlyCents !== null && <span className="text-sm font-normal text-muted-foreground"> / mois</span>}</p>
+                  <p className="text-xs font-bold text-muted-foreground">{t("subscriptions.subscribedPrice")}</p>
+                  <p className="mt-1 text-lg font-bold tabular-nums">{subscription.priceMonthlyCents === null ? t("subscriptions.verify") : formatSubscriptionAmount(subscription.priceMonthlyCents)}{subscription.priceMonthlyCents !== null && <span className="text-sm font-normal text-muted-foreground"> {t("subscriptions.perMonth")}</span>}</p>
                   {subscription.stripePriceId && <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">{subscription.stripePriceId}</p>}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-muted-foreground">Période actuelle</p>
+                  <p className="text-xs font-bold text-muted-foreground">{t("subscriptions.currentPeriod")}</p>
                   <p className="mt-1 text-sm font-bold">{formatSubscriptionDate(subscription.currentPeriodEnd)}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{subscription.cancelAtPeriodEnd ? "Résiliation programmée à cette date" : "Renouvellement prévu à cette date"}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{subscription.cancelAtPeriodEnd ? t("subscriptions.cancellationAtDate") : t("subscriptions.renewalAtDate")}</p>
                 </div>
               <div>
-                  <p className="text-xs font-bold text-muted-foreground">Dernière projection locale</p>
+                  <p className="text-xs font-bold text-muted-foreground">{t("subscriptions.lastLocalProjection")}</p>
                   <p className="mt-1 text-sm font-bold">{formatSubscriptionDateTime(subscription.updatedAt)}</p>
-                  <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">{subscription.stripeSubscriptionId ?? "ID Stripe absent"}</p>
+                  <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">{subscription.stripeSubscriptionId ?? t("subscriptions.stripeIdMissing")}</p>
                 </div>
                 <div className="sm:col-span-2">
-                  <p className="text-xs font-bold text-muted-foreground">Client Stripe</p>
+                  <p className="text-xs font-bold text-muted-foreground">{t("subscriptions.stripeCustomer")}</p>
                   <p className="mt-1 break-all font-mono text-xs">{subscription.stripeCustomerId}</p>
                 </div>
               </div>
             ) : (
               <div className="mt-5 rounded-[var(--radius-control)] border border-dashed border-border p-5">
-                <p className="font-bold">Aucune projection d’abonnement</p>
-                <p className="mt-1 text-sm text-muted-foreground">Ce compte n’a pas encore d’abonnement Stripe enregistré côté Minaly.</p>
+                <p className="font-bold">{t("subscriptions.noProjectionTitle")}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{t("subscriptions.noProjectionHelp")}</p>
               </div>
             )}
 
             {subscription?.priceMonthlyCents === null && (
               <div className="mt-5 flex items-start gap-3 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution/10 p-4 text-sm text-state-caution" role="status">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <p><strong>Montant historique à vérifier.</strong> Le Price exact n’est pas encore projeté localement ; ne pas déduire ce montant du prix catalogue actuel.</p>
+                <p><strong>{t("subscriptions.historicalAmountTitle")}</strong> {t("subscriptions.historicalAmountHelp")}</p>
               </div>
             )}
             {subscription?.cancelAtPeriodEnd && (
               <div className="mt-4 rounded-[var(--radius-control)] border border-state-caution/30 bg-state-caution/10 p-4 text-sm text-state-caution" role="status">
-                Résiliation programmée : l’accès reste actif jusqu’au {formatSubscriptionDate(subscription.currentPeriodEnd)}.
+                {t("subscriptions.scheduledCancellation", { date: formatSubscriptionDate(subscription.currentPeriodEnd) })}
               </div>
             )}
           </section>
 
           <section className="sticker-card p-5 sm:p-6" aria-labelledby="entitlements-title">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Capacités observées</p>
-            <h2 id="entitlements-title" className="mt-1 text-lg font-bold">Équipe et rendez-vous</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("subscriptions.observedCapabilities")}</p>
+            <h2 id="entitlements-title" className="mt-1 text-lg font-bold">{t("subscriptions.teamAndBooking")}</h2>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="rounded-[var(--radius-control)] border border-border bg-muted/30 p-4">
-                <p className="text-xs font-bold text-muted-foreground">Membres d’équipe</p>
-                <p className="mt-2 text-xl font-bold tabular-nums">{usageLabel(detail.teamMemberCount, detail.planFeatures.teamMembersEnabled ? detail.planFeatures.maxTeamMembers : 0)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{detail.planFeatures.teamMembersEnabled ? "Selon le plan projeté" : "Fonctionnalité non incluse"}</p>
+                <p className="text-xs font-bold text-muted-foreground">{t("subscriptions.teamMembers")}</p>
+                  <p className="mt-2 text-xl font-bold tabular-nums">{usageLabel(detail.teamMemberCount, Boolean(detail.planFeatures.teamMembersEnabled), detail.planFeatures.maxTeamMembers, t("plans.unlimited"), t("plans.notIncluded"))}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{detail.planFeatures.teamMembersEnabled ? t("subscriptions.projectedPlan") : t("subscriptions.notIncludedHelp")}</p>
               </div>
               <div className="rounded-[var(--radius-control)] border border-border bg-muted/30 p-4">
-                <p className="text-xs font-bold text-muted-foreground">Événements de réservation</p>
-                <p className="mt-2 text-xl font-bold tabular-nums">{usageLabel(detail.bookingUsage, detail.planFeatures.nativeBookingEnabled ? detail.planFeatures.maxBookingEvents : 0)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{detail.planFeatures.nativeBookingEnabled ? "Événements non archivés" : "Fonctionnalité non incluse"}</p>
+                <p className="text-xs font-bold text-muted-foreground">{t("subscriptions.bookingEvents")}</p>
+                <p className="mt-2 text-xl font-bold tabular-nums">{usageLabel(detail.bookingUsage, Boolean(detail.planFeatures.nativeBookingEnabled), detail.planFeatures.maxBookingEvents, t("plans.unlimited"), t("plans.notIncluded"))}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{detail.planFeatures.nativeBookingEnabled ? t("subscriptions.unarchivedEvents") : t("subscriptions.notIncludedHelp")}</p>
               </div>
             </div>
           </section>
 
           <section className="sticker-card p-5 sm:p-6" aria-labelledby="account-metadata-title">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Métadonnées</p>
-            <h2 id="account-metadata-title" className="mt-1 text-lg font-bold">Identité du compte</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("subscriptions.metadata")}</p>
+            <h2 id="account-metadata-title" className="mt-1 text-lg font-bold">{t("subscriptions.accountIdentity")}</h2>
             <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
-              <div><dt className="text-xs font-bold text-muted-foreground">Email</dt><dd className="mt-1 break-all font-bold">{detail.email}</dd></div>
-              <div><dt className="text-xs font-bold text-muted-foreground">Créé le</dt><dd className="mt-1 font-bold">{formatSubscriptionDateTime(detail.accountCreatedAt)}</dd></div>
-              <div className="sm:col-span-2"><dt className="text-xs font-bold text-muted-foreground">Account ID</dt><dd className="mt-1 break-all font-mono text-xs">{detail.accountId}</dd></div>
+              <div><dt className="text-xs font-bold text-muted-foreground">{t("subscriptions.email")}</dt><dd className="mt-1 break-all font-bold">{detail.email}</dd></div>
+              <div><dt className="text-xs font-bold text-muted-foreground">{t("subscriptions.createdAt")}</dt><dd className="mt-1 font-bold">{formatSubscriptionDateTime(detail.accountCreatedAt)}</dd></div>
+              <div className="sm:col-span-2"><dt className="text-xs font-bold text-muted-foreground">{t("subscriptions.accountId")}</dt><dd className="mt-1 break-all font-mono text-xs">{detail.accountId}</dd></div>
             </dl>
           </section>
         </div>
 
         <aside className="flex flex-col gap-4">
           <section className="sticker-card p-5 sm:p-6" aria-labelledby="admin-actions-title">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Opérations contrôlées</p>
-            <h2 id="admin-actions-title" className="mt-1 text-lg font-bold">Actions Stripe</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Les changements financiers restent exécutés dans Stripe. Minaly ne fait ici que consulter ou réconcilier.</p>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("subscriptions.controlledOperations")}</p>
+            <h2 id="admin-actions-title" className="mt-1 text-lg font-bold">{t("subscriptions.stripeActions")}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{t("subscriptions.stripeActionsHelp")}</p>
             <div className="mt-5">
               <SubscriptionActions accountId={detail.accountId} hasStripeSubscription={Boolean(subscription?.stripeSubscriptionId)} hasStripeCustomer={Boolean(detail.stripeCustomerId)} />
             </div>
           </section>
 
           <section className="sticker-card p-5 sm:p-6" aria-labelledby="stripe-links-title">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">Contexte externe</p>
-            <h2 id="stripe-links-title" className="mt-1 text-lg font-bold">Ouvrir dans Stripe</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("subscriptions.externalContext")}</p>
+            <h2 id="stripe-links-title" className="mt-1 text-lg font-bold">{t("subscriptions.openInStripe")}</h2>
             <div className="mt-4 flex flex-col gap-2">
               {stripeCustomerUrl ? (
-                <Button asChild variant="outline" className="min-h-11 justify-between"><a href={stripeCustomerUrl} target="_blank" rel="noreferrer">Client Stripe <ExternalLink className="size-4" /></a></Button>
-              ) : <p className="text-sm text-muted-foreground">Client Stripe indisponible.</p>}
+                <Button asChild variant="outline" className="min-h-11 justify-between"><a href={stripeCustomerUrl} target="_blank" rel="noreferrer">{t("subscriptions.stripeCustomer")} <ExternalLink className="size-4" /></a></Button>
+              ) : <p className="text-sm text-muted-foreground">{t("subscriptions.stripeCustomerUnavailable")}</p>}
               {stripeSubscriptionUrl ? (
-                <Button asChild variant="outline" className="min-h-11 justify-between"><a href={stripeSubscriptionUrl} target="_blank" rel="noreferrer">Abonnement Stripe <ExternalLink className="size-4" /></a></Button>
-              ) : <p className="text-sm text-muted-foreground">Abonnement Stripe indisponible.</p>}
+                <Button asChild variant="outline" className="min-h-11 justify-between"><a href={stripeSubscriptionUrl} target="_blank" rel="noreferrer">{t("subscriptions.stripeSubscription")} <ExternalLink className="size-4" /></a></Button>
+              ) : <p className="text-sm text-muted-foreground">{t("subscriptions.stripeSubscriptionUnavailable")}</p>}
             </div>
           </section>
         </aside>

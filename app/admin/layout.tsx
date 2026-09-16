@@ -36,8 +36,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <AppThemeProvider initialPreference={user?.themePreference ?? "light"}>
-        <div className="min-h-screen bg-panel px-8 py-10 sm:px-12 lg:px-16">
-          <header className="mx-auto max-w-6xl">
+        <div className="min-h-screen min-w-0 bg-panel px-4 py-6 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
+          <header className="mx-auto min-w-0 max-w-6xl">
             <Link
               href="/dashboard"
               className="mb-6 inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground"
@@ -57,7 +57,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               }}
             />
           </header>
-          <main id="main-content">{children}</main>
+          <main id="main-content" className="min-w-0">{children}</main>
         </div>
       </AppThemeProvider>
     </NextIntlClientProvider>

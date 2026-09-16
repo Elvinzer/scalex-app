@@ -7,6 +7,10 @@
   "viewDiagnostic": "View diagnostic",
   "howCalculated": "How it’s calculated",
   "completeNumbers": "Complete your numbers for your diagnostic",
+  "notMeasured": "Not measured yet",
+  "setupTitle": "Make your diagnostic more specific",
+  "setupHelp": "Complete {count, plural, =1 {1 field} other {# fields}} in My business to improve the projection.",
+  "setupCta": "Open My business",
   "notEnoughData": "Not enough data to calculate a bottleneck yet.",
   "acquisitionFunnelInferred": {
     "title": "Your acquisition journey is estimated",
@@ -59,6 +63,7 @@
     "callsBooked": "Calls booked",
     "callsTaken": "Calls attended",
     "salesClosed": "Sales closed",
+    "callTrackingSource": "This value comes from call tracking: {booked} booked, {taken} attended and {closed} sold.",
     "settingSource": "This value comes from your daily Pipeline entry. Edit it there directly.",
     "closingSource": "This value comes from your daily call tracking.",
     "goToPipeline": "Go to Pipeline",

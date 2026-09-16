@@ -7,6 +7,10 @@
   "viewDiagnostic": "Voir le diagnostic",
   "howCalculated": "Comment c’est calculé",
   "completeNumbers": "Complète tes chiffres pour ton diagnostic",
+  "notMeasured": "Pas encore mesuré",
+  "setupTitle": "Rends ton diagnostic plus précis",
+  "setupHelp": "Complète {count, plural, =1 {1 champ} other {# champs}} dans Mon business pour améliorer la projection.",
+  "setupCta": "Ouvrir Mon business",
   "notEnoughData": "Pas encore assez de données pour calculer un goulot.",
   "acquisitionFunnelInferred": {
     "title": "Ton parcours d’acquisition est encore estimé",
@@ -59,6 +63,7 @@
     "callsBooked": "Appels réservés",
     "callsTaken": "Appels pris",
     "salesClosed": "Ventes conclues",
+    "callTrackingSource": "Cette valeur vient du suivi des appels : {booked} réservé(s), {taken} honoré(s) et {closed} vente(s) conclue(s).",
     "settingSource": "Cette valeur vient de ta saisie journalière dans Pipeline. Modifie-la directement là-bas.",
     "closingSource": "Cette valeur vient de ta saisie journalière dans le suivi des appels.",
     "goToPipeline": "Aller à Pipeline",

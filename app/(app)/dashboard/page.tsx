@@ -1,5 +1,6 @@
 import { DataUnavailable } from "@/components/data-unavailable";
 import { eq } from "drizzle-orm";
+import Link from "next/link";
 import { after } from "next/server";
 import { Suspense } from "react";
 
@@ -13,6 +14,7 @@ import { MetricCard } from "@/components/metric-card";
 import { db } from "@/db";
 import { calendlyConnections, iclosedConnections } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
+import { computeGlobalCompletion } from "@/lib/business/completion";
 import { EMPTY_BUSINESS_PROFILE } from "@/lib/business/types";
 import { DEFAULT_ACQUISITION_FUNNELS } from "@/lib/acquisition-funnels/catalog";
 import { DEFAULT_FUNNEL_BLOCKS } from "@/lib/funnel-blocks/catalog";
@@ -48,6 +50,7 @@ import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { availableFunnelSources } from "@/lib/funnel-blocks/metrics";
 import { isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
 import { withTimeout } from "@/lib/perf/with-timeout";
+import { Button } from "@/components/ui/button";
 
 // buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
 // swap — excluded here so Dashboard's existing grid doesn't silently gain a
@@ -139,6 +142,8 @@ async function renderDashboardPage({
   if (!rawData) return <DataUnavailable />;
   const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = rawData;
   const acquisitionSelection = normalizeAcquisitionSelection(businessProfile.acquisition, acquisitionCatalog);
+  const businessCompletion = computeGlobalCompletion(businessProfile);
+  const businessIncompleteCount = Object.values(businessCompletion.bySection).reduce((sum, section) => sum + section.total - section.answered, 0);
   const funnelBlockSelection = normalizeFunnelBlockSelection(businessProfile.acquisition, funnelBlockCatalog);
   const source: FunnelSourceKey | "total" = isFunnelSourceKey(params.source) ? params.source : "total";
   if (source !== "total") {
@@ -390,6 +395,8 @@ async function renderDashboardPage({
           dismiss={t("acquisitionFunnelInferred.dismiss")}
         />
       )}
+
+      {businessIncompleteCount > 0 && <section className="sticker-card flex flex-wrap items-center justify-between gap-4 border-accent-border bg-accent-soft/35 p-5" aria-labelledby="dashboard-setup-title"><div><h2 id="dashboard-setup-title" className="text-base font-bold">{t("setupTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("setupHelp", { count: businessIncompleteCount })}</p></div><Button asChild variant="outline"><Link href="/business">{t("setupCta")}</Link></Button></section>}
 
       <Suspense fallback={<DashboardLossHeroSkeleton />}>
         <DashboardLossHero

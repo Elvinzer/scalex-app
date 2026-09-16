@@ -166,7 +166,7 @@ export function StripeInsightsSection({
 
   if (!connected) {
     return (
-      <section id="stripe-insights" className="sticker-card p-5 sm:p-6" aria-labelledby="stripe-insights-title">
+      <section id="stripe-insights" className="sticker-card p-5 sm:p-6" role="region" aria-labelledby="stripe-insights-title">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold tracking-[0.12em] text-accent-2-text uppercase">{t("analysis")}</p>
@@ -184,11 +184,12 @@ export function StripeInsightsSection({
   }
 
   return (
-    <section id="stripe-insights" className="flex min-w-0 flex-col gap-4" aria-labelledby="stripe-insights-title">
+    <section id="stripe-insights" className="flex min-w-0 flex-col gap-4" role="region" aria-labelledby="stripe-insights-title">
       <div className="sticker-card min-w-0 p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-bold tracking-[0.12em] text-accent-2-text uppercase">{t("analysis")}</p>
+            <h2 id="stripe-insights-title" className="mt-1 text-xl font-bold">{t("understandPayments")}</h2>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
               {t("snapshotHelp")}
             </p>
@@ -253,7 +254,7 @@ export function StripeInsightsSection({
                 </div>
                 <p className="text-right text-sm font-bold text-muted-foreground">{t("averageTicket")}<br /><span className="text-foreground">{snapshot.averageTicketCents === null ? "—" : formatMoney(snapshot.averageTicketCents, activeCurrency, locale)}</span></p>
               </div>
-              <div className="mt-5 min-w-0" role="img" aria-label={`${t("netTrend")} — ${activeCurrency.toUpperCase()}`} aria-describedby="stripe-trend-summary">
+              <div className="mt-5 min-w-0" role="img" aria-label={`${t("netTrend")} — ${activeCurrency.toUpperCase()}`} aria-describedby={trend.length > 0 ? "stripe-trend-summary" : undefined}>
                 <StripeTrendChart data={trend} currency={activeCurrency} />
               </div>
             </article>

@@ -60,7 +60,7 @@ export function LeverStarterPlanCard({
         </p>
       </div>
 
-      <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
+      <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={t("launchPlan")} aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100}>
         <div className="h-full bg-state-healthy transition-[width]" style={{ width: `${progressPercent}%` }} />
       </div>
 
@@ -71,6 +71,7 @@ export function LeverStarterPlanCard({
             <li key={step.order} className="flex items-start gap-3">
               <input
                 type="checkbox"
+                aria-label={step.title}
                 checked={done}
                 onChange={() => handleToggle(step.order)}
                 disabled={isPending}

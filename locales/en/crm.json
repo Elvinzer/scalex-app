@@ -9,8 +9,8 @@
     "calls": "Calls"
   },
   "today": {
-    "title": "Today",
-    "subtitle": "What deserves your attention now.",
+    "title": "Overview",
+    "subtitle": "See the selected period and what needs attention next.",
     "teamView": "Team view",
     "myView": "My view",
     "overdue": "Overdue",
@@ -19,8 +19,11 @@
     "appointments": "Appointments",
     "actionsTitle": "My actions",
     "empty": "Nothing needs your attention right now.",
+    "emptyHelp": "Capture a lead or review the pipeline to choose the next action.",
     "openPipeline": "Open pipeline",
-    "openActions": "View all actions"
+    "openActions": "View all actions",
+    "openLeads": "Manage leads",
+    "filtersApplied": "{count, plural, =1 {1 filter active} other {# filters active}}"
   },
   "pipeline": {
     "title": "Pipeline",
@@ -32,7 +35,8 @@
     "noShow": "No-show",
     "move": "Move",
     "stageSelector": "Pipeline stages",
-    "dragHint": "Drag a lead to another stage, or use the stage selector on its card."
+    "dragHint": "Drag a lead to another stage, or use the stage selector on its card.",
+    "manageLeads": "Manage leads"
   },
   "leads": {
     "title": "Leads",
@@ -49,6 +53,11 @@
     "from": "From",
     "to": "To",
     "overdueAction": "Has an overdue action",
+    "captureToggle": "Add a lead",
+    "apply": "Apply filters",
+    "reset": "Reset filters",
+    "resultCount": "{count, plural, =0 {No leads} =1 {1 lead} other {# leads}}",
+    "nextAction": "Next action",
     "captureTitle": "Add a social profile",
     "profileUrl": "Profile URL",
     "profileUrlPlaceholder": "https://instagram.com/...",
@@ -65,6 +74,7 @@
     "platform": "Platform",
     "created": "Created",
     "openProfile": "Open profile",
+    "noNextAction": "No next action",
     "sourceOptions": {
       "instagram": "Instagram",
       "tiktok": "TikTok",
@@ -98,6 +108,11 @@
     "completed": "Completed",
     "cancel": "Cancel",
     "empty": "No actions to show.",
+    "emptyHelp": "Add a lead and create its first follow-up from the lead page.",
+    "emptyFiltered": "Try a different filter or reset the view.",
+    "manageLeads": "Manage leads",
+    "resultCount": "{count, plural, =0 {No actions} =1 {1 action} other {# actions}}",
+    "reset": "Reset",
     "due": "Due",
     "invalidDue": "Choose a valid due date.",
     "responsible": "Owner"
@@ -127,6 +142,10 @@
     "outcomeFilter": "All call outcomes",
     "applyFilters": "Apply filters",
     "resetFilters": "Reset",
+    "pagination": "Calls pages",
+    "pageLabel": "Page {page}",
+    "previousPage": "Previous",
+    "nextPage": "Next",
     "batchAnalyze": "Analyze 25 unlinked calls",
     "batchQueued": "{count, plural, =1 {1 call was queued} other {# calls were queued}} for Falco.",
     "batchEmpty": "No new unlinked calls need analysis.",
@@ -316,7 +335,9 @@
     "rateCallBooked": "Call booking rate",
     "rateAttendance": "Attendance rate",
     "rateNoShow": "No-show rate",
-    "rateClosing": "Closing rate"
+    "rateClosing": "Closing rate",
+    "notMeasured": "Not measured",
+    "reset": "Reset filters"
   },
   "sources": {
     "instagram": "Instagram",
@@ -341,6 +362,7 @@
     "description": "Centralize Instagram and LinkedIn leads, follow-ups and calls.",
     "activate": "Activate CRM",
     "disable": "Disable CRM",
+    "disableConfirm": "Disable CRM? Your existing leads and history will stay saved, but the team will not be able to use the module until it is enabled again.",
     "later": "Later",
     "enabled": "CRM enabled",
     "disabled": "CRM is disabled",

@@ -265,7 +265,7 @@ function PillarNavGroup({
           onClick={() => setOpen((prev) => !prev)}
           aria-expanded={open}
           aria-label={t(open ? "collapsePages" : "expandPages", { label: t(entry.labelKey) })}
-          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-control)] text-mist/50 transition-colors hover:bg-mist/10 hover:text-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-control)] text-mist/70 transition-colors hover:bg-mist/10 hover:text-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
         >
           <ChevronDown className={cn("size-4 transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} />
         </button>
@@ -517,8 +517,9 @@ export function AppSidebar({
           usable without sacrificing the primary navigation. */}
       <aside
         id={navigationId}
+        aria-label={t("appSidebar")}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-hidden px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out)] md:translate-x-0",
+          "scrollbar-hidden fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-y-auto overscroll-contain px-3 pb-7 text-mist shadow-[4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out)] md:translate-x-0",
           mobileOpen ? "translate-x-0 max-md:visible" : "-translate-x-full max-md:pointer-events-none max-md:invisible"
         )}
         style={{ background: "var(--gradient-dark)" }}
@@ -531,7 +532,7 @@ export function AppSidebar({
           </Link>
         </div>
 
-        <nav aria-label={t("primaryNavigation")} className="scrollbar-hidden flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain pt-6">
+        <nav aria-label={t("primaryNavigation")} className="flex flex-col gap-1 pt-6">
           {visibleTopEntries.map((entry) => (
             <Fragment key={entry.href}>
               {/* PillarNavGroup falls back to a plain NavLink for any entry
@@ -556,7 +557,7 @@ export function AppSidebar({
               <Link
                 href={adminEntry.href}
                 prefetch={false}
-                className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/35 uppercase transition-colors hover:bg-mist/10 hover:text-mist/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+                className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/70 uppercase transition-colors hover:bg-mist/10 hover:text-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
               >
                 <ShieldCheck className="size-3.5" />
                 <span className="min-w-0 whitespace-normal break-words">{t(adminEntry.labelKey)}</span>
@@ -597,7 +598,15 @@ export function AppSidebar({
         </div>
       </aside>
 
-      <nav aria-label={t("mobileNavigation")} className="fixed inset-x-0 bottom-0 z-50 grid border-t border-border bg-card/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_rgba(22,21,15,0.08)] backdrop-blur-sm md:hidden" style={{ gridTemplateColumns: `repeat(${Math.max(mobileEntries.length, 1)}, minmax(0, 1fr))` }}>
+      <nav
+        aria-label={t("mobileNavigation")}
+        aria-hidden={mobileOpen}
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-20 grid border-t border-border bg-card/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_rgba(22,21,15,0.08)] backdrop-blur-sm transition-opacity duration-[var(--motion-fast)] md:hidden",
+          mobileOpen && "pointer-events-none opacity-0"
+        )}
+        style={{ gridTemplateColumns: `repeat(${Math.max(mobileEntries.length, 1)}, minmax(0, 1fr))` }}
+      >
         {mobileEntries.map((entry) => {
           const Icon = entry.icon;
           const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`);

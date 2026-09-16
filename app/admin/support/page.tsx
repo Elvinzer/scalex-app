@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Filter, KanbanSquare, List, Search } from "lucide-react";
+import { Filter, KanbanSquare, List, Search, X } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
@@ -60,6 +60,25 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
   const locale = await getLocale();
   const filters = filtersFromSearchParams(await searchParams);
   const [tickets, counters] = await Promise.all([getSupportQueue(filters), getSupportCounters()]);
+  type SupportFilterKey = "search" | "status" | "type" | "priority" | "assigned";
+  const activeFilters: Array<{ key: SupportFilterKey; label: string }> = [];
+  if (filters.search) activeFilters.push({ key: "search", label: t("admin.filters.searchValue", { value: filters.search }) });
+  if (filters.status) activeFilters.push({ key: "status", label: t("admin.filters.statusValue", { value: t(`status.${filters.status}`) }) });
+  if (filters.type) activeFilters.push({ key: "type", label: t("admin.filters.typeValue", { value: t(`form.type.${filters.type}`) }) });
+  if (filters.priority) activeFilters.push({ key: "priority", label: t("admin.filters.priorityValue", { value: t(`priority.${filters.priority}`) }) });
+  if (filters.assigned) {
+    const value = filters.assigned === "assigned" ? t("admin.filters.assigned") : t("admin.filters.unassigned");
+    activeFilters.push({ key: "assigned", label: t("admin.filters.assigneeValue", { value }) });
+  }
+  function clearFilterHref(key: SupportFilterKey): string {
+    const next: SupportQueueFilters = { ...filters };
+    if (key === "search") delete next.search;
+    if (key === "status") delete next.status;
+    if (key === "type") delete next.type;
+    if (key === "priority") delete next.priority;
+    if (key === "assigned") delete next.assigned;
+    return hrefFor(next, filters.view ?? "table");
+  }
   const priorityCount = counters.priority.high + counters.priority.blocking;
   const recentCount = counters.status.new + counters.status.triage + counters.status.in_progress + counters.status.waiting_on_user;
 
@@ -74,7 +93,7 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
         <p className="max-w-xs text-right text-xs leading-5 text-muted-foreground">{t("admin.permission")}</p>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" aria-label={t("admin.title")}>
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" aria-label={t("admin.countersRegion")}>
         {[
           ["new", counters.status.new],
           ["triage", counters.status.triage],
@@ -102,34 +121,51 @@ export default async function AdminSupportPage({ searchParams }: { searchParams:
         </form>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <div className="flex gap-2" role="group" aria-label={t("admin.views.table")}>
-            <Button asChild variant={filters.view === "kanban" ? "outline" : "default"} className="min-h-11"><Link href={hrefFor(filters, "table")}><List className="size-4" /> {t("admin.views.table")}</Link></Button>
-            <Button asChild variant={filters.view === "kanban" ? "default" : "outline"} className="min-h-11"><Link href={hrefFor(filters, "kanban")}><KanbanSquare className="size-4" /> {t("admin.views.kanban")}</Link></Button>
+            <Button asChild variant={filters.view === "kanban" ? "outline" : "default"} className="min-h-11"><Link href={hrefFor(filters, "table")} aria-current={filters.view === "table" ? "page" : undefined}><List className="size-4" /> {t("admin.views.table")}</Link></Button>
+            <Button asChild variant={filters.view === "kanban" ? "default" : "outline"} className="min-h-11"><Link href={hrefFor(filters, "kanban")} aria-current={filters.view === "kanban" ? "page" : undefined}><KanbanSquare className="size-4" /> {t("admin.views.kanban")}</Link></Button>
           </div>
           <Link href="/admin/support" className="min-h-11 inline-flex items-center rounded-[var(--radius-control)] px-3 text-sm font-bold text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent-2">{t("admin.filters.reset")}</Link>
+        </div>
+        <div className="mt-4 rounded-[var(--radius-control)] bg-muted/40 px-3 py-3 text-sm" aria-live="polite">
+          <p className="font-bold">{t("admin.filters.active")}</p>
+          {activeFilters.length === 0 ? (
+            <p className="mt-1 text-muted-foreground">{t("admin.filters.noneActive")}</p>
+          ) : (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {activeFilters.map((filter) => (
+                <li key={filter.key}>
+                  <Link href={clearFilterHref(filter.key)} aria-label={t("admin.filters.clear", { label: filter.label })} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-xs font-bold text-foreground hover:border-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/12">
+                    {filter.label}
+                    <X className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
       {filters.view === "kanban" ? (
         <Kanban tickets={tickets} locale={locale} t={t} />
       ) : (
-        <TicketTable tickets={tickets} locale={locale} t={t} />
+        <TicketTable tickets={tickets} locale={locale} t={t} hasFilters={activeFilters.length > 0} />
       )}
       <p className="sr-only" aria-live="polite">{t("admin.ticketCount", { count: tickets.length })}</p>
     </div>
   );
 }
 
-function TicketTable({ tickets, locale, t }: { tickets: Awaited<ReturnType<typeof getSupportQueue>>; locale: string; t: SupportTranslator }) {
-  if (tickets.length === 0) return <EmptyState t={t} />;
+function TicketTable({ tickets, locale, t, hasFilters }: { tickets: Awaited<ReturnType<typeof getSupportQueue>>; locale: string; t: SupportTranslator; hasFilters: boolean }) {
+  if (tickets.length === 0) return <EmptyState t={t} hasFilters={hasFilters} />;
   return (
-    <section className="sticker-card overflow-hidden p-0" aria-label={t("admin.title")}>
+    <section className="sticker-card overflow-hidden p-0" aria-label={t("admin.ticketList")}>
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[980px] text-left text-sm">
-          <thead><tr className="border-b border-border text-xs font-bold text-muted-foreground"><th className="px-4 py-3">{t("admin.table.reference")}</th><th className="px-4 py-3">{t("admin.table.type")}</th><th className="px-4 py-3">{t("admin.table.title")}</th><th className="px-4 py-3">{t("admin.table.account")}</th><th className="px-4 py-3">{t("admin.table.requester")}</th><th className="px-4 py-3">{t("admin.table.priority")}</th><th className="px-4 py-3">{t("admin.table.status")}</th><th className="px-4 py-3">{t("admin.table.assignee")}</th><th className="px-4 py-3">{t("admin.table.activity")}</th></tr></thead>
+          <thead><tr className="border-b border-border text-xs font-bold text-muted-foreground"><th scope="col" className="px-4 py-3">{t("admin.table.reference")}</th><th scope="col" className="px-4 py-3">{t("admin.table.type")}</th><th scope="col" className="px-4 py-3">{t("admin.table.title")}</th><th scope="col" className="px-4 py-3">{t("admin.table.account")}</th><th scope="col" className="px-4 py-3">{t("admin.table.requester")}</th><th scope="col" className="px-4 py-3">{t("admin.table.priority")}</th><th scope="col" className="px-4 py-3">{t("admin.table.status")}</th><th scope="col" className="px-4 py-3">{t("admin.table.assignee")}</th><th scope="col" className="px-4 py-3">{t("admin.table.activity")}</th></tr></thead>
           <tbody>{tickets.map((ticket) => <tr key={ticket.id} className="border-b border-border last:border-0 hover:bg-muted/50"><td className="px-4 py-3 font-bold"><Link href={`/admin/support/${ticket.id}`} className="focus-visible:outline-2 focus-visible:outline-accent-2">{ticket.reference}</Link></td><td className="px-4 py-3 text-muted-foreground">{t(`form.type.${ticket.type}`)}</td><td className="max-w-[230px] truncate px-4 py-3 font-bold">{ticket.title}</td><td className="px-4 py-3">{displayName(ticket.accountName, ticket.accountEmail)}</td><td className="px-4 py-3">{displayName(ticket.requesterName, ticket.requesterEmail)}</td><td className="px-4 py-3"><SupportPriorityBadge priority={ticket.priority} /></td><td className="px-4 py-3"><SupportStatusBadge status={ticket.status} /></td><td className="px-4 py-3 text-muted-foreground">{ticket.assignedStaffEmail ?? t("admin.detail.none")}</td><td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{formatDate(ticket.lastActivityAt, locale)}</td></tr>)}</tbody>
         </table>
       </div>
-      <div className="divide-y divide-border md:hidden">{tickets.map((ticket) => <Link key={ticket.id} href={`/admin/support/${ticket.id}`} className="block p-4 focus-visible:outline-2 focus-visible:outline-accent-2"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-muted-foreground">{ticket.reference} · {t(`form.type.${ticket.type}`)}</p><p className="mt-1 font-bold">{ticket.title}</p></div><SupportPriorityBadge priority={ticket.priority} /></div><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><SupportStatusBadge status={ticket.status} /><span className="text-xs text-muted-foreground">{formatDate(ticket.lastActivityAt, locale)}</span></div></Link>)}</div>
+      <div className="divide-y divide-border md:hidden">{tickets.map((ticket) => <Link key={ticket.id} href={`/admin/support/${ticket.id}`} className="block min-w-0 p-4 focus-visible:outline-2 focus-visible:outline-accent-2"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-muted-foreground">{ticket.reference} · {t(`form.type.${ticket.type}`)}</p><p className="mt-1 break-words font-bold">{ticket.title}</p></div><SupportPriorityBadge priority={ticket.priority} /></div><p className="mt-2 break-words text-xs text-muted-foreground">{displayName(ticket.accountName, ticket.accountEmail)}</p><p className="mt-1 break-words text-xs text-muted-foreground">{t("admin.table.assignee")}: {ticket.assignedStaffEmail ?? t("admin.detail.none")}</p><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><SupportStatusBadge status={ticket.status} /><span className="text-xs text-muted-foreground">{formatDate(ticket.lastActivityAt, locale)}</span></div></Link>)}</div>
     </section>
   );
 }
@@ -146,8 +182,8 @@ function Kanban({ tickets, locale, t }: { tickets: Awaited<ReturnType<typeof get
   );
 }
 
-function EmptyState({ t }: { t: SupportTranslator }) {
-  return <section className="sticker-card p-10 text-center"><h2 className="text-lg font-bold">{t("admin.empty.title")}</h2><p className="mt-2 text-sm text-muted-foreground">{t("admin.empty.description")}</p></section>;
+function EmptyState({ t, hasFilters }: { t: SupportTranslator; hasFilters: boolean }) {
+  return <section className="sticker-card p-10 text-center"><h2 className="text-lg font-bold">{hasFilters ? t("admin.empty.title") : t("admin.empty.noTicketsTitle")}</h2><p className="mt-2 text-sm text-muted-foreground">{hasFilters ? t("admin.empty.description") : t("admin.empty.noTicketsDescription")}</p></section>;
 }
 
 type SupportTranslator = Awaited<ReturnType<typeof getTranslations>>;

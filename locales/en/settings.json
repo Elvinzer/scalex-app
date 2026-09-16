@@ -9,6 +9,18 @@
   "page": {
     "title": "Settings",
     "subtitle": "Your account, Anthropic key and integrations.",
+    "quickNav": "Settings sections",
+    "sections": {
+      "profile": "Profile",
+      "business": "My business",
+      "booking": "Booking page",
+      "anthropicKey": "AI key",
+      "billing": "Billing",
+      "team": "Team",
+      "integrations": "Integrations",
+      "crmModule": "CRM",
+      "deleteData": "Delete data"
+    },
     "account": "Account",
     "profile": "Profile",
     "profileHelp": "Your photo and display name, shown in the left menu.",
@@ -18,6 +30,7 @@
     "anthropicKey": "Anthropic API key (BYOK)",
     "anthropicKeyHelp": "Your agent always uses your own key: never shared, never displayed in plain text.",
     "keyInvalid": "This key was revoked or expired on Anthropic. Generate a new one below to use your insights again.",
+    "keyInvalidLabel": "no longer works",
     "keyUnreadableTitle": "Your saved key could not be read",
     "keyUnreadable": "The server encryption key changed after it was saved. Your stored key is unusable: enter it again below to restore your insights.",
     "getKey": "How to get your key",
@@ -91,6 +104,12 @@
     "deletePermanently": "Delete permanently"
   },
   "team": {
+    "quickNav": "Team sections",
+    "membersSection": "Members",
+    "membersHelp": "Invite people and choose the areas they can access.",
+    "membersTable": "Team members",
+    "scrollHint": "Swipe horizontally to see all member actions.",
+    "settersSection": "Setters",
     "title": "Team",
     "subtitle": "Invite members and assign one or more roles. Configure each role’s access below.",
     "invite": "Invite a member",

@@ -276,6 +276,7 @@ export function SalesSection({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
+                    aria-pressed={offer.isMain}
                     onClick={() => updateOffer(offer.id, { isMain: !offer.isMain })}
                     className={
                       offer.isMain
@@ -290,6 +291,7 @@ export function SalesSection({
                       this configuration in Mon business. */}
                   <button
                     type="button"
+                    aria-pressed={offer.isUpsell}
                     onClick={() => updateOffer(offer.id, { isUpsell: !offer.isUpsell })}
                     className={
                       offer.isUpsell
@@ -341,7 +343,7 @@ export function SalesSection({
               >
                 <option value="">{t("notEntered")}</option>
                 <option value="moi">{t("me")}</option>
-                <option value="closer">Closer</option>
+                <option value="closer">{t("closer")}</option>
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs">
@@ -421,9 +423,10 @@ function FollowupToggle({
   return (
     <div className="flex items-center justify-between gap-4">
       <p className="text-sm">{label}</p>
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="group" aria-label={label}>
         <button
           type="button"
+          aria-pressed={value === true}
           onClick={() => onChange(true)}
           className={
             value === true
@@ -435,6 +438,7 @@ function FollowupToggle({
         </button>
         <button
           type="button"
+          aria-pressed={value === false}
           onClick={() => onChange(false)}
           className={
             value === false

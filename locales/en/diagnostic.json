@@ -33,6 +33,8 @@
   "unpricedPoints": "{count} point{plural} below benchmark, not priced yet",
   "addTitle": "Add new levers",
   "addHelp": "Levers you are not using yet, ranked by potential.",
+  "recommendedNext": "RECOMMENDED NEXT",
+  "otherLevers": "See {count, plural, =1 {1 other opportunity} other {# other opportunities}}",
   "addPageHelp": "Review missing levers, the discovery questionnaire and their potential revenue projection on this page.",
   "openAddLevers": "Open Add new levers",
   "addPageTitle": "Add new levers",
@@ -197,6 +199,7 @@
   },
   "insight": {
     "close": "Close",
+    "label": "Insight",
     "regenerate": "Run the diagnosis again",
     "questionsHelp": "Answer these questions to get a specific insight on this rate.",
     "generating": "Generating…",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ export function PlanFormDialog({ plan, trigger }: { plan?: PlanRow; trigger: Rea
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const t = useTranslations("app.admin.plans");
   const features = (plan?.features ?? {}) as {
     teamMembersEnabled?: boolean;
     maxTeamMembers?: number | null;
@@ -61,24 +63,24 @@ export function PlanFormDialog({ plan, trigger }: { plan?: PlanRow; trigger: Rea
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogTitle className="text-lg font-bold">{plan ? "Modifier le plan" : "Nouveau plan"}</DialogTitle>
+      <DialogContent className="max-h-[min(85vh,42rem)] overflow-y-auto">
+        <DialogTitle className="text-lg font-bold">{plan ? t("editDialogTitle") : t("newDialogTitle")}</DialogTitle>
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Clé (slug)</span>
+              <span className="text-muted-foreground">{t("keySlug")}</span>
               <input
                 type="text"
                 name="key"
                 required
                 defaultValue={plan?.key ?? ""}
-                placeholder="growth"
+                placeholder={t("keyPlaceholder")}
                 className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Nom</span>
+              <span className="text-muted-foreground">{t("name")}</span>
               <input
                 type="text"
                 name="name"
@@ -90,7 +92,7 @@ export function PlanFormDialog({ plan, trigger }: { plan?: PlanRow; trigger: Rea
           </div>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Prix mensuel (USD)</span>
+            <span className="text-muted-foreground">{t("monthlyPrice")}</span>
             <input
               type="number"
               name="priceMonthly"
@@ -104,11 +106,11 @@ export function PlanFormDialog({ plan, trigger }: { plan?: PlanRow; trigger: Rea
 
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="teamMembersEnabled" defaultChecked={features.teamMembersEnabled ?? false} />
-            <span>Inclut les membres d&apos;équipe</span>
+            <span>{t("includesTeamMembers")}</span>
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Nombre max de membres (vide = illimité)</span>
+            <span className="text-muted-foreground">{t("maxTeamMembers")}</span>
             <input
               type="number"
               name="maxTeamMembers"
@@ -125,10 +127,10 @@ export function PlanFormDialog({ plan, trigger }: { plan?: PlanRow; trigger: Rea
                 name="nativeBookingEnabled"
                 defaultChecked={features.nativeBookingEnabled ?? false}
               />
-              <span>Inclut la prise de rendez-vous native</span>
+              <span>{t("includesBooking")}</span>
             </label>
             <label className="mt-3 flex flex-col gap-1.5 text-sm">
-              <span className="text-muted-foreground">Nombre max d&apos;événements (vide = illimité)</span>
+              <span className="text-muted-foreground">{t("maxBookingEvents")}</span>
               <input
                 type="number"
                 name="maxBookingEvents"
@@ -138,19 +140,19 @@ export function PlanFormDialog({ plan, trigger }: { plan?: PlanRow; trigger: Rea
               />
             </label>
             <p className="mt-2 text-xs text-muted-foreground">
-              Le plan d&apos;entrée peut être limité à 1 événement ; un champ vide autorise un nombre illimité.
+              {t("bookingHelp")}
             </p>
           </div>
 
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="isActive" defaultChecked={plan?.isActive ?? true} />
-            <span>Actif (visible pour les infopreneurs)</span>
+            <span>{t("activeForCustomers")}</span>
           </label>
 
           {error && <p className="text-sm text-state-critical">{error}</p>}
 
           <Button type="submit" disabled={isPending} className="self-start">
-            {isPending ? "Enregistrement..." : plan ? "Enregistrer" : "Créer le plan"}
+            {isPending ? t("saving") : plan ? t("save") : t("create")}
           </Button>
         </form>
       </DialogContent>

@@ -9,6 +9,18 @@
   "page": {
     "title": "Réglages",
     "subtitle": "Ton compte, ta clé Anthropic et tes intégrations.",
+    "quickNav": "Sections des réglages",
+    "sections": {
+      "profile": "Profil",
+      "business": "Mon business",
+      "booking": "Page de réservation",
+      "anthropicKey": "Clé IA",
+      "billing": "Facturation",
+      "team": "Équipe",
+      "integrations": "Intégrations",
+      "crmModule": "CRM",
+      "deleteData": "Supprimer les données"
+    },
     "account": "Compte",
     "profile": "Profil",
     "profileHelp": "Ta photo et ton pseudo, affichés dans le menu de gauche.",
@@ -18,6 +30,7 @@
     "anthropicKey": "Clé API Anthropic (BYOK)",
     "anthropicKeyHelp": "Ton agent utilise toujours ta propre clé : jamais partagée, jamais affichée en clair.",
     "keyInvalid": "Cette clé a été révoquée ou a expiré côté Anthropic. Génères-en une nouvelle ci-dessous pour débloquer à nouveau les insights.",
+    "keyInvalidLabel": "ne fonctionne plus",
     "keyUnreadableTitle": "Ta clé enregistrée n’a pas pu être lue",
     "keyUnreadable": "La clé de chiffrement du serveur a changé depuis son enregistrement. Ta clé stockée est inutilisable : re-saisis-la ci-dessous pour rétablir tes insights.",
     "getKey": "Comment obtenir ta clé",
@@ -91,6 +104,12 @@
     "deletePermanently": "Supprimer définitivement"
   },
   "team": {
+    "quickNav": "Sections de l'équipe",
+    "membersSection": "Membres",
+    "membersHelp": "Invite des personnes et choisis les fonctionnalités auxquelles elles peuvent accéder.",
+    "membersTable": "Membres de l'équipe",
+    "scrollHint": "Fais défiler horizontalement pour voir toutes les actions.",
+    "settersSection": "Setters",
     "title": "Équipe",
     "subtitle": "Invite des membres et attribue-leur un ou plusieurs rôles — les accès de chaque rôle se configurent juste en dessous.",
     "invite": "Inviter un membre",

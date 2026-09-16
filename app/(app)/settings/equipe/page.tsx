@@ -54,6 +54,13 @@ export default async function EquipePage() {
         )}
       </div>
 
+      <nav aria-label={t("quickNav")} className="sticky top-2 z-10 flex gap-2 overflow-x-auto rounded-[var(--radius-card)] border border-border bg-panel/95 p-2 backdrop-blur">
+        <a href="#members" className="min-h-10 shrink-0 rounded-[var(--radius-control)] px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("membersSection")}</a>
+        <a href="#closers" className="min-h-10 shrink-0 rounded-[var(--radius-control)] px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("closersTitle")}</a>
+        <a href="#setters" className="min-h-10 shrink-0 rounded-[var(--radius-control)] px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("settersSection")}</a>
+        <a href="#roles" className="min-h-10 shrink-0 rounded-[var(--radius-control)] px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("rolesTitle")}</a>
+      </nav>
+
       {!subscriptionActive && (
         <div className="sticker-card-dashed p-6 text-center">
           <p className="text-sm font-bold">{t("subscriptionRequired")}</p>
@@ -66,8 +73,11 @@ export default async function EquipePage() {
         </div>
       )}
 
-      <div className="sticker-card overflow-x-auto p-0">
-        <table className="w-full text-sm">
+      <section id="members" className="scroll-mt-20 sticker-card overflow-hidden p-0" aria-labelledby="members-title">
+        <div className="border-b border-border p-4"><h2 id="members-title" className="text-lg font-bold">{t("membersSection")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("membersHelp")}</p></div>
+        <div className="overflow-x-auto" role="region" aria-label={t("membersTable")} tabIndex={0}>
+        <p className="px-4 pt-3 text-xs text-muted-foreground md:hidden">{t("scrollHint")}</p>
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="px-4 py-3 font-bold">{t("email")}</th>
@@ -96,9 +106,10 @@ export default async function EquipePage() {
             )}
           </tbody>
         </table>
-      </div>
+        </div>
+      </section>
 
-      <section aria-labelledby="closers-section-title" className="flex flex-col gap-4 border-t border-border pt-8">
+      <section id="closers" aria-labelledby="closers-section-title" className="scroll-mt-20 flex flex-col gap-4 border-t border-border pt-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 id="closers-section-title" className="text-xl font-bold">{t("closersTitle")}</h2>
@@ -121,7 +132,7 @@ export default async function EquipePage() {
         </div>
       </section>
 
-      <section aria-labelledby="setters-section-title" className="flex flex-col gap-4 border-t border-border pt-8">
+      <section id="setters" aria-labelledby="setters-section-title" className="scroll-mt-20 flex flex-col gap-4 border-t border-border pt-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 id="setters-section-title" className="text-xl font-bold">{tSetters("title")}</h2>
@@ -144,7 +155,7 @@ export default async function EquipePage() {
         )}
       </section>
 
-      <div className="flex flex-wrap items-start justify-between gap-4 border-t border-border pt-8">
+      <div id="roles" className="scroll-mt-20 flex flex-wrap items-start justify-between gap-4 border-t border-border pt-8">
         <div>
           <h2 className="text-xl font-bold">{t("rolesTitle")}</h2>
           <p className="mt-1 text-muted-foreground">{t("rolesHelp")}</p>

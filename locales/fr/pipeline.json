@@ -18,6 +18,8 @@
     "updateHelp": "Ressaisir une date déjà enregistrée la met à jour.",
     "importCsv": "Importer un CSV",
     "history": "Historique",
+    "entriesTable": "Tableau de l’historique quotidien des KPI",
+    "chooseFile": "Choisir un fichier CSV",
     "date": "Date",
     "newSubscribers": "Nouveaux abonnés",
     "firstMessages": "Premiers messages envoyés",

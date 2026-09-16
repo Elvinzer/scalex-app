@@ -32,6 +32,8 @@ export type AdminIdeasCopy = {
   };
   card: { createdAt: string; dragHint: string; moveTo: string };
   saving: string;
+  saved: string;
+  created: string;
   errors: Record<AdminIdeaError, string>;
 };
 
@@ -163,6 +165,7 @@ export function AdminIdeasBoard({ initialIdeas, copy, locale }: { initialIdeas: 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: "", description: "" });
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function updateIdeaLocally(ideaId: string, status: AdminIdeaStatus) {
@@ -185,12 +188,20 @@ export function AdminIdeasBoard({ initialIdeas, copy, locale }: { initialIdeas: 
     if (!idea || idea.status === status) return;
 
     setError(null);
+    setStatusMessage(null);
     updateIdeaLocally(ideaId, status);
     startTransition(async () => {
-      const result = await moveAdminIdea({ id: ideaId, status });
-      if (result.error) {
+      try {
+        const result = await moveAdminIdea({ id: ideaId, status });
+        if (result.error) {
+          setIdeas(previous);
+          setError(errorMessage(result.error, copy));
+          return;
+        }
+        setStatusMessage(copy.saved);
+      } catch {
         setIdeas(previous);
-        setError(errorMessage(result.error, copy));
+        setError(copy.errors.move_failed);
       }
     });
   }
@@ -200,18 +211,23 @@ export function AdminIdeasBoard({ initialIdeas, copy, locale }: { initialIdeas: 
     if (!form.title.trim()) return;
 
     setError(null);
+    setStatusMessage(null);
     startTransition(async () => {
-      const result = await createAdminIdea(form);
-      if (result.error || !result.idea) {
-        setError(errorMessage(result.error, copy));
-        return;
-      }
+      try {
+        const result = await createAdminIdea(form);
+        if (result.error || !result.idea) {
+          setError(errorMessage(result.error, copy));
+          return;
+        }
 
-      const createdIdea = result.idea;
-      if (!createdIdea) return;
-      setIdeas((current) => [...current, createdIdea]);
-      setForm({ title: "", description: "" });
-      setDialogOpen(false);
+        const createdIdea = result.idea;
+        setIdeas((current) => [...current, createdIdea]);
+        setForm({ title: "", description: "" });
+        setDialogOpen(false);
+        setStatusMessage(copy.created);
+      } catch {
+        setError(copy.errors.create_failed);
+      }
     });
   }
 
@@ -235,7 +251,7 @@ export function AdminIdeasBoard({ initialIdeas, copy, locale }: { initialIdeas: 
             <p className="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{copy.boardHelp}</p>
           </div>
         </div>
-        <Button type="button" onClick={() => { setError(null); setDialogOpen(true); }} className="min-h-11 shrink-0">
+        <Button type="button" onClick={() => { setError(null); setStatusMessage(null); setDialogOpen(true); }} className="min-h-11 shrink-0">
           <Plus className="size-4" aria-hidden="true" />
           {copy.add}
         </Button>
@@ -243,8 +259,9 @@ export function AdminIdeasBoard({ initialIdeas, copy, locale }: { initialIdeas: 
 
       {error && <p role="alert" className="rounded-[var(--radius-control)] border border-state-critical/30 bg-state-critical-bg px-4 py-3 text-sm font-bold text-state-critical">{error}</p>}
       {isPending && <p aria-live="polite" className="text-sm text-muted-foreground">{copy.saving}</p>}
+      {statusMessage && !isPending && <p role="status" aria-live="polite" className="rounded-[var(--radius-control)] border border-state-healthy/30 bg-state-healthy-bg px-4 py-3 text-sm font-bold text-state-healthy">{statusMessage}</p>}
 
-      <section aria-label={copy.boardTitle} className="grid gap-3 lg:grid-cols-3">
+      <section aria-label={copy.boardTitle} aria-busy={isPending} className="grid gap-3 lg:grid-cols-3">
         {ideaStatuses.map((status) => (
           <IdeaColumn key={status} status={status} ideas={groupedIdeas[status]} onDrop={persistMove} onMove={persistMove} copy={copy} locale={locale} />
         ))}
@@ -255,7 +272,7 @@ export function AdminIdeasBoard({ initialIdeas, copy, locale }: { initialIdeas: 
       </p>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[min(85vh,42rem)] overflow-y-auto">
           <form onSubmit={submitIdea} className="flex flex-col gap-4">
             <DialogTitle className="text-xl font-bold">{copy.form.title}</DialogTitle>
             <label className="flex flex-col gap-1.5 text-sm font-bold">

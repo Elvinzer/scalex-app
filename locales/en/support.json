@@ -109,6 +109,8 @@
     "title": "Support queue",
     "description": "Review, assign and resolve customer tickets.",
     "permission": "Access is limited to founders and active support staff.",
+    "countersRegion": "Support queue summary",
+    "ticketList": "Support ticket list",
     "ticketCount": "{count} tickets",
     "backToDashboard": "Back to dashboard",
     "filters": {
@@ -121,7 +123,15 @@
       "unassigned": "Unassigned",
       "assigned": "Assigned",
       "apply": "Apply filters",
-      "reset": "Reset"
+      "reset": "Reset",
+      "active": "Active filters",
+      "clear": "Remove filter: {label}",
+      "searchValue": "Search: {value}",
+      "statusValue": "Status: {value}",
+      "typeValue": "Type: {value}",
+      "priorityValue": "Priority: {value}",
+      "assigneeValue": "Assignment: {value}",
+      "noneActive": "No filters are active."
     },
     "views": {
       "table": "Table view",
@@ -148,7 +158,9 @@
     },
     "empty": {
       "title": "No ticket matches these filters",
-      "description": "Try a wider period or reset the filters."
+      "description": "Try a wider period or reset the filters.",
+      "noTicketsTitle": "The support queue is empty",
+      "noTicketsDescription": "New customer tickets will appear here."
     },
     "loading": "Loading tickets...",
     "error": "The queue could not be loaded.",

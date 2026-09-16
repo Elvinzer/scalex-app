@@ -95,7 +95,7 @@ export function StageInsightPanel({
             <button
               type="button"
               onClick={() => setMode("questions")}
-              className="mt-4 text-sm font-bold text-signal"
+              className="mt-4 text-sm font-bold text-accent-text"
             >
               {t("regenerate")}
             </button>

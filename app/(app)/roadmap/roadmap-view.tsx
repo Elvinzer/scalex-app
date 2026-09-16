@@ -533,7 +533,7 @@ function RoadmapJourney({
         <ListChecks className="size-5 text-accent-2" aria-hidden="true" />
       </div>
 
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragCancel={handleDragCancel} onDragEnd={handleDragEnd}>
+      <DndContext id="roadmap-journey-dnd" sensors={sensors} onDragStart={handleDragStart} onDragCancel={handleDragCancel} onDragEnd={handleDragEnd}>
         <div className="mt-4 grid gap-3 md:grid-cols-3" data-testid="roadmap-kanban">
           {stages.map((stage) => (
             <RoadmapColumn
@@ -827,7 +827,7 @@ function RoadmapActionCenter({
               />
             ))
           ) : (
-            <p className="p-4 text-sm text-muted-foreground">{translate("planner.noActions")}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{translate("planner.noActions")}</p><Button asChild variant="outline" size="sm"><Link href="/datas">{translate("planner.openData")}</Link></Button></div>
           )}
         </div>
       </section>

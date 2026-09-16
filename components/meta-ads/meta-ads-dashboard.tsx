@@ -131,8 +131,17 @@ function sumNullable(values: Array<number | null>): number | null {
 async function FunnelCard({ totals, campaignType, campaignFollowers, campaignSales, customerAcquisitionCostBenchmarkCents, frequencySaturationThreshold }: { totals: MetaMetricTotals; campaignType: NonNullable<MetaCampaignDashboardRow["campaignType"]>; campaignFollowers: number | null; campaignSales: number | null; customerAcquisitionCostBenchmarkCents: number | null; frequencySaturationThreshold: number }) {
   const locale = await getLocale();
   const t = await getTranslations("app.ads.dashboard");
+  const journeyLabel = campaignType === "vsl"
+    ? t("vslJourney")
+    : campaignType === "webinar"
+      ? t("webinarJourney")
+      : campaignType === "instagram_profile_growth"
+        ? t("instagramJourney")
+        : campaignType === "retargeting"
+          ? t("retargetingJourney")
+          : t("campaignReading");
   const tableLabels = {
-    aria: t("funnelTableAria"),
+    aria: `${t("funnelTableAria")} · ${journeyLabel}`,
     caption: t("funnelTableCaption"),
     step: t("step"),
     value: t("value"),
@@ -197,8 +206,8 @@ async function FunnelCard({ totals, campaignType, campaignFollowers, campaignSal
           <FunnelTable locale={locale} labels={tableLabels} rows={[
             { label: t("clicks"), value: linkClicks, base: impressions },
             { label: t("registrations"), value: registrations, base: linkClicks },
-            { label: "Live attendance", value: null, base: registrations, unavailableReason: t("webinarAttendanceMissing") },
-            { label: "Attendance through pitch", value: null, base: registrations, unavailableReason: t("webinarProgressMissing") },
+            { label: t("liveAttendance"), value: null, base: registrations, unavailableReason: t("webinarAttendanceMissing") },
+            { label: t("attendanceThroughPitch"), value: null, base: registrations, unavailableReason: t("webinarProgressMissing") },
             { label: t("metaSales"), value: metricValue(totals, "purchases"), base: registrations },
           ]} />
           <p className="text-[11px] text-muted-foreground">{t("webinarProvenance")}</p>
@@ -381,7 +390,7 @@ export async function MetaAdsDashboard({
       />
 
       {activeFunnel.length > 0 && (
-        <div className="rounded-[var(--radius-control)] border border-accent-border bg-accent-soft/45 px-4 py-3" aria-label={t("businessFunnel")}>
+        <div role="group" className="rounded-[var(--radius-control)] border border-accent-border bg-accent-soft/45 px-4 py-3" aria-label={t("businessFunnel")}>
           <p className="text-xs font-bold tracking-wide text-accent-text uppercase">{t("businessFunnel")}</p>
           <p className="mt-1 text-sm font-bold">{activeFunnel.map((block) => block.label).join(" → ")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{t("businessFunnelHelp")}</p>

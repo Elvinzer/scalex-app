@@ -48,6 +48,8 @@ export default async function AdminIdeasPage() {
       moveTo: t("card.moveTo", { status: "{status}" }),
     },
     saving: t("saving"),
+    saved: t("saved"),
+    created: t("created"),
     errors: {
       invalid: t("errors.invalid"),
       create_failed: t("errors.create_failed"),

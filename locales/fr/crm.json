@@ -9,8 +9,8 @@
     "calls": "Appels"
   },
   "today": {
-    "title": "Aujourd'hui",
-    "subtitle": "Ce qui mérite ton attention maintenant.",
+    "title": "Vue d’ensemble",
+    "subtitle": "Regarde la période choisie et ce qui demande ton attention.",
     "teamView": "Vue équipe",
     "myView": "Ma vue",
     "overdue": "En retard",
@@ -19,8 +19,11 @@
     "appointments": "Rendez-vous",
     "actionsTitle": "Mes actions",
     "empty": "Rien à traiter pour l'instant.",
+    "emptyHelp": "Ajoute un lead ou ouvre le pipeline pour choisir la prochaine action.",
     "openPipeline": "Voir le pipeline",
-    "openActions": "Voir toutes les actions"
+    "openActions": "Voir toutes les actions",
+    "openLeads": "Gérer les leads",
+    "filtersApplied": "{count, plural, =1 {1 filtre actif} other {# filtres actifs}}"
   },
   "pipeline": {
     "title": "Pipeline",
@@ -32,7 +35,8 @@
     "noShow": "No-show",
     "move": "Déplacer",
     "stageSelector": "Étapes du pipeline",
-    "dragHint": "Glisse un lead vers une autre étape ou utilise le sélecteur de sa fiche."
+    "dragHint": "Glisse un lead vers une autre étape ou utilise le sélecteur de sa fiche.",
+    "manageLeads": "Gérer les leads"
   },
   "leads": {
     "title": "Leads",
@@ -49,6 +53,11 @@
     "from": "Du",
     "to": "Au",
     "overdueAction": "Avec une action en retard",
+    "captureToggle": "Ajouter un lead",
+    "apply": "Appliquer les filtres",
+    "reset": "Réinitialiser les filtres",
+    "resultCount": "{count, plural, =0 {Aucun lead} =1 {1 lead} other {# leads}}",
+    "nextAction": "Prochaine action",
     "captureTitle": "Ajouter un profil social",
     "profileUrl": "URL du profil",
     "profileUrlPlaceholder": "https://instagram.com/...",
@@ -65,6 +74,7 @@
     "platform": "Plateforme",
     "created": "Créé le",
     "openProfile": "Ouvrir le profil",
+    "noNextAction": "Aucune prochaine action",
     "sourceOptions": {
       "instagram": "Instagram",
       "tiktok": "TikTok",
@@ -98,6 +108,11 @@
     "completed": "Terminée",
     "cancel": "Annuler",
     "empty": "Aucune action à afficher.",
+    "emptyHelp": "Ajoute un lead, puis crée sa première relance depuis sa fiche.",
+    "emptyFiltered": "Essaie un autre filtre ou réinitialise la vue.",
+    "manageLeads": "Gérer les leads",
+    "resultCount": "{count, plural, =0 {Aucune action} =1 {1 action} other {# actions}}",
+    "reset": "Réinitialiser",
     "due": "Échéance",
     "invalidDue": "Choisis une échéance valide.",
     "responsible": "Responsable"
@@ -127,6 +142,10 @@
     "outcomeFilter": "Tous les résultats d'appel",
     "applyFilters": "Appliquer les filtres",
     "resetFilters": "Réinitialiser",
+    "pagination": "Pages des appels",
+    "pageLabel": "Page {page}",
+    "previousPage": "Précédente",
+    "nextPage": "Suivante",
     "batchAnalyze": "Analyser 25 appels non reliés",
     "batchQueued": "{count, plural, =1 {1 appel ajouté} other {# appels ajoutés}} à la file Falco.",
     "batchEmpty": "Aucun nouvel appel non relié à analyser.",
@@ -316,7 +335,9 @@
     "rateCallBooked": "Taux de prise de rendez-vous",
     "rateAttendance": "Taux de présence",
     "rateNoShow": "Taux de no-show",
-    "rateClosing": "Taux de closing"
+    "rateClosing": "Taux de closing",
+    "notMeasured": "Non mesuré",
+    "reset": "Réinitialiser les filtres"
   },
   "sources": {
     "instagram": "Instagram",
@@ -341,6 +362,7 @@
     "description": "Centralise tes leads Instagram et LinkedIn, tes relances et tes appels.",
     "activate": "Activer le CRM",
     "disable": "Désactiver le CRM",
+    "disableConfirm": "Désactiver le CRM ? Tes leads et ton historique resteront enregistrés, mais l'équipe ne pourra plus utiliser le module tant qu'il ne sera pas réactivé.",
     "later": "Plus tard",
     "enabled": "CRM activé",
     "disabled": "Le CRM est désactivé",

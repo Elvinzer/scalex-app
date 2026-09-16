@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,10 @@ type CallsSearchParams = {
   suggestion?: string | string[];
   from?: string | string[];
   to?: string | string[];
+  page?: string | string[];
 };
+
+const CALLS_PER_PAGE = 40;
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -94,14 +98,31 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
   const suggestionStatus = oneOf(CRM_CALL_MATCH_STATUSES, firstParam(params.suggestion));
   const from = validDate(firstParam(params.from));
   const to = validDate(firstParam(params.to));
+  const parsedPage = Number.parseInt(firstParam(params.page) ?? "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const filters: CrmCallFilters = { search, source, attendance, outcome, suggestionStatus, from, to, unlinkedOnly: firstParam(params.unlinked) === "1" };
-  const [calls, leads] = await Promise.all([getCrmCalls(access.accountId, undefined, filters), getCrmLeads(access.accountId)]);
+  const [calls, leads] = await Promise.all([getCrmCalls(access.accountId, undefined, filters, { limit: CALLS_PER_PAGE + 1, offset: (page - 1) * CALLS_PER_PAGE }), getCrmLeads(access.accountId)]);
+  const hasNextPage = calls.length > CALLS_PER_PAGE;
+  const visibleCalls = calls.slice(0, CALLS_PER_PAGE);
   const canLink = hasCrmPermission(access, "crm:assign");
   const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
   const sourceLabel = (value: string): string => {
     if (value === "iclosed" || value === "calendly" || value === "native" || value === "manual") return t(`sources.${value}`);
     return t("sources.unknown");
   };
+  function pageHref(targetPage: number): string {
+    const query = new URLSearchParams();
+    if (search) query.set("q", search);
+    if (source) query.set("source", source);
+    if (filters.unlinkedOnly) query.set("unlinked", "1");
+    if (attendance) query.set("attendance", attendance);
+    if (outcome) query.set("outcome", outcome);
+    if (suggestionStatus) query.set("suggestion", suggestionStatus);
+    if (from) query.set("from", from);
+    if (to) query.set("to", to);
+    query.set("page", String(targetPage));
+    return `/crm/appels?${query.toString()}`;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -124,15 +145,19 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
 
       {canLink && <CrmCallMatchBatchControl />}
 
-      {calls.length === 0 ? <p className="sticker-card p-8 text-center text-muted-foreground">{t("calls.empty")}</p> : <>
+      {visibleCalls.length === 0 ? <div className="sticker-card flex flex-col gap-3 p-8 text-center text-muted-foreground"><p>{t("calls.empty")}</p>{page > 1 && <Link href={pageHref(page - 1)} className="font-bold underline underline-offset-4">{t("calls.previousPage")}</Link>}</div> : <>
         <div className="sticker-card hidden overflow-x-auto p-0 md:block">
           <table className="w-full min-w-[1220px] text-sm">
             <thead><tr className="border-b border-border text-left text-xs font-bold text-muted-foreground"><th className="px-4 py-3">{t("calls.identity")}</th><th className="px-4 py-3">{t("leads.title")}</th><th className="px-4 py-3">{t("leads.source")}</th><th className="px-4 py-3">{t("calls.dateTime")}</th><th className="px-4 py-3">{t("calls.booked")}</th><th className="px-4 py-3">{t("calls.pending")}</th><th className="px-4 py-3">{t("calls.result")}</th><th className="px-4 py-3">{t("calls.match.label")}</th></tr></thead>
-            <tbody>{calls.map((call) => <tr key={call.id} className="border-b border-border align-top last:border-0"><td className="px-4 py-3"><CallIdentity call={call} sourceLabel={sourceLabel(call.source)} t={t} /></td><td className="px-4 py-3 font-bold">{call.leadId ? <CrmCallLinkForm callId={call.id} initialLeadId={call.leadId} leads={leads} idPrefix="desktop-lead" /> : <span className="text-muted-foreground">{t("calls.unlinked")}</span>}</td><td className="px-4 py-3 text-muted-foreground">{sourceLabel(call.source)}</td><td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{dateFormatter.format(new Date(call.scheduledAt))}</td><td className="px-4 py-3">{t(`calls.${attendanceKey(call.attendance)}`)}</td><td className="px-4 py-3">{t(`calls.${outcomeKey(call.outcome)}`)}</td><td className="px-4 py-3">{call.attendance === "cancelled" ? <span className="text-xs text-muted-foreground">{t("calls.cancelled")}</span> : <CrmCallResultControl call={call} idPrefix="desktop-result" />}</td><td className="px-4 py-3"><div className="flex min-w-[330px] flex-col gap-2"><CrmCallMatchControls call={call} canLink={canLink} idPrefix="desktop" />{!call.leadId && canLink && <CrmCallLinkForm callId={call.id} initialLeadId={null} leads={leads} idPrefix="desktop-link" />}{!call.leadId && !canLink && <span className="text-xs text-muted-foreground">{t("calls.linkRestricted")}</span>}</div></td></tr>)}</tbody>
+            <tbody>{visibleCalls.map((call) => <tr key={call.id} className="border-b border-border align-top last:border-0"><td className="px-4 py-3"><CallIdentity call={call} sourceLabel={sourceLabel(call.source)} t={t} /></td><td className="px-4 py-3 font-bold">{call.leadId ? <CrmCallLinkForm callId={call.id} initialLeadId={call.leadId} leads={leads} idPrefix="desktop-lead" /> : <span className="text-muted-foreground">{t("calls.unlinked")}</span>}</td><td className="px-4 py-3 text-muted-foreground">{sourceLabel(call.source)}</td><td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{dateFormatter.format(new Date(call.scheduledAt))}</td><td className="px-4 py-3">{t(`calls.${attendanceKey(call.attendance)}`)}</td><td className="px-4 py-3">{t(`calls.${outcomeKey(call.outcome)}`)}</td><td className="px-4 py-3">{call.attendance === "cancelled" ? <span className="text-xs text-muted-foreground">{t("calls.cancelled")}</span> : <CrmCallResultControl call={call} idPrefix="desktop-result" />}</td><td className="px-4 py-3"><div className="flex min-w-[330px] flex-col gap-2"><CrmCallMatchControls call={call} canLink={canLink} idPrefix="desktop" />{!call.leadId && canLink && <CrmCallLinkForm callId={call.id} initialLeadId={null} leads={leads} idPrefix="desktop-link" />}{!call.leadId && !canLink && <span className="text-xs text-muted-foreground">{t("calls.linkRestricted")}</span>}</div></td></tr>)}</tbody>
           </table>
         </div>
 
-        <div className="grid gap-3 md:hidden">{calls.map((call) => <article key={call.id} className="sticker-card flex flex-col gap-3 p-4"><div className="flex items-start justify-between gap-3"><CallIdentity call={call} sourceLabel={sourceLabel(call.source)} t={t} /><span className="shrink-0 text-xs font-bold text-muted-foreground">{t(`calls.${attendanceKey(call.attendance)}`)}</span></div><div className="grid grid-cols-2 gap-2 text-sm"><div><p className="text-xs text-muted-foreground">{t("calls.dateTime")}</p><p className="font-bold">{dateFormatter.format(new Date(call.scheduledAt))}</p></div><div><p className="text-xs text-muted-foreground">{t("calls.pending")}</p><p className="font-bold">{t(`calls.${outcomeKey(call.outcome)}`)}</p></div></div><div><p className="text-xs text-muted-foreground">{t("leads.title")}</p>{call.leadId ? <CrmCallLinkForm callId={call.id} initialLeadId={call.leadId} leads={leads} idPrefix="mobile-lead" /> : <p className="font-bold text-muted-foreground">{t("calls.unlinked")}</p>}</div>{call.attendance !== "cancelled" && <CrmCallResultControl call={call} idPrefix="mobile-result" />}<div><p className="mb-1 text-xs font-bold text-muted-foreground">{t("calls.match.label")}</p><CrmCallMatchControls call={call} canLink={canLink} idPrefix="mobile" />{!call.leadId && canLink && <div className="mt-2"><CrmCallLinkForm callId={call.id} initialLeadId={null} leads={leads} idPrefix="mobile-link" /></div>}{!call.leadId && !canLink && <p className="mt-2 text-xs text-muted-foreground">{t("calls.linkRestricted")}</p>}</div></article>)}</div>
+        <div className="grid gap-3 md:hidden">{visibleCalls.map((call) => <article key={call.id} className="sticker-card flex flex-col gap-3 p-4"><div className="flex items-start justify-between gap-3"><CallIdentity call={call} sourceLabel={sourceLabel(call.source)} t={t} /><span className="shrink-0 text-xs font-bold text-muted-foreground">{t(`calls.${attendanceKey(call.attendance)}`)}</span></div><div className="grid grid-cols-2 gap-2 text-sm"><div><p className="text-xs text-muted-foreground">{t("calls.dateTime")}</p><p className="font-bold">{dateFormatter.format(new Date(call.scheduledAt))}</p></div><div><p className="text-xs text-muted-foreground">{t("calls.pending")}</p><p className="font-bold">{t(`calls.${outcomeKey(call.outcome)}`)}</p></div></div><div><p className="text-xs text-muted-foreground">{t("leads.title")}</p>{call.leadId ? <CrmCallLinkForm callId={call.id} initialLeadId={call.leadId} leads={leads} idPrefix="mobile-lead" /> : <p className="font-bold text-muted-foreground">{t("calls.unlinked")}</p>}</div>{call.attendance !== "cancelled" && <CrmCallResultControl call={call} idPrefix="mobile-result" />}<div><p className="mb-1 text-xs font-bold text-muted-foreground">{t("calls.match.label")}</p><CrmCallMatchControls call={call} canLink={canLink} idPrefix="mobile" />{!call.leadId && canLink && <div className="mt-2"><CrmCallLinkForm callId={call.id} initialLeadId={null} leads={leads} idPrefix="mobile-link" /></div>}{!call.leadId && !canLink && <p className="mt-2 text-xs text-muted-foreground">{t("calls.linkRestricted")}</p>}</div></article>)}</div>
+        <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4" aria-label={t("calls.pagination")}>
+          <span className="text-sm font-bold text-muted-foreground">{t("calls.pageLabel", { page })}</span>
+          <div className="flex gap-2">{page > 1 && <Button asChild variant="outline" size="sm"><Link href={pageHref(page - 1)}>{t("calls.previousPage")}</Link></Button>}{hasNextPage && <Button asChild variant="outline" size="sm"><Link href={pageHref(page + 1)}>{t("calls.nextPage")}</Link></Button>}</div>
+        </nav>
       </>}
     </div>
   );

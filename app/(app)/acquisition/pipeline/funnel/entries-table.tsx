@@ -23,16 +23,17 @@ export function EntriesTable({ entries }: { entries: SettingKpiEntry[] }) {
   const visible = entries.slice(0, VISIBLE_ROWS);
 
   return (
-    <div className="sticker-card overflow-x-auto">
+    <div className="sticker-card overflow-x-auto" role="region" aria-label={t("entriesTable")} tabIndex={0}>
       <table className="w-full min-w-[640px] text-sm">
+        <caption className="sr-only">{t("entriesTable")}</caption>
         <thead>
           <tr className="border-b-2 border-border text-left text-muted-foreground">
-            <th className="px-4 py-3 font-bold">{t("date")}</th>
-            <th className="px-4 py-3 font-bold">{t("newSubscribers")}</th>
-            <th className="px-4 py-3 font-bold">{t("firstMessages")}</th>
-            <th className="px-4 py-3 font-bold">{t("conversations")}</th>
-            <th className="px-4 py-3 font-bold">{t("callsProposed")}</th>
-            <th className="px-4 py-3 font-bold">{t("callsBooked")}</th>
+            <th scope="col" className="px-4 py-3 font-bold">{t("date")}</th>
+            <th scope="col" className="px-4 py-3 font-bold">{t("newSubscribers")}</th>
+            <th scope="col" className="px-4 py-3 font-bold">{t("firstMessages")}</th>
+            <th scope="col" className="px-4 py-3 font-bold">{t("conversations")}</th>
+            <th scope="col" className="px-4 py-3 font-bold">{t("callsProposed")}</th>
+            <th scope="col" className="px-4 py-3 font-bold">{t("callsBooked")}</th>
           </tr>
         </thead>
         <tbody>

@@ -906,7 +906,9 @@ export async function completeCrmAction(accountId: string, actionId: string, act
   });
 }
 
-export async function getCrmCalls(accountId: string, leadId?: string, filters: CrmCallFilters = {}): Promise<CrmCallView[]> {
+export type CrmCallPagination = { limit: number; offset: number };
+
+export async function getCrmCalls(accountId: string, leadId?: string, filters: CrmCallFilters = {}, pagination?: CrmCallPagination): Promise<CrmCallView[]> {
   const conditions = [eq(salesCalls.userId, accountId)];
   if (leadId) conditions.push(eq(crmCallLinks.leadId, leadId));
   if (filters.unlinkedOnly) conditions.push(isNull(crmCallLinks.leadId));
@@ -929,7 +931,7 @@ export async function getCrmCalls(accountId: string, leadId?: string, filters: C
       ilike(leads.normalizedHandle, pattern),
     ) ?? eq(salesCalls.id, "00000000-0000-0000-0000-000000000000"));
   }
-  const rows = await db
+  const query = db
     .select({ call: salesCalls, link: crmCallLinks, lead: leads, callSetterName: callSetters.name, leadSetterName: leadSetters.name })
     .from(salesCalls)
     .leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId)))
@@ -938,6 +940,7 @@ export async function getCrmCalls(accountId: string, leadId?: string, filters: C
     .leftJoin(leadSetters, eq(leads.setterId, leadSetters.id))
     .where(and(...conditions))
     .orderBy(desc(salesCalls.scheduledAt));
+  const rows = pagination ? await query.limit(pagination.limit).offset(pagination.offset) : await query;
   const suggestions = await getCrmCallSuggestions(accountId, rows.filter(({ link }) => !link?.leadId).map(({ call }) => call.id));
   const views = rows.map((row) => toCallView({ ...row, setterName: row.callSetterName ?? row.leadSetterName, suggestion: row.link?.leadId ? null : suggestions.get(row.call.id) ?? null }));
   return filters.suggestionStatus ? views.filter((call) => call.suggestion?.status === filters.suggestionStatus) : views;

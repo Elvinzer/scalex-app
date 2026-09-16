@@ -19,10 +19,13 @@ const SKIN_ROUTE_RULES: { prefix: string; skin: FalcoSkinKey }[] = [
   { prefix: "/acquisition/ads", skin: "acquisition" },
   { prefix: "/acquisition/pipeline", skin: "acquisition" },
   { prefix: "/acquisition/setters", skin: "acquisition" },
+  { prefix: "/crm/pipeline", skin: "acquisition" },
+  { prefix: "/settings/equipe", skin: "acquisition" },
   { prefix: "/ventes/pipeline", skin: "acquisition" },
   { prefix: "/ventes/setters", skin: "acquisition" },
   { prefix: "/ventes", skin: "vente" },
   { prefix: "/datas", skin: "chiffres" },
+  { prefix: "/crm/appels", skin: "vente" },
   { prefix: "/diagnostic", skin: "diagnostic" },
 ];
 
@@ -87,7 +90,7 @@ export const AGENT_KEY_TO_ROUTE: Record<string, string> = {
   // Pipeline is ceo_vision's canonical page — Setting's old standalone
   // route is gone, its day-by-day funnel content now lives nested at
   // /ventes/pipeline/funnel (the legacy Acquisition URL redirects there).
-  ceo_vision: "/ventes/pipeline",
+  ceo_vision: "/crm/pipeline",
 };
 
 // "Spécialité" line under each agent's name in the Copilote hub panel —
@@ -121,11 +124,14 @@ const AGENT_ROUTE_RULES: { route: string; agentKey: string }[] = [
   { route: "/acquisition/ads", agentKey: "ceo_vision" },
   { route: "/acquisition/pipeline", agentKey: "ceo_vision" },
   { route: "/acquisition/setters", agentKey: "ceo_vision" },
+  { route: "/crm/pipeline", agentKey: "ceo_vision" },
   { route: "/ventes/pipeline", agentKey: "ceo_vision" },
   { route: "/ventes/setters", agentKey: "ceo_vision" },
   { route: "/business", agentKey: "ventes" },
   // Covers the call tracking page and any route nested beneath it.
   { route: "/ventes/appels", agentKey: "ventes" },
+  { route: "/crm/appels", agentKey: "ventes" },
+  { route: "/settings/equipe", agentKey: "ceo_vision" },
 ];
 
 export function resolveAgentKeyForRoute(pathname: string): string | null {

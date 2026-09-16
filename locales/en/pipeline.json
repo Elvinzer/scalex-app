@@ -18,6 +18,8 @@
     "updateHelp": "Re-entering an existing date updates it.",
     "importCsv": "Import a CSV",
     "history": "History",
+    "entriesTable": "Daily KPI history table",
+    "chooseFile": "Choose a CSV file",
     "date": "Date",
     "newSubscribers": "New subscribers",
     "firstMessages": "First messages sent",

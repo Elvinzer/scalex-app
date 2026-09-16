@@ -93,7 +93,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
       <div className="lg:hidden">{stageColumn(selectedStage, "mobile")}</div>
       <div className="hidden gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-5" tabIndex={0}>{CRM_LEAD_STAGES.map((stage) => stageColumn(stage, "desktop"))}</div>
       <p className="text-xs text-muted-foreground lg:block">{t("pipeline.dragHint")}</p>
-      <Button asChild variant="outline" className="self-start"><Link href="/crm/leads">{t("today.openPipeline")}</Link></Button>
+      <Button asChild variant="outline" className="self-start"><Link href="/crm/leads">{t("pipeline.manageLeads")}</Link></Button>
       <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} setters={setters} offers={offers} closers={closers} canAssign={canAssign} />
     </div>
   );

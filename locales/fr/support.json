@@ -109,6 +109,8 @@
     "title": "File support",
     "description": "Consulte, assigne et résous les tickets clients.",
     "permission": "L’accès est réservé aux fondateurs et aux membres actifs du support.",
+    "countersRegion": "Résumé de la file support",
+    "ticketList": "Liste des tickets support",
     "ticketCount": "{count} tickets",
     "backToDashboard": "Retour au dashboard",
     "filters": {
@@ -121,7 +123,15 @@
       "unassigned": "Non assignés",
       "assigned": "Assignés",
       "apply": "Appliquer les filtres",
-      "reset": "Réinitialiser"
+      "reset": "Réinitialiser",
+      "active": "Filtres actifs",
+      "clear": "Retirer le filtre : {label}",
+      "searchValue": "Recherche : {value}",
+      "statusValue": "Statut : {value}",
+      "typeValue": "Type : {value}",
+      "priorityValue": "Priorité : {value}",
+      "assigneeValue": "Assignation : {value}",
+      "noneActive": "Aucun filtre actif."
     },
     "views": {
       "table": "Vue liste",
@@ -148,7 +158,9 @@
     },
     "empty": {
       "title": "Aucun ticket ne correspond aux filtres",
-      "description": "Essaie d’élargir la période ou de réinitialiser les filtres."
+      "description": "Essaie d’élargir la période ou de réinitialiser les filtres.",
+      "noTicketsTitle": "La file support est vide",
+      "noTicketsDescription": "Les nouveaux tickets clients apparaîtront ici."
     },
     "loading": "Chargement des tickets...",
     "error": "La file support n’a pas pu être chargée.",

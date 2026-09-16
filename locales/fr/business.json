@@ -89,6 +89,7 @@
     "done": "Enregistrer",
     "promisePlaceholder": "Ce que ton lead magnet promet concrètement",
     "channelPlaceholder": "WhatsApp, DM Instagram…",
+    "platformUrlPlaceholder": "https://ton-profil.exemple",
     "whoSetsPlaceholder": "Moi, setter salarié, setter commission…",
     "yes": "Oui",
     "no": "Non"
@@ -102,6 +103,7 @@
     "onboardingHelp": "Décris le parcours des 7 premiers jours.",
     "supportFormat": "Suivi client — format",
     "frequency": "Fréquence",
+    "frequencyPlaceholder": "Exemple : une fois par semaine",
     "testimonials": "Témoignages",
     "collected": "Combien collectés",
     "countManaged": "Témoignages avec consentement",
@@ -175,6 +177,7 @@
     "setMain": "Définir comme offre principale",
     "markUpsell": "Marquer comme upsell",
     "me": "Moi",
+    "closer": "Closer",
     "choose": "Choisir…",
     "followupNonBuyers": "Séquence de relance non-acheteurs",
     "followupNoShow": "Relance no-show",

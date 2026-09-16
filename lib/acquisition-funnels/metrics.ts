@@ -95,7 +95,7 @@ function defaultHref(metricKey: string, funnelKey: AcquisitionFunnelKey): string
   if (metricKey.includes("content") || metricKey === "audience") return "/acquisition/contenu";
   if (metricKey.includes("vsl")) return acquisitionFunnelHref(funnelKey);
   if (metricKey.includes("booking_link")) return acquisitionFunnelHref(funnelKey);
-  if (metricKey.includes("calls") || metricKey.includes("booking")) return "/ventes/pipeline/funnel";
+  if (metricKey.includes("calls") || metricKey.includes("booking")) return "/acquisition/pipeline/funnel";
   if (metricKey.includes("sales")) return "/ventes/suivi";
   if (metricKey.includes("quiz") || metricKey.includes("webinar") || metricKey.includes("challenge") || metricKey.includes("community") || metricKey.includes("sales_page") || metricKey.includes("checkout")) return acquisitionFunnelHref(funnelKey);
   return "/datas";

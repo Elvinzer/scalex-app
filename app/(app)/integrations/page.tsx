@@ -24,8 +24,6 @@ import { metaAdsErrorMessage } from "@/lib/meta-ads/messages";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
 import { getAppUrl } from "@/lib/utils";
 
-const UPCOMING_INTEGRATIONS = ["Kajabi", "Brevo"];
-
 // Owner-only: connecting/disconnecting Stripe grants OAuth access to the
 // account's real payments data — never delegable to a role.
 export default async function IntegrationsPage({
@@ -280,17 +278,6 @@ export default async function IntegrationsPage({
         </div>}
       </div>}
 
-      <div className="flex flex-col gap-3">
-        <p className="text-sm font-bold text-muted-foreground">{t("upcoming")}</p>
-        {UPCOMING_INTEGRATIONS.map((name) => (
-          <div key={name} className="sticker-card-dashed flex items-center justify-between p-6">
-            <p className="font-bold text-muted-foreground">{name}</p>
-            <span className="rounded-full bg-state-unknown-bg px-2.5 py-1 text-xs font-bold tracking-wide text-state-unknown uppercase">
-              {t("soon")}
-            </span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

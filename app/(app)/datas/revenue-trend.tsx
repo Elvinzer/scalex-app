@@ -50,6 +50,7 @@ export function RevenueTrend({
         <select
           value={trendPeriod}
           onChange={(event) => router.push(`/datas?year=${year}&trendPeriod=${event.target.value}`)}
+          aria-label={t("period")}
           className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm font-bold outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
         >
           {TREND_OPTIONS.map((option) => (

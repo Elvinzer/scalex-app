@@ -36,7 +36,7 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
         <Button asChild variant="ghost" size="sm" className="w-fit"><Link href="/ventes/rdv"><ArrowLeft className="size-4" /> {t("back")}</Link></Button>
         <section className="sticker-card flex flex-col gap-5 p-6 sm:p-8">
           <div>
-            <p className="text-sm font-bold text-accent">{t("update")}</p>
+            <p className="text-sm font-bold text-accent-text">{t("update")}</p>
             <h1 className="mt-1 text-3xl font-bold">{detail.event.name}</h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{t("closerAccessHelp")}</p>
           </div>
@@ -105,7 +105,7 @@ export default async function NativeBookingEventPage({ params }: { params: Promi
 
       <header className="flex flex-wrap items-start justify-between gap-5">
         <div>
-          <p className="text-sm font-bold text-accent">{t("update")}</p>
+          <p className="text-sm font-bold text-accent-text">{t("update")}</p>
           <h2 className="mt-1 text-3xl font-bold">{detail.event.name}</h2>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             {t("updateHelp")}

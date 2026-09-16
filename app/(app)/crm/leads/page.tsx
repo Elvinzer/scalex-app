@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,10 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="flex flex-col gap-6">
       <div><h2 className="text-2xl font-bold">{t("leads.title")}</h2><p className="mt-1 text-muted-foreground">{t("leads.subtitle")}</p></div>
-      <CrmLeadCaptureForm offers={businessProfile.sales.offers} setters={setters} />
+      <details className="sticker-card overflow-hidden">
+        <summary className="cursor-pointer px-5 py-4 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("leads.captureToggle")}</summary>
+        <div className="border-t border-border p-4"><CrmLeadCaptureForm offers={businessProfile.sales.offers} setters={setters} /></div>
+      </details>
       <form method="get" className="sticker-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.search")}<input name="search" defaultValue={params.search} className="min-h-10 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.platform")}<select name="platform" defaultValue={platform ?? ""} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allPlatforms")}</option><option value="instagram">Instagram</option><option value="linkedin">LinkedIn</option></select></label>
@@ -48,7 +52,7 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.from")}<input name="from" type="date" defaultValue={createdFrom} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.to")}<input name="to" type="date" defaultValue={createdTo} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
         <label className="flex min-h-10 items-center gap-2 text-sm font-bold lg:col-span-3"><input name="overdue" value="1" type="checkbox" defaultChecked={params.overdue === "1"} className="size-4 accent-accent" />{t("leads.overdueAction")}</label>
-        <Button type="submit" variant="outline">{t("leads.open")}</Button>
+        <div className="flex flex-wrap items-center gap-3 lg:col-span-4"><Button type="submit" variant="outline">{t("leads.apply")}</Button><Link href="/crm/leads" className="inline-flex min-h-10 items-center text-sm font-bold underline underline-offset-4 hover:text-foreground">{t("leads.reset")}</Link><span className="text-sm text-muted-foreground" aria-live="polite">{t("leads.resultCount", { count: leads.length })}</span></div>
       </form>
       {leads.length === 0 ? <p className="sticker-card p-8 text-center text-muted-foreground">{t("leads.empty")}</p> : <CrmLeadList leads={leads} setters={setters} offers={businessProfile.sales.offers} closers={closers} canAssign={hasCrmPermission(access, "crm:assign")} />}
     </div>

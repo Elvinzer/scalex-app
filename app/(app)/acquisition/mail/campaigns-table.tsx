@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,9 @@ export function CampaignsTable({
 }) {
   const locale = useLocale();
   const t = useTranslations("app.mail");
+  const router = useRouter();
   const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("sentAt");
   const [sortDesc, setSortDesc] = useState(true);
   const topId = bestCtrIdThisMonth(campaigns);
@@ -86,6 +89,8 @@ export function CampaignsTable({
     return (
       <button
         type="button"
+        aria-pressed={active}
+        aria-label={t("sortBy", { label })}
         onClick={() => toggleSort(sortKeyValue)}
         className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground"
       >
@@ -96,8 +101,15 @@ export function CampaignsTable({
   }
 
   function handleDelete(id: string) {
+    if (!window.confirm(t("deleteConfirm"))) return;
+    setError(null);
     startTransition(async () => {
-      await removeEmailCampaign(id);
+      const result = await removeEmailCampaign(id);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -111,7 +123,9 @@ export function CampaignsTable({
   }
 
   return (
-    <div className="sticker-card overflow-x-auto">
+    <div className="flex flex-col gap-3">
+      {error && <p role="alert" className="rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">{error}</p>}
+      <div className="sticker-card overflow-x-auto" role="region" aria-label={t("tableLabel")} tabIndex={0}>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border">
@@ -123,7 +137,7 @@ export function CampaignsTable({
             <th className="p-3 text-right"><SortHeader label={t("bookingsThisMonth")} sortKeyValue="bookings" /></th>
             <th className="p-3 text-right"><SortHeader label={t("dealsThisMonth")} sortKeyValue="dealsClosed" /></th>
             <th className="p-3 text-right"><SortHeader label={t("table.score")} sortKeyValue="score" /></th>
-            <th className="p-3" />
+            <th className="p-3"><span className="sr-only">{t("actions")}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -142,17 +156,17 @@ export function CampaignsTable({
               </td>
               <td className="p-3 text-right tabular-nums">{campaign.sends}</td>
               <td className="p-3 text-right tabular-nums">
-                {metrics.openRate === null ? "—" : formatPercent(metrics.openRate, locale)}
+                {metrics.openRate === null ? t("notMeasured") : formatPercent(metrics.openRate, locale)}
               </td>
-              <td className="p-3 text-right tabular-nums">{metrics.ctr === null ? "—" : formatPercent(metrics.ctr, locale)}</td>
+              <td className="p-3 text-right tabular-nums">{metrics.ctr === null ? t("notMeasured") : formatPercent(metrics.ctr, locale)}</td>
               <td className="p-3 text-right tabular-nums">
-                {campaign.revenueAttributed === null ? "—" : formatEur(campaign.revenueAttributed, locale)}
+                {campaign.revenueAttributed === null ? t("notMeasured") : formatEur(campaign.revenueAttributed, locale)}
               </td>
-              <td className="p-3 text-right tabular-nums">{campaign.bookings === null ? "—" : campaign.bookings}</td>
-              <td className="p-3 text-right tabular-nums">{campaign.dealsClosed === null ? "—" : campaign.dealsClosed}</td>
+              <td className="p-3 text-right tabular-nums">{campaign.bookings === null ? t("notMeasured") : campaign.bookings}</td>
+              <td className="p-3 text-right tabular-nums">{campaign.dealsClosed === null ? t("notMeasured") : campaign.dealsClosed}</td>
               <td className="p-3 text-right">
                 {score === null ? (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-muted-foreground">{t("notMeasured")}</span>
                 ) : (
                   <span className="font-bold tabular-nums text-accent-2-text">{score}/100</span>
                 )}
@@ -197,6 +211,7 @@ export function CampaignsTable({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

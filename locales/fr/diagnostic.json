@@ -33,6 +33,8 @@
   "unpricedPoints": "{count} point{plural} sous le benchmark, pas encore chiffrable{plural}",
   "addTitle": "Ajouter de nouveaux leviers",
   "addHelp": "Des leviers que tu n’exploites pas encore, classés par potentiel.",
+  "recommendedNext": "PROCHAINE ACTION RECOMMANDÉE",
+  "otherLevers": "Voir {count, plural, =1 {1 autre opportunité} other {# autres opportunités}}",
   "addPageHelp": "Retrouve dans cette page les leviers absents, le questionnaire de découverte et leur projection de CA potentiel.",
   "openAddLevers": "Ouvrir Ajouter de nouveaux leviers",
   "addPageTitle": "Ajouter de nouveaux leviers",
@@ -197,6 +199,7 @@
   },
   "insight": {
     "close": "Fermer",
+    "label": "Insight",
     "regenerate": "Refaire le diagnostic",
     "questionsHelp": "Réponds à ces questions pour un insight personnalisé sur ce taux.",
     "generating": "Génération…",
