@@ -10,6 +10,9 @@
 /build
 .turbo
 
+# Generated CRM extension release artifacts
+/public/downloads/
+
 # testing / coverage
 /coverage
 

@@ -384,7 +384,71 @@
     "sessionRequired": "Sign in to Minaly to use CRM.",
     "responsibleReadOnly": "Detected owner",
     "messageTime": "Message received",
-    "captureTime": "Profile captured"
+    "captureTime": "Profile captured",
+    "onboarding": {
+      "eyebrow": "CRM tool",
+      "title": "Install the Minaly extension",
+      "description": "Capture visible Instagram and LinkedIn profiles in your CRM while you browse.",
+      "backToCrm": "Back to CRM",
+      "suggestionEyebrow": "CRM shortcut",
+      "suggestionTitle": "Capture profiles as you browse",
+      "suggestionDescription": "Add the Minaly extension to save visible Instagram and LinkedIn profiles to your CRM in one click.",
+      "openGuide": "See the setup guide",
+      "hideSuggestion": "Hide this suggestion",
+      "step": "Step {number}",
+      "latestVersion": "Latest available version: {version}",
+      "installAction": "Install or update",
+      "storeLabel": "Chrome Web Store",
+      "storeRecommended": "Recommended installation",
+      "storeDescription": "Chrome handles future updates for you.",
+      "pilotLabel": "Pilot package",
+      "pilotRecommended": "Manual installation",
+      "pilotDescription": "Use this ZIP for a private pilot. Chrome will not update it automatically.",
+      "downloadPilot": "Download pilot package",
+      "notConfiguredLabel": "Distribution not configured",
+      "notConfiguredDescription": "The team has not published an installation link yet. Ask your Minaly admin to finish the setup.",
+      "openStore": "Open Chrome Web Store",
+      "stepsTitle": "Set up in four steps",
+      "stepsDescription": "The first connection takes about two minutes.",
+      "steps": {
+        "browser": {
+          "title": "Open Chrome on your computer",
+          "description": "Use Google Chrome on a desktop computer. The extension is not available on mobile."
+        },
+        "install": {
+          "title": "Install the extension",
+          "store": "Open the Chrome Web Store and add Minaly CRM.",
+          "pilot": "Download the ZIP, unzip it, open chrome://extensions, turn on Developer mode, then choose Load unpacked."
+        },
+        "connect": {
+          "title": "Connect your Minaly account",
+          "description": "Open the extension on an Instagram or LinkedIn profile and sign in with the Minaly account that has CRM access."
+        },
+        "verify": {
+          "title": "Verify one profile",
+          "description": "Return to a visible profile. Use Add to CRM or update the existing lead, then open CRM to confirm."
+        }
+      },
+      "permissionsTitle": "What Minaly reads",
+      "permissionsDescription": "The extension reads the visible profile page on Instagram and LinkedIn so it can prepare a CRM record.",
+      "limitsTitle": "What Minaly does not do",
+      "limitsDescription": "It does not read hidden pages, send social messages or change your account permissions.",
+      "troubleshootingTitle": "Need help?",
+      "troubleshootingLabels": {
+        "notVisible": "The panel is not visible",
+        "notConnected": "The connection is not complete",
+        "crmUnavailable": "CRM is unavailable",
+        "pilot": "You are using the pilot package"
+      },
+      "troubleshooting": {
+        "notVisible": "Refresh the social profile and make sure Minaly CRM is enabled for that site.",
+        "notConnected": "Open the Minaly panel, sign in, then choose “I’m done, check again.”",
+        "crmUnavailable": "Ask the account owner to enable CRM and give you CRM access.",
+        "pilot": "Keep the pilot folder unzipped. When Chrome asks for a folder, choose that folder."
+      },
+      "latestPackage": "Latest package",
+      "downloadLatest": "Download the latest package"
+    }
   },
   "errors": {
     "access": "You do not have access to CRM.",

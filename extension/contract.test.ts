@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const manifest = JSON.parse(readFileSync(new URL("./manifest.json", import.meta.url), "utf8")) as {
   manifest_version: number;
+  version: string;
   permissions: string[];
   host_permissions: string[];
   background: { service_worker: string };
@@ -19,6 +20,7 @@ const extensionResolveRouteSource = readFileSync(new URL("../app/api/crm/extensi
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
     expect(manifest.manifest_version).toBe(3);
+    expect(manifest.version).toBe("0.2.0");
     expect(manifest.permissions).toEqual(["storage", "tabs"]);
     expect(manifest.background.service_worker).toBe("dist/background.js");
     expect(manifest.host_permissions).toEqual(expect.arrayContaining(["https://www.minaly.io/*"]));
@@ -39,12 +41,15 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(backgroundSource).toContain("https://www.minaly.io");
     expect(backgroundSource).toContain("minalyCrmExtensionToken");
     expect(backgroundSource).toContain("minalyCrmExtensionAuthState");
+    expect(backgroundSource).toContain("minaly-check-update");
+    expect(backgroundSource).toContain("onUpdateAvailable");
     expect(backgroundSource).toContain("chrome.runtime.getURL(\"auth-callback.html\")");
     expect(callbackSource).toContain("minaly-auth-callback");
     expect(callbackPage).toContain("dist/auth-callback.js");
     expect(contentSource).toContain("defaultOfferId");
     expect(contentSource).toContain("canonicalProfileUrl: typeof value.canonicalProfileUrl");
     expect(contentSource).toContain("minaly-profile-link");
+    expect(contentSource).toContain("MISE À JOUR DISPONIBLE");
   });
 
   it("keeps the extension responsive while requests are in flight", () => {

@@ -11,6 +11,7 @@ import { crmLeadSourceSchema } from "@/lib/crm/schemas";
 import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
 
 import { CrmActionList } from "./crm-action-list";
+import { CrmExtensionSuggestion } from "./crm-extension-suggestion";
 
 const KPI_KEYS = ["messages", "responses", "conversations", "valueContent", "callsProposed", "callsBooked", "callsAttended", "noShows", "sales"] as const;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -61,6 +62,8 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
         <div><h2 className="text-2xl font-bold">{t("today.title")}</h2><p className="mt-1 text-muted-foreground">{t("today.subtitle")}</p></div>
         {hasCrmPermission(access, "crm:view-team") && <Button asChild variant="outline"><Link href={isTeamView ? "/crm" : "/crm?team=1"}>{isTeamView ? t("today.myView") : t("today.teamView")}</Link></Button>}
       </div>
+
+      <CrmExtensionSuggestion accountId={access.accountId} />
 
       <form method="get" className="sticker-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
         {isTeamView && <input type="hidden" name="team" value="1" />}

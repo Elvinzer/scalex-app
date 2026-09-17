@@ -125,6 +125,27 @@ async function minalyRequest(path, payload) {
         return { status: 503, body: { error: "network_error" } };
     }
 }
+function minalyReadUpdate(value) {
+    if (!minalyIsRecord(value) || typeof value.latestVersion !== "string" || !/^(?:\d{1,4})(?:\.\d{1,4}){0,3}$/.test(value.latestVersion))
+        return null;
+    const distribution = value.distribution === "web_store" || value.distribution === "pilot_package" ? value.distribution : null;
+    const downloaded = value.downloaded === true;
+    const updateUrl = typeof value.updateUrl === "string" && value.updateUrl.length > 0 ? value.updateUrl : null;
+    if (!distribution || (!downloaded && !updateUrl))
+        return null;
+    return { latestVersion: value.latestVersion, updateUrl, distribution, downloaded };
+}
+async function minalyCheckUpdate() {
+    try {
+        const result = await chrome.runtime.sendMessage({ type: "minaly-check-update" });
+        if (!minalyIsRecord(result) || result.ok !== true)
+            return null;
+        return minalyReadUpdate(result.update);
+    }
+    catch {
+        return null;
+    }
+}
 function minalyApiErrorMessage(body) {
     const code = minalyIsRecord(body) && typeof body.error === "string" ? body.error : null;
     if (code === "extension_not_configured")
@@ -300,7 +321,19 @@ function minalyCallout(eyebrow, text, className) {
     callout.append(label, content);
     return callout;
 }
-function minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, onClose, onOpenAuth, onRetry, onCapture, onUpdate) {
+function minalyUpdateCallout(update, onApplyUpdate) {
+    const description = update.downloaded
+        ? `La version ${update.latestVersion} est prête. Recharge l’extension quand ta capture est terminée.`
+        : `La version ${update.latestVersion} est disponible. Ouvre le lien pour la télécharger.`;
+    const callout = minalyCallout("MISE À JOUR DISPONIBLE", description, "minaly-callout-neutral");
+    callout.setAttribute("role", "status");
+    const action = minalyButton(update.downloaded ? "Redémarrer et mettre à jour" : "Voir la mise à jour", "minaly-secondary");
+    action.prepend(minalyIcon(update.downloaded ? "refresh" : "external"));
+    action.addEventListener("click", onApplyUpdate);
+    callout.append(action);
+    return callout;
+}
+function minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, extensionUpdate, onClose, onOpenAuth, onRetry, onCapture, onUpdate, onApplyUpdate) {
     const panel = shadow.querySelector(".minaly-panel");
     if (!(panel instanceof HTMLElement))
         return;
@@ -334,6 +367,8 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, successLe
     body.className = "minaly-body";
     body.setAttribute("aria-live", "polite");
     panel.append(header, body);
+    if (extensionUpdate && state !== "loading")
+        body.append(minalyUpdateCallout(extensionUpdate, onApplyUpdate));
     if (state === "loading") {
         body.append(minalyStatusBlock("VÉRIFICATION", "Analyse du profil", "Je vérifie s’il existe déjà dans ton CRM.", "minaly-status-loading"));
         const progress = document.createElement("div");
@@ -717,6 +752,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     let resolvedAt = 0;
     let message = null;
     let successLeadUrl = null;
+    let extensionUpdate = null;
     let operationId = 0;
     const close = () => {
         operationId += 1;
@@ -727,10 +763,15 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
             button.focus({ preventScroll: true });
     };
     const openAuth = () => { void chrome.runtime.sendMessage({ type: "minaly-open-auth" }); };
+    const applyUpdate = () => {
+        if (state === "loading")
+            return;
+        void chrome.runtime.sendMessage({ type: "minaly-apply-update" }).catch(() => undefined);
+    };
     const draw = () => {
         panel.hidden = state === "closed";
         button.setAttribute("aria-expanded", String(state !== "closed"));
-        minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input));
+        minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, extensionUpdate, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input), applyUpdate);
     };
     const resolve = async (requestId) => {
         const result = await minalyRequest("/api/crm/extension/resolve", minalyApiProfile(profile));
@@ -876,7 +917,18 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
         draw();
     };
     const handleRuntimeMessage = (messageValue) => {
-        if (!minalyIsRecord(messageValue) || state !== "session")
+        if (!minalyIsRecord(messageValue))
+            return;
+        if (messageValue.type === "minaly-update-available") {
+            const updateInfo = minalyReadUpdate(messageValue.update);
+            if (updateInfo) {
+                extensionUpdate = updateInfo;
+                if (state !== "closed" && state !== "loading")
+                    draw();
+            }
+            return;
+        }
+        if (state !== "session")
             return;
         if (messageValue.type === "minaly-authenticated") {
             void resolveAndDraw();
@@ -890,6 +942,16 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
         }
     };
     chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+    const refreshUpdate = async () => {
+        const updateInfo = await minalyCheckUpdate();
+        if (!updateInfo)
+            return;
+        extensionUpdate = updateInfo;
+        if (state !== "closed" && state !== "loading")
+            draw();
+    };
+    void refreshUpdate();
+    const updateCheckInterval = window.setInterval(() => { void refreshUpdate(); }, 5 * 60000);
     button.addEventListener("click", () => {
         if (state !== "closed") {
             close();
@@ -900,6 +962,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     const unmount = () => {
         operationId += 1;
         stopHostPositionWatch();
+        window.clearInterval(updateCheckInterval);
         chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
         host.remove();
         if (minalyUnmount === unmount)

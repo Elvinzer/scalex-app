@@ -384,7 +384,71 @@
     "sessionRequired": "Connecte-toi à Minaly pour utiliser le CRM.",
     "responsibleReadOnly": "Responsable détecté",
     "messageTime": "Message reçu",
-    "captureTime": "Profil capturé"
+    "captureTime": "Profil capturé",
+    "onboarding": {
+      "eyebrow": "Outil CRM",
+      "title": "Installe l'extension Minaly",
+      "description": "Capture les profils Instagram et LinkedIn visibles dans ton CRM pendant que tu navigues.",
+      "backToCrm": "Retour au CRM",
+      "suggestionEyebrow": "Raccourci CRM",
+      "suggestionTitle": "Capture tes profils pendant ta navigation",
+      "suggestionDescription": "Ajoute l'extension Minaly pour enregistrer en un clic les profils Instagram et LinkedIn visibles dans ton CRM.",
+      "openGuide": "Voir le guide d'installation",
+      "hideSuggestion": "Masquer cette suggestion",
+      "step": "Étape {number}",
+      "latestVersion": "Dernière version disponible : {version}",
+      "installAction": "Installer ou mettre à jour",
+      "storeLabel": "Chrome Web Store",
+      "storeRecommended": "Installation recommandée",
+      "storeDescription": "Chrome gère les prochaines mises à jour pour toi.",
+      "pilotLabel": "Package pilote",
+      "pilotRecommended": "Installation manuelle",
+      "pilotDescription": "Utilise ce ZIP pour un pilote privé. Chrome ne le mettra pas à jour automatiquement.",
+      "downloadPilot": "Télécharger le package pilote",
+      "notConfiguredLabel": "Distribution non configurée",
+      "notConfiguredDescription": "L'équipe n'a pas encore publié de lien d'installation. Demande à ton administrateur Minaly de terminer la configuration.",
+      "openStore": "Ouvrir le Chrome Web Store",
+      "stepsTitle": "Configure l'extension en quatre étapes",
+      "stepsDescription": "La première connexion prend environ deux minutes.",
+      "steps": {
+        "browser": {
+          "title": "Ouvre Chrome sur ton ordinateur",
+          "description": "Utilise Google Chrome sur un ordinateur. L'extension n'est pas disponible sur mobile."
+        },
+        "install": {
+          "title": "Installe l'extension",
+          "store": "Ouvre le Chrome Web Store et ajoute Minaly CRM.",
+          "pilot": "Télécharge le ZIP, décompresse-le, ouvre chrome://extensions, active le mode développeur, puis choisis Charger l'extension non empaquetée."
+        },
+        "connect": {
+          "title": "Connecte ton compte Minaly",
+          "description": "Ouvre l'extension sur un profil Instagram ou LinkedIn et connecte-toi avec le compte Minaly qui a accès au CRM."
+        },
+        "verify": {
+          "title": "Vérifie un profil",
+          "description": "Retourne sur un profil visible. Ajoute-le au CRM ou mets à jour le lead existant, puis ouvre le CRM pour confirmer."
+        }
+      },
+      "permissionsTitle": "Ce que Minaly lit",
+      "permissionsDescription": "L'extension lit la page de profil visible sur Instagram et LinkedIn pour préparer une fiche CRM.",
+      "limitsTitle": "Ce que Minaly ne fait pas",
+      "limitsDescription": "Elle ne lit pas les pages masquées, n'envoie pas de messages sociaux et ne modifie pas tes permissions de compte.",
+      "troubleshootingTitle": "Besoin d'aide ?",
+      "troubleshootingLabels": {
+        "notVisible": "Le panneau ne s'affiche pas",
+        "notConnected": "La connexion n'est pas terminée",
+        "crmUnavailable": "Le CRM est indisponible",
+        "pilot": "Tu utilises le package pilote"
+      },
+      "troubleshooting": {
+        "notVisible": "Actualise le profil social et vérifie que Minaly CRM est autorisé sur ce site.",
+        "notConnected": "Ouvre le panneau Minaly, connecte-toi, puis choisis « J'ai terminé, vérifier ».",
+        "crmUnavailable": "Demande au propriétaire du compte d'activer le CRM et de te donner l'accès CRM.",
+        "pilot": "Garde le dossier pilote décompressé. Quand Chrome demande un dossier, sélectionne celui-ci."
+      },
+      "latestPackage": "Dernier package",
+      "downloadLatest": "Télécharger le dernier package"
+    }
   },
   "errors": {
     "access": "Tu n'as pas accès au CRM.",
