@@ -34,7 +34,7 @@ référence visuelle.
 | Appels | `/crm/appels` | projection de `salesCalls`, association explicite et absence de second système d’appels |
 | Fiche lead | `/crm/leads/:leadId` | identité, qualification, historique, notes, actions, résultats et vente validée protégée |
 | Activation | Paramètres / onboarding | owner-only, état désactivé sans suppression des données, accès membre sans CTA d’activation |
-| Extension fermée | page sociale pertinente | bouton flottant uniquement sur Instagram/LinkedIn supporté |
+| Extension fermée | page sociale pertinente | bouton près du nom du profil, avec repli flottant si le DOM n’est pas encore rendu |
 | Extension inconnue | carte après clic | identité visible, URL, prénom/nom facultatifs, offre/source, responsable en lecture seule, dates distinctes |
 | Extension connue | carte après résolution | statut, responsable en lecture seule, prochaine action, note/action, aucune messagerie |
 | Extension ambiguë | carte après résolution | candidat limité au compte courant, confirmation ou nouveau lead explicite |

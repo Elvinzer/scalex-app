@@ -1,6 +1,6 @@
 # Extension Chrome Minaly CRM
 
-Cette extension MV3 ajoute un bouton flottant sur les profils Instagram et LinkedIn visibles dans le DOM.
+Cette extension MV3 ajoute un bouton Minaly à côté du nom des profils Instagram et LinkedIn visibles dans le DOM. Elle conserve un affichage flottant temporaire si le nom n’est pas encore rendu par la plateforme.
 
 ## Build local
 

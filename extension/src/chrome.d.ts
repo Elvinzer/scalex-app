@@ -2,7 +2,7 @@ declare namespace chrome {
   namespace runtime {
     type MessageListener = (message: unknown, sender: { id?: string; tab?: { id?: number } }, sendResponse: (response: unknown) => void) => void | boolean;
     const id: string;
-    const onMessage: { addListener(listener: MessageListener): void };
+    const onMessage: { addListener(listener: MessageListener): void; removeListener(listener: MessageListener): void };
     function sendMessage(message: unknown): Promise<unknown>;
     function getURL(path?: string): string;
   }

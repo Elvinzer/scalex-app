@@ -9,7 +9,7 @@ import { normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selecti
 import { getFunnelBlockCatalog } from "@/lib/funnel-blocks/queries";
 import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { getInFlight } from "@/lib/perf/in-flight";
-import { EMPTY_BUSINESS_PROFILE, type BusinessProfileData } from "./types";
+import { EMPTY_BUSINESS_PROFILE, type BusinessProfileData, type Offer } from "./types";
 
 // No row is created at signup — this returns an all-blank default when none
 // exists yet, so every page can treat "no profile" and "empty profile" the
@@ -78,4 +78,25 @@ const inFlightBusinessProfiles = new Map<string, Promise<BusinessProfileData>>()
 
 export const getBusinessProfile = cache(async (userId: string): Promise<BusinessProfileData> => {
   return getInFlight(inFlightBusinessProfiles, userId, () => fetchBusinessProfile(userId));
+});
+
+export type BusinessSalesOfferSummary = Pick<Offer, "id" | "name">;
+
+async function fetchBusinessSalesOffers(userId: string): Promise<BusinessSalesOfferSummary[]> {
+  const [row] = await db
+    .select({ sales: businessProfile.sales })
+    .from(businessProfile)
+    .where(eq(businessProfile.userId, userId))
+    .limit(1);
+
+  return row?.sales.offers.map(({ id, name }) => ({ id, name })) ?? [];
+}
+
+const inFlightBusinessSalesOffers = new Map<string, Promise<BusinessSalesOfferSummary[]>>();
+
+// The extension only needs the offer list to render a new-lead capture. Keep
+// that read independent from the full business profile, which also loads
+// testimonials and acquisition catalogues for the application UI.
+export const getBusinessSalesOffers = cache(async (userId: string): Promise<BusinessSalesOfferSummary[]> => {
+  return getInFlight(inFlightBusinessSalesOffers, userId, () => fetchBusinessSalesOffers(userId));
 });

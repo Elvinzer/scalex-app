@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { readCrmExtensionBody } from "@/lib/crm/extension-http";
-import { getBusinessProfile } from "@/lib/business/queries";
+import { getBusinessSalesOffers } from "@/lib/business/queries";
 import { getCrmExtensionAccess } from "@/lib/crm/extension-session";
 import { confirmCrmProfileMatch, createCrmLead, resolveCrmProfile } from "@/lib/crm/queries";
 import { crmCaptureCommandSchema } from "@/lib/crm/schemas";
@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
   try {
     const requestedOfferId = parsed.data.qualification?.offerId ?? null;
     const offerId = requestedOfferId ?? await (async () => {
-      const businessProfile = await getBusinessProfile(access.accountId);
-      return businessProfile.sales.offers.length === 1 ? businessProfile.sales.offers[0].id : null;
+      const offers = await getBusinessSalesOffers(access.accountId);
+      return offers.length === 1 ? offers[0].id : null;
     })();
     const result = await createCrmLead(access.accountId, { profile, actorUserId: access.userId, offerId, marketingSource: parsed.data.qualification?.source, stage: parsed.data.qualification?.stage, source: "extension", sourceEventKey: parsed.data.profile.sourceEventKey ?? null, idempotencyKey: parsed.data.idempotencyKey });
     return NextResponse.json({ data: { leadId: result.lead.id, profileUrl: result.lead.canonicalProfileUrl, created: result.created, crmUrl: new URL(request.url).origin }, leadId: result.lead.id, profileUrl: result.lead.canonicalProfileUrl, created: result.created, crmUrl: new URL(request.url).origin });

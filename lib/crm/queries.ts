@@ -268,12 +268,11 @@ async function getSetterForAccount(accountId: string, setterId: string | null | 
 }
 
 export async function getCrmSetterForActor(accountId: string, actorUserId: string): Promise<{ id: string; name: string } | null> {
-  const [actor] = await db.select({ email: users.email }).from(users).where(eq(users.id, actorUserId)).limit(1);
-  if (!actor?.email) return null;
   const [setter] = await db
     .select({ id: setters.id, name: setters.name })
     .from(setters)
-    .where(and(eq(setters.userId, accountId), eq(setters.email, actor.email), eq(setters.active, true)))
+    .innerJoin(users, eq(setters.email, users.email))
+    .where(and(eq(setters.userId, accountId), eq(users.id, actorUserId), eq(setters.active, true)))
     .limit(1);
   return setter ?? null;
 }
@@ -350,20 +349,29 @@ export async function getCrmLead(accountId: string, leadId: string): Promise<Crm
 }
 
 export async function resolveCrmProfile(accountId: string, captured: CrmCapturedProfile): Promise<CrmProfileResolution> {
-  const [exact] = await db
-    .select({ lead: leads, setterName: setters.name })
-    .from(leads)
-    .leftJoin(setters, eq(leads.setterId, setters.id))
-    .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.canonicalProfileUrl, captured.canonicalProfileUrl)))
-    .limit(1);
+  // Both predicates use dedicated account-scoped indexes. Running them in
+  // parallel removes one database round trip from the extension's critical
+  // path while preserving the exact-URL priority below.
+  const [exactResult, candidatesResult] = await Promise.allSettled([
+    db
+      .select({ lead: leads, setterName: setters.name })
+      .from(leads)
+      .leftJoin(setters, eq(leads.setterId, setters.id))
+      .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.canonicalProfileUrl, captured.canonicalProfileUrl)))
+      .limit(1),
+    db
+      .select({ lead: leads, setterName: setters.name })
+      .from(leads)
+      .leftJoin(setters, eq(leads.setterId, setters.id))
+      .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.normalizedHandle, captured.normalizedHandle)))
+      .orderBy(desc(leads.updatedAt)),
+  ]);
+  if (exactResult.status === "rejected") throw exactResult.reason;
+  const exact = exactResult.value[0];
   if (exact) return { kind: "known", lead: toLeadItem(exact.lead, exact.setterName) };
 
-  const candidates = await db
-    .select({ lead: leads, setterName: setters.name })
-    .from(leads)
-    .leftJoin(setters, eq(leads.setterId, setters.id))
-    .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.normalizedHandle, captured.normalizedHandle)))
-    .orderBy(desc(leads.updatedAt));
+  if (candidatesResult.status === "rejected") throw candidatesResult.reason;
+  const candidates = candidatesResult.value;
   const candidateItems = candidates.map(({ lead, setterName }) => toLeadItem(lead, setterName));
   if (candidateItems.length > 0) return { kind: "ambiguous", profile: captured, candidates: candidateItems };
   return { kind: "unknown", profile: captured };

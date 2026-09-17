@@ -403,7 +403,7 @@ La machine d’état cible est :
 
 ~~~
 page pertinente détectée
-  → bouton flottant fermé
+  → bouton près du nom du profil, fermé
   → clic utilisateur
   → profil inconnu | profil connu | correspondance incertaine
 ~~~

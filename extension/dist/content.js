@@ -2,6 +2,7 @@
 const minalyReservedInstagramPaths = new Set(["accounts", "explore", "direct", "reels", "p", "stories"]);
 const minalyDefaultStages = ["first_message_sent", "conversation_in_progress", "value_content_sent", "call_proposed", "call_booked"];
 const minalyDefaultSources = ["instagram", "linkedin", "tiktok", "youtube", "x", "facebook", "email_newsletter", "ads", "bouche_a_oreille", "autre"];
+const minalyResolutionCacheTtlMs = 30000;
 function minalyIsRecord(value) {
     return typeof value === "object" && value !== null;
 }
@@ -24,7 +25,8 @@ function minalyProfilePath(platform, rawPath) {
     return { path: `/${section}/${handle}`, handle };
 }
 function minalyVisibleProfileHref(hostname, platform) {
-    for (const anchor of Array.from(document.querySelectorAll("a[href]"))) {
+    const selector = platform === "linkedin" ? 'a[href*="/in/"], a[href*="/company/"]' : 'a[href^="/"], a[href*="instagram.com/"]';
+    for (const anchor of Array.from(document.querySelectorAll(selector))) {
         const href = anchor.getAttribute("href");
         if (!href)
             continue;
@@ -55,9 +57,17 @@ function minalyProfileUrl() {
     }
     return null;
 }
+function minalyVisibleNameHeading(handle) {
+    const headings = Array.from(document.querySelectorAll("h1, h2"));
+    const normalizedHandle = handle.trim().replace(/^@+/, "").toLowerCase();
+    const matchingHeading = headings.find((node) => {
+        const text = node.textContent?.trim().toLowerCase() ?? "";
+        return normalizedHandle.length > 0 && text.includes(normalizedHandle);
+    });
+    return matchingHeading ?? headings.find((node) => Boolean(node.textContent?.trim())) ?? null;
+}
 function minalyVisibleName(handle) {
-    const heading = Array.from(document.querySelectorAll("h1, h2")).map((node) => node.textContent?.trim() ?? "").find(Boolean);
-    return heading ?? handle;
+    return minalyVisibleNameHeading(handle)?.textContent?.trim() || handle;
 }
 function minalyVisibleMessageTime() {
     for (const node of Array.from(document.querySelectorAll("[data-timestamp]"))) {
@@ -315,7 +325,10 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, successLe
     close.className = "minaly-close";
     close.setAttribute("aria-label", "Fermer");
     close.append(minalyIcon("close"));
-    close.addEventListener("click", onClose);
+    close.addEventListener("click", (event) => {
+        event.stopPropagation();
+        onClose();
+    });
     header.append(brand, close);
     const body = document.createElement("div");
     body.className = "minaly-body";
@@ -520,6 +533,56 @@ function minalyElement(tag, text) {
         element.textContent = text;
     return element;
 }
+function minalyPositionHost(host, handle) {
+    const heading = minalyVisibleNameHeading(handle);
+    if (!heading) {
+        host.classList.add("minaly-floating");
+        if (host.parentElement !== document.documentElement) {
+            host.remove();
+            document.documentElement.append(host);
+        }
+        return false;
+    }
+    const interactiveHeading = heading.closest("a, button");
+    const reference = interactiveHeading instanceof HTMLElement ? interactiveHeading : heading;
+    const parent = reference.parentElement;
+    if (!parent)
+        return false;
+    if (host.parentElement === parent && host.previousElementSibling === reference) {
+        host.classList.remove("minaly-floating");
+        return true;
+    }
+    host.classList.remove("minaly-floating");
+    host.remove();
+    if (!reference.insertAdjacentElement("afterend", host)) {
+        host.classList.add("minaly-floating");
+        document.documentElement.append(host);
+        return false;
+    }
+    return true;
+}
+function minalyWatchHostPosition(host, handle) {
+    minalyPositionHost(host, handle);
+    if (!document.body)
+        return () => undefined;
+    let scheduled = false;
+    const observer = new MutationObserver(() => {
+        if (scheduled)
+            return;
+        scheduled = true;
+        window.setTimeout(() => {
+            scheduled = false;
+            minalyPositionHost(host, handle);
+        }, 50);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const timeout = window.setTimeout(() => observer.disconnect(), 15000);
+    return () => {
+        observer.disconnect();
+        window.clearTimeout(timeout);
+    };
+}
+let minalyUnmount = null;
 function minalyMount() {
     if (document.getElementById("minaly-crm-extension"))
         return;
@@ -551,13 +614,17 @@ function minalyMount() {
   --minaly-danger-soft: #fbe9e9;
   --minaly-shadow: color-mix(in srgb, CanvasText 18%, transparent);
   all: initial;
+  display: inline-flex;
+  vertical-align: middle;
+  margin-inline-start: 8px;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color-scheme: light;
 }
+:host(.minaly-floating) { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2147483647; margin-inline-start: 0; }
 * { box-sizing: border-box; }
-.minaly-button, .minaly-panel { position: fixed; z-index: 2147483647; }
+.minaly-panel { position: fixed; z-index: 2147483647; }
 .minaly-button, .minaly-panel, .minaly-panel button, .minaly-panel input, .minaly-panel select, .minaly-panel textarea { font-family: inherit; }
-.minaly-button { right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); min-height: 48px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--minaly-accent); color: var(--minaly-accent-text); font-size: 14px; font-weight: 750; letter-spacing: -0.01em; box-shadow: 0 12px 28px var(--minaly-shadow); cursor: pointer; touch-action: manipulation; transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
+.minaly-button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--minaly-accent); color: var(--minaly-accent-text); font-size: 13px; font-weight: 750; letter-spacing: -0.01em; box-shadow: 0 8px 20px var(--minaly-shadow); cursor: pointer; touch-action: manipulation; transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
 .minaly-button:hover { background: var(--minaly-accent-hover); box-shadow: 0 14px 32px var(--minaly-shadow); transform: translateY(-1px); }
 .minaly-button:active { transform: translateY(0); }
 .minaly-panel { right: max(16px, env(safe-area-inset-right)); bottom: max(80px, calc(env(safe-area-inset-bottom) + 64px)); display: flex; width: min(390px, calc(100vw - 32px)); max-height: min(720px, calc(100dvh - 32px)); overflow: hidden; flex-direction: column; border: 1px solid var(--minaly-border); border-radius: 20px; background: var(--minaly-surface); color: var(--minaly-text); box-shadow: 0 24px 64px var(--minaly-shadow); font-size: 14px; line-height: 1.4; }
@@ -630,7 +697,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
 .minaly-candidate-identity strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .minaly-candidate-identity span, .minaly-candidate-meta { color: var(--minaly-text-muted); font-size: 11px; }
 .minaly-candidate-meta { flex: 0 0 auto; text-align: right; }
-@media (max-width: 420px) { .minaly-panel { right: 10px; bottom: max(68px, calc(env(safe-area-inset-bottom) + 52px)); width: calc(100vw - 20px); border-radius: 18px; } .minaly-button { right: 12px; } }
+@media (max-width: 420px) { .minaly-panel { right: 10px; bottom: max(68px, calc(env(safe-area-inset-bottom) + 52px)); width: calc(100vw - 20px); border-radius: 18px; } }
 @media (orientation: landscape) and (max-height: 480px) { .minaly-panel { bottom: 8px; max-height: calc(100dvh - 16px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }
 `;
@@ -644,58 +711,91 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     panel.hidden = true;
     shadow.append(button, panel);
     document.documentElement.append(host);
+    const stopHostPositionWatch = minalyWatchHostPosition(host, profile.normalizedHandle);
     let state = "closed";
     let resolution = null;
+    let resolvedAt = 0;
     let message = null;
     let successLeadUrl = null;
-    const close = () => { state = "closed"; panel.hidden = true; button.setAttribute("aria-expanded", "false"); };
+    let operationId = 0;
+    const close = () => {
+        operationId += 1;
+        state = "closed";
+        panel.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+        if (document.activeElement === host || host.contains(document.activeElement))
+            button.focus({ preventScroll: true });
+    };
     const openAuth = () => { void chrome.runtime.sendMessage({ type: "minaly-open-auth" }); };
     const draw = () => {
         panel.hidden = state === "closed";
         button.setAttribute("aria-expanded", String(state !== "closed"));
-        minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, close, openAuth, () => void resolveAndDraw(), (selection) => void capture(selection), (input) => void update(input));
+        minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input));
     };
-    const resolve = async () => {
+    const resolve = async (requestId) => {
         const result = await minalyRequest("/api/crm/extension/resolve", minalyApiProfile(profile));
+        if (requestId !== operationId)
+            return false;
         if (result.status === 401) {
+            resolvedAt = 0;
             state = "session";
-            return;
+            return true;
         }
         if (result.status === 403) {
+            resolvedAt = 0;
             state = "unavailable";
-            return;
+            return true;
         }
         if (result.status === 503) {
+            resolvedAt = 0;
             state = "error";
             message = minalyApiErrorMessage(result.body);
-            return;
+            return true;
         }
         if (result.status < 200 || result.status >= 300) {
+            resolvedAt = 0;
             state = "error";
             message = "Impossible de lire ce profil.";
-            return;
+            return true;
         }
         const parsed = minalyReadResolution(result.body);
         if (!parsed) {
+            resolvedAt = 0;
             state = "error";
             message = "Réponse CRM invalide.";
-            return;
+            return true;
         }
         resolution = parsed.resolution;
+        resolvedAt = Date.now();
         state = parsed.resolution.kind;
+        return true;
     };
-    const resolveAndDraw = async () => {
+    const resolveAndDraw = async (force = false) => {
+        if (!force && resolution && Date.now() - resolvedAt < minalyResolutionCacheTtlMs) {
+            state = resolution.kind;
+            message = null;
+            draw();
+            return;
+        }
+        const requestId = ++operationId;
+        resolution = null;
+        resolvedAt = 0;
         state = "loading";
         message = null;
         draw();
-        await resolve();
-        draw();
+        if (await resolve(requestId) && requestId === operationId)
+            draw();
     };
     const capture = async (selection) => {
+        const requestId = ++operationId;
+        resolution = null;
+        resolvedAt = 0;
         state = "loading";
         message = null;
         draw();
         const result = await minalyRequest("/api/crm/extension/capture", { decision: selection.leadId ? "confirm_match" : "create_new", candidateLeadId: selection.leadId, separateFromCandidates: selection.separateFromCandidates, idempotencyKey: profile.sourceEventKey, profile: { ...minalyApiProfile(profile), firstName: selection.firstName ?? profile.firstName, lastName: selection.lastName ?? profile.lastName }, qualification: { offerId: selection.offerId ?? null, source: selection.source ?? profile.platform, stage: selection.stage ?? "first_message_sent" } });
+        if (requestId !== operationId)
+            return;
         if (result.status === 401) {
             state = "session";
             draw();
@@ -718,6 +818,8 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
             draw();
             return;
         }
+        if (requestId !== operationId)
+            return;
         if (result.status < 200 || result.status >= 300 || !minalyIsRecord(result.body)) {
             message = "Impossible d’enregistrer ce profil.";
             state = "error";
@@ -739,10 +841,13 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
         draw();
     };
     const update = async (input) => {
+        const requestId = ++operationId;
         state = "loading";
         message = null;
         draw();
         const result = await minalyRequest("/api/crm/extension/update", { ...input, idempotencyKey: `${profile.sourceEventKey}:${Date.now()}` });
+        if (requestId !== operationId)
+            return;
         if (result.status === 401) {
             state = "session";
             draw();
@@ -765,11 +870,12 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
             draw();
             return;
         }
-        await resolve();
+        if (!(await resolve(requestId)) || requestId !== operationId)
+            return;
         message = "Modification enregistrée.";
         draw();
     };
-    chrome.runtime.onMessage.addListener((messageValue) => {
+    const handleRuntimeMessage = (messageValue) => {
         if (!minalyIsRecord(messageValue) || state !== "session")
             return;
         if (messageValue.type === "minaly-authenticated") {
@@ -782,7 +888,8 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
             message = error === "extension_not_configured" ? "L’extension n’est pas encore configurée côté serveur." : "La connexion Minaly n’a pas pu être finalisée.";
             draw();
         }
-    });
+    };
+    chrome.runtime.onMessage.addListener(handleRuntimeMessage);
     button.addEventListener("click", () => {
         if (state !== "closed") {
             close();
@@ -790,6 +897,15 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
         }
         void resolveAndDraw();
     });
+    const unmount = () => {
+        operationId += 1;
+        stopHostPositionWatch();
+        chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+        host.remove();
+        if (minalyUnmount === unmount)
+            minalyUnmount = null;
+    };
+    minalyUnmount = unmount;
 }
 minalyMount();
 let minalyLastUrl = window.location.href;
@@ -797,6 +913,6 @@ window.setInterval(() => {
     if (window.location.href === minalyLastUrl)
         return;
     minalyLastUrl = window.location.href;
-    document.getElementById("minaly-crm-extension")?.remove();
+    minalyUnmount?.();
     minalyMount();
 }, 1000);

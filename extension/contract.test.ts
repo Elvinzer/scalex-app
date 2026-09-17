@@ -13,6 +13,8 @@ const contentSource = readFileSync(new URL("./src/content.ts", import.meta.url),
 const backgroundSource = readFileSync(new URL("./src/background.ts", import.meta.url), "utf8");
 const callbackSource = readFileSync(new URL("./src/auth-callback.ts", import.meta.url), "utf8");
 const callbackPage = readFileSync(new URL("./auth-callback.html", import.meta.url), "utf8");
+const crmQueriesSource = readFileSync(new URL("../lib/crm/queries.ts", import.meta.url), "utf8");
+const extensionResolveRouteSource = readFileSync(new URL("../app/api/crm/extension/resolve/route.ts", import.meta.url), "utf8");
 
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
@@ -43,5 +45,15 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(contentSource).toContain("defaultOfferId");
     expect(contentSource).toContain("canonicalProfileUrl: typeof value.canonicalProfileUrl");
     expect(contentSource).toContain("minaly-profile-link");
+  });
+
+  it("keeps the extension responsive while requests are in flight", () => {
+    expect(contentSource).toContain("const minalyResolutionCacheTtlMs = 30_000");
+    expect(contentSource).toContain("event.stopPropagation()");
+    expect(contentSource).toContain("operationId += 1");
+    expect(contentSource).toContain("chrome.runtime.onMessage.removeListener(handleRuntimeMessage)");
+    expect(contentSource).toContain("reference.insertAdjacentElement(\"afterend\", host)");
+    expect(crmQueriesSource).toContain("const [exactResult, candidatesResult] = await Promise.allSettled");
+    expect(extensionResolveRouteSource).toContain("getBusinessSalesOffers");
   });
 });
