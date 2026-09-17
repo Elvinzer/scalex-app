@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/current-user";
 import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
 import { computeCrmKpis, currentCrmPeriod } from "@/lib/crm/kpis";
-import { getBusinessProfile } from "@/lib/business/queries";
+import { getBusinessSalesOffers } from "@/lib/business/queries";
 import { getCrmActions, getCrmKpiSources, getCrmSetters } from "@/lib/crm/queries";
 import { crmLeadSourceSchema } from "@/lib/crm/schemas";
 import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
@@ -36,10 +36,10 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
   const isTeamView = params.team === "1" && hasCrmPermission(access, "crm:view-team");
   const period = selectedPeriod(params.from, params.to);
   const defaultPeriod = currentCrmPeriod();
-  const [setters, businessProfile] = await Promise.all([getCrmSetters(access.accountId), getBusinessProfile(access.accountId)]);
+  const [setters, offers] = await Promise.all([getCrmSetters(access.accountId), getBusinessSalesOffers(access.accountId)]);
   const setterId = isTeamView && setters.some((setter) => setter.id === params.setter) ? params.setter : undefined;
   const platform = params.platform === "instagram" || params.platform === "linkedin" ? params.platform : undefined;
-  const offerId = businessProfile.sales.offers.some((offer) => offer.id === params.offer) ? params.offer : undefined;
+  const offerId = offers.some((offer) => offer.id === params.offer) ? params.offer : undefined;
   const source = crmLeadSourceSchema.safeParse(params.source).success ? crmLeadSourceSchema.parse(params.source) : undefined;
   const [{ events, calls, sales: linkedSales }, actions] = await Promise.all([
     getCrmKpiSources(access.accountId, period.from, period.to, { setterId, platform, offerId, source }),
@@ -68,7 +68,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
         <label className="flex flex-col gap-1 text-sm font-bold lg:col-span-2">{t("kpis.to")}<input name="to" type="date" defaultValue={dateValue(period.to)} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
         {isTeamView && <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.setter")}<select name="setter" defaultValue={setterId ?? ""} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allSetters")}</option>{setters.map((setter) => <option key={setter.id} value={setter.id}>{setter.name}</option>)}</select></label>}
         <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.platform")}<select name="platform" defaultValue={platform ?? ""} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allPlatforms")}</option><option value="instagram">Instagram</option><option value="linkedin">LinkedIn</option></select></label>
-        <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.offer")}<select name="offer" defaultValue={offerId ?? ""} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allOffers")}</option>{businessProfile.sales.offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
+        <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.offer")}<select name="offer" defaultValue={offerId ?? ""} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allOffers")}</option>{offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.source")}<select name="source" defaultValue={source ?? ""} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allSources")}</option>{CRM_LEAD_SOURCES.map((item) => <option key={item} value={item}>{t(`sources.${item}`)}</option>)}</select></label>
         <Button type="submit" variant="outline" className="lg:col-span-1">{t("kpis.apply")}</Button>
       </form>
