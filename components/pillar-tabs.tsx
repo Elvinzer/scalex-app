@@ -33,10 +33,12 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
     "/crm/appels": "calls",
   };
 
-  const active = tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`))?.href ?? tabs[0].href;
+  const active = [...tabs]
+    .filter((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`))
+    .sort((left, right) => right.href.length - left.href.length)[0]?.href ?? tabs[0].href;
   return (
     <nav aria-label={t("sectionNavigation")} className="w-full overflow-x-auto">
-      <div className="flex w-full min-w-max items-center justify-start gap-1 border-b-2 border-border md:justify-center" role="tablist">
+      <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-1 border-b-2 border-border md:min-w-max md:justify-center" role="tablist">
         {tabs.map((tab) => {
           const isActive = tab.href === active;
           return (
@@ -47,7 +49,7 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
               role="tab"
               aria-selected={isActive}
               aria-current={isActive ? "page" : undefined}
-              className={`-mb-0.5 shrink-0 border-b-2 border-transparent px-4 py-2.5 text-center text-sm font-bold whitespace-nowrap transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] ${isActive ? "border-accent text-foreground" : "text-foreground/70 hover:text-foreground"}`}
+              className={`-mb-0.5 min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] md:px-4 ${isActive ? "border-accent text-foreground" : "text-foreground/70 hover:text-foreground"}`}
             >
               {labelKeyByHref[tab.href] ? t(labelKeyByHref[tab.href]) : tab.label}
             </Link>

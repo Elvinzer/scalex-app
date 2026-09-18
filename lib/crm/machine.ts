@@ -35,8 +35,11 @@ export const CRM_EVENT_LABEL_KEYS: Record<CrmEventType, string> = {
   action_created: "events.actionCreated",
   action_completed: "events.actionCompleted",
   action_cancelled: "events.actionCancelled",
+  action_rescheduled: "events.actionRescheduled",
   responsibility_changed: "events.responsibilityChanged",
   match_confirmed: "events.matchConfirmed",
+  qualification_updated: "events.qualificationUpdated",
+  booking_link_sent: "events.bookingLinkSent",
 };
 
 export function eventForStage(stage: CrmLeadStage): CrmEventType {

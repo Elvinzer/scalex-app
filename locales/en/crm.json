@@ -18,10 +18,13 @@
     "sales": "Sales",
     "appointments": "Appointments",
     "actionsTitle": "My actions",
+    "queueTitle": "My work queue",
+    "queueSubtitle": "Start with overdue work, then handle today's follow-ups.",
     "empty": "Nothing needs your attention right now.",
     "emptyHelp": "Capture a lead or review the pipeline to choose the next action.",
     "openPipeline": "Open pipeline",
     "openActions": "View all actions",
+    "openToday": "View today's follow-ups",
     "openLeads": "Manage leads",
     "filtersApplied": "{count, plural, =1 {1 filter active} other {# filters active}}"
   },
@@ -60,6 +63,7 @@
     "nextAction": "Next action",
     "captureTitle": "Add a social profile",
     "profileUrl": "Profile URL",
+    "profileOrHandle": "Profile or handle",
     "profileUrlPlaceholder": "https://instagram.com/...",
     "displayName": "Display name",
     "firstName": "First name",
@@ -71,7 +75,10 @@
     "responsibleServer": "The responsible setter is assigned by your account settings.",
     "capture": "Capture lead",
     "captured": "Profile captured",
+    "requestFailed": "We could not save this lead. Try again.",
     "platform": "Platform",
+    "newLeadHint": "The lead starts as New lead. Add more details from the lead page when you have them.",
+    "capturing": "Saving...",
     "created": "Created",
     "openProfile": "Open profile",
     "noNextAction": "No next action",
@@ -115,8 +122,18 @@
     "reset": "Reset",
     "due": "Due",
     "invalidDue": "Choose a valid due date.",
+    "requestFailed": "The request failed. Try again.",
     "responsible": "Owner"
+    ,"today": "Today"
+    ,"saving": "Saving..."
     ,"dueGroups": {"overdue": "Overdue", "today": "Today", "upcoming": "Upcoming"}
+    ,"postpone": "Tomorrow"
+    ,"reschedule": "Pick a date"
+    ,"rescheduleSubmit": "Save date"
+    ,"nextLeadReady": "The next lead is ready."
+    ,"openNextLead": "Open next lead"
+    ,"nextCall": "Next call: {date} · {closer} · {outcome}"
+    ,"noCloser": "No closer assigned"
   },
   "calls": {
     "title": "Calls",
@@ -247,8 +264,11 @@
     "actionCreated": "Action created",
     "actionCompleted": "Action completed",
     "actionCancelled": "Action cancelled",
+    "actionRescheduled": "Action rescheduled",
     "responsibilityChanged": "Owner changed",
-    "matchConfirmed": "Profile match confirmed"
+    "matchConfirmed": "Profile match confirmed",
+    "qualificationUpdated": "Qualification updated",
+    "bookingLinkSent": "Booking link sent"
   },
   "detail": {
     "title": "Lead record",
@@ -294,6 +314,55 @@
     "deleteConfirm": "Delete permanently",
     "deleteCancel": "Keep lead",
     "deleting": "Deleting..."
+    ,"contactState": "Contact",
+    "newLead": "New lead",
+    "contacted": "Message sent",
+    "responseState": "Response",
+    "responded": "Responded",
+    "noResponse": "No response yet",
+    "nextCall": "Next call",
+    "noNextCall": "No call booked",
+    "localTime": "Local time",
+    "quickActions": "Quick actions",
+    "messageSent": "Message sent",
+    "markResponded": "Mark as responded",
+    "leadDetails": "Lead details",
+    "email": "Email",
+    "phone": "Phone",
+    "qualificationNote": "Qualification note",
+    "qualificationHint": "Keep the prospect's situation, goal, experience, budget, blocker and conclusion in one note.",
+    "qualificationPresent": "Note saved",
+    "qualificationPlaceholder": "Write the prospect's full qualification here...",
+    "saveQualification": "Save qualification",
+    "qualificationSaved": "Qualification saved.",
+    "saving": "Saving...",
+    "nextAction": "Next action",
+    "bookingTitle": "Book a call",
+    "sendBookingLink": "Send booking link",
+    "bookForProspect": "Book for prospect",
+    "bookingNoLink": "No active booking link is configured.",
+    "bookingShareText": "Here is the link to choose your time, {name}.",
+    "bookingLinkSending": "Sharing...",
+    "bookingLinkShared": "Link shared.",
+    "bookingLinkCopied": "Link copied.",
+    "bookingShareCancelled": "Share cancelled. The link was not marked as sent.",
+    "bookingSaveError": "The appointment was not saved.",
+    "bookingRequestError": "The request failed. Try again.",
+    "bookingSaved": "Appointment booked in Minaly.",
+    "bookForProspectTitle": "Book a call for {name}",
+    "bookingAvailabilityHelp": "Available times for the assigned closers, {timeZone}.",
+    "bookingLoading": "Checking available times...",
+    "bookingNoSlots": "No time is available for the assigned closers.",
+    "bookingSlot": "Time",
+    "bookingCancel": "Cancel",
+    "bookingSaving": "Booking...",
+    "bookingConfirm": "Confirm appointment",
+    "lossTitle": "Mark {name} as lost",
+    "lossReason": "Loss reason",
+    "lossNote": "Optional note",
+    "lossSaving": "Saving...",
+    "markLost": "Mark as lost",
+    "lossReasons": {"pas_le_budget": "Budget", "pas_le_moment": "Not the right time", "concurrent": "Chose a competitor", "ghoste": "Ghosted", "autre": "Other"}
   },
   "salesValidation": {
     "title": "Validate the sale for {name}",
@@ -310,6 +379,7 @@
   "kpis": {
     "messages": "Messages sent",
     "responses": "Responses",
+    "qualificationNotes": "Qualifications added",
     "conversations": "Conversations",
     "valueContent": "Value content",
     "callsProposed": "Calls proposed",
@@ -317,6 +387,7 @@
     "callsAttended": "Calls attended",
     "noShows": "No-shows",
     "sales": "Sales",
+    "revenue": "Revenue generated",
     "period": "Period",
     "incomplete": "Data is incomplete for this period",
     "from": "From",
@@ -336,6 +407,7 @@
     "ratesTitle": "Funnel rates",
     "cohort": "First-message cohort: {count} unique leads",
     "rateResponse": "Conversation rate",
+    "rateQualification": "Qualification rate",
     "rateValueContent": "Value-content rate",
     "rateCallProposed": "Call proposal rate",
     "rateCallBooked": "Call booking rate",
@@ -461,6 +533,9 @@
     "inactive": "CRM is not enabled for this account.",
     "invalidProfile": "Invalid social profile.",
     "leadNotFound": "Lead not found.",
+    "bookingUnavailable": "That time is no longer available.",
+    "bookingConflict": "This booking already exists or was taken meanwhile.",
+    "bookingInvalid": "The booking details are invalid.",
     "actionNotFound": "Action not found.",
     "saveFailed": "We could not save this change.",
     "session": "Your session expired. Sign in again.",
@@ -485,6 +560,7 @@
     "callMatchExpired": "This suggestion expired. Run the search again.",
     "callMatchConflict": "This call was linked meanwhile. Reload the page.",
     "callMatchNotFound": "The call or suggestion was not found.",
-    "callMatchQueueUnavailable": "Historical analysis is temporarily unavailable."
+    "callMatchQueueUnavailable": "Historical analysis is temporarily unavailable.",
+    "requestFailed": "We could not save this change. Try again."
   }
 }

@@ -27,6 +27,7 @@ type MinalyExtensionLead = {
   canonicalProfileUrl: string | null;
   stage: string;
   outcome: string;
+  respondedAt: string | null;
   responsibleSetterName: string | null;
   nextAction: { title: string; dueAt: string } | null;
 };
@@ -48,6 +49,7 @@ type MinalyCaptureSelection = {
 
 type MinalyUpdateInput = {
   leadId: string;
+  responseOccurredAt?: string;
   stage?: string;
   displayName?: string;
   note?: string;
@@ -225,7 +227,7 @@ function minalyReadQualification(value: unknown): MinalyQualification | null {
 function minalyReadLead(value: unknown): MinalyExtensionLead | null {
   if (!minalyIsRecord(value) || typeof value.id !== "string" || typeof value.displayName !== "string" || typeof value.stage !== "string" || typeof value.outcome !== "string") return null;
   const nextAction = minalyIsRecord(value.nextAction) && typeof value.nextAction.title === "string" && typeof value.nextAction.dueAt === "string" ? { title: value.nextAction.title, dueAt: value.nextAction.dueAt } : null;
-  return { id: value.id, displayName: value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, stage: value.stage, outcome: value.outcome, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
+  return { id: value.id, displayName: value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, stage: value.stage, outcome: value.outcome, respondedAt: typeof value.respondedAt === "string" ? value.respondedAt : null, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
 }
 
 function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResolution; qualification: MinalyQualification | null } | null {
@@ -592,8 +594,14 @@ function minalyBuildPanel(
     body.append(minalyCallout("DÉJÀ DANS LE CRM", "Tu peux mettre à jour les informations et la prochaine action depuis cette fiche.", "minaly-callout-known"));
     const details = document.createElement("div");
     details.className = "minaly-details-grid";
-    details.append(minalyDetail("Responsable", resolution.lead.responsibleSetterName ?? "Non assigné"), minalyDetail("Étape actuelle", minalyStageLabel(resolution.lead.stage)));
+    details.append(minalyDetail("Responsable", resolution.lead.responsibleSetterName ?? "Non assigné"), minalyDetail("Étape actuelle", minalyStageLabel(resolution.lead.stage)), minalyDetail("Réponse", resolution.lead.respondedAt ? minalyFormatDate(resolution.lead.respondedAt) : "Pas encore"));
     body.append(details);
+
+    if (!resolution.lead.respondedAt) {
+      const response = minalyButton("A répondu", "minaly-secondary");
+      response.addEventListener("click", () => onUpdate({ leadId: resolution.lead.id, responseOccurredAt: new Date().toISOString() }));
+      body.append(response);
+    }
 
     const displayName = document.createElement("input");
     displayName.className = "minaly-field";

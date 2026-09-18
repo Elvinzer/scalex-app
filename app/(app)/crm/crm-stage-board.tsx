@@ -87,8 +87,8 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
   return (
     <div className="flex flex-col gap-4">
       {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
-      <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden" role="tablist" aria-label={t("pipeline.stageSelector")}>
-        {CRM_LEAD_STAGES.map((stage) => <Button key={stage} type="button" role="tab" aria-selected={selectedStage === stage} variant={selectedStage === stage ? "default" : "outline"} onClick={() => setSelectedStage(stage)}>{t(CRM_STAGE_LABEL_KEYS[stage])}</Button>)}
+      <div className="flex flex-wrap gap-2 pb-1 lg:hidden" role="tablist" aria-label={t("pipeline.stageSelector")}>
+        {CRM_LEAD_STAGES.map((stage) => <Button key={stage} type="button" role="tab" className="min-h-11" aria-selected={selectedStage === stage} variant={selectedStage === stage ? "default" : "outline"} onClick={() => setSelectedStage(stage)}>{t(CRM_STAGE_LABEL_KEYS[stage])}</Button>)}
       </div>
       <div className="lg:hidden">{stageColumn(selectedStage, "mobile")}</div>
       <div className="hidden gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-5" tabIndex={0}>{CRM_LEAD_STAGES.map((stage) => stageColumn(stage, "desktop"))}</div>

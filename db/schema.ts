@@ -50,6 +50,7 @@ import {
   CRM_ACTION_STATUSES,
   CRM_EVENT_SOURCES,
   CRM_EVENT_TYPES,
+  CRM_CONTACT_STATES,
   CRM_LEAD_OUTCOMES,
   CRM_LEAD_STAGES,
   CRM_PLATFORMS,
@@ -2321,6 +2322,7 @@ export const leadLostReasonEnum = pgEnum("lead_lost_reason", [
 export const crmLeadPlatformEnum = pgEnum("crm_lead_platform", CRM_PLATFORMS);
 export const crmLeadStageEnum = pgEnum("crm_lead_stage", CRM_LEAD_STAGES);
 export const crmLeadOutcomeEnum = pgEnum("crm_lead_outcome", CRM_LEAD_OUTCOMES);
+export const crmLeadContactStateEnum = pgEnum("crm_lead_contact_state", CRM_CONTACT_STATES);
 export const crmActionCategoryEnum = pgEnum("crm_action_category", CRM_ACTION_CATEGORIES);
 export const crmActionStatusEnum = pgEnum("crm_action_status", CRM_ACTION_STATUSES);
 export const crmEventSourceEnum = pgEnum("crm_event_source", CRM_EVENT_SOURCES);
@@ -2344,6 +2346,8 @@ export const leads = pgTable(
     accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
     source: leadSourceEnum("source").notNull(),
     platform: crmLeadPlatformEnum("platform"),
     canonicalProfileUrl: text("canonical_profile_url"),
@@ -2356,10 +2360,14 @@ export const leads = pgTable(
     potentialValueEur: integer("potential_value_eur").notNull().default(0), // pre-filled from offer.price, editable
     setterId: uuid("setter_id").references(() => setters.id, { onDelete: "set null" }),
     closer: text("closer"),
+    closerUserId: uuid("closer_user_id").references(() => users.id, { onDelete: "set null" }),
     stage: leadStageEnum("stage").notNull().default("nouveau_lead"),
     crmStage: crmLeadStageEnum("crm_stage").notNull().default("first_message_sent"),
+    contactState: crmLeadContactStateEnum("contact_state").notNull().default("new"),
     crmOutcome: crmLeadOutcomeEnum("crm_outcome").notNull().default("none"),
     messageOccurredAt: timestamp("message_occurred_at", { withTimezone: true }),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    qualificationNote: text("qualification_note"),
     capturedAt: timestamp("captured_at", { withTimezone: true }),
     // A STATUS on an "rdv_fixe" lead (red badge, recoverable back into
     // "conversation") — deliberately NOT a terminal stage/column.
@@ -2384,7 +2392,10 @@ export const leads = pgTable(
     index("leads_user_stage_idx").on(table.userId, table.stage),
     index("leads_user_created_idx").on(table.userId, table.createdAt),
     index("leads_setter_idx").on(table.setterId),
+    index("leads_account_created_idx").on(table.accountId, table.createdAt),
     index("leads_account_crm_stage_idx").on(table.accountId, table.crmStage),
+    index("leads_account_contact_state_idx").on(table.accountId, table.contactState),
+    index("leads_account_responded_idx").on(table.accountId, table.respondedAt),
     index("leads_account_platform_handle_idx").on(table.accountId, table.platform, table.normalizedHandle),
     uniqueIndex("leads_account_profile_url_idx").on(table.accountId, table.platform, table.canonicalProfileUrl),
     pgPolicy("leads_account_access", {
@@ -2715,6 +2726,7 @@ export const salesCalls = pgTable(
     inviteeEmail: text("invitee_email"),
     inviteePhone: text("invitee_phone"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    timeZone: text("time_zone"),
     // Free text, same convention as sales.closer / leads.closer (no closers
     // table exists in this codebase).
     closer: text("closer"),

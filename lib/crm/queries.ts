@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, gte, ilike, inArray, isNull, lte, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gt, gte, ilike, inArray, isNull, lte, lt, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -10,6 +10,11 @@ import {
   crmResponsibilityHistory,
   leadComments,
   leads,
+  nativeBookingAvailability,
+  nativeBookingEventClosers,
+  nativeBookingEvents,
+  nativeBookingExceptions,
+  nativeBookings,
   salesCalls,
   sales,
   setters,
@@ -22,6 +27,8 @@ import type { CrmSaleValidationInput } from "@/lib/sales/schema";
 import type {
   CrmActionCategory,
   CrmActionStatus,
+  CrmBookingSlotView,
+  CrmBookingAvailabilityView,
   CrmActionView,
   CrmCapturedProfile,
   CrmCallView,
@@ -34,6 +41,7 @@ import type {
   CrmLeadEventView,
   CrmLeadListItem,
   CrmLeadOutcome,
+  CrmLostReason,
   CrmLeadSource,
   CrmLeadStage,
   CrmProfileResolution,
@@ -41,6 +49,10 @@ import type {
   CrmStageHistoryView,
 } from "./types";
 import { getCrmCallSuggestions } from "./call-match-suggestions";
+import { listBusyForConnection } from "@/lib/native-booking/calendar";
+import { isCalendarTemporarilyUnavailable } from "@/lib/native-booking/calendar-readiness";
+import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
+import { generateBookingSlots } from "@/lib/native-booking/slots";
 
 const callSetters = alias(setters, "crm_call_setter");
 const leadSetters = alias(setters, "crm_lead_setter");
@@ -56,6 +68,12 @@ export type CrmLeadFilters = {
   createdFrom?: string;
   createdTo?: string;
   overdueActionOnly?: boolean;
+  contactState?: "new" | "contacted";
+  respondedOnly?: boolean;
+  qualificationOnly?: boolean;
+  eventType?: CrmEventType;
+  eventFrom?: string;
+  eventTo?: string;
 };
 
 export type CrmActionFilters = {
@@ -64,7 +82,10 @@ export type CrmActionFilters = {
   overdueOnly?: boolean;
   responsibleUserId?: string;
   status?: CrmActionStatus;
+  dueTodayOnly?: boolean;
 };
+
+export type CrmActionPagination = { limit?: number; offset?: number };
 
 export type CrmActionInput = {
   leadId: string;
@@ -96,7 +117,11 @@ function leadDisplayName(row: Pick<LeadDatabaseRow, "displayName" | "firstName" 
   return row.displayName?.trim() || [row.firstName, row.lastName].filter(Boolean).join(" ").trim() || row.normalizedHandle || "Lead";
 }
 
-function toLeadItem(row: LeadDatabaseRow, responsibleSetterName: string | null = null): CrmLeadListItem {
+function toLeadItem(
+  row: LeadDatabaseRow,
+  responsibleSetterName: string | null = null,
+  nextCall: CrmLeadListItem["nextCall"] = null,
+): CrmLeadListItem {
   return {
     id: row.id,
     accountId: row.accountId,
@@ -110,10 +135,17 @@ function toLeadItem(row: LeadDatabaseRow, responsibleSetterName: string | null =
     offerId: row.offerId,
     potentialValueEur: row.potentialValueEur,
     closer: row.closer,
+    closerUserId: row.closerUserId,
     saleId: row.saleId,
     stage: row.crmStage,
+    contactState: row.contactState,
     outcome: row.crmOutcome,
     isNoShow: row.isNoShow,
+    lostReason: row.lostReason,
+    respondedAt: row.respondedAt?.toISOString() ?? null,
+    qualificationNote: row.qualificationNote,
+    email: row.email,
+    phone: row.phone,
     responsibleSetterId: row.setterId,
     responsibleSetterName,
     createdAt: row.createdAt.toISOString(),
@@ -121,6 +153,7 @@ function toLeadItem(row: LeadDatabaseRow, responsibleSetterName: string | null =
     messageOccurredAt: row.messageOccurredAt?.toISOString() ?? null,
     capturedAt: row.capturedAt?.toISOString() ?? null,
     nextAction: null,
+    nextCall,
   };
 }
 
@@ -132,10 +165,34 @@ async function getNextActions(accountId: string, leadIds: string[]): Promise<Map
     .select({ id: crmActions.id, leadId: crmActions.leadId, title: crmActions.title, dueAt: crmActions.dueAt, category: crmActions.category })
     .from(crmActions)
     .where(and(eq(crmActions.accountId, accountId), inArray(crmActions.leadId, leadIds), eq(crmActions.status, "open")))
-    .orderBy(asc(crmActions.dueAt), desc(crmActions.priority));
+    .orderBy(asc(crmActions.dueAt), desc(crmActions.priority), asc(crmActions.id));
   const result = new Map<string, NextAction>();
   for (const row of rows) {
     if (!result.has(row.leadId)) result.set(row.leadId, { id: row.id, title: row.title, dueAt: row.dueAt.toISOString(), category: row.category });
+  }
+  return result;
+}
+
+async function getNextCalls(accountId: string, leadIds: string[]): Promise<Map<string, CrmLeadListItem["nextCall"]>> {
+  if (leadIds.length === 0) return new Map();
+  const rows = await db
+    .select({ call: salesCalls, link: crmCallLinks })
+    .from(salesCalls)
+    .innerJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId)))
+    .where(and(eq(salesCalls.userId, accountId), inArray(crmCallLinks.leadId, leadIds), gte(salesCalls.scheduledAt, new Date()), ne(salesCalls.attendance, "cancelled")))
+    .orderBy(asc(salesCalls.scheduledAt), asc(salesCalls.id));
+  const result = new Map<string, CrmLeadListItem["nextCall"]>();
+  for (const row of rows) {
+    if (!row.link.leadId || result.has(row.link.leadId)) continue;
+    result.set(row.link.leadId, {
+      id: row.call.id,
+      scheduledAt: row.call.scheduledAt.toISOString(),
+      timeZone: row.call.timeZone,
+      closer: row.call.closer,
+      source: row.call.source,
+      attendance: row.call.attendance,
+      outcome: row.call.outcome,
+    });
   }
   return result;
 }
@@ -186,6 +243,7 @@ function toActionView(row: {
   action: typeof crmActions.$inferSelect;
   lead: { displayName: string | null; firstName: string; lastName: string; normalizedHandle: string | null };
   responsible: { id: string; displayName: string | null; email: string } | null;
+  nextCall?: CrmActionView["nextCall"];
 }): CrmActionView {
   return {
     id: row.action.id,
@@ -204,6 +262,7 @@ function toActionView(row: {
     completedByUserId: row.action.completedByUserId,
     source: row.action.source,
     sourceId: row.action.sourceId,
+    nextCall: row.nextCall ?? null,
   };
 }
 
@@ -224,6 +283,7 @@ function toCallView(row: {
     inviteeEmail: row.call.inviteeEmail,
     inviteePhone: row.call.inviteePhone,
     scheduledAt: row.call.scheduledAt.toISOString(),
+    eventTimeZone: row.call.timeZone,
     durationMinutes: row.call.durationMinutes,
     eventType: row.call.eventType,
     externalReference: row.call.iclosedCallId,
@@ -290,11 +350,26 @@ export async function getCrmSetters(accountId: string): Promise<Array<{ id: stri
     .orderBy(asc(setters.name));
 }
 
-export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {}): Promise<CrmLeadListItem[]> {
+export type CrmLeadPagination = { limit?: number; offset?: number };
+
+export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {}, pagination: CrmLeadPagination = {}): Promise<CrmLeadListItem[]> {
   const conditions = [eq(leads.accountId, accountId)];
   if (filters.platform) conditions.push(eq(leads.platform, filters.platform));
   if (filters.stage) conditions.push(eq(leads.crmStage, filters.stage));
   if (filters.outcome) conditions.push(eq(leads.crmOutcome, filters.outcome));
+  if (filters.contactState) conditions.push(eq(leads.contactState, filters.contactState));
+  if (filters.respondedOnly) conditions.push(sql`${leads.respondedAt} is not null`);
+  if (filters.qualificationOnly) conditions.push(sql`${leads.qualificationNote} is not null and length(trim(${leads.qualificationNote})) > 0`);
+  if (filters.eventType) {
+    const eventConditions = [
+      eq(crmLeadEvents.accountId, accountId),
+      eq(crmLeadEvents.leadId, leads.id),
+      eq(crmLeadEvents.type, filters.eventType),
+    ];
+    if (filters.eventFrom && !Number.isNaN(Date.parse(filters.eventFrom))) eventConditions.push(gte(sql`coalesce(${crmLeadEvents.occurredAt}, ${crmLeadEvents.createdAt})`, new Date(`${filters.eventFrom}T00:00:00.000Z`).toISOString()));
+    if (filters.eventTo && !Number.isNaN(Date.parse(filters.eventTo))) eventConditions.push(lte(sql`coalesce(${crmLeadEvents.occurredAt}, ${crmLeadEvents.createdAt})`, new Date(`${filters.eventTo}T23:59:59.999Z`).toISOString()));
+    conditions.push(exists(db.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(...eventConditions))));
+  }
   if (filters.responsibleSetterId) conditions.push(eq(leads.setterId, filters.responsibleSetterId));
   if (filters.offerId) conditions.push(eq(leads.offerId, filters.offerId));
   if (filters.source) conditions.push(eq(leads.source, filters.source as typeof leads.source.enumValues[number]));
@@ -308,14 +383,19 @@ export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {
     conditions.push(or(ilike(leads.displayName, pattern), ilike(leads.firstName, pattern), ilike(leads.lastName, pattern), ilike(leads.normalizedHandle, pattern)) ?? eq(leads.id, "00000000-0000-0000-0000-000000000000"));
   }
 
+  const limit = Math.min(Math.max(pagination.limit ?? 100, 1), 100);
+  const offset = Math.max(pagination.offset ?? 0, 0);
   const rows = await db
     .select({ lead: leads, setterName: setters.name })
     .from(leads)
     .leftJoin(setters, eq(leads.setterId, setters.id))
     .where(and(...conditions))
-    .orderBy(desc(leads.updatedAt));
+    .orderBy(desc(leads.updatedAt), asc(leads.id))
+    .limit(limit)
+    .offset(offset);
   const nextActions = await getNextActions(accountId, rows.map(({ lead }) => lead.id));
-  return rows.map(({ lead, setterName }) => ({ ...toLeadItem(lead, setterName), nextAction: nextActions.get(lead.id) ?? null }));
+  const nextCalls = await getNextCalls(accountId, rows.map(({ lead }) => lead.id));
+  return rows.map(({ lead, setterName }) => ({ ...toLeadItem(lead, setterName, nextCalls.get(lead.id) ?? null), nextAction: nextActions.get(lead.id) ?? null }));
 }
 
 export async function getCrmLead(accountId: string, leadId: string): Promise<CrmLeadDetails | null> {
@@ -337,7 +417,10 @@ export async function getCrmLead(accountId: string, leadId: string): Promise<Crm
   ]);
 
   return {
-    ...toLeadItem(row.lead, row.setterName),
+    ...toLeadItem(row.lead, row.setterName, calls.find((call) => call.attendance !== "cancelled" && new Date(call.scheduledAt).getTime() >= Date.now()) ? (() => {
+      const nextCall = calls.find((call) => call.attendance !== "cancelled" && new Date(call.scheduledAt).getTime() >= Date.now());
+      return nextCall ? { id: nextCall.id, scheduledAt: nextCall.scheduledAt, timeZone: nextCall.eventTimeZone, closer: nextCall.closer, source: nextCall.source, attendance: nextCall.attendance, outcome: nextCall.outcome } : null;
+    })() : null),
     nextAction: (await getNextActions(accountId, [leadId])).get(leadId) ?? null,
     comments: comments.map(({ comment, author }) => ({ id: comment.id, userId: comment.userId, body: comment.body, createdAt: comment.createdAt.toISOString(), authorName: author?.displayName || author?.email || null })),
     events: events.map(({ event, actor }) => toEventView(event, actor?.displayName || actor?.email || null)),
@@ -364,7 +447,7 @@ export async function resolveCrmProfile(accountId: string, captured: CrmCaptured
       .from(leads)
       .leftJoin(setters, eq(leads.setterId, setters.id))
       .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.normalizedHandle, captured.normalizedHandle)))
-      .orderBy(desc(leads.updatedAt)),
+      .orderBy(desc(leads.updatedAt), asc(leads.id)),
   ]);
   if (exactResult.status === "rejected") throw exactResult.reason;
   const exact = exactResult.value[0];
@@ -384,6 +467,9 @@ export type CreateCrmLeadInput = {
   marketingSource?: CrmLeadSource;
   stage?: CrmLeadStage;
   responsibleSetterId?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  closerUserId?: string | null;
   source: CrmEventSource;
   sourceEventKey?: string | null;
   idempotencyKey?: string | null;
@@ -401,6 +487,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
   const capturedAt = new Date(input.profile.capturedAt);
   const messageDate = input.profile.messageOccurredAt ? new Date(input.profile.messageOccurredAt) : null;
   const stage = input.stage ?? "first_message_sent";
+  const contactState = messageDate || stage !== "first_message_sent" ? "contacted" as const : "new" as const;
   const captureKey = input.idempotencyKey ?? input.sourceEventKey ?? `capture:${input.profile.platform}:${input.profile.canonicalProfileUrl}:${input.profile.capturedAt}`;
 
   return db.transaction(async (tx) => {
@@ -430,6 +517,10 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
           socialLastName: input.profile.lastName || null,
           normalizedHandle: input.profile.normalizedHandle,
           messageOccurredAt: messageDate ?? existing.messageOccurredAt,
+          ...(input.email !== undefined ? { email: input.email } : {}),
+          ...(input.phone !== undefined ? { phone: input.phone } : {}),
+          ...(input.closerUserId !== undefined ? { closerUserId: input.closerUserId } : {}),
+          ...(messageDate ? { contactState: "contacted" as const } : {}),
           capturedAt,
           updatedAt: new Date(),
         })
@@ -454,6 +545,8 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       accountId,
       firstName: input.profile.firstName || input.profile.normalizedHandle,
       lastName: input.profile.lastName,
+      email: input.email ?? null,
+      phone: input.phone ?? null,
       source: input.marketingSource ?? input.profile.platform,
       platform: input.profile.platform,
       canonicalProfileUrl: input.profile.canonicalProfileUrl,
@@ -463,8 +556,10 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       socialLastName: input.profile.lastName || null,
       offerId: input.offerId ?? null,
       setterId,
+      closerUserId: input.closerUserId ?? null,
       stage: legacyStageForCrmStage(stage),
       crmStage: stage,
+      contactState,
       crmOutcome: "none",
       messageOccurredAt: messageDate,
       capturedAt,
@@ -599,7 +694,7 @@ export async function validateCrmSale(
 export async function updateCrmLeadFields(
   accountId: string,
   leadId: string,
-  fields: { displayName?: string; firstName?: string; lastName?: string; offerId?: string | null; source?: CrmLeadSource; potentialValueEur?: number; closer?: string | null },
+  fields: { displayName?: string; firstName?: string; lastName?: string; offerId?: string | null; source?: CrmLeadSource; potentialValueEur?: number; closer?: string | null; closerUserId?: string | null; email?: string | null; phone?: string | null },
   actorUserId: string,
   source: CrmEventSource = "app",
   idempotencyKey?: string | null,
@@ -620,6 +715,9 @@ export async function updateCrmLeadFields(
       ...(fields.source !== undefined ? { source: fields.source } : {}),
       ...(fields.potentialValueEur !== undefined ? { potentialValueEur: fields.potentialValueEur } : {}),
       ...(fields.closer !== undefined ? { closer: fields.closer } : {}),
+      ...(fields.closerUserId !== undefined ? { closerUserId: fields.closerUserId } : {}),
+      ...(fields.email !== undefined ? { email: fields.email } : {}),
+      ...(fields.phone !== undefined ? { phone: fields.phone } : {}),
       updatedAt: new Date(),
     }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
     if (!updated) return null;
@@ -682,7 +780,235 @@ export async function changeCrmStage(accountId: string, leadId: string, stage: C
   });
 }
 
-export async function setCrmOutcome(accountId: string, leadId: string, outcome: CrmLeadOutcome, actorUserId: string, source: CrmEventSource = "app", idempotencyKey?: string | null): Promise<CrmLeadListItem | null> {
+export async function markCrmContacted(accountId: string, leadId: string, actorUserId: string, source: CrmEventSource = "app", idempotencyKey?: string | null, occurredAt = new Date()): Promise<CrmLeadListItem | null> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
+    if (!current) return null;
+    const eventKey = idempotencyKey ? `contacted:${idempotencyKey}` : null;
+    if (eventKey) {
+      const [existingEvent] = await tx.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "first_message_sent"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
+      if (existingEvent) return toLeadItem(current);
+    }
+    if (current.contactState === "contacted") return toLeadItem(current);
+    const [updated] = await tx.update(leads).set({ contactState: "contacted", messageOccurredAt: current.messageOccurredAt ?? occurredAt, updatedAt: occurredAt }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "first_message_sent", source, sourceEventKey: eventKey, occurredAt, capturedAt: new Date(), metadata: { responsibleSetterId: current.setterId, confirmedFrom: "crm" } })).onConflictDoNothing();
+    return updated ? toLeadItem(updated) : null;
+  });
+}
+
+export async function markCrmResponse(accountId: string, leadId: string, actorUserId: string, source: CrmEventSource = "app", idempotencyKey: string, occurredAt = new Date()): Promise<CrmLeadListItem | null> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
+    if (!current) return null;
+    const eventKey = `response:${idempotencyKey}`;
+    const [existingEvent] = await tx.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "response_received"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
+    if (existingEvent || current.respondedAt) return toLeadItem(current);
+    const [updated] = await tx.update(leads).set({ respondedAt: occurredAt, updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "response_received", source, sourceEventKey: eventKey, occurredAt, capturedAt: new Date(), metadata: { responsibleSetterId: current.setterId } })).onConflictDoNothing();
+    return updated ? toLeadItem(updated) : null;
+  });
+}
+
+export async function saveCrmQualification(accountId: string, leadId: string, actorUserId: string, body: string, idempotencyKey: string, source: CrmEventSource = "app"): Promise<CrmLeadListItem | null> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
+    if (!current) return null;
+    const eventKey = `qualification:${idempotencyKey}`;
+    const [existingEvent] = await tx.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "qualification_updated"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
+    if (existingEvent || current.qualificationNote === (body.trim() || null)) return toLeadItem(current);
+    const changedAt = new Date();
+    const [updated] = await tx.update(leads).set({ qualificationNote: body.trim() || null, updatedAt: changedAt }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "qualification_updated", source, sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { hasContent: Boolean(body.trim()), responsibleSetterId: current.setterId } })).onConflictDoNothing();
+    return updated ? toLeadItem(updated) : null;
+  });
+}
+
+export async function recordCrmBookingLinkSent(accountId: string, leadId: string, actorUserId: string, idempotencyKey: string): Promise<boolean> {
+  const eventKey = `booking-link:${idempotencyKey}`;
+  const [lead] = await db.select({ id: leads.id, setterId: leads.setterId }).from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
+  if (!lead) return false;
+  await db.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "booking_link_sent", source: "app", sourceEventKey: eventKey, occurredAt: new Date(), capturedAt: new Date(), metadata: { responsibleSetterId: lead.setterId } })).onConflictDoNothing();
+  return true;
+}
+
+export async function getCrmBookingLink(accountId: string): Promise<string | null> {
+  const [row] = await db.select({ slug: nativeBookingEvents.slug, handle: users.bookingHandle }).from(nativeBookingEvents).innerJoin(users, eq(users.id, nativeBookingEvents.userId)).where(and(eq(nativeBookingEvents.userId, accountId), eq(nativeBookingEvents.status, "active"))).orderBy(desc(nativeBookingEvents.createdAt)).limit(1);
+  return row?.handle ? `/book/${row.handle}/${row.slug}` : null;
+}
+
+type BookingBlock = { startAt: Date; endAt: Date; status: string; holdExpiresAt: Date | null; closerUserId: string | null };
+type ExternalBusyPeriod = { startAt: Date; endAt: Date };
+
+function bookingBlockOverlaps(startAt: Date, endAt: Date, block: BookingBlock, beforeMinutes: number, afterMinutes: number, now: Date): boolean {
+  const blocking = block.status === "confirmed" || block.status === "sync_failed" || (block.status === "pending" && Boolean(block.holdExpiresAt && block.holdExpiresAt > now));
+  if (!blocking) return false;
+  const bufferedStart = new Date(block.startAt.getTime() - beforeMinutes * 60_000);
+  const bufferedEnd = new Date(block.endAt.getTime() + afterMinutes * 60_000);
+  return startAt < bufferedEnd && endAt > bufferedStart;
+}
+
+async function getCrmExternalBusyByCloser(
+  accountId: string,
+  closerUserIds: string[],
+  from: Date,
+  to: Date,
+): Promise<{ busyByCloser: Map<string, ExternalBusyPeriod[]>; unavailableClosers: Set<string> }> {
+  const busyByCloser = new Map<string, ExternalBusyPeriod[]>();
+  const unavailableClosers = new Set<string>();
+  const states = await getCalendarStatesForClosers(accountId, closerUserIds);
+
+  await Promise.all(
+    closerUserIds.map(async (closerUserId) => {
+      const state = states.get(closerUserId);
+      if (!state || state.conflictCalendars.length === 0) return;
+      if (isCalendarTemporarilyUnavailable(state.reason)) {
+        unavailableClosers.add(closerUserId);
+        return;
+      }
+      try {
+        const periods = await Promise.all(
+          state.conflictCalendars.map(({ connection, calendarId }) => listBusyForConnection(connection, from, to, [calendarId])),
+        );
+        busyByCloser.set(closerUserId, periods.flat());
+      } catch (error) {
+        console.error("[crm-booking] calendar availability failed", { closerUserId, message: error instanceof Error ? error.message : "unknown" });
+        unavailableClosers.add(closerUserId);
+      }
+    }),
+  );
+
+  return { busyByCloser, unavailableClosers };
+}
+
+async function getCrmBookingContext(accountId: string, leadId: string) {
+  const [lead] = await db.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
+  if (!lead) return null;
+  const [event] = await db.select().from(nativeBookingEvents).where(and(eq(nativeBookingEvents.userId, accountId), eq(nativeBookingEvents.status, "active"))).orderBy(desc(nativeBookingEvents.createdAt)).limit(1);
+  if (!event) return { lead, event: null };
+  const closerConditions = [eq(nativeBookingEventClosers.eventId, event.id), eq(nativeBookingEventClosers.isActive, true), eq(nativeBookingEventClosers.isOff, false)];
+  if (lead.closerUserId) closerConditions.push(eq(nativeBookingEventClosers.closerUserId, lead.closerUserId));
+  const [availability, exceptions, closerRows] = await Promise.all([
+    db.select().from(nativeBookingAvailability).where(eq(nativeBookingAvailability.eventId, event.id)),
+    db.select().from(nativeBookingExceptions).where(eq(nativeBookingExceptions.eventId, event.id)),
+    db.select({ assignment: nativeBookingEventClosers, user: users }).from(nativeBookingEventClosers).innerJoin(users, eq(nativeBookingEventClosers.closerUserId, users.id)).where(and(...closerConditions)).orderBy(asc(nativeBookingEventClosers.position), asc(users.email)),
+  ]);
+  return { lead, event, availability, exceptions, closerRows };
+}
+
+export async function getCrmInternalBookingSlots(accountId: string, leadId: string): Promise<CrmBookingAvailabilityView | null> {
+  const context = await getCrmBookingContext(accountId, leadId);
+  if (!context || !context.event) return null;
+  const { event, availability, exceptions, closerRows } = context;
+  if (closerRows.length === 0) return { eventName: event.name, timeZone: event.timeZone, durationMinutes: event.durationMinutes, slots: [] };
+  const now = new Date();
+  const baseSlots = generateBookingSlots({ event, availability, exceptions, bookings: [], now, days: event.bookingHorizonDays });
+  const horizonEnd = new Date(now.getTime() + event.bookingHorizonDays * 86_400_000);
+  const [nativeRows, callRows] = await Promise.all([
+    db.select({ startAt: nativeBookings.startAt, endAt: nativeBookings.endAt, status: nativeBookings.status, holdExpiresAt: nativeBookings.holdExpiresAt, closerUserId: nativeBookings.closerUserId }).from(nativeBookings).where(and(eq(nativeBookings.userId, accountId), gte(nativeBookings.endAt, now), lte(nativeBookings.startAt, horizonEnd))),
+    db.select({ scheduledAt: salesCalls.scheduledAt, durationMinutes: salesCalls.durationMinutes, closerUserId: salesCalls.closerUserId, attendance: salesCalls.attendance }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), gte(salesCalls.scheduledAt, now), lte(salesCalls.scheduledAt, horizonEnd), ne(salesCalls.attendance, "cancelled"))),
+  ]);
+  const { busyByCloser, unavailableClosers } = await getCrmExternalBusyByCloser(
+    accountId,
+    closerRows.map(({ assignment }) => assignment.closerUserId),
+    baseSlots[0]?.startAt ?? now,
+    baseSlots.at(-1)?.endAt ?? horizonEnd,
+  );
+  const blocks: BookingBlock[] = [
+    ...nativeRows,
+    ...callRows.map((row) => ({ startAt: row.scheduledAt, endAt: new Date(row.scheduledAt.getTime() + (row.durationMinutes ?? event.durationMinutes) * 60_000), status: "confirmed", holdExpiresAt: null, closerUserId: row.closerUserId })),
+  ];
+  const slots: CrmBookingSlotView[] = [];
+  for (const slot of baseSlots) {
+    for (const row of closerRows) {
+      const closerUserId = row.assignment.closerUserId;
+      const isBusy = unavailableClosers.has(closerUserId)
+        || blocks.some((block) => (block.closerUserId === closerUserId || block.closerUserId === null) && bookingBlockOverlaps(slot.startAt, slot.endAt, block, event.bufferBeforeMinutes, event.bufferAfterMinutes, now))
+        || (busyByCloser.get(closerUserId) ?? []).some((period) => bookingBlockOverlaps(slot.startAt, slot.endAt, { ...period, status: "confirmed", holdExpiresAt: null, closerUserId }, event.bufferBeforeMinutes, event.bufferAfterMinutes, now));
+      if (!isBusy) slots.push({ startAt: slot.startAt.toISOString(), endAt: slot.endAt.toISOString(), timeZone: event.timeZone, closerUserId: row.assignment.closerUserId, closerName: row.user.displayName || row.user.email });
+    }
+  }
+  return { eventName: event.name, timeZone: event.timeZone, durationMinutes: event.durationMinutes, slots: slots.slice(0, 120) };
+}
+
+export async function createCrmInternalBooking(accountId: string, leadId: string, closerUserId: string, startAt: Date, actorUserId: string, idempotencyKey: string): Promise<{ callId: string; scheduledAt: string; timeZone: string; closerName: string } | { error: "not_found" | "slot_unavailable" | "conflict" | "invalid" }> {
+  const eventKey = `internal-booking:${idempotencyKey}`;
+  const [existingCallForKey] = await db.select({ call: salesCalls }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), eq(salesCalls.iclosedCallId, `minaly-internal:${idempotencyKey}`))).limit(1);
+  if (existingCallForKey) {
+    return {
+      callId: existingCallForKey.call.id,
+      scheduledAt: existingCallForKey.call.scheduledAt.toISOString(),
+      timeZone: existingCallForKey.call.timeZone ?? "UTC",
+      closerName: existingCallForKey.call.closer ?? "Closer",
+    };
+  }
+  const context = await getCrmBookingContext(accountId, leadId);
+  if (!context || !context.event) return { error: "not_found" } as const;
+  const preflightCloser = context.closerRows.find(({ assignment }) => assignment.closerUserId === closerUserId);
+  if (!preflightCloser) return { error: "invalid" } as const;
+  const requestedEnd = new Date(startAt.getTime() + context.event.durationMinutes * 60_000);
+  const preflightNow = new Date();
+  const preflightBusy = await getCrmExternalBusyByCloser(
+    accountId,
+    [closerUserId],
+    new Date(startAt.getTime() - context.event.bufferBeforeMinutes * 60_000),
+    new Date(requestedEnd.getTime() + context.event.bufferAfterMinutes * 60_000),
+  );
+  if (
+    preflightBusy.unavailableClosers.has(closerUserId)
+    || (preflightBusy.busyByCloser.get(closerUserId) ?? []).some((period) =>
+      bookingBlockOverlaps(
+        startAt,
+        requestedEnd,
+        { ...period, status: "confirmed", holdExpiresAt: null, closerUserId },
+        context.event?.bufferBeforeMinutes ?? 0,
+        context.event?.bufferAfterMinutes ?? 0,
+        preflightNow,
+      )
+    )
+  ) return { error: "slot_unavailable" } as const;
+  return db.transaction(async (tx) => {
+    const [lead] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).for("update").limit(1);
+    if (!lead) return { error: "not_found" } as const;
+    const [existingEvent] = await tx.select({ metadata: crmLeadEvents.metadata }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "call_booked"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
+    if (existingEvent && typeof existingEvent.metadata.salesCallId === "string" && typeof existingEvent.metadata.timeZone === "string" && typeof existingEvent.metadata.closerName === "string") {
+      return { callId: existingEvent.metadata.salesCallId, scheduledAt: String(existingEvent.metadata.scheduledAt), timeZone: existingEvent.metadata.timeZone, closerName: existingEvent.metadata.closerName };
+    }
+    const [event] = await tx.select().from(nativeBookingEvents).where(and(eq(nativeBookingEvents.userId, accountId), eq(nativeBookingEvents.status, "active"))).orderBy(desc(nativeBookingEvents.createdAt)).limit(1);
+    if (!event) return { error: "not_found" } as const;
+    if (lead.closerUserId && lead.closerUserId !== closerUserId) return { error: "invalid" } as const;
+    const [closerRow] = await tx.select({ assignment: nativeBookingEventClosers, user: users }).from(nativeBookingEventClosers).innerJoin(users, eq(nativeBookingEventClosers.closerUserId, users.id)).where(and(eq(nativeBookingEventClosers.eventId, event.id), eq(nativeBookingEventClosers.closerUserId, closerUserId), eq(nativeBookingEventClosers.isActive, true), eq(nativeBookingEventClosers.isOff, false))).limit(1);
+    if (!closerRow) return { error: "invalid" } as const;
+    const requestedEnd = new Date(startAt.getTime() + event.durationMinutes * 60_000);
+    const [availability, exceptions] = await Promise.all([
+      tx.select().from(nativeBookingAvailability).where(eq(nativeBookingAvailability.eventId, event.id)),
+      tx.select().from(nativeBookingExceptions).where(eq(nativeBookingExceptions.eventId, event.id)),
+    ]);
+    const now = new Date();
+    const valid = generateBookingSlots({ event, availability, exceptions, bookings: [], now, days: event.bookingHorizonDays }).some((slot) => slot.startAt.getTime() === startAt.getTime() && slot.endAt.getTime() === requestedEnd.getTime());
+    if (!valid) return { error: "slot_unavailable" } as const;
+    const [sameKey] = await tx.select({ call: salesCalls }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), eq(salesCalls.iclosedCallId, `minaly-internal:${idempotencyKey}`))).limit(1);
+    if (sameKey) return { callId: sameKey.call.id, scheduledAt: sameKey.call.scheduledAt.toISOString(), timeZone: event.timeZone, closerName: sameKey.call.closer ?? closerRow.user.displayName ?? closerRow.user.email };
+    const bufferedStart = new Date(startAt.getTime() - event.bufferBeforeMinutes * 60_000);
+    const bufferedEnd = new Date(requestedEnd.getTime() + event.bufferAfterMinutes * 60_000);
+    const [nativeConflict] = await tx.select({ id: nativeBookings.id }).from(nativeBookings).where(and(eq(nativeBookings.userId, accountId), or(eq(nativeBookings.closerUserId, closerUserId), isNull(nativeBookings.closerUserId)), lt(nativeBookings.startAt, bufferedEnd), gt(nativeBookings.endAt, bufferedStart), or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed"), and(eq(nativeBookings.status, "pending"), gt(nativeBookings.holdExpiresAt, now))))).limit(1);
+    const [callConflict] = await tx.select({ id: salesCalls.id }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), or(eq(salesCalls.closerUserId, closerUserId), isNull(salesCalls.closerUserId)), lt(salesCalls.scheduledAt, bufferedEnd), sql`${salesCalls.scheduledAt} + (coalesce(${salesCalls.durationMinutes}, ${event.durationMinutes}) * interval '1 minute') > ${bufferedStart}`, ne(salesCalls.attendance, "cancelled"))).limit(1);
+    if (nativeConflict || callConflict) return { error: "slot_unavailable" } as const;
+    const setterId = lead.setterId;
+    const [call] = await tx.insert(salesCalls).values({ userId: accountId, iclosedCallId: `minaly-internal:${idempotencyKey}`, inviteeName: lead.displayName || `${lead.firstName} ${lead.lastName}`.trim(), inviteeEmail: lead.email, inviteePhone: lead.phone, scheduledAt: startAt, timeZone: event.timeZone, durationMinutes: event.durationMinutes, closer: closerRow.user.displayName || closerRow.user.email, closerUserId, setterId, eventType: event.name, source: "minaly_internal", attendance: "booked", outcome: "pending" }).onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] }).returning({ id: salesCalls.id });
+    if (!call) {
+      const [existingCall] = await tx.select({ call: salesCalls }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), eq(salesCalls.iclosedCallId, `minaly-internal:${idempotencyKey}`))).limit(1);
+      if (existingCall) return { callId: existingCall.call.id, scheduledAt: existingCall.call.scheduledAt.toISOString(), timeZone: event.timeZone, closerName: existingCall.call.closer ?? closerRow.user.displayName ?? closerRow.user.email };
+      return { error: "invalid" } as const;
+    }
+    await tx.insert(crmCallLinks).values({ accountId, leadId, salesCallId: call.id, source: "app", confidence: "exact_internal_booking", linkedByUserId: actorUserId, linkedAt: now }).onConflictDoNothing();
+    await tx.update(leads).set({ crmStage: "call_booked", stage: legacyStageForCrmStage("call_booked"), contactState: "contacted", updatedAt: now }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId)));
+    await tx.insert(crmLeadStageHistory).values({ accountId, leadId, fromStage: lead.crmStage, toStage: "call_booked", actorUserId, responsibleSetterId: lead.setterId, source: "app", changedAt: now });
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "call_booked", source: "app", sourceEventKey: eventKey, occurredAt: startAt, capturedAt: now, metadata: { salesCallId: call.id, scheduledAt: startAt.toISOString(), timeZone: event.timeZone, closerName: closerRow.user.displayName || closerRow.user.email, closerUserId, responsibleSetterId: lead.setterId, bookingMode: "minaly_internal" } })).onConflictDoNothing();
+    return { callId: call.id, scheduledAt: startAt.toISOString(), timeZone: event.timeZone, closerName: closerRow.user.displayName || closerRow.user.email };
+  });
+}
+
+export async function setCrmOutcome(accountId: string, leadId: string, outcome: CrmLeadOutcome, actorUserId: string, source: CrmEventSource = "app", idempotencyKey?: string | null, lostReason?: CrmLostReason | null, note?: string): Promise<CrmLeadListItem | null> {
   return db.transaction(async (tx) => {
     const [current] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
     if (!current) return null;
@@ -693,8 +1019,13 @@ export async function setCrmOutcome(accountId: string, leadId: string, outcome: 
     }
     if (current.crmOutcome === outcome && outcome !== "no_show") return toLeadItem(current);
     const changedAt = new Date();
-    const [updated] = await tx.update(leads).set({ crmOutcome: outcome, isNoShow: outcome === "no_show", updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
-    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: eventForOutcome(outcome), source, sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { fromOutcome: current.crmOutcome, toOutcome: outcome, responsibleSetterId: current.setterId } })).onConflictDoNothing();
+    const [updated] = await tx.update(leads).set({ crmOutcome: outcome, isNoShow: outcome === "no_show", ...(outcome === "lost" ? { lostReason: lostReason ?? null } : { lostReason: null }), updatedAt: changedAt }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: eventForOutcome(outcome), source, sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { fromOutcome: current.crmOutcome, toOutcome: outcome, responsibleSetterId: current.setterId, lostReason: lostReason ?? null } })).onConflictDoNothing();
+    if (outcome === "lost" && note?.trim()) {
+      const noteEventKey = eventKey ? `${eventKey}:note` : null;
+      const [comment] = await tx.insert(leadComments).values({ leadId, userId: actorUserId, body: note.trim() }).returning();
+      await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "note_added", source, sourceEventKey: noteEventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { commentId: comment.id, context: "lost" } })).onConflictDoNothing();
+    }
     if (outcome === "no_show") {
       const responsibleUserId = current.setterId ? (await tx.select({ userId: setters.userId }).from(setters).where(eq(setters.id, current.setterId)).limit(1))[0]?.userId ?? actorUserId : actorUserId;
       const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -820,16 +1151,20 @@ export async function reopenCrmLead(accountId: string, leadId: string, actorUser
   });
 }
 
-export async function reassignCrmLead(accountId: string, leadId: string, nextSetterId: string | null, actorUserId: string): Promise<CrmLeadListItem | null> {
+export async function reassignCrmLead(accountId: string, leadId: string, nextSetterId: string | null, actorUserId: string, idempotencyKey: string): Promise<CrmLeadListItem | null> {
   const nextSetter = await getSetterForAccount(accountId, nextSetterId);
   if (nextSetterId && !nextSetter) throw new Error("Le responsable n'appartient pas à ce compte.");
   return db.transaction(async (tx) => {
     const [current] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
     if (!current) return null;
+    const eventKey = `responsibility:${idempotencyKey}`;
+    const [existingEvent] = await tx.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "responsibility_changed"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
+    if (existingEvent) return toLeadItem(current);
     if (current.setterId === nextSetterId) return toLeadItem(current, nextSetter?.name ?? null);
-    const [updated] = await tx.update(leads).set({ setterId: nextSetterId, updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    const changedAt = new Date();
+    const [updated] = await tx.update(leads).set({ setterId: nextSetterId, updatedAt: changedAt }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
     await tx.insert(crmResponsibilityHistory).values({ accountId, leadId, previousSetterId: current.setterId, nextSetterId, actorUserId });
-    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "responsibility_changed", source: "app", occurredAt: new Date(), capturedAt: new Date(), metadata: { previousSetterId: current.setterId, nextSetterId } }));
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "responsibility_changed", source: "app", sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { previousSetterId: current.setterId, nextSetterId } })).onConflictDoNothing();
     const nextResponsibleUserId = nextSetter?.userId ?? null;
     await tx.update(crmActions).set({ responsibleUserId: nextResponsibleUserId, updatedAt: new Date() }).where(and(eq(crmActions.accountId, accountId), eq(crmActions.leadId, leadId), eq(crmActions.category, "prospecting"), eq(crmActions.status, "open")));
     return updated ? toLeadItem(updated, nextSetter?.name ?? null) : null;
@@ -862,7 +1197,7 @@ async function accountUserExists(accountId: string, userId: string): Promise<boo
   return Boolean(member);
 }
 
-export async function getCrmActions(accountId: string, filters: CrmActionFilters & { leadId?: string } = {}): Promise<CrmActionView[]> {
+export async function getCrmActions(accountId: string, filters: CrmActionFilters & { leadId?: string } = {}, pagination: CrmActionPagination = {}): Promise<CrmActionView[]> {
   const conditions = [eq(crmActions.accountId, accountId)];
   if (filters.leadId) conditions.push(eq(crmActions.leadId, filters.leadId));
   if (filters.category) conditions.push(eq(crmActions.category, filters.category));
@@ -870,9 +1205,21 @@ export async function getCrmActions(accountId: string, filters: CrmActionFilters
   if (filters.status) conditions.push(eq(crmActions.status, filters.status));
   if (filters.responsibleUserId) conditions.push(eq(crmActions.responsibleUserId, filters.responsibleUserId));
   if (filters.overdueOnly) conditions.push(lt(crmActions.dueAt, new Date()), eq(crmActions.status, "open"));
+  if (filters.dueTodayOnly) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    conditions.push(gte(crmActions.dueAt, start), lt(crmActions.dueAt, end), eq(crmActions.status, "open"));
+  }
   conditions.push(eq(leads.accountId, accountId));
-  const rows = await db.select({ action: crmActions, lead: { displayName: leads.displayName, firstName: leads.firstName, lastName: leads.lastName, normalizedHandle: leads.normalizedHandle }, responsible: { id: users.id, displayName: users.displayName, email: users.email } }).from(crmActions).innerJoin(leads, and(eq(crmActions.leadId, leads.id), eq(leads.accountId, accountId))).leftJoin(users, eq(crmActions.responsibleUserId, users.id)).where(and(...conditions)).orderBy(asc(crmActions.status), asc(crmActions.dueAt), desc(crmActions.priority));
-  return rows.map(toActionView);
+  const limit = Math.min(Math.max(pagination.limit ?? 500, 1), 500);
+  const offset = Math.max(pagination.offset ?? 0, 0);
+  const rows = await db.select({ action: crmActions, lead: { displayName: leads.displayName, firstName: leads.firstName, lastName: leads.lastName, normalizedHandle: leads.normalizedHandle }, responsible: { id: users.id, displayName: users.displayName, email: users.email } }).from(crmActions).innerJoin(leads, and(eq(crmActions.leadId, leads.id), eq(leads.accountId, accountId))).leftJoin(users, eq(crmActions.responsibleUserId, users.id)).where(and(...conditions)).orderBy(asc(crmActions.status), asc(crmActions.dueAt), desc(crmActions.priority), asc(crmActions.id)).limit(limit).offset(offset);
+  const nextCalls = await getNextCalls(accountId, Array.from(new Set(rows.map(({ action }) => action.leadId))));
+  return rows.map(({ action, lead, responsible }) => {
+    const nextCall = nextCalls.get(action.leadId);
+    return toActionView({ action, lead, responsible, nextCall: nextCall ? { scheduledAt: nextCall.scheduledAt, timeZone: nextCall.timeZone, closer: nextCall.closer, attendance: nextCall.attendance, outcome: nextCall.outcome } : null });
+  });
 }
 
 export async function createCrmAction(accountId: string, actorUserId: string, input: CrmActionInput): Promise<CrmActionView | null> {
@@ -907,7 +1254,7 @@ export async function createCrmAction(accountId: string, actorUserId: string, in
   });
 }
 
-export async function completeCrmAction(accountId: string, actionId: string, actorUserId: string, status: "completed" | "cancelled", canManage = false): Promise<CrmActionView | null> {
+export async function completeCrmAction(accountId: string, actionId: string, actorUserId: string, status: "completed" | "cancelled", canManage = false, idempotencyKey?: string | null): Promise<CrmActionView | null> {
   return db.transaction(async (tx) => {
     const [current] = await tx.select().from(crmActions).where(and(eq(crmActions.id, actionId), eq(crmActions.accountId, accountId))).limit(1);
     if (!current) return null;
@@ -917,10 +1264,36 @@ export async function completeCrmAction(accountId: string, actionId: string, act
     const now = new Date();
     const [updated] = await tx.update(crmActions).set({ status, completedAt: status === "completed" ? now : null, completedByUserId: status === "completed" ? actorUserId : null, updatedAt: now }).where(and(eq(crmActions.id, actionId), eq(crmActions.accountId, accountId), eq(crmActions.status, "open"))).returning();
     if (!updated) return currentView ? toActionView(currentView) : null;
-    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId: current.leadId, actorUserId, type: status === "completed" ? "action_completed" : "action_cancelled", source: "app", sourceEventKey: `action:${actionId}:${status}`, occurredAt: now, capturedAt: now, metadata: { actionId } })).onConflictDoNothing();
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId: current.leadId, actorUserId, type: status === "completed" ? "action_completed" : "action_cancelled", source: "app", sourceEventKey: idempotencyKey ? `action:${actionId}:${status}:${idempotencyKey}` : `action:${actionId}:${status}`, occurredAt: now, capturedAt: now, metadata: { actionId } })).onConflictDoNothing();
     const [joined] = await tx.select({ action: crmActions, lead: { displayName: leads.displayName, firstName: leads.firstName, lastName: leads.lastName, normalizedHandle: leads.normalizedHandle }, responsible: { id: users.id, displayName: users.displayName, email: users.email } }).from(crmActions).innerJoin(leads, and(eq(crmActions.leadId, leads.id), eq(leads.accountId, accountId))).leftJoin(users, eq(crmActions.responsibleUserId, users.id)).where(and(eq(crmActions.id, updated.id), eq(crmActions.accountId, accountId))).limit(1);
     return joined ? toActionView(joined) : null;
   });
+}
+
+export async function rescheduleCrmAction(accountId: string, actionId: string, actorUserId: string, dueAt: Date, canManage = false, idempotencyKey: string): Promise<CrmActionView | null> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(crmActions).where(and(eq(crmActions.id, actionId), eq(crmActions.accountId, accountId))).for("update").limit(1);
+    if (!current) return null;
+    if (!canManage && current.responsibleUserId !== actorUserId) return null;
+    const eventKey = `action-rescheduled:${actionId}:${idempotencyKey}`;
+    const [existingEvent] = await tx.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, current.leadId), eq(crmLeadEvents.type, "action_rescheduled"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
+    if (existingEvent) {
+      const [existingView] = await tx.select({ action: crmActions, lead: { displayName: leads.displayName, firstName: leads.firstName, lastName: leads.lastName, normalizedHandle: leads.normalizedHandle }, responsible: { id: users.id, displayName: users.displayName, email: users.email } }).from(crmActions).innerJoin(leads, and(eq(crmActions.leadId, leads.id), eq(leads.accountId, accountId))).leftJoin(users, eq(crmActions.responsibleUserId, users.id)).where(and(eq(crmActions.id, actionId), eq(crmActions.accountId, accountId))).limit(1);
+      return existingView ? toActionView(existingView) : null;
+    }
+    if (current.status !== "open") return null;
+    const changedAt = new Date();
+    const [updated] = await tx.update(crmActions).set({ dueAt, updatedAt: changedAt }).where(and(eq(crmActions.id, actionId), eq(crmActions.accountId, accountId), eq(crmActions.status, "open"))).returning();
+    if (!updated) return null;
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId: current.leadId, actorUserId, type: "action_rescheduled", source: "app", sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { actionId, previousDueAt: current.dueAt.toISOString(), nextDueAt: dueAt.toISOString() } })).onConflictDoNothing();
+    const [joined] = await tx.select({ action: crmActions, lead: { displayName: leads.displayName, firstName: leads.firstName, lastName: leads.lastName, normalizedHandle: leads.normalizedHandle }, responsible: { id: users.id, displayName: users.displayName, email: users.email } }).from(crmActions).innerJoin(leads, and(eq(crmActions.leadId, leads.id), eq(leads.accountId, accountId))).leftJoin(users, eq(crmActions.responsibleUserId, users.id)).where(and(eq(crmActions.id, updated.id), eq(crmActions.accountId, accountId))).limit(1);
+    return joined ? toActionView(joined) : null;
+  });
+}
+
+export async function getNextCrmAction(accountId: string, responsibleUserId: string | null, excludedActionId: string, filters: Pick<CrmActionFilters, "category" | "relanceOnly" | "overdueOnly" | "dueTodayOnly"> = {}): Promise<CrmActionView | null> {
+  const actions = await getCrmActions(accountId, { status: "open", responsibleUserId: responsibleUserId ?? undefined, ...filters }, { limit: 100 });
+  return actions.find((action) => action.id !== excludedActionId) ?? null;
 }
 
 export type CrmCallPagination = { limit: number; offset: number };
@@ -956,7 +1329,7 @@ export async function getCrmCalls(accountId: string, leadId?: string, filters: C
     .leftJoin(callSetters, eq(salesCalls.setterId, callSetters.id))
     .leftJoin(leadSetters, eq(leads.setterId, leadSetters.id))
     .where(and(...conditions))
-    .orderBy(desc(salesCalls.scheduledAt));
+    .orderBy(desc(salesCalls.scheduledAt), asc(salesCalls.id));
   const rows = pagination ? await query.limit(pagination.limit).offset(pagination.offset) : await query;
   const suggestions = await getCrmCallSuggestions(accountId, rows.filter(({ link }) => !link?.leadId).map(({ call }) => call.id));
   const views = rows.map((row) => toCallView({ ...row, setterName: row.callSetterName ?? row.leadSetterName, suggestion: row.link?.leadId ? null : suggestions.get(row.call.id) ?? null }));
@@ -1002,7 +1375,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
   const toDate = to.toISOString().slice(0, 10);
   const [setter, eventRows, callRows, saleRows] = await Promise.all([
     filters.setterId ? db.select({ id: setters.id, userId: setters.userId }).from(setters).where(and(eq(setters.id, filters.setterId), eq(setters.userId, accountId))).limit(1) : Promise.resolve([] as Array<{ id: string; userId: string }>),
-    db.select({ event: crmLeadEvents, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(crmLeadEvents).innerJoin(leads, and(eq(crmLeadEvents.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(crmLeadEvents.accountId, accountId), lte(crmLeadEvents.createdAt, to))),
+    db.select({ event: crmLeadEvents, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(crmLeadEvents).innerJoin(leads, and(eq(crmLeadEvents.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(crmLeadEvents.accountId, accountId), gte(sql`coalesce(${crmLeadEvents.occurredAt}, ${crmLeadEvents.createdAt})`, from.toISOString()), lte(sql`coalesce(${crmLeadEvents.occurredAt}, ${crmLeadEvents.createdAt})`, to.toISOString()))),
     db.select({ call: salesCalls, link: crmCallLinks, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(salesCalls).leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId))).leftJoin(leads, and(eq(crmCallLinks.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(salesCalls.userId, accountId), gte(salesCalls.scheduledAt, from), lte(salesCalls.scheduledAt, to))),
     db.select({ sale: sales, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(sales).leftJoin(leads, and(eq(sales.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(sales.userId, accountId), gte(sales.saleDate, fromDate), lte(sales.saleDate, toDate))),
   ]);
@@ -1023,6 +1396,6 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
     return event.actorUserId === setterUserId || responsibleSetterId === filters.setterId;
   }).map(({ event }) => ({ leadId: event.leadId, type: event.type, actorUserId: event.actorUserId, source: event.source, occurredAt: event.occurredAt, capturedAt: event.capturedAt, createdAt: event.createdAt, metadata: event.metadata }));
   const calls = callRows.filter(({ link, lead }) => Boolean(link?.leadId) && matchesLead(lead)).map(({ link, call }) => ({ leadId: link?.leadId ?? null, scheduledAt: call.scheduledAt, attendance: call.attendance }));
-  const linkedSales = saleRows.filter(({ sale, lead }) => Boolean(sale.leadId) && matchesLead(lead)).map(({ sale }) => ({ leadId: sale.leadId, saleDate: sale.saleDate }));
+  const linkedSales = saleRows.filter(({ sale, lead }) => Boolean(sale.leadId) && matchesLead(lead)).map(({ sale }) => ({ leadId: sale.leadId, saleDate: sale.saleDate, totalPrice: sale.totalPrice }));
   return { events, calls, sales: linkedSales };
 }

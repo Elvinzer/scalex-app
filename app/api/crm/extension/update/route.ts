@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { readCrmExtensionBody } from "@/lib/crm/extension-http";
 import { getCrmExtensionAccess } from "@/lib/crm/extension-session";
-import { addCrmNote, changeCrmStage, createCrmAction, updateCrmLeadFields } from "@/lib/crm/queries";
+import { addCrmNote, changeCrmStage, createCrmAction, markCrmResponse, updateCrmLeadFields } from "@/lib/crm/queries";
 import { crmExtensionUpdateSchema } from "@/lib/crm/schemas";
 
 export const runtime = "nodejs";
@@ -17,6 +17,10 @@ export async function POST(request: NextRequest) {
   const parsed = crmExtensionUpdateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "invalid_update" }, { status: 400 });
   const { leadId, idempotencyKey } = parsed.data;
+  if (parsed.data.responseOccurredAt) {
+    const lead = await markCrmResponse(access.accountId, leadId, access.userId, "extension", idempotencyKey, new Date(parsed.data.responseOccurredAt));
+    if (!lead) return NextResponse.json({ error: "lead_not_found" }, { status: 404 });
+  }
   if (parsed.data.displayName !== undefined || parsed.data.firstName !== undefined || parsed.data.lastName !== undefined || parsed.data.offerId !== undefined) {
     const lead = await updateCrmLeadFields(access.accountId, leadId, { displayName: parsed.data.displayName, firstName: parsed.data.firstName, lastName: parsed.data.lastName, offerId: parsed.data.offerId }, access.userId, "extension", idempotencyKey);
     if (!lead) return NextResponse.json({ error: "lead_not_found" }, { status: 404 });

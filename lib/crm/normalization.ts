@@ -67,7 +67,7 @@ export function normalizeHandle(platform: CrmPlatform, handle: string): string {
 }
 
 export function normalizeCapturedProfile(input: {
-  profileUrl: string;
+  profileUrl?: string | null;
   platform?: CrmPlatform | null;
   handle?: string | null;
   displayName?: string | null;
@@ -76,9 +76,16 @@ export function normalizeCapturedProfile(input: {
   messageOccurredAt?: string | null;
   capturedAt?: string | null;
 }): CrmCapturedProfile | null {
-  const platform = input.platform ?? detectPlatform(input.profileUrl);
+  const rawProfileUrl = input.profileUrl?.trim() ?? "";
+  const platform = input.platform ?? (rawProfileUrl ? detectPlatform(rawProfileUrl) : null);
   if (!platform) return null;
-  const canonicalProfileUrl = normalizeProfileUrl(platform, input.profileUrl);
+  const canonicalProfileUrl = rawProfileUrl
+    ? normalizeProfileUrl(platform, rawProfileUrl)
+    : (() => {
+        const normalized = normalizeHandle(platform, input.handle ?? "");
+        if (!normalized) return null;
+        return `https://${PLATFORM_HOSTS[platform]}/${platform === "linkedin" ? `in/${normalized}` : normalized}`;
+      })();
   if (!canonicalProfileUrl) return null;
   const pathParts = new URL(canonicalProfileUrl).pathname.split("/").filter(Boolean);
   const urlHandle = platform === "linkedin" ? pathParts[1] : pathParts[0];

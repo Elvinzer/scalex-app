@@ -90,6 +90,7 @@ describe("CRM KPI projection", () => {
 
     expect(counts.rates).toEqual({
       response: null,
+      qualification: null,
       valueContent: null,
       callProposed: null,
       callBooked: null,

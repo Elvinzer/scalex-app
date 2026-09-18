@@ -13,6 +13,12 @@ export type CrmLeadStage = (typeof CRM_LEAD_STAGES)[number];
 export const CRM_LEAD_OUTCOMES = ["none", "no_show", "lost", "sold"] as const;
 export type CrmLeadOutcome = (typeof CRM_LEAD_OUTCOMES)[number];
 
+export const CRM_CONTACT_STATES = ["new", "contacted"] as const;
+export type CrmContactState = (typeof CRM_CONTACT_STATES)[number];
+
+export const CRM_LOST_REASONS = ["pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "autre"] as const;
+export type CrmLostReason = (typeof CRM_LOST_REASONS)[number];
+
 export const CRM_LEAD_SOURCES = [
   "instagram",
   "tiktok",
@@ -56,10 +62,19 @@ export const CRM_EVENT_TYPES = [
   "action_created",
   "action_completed",
   "action_cancelled",
+  "action_rescheduled",
   "responsibility_changed",
   "match_confirmed",
+  "qualification_updated",
+  "booking_link_sent",
 ] as const;
 export type CrmEventType = (typeof CRM_EVENT_TYPES)[number];
+
+export type CrmMutationResult<T extends object = Record<never, never>> =
+  | ({ state: "saved"; error: null } & T)
+  | ({ state: "error"; error: string } & Partial<T>);
+
+export type CrmMutationClientState = "saved" | "pending" | "error";
 
 export type CrmEventMetadata = Record<string, string | number | boolean | null>;
 
@@ -149,15 +164,31 @@ export type CrmLeadListItem = {
   closer: string | null;
   saleId: string | null;
   stage: CrmLeadStage;
+  contactState: CrmContactState;
   outcome: CrmLeadOutcome;
   isNoShow: boolean;
+  lostReason: CrmLostReason | null;
+  respondedAt: string | null;
+  qualificationNote: string | null;
+  email: string | null;
+  phone: string | null;
   responsibleSetterId: string | null;
   responsibleSetterName: string | null;
+  closerUserId: string | null;
   createdAt: string;
   updatedAt: string;
   messageOccurredAt: string | null;
   capturedAt: string | null;
   nextAction: { id: string; title: string; dueAt: string; category: CrmActionCategory } | null;
+  nextCall: {
+    id: string;
+    scheduledAt: string;
+    timeZone: string | null;
+    closer: string | null;
+    source: string;
+    attendance: "booked" | "showed" | "no_show" | "cancelled";
+    outcome: "pending" | "closed" | "not_closed" | "awaiting_decision";
+  } | null;
 };
 
 export type CrmLeadEventView = {
@@ -209,6 +240,13 @@ export type CrmActionView = {
   completedByUserId: string | null;
   source: CrmEventSource;
   sourceId: string | null;
+  nextCall: {
+    scheduledAt: string;
+    timeZone: string | null;
+    closer: string | null;
+    attendance: "booked" | "showed" | "no_show" | "cancelled";
+    outcome: "pending" | "closed" | "not_closed" | "awaiting_decision";
+  } | null;
 };
 
 export type CrmCallView = {
@@ -223,6 +261,7 @@ export type CrmCallView = {
   scheduledAt: string;
   durationMinutes: number | null;
   eventType: string | null;
+  eventTimeZone: string | null;
   externalReference: string;
   nativeBookingId: string | null;
   attendance: "booked" | "showed" | "no_show" | "cancelled";
@@ -240,6 +279,21 @@ export type CrmLeadDetails = CrmLeadListItem & {
   responsibilityHistory: CrmResponsibilityHistoryView[];
   actions: CrmActionView[];
   calls: CrmCallView[];
+};
+
+export type CrmBookingSlotView = {
+  startAt: string;
+  endAt: string;
+  timeZone: string;
+  closerUserId: string;
+  closerName: string;
+};
+
+export type CrmBookingAvailabilityView = {
+  eventName: string;
+  timeZone: string;
+  durationMinutes: number;
+  slots: CrmBookingSlotView[];
 };
 
 export type CrmProfileResolution =

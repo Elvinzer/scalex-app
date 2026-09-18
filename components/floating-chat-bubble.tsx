@@ -149,7 +149,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
             // Coral — deliberately breaks from the rest of the Copilote's
             // violet identity (drawer header, send button) for this one
             // launcher button only, per explicit user request.
-            "group fixed right-6 bottom-6 z-30 flex size-14 items-center justify-center rounded-full bg-accent shadow-[var(--shadow-float)] ring-0 ring-accent transition-all duration-[150ms] ease-[var(--ease-out)] hover:scale-105 hover:ring-1",
+            "group fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom)+0.75rem)] z-30 flex size-14 items-center justify-center rounded-full bg-accent shadow-[var(--shadow-float)] ring-0 ring-accent transition-all duration-[150ms] ease-[var(--ease-out)] hover:scale-105 hover:ring-1 md:right-6 md:bottom-6",
             showNotification && "animate-[glow-pulse_2s_ease-in-out_infinite]"
           )}
         >

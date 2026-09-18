@@ -483,7 +483,7 @@ export function AppSidebar({
       {/* Mobile-only app chrome. On desktop the sidebar owns the complete
           navigation and there is no empty horizontal bar above the content. */}
       <header
-        className="fixed top-0 right-0 left-0 z-50 flex h-20 min-w-0 items-center gap-3 border-b border-border bg-card/95 px-3 text-foreground shadow-sm backdrop-blur-sm md:hidden"
+        className="fixed top-0 right-0 left-0 z-50 flex h-[calc(5rem+env(safe-area-inset-top))] min-w-0 items-center gap-3 border-b border-border bg-card/95 px-3 pt-[env(safe-area-inset-top)] text-foreground shadow-sm backdrop-blur-sm md:hidden"
       >
         <button
           type="button"

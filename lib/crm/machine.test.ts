@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { canChangeStage, defaultStageAfterReopen, eventForOutcome, eventForStage, legacyStageForCrmStage } from "./machine";
-import { reopenSchema } from "./schemas";
+import { reopenSchema, responsibilitySchema } from "./schemas";
 
 describe("CRM state machine", () => {
   it("keeps the five operational stages independent from outcomes", () => {
@@ -21,5 +21,11 @@ describe("CRM state machine", () => {
     expect(reopenSchema.safeParse(input).success).toBe(true);
     expect(reopenSchema.safeParse({ ...input, stage: "invalid" }).success).toBe(false);
     expect(reopenSchema.safeParse({ ...input, idempotencyKey: "short" }).success).toBe(false);
+  });
+
+  it("requires an idempotency key when changing responsibility", () => {
+    const input = { leadId: "00000000-0000-4000-8000-000000000001", setterId: null, idempotencyKey: "responsibility-0001" };
+    expect(responsibilitySchema.safeParse(input).success).toBe(true);
+    expect(responsibilitySchema.safeParse({ ...input, idempotencyKey: undefined }).success).toBe(false);
   });
 });

@@ -8,7 +8,7 @@ import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine";
 import { getCrmLeads, getCrmSetters } from "@/lib/crm/queries";
-import { crmOutcomeSchema, crmStageSchema } from "@/lib/crm/schemas";
+import { crmEventTypeSchema, crmOutcomeSchema, crmStageSchema } from "@/lib/crm/schemas";
 import { CRM_LEAD_OUTCOMES, CRM_LEAD_STAGES } from "@/lib/crm/types";
 
 import { CrmLeadCaptureForm } from "../crm-lead-capture-form";
@@ -16,7 +16,7 @@ import { CrmLeadList } from "../crm-lead-list";
 
 const SOURCE_OPTIONS = ["instagram", "tiktok", "youtube", "linkedin", "x", "facebook", "ads", "email_newsletter", "bouche_a_oreille", "autre"] as const;
 
-export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; offer?: string; source?: string; from?: string; to?: string; overdue?: string }> }) {
+export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; offer?: string; source?: string; from?: string; to?: string; event?: string; eventFrom?: string; eventTo?: string; overdue?: string; responded?: string; qualification?: string }> }) {
   const t = await getTranslations("crm");
   const { userId } = await getCurrentUser();
   const access = await requireCrmAccess(userId);
@@ -32,7 +32,10 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const createdFrom = datePattern.test(params.from ?? "") ? params.from : undefined;
   const createdTo = datePattern.test(params.to ?? "") ? params.to : undefined;
-  const leads = await getCrmLeads(access.accountId, { search: params.search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, overdueActionOnly: params.overdue === "1" });
+  const eventType = crmEventTypeSchema.safeParse(params.event).success ? crmEventTypeSchema.parse(params.event) : undefined;
+  const eventFrom = datePattern.test(params.eventFrom ?? "") ? params.eventFrom : undefined;
+  const eventTo = datePattern.test(params.eventTo ?? "") ? params.eventTo : undefined;
+  const leads = await getCrmLeads(access.accountId, { search: params.search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, overdueActionOnly: params.overdue === "1", respondedOnly: params.responded === "1", qualificationOnly: params.qualification === "1" });
 
   return (
     <div className="flex flex-col gap-6">

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."crm_event_type" ADD VALUE 'action_rescheduled' BEFORE 'responsibility_changed';

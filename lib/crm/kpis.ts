@@ -17,10 +17,11 @@ export type CrmKpiCall = {
   attendance: "booked" | "showed" | "no_show" | "cancelled";
 };
 
-export type CrmKpiSale = { leadId: string | null; saleDate: string };
+export type CrmKpiSale = { leadId: string | null; saleDate: string; totalPrice?: number };
 
 export type CrmKpiRates = {
   response: number | null;
+  qualification: number | null;
   valueContent: number | null;
   callProposed: number | null;
   callBooked: number | null;
@@ -32,6 +33,7 @@ export type CrmKpiRates = {
 export type CrmKpiCounts = {
   messages: number;
   responses: number;
+  qualificationNotes: number;
   conversations: number;
   valueContent: number;
   callsProposed: number;
@@ -39,6 +41,7 @@ export type CrmKpiCounts = {
   callsAttended: number;
   noShows: number;
   sales: number;
+  revenue: number;
   cohortFirstMessages: number;
   cohortConversations: number;
   cohortValueContent: number;
@@ -99,11 +102,13 @@ export function computeCrmKpis(input: {
     callsProposed: new Set(),
     callsBooked: new Set(),
   };
+  const qualificationLeadIds = new Set<string>();
   const firstMessageDates = new Map<string, Date>();
   const cohortMilestones = new Map<string, Set<string>>();
   const soldLeadIds = new Set<string>();
   const noShowEventLeadIds = new Set<string>();
   let hasPeriodData = false;
+  let revenue = 0;
 
   for (const event of input.events) {
     const date = eventDate(event);
@@ -114,6 +119,7 @@ export function computeCrmKpis(input: {
       if (!current || date < current) firstMessageDates.set(event.leadId, date);
     }
     if (event.type === "sale_validated" && isInPeriod) soldLeadIds.add(event.leadId);
+    if (event.type === "qualification_updated" && isInPeriod) qualificationLeadIds.add(event.leadId);
     if (event.type === "no_show_marked" && isInPeriod) noShowEventLeadIds.add(event.leadId);
     const bucket = EVENT_KPI[event.type];
     if (bucket && isInPeriod) buckets[bucket].add(event.leadId);
@@ -152,6 +158,7 @@ export function computeCrmKpis(input: {
     if (sale.leadId && inPeriod(saleDate, input.period)) {
       hasPeriodData = true;
       soldLeadIds.add(sale.leadId);
+      revenue += sale.totalPrice ?? 0;
     }
   }
 
@@ -167,6 +174,7 @@ export function computeCrmKpis(input: {
   return {
     messages: buckets.messages.size,
     responses: buckets.responses.size,
+    qualificationNotes: qualificationLeadIds.size,
     conversations: buckets.conversations.size,
     valueContent: buckets.valueContent.size,
     callsProposed: buckets.callsProposed.size,
@@ -174,6 +182,7 @@ export function computeCrmKpis(input: {
     callsAttended,
     noShows,
     sales: soldLeadIds.size,
+    revenue,
     cohortFirstMessages,
     cohortConversations,
     cohortValueContent,
@@ -182,6 +191,7 @@ export function computeCrmKpis(input: {
     cohortConverted: cohortConverted.size,
     rates: {
       response: ratio(cohortConversations, cohortFirstMessages),
+      qualification: null,
       valueContent: ratio(cohortValueContent, cohortConversations),
       callProposed: ratio(cohortCallsProposed, cohortValueContent),
       callBooked: ratio(cohortCallsBooked, cohortCallsProposed),

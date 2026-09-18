@@ -16,6 +16,7 @@ const callbackSource = readFileSync(new URL("./src/auth-callback.ts", import.met
 const callbackPage = readFileSync(new URL("./auth-callback.html", import.meta.url), "utf8");
 const crmQueriesSource = readFileSync(new URL("../lib/crm/queries.ts", import.meta.url), "utf8");
 const extensionResolveRouteSource = readFileSync(new URL("../app/api/crm/extension/resolve/route.ts", import.meta.url), "utf8");
+const extensionUpdateRouteSource = readFileSync(new URL("../app/api/crm/extension/update/route.ts", import.meta.url), "utf8");
 
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
@@ -50,6 +51,12 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(contentSource).toContain("canonicalProfileUrl: typeof value.canonicalProfileUrl");
     expect(contentSource).toContain("minaly-profile-link");
     expect(contentSource).toContain("MISE À JOUR DISPONIBLE");
+  });
+
+  it("reconciles an extension response through the canonical CRM milestone", () => {
+    expect(contentSource).toContain('responseOccurredAt: new Date().toISOString()');
+    expect(extensionUpdateRouteSource).toContain("markCrmResponse");
+    expect(extensionUpdateRouteSource).toContain('"extension"');
   });
 
   it("keeps the extension responsive while requests are in flight", () => {

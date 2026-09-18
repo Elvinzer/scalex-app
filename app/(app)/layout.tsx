@@ -172,7 +172,7 @@ export default async function AppLayout({
             <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-24 md:px-16 md:pb-10">
               {/* Mobile keeps its compact header; desktop starts directly beside
                   the sidebar because the empty horizontal bar is gone. */}
-              <div aria-hidden="true" className="h-24 shrink-0 md:h-16" />
+              <div aria-hidden="true" className="h-[calc(6rem+env(safe-area-inset-top))] shrink-0 md:h-16" />
               <div className="mx-auto max-w-6xl">{children}</div>
             </main>
           </div>

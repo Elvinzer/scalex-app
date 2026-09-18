@@ -7,7 +7,48 @@ import { leadComments, leadStageHistory, leads } from "@/db/schema";
 import type { LeadInput } from "./schema";
 import type { LeadCommentRow, LeadLostReason, LeadRow, LeadStage, LeadStageHistoryRow, LeadWithRelations } from "./types";
 
-function toRow(row: typeof leads.$inferSelect): LeadRow {
+type LegacyLeadDatabaseRow = Pick<
+  typeof leads.$inferSelect,
+  | "id"
+  | "firstName"
+  | "lastName"
+  | "source"
+  | "offerId"
+  | "potentialValueEur"
+  | "setterId"
+  | "closer"
+  | "stage"
+  | "isNoShow"
+  | "lostReason"
+  | "saleId"
+  | "reminderDate"
+  | "reminderNote"
+  | "reminderDone"
+  | "createdAt"
+  | "updatedAt"
+>;
+
+const legacyLeadColumns = {
+  id: leads.id,
+  firstName: leads.firstName,
+  lastName: leads.lastName,
+  source: leads.source,
+  offerId: leads.offerId,
+  potentialValueEur: leads.potentialValueEur,
+  setterId: leads.setterId,
+  closer: leads.closer,
+  stage: leads.stage,
+  isNoShow: leads.isNoShow,
+  lostReason: leads.lostReason,
+  saleId: leads.saleId,
+  reminderDate: leads.reminderDate,
+  reminderNote: leads.reminderNote,
+  reminderDone: leads.reminderDone,
+  createdAt: leads.createdAt,
+  updatedAt: leads.updatedAt,
+} as const;
+
+function toRow(row: LegacyLeadDatabaseRow): LeadRow {
   return {
     id: row.id,
     firstName: row.firstName,
@@ -38,7 +79,11 @@ function toHistoryRow(row: typeof leadStageHistory.$inferSelect): LeadStageHisto
 }
 
 export const getLeads = cache(async (userId: string): Promise<LeadRow[]> => {
-  const rows = await db.select().from(leads).where(eq(leads.accountId, userId)).orderBy(desc(leads.createdAt));
+  const rows = await db
+    .select(legacyLeadColumns)
+    .from(leads)
+    .where(eq(leads.accountId, userId))
+    .orderBy(desc(leads.createdAt));
   return rows.map(toRow);
 });
 

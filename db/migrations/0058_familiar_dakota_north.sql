@@ -1,0 +1,1 @@
+CREATE INDEX "leads_account_created_idx" ON "leads" USING btree ("account_id","created_at");

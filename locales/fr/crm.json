@@ -18,10 +18,13 @@
     "sales": "Vente",
     "appointments": "Rendez-vous",
     "actionsTitle": "Mes actions",
+    "queueTitle": "Ma file de travail",
+    "queueSubtitle": "Commence par les retards, puis traite les relances du jour.",
     "empty": "Rien à traiter pour l'instant.",
     "emptyHelp": "Ajoute un lead ou ouvre le pipeline pour choisir la prochaine action.",
     "openPipeline": "Voir le pipeline",
     "openActions": "Voir toutes les actions",
+    "openToday": "Voir les relances du jour",
     "openLeads": "Gérer les leads",
     "filtersApplied": "{count, plural, =1 {1 filtre actif} other {# filtres actifs}}"
   },
@@ -60,6 +63,7 @@
     "nextAction": "Prochaine action",
     "captureTitle": "Ajouter un profil social",
     "profileUrl": "URL du profil",
+    "profileOrHandle": "Profil ou pseudo",
     "profileUrlPlaceholder": "https://instagram.com/...",
     "displayName": "Nom affiché",
     "firstName": "Prénom",
@@ -71,7 +75,10 @@
     "responsibleServer": "Le responsable est défini par les réglages du compte.",
     "capture": "Capturer le lead",
     "captured": "Profil capturé",
+    "requestFailed": "Impossible d'enregistrer ce lead. Réessaie.",
     "platform": "Plateforme",
+    "newLeadHint": "Le lead sera créé comme « Nouveau lead ». Tu pourras compléter les détails depuis sa fiche.",
+    "capturing": "Enregistrement...",
     "created": "Créé le",
     "openProfile": "Ouvrir le profil",
     "noNextAction": "Aucune prochaine action",
@@ -115,8 +122,18 @@
     "reset": "Réinitialiser",
     "due": "Échéance",
     "invalidDue": "Choisis une échéance valide.",
+    "requestFailed": "La demande a échoué. Réessaie.",
     "responsible": "Responsable"
+    ,"today": "Aujourd'hui"
+    ,"saving": "Enregistrement..."
     ,"dueGroups": {"overdue": "En retard", "today": "Aujourd'hui", "upcoming": "À venir"}
+    ,"postpone": "Demain"
+    ,"reschedule": "Choisir une date"
+    ,"rescheduleSubmit": "Enregistrer la date"
+    ,"nextLeadReady": "La prochaine fiche est prête."
+    ,"openNextLead": "Ouvrir le lead suivant"
+    ,"nextCall": "Prochain appel : {date} · {closer} · {outcome}"
+    ,"noCloser": "Closer non assigné"
   },
   "calls": {
     "title": "Appels",
@@ -247,8 +264,11 @@
     "actionCreated": "Action créée",
     "actionCompleted": "Action terminée",
     "actionCancelled": "Action annulée",
+    "actionRescheduled": "Action replanifiée",
     "responsibilityChanged": "Responsable changé",
-    "matchConfirmed": "Correspondance confirmée"
+    "matchConfirmed": "Correspondance confirmée",
+    "qualificationUpdated": "Qualification mise à jour",
+    "bookingLinkSent": "Lien de réservation envoyé"
   },
   "detail": {
     "title": "Fiche lead",
@@ -294,6 +314,55 @@
     "deleteConfirm": "Supprimer définitivement",
     "deleteCancel": "Garder le lead",
     "deleting": "Suppression..."
+    ,"contactState": "Contact",
+    "newLead": "Nouveau lead",
+    "contacted": "Message envoyé",
+    "responseState": "Réponse",
+    "responded": "A répondu",
+    "noResponse": "Pas encore répondu",
+    "nextCall": "Prochain appel",
+    "noNextCall": "Aucun appel planifié",
+    "localTime": "Heure locale",
+    "quickActions": "Actions rapides",
+    "messageSent": "Message envoyé",
+    "markResponded": "A répondu",
+    "leadDetails": "Détails du lead",
+    "email": "Email",
+    "phone": "Téléphone",
+    "qualificationNote": "Qualification libre",
+    "qualificationHint": "Note tout au même endroit : situation, objectif, expérience, budget, blocage et conclusion.",
+    "qualificationPresent": "Note enregistrée",
+    "qualificationPlaceholder": "Écris la qualification complète du prospect...",
+    "saveQualification": "Enregistrer la qualification",
+    "qualificationSaved": "Qualification enregistrée.",
+    "saving": "Enregistrement...",
+    "nextAction": "Prochaine action",
+    "bookingTitle": "Prise de rendez-vous",
+    "sendBookingLink": "Envoyer le lien",
+    "bookForProspect": "Réserver pour le prospect",
+    "bookingNoLink": "Aucun lien de réservation actif n'est configuré.",
+    "bookingShareText": "Voici le lien pour choisir ton créneau, {name}.",
+    "bookingLinkSending": "Partage...",
+    "bookingLinkShared": "Lien partagé.",
+    "bookingLinkCopied": "Lien copié.",
+    "bookingShareCancelled": "Partage annulé. Le lien n'a pas été marqué comme envoyé.",
+    "bookingSaveError": "Le rendez-vous n'a pas été enregistré.",
+    "bookingRequestError": "La demande a échoué. Réessaie.",
+    "bookingSaved": "Rendez-vous réservé dans Minaly.",
+    "bookForProspectTitle": "Réserver le rendez-vous de {name}",
+    "bookingAvailabilityHelp": "Créneaux des closers associés, fuseau {timeZone}.",
+    "bookingLoading": "Recherche des créneaux disponibles...",
+    "bookingNoSlots": "Aucun créneau disponible pour les closers associés.",
+    "bookingSlot": "Créneau",
+    "bookingCancel": "Annuler",
+    "bookingSaving": "Réservation...",
+    "bookingConfirm": "Confirmer le rendez-vous",
+    "lossTitle": "Marquer {name} comme perdu",
+    "lossReason": "Raison de perte",
+    "lossNote": "Note facultative",
+    "lossSaving": "Enregistrement...",
+    "markLost": "Marquer comme perdu",
+    "lossReasons": {"pas_le_budget": "Pas le budget", "pas_le_moment": "Pas le moment", "concurrent": "A choisi un concurrent", "ghoste": "Ghosté", "autre": "Autre"}
   },
   "salesValidation": {
     "title": "Valider la vente de {name}",
@@ -310,6 +379,7 @@
   "kpis": {
     "messages": "Messages envoyés",
     "responses": "Réponses",
+    "qualificationNotes": "Qualifications renseignées",
     "conversations": "Conversations",
     "valueContent": "Contenus de valeur",
     "callsProposed": "Appels proposés",
@@ -317,6 +387,7 @@
     "callsAttended": "Appels honorés",
     "noShows": "No-shows",
     "sales": "Ventes",
+    "revenue": "CA généré",
     "period": "Période",
     "incomplete": "Données incomplètes pour cette période",
     "from": "Du",
@@ -336,6 +407,7 @@
     "ratesTitle": "Taux du funnel",
     "cohort": "Cohorte des premiers messages : {count} lead(s) uniques",
     "rateResponse": "Taux de conversation",
+    "rateQualification": "Taux de qualification",
     "rateValueContent": "Taux de contenu de valeur",
     "rateCallProposed": "Taux de proposition d'appel",
     "rateCallBooked": "Taux de prise de rendez-vous",
@@ -461,6 +533,9 @@
     "inactive": "Le CRM n'est pas activé pour ce compte.",
     "invalidProfile": "Profil social invalide.",
     "leadNotFound": "Lead introuvable.",
+    "bookingUnavailable": "Ce créneau n'est plus disponible.",
+    "bookingConflict": "Cette réservation existe déjà ou a été prise entre-temps.",
+    "bookingInvalid": "La réservation est invalide.",
     "actionNotFound": "Action introuvable.",
     "saveFailed": "Impossible d'enregistrer cette modification.",
     "session": "Session expirée, reconnecte-toi.",
@@ -485,6 +560,7 @@
     "callMatchExpired": "Cette suggestion a expiré. Relance une recherche.",
     "callMatchConflict": "Cet appel a été relié entre-temps. Recharge la page.",
     "callMatchNotFound": "Appel ou suggestion introuvable.",
-    "callMatchQueueUnavailable": "L'analyse historique est temporairement indisponible."
+    "callMatchQueueUnavailable": "L'analyse historique est temporairement indisponible.",
+    "requestFailed": "Impossible d'enregistrer cette modification. Réessaie."
   }
 }
