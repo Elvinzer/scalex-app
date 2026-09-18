@@ -13,6 +13,7 @@ type ConfirmationDialogProps = {
   detail?: ReactNode;
   confirmLabel: string;
   cancelLabel: string;
+  pendingLabel?: string;
   pending?: boolean;
   error?: string | null;
   onCancel: () => void;
@@ -26,6 +27,7 @@ export function ConfirmationDialog({
   detail,
   confirmLabel,
   cancelLabel,
+  pendingLabel = "Annulation…",
   pending = false,
   error,
   onCancel,
@@ -64,7 +66,7 @@ export function ConfirmationDialog({
             </Button>
             <Button type="button" variant="destructive" size="lg" className="min-h-11" disabled={pending} onClick={onConfirm}>
               {pending && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-              {pending ? "Annulation…" : confirmLabel}
+              {pending ? pendingLabel : confirmLabel}
             </Button>
           </div>
         </div>

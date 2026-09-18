@@ -1,27 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 
+import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES, type CrmLeadDetails, type CrmLeadOutcome, type CrmLeadSource, type CrmLeadStage } from "@/lib/crm/types";
 import { CRM_EVENT_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine";
 import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
 
-import { addNoteAction, changeStageAction, reopenLeadAction, reassignLeadAction, setOutcomeAction, updateLeadFieldsAction } from "./crm-actions";
+import { addNoteAction, changeStageAction, deleteLeadAction, reopenLeadAction, reassignLeadAction, setOutcomeAction, updateLeadFieldsAction } from "./crm-actions";
 import { CrmActionForm } from "./crm-action-form";
 import { CrmSaleValidationDialog } from "./crm-sale-validation-dialog";
 import { CrmProfileLink } from "./crm-profile-link";
 
-export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, inDrawer = false }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; inDrawer?: boolean }) {
+export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, canManagePipeline = false, inDrawer = false, onDeleted }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; canManagePipeline?: boolean; inDrawer?: boolean; onDeleted?: () => void }) {
   const t = useTranslations("crm");
+  const router = useRouter();
   const [lead, setLead] = useState(initialLead);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [saleDialogOpen, setSaleDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [reopenStage, setReopenStage] = useState<CrmLeadStage>(initialLead.stage);
   const [fields, setFields] = useState({
     displayName: initialLead.displayName,
@@ -98,6 +103,24 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
     });
   }
 
+  function deleteLead() {
+    setDeleteError(null);
+    startTransition(async () => {
+      const result = await deleteLeadAction({ leadId: lead.id });
+      if (result.error) {
+        setDeleteError(result.error);
+        return;
+      }
+      setDeleteDialogOpen(false);
+      if (onDeleted) {
+        router.refresh();
+        onDeleted();
+      } else {
+        router.replace("/crm/leads");
+      }
+    });
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
@@ -112,7 +135,10 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
               {lead.canonicalProfileUrl ? <><span className="min-w-0 max-w-full break-all text-muted-foreground">{lead.canonicalProfileUrl}</span><CrmProfileLink href={lead.canonicalProfileUrl} label={t("detail.openProfile")} /></> : <span className="text-muted-foreground">{t("detail.profileUrlMissing")}</span>}
             </div>
           </div>
-          <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span>
+            {canManagePipeline && <Button type="button" variant="destructive" size="sm" disabled={isPending} onClick={() => { setDeleteError(null); setDeleteDialogOpen(true); }}>{t("detail.delete")}</Button>}
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
@@ -184,6 +210,18 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
         {lead.calls.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">{t("detail.noCalls")}</p> : <ul className="mt-3 flex flex-col gap-2 text-sm">{lead.calls.map((call) => <li key={call.id}><span className="font-bold">{call.inviteeName ?? ""}</span><span className="ml-2 text-muted-foreground">{new Date(call.scheduledAt).toLocaleString()}</span></li>)}</ul>}
       </section>
       <CrmSaleValidationDialog lead={lead} offers={offers} setters={setters} closers={closers} open={saleDialogOpen} onOpenChange={setSaleDialogOpen} onValidated={() => setLead((current) => ({ ...current, outcome: "sold", isNoShow: false }))} />
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        title={t("detail.deleteTitle", { name: lead.displayName })}
+        description={t("detail.deleteDescription")}
+        confirmLabel={t("detail.deleteConfirm")}
+        cancelLabel={t("detail.deleteCancel")}
+        pendingLabel={t("detail.deleting")}
+        pending={isPending}
+        error={deleteError}
+        onCancel={() => { setDeleteDialogOpen(false); setDeleteError(null); }}
+        onConfirm={deleteLead}
+      />
     </div>
   );
 }

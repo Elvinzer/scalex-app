@@ -287,7 +287,13 @@
     "unknownAuthor": "Unknown author",
     "profileUrl": "Profile URL",
     "openProfile": "Open profile",
-    "profileUrlMissing": "No profile URL saved."
+    "profileUrlMissing": "No profile URL saved.",
+    "delete": "Delete lead",
+    "deleteTitle": "Delete {name}?",
+    "deleteDescription": "This permanently removes the lead and the data stored on its CRM page. Linked sales and calls stay in your account.",
+    "deleteConfirm": "Delete permanently",
+    "deleteCancel": "Keep lead",
+    "deleting": "Deleting..."
   },
   "salesValidation": {
     "title": "Validate the sale for {name}",

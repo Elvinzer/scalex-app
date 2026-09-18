@@ -6,6 +6,7 @@ import { instagramConnections, users } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { exchangeCodeForToken, exchangeForLongLivedToken, fetchProfile, InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { inngest, instagramAccountConnected } from "@/lib/inngest/client";
+import { getInstagramRedirectUri, InstagramRedirectUriConfigError } from "@/lib/instagram/redirect-uri";
 import { isRateLimited } from "@/lib/rate-limit";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { createClient } from "@/lib/supabase/server";
@@ -41,7 +42,6 @@ export async function GET(request: NextRequest) {
 
   const clientId = requireEnv("INSTAGRAM_APP_ID");
   const clientSecret = requireEnv("INSTAGRAM_APP_SECRET");
-  const redirectUri = new URL("/api/instagram/callback", origin).toString();
 
   const errorRedirect = (reason: string) => {
     const url = new URL("/acquisition/contenu", origin);
@@ -50,6 +50,17 @@ export async function GET(request: NextRequest) {
     res.cookies.delete("instagram_oauth_state");
     return res;
   };
+
+  let redirectUri: string;
+  try {
+    redirectUri = getInstagramRedirectUri(origin);
+  } catch (error) {
+    if (error instanceof InstagramRedirectUriConfigError) {
+      console.error("Instagram OAuth redirect URI is missing or invalid");
+      return errorRedirect("unknown");
+    }
+    throw error;
+  }
 
   try {
     const shortLived = await exchangeCodeForToken({ code, redirectUri, clientId, clientSecret });

@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { INSTAGRAM_AUTHORIZE_URL, INSTAGRAM_OAUTH_SCOPES } from "@/lib/instagram/protocol";
+import { getInstagramRedirectUri, InstagramRedirectUriConfigError } from "@/lib/instagram/redirect-uri";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
@@ -39,7 +40,17 @@ export async function GET(request: NextRequest) {
   const state = randomBytes(16).toString("hex");
   const authorizeUrl = new URL(INSTAGRAM_AUTHORIZE_URL);
   authorizeUrl.searchParams.set("client_id", requireEnv("INSTAGRAM_APP_ID"));
-  authorizeUrl.searchParams.set("redirect_uri", new URL("/api/instagram/callback", origin).toString());
+  let redirectUri: string;
+  try {
+    redirectUri = getInstagramRedirectUri(origin);
+  } catch (error) {
+    if (error instanceof InstagramRedirectUriConfigError) {
+      console.error("Instagram OAuth redirect URI is missing or invalid");
+      return NextResponse.redirect(new URL("/integrations", origin));
+    }
+    throw error;
+  }
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("scope", INSTAGRAM_OAUTH_SCOPES.join(","));
   authorizeUrl.searchParams.set("state", state);

@@ -14,7 +14,7 @@ import { changeStageAction } from "./crm-actions";
 import { CrmLeadDrawer } from "./crm-lead-drawer";
 import { CrmProfileLink } from "./crm-profile-link";
 
-export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssign }: { initialLeads: CrmLeadListItem[]; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean }) {
+export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssign, canManagePipeline }: { initialLeads: CrmLeadListItem[]; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean; canManagePipeline: boolean }) {
   const t = useTranslations("crm");
   const [leads, setLeads] = useState(initialLeads);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
       <div className="hidden gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-5" tabIndex={0}>{CRM_LEAD_STAGES.map((stage) => stageColumn(stage, "desktop"))}</div>
       <p className="text-xs text-muted-foreground lg:block">{t("pipeline.dragHint")}</p>
       <Button asChild variant="outline" className="self-start"><Link href="/crm/leads">{t("pipeline.manageLeads")}</Link></Button>
-      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} setters={setters} offers={offers} closers={closers} canAssign={canAssign} />
+      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} onDeleted={(leadId) => setLeads((items) => items.filter((lead) => lead.id !== leadId))} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} />
     </div>
   );
 }

@@ -20,7 +20,7 @@ function sourceKey(value: string): (typeof SOURCE_OPTIONS)[number] | null {
   return SOURCE_OPTIONS.includes(value as (typeof SOURCE_OPTIONS)[number]) ? value as (typeof SOURCE_OPTIONS)[number] : null;
 }
 
-export function CrmLeadList({ leads, setters, offers, closers, canAssign }: { leads: CrmLeadListItem[]; setters: CrmSetter[]; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean }) {
+export function CrmLeadList({ leads, setters, offers, closers, canAssign, canManagePipeline }: { leads: CrmLeadListItem[]; setters: CrmSetter[]; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean; canManagePipeline: boolean }) {
   const t = useTranslations("crm");
   const locale = useLocale();
   const [drawerLead, setDrawerLead] = useState<CrmLeadListItem | null>(null);
@@ -42,7 +42,7 @@ export function CrmLeadList({ leads, setters, offers, closers, canAssign }: { le
       <div className="grid gap-2 md:hidden">
         {leads.map((lead) => <article key={lead.id} className="rounded-[var(--radius-card)] border border-border bg-card p-4"><div className="flex items-start gap-2"><button type="button" onClick={() => setDrawerLead(lead)} className="min-w-0 flex-1 rounded text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-accent/20"><div className="flex items-start justify-between gap-3"><span className="truncate font-bold">{lead.displayName}</span><span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span></div><p className="mt-1 truncate text-xs text-muted-foreground">{lead.normalizedHandle ? `@${lead.normalizedHandle}` : sourceLabel(lead.source)} · {lead.responsibleSetterName ?? t("detail.unassigned")}</p></button><CrmProfileLink href={lead.canonicalProfileUrl} label={t("leads.openProfile")} iconOnly /></div>{lead.nextAction && <p className="mt-2 text-xs font-bold text-accent-text">{lead.nextAction.title}</p>}</article>)}
       </div>
-      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} setters={setters} offers={offers} closers={closers} canAssign={canAssign} />
+      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} />
     </>
   );
 }

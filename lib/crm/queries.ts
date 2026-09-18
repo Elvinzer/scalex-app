@@ -637,6 +637,15 @@ export async function updateCrmLeadFields(
   });
 }
 
+export async function deleteCrmLead(accountId: string, leadId: string): Promise<boolean> {
+  const deleted = await db
+    .delete(leads)
+    .where(and(eq(leads.id, leadId), eq(leads.accountId, accountId)))
+    .returning({ id: leads.id });
+
+  return deleted.length > 0;
+}
+
 export async function confirmCrmProfileMatch(accountId: string, leadId: string, profile: CrmCapturedProfile, actorUserId: string, idempotencyKey?: string | null): Promise<CrmLeadListItem | null> {
   return db.transaction(async (tx) => {
     const [existing] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);

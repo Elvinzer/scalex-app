@@ -59,6 +59,7 @@ avec des valeurs différentes de dev pour celles qui ne doivent jamais être par
 - [ ] `UNSUBSCRIBE_TOKEN_SECRET` — valeur unique prod
 - [ ] `ADMIN_EMAILS` — liste à jour
 - [ ] `APP_URL` et `NEXT_PUBLIC_APP_URL` — `https://www.minaly.io`, sans slash final
+- [ ] `INSTAGRAM_REDIRECT_URI` — `https://www.minaly.io/api/instagram/callback`, exactement la même valeur que dans Meta > Instagram > API setup with Instagram login > Business login settings
 - [ ] Reste des variables (`NEXT_PUBLIC_SUPABASE_*`, `DATABASE_URL`, `DIRECT_URL`,
       `ANTHROPIC_SHARED_API_KEY`, `GROQ_API_KEY`, `POSTHOG_*`) présentes et pointées sur les
       bonnes ressources prod

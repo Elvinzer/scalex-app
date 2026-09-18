@@ -287,7 +287,13 @@
     "unknownAuthor": "Auteur inconnu",
     "profileUrl": "URL du profil",
     "openProfile": "Ouvrir le profil",
-    "profileUrlMissing": "Aucune URL de profil enregistrée."
+    "profileUrlMissing": "Aucune URL de profil enregistrée.",
+    "delete": "Supprimer le lead",
+    "deleteTitle": "Supprimer {name} ?",
+    "deleteDescription": "Cette action supprime définitivement le lead et les données enregistrées sur sa fiche CRM. Les ventes et appels liés restent dans ton compte.",
+    "deleteConfirm": "Supprimer définitivement",
+    "deleteCancel": "Garder le lead",
+    "deleting": "Suppression..."
   },
   "salesValidation": {
     "title": "Valider la vente de {name}",

@@ -13,6 +13,7 @@ import {
   completeCrmAction,
   createCrmAction,
   createCrmLead,
+  deleteCrmLead,
   getCrmLead,
   linkCrmCall,
   reopenCrmLead,
@@ -105,6 +106,24 @@ export async function updateLeadFieldsAction(input: unknown): Promise<{ error: s
   const lead = await updateCrmLeadFields(access.accountId, leadId, fields, userId, "app", idempotencyKey);
   if (!lead) return { error: await crmError("leadNotFound") };
   refreshCrm();
+  return { error: null };
+}
+
+export async function deleteLeadAction(input: unknown): Promise<{ error: string | null }> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return userId;
+  const access = await requireCrmPermission(userId, "crm:manage-pipeline");
+  if (!access) return { error: await crmError() };
+  const parsed = z.object({ leadId: z.string().uuid() }).safeParse(input);
+  if (!parsed.success) return { error: await crmError("invalidData") };
+
+  const deleted = await deleteCrmLead(access.accountId, parsed.data.leadId);
+  if (!deleted) return { error: await crmError("leadNotFound") };
+
+  refreshCrm();
+  revalidatePath(`/crm/leads/${parsed.data.leadId}`);
+  revalidatePath("/ventes/appels");
+  revalidatePath("/dashboard");
   return { error: null };
 }
 
