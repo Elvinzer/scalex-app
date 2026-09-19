@@ -59,7 +59,7 @@ export default async function CrmExtensionPage() {
           <h2 className="mt-1 text-2xl font-bold">{t("extension.onboarding.title")}</h2>
           <p className="mt-1 max-w-2xl text-muted-foreground">{t("extension.onboarding.description")}</p>
         </div>
-        <Button asChild variant="outline" className="min-h-10">
+        <Button asChild variant="outline" className="min-h-11">
           <Link href="/crm">
             <ArrowLeft className="size-4" aria-hidden="true" />
             {t("extension.onboarding.backToCrm")}

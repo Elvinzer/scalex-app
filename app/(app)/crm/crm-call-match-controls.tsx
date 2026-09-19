@@ -81,7 +81,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { cal
 
   if (!suggestion || !status) {
     return <div className="flex flex-col items-start gap-1.5">
-      <Button type="button" variant="outline" size="sm" onClick={() => request(false)} disabled={isPending} data-testid={`${idPrefix}-match-request-${call.id}`}>{t("match.suggest")}</Button>
+      <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => request(false)} disabled={isPending} data-testid={`${idPrefix}-match-request-${call.id}`}>{t("match.suggest")}</Button>
       {message && <p className="text-xs font-bold text-state-negative" role="status">{message}</p>}
     </div>;
   }
@@ -99,7 +99,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { cal
           {candidates.map((candidate, index) => <div key={candidate.id} className="rounded border border-border bg-card p-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <Link href={`/crm/leads/${candidate.leadId}`} className="font-bold underline-offset-2 hover:underline">{candidate.leadName}</Link>
+                <Link href={`/crm/leads/${candidate.leadId}`} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{candidate.leadName}</Link>
                 {candidate.leadHandle && <p className="truncate text-xs text-muted-foreground">@{candidate.leadHandle}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-1"><span className="text-xs font-bold text-muted-foreground">{t(`match.${candidate.confidence}`)}</span><CrmProfileLink href={candidate.leadProfileUrl} label={t("match.openProfile")} iconOnly /></div>
@@ -110,14 +110,14 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { cal
             {candidate.reasons.length > 0 && <ul className="mt-1 list-disc pl-4 text-[0.68rem] text-muted-foreground">{candidate.reasons.slice(0, 3).map((reason) => <li key={`${candidate.id}-${reason.code}`}>{reason.label}</li>)}</ul>}
             {candidate.missingEvidence.length > 0 && <p className="mt-1 text-[0.68rem] text-muted-foreground">{t("match.missing")}: {candidate.missingEvidence.slice(0, 2).join(", ")}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {canLink ? <Button type="button" variant="outline" size="xs" onClick={() => confirm(candidate.leadId)} disabled={isPending}>{index === 0 ? t("match.confirm") : t("match.alternative")}</Button> : <span className="text-[0.68rem] font-bold text-muted-foreground">{t("linkRestricted")}</span>}
-              <Button asChild type="button" variant="link" size="xs"><Link href={`/crm/leads/${candidate.leadId}`}>{t("match.viewLead")}</Link></Button>
+              {canLink ? <Button type="button" variant="outline" size="xs" className="min-h-11" onClick={() => confirm(candidate.leadId)} disabled={isPending}>{index === 0 ? t("match.confirm") : t("match.alternative")}</Button> : <span className="text-[0.68rem] font-bold text-muted-foreground">{t("linkRestricted")}</span>}
+              <Button asChild type="button" variant="link" size="xs" className="min-h-11"><Link href={`/crm/leads/${candidate.leadId}`}>{t("match.viewLead")}</Link></Button>
             </div>
           </div>)}
         </div>}
         {canLink && <div className="flex flex-wrap gap-1.5">
-          <Button type="button" variant="outline" size="xs" onClick={() => decide("rejected")} disabled={isPending}>{t("match.reject")}</Button>
-          <Button type="button" variant="link" size="xs" onClick={() => decide("dismissed")} disabled={isPending}>{t("match.dismiss")}</Button>
+          <Button type="button" variant="outline" size="xs" className="min-h-11" onClick={() => decide("rejected")} disabled={isPending}>{t("match.reject")}</Button>
+          <Button type="button" variant="link" size="xs" className="min-h-11" onClick={() => decide("dismissed")} disabled={isPending}>{t("match.dismiss")}</Button>
         </div>}
         {suggestion.generatedAt && <p className="text-[0.68rem] text-muted-foreground">{t("match.generatedAt", { at: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(suggestion.generatedAt)) })}</p>}
         {message && <p className="text-xs font-bold text-muted-foreground" role="status">{message}</p>}
@@ -129,7 +129,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { cal
     <div className="flex min-w-[190px] flex-col items-start gap-1.5">
       <p className="text-xs font-bold text-muted-foreground">{t(`match.${statusTranslationKey(status)}`)}</p>
       {suggestion.failureCode && <p className="text-xs text-muted-foreground">{t("match.retry")}</p>}
-      {(isRetryable(status) || status === "accepted" || status === "rejected" || status === "dismissed") && <Button type="button" variant="outline" size="xs" onClick={() => request(true)} disabled={isPending}>{t("match.retry")}</Button>}
+      {(isRetryable(status) || status === "accepted" || status === "rejected" || status === "dismissed") && <Button type="button" variant="outline" size="xs" className="min-h-11" onClick={() => request(true)} disabled={isPending}>{t("match.retry")}</Button>}
       {suggestion.generatedAt && <p className="text-[0.68rem] text-muted-foreground">{t("match.generatedAt", { at: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(suggestion.generatedAt)) })}</p>}
       {message && <p className="text-xs font-bold text-muted-foreground" role="status">{message}</p>}
     </div>

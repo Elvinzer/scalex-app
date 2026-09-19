@@ -24,5 +24,5 @@ export function CrmCallMatchBatchControl() {
     });
   }
 
-  return <div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" size="sm" onClick={analyze} disabled={isPending}>{isPending ? t("match.pending") : t("batchAnalyze")}</Button>{message && <p className="text-xs font-bold text-muted-foreground" role="status">{message}</p>}</div>;
+  return <div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" size="sm" className="min-h-11" onClick={analyze} disabled={isPending}>{isPending ? t("match.pending") : t("batchAnalyze")}</Button>{message && <p className="text-xs font-bold text-muted-foreground" role="status">{message}</p>}</div>;
 }

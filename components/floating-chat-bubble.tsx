@@ -59,7 +59,7 @@ function FalcoBubblePortrait({ skin }: { skin: FalcoSkinKey | null }) {
           {layer.skin ? (
             <FalcoSkinImage skin={layer.skin} portrait sizePx={PORTRAIT_SIZE_PX} priority className="size-full rounded-full object-cover" />
           ) : (
-            <Falco variant="bust" size="sm" animate="none" className="size-full rounded-full object-cover" />
+            <Falco variant="bust" size="sm" animate="none" className="rounded-full object-cover" />
           )}
         </FadeLayer>
       ))}
@@ -162,7 +162,7 @@ export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsi
           )}
         </button>
       </DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent aria-label={chatLabel}>
         {open && (
           <div className="flex h-full flex-col">
             <div className="flex justify-end border-b border-border px-4 py-2">

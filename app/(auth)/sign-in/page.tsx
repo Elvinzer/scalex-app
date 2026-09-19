@@ -48,13 +48,13 @@ export default async function SignInPage({
   const locale = await getRequestLocale();
 
   return (
-    <div className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center gap-8 px-6 py-16">
+    <main className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center gap-8 px-6 py-16">
       {/* Top-right, minimal: needed so an English speaker can sign up, but it
           must never compete with the form itself (§C). */}
       <div className="absolute top-6 right-6">
         <PublicLocaleSwitcher current={locale} />
       </div>
       <SignInForm authCallbackError={params.error === "auth_callback"} intent={intent} plan={trialPlan} billing={billing} extensionCompletionPath={extensionCompletionPath} />
-    </div>
+    </main>
   );
 }

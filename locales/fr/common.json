@@ -173,7 +173,10 @@
     "retry": "Réessayer",
     "aiError": "L’IA n’a pas pu répondre. Réessaie dans un instant.",
     "messageLimit": "Limite de messages atteinte",
-    "writeMessage": "Écris ton message…"
+    "writeMessage": "Écris ton message…",
+    "closeChat": "Fermer le chat",
+    "sendMessage": "Envoyer le message",
+    "chatMessages": "Messages du chat"
     ,"writeHook": "Rédiger une accroche"
     ,"writeHookFor": "Rédiger une accroche : {offer}"
     ,"appErrorTitle": "Cette section a rencontré une erreur"

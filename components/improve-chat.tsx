@@ -1,6 +1,7 @@
 "use client";
 
 import { RotateCcw, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRef } from "react";
 
 import { AgentChatThread, type AgentChatThreadHandle } from "@/components/agent-chat-thread";
@@ -45,6 +46,8 @@ export function ImproveChat({
   // floating chat bubble) confirm before closing mid-conversation.
   onEngaged?: () => void;
 }) {
+  const t = useTranslations("app.copilote");
+  const common = useTranslations("common");
   const isPersisted = context.topicType !== "metric";
   const threadRef = useRef<AgentChatThreadHandle>(null);
   const drawerEngagement = useFalcoConversationEngagement();
@@ -69,14 +72,17 @@ export function ImproveChat({
             <button
               type="button"
               onClick={() => threadRef.current?.reset()}
-              aria-label="Nouvelle conversation"
-              title="Nouvelle conversation"
+              aria-label={t("history.new")}
+              title={t("history.new")}
               className="flex size-11 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted disabled:opacity-50"
             >
               <RotateCcw className="size-3.5" />
             </button>
           )}
-          <DrawerClose className="flex size-11 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted">
+          <DrawerClose
+            aria-label={common("actions.close")}
+            className="flex size-11 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
+          >
             <X className="size-4" />
           </DrawerClose>
         </div>

@@ -287,7 +287,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextAction")}</p><p className="mt-1 break-words font-bold">{lead.nextAction?.title ?? t("leads.noNextAction")}</p></div>
         </div>
 
-        {(lead.contactState === "new" || !lead.respondedAt) && <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5" aria-label={t("detail.quickActions")}>
+        {(lead.contactState === "new" || !lead.respondedAt) && <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5" role="group" aria-label={t("detail.quickActions")}>
           <span className="text-sm font-bold text-muted-foreground">{t("detail.quickActions")}</span>
           {lead.contactState === "new" && <Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={markContacted}>{t("detail.messageSent")}</Button>}
           {!lead.respondedAt && <Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={markResponded}>{t("detail.markResponded")}</Button>}

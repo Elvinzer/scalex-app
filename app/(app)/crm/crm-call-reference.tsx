@@ -40,7 +40,7 @@ export function CrmCallReference({ reference }: { reference: string }) {
   return (
     <div className="flex min-w-0 items-center gap-1">
       <code className="min-w-0 max-w-44 truncate text-xs text-muted-foreground" title={reference}>{reference}</code>
-      <Button type="button" variant="ghost" size="xs" onClick={copyReference} aria-label={t("copyReference")}>
+      <Button type="button" variant="ghost" size="xs" className="min-h-11" onClick={copyReference} aria-label={t("copyReference")}>
         {copied ? t("copiedReference") : t("copyReference")}
       </Button>
     </div>

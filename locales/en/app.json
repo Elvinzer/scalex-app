@@ -764,6 +764,7 @@
       "limitReached": "Message limit reached",
       "placeholder": "Write your message…",
       "send": "Send message",
+      "messages": "Chat messages",
       "progress": "We made good progress. Put it in place and come back with your numbers.",
       "retry": "Try again",
       "usage": "Session usage · {input} incoming tokens · {output} outgoing tokens",

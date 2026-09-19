@@ -65,7 +65,7 @@ export function CrmLeadDrawer({
             <p className="mt-1 text-sm text-muted-foreground">{t("drawerDescription")}</p>
           </div>
           <DrawerClose asChild>
-            <Button type="button" variant="outline" size="sm">{t("close")}</Button>
+            <Button type="button" variant="outline" size="sm" className="min-h-11">{t("close")}</Button>
           </DrawerClose>
         </div>
         {isPending && <p className="py-8 text-center text-sm text-muted-foreground" role="status">{t("loading")}</p>}

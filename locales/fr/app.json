@@ -764,6 +764,7 @@
       "limitReached": "Limite de messages atteinte",
       "placeholder": "Écris ton message…",
       "send": "Envoyer le message",
+      "messages": "Messages du chat",
       "progress": "On a bien avancé. Mets en place et reviens avec tes chiffres.",
       "retry": "Réessayer",
       "usage": "Conso de cette session · {input} tokens entrants · {output} sortants",

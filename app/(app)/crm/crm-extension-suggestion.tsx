@@ -46,13 +46,13 @@ export function CrmExtensionSuggestion({ accountId }: { accountId: string }) {
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-        <Button asChild className="min-h-10">
+        <Button asChild className="min-h-11">
           <Link href="/crm/extension">
             {t("extension.onboarding.openGuide")}
             <ArrowUpRight className="size-4" aria-hidden="true" />
           </Link>
         </Button>
-        <Button type="button" variant="ghost" className="min-h-10" onClick={hideSuggestion}>
+        <Button type="button" variant="ghost" className="min-h-11" onClick={hideSuggestion}>
           {t("extension.onboarding.hideSuggestion")}
         </Button>
       </div>

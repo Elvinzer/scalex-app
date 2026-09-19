@@ -96,9 +96,9 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-bold">
           {t("displayName")}
-          <input name="displayName" type="text" className="min-h-10 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
+          <input name="displayName" type="text" className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm font-bold">{t("source")}<select name="source" value={source} onChange={(event) => { setSource(event.target.value); setSourceWasEdited(true); }} className="min-h-10 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">{CRM_LEAD_SOURCES.map((sourceOption) => <option key={sourceOption} value={sourceOption}>{t(`sourceOptions.${sourceOption}`)}</option>)}</select></label>
+        <label className="flex flex-col gap-1.5 text-sm font-bold">{t("source")}<select name="source" value={source} onChange={(event) => { setSource(event.target.value); setSourceWasEdited(true); }} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">{CRM_LEAD_SOURCES.map((sourceOption) => <option key={sourceOption} value={sourceOption}>{t(`sourceOptions.${sourceOption}`)}</option>)}</select></label>
         <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-1">{t("newLeadHint")}</p>
         <Button type="submit" disabled={isPending} className="min-h-11 sm:col-span-2 lg:col-span-1">{isPending ? t("capturing") : t("capture")}</Button>
       </div>

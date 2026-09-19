@@ -137,12 +137,15 @@ export function AiChatPanel({
             </span>
           )}
         </div>
-        <DrawerClose className="flex size-7 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted">
+        <DrawerClose
+          aria-label={t("closeChat")}
+          className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted"
+        >
           <X className="size-4" />
         </DrawerClose>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+      <div ref={scrollRef} role="region" tabIndex={0} aria-label={t("chatMessages")} className="flex-1 overflow-y-auto p-4">
         <div className="flex flex-col gap-4">
           {messages.map((message, index) =>
             message.role === "user" ? (
@@ -173,8 +176,9 @@ export function AiChatPanel({
         />
         <button
           type="submit"
+          aria-label={t("sendMessage")}
           disabled={isStreaming || limitReached || input.trim().length === 0}
-          className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-white transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-hover disabled:opacity-50"
+          className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-white transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] hover:bg-accent-hover disabled:opacity-50"
         >
           <Send className="size-4" />
         </button>

@@ -68,7 +68,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
       <div className="mt-3 flex min-h-24 flex-col gap-2">
         {stageLeads.map((lead) => <article key={lead.id} draggable={!isPending} onDragStart={(event) => startDrag(event, lead.id)} onDragEnd={() => setDraggedLeadId(null)} className={`rounded-[var(--radius-control)] border border-border bg-card p-3 shadow-sm ${draggedLeadId === lead.id ? "opacity-50" : ""}`}>
           <div className="flex items-start gap-2">
-          <button type="button" onClick={() => setDrawerLead(lead)} className="min-w-0 flex-1 rounded text-left outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
+          <button type="button" onClick={() => setDrawerLead(lead)} className="inline-flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded text-left outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
             <p className="font-bold">{lead.displayName}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{lead.platform ? t(`sources.${lead.platform}`) : sourceLabel(lead.source)}</p>
             {lead.responsibleSetterName && <p className="mt-1 text-xs text-muted-foreground">{t("pipeline.responsible")}: {lead.responsibleSetterName}</p>}
@@ -78,7 +78,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
           </div>
           <label className="mt-3 flex flex-col gap-1 text-xs font-bold text-muted-foreground">
             {t("pipeline.move")}
-            <select value={lead.stage} disabled={isPending} onChange={(event) => move(lead.id, event.target.value as CrmLeadStage)} className="min-h-8 rounded border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:border-accent">
+            <select value={lead.stage} disabled={isPending} onChange={(event) => move(lead.id, event.target.value as CrmLeadStage)} className="min-h-11 rounded border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:border-accent">
               {CRM_LEAD_STAGES.map((option) => <option key={option} value={option}>{t(CRM_STAGE_LABEL_KEYS[option])}</option>)}
             </select>
           </label>
@@ -97,7 +97,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
       <div className="lg:hidden">{stageColumn(selectedStage, "mobile")}</div>
       <div className="hidden gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-5" tabIndex={0}>{CRM_LEAD_STAGES.map((stage) => stageColumn(stage, "desktop"))}</div>
       <p className="text-xs text-muted-foreground lg:block">{t("pipeline.dragHint")}</p>
-      <Button asChild variant="outline" className="self-start"><Link href="/crm/leads">{t("pipeline.manageLeads")}</Link></Button>
+      <Button asChild variant="outline" className="min-h-11 self-start"><Link href="/crm/leads">{t("pipeline.manageLeads")}</Link></Button>
       <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} onDeleted={(leadId) => setLeads((items) => items.filter((lead) => lead.id !== leadId))} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} />
     </div>
   );

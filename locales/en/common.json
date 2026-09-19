@@ -173,7 +173,10 @@
     "retry": "Try again",
     "aiError": "AI could not respond. Try again in a moment.",
     "messageLimit": "Message limit reached",
-    "writeMessage": "Write your message…"
+    "writeMessage": "Write your message…",
+    "closeChat": "Close chat",
+    "sendMessage": "Send message",
+    "chatMessages": "Chat messages"
     ,"writeHook": "Write an ad hook"
     ,"writeHookFor": "Write an ad hook: {offer}"
     ,"appErrorTitle": "This section ran into an error"

@@ -41,14 +41,14 @@ export function CrmCallResultControl({ call, idPrefix = "desktop" }: { call: Crm
   return (
     <div className="flex min-w-40 flex-col gap-1.5">
       <label className="sr-only" htmlFor={`crm-call-result-${idPrefix}-${call.id}`}>{t("result")}</label>
-      <select id={`crm-call-result-${idPrefix}-${call.id}`} value={result} disabled={isPending} onChange={(event) => { const next = event.currentTarget.value; if (next === "pending" || isCallResult(next)) save(next); }} className="min-h-9 rounded border border-border bg-background px-2 text-sm outline-none focus-visible:border-accent">
+      <select id={`crm-call-result-${idPrefix}-${call.id}`} value={result} disabled={isPending} onChange={(event) => { const next = event.currentTarget.value; if (next === "pending" || isCallResult(next)) save(next); }} className="min-h-11 rounded border border-border bg-background px-2 text-sm outline-none focus-visible:border-accent">
         <option value="pending">{t("pending")}</option>
         <option value="showed">{t("showed")}</option>
         <option value="no_show">{t("noShow")}</option>
         <option value="awaiting_decision">{t("awaitingDecision")}</option>
         <option value="not_closed">{t("notClosed")}</option>
       </select>
-      {call.leadId && <Button type="button" asChild variant="outline" size="sm"><a href={`/crm/leads/${call.leadId}`}>{t("openLead")}</a></Button>}
+      {call.leadId && <Button type="button" asChild variant="outline" size="sm" className="min-h-11"><a href={`/crm/leads/${call.leadId}`}>{t("openLead")}</a></Button>}
       {message && <span className="text-xs text-muted-foreground" role="status">{message}</span>}
     </div>
   );

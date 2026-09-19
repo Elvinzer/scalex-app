@@ -434,7 +434,7 @@ export const AgentChatThread = forwardRef<
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+      <div ref={scrollRef} role="region" tabIndex={0} aria-label={t("messages")} className="flex-1 overflow-y-auto p-4">
         <div className="flex flex-col gap-4">
           {messages.map((message, index) =>
             message.role === "user" ? (

@@ -114,7 +114,7 @@ export function CrmActionList({ initialActions, groupedByCategory = false, group
       return (
         <article key={action.id} className="sticker-card flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-0 flex-1">
-            <Link href={`/crm/leads/${action.leadId}`} className="font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
+            <Link href={`/crm/leads/${action.leadId}`} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
             <p className="mt-1 font-bold">{action.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t(action.category)}{action.responsibleName ? ` · ${action.responsibleName}` : ""}</p>
             <p className={overdue ? "mt-1 text-sm font-bold text-state-critical" : "mt-1 text-sm text-muted-foreground"}>{t("due")}: {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(action.dueAt))}</p>

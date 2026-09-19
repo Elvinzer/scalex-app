@@ -132,7 +132,7 @@ export function SignInForm({
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder={t("emailPlaceholder")}
-            className="rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
+            className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/12"
           />
         </label>
 
