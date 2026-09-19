@@ -273,17 +273,17 @@ async function renderSidebarScaleScore({
   if (!scaleScore) return null;
   return (
     <div className="px-3 pt-4">
-    <ScaleScoreBadge
-      scaleScore={scaleScore}
-      scaleScoreGapText={scaleScoreGapText}
-      scaleScoreGapSources={scaleScoreGapSources}
-      scaleScoreMonthNote={scaleScoreMonthNote}
-      delta7d={scaleScoreDelta7d}
-      delta30d={scaleScoreDelta30d}
-      sparkline={scaleScoreSparkline}
-      currentMonthlyRevenue={currentMonthlyRevenue}
-      potentialMonthlyRevenue={potentialMonthlyRevenue}
-    />
+      <ScaleScoreBadge
+        scaleScore={scaleScore}
+        scaleScoreGapText={scaleScoreGapText}
+        scaleScoreGapSources={scaleScoreGapSources}
+        scaleScoreMonthNote={scaleScoreMonthNote}
+        delta7d={scaleScoreDelta7d}
+        delta30d={scaleScoreDelta30d}
+        sparkline={scaleScoreSparkline}
+        currentMonthlyRevenue={currentMonthlyRevenue}
+        potentialMonthlyRevenue={potentialMonthlyRevenue}
+      />
     </div>
   );
 }

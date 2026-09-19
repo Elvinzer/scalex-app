@@ -1,5 +1,51 @@
 # Audit de performance — Minaly
 
+## Passe du 19 septembre 2026 : chargement du dashboard
+
+La capture montre le contenu déjà affiché alors que le navigateur charge encore.
+Le code contenait des lectures sans délai maximal dans les enfants asynchrones
+`RevenueActionCenter` et la sidebar. Le délai de la page ne couvrait pas ces
+enfants : React les exécute après le retour de la page.
+
+Corrections :
+
+- Actions : une projection des seuls appels en attente remplace la lecture des
+  appels complets, ventes, commentaires, transcriptions et analyses. Les actions
+  CRM conservent les filtres compte/responsable et la limite de 500, sans charger
+  les prochains rendez-vous ni les profils responsables. Trois lectures SQL
+  disparaissent sur le parcours appels + CRM.
+- Délai de 5 s sur le bloc d’actions et le score ; lectures secondaires du shell
+  limitées à 3 ou 5 s. Un échec des actions conserve l’état d’erreur existant.
+  Ces délais arrêtent l’attente du rendu, pas la requête SQL sous-jacente.
+- Le score arrive dans un emplacement de la sidebar, sans remplacer le menu
+  complet. Les liens du menu indiquent une navigation en attente.
+- Témoignages/catalogues et benchmarks du tunnel démarrent plus tôt, en parallèle
+  des lectures indépendantes. Les liens des cartes et actions utilisent le
+  préchargement automatique Next plutôt que le rendu complet forcé.
+- Logos : tailles de chargement explicites de 112/140 px ; ils étaient demandés
+  en 1 920 px dans le navigateur. Capture HTML, fenêtre du score et formulaire
+  de check-in sont chargés à la demande. Le dashboard a un squelette à six cartes.
+
+Vérifications :
+
+- `typecheck`, `lint`, 505 tests dans 120 fichiers : OK. Cinq nouveaux tests
+  exécutent les requêtes via le driver proxy Drizzle pour vérifier les filtres
+  d’accès, les projections et la sérialisation des dates.
+- Next.js local : aucune erreur runtime ni erreur de compilation de route.
+- Session locale connectée : dashboard terminé (`document.readyState=complete`),
+  détail du score et rapport hebdo ouverts, menu mobile et profil vérifiés,
+  support ouvert avec capture réussie sans soumettre de ticket. Aucune clé brute
+  visible dans les états contrôlés. À 390 px, largeur du document : 390 px.
+- Build de production Webpack réussi dans une copie isolée, sans interrompre
+  `next dev` ni exécuter de migration. La session de développement ne donne pas
+  accès au dashboard du serveur de production local : redirection vers sign-in.
+
+Le blocage prolongé de la capture n’a pas été reproduit localement. Les mesures
+isolées en développement (LCP 1 016 ms avant, 1 192 ms après recompilation) ne
+permettent pas de conclure à un gain chronométré. La waterfall authentifiée sur
+Vercel reste à mesurer après déploiement ; aucun résultat de production ni gain
+en pourcentage n’est revendiqué ici.
+
 ## Passe performance du 11 août 2026
 
 Cette passe suit le correctif joint et distingue les mesures réellement
