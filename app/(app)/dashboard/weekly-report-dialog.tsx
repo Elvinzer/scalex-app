@@ -1,11 +1,11 @@
 "use client";
 
 import { FileText, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 
-import { CheckinModal } from "./checkin-modal";
 import { Falco } from "@/components/falco/falco";
 import { FalcoDrawer } from "@/components/falco/falco-drawer";
 import { LazyImproveChat } from "@/components/lazy-improve-chat";
@@ -20,6 +20,8 @@ import type { MonthlyMetricsInput } from "@/lib/monthly-metrics/types";
 import type { MonthlyCallSource } from "@/lib/monthly-metrics/call-source";
 import type { AcquisitionFunnelStep } from "@/lib/acquisition-funnels/types";
 import { cn } from "@/lib/utils";
+
+const CheckinModal = dynamic(() => import("./checkin-modal").then((module) => module.CheckinModal), { ssr: false });
 
 function weekLabel(weekStart: string, locale: string, format: (from: string, to: string) => string): string {
   const from = new Date(`${weekStart}T00:00:00Z`);
@@ -238,7 +240,7 @@ export function WeeklyReportDialog({
         </FalcoDrawer>
       )}
 
-      <CheckinModal
+      {checkinOpen && <CheckinModal
         open={checkinOpen}
         onClose={() => setCheckinOpen(false)}
         year={checkinYear}
@@ -249,7 +251,7 @@ export function WeeklyReportDialog({
         closingSourced={checkinClosingSourced}
         callSource={checkinCallSource}
         activeMetricFields={checkinActiveMetricFields}
-      />
+      />}
     </>
   );
 }

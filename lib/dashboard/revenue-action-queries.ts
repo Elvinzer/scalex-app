@@ -1,7 +1,9 @@
+import { and, asc, desc, eq } from "drizzle-orm";
+
+import { db } from "@/db";
+import { crmActions, leads as crmLeads, salesCalls } from "@/db/schema";
 import { getLeads } from "@/lib/leads/queries";
-import { getSalesCalls } from "@/lib/iclosed/calls";
 import { listNativeBookingLeads } from "@/lib/native-booking/leads";
-import { getCrmActions } from "@/lib/crm/queries";
 
 import {
   buildRevenueActions,
@@ -12,6 +14,43 @@ import {
   type RevenueLeadInput,
   type RevenueNativeBookingLeadInput,
 } from "./revenue-actions";
+
+// The dashboard needs follow-up details, not call recordings, transcripts,
+// comments, linked payments, or the CRM's next-appointment enrichment.
+async function getDecisionActions(accountId: string): Promise<RevenueCallInput[]> {
+  const rows = await db.select({
+    id: salesCalls.id,
+    inviteeName: salesCalls.inviteeName,
+    inviteePhone: salesCalls.inviteePhone,
+    outcome: salesCalls.outcome,
+    decisionDueAt: salesCalls.decisionDueAt,
+  }).from(salesCalls).where(and(
+    eq(salesCalls.userId, accountId),
+    eq(salesCalls.outcome, "awaiting_decision"),
+  ));
+  return rows.map((row) => ({ ...row, decisionDueAt: row.decisionDueAt?.toISOString() ?? null }));
+}
+
+async function getCrmFollowUps(accountId: string, responsibleUserId?: string): Promise<RevenueCrmActionInput[]> {
+  const rows = await db.select({
+    id: crmActions.id,
+    leadId: crmActions.leadId,
+    title: crmActions.title,
+    category: crmActions.category,
+    type: crmActions.type,
+    dueAt: crmActions.dueAt,
+    sourceId: crmActions.sourceId,
+  }).from(crmActions)
+    .innerJoin(crmLeads, and(eq(crmActions.leadId, crmLeads.id), eq(crmLeads.accountId, accountId)))
+    .where(and(
+      eq(crmActions.accountId, accountId),
+      eq(crmActions.status, "open"),
+      responsibleUserId ? eq(crmActions.responsibleUserId, responsibleUserId) : undefined,
+    ))
+    .orderBy(asc(crmActions.dueAt), desc(crmActions.priority), asc(crmActions.id))
+    .limit(500);
+  return rows.map((row) => ({ ...row, dueAt: row.dueAt.toISOString() }));
+}
 
 /**
  * Account-scoped server read. A member without a destination permission does
@@ -33,11 +72,11 @@ export async function getRevenueActions({
 }): Promise<RevenueAction[]> {
   const useCrmActions = crmEnabled && Boolean(crmUserId);
   const [calls, leads, nativeBookingLeads, crmActions] = await Promise.all([
-    permissions.calls ? getSalesCalls(accountId) : Promise.resolve([]),
+    permissions.calls ? getDecisionActions(accountId) : Promise.resolve([]),
     permissions.pipeline && !useCrmActions ? getLeads(accountId) : Promise.resolve([]),
     permissions.booking ? listNativeBookingLeads(accountId) : Promise.resolve([]),
     useCrmActions
-      ? getCrmActions(accountId, { status: "open", responsibleUserId: crmViewTeam ? undefined : crmUserId })
+      ? getCrmFollowUps(accountId, crmViewTeam ? undefined : crmUserId)
       : Promise.resolve([]),
   ]);
 

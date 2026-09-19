@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { toPng } from "html-to-image";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -56,6 +55,7 @@ function dataUrlToFile(dataUrl: string): File | null {
 async function captureCurrentScreen(): Promise<{ preview: string; file: File } | null> {
   const main = document.querySelector("main");
   if (!(main instanceof HTMLElement)) return null;
+  const { toPng } = await import("html-to-image");
   const dataUrl = await toPng(main, {
     cacheBust: true,
     pixelRatio: 1,

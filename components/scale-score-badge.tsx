@@ -94,7 +94,7 @@ export function ScaleScoreBadge({
         </div>
       </button>
 
-      <ScaleScoreModal
+      {open && <ScaleScoreModal
         open={open}
         onOpenChange={handleOpenChange}
         scaleScore={scaleScore}
@@ -105,7 +105,7 @@ export function ScaleScoreBadge({
         sparkline={sparkline}
         currentMonthlyRevenue={currentMonthlyRevenue}
         potentialMonthlyRevenue={potentialMonthlyRevenue}
-      />
+      />}
     </>
   );
 }

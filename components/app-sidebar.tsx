@@ -24,16 +24,13 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Fragment, useEffect, useId, useState } from "react";
 
-import { ScaleScoreBadge } from "@/components/scale-score-badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { ScaleScoreGapSource, ScaleScoreResult } from "@/lib/diagnostic/scale-score";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
-import type { ScaleScoreSparklinePoint } from "@/lib/scale-score-history/queries";
 import { signOut } from "@/lib/supabase/client";
 import { requestSupportDrawer } from "@/components/support/support-drawer";
 import type { PermissionKey } from "@/lib/team/permissions";
@@ -174,6 +171,16 @@ function isEntryVisible(entry: LinkEntry, isOwner: boolean, permissions: readonl
   return false;
 }
 
+function NavigationPending() {
+  const { pending } = useLinkStatus();
+  return (
+    <span aria-hidden="true" className={cn(
+      "pointer-events-none absolute inset-0 rounded-[inherit] bg-current/10 transition-opacity delay-100 duration-150 motion-reduce:transition-none",
+      pending ? "opacity-100" : "opacity-0 delay-0",
+    )} />
+  );
+}
+
 function NavLink({
   entry,
   pathname,
@@ -200,7 +207,7 @@ function NavLink({
       href={entry.href}
       prefetch={false}
       className={cn(
-        "flex min-h-11 min-w-0 cursor-pointer items-center gap-3 whitespace-normal break-words rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2",
+        "relative flex min-h-11 min-w-0 cursor-pointer items-center gap-3 whitespace-normal break-words rounded-[var(--radius-control)] py-2.5 pr-3 font-bold transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2",
         indented ? "pl-7 text-[13px] tracking-[-0.005em]" : "pl-3 text-[13.5px] tracking-[-0.01em]",
         active ? activeClassName : "text-white hover:translate-x-0.5 hover:bg-mist/10",
         className
@@ -208,6 +215,7 @@ function NavLink({
       aria-current={active ? "page" : undefined}
     >
       <Icon className="size-4 shrink-0" />
+      <NavigationPending />
       <span className="min-w-0 whitespace-normal break-words">{t(entry.labelKey)}</span>
       {badge && (
         <span className="ml-auto rounded-full bg-mist/15 px-1.5 py-0.5 text-[9.5px] font-bold tracking-[0.06em] text-mist/70 uppercase">
@@ -283,7 +291,7 @@ function PillarNavGroup({
                 className={cn(
                   // pl-10 lines the label up under the parent's own label
                   // (pl-3 + size-4 icon + gap-3 = 40px).
-                  "flex min-h-11 min-w-0 cursor-pointer items-center whitespace-normal break-words rounded-[var(--radius-control)] py-2 pr-3 pl-10 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2",
+                  "relative flex min-h-11 min-w-0 cursor-pointer items-center whitespace-normal break-words rounded-[var(--radius-control)] py-2 pr-3 pl-10 text-[12.5px] font-bold tracking-[-0.005em] transition-all duration-[var(--motion-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2",
                   active ? "bg-white/10 text-white" : "text-mist/60 hover:bg-mist/10 hover:text-mist/90"
                 )}
                 aria-current={active ? "page" : undefined}
@@ -291,6 +299,7 @@ function PillarNavGroup({
                 <span className="min-w-0 whitespace-normal break-words">
                   {sub.label}
                 </span>
+                <NavigationPending />
               </Link>
             );
           })}
@@ -425,15 +434,7 @@ export type AppSidebarProps = {
   crmEnabled: boolean;
   isAdmin: boolean;
   businessCompletionCount: number;
-  scaleScore: ScaleScoreResult | null;
-  scaleScoreGapText: string | null;
-  scaleScoreGapSources: ScaleScoreGapSource[];
-  scaleScoreMonthNote: string | null;
-  scaleScoreDelta7d: number | null;
-  scaleScoreDelta30d: number | null;
-  scaleScoreSparkline: ScaleScoreSparklinePoint[];
-  currentMonthlyRevenue: number | null;
-  potentialMonthlyRevenue: number | null;
+  scaleScoreSlot?: React.ReactNode;
   supportHasUnseenActivity: boolean;
 };
 
@@ -447,15 +448,7 @@ export function AppSidebar({
   crmEnabled,
   isAdmin,
   businessCompletionCount,
-  scaleScore,
-  scaleScoreGapText,
-  scaleScoreGapSources,
-  scaleScoreMonthNote,
-  scaleScoreDelta7d,
-  scaleScoreDelta30d,
-  scaleScoreSparkline,
-  currentMonthlyRevenue,
-  potentialMonthlyRevenue,
+  scaleScoreSlot,
   supportHasUnseenActivity,
 }: AppSidebarProps) {
   const t = useTranslations("navigation");
@@ -497,7 +490,7 @@ export function AppSidebar({
         </button>
 
         <div className="flex min-w-0 items-center gap-2 md:hidden">
-          <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} priority className="mt-5 mb-3 h-auto w-[112px] max-w-full object-contain object-left" />
+          <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} sizes="112px" priority className="mt-5 mb-3 h-auto w-[112px] max-w-full object-contain object-left" />
           <span className="truncate text-sm font-bold">{mobilePageTitle ? t(mobilePageTitle.mobileLabelKey) : t("logoAlt")}</span>
         </div>
 
@@ -528,7 +521,7 @@ export function AppSidebar({
             below without changing the navigation item's touch targets. */}
         <div className="flex h-24 shrink-0 items-center px-3">
           <Link href="/dashboard" prefetch={false} className="flex items-center transition-opacity hover:opacity-80">
-            <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} priority className="mt-5 mb-3 h-auto w-[140px] max-w-full object-contain object-left" />
+            <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} sizes="140px" priority className="mt-5 mb-3 h-auto w-[140px] max-w-full object-contain object-left" />
           </Link>
         </div>
 
@@ -565,21 +558,7 @@ export function AppSidebar({
             </div>
           )}
 
-          {scaleScore && (
-            <div className="px-3 pt-4">
-              <ScaleScoreBadge
-                scaleScore={scaleScore}
-                scaleScoreGapText={scaleScoreGapText}
-                scaleScoreGapSources={scaleScoreGapSources}
-                scaleScoreMonthNote={scaleScoreMonthNote}
-                delta7d={scaleScoreDelta7d}
-                delta30d={scaleScoreDelta30d}
-                sparkline={scaleScoreSparkline}
-                currentMonthlyRevenue={currentMonthlyRevenue}
-                potentialMonthlyRevenue={potentialMonthlyRevenue}
-              />
-            </div>
-          )}
+          {scaleScoreSlot}
 
           <div className="mt-4 border-t border-sidebar-border pt-3">
             <ProfileMenu
@@ -616,10 +595,11 @@ export function AppSidebar({
               href={entry.href}
               prefetch={false}
               aria-current={active ? "page" : undefined}
-              className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-[10px] font-bold transition-colors", active ? (entry.href === "/copilote" ? "text-accent-2-text" : "text-accent-text") : "text-muted-foreground")}
+              className={cn("relative flex min-h-16 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-[10px] font-bold transition-colors", active ? (entry.href === "/copilote" ? "text-accent-2-text" : "text-accent-text") : "text-muted-foreground")}
             >
               <Icon className="size-4" aria-hidden="true" />
               {t(entry.mobileLabelKey)}
+              <NavigationPending />
             </Link>
           );
         })}

@@ -41,10 +41,10 @@ export async function DashboardLossHero({
         <FalcoPageGreet pageKey="dashboard" pose={heroFalco.pose} size="sm" className="hidden lg:flex" />
         <div className="flex flex-wrap gap-2">
           <Button size="lg" asChild>
-            <Link href={hasAnyData ? "/diagnostic-app" : "/datas"} prefetch={true}>{hasAnyData ? t("viewDiagnostic") : t("completeNumbers")}</Link>
+            <Link href={hasAnyData ? "/diagnostic-app" : "/datas"}>{hasAnyData ? t("viewDiagnostic") : t("completeNumbers")}</Link>
           </Button>
           <Button size="lg" variant="outline" className="border-mist/20 bg-transparent text-text-on-dark hover:bg-mist/10 hover:text-text-on-dark" asChild>
-            <Link href="/diagnostic-app#calcul" prefetch={true}>{t("howCalculated")}</Link>
+            <Link href="/diagnostic-app#calcul">{t("howCalculated")}</Link>
           </Button>
         </div>
       </div>

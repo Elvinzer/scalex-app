@@ -30,12 +30,11 @@ async function fetchBusinessProfile(userId: string): Promise<BusinessProfileData
 
   if (!row) return EMPTY_BUSINESS_PROFILE;
 
-  const [{ consentedTestimonials }] = await db
-    .select({ consentedTestimonials: sql<number>`count(*)` })
-    .from(testimonials)
-    .where(and(eq(testimonials.userId, userId), eq(testimonials.consent, true)));
   const acquisition = row.acquisition;
-  const [catalog, blockCatalog] = await Promise.all([
+  const [[{ consentedTestimonials }], catalog, blockCatalog] = await Promise.all([
+    db.select({ consentedTestimonials: sql<number>`count(*)` })
+      .from(testimonials)
+      .where(and(eq(testimonials.userId, userId), eq(testimonials.consent, true))),
     getAcquisitionFunnelCatalog(),
     getFunnelBlockCatalog(),
   ]);

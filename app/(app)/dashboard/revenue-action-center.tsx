@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import { getRevenueActions } from "@/lib/dashboard/revenue-action-queries";
 import type { RevenueAction, RevenueActionAccess, RevenueActionSource } from "@/lib/dashboard/revenue-actions";
+import { withTimeout } from "@/lib/perf/with-timeout";
 
 import { PostponeActionButton } from "./postpone-action-button";
 
@@ -34,7 +35,7 @@ function SecondaryAction({ action }: { action: RevenueAction }) {
     <li className="flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border border-border bg-background px-3 py-2 transition-colors hover:bg-muted">
       <Link
         href={action.href}
-        prefetch={true}
+
         className="group flex min-w-0 flex-1 items-center gap-3 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
       >
         <RevenueActionIcon action={action} />
@@ -93,9 +94,9 @@ function RevenueActionCenterContent({ actions }: { actions: RevenueAction[] }) {
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button asChild size="sm">
-            <Link href={primary.href} prefetch={true}>{t("open")} {primary.destinationLabel} <ArrowUpRight className="size-4" aria-hidden="true" /></Link>
+            <Link href={primary.href}>{t("open")} {primary.destinationLabel} <ArrowUpRight className="size-4" aria-hidden="true" /></Link>
           </Button>
-          <Button asChild size="sm" variant="accent2"><Link href="/copilote" prefetch={true}>{t("askFalco")}</Link></Button>
+          <Button asChild size="sm" variant="accent2"><Link href="/copilote">{t("askFalco")}</Link></Button>
           <PostponeActionButton />
         </div>
       </article>
@@ -149,7 +150,11 @@ export async function RevenueActionCenter({
 }) {
   const t = await getTranslations("dashboard");
   try {
-    const actions = await getRevenueActions({ accountId, permissions, crmEnabled, crmUserId, crmViewTeam });
+    const actions = await withTimeout(
+      getRevenueActions({ accountId, permissions, crmEnabled, crmUserId, crmViewTeam }),
+      5_000,
+      "dashboard-revenue-actions",
+    );
     return <RevenueActionCenterContent actions={actions} />;
   } catch {
     // Keep a transient query failure from making the rest of the Dashboard

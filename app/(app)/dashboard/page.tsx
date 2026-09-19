@@ -123,9 +123,20 @@ async function renderDashboardPage({
 
   // Account sources are shared with the sidebar; connection status can load
   // alongside them instead of adding another sequential database round trip.
-  const [businessProfile, rawData, benchmarks, weeklyReports, acquisitionCatalog, funnelBlockCatalog] =
+  const businessProfilePromise = dashboardOptional("business profile", getBusinessProfile(accountId), EMPTY_BUSINESS_PROFILE);
+  const funnelBlockCatalogPromise = dashboardOptional("funnel block catalogue", getFunnelBlockCatalog(), DEFAULT_FUNNEL_BLOCKS);
+  // Benchmarks depend only on the selection, not on the diagnostic snapshot.
+  // Start them as soon as the profile/catalogue arrive instead of waiting for
+  // every sales and content source to finish first.
+  const funnelBlockBenchmarksPromise = Promise.all([businessProfilePromise, funnelBlockCatalogPromise])
+    .then(([profile, catalog]) => dashboardOptional(
+      "funnel benchmarks",
+      getFunnelBlockBenchmarks(normalizeFunnelBlockSelection(profile.acquisition, catalog).blocks.map((item) => item.blockKey), user?.sector ?? null),
+      {}
+    ));
+  const [businessProfile, rawData, benchmarks, weeklyReports, acquisitionCatalog, funnelBlockCatalog, funnelBlockBenchmarks] =
     await Promise.all([
-      dashboardOptional("business profile", getBusinessProfile(accountId), EMPTY_BUSINESS_PROFILE),
+      businessProfilePromise,
       getDashboardDiagnosticData(accountId).catch(() => {
         console.error("[dashboard] diagnostic data unavailable");
         return null;
@@ -137,7 +148,8 @@ async function renderDashboardPage({
         getAcquisitionFunnelCatalog(),
         DEFAULT_ACQUISITION_FUNNELS.filter((entry) => entry.funnelKey !== "appel_direct")
       ),
-      dashboardOptional("funnel block catalogue", getFunnelBlockCatalog(), DEFAULT_FUNNEL_BLOCKS),
+      funnelBlockCatalogPromise,
+      funnelBlockBenchmarksPromise,
     ]);
   if (!rawData) return <DataUnavailable />;
   const { allSettingEntries, allClosingEntries, allMonthlyRows, allCallSourcesByMonth, allSales, allLeads, allLeadStageHistory, allYoutubeVideoInsights, allContentPosts, allVideoAttributionTotals, allEmailCampaigns, allMetaMetrics, allNativeBookingLeads } = rawData;
@@ -151,11 +163,6 @@ async function renderDashboardPage({
     // keeps the event reliable when navigation is interrupted.
     after(() => track("source_filter_used", userId, { source, page: "dashboard" }));
   }
-  const funnelBlockBenchmarks = await dashboardOptional(
-    "funnel benchmarks",
-    getFunnelBlockBenchmarks(funnelBlockSelection.blocks.map((item) => item.blockKey), user?.sector ?? null),
-    {}
-  );
   const activeLegacyKeys = activeLegacyMetricKeys(acquisitionSelection, acquisitionCatalog);
   const activeMetricFields = Array.from(
     new Map(

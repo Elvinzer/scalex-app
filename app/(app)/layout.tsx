@@ -5,7 +5,7 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
 import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
-import { AppSidebarWithScaleScore } from "@/components/app-sidebar-with-scale-score";
+import { SidebarScaleScore } from "@/components/app-sidebar-with-scale-score";
 import { PostHogInit } from "@/components/posthog-init";
 import { AppThemeProvider } from "@/components/theme/app-theme-provider";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
@@ -22,6 +22,7 @@ import { getUserById } from "@/lib/current-user";
 import { getAccountContext } from "@/lib/team/context";
 import { getSupportUnseenActivity } from "@/lib/support/queries";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
+import { withTimeout } from "@/lib/perf/with-timeout";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
@@ -36,28 +37,33 @@ async function AppChrome({
   accountId,
   canSeeScaleScore,
   sidebarBaseProps,
+  supportLastSeenAt,
 }: {
   userId: string;
   accountId: string;
   canSeeScaleScore: boolean;
   sidebarBaseProps: SidebarBaseProps;
+  supportLastSeenAt: Date | null | undefined;
 }) {
-  const [businessProfile, userRow] = await Promise.all([
-    getBusinessProfile(accountId).catch(() => {
+  const [businessProfile, userRow, supportHasUnseenActivity] = await Promise.all([
+    withTimeout(getBusinessProfile(accountId), 5_000, "shell-business-profile").catch(() => {
       console.error("[app-shell] business profile unavailable");
       return EMPTY_BUSINESS_PROFILE;
     }),
-    getUserById(accountId).catch(() => {
+    withTimeout(getUserById(accountId), 5_000, "shell-account-user").catch(() => {
       console.error("[app-shell] account user unavailable");
       return undefined;
     }),
+    withTimeout(getSupportUnseenActivity({
+      userId,
+      accountId,
+      isOwner: sidebarBaseProps.isOwner,
+      lastSeenAt: supportLastSeenAt,
+    }), 3_000, "shell-support-activity").catch(() => {
+      console.error("[app-shell] support activity unavailable");
+      return false;
+    }),
   ]);
-  const currentUserRow = userId === accountId
-    ? userRow
-    : await getUserById(userId).catch(() => {
-        console.error("[app-shell] current user unavailable");
-        return undefined;
-      });
   const businessCompletion = computeGlobalCompletion(businessProfile);
   const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
   const sidebarProps = {
@@ -66,30 +72,23 @@ async function AppChrome({
     displayName: userRow?.displayName ?? sidebarBaseProps.displayName,
     avatarUrl: userRow?.avatarUrl ?? null,
     businessCompletionCount,
-    supportHasUnseenActivity: await getSupportUnseenActivity({
-      userId,
-      accountId,
-      isOwner: sidebarBaseProps.isOwner,
-      lastSeenAt: currentUserRow?.supportLastSeenAt,
-    }).catch(() => {
-      console.error("[app-shell] support activity unavailable");
-      return false;
-    }),
+    supportHasUnseenActivity,
   };
   const hasUnseenInsight = !isBusinessProfileThin(businessProfile) && !userRow?.lastImproveMetricKey;
 
   return (
     <>
-      <Suspense fallback={<AppSidebar {...sidebarProps} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreGapSources={[]} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
-        <AppSidebarWithScaleScore
-          {...sidebarProps}
-          accountId={accountId}
-          businessProfile={businessProfile}
-          sector={userRow?.sector ?? null}
-          canSeeScaleScore={canSeeScaleScore}
-          callTrackingConnected={Boolean(userRow?.iclosedConnected || userRow?.calendlyConnected)}
-        />
-      </Suspense>
+      <AppSidebar {...sidebarProps} scaleScoreSlot={
+        <Suspense fallback={null}>
+          <SidebarScaleScore
+            accountId={accountId}
+            businessProfile={businessProfile}
+            sector={userRow?.sector ?? null}
+            canSeeScaleScore={canSeeScaleScore}
+            callTrackingConnected={Boolean(userRow?.iclosedConnected || userRow?.calendlyConnected)}
+          />
+        </Suspense>
+      } />
       <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
       <SupportDrawer />
     </>
@@ -163,8 +162,8 @@ export default async function AppLayout({
             <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
           ))}
           <div className="flex min-h-screen bg-panel">
-            <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} supportHasUnseenActivity={false} scaleScore={null} scaleScoreGapText={null} scaleScoreGapSources={[]} scaleScoreMonthNote={null} scaleScoreDelta7d={null} scaleScoreDelta30d={null} scaleScoreSparkline={[]} currentMonthlyRevenue={null} potentialMonthlyRevenue={null} />}>
-              <AppChrome userId={userId} accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} />
+            <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} supportHasUnseenActivity={false} />}>
+              <AppChrome userId={userId} accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} supportLastSeenAt={currentUserRow?.supportLastSeenAt} />
             </Suspense>
             {/* The sidebar is fixed, so reserve its width in normal document flow
                 on desktop; mobile opens it as an overlay instead. */}

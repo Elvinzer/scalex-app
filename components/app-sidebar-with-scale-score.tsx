@@ -1,4 +1,7 @@
-import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
+import type { ComponentProps } from "react";
+
+import { ScaleScoreBadge } from "@/components/scale-score-badge";
+import { withTimeout } from "@/lib/perf/with-timeout";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
@@ -84,10 +87,7 @@ function latestMissingMetricMonth({
   return null;
 }
 
-type AppSidebarWithScaleScoreProps = Omit<
-  AppSidebarProps,
-  "scaleScore" | "scaleScoreGapText" | "scaleScoreGapSources" | "scaleScoreMonthNote" | "scaleScoreDelta7d" | "scaleScoreDelta30d" | "scaleScoreSparkline" | "currentMonthlyRevenue" | "potentialMonthlyRevenue"
-> & {
+type SidebarScaleScoreProps = {
   accountId: string;
   businessProfile: BusinessProfileData;
   sector: SectorKey | null;
@@ -95,24 +95,35 @@ type AppSidebarWithScaleScoreProps = Omit<
   callTrackingConnected: boolean;
 };
 
+type ScoreBadgeProps = ComponentProps<typeof ScaleScoreBadge>;
+
 // The Scale Score is useful chrome, but it is not part of the page the user
 // asked to open. Keep its heavier diagnostic reads behind a Server Component
 // boundary so the main content can stream with the sidebar shell immediately.
-export async function AppSidebarWithScaleScore({
+export async function SidebarScaleScore(props: SidebarScaleScoreProps) {
+  if (!props.canSeeScaleScore) return null;
+  try {
+    return await withTimeout(renderSidebarScaleScore(props), 5_000, "sidebar-scale-score");
+  } catch {
+    console.error("[app-shell] scale score unavailable");
+    return null;
+  }
+}
+
+async function renderSidebarScaleScore({
   accountId,
   businessProfile,
   sector,
   canSeeScaleScore,
   callTrackingConnected,
-  ...sidebarProps
-}: AppSidebarWithScaleScoreProps) {
-  let scaleScore: AppSidebarProps["scaleScore"] = null;
+}: SidebarScaleScoreProps) {
+  let scaleScore: ScoreBadgeProps["scaleScore"] | null = null;
   let scaleScoreGapText: string | null = null;
-  let scaleScoreGapSources: AppSidebarProps["scaleScoreGapSources"] = [];
+  let scaleScoreGapSources: ScoreBadgeProps["scaleScoreGapSources"] = [];
   let scaleScoreMonthNote: string | null = null;
   let scaleScoreDelta7d: number | null = null;
   let scaleScoreDelta30d: number | null = null;
-  let scaleScoreSparkline: AppSidebarProps["scaleScoreSparkline"] = [];
+  let scaleScoreSparkline: ScoreBadgeProps["sparkline"] = [];
   let currentMonthlyRevenue: number | null = null;
   let potentialMonthlyRevenue: number | null = null;
   const [funnelBlockCatalog, rawData, benchmarks] = await Promise.all([
@@ -259,18 +270,20 @@ export async function AppSidebarWithScaleScore({
     }
   }
 
+  if (!scaleScore) return null;
   return (
-    <AppSidebar
-      {...sidebarProps}
+    <div className="px-3 pt-4">
+    <ScaleScoreBadge
       scaleScore={scaleScore}
       scaleScoreGapText={scaleScoreGapText}
       scaleScoreGapSources={scaleScoreGapSources}
       scaleScoreMonthNote={scaleScoreMonthNote}
-      scaleScoreDelta7d={scaleScoreDelta7d}
-      scaleScoreDelta30d={scaleScoreDelta30d}
-      scaleScoreSparkline={scaleScoreSparkline}
+      delta7d={scaleScoreDelta7d}
+      delta30d={scaleScoreDelta30d}
+      sparkline={scaleScoreSparkline}
       currentMonthlyRevenue={currentMonthlyRevenue}
       potentialMonthlyRevenue={potentialMonthlyRevenue}
     />
+    </div>
   );
 }
