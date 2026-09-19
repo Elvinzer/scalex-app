@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, type DragEvent } from "react";
+import { useEffect, useState, useTransition, type DragEvent } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,10 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
   const [selectedStage, setSelectedStage] = useState<CrmLeadStage>(CRM_LEAD_STAGES[0]);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [drawerLead, setDrawerLead] = useState<CrmLeadListItem | null>(null);
+
+  useEffect(() => {
+    setLeads(initialLeads);
+  }, [initialLeads]);
 
   function sourceLabel(source: string): string {
     return CRM_LEAD_SOURCES.includes(source as CrmLeadSource) ? t(`sources.${source}`) : t("sources.autre");

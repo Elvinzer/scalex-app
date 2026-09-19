@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { InfoPopover } from "@/components/info-popover";
 
 import { createActionAction } from "./crm-actions";
 
@@ -81,13 +82,17 @@ export function CrmActionForm({ leadId }: { leadId: string }) {
         <input name="title" required value={title} onChange={(event) => setTitle(event.target.value)} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm font-bold">{t("category")}
-          <select name="category" value={category} onChange={(event) => setCategory(event.target.value)} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">
+        <div className="flex flex-col gap-1 text-sm font-bold">
+          <div className="flex items-center gap-1">
+            <label htmlFor="crm-action-category">{t("category")}</label>
+            <InfoPopover text={t("categoryHelp")} ariaLabel={t("categoryHelpLabel")} />
+          </div>
+          <select id="crm-action-category" name="category" value={category} onChange={(event) => setCategory(event.target.value)} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">
             <option value="prospecting">{t("prospecting")}</option>
             <option value="sales">{t("sales")}</option>
             <option value="appointment">{t("appointment")}</option>
           </select>
-        </label>
+        </div>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("due")}
           <input name="dueAt" required type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
         </label>

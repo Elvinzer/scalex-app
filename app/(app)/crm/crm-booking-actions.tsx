@@ -112,7 +112,7 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
       <h3 id="crm-booking-actions-title" className="text-sm font-bold">{t("bookingTitle")}</h3>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <Button type="button" variant="outline" className="min-h-11" disabled={isBusy} onClick={() => void sendLink()}>{linkPending ? t("bookingLinkSending") : t("sendBookingLink")}</Button>
-        <Button type="button" variant="accent2" className="min-h-11" disabled={isBusy} onClick={openInternalBooking}>{t("bookForProspect")}</Button>
+        <Button type="button" variant="outline" className="min-h-11" disabled={isBusy} onClick={openInternalBooking}>{t("bookForProspect")}</Button>
       </div>
       {absoluteLink && <a href={absoluteLink} target="_blank" rel="noreferrer" className="mt-2 block truncate text-xs font-bold text-accent-text underline underline-offset-2">{absoluteLink}</a>}
       {status && <p className="mt-2 text-sm font-bold text-muted-foreground" role="status">{status}</p>}
@@ -131,7 +131,7 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
           {bookingError && <p className="mt-3 text-sm font-bold text-state-critical" role="alert">{bookingError}</p>}
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
             <Button type="button" variant="outline" className="min-h-11" disabled={isBusy} onClick={() => setBookingOpen(false)}>{t("bookingCancel")}</Button>
-            <Button type="button" variant="accent2" className="min-h-11" disabled={isBusy || !selectedSlot} onClick={confirmInternalBooking}>{isPending ? t("bookingSaving") : t("bookingConfirm")}</Button>
+            <Button type="button" variant="outline" className="min-h-11" disabled={isBusy || !selectedSlot} onClick={confirmInternalBooking}>{isPending ? t("bookingSaving") : t("bookingConfirm")}</Button>
           </div>
         </DialogContent>
       </Dialog>

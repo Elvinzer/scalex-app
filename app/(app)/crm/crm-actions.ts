@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
@@ -78,6 +78,7 @@ function refreshCrm(): void {
   revalidatePath("/crm/leads");
   revalidatePath("/crm/actions");
   revalidatePath("/crm/appels");
+  refresh();
 }
 
 function parseProfile(input: unknown): { profile: CrmCapturedProfile } | null {

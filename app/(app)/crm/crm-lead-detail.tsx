@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import { ArrowLeft, CalendarClock, FileText, History, NotebookPen, PhoneCall, SlidersHorizontal, Trash2, UserRound, type LucideIcon } from "lucide-react";
 
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,26 @@ import { CrmBookingActions } from "./crm-booking-actions";
 import { CrmLossDialog } from "./crm-loss-dialog";
 import { CrmSaleValidationDialog } from "./crm-sale-validation-dialog";
 import { CrmProfileLink } from "./crm-profile-link";
+
+const inputClassName = "min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20";
+const textareaClassName = "w-full rounded-[var(--radius-control)] border border-border bg-background p-3 text-sm leading-6 outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20";
+
+function DetailSectionHeader({ headingId, icon: Icon, title, description, trailing }: { headingId: string; icon: LucideIcon; title: string; description?: string; trailing?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-soft text-accent-text" aria-hidden="true">
+          <Icon className="size-4" strokeWidth={2} />
+        </span>
+        <div className="min-w-0">
+          <h2 id={headingId} className="text-lg font-bold tracking-[-0.01em]">{title}</h2>
+          {description && <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>}
+        </div>
+      </div>
+      {trailing}
+    </div>
+  );
+}
 
 export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, canManagePipeline = false, inDrawer = false, onDeleted }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; canManagePipeline?: boolean; inDrawer?: boolean; onDeleted?: () => void }) {
   const t = useTranslations("crm");
@@ -239,115 +260,126 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
   return (
     <div className="flex flex-col gap-5">
       {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
-      <section className="sticker-card flex flex-col gap-4 p-4 sm:gap-5 sm:p-7">
+      <section className="sticker-card flex flex-col gap-5 overflow-hidden p-4 sm:p-6 lg:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            {!inDrawer && <Link href="/crm/leads" className="text-sm font-bold text-muted-foreground underline-offset-2 hover:underline">{t("detail.back")}</Link>}
-            <h1 className={inDrawer ? "sr-only" : "mt-3 text-2xl font-bold"}>{lead.displayName}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{lead.platform ? t(`sources.${lead.platform}`) : t("sources.autre")}{lead.normalizedHandle ? ` · @${lead.normalizedHandle}` : ""}</p>
-            <div className="mt-3 flex max-w-full flex-wrap items-center gap-2 text-xs">
-              <span className="font-bold text-muted-foreground">{t("detail.profileUrl")}</span>
+          <div className="min-w-0">
+            {!inDrawer && <Link href="/crm/leads" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"><ArrowLeft className="size-4" aria-hidden="true" />{t("detail.back")}</Link>}
+            <div className={inDrawer ? "" : "mt-4"}>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className={inDrawer ? "sr-only" : "text-2xl font-bold tracking-[-0.02em] sm:text-3xl"}>{lead.displayName}</h1>
+                <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span>
+                <span className="rounded-full border border-border bg-muted/20 px-2.5 py-1 text-xs font-bold">{t(CRM_STAGE_LABEL_KEYS[lead.stage])}</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{lead.platform ? t(`sources.${lead.platform}`) : t("sources.autre")}{lead.normalizedHandle ? ` · @${lead.normalizedHandle}` : ""}</p>
+            <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
+              <span className="inline-flex shrink-0 items-center gap-1.5 font-bold text-muted-foreground"><UserRound className="size-3.5" aria-hidden="true" />{t("detail.profileUrl")}</span>
               {lead.canonicalProfileUrl ? <><span className="min-w-0 max-w-full break-all text-muted-foreground">{lead.canonicalProfileUrl}</span><CrmProfileLink href={lead.canonicalProfileUrl} label={t("detail.openProfile")} /></> : <span className="text-muted-foreground">{t("detail.profileUrlMissing")}</span>}
             </div>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span>
-            {canManagePipeline && <Button type="button" variant="destructive" size="sm" disabled={isPending} onClick={() => { setDeleteError(null); setDeleteDialogOpen(true); }}>{t("detail.delete")}</Button>}
-          </div>
+          {canManagePipeline && <Button type="button" variant="destructive" size="sm" className="min-h-11" disabled={isPending} onClick={() => { setDeleteError(null); setDeleteDialogOpen(true); }}><Trash2 className="size-4" aria-hidden="true" />{t("detail.delete")}</Button>}
         </div>
 
-        <div className="grid gap-2 rounded-[var(--radius-control)] border border-border bg-muted/20 p-3 sm:grid-cols-4">
-          <div><p className="text-xs font-bold text-muted-foreground">{t("detail.contactState")}</p><p className="mt-1 font-bold">{lead.contactState === "new" ? t("detail.newLead") : t("detail.contacted")}</p></div>
-          <div><p className="text-xs font-bold text-muted-foreground">{t("detail.responseState")}</p><p className="mt-1 font-bold">{lead.respondedAt ? t("detail.responded") : t("detail.noResponse")}</p></div>
-          <div><p className="text-xs font-bold text-muted-foreground">{t("detail.nextCall")}</p>{lead.nextCall ? <><p className="mt-1 font-bold">{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: lead.nextCall.timeZone ?? undefined }).format(new Date(lead.nextCall.scheduledAt))}</p><p className="mt-1 text-xs text-muted-foreground">{lead.nextCall.timeZone ?? t("detail.localTime")} · {lead.nextCall.closer ?? t("detail.unassigned")} · {callOutcomeLabel(lead.nextCall.outcome)}</p></> : <p className="mt-1 font-bold">{t("detail.noNextCall")}</p>}</div>
-          <div><p className="text-xs font-bold text-muted-foreground">{t("detail.nextAction")}</p><p className="mt-1 font-bold">{lead.nextAction?.title ?? t("leads.noNextAction")}</p></div>
+        <div className="grid gap-px overflow-hidden rounded-[var(--radius-control)] border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.contactState")}</p><p className="mt-1 break-words font-bold">{lead.contactState === "new" ? t("detail.newLead") : t("detail.contacted")}</p></div>
+          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.responseState")}</p><p className="mt-1 break-words font-bold">{lead.respondedAt ? t("detail.responded") : t("detail.noResponse")}</p></div>
+          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextCall")}</p>{lead.nextCall ? <><p className="mt-1 break-words font-bold">{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: lead.nextCall.timeZone ?? undefined }).format(new Date(lead.nextCall.scheduledAt))}</p><p className="mt-1 break-words text-xs text-muted-foreground">{lead.nextCall.timeZone ?? t("detail.localTime")} · {lead.nextCall.closer ?? t("detail.unassigned")} · {callOutcomeLabel(lead.nextCall.outcome)}</p></> : <p className="mt-1 break-words font-bold">{t("detail.noNextCall")}</p>}</div>
+          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextAction")}</p><p className="mt-1 break-words font-bold">{lead.nextAction?.title ?? t("leads.noNextAction")}</p></div>
         </div>
 
-        <div className="flex flex-wrap gap-2" aria-label={t("detail.quickActions") }>
+        {(lead.contactState === "new" || !lead.respondedAt) && <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5" aria-label={t("detail.quickActions")}>
+          <span className="text-sm font-bold text-muted-foreground">{t("detail.quickActions")}</span>
           {lead.contactState === "new" && <Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={markContacted}>{t("detail.messageSent")}</Button>}
           {!lead.respondedAt && <Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={markResponded}>{t("detail.markResponded")}</Button>}
-        </div>
+        </div>}
 
         <CrmBookingActions lead={lead} onBooked={handleBooked} />
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.changeStage")}
-            <select value={lead.stage} disabled={isPending} onChange={(event) => changeStage(event.target.value as CrmLeadStage)} className="min-h-11 rounded border border-border bg-background px-2 outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">
+        <div className="rounded-[var(--radius-control)] border border-border bg-muted/20 p-4">
+          <div className="mb-4 flex size-8 items-center justify-center rounded-[var(--radius-control)] bg-card text-muted-foreground" aria-hidden="true"><SlidersHorizontal className="size-4" /></div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.35fr)]">
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.changeStage")}
+            <select value={lead.stage} disabled={isPending} onChange={(event) => changeStage(event.target.value as CrmLeadStage)} className={inputClassName}>
               {CRM_LEAD_STAGES.map((stage) => <option key={stage} value={stage}>{t(CRM_STAGE_LABEL_KEYS[stage])}</option>)}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.responsible")}
-            {canAssign ? <select value={lead.responsibleSetterId ?? ""} disabled={isPending} onChange={(event) => reassign(event.target.value)} className="min-h-11 rounded border border-border bg-background px-2 outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.responsible")}
+            {canAssign ? <select value={lead.responsibleSetterId ?? ""} disabled={isPending} onChange={(event) => reassign(event.target.value)} className={inputClassName}>
               <option value="">{t("detail.reassign")}</option>
               {setters.filter((setter) => setter.active).map((setter) => <option key={setter.id} value={setter.id}>{setter.name}</option>)}
-            </select> : <span className="min-h-10 rounded border border-border bg-muted/20 px-2 py-2 text-sm font-normal">{lead.responsibleSetterName ?? t("detail.unassigned")}</span>}
+            </select> : <span className={`${inputClassName} flex items-center bg-card`}>{lead.responsibleSetterName ?? t("detail.unassigned")}</span>}
           </label>
-          <div className="flex flex-col gap-1 text-sm font-bold"><span>{t("detail.changeOutcome")}</span><div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-col gap-1.5 text-sm font-bold"><span>{t("detail.changeOutcome")}</span><div className="flex flex-wrap gap-2">
             {CRM_LEAD_OUTCOMES.filter((outcome) => outcome !== "none").map((outcome) => <Button key={outcome} type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={() => changeOutcome(outcome)}>{t(CRM_OUTCOME_LABEL_KEYS[outcome])}</Button>)}
-            {(lead.outcome === "lost" || lead.outcome === "no_show") && <div className="flex basis-full flex-wrap items-end gap-2">
-              <label className="flex min-w-48 flex-1 flex-col gap-1">{t("detail.reopenStage")}
-                <select value={reopenStage} disabled={isPending} onChange={(event) => setReopenStage(event.target.value as CrmLeadStage)} className="min-h-10 rounded border border-border bg-background px-2 text-sm outline-none focus-visible:border-accent">
+            {(lead.outcome === "lost" || lead.outcome === "no_show") && <div className="flex basis-full flex-wrap items-end gap-2 border-t border-border pt-3">
+              <label className="flex min-w-48 flex-1 flex-col gap-1.5">{t("detail.reopenStage")}
+                <select value={reopenStage} disabled={isPending} onChange={(event) => setReopenStage(event.target.value as CrmLeadStage)} className={inputClassName}>
                   {CRM_LEAD_STAGES.map((stage) => <option key={stage} value={stage}>{t(CRM_STAGE_LABEL_KEYS[stage])}</option>)}
                 </select>
               </label>
-              <Button type="button" variant="outline" size="sm" disabled={isPending} onClick={reopen}>{t("detail.reopen")}</Button>
+              <Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={reopen}>{t("detail.reopen")}</Button>
             </div>}
           </div></div>
+          </div>
         </div>
       </section>
 
-      <section className="sticker-card p-4 sm:p-7" aria-labelledby="crm-lead-details-title">
-        <h2 id="crm-lead-details-title" className="text-lg font-bold">{t("detail.leadDetails")}</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm font-bold sm:col-span-2">{t("detail.displayName")}<input value={fields.displayName} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, displayName: event.target.value }))} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.firstName")}<input value={fields.firstName} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, firstName: event.target.value }))} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.lastName")}<input value={fields.lastName} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, lastName: event.target.value }))} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.offer")}<select value={fields.offerId} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, offerId: event.target.value }))} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("detail.noOffer")}</option>{offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.source")}<select value={fields.source} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, source: event.target.value as CrmLeadSource }))} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent">{CRM_LEAD_SOURCES.map((source) => <option key={source} value={source}>{t(`leads.sourceOptions.${source}`)}</option>)}</select></label>
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.potentialValue")}<input type="number" min={0} value={fields.potentialValueEur} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, potentialValueEur: event.target.value }))} className="min-h-10 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.email")}<input type="email" inputMode="email" autoComplete="email" value={fields.email} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, email: event.target.value }))} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" /></label>
-          <label className="flex flex-col gap-1 text-sm font-bold">{t("detail.phone")}<input type="tel" inputMode="tel" autoComplete="tel" value={fields.phone} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, phone: event.target.value }))} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" /></label>
-          <label className="flex flex-col gap-1 text-sm font-bold sm:col-span-2">{t("detail.closer")}<select value={fields.closerUserId} disabled={isPending} onChange={(event) => { const selected = closers.find((closer) => closer.id === event.target.value); setFields((current) => ({ ...current, closerUserId: event.target.value, closer: selected?.name ?? "" })); }} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20"><option value="">{t("detail.unassigned")}</option>{closers.map((closer) => <option key={closer.id} value={closer.id}>{closer.name}</option>)}</select></label>
+      <div className={inDrawer ? "flex flex-col gap-5" : "grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.32fr)_minmax(18rem,0.88fr)] lg:items-start"}>
+        <div className="flex min-w-0 flex-col gap-5">
+      <section id="lead-details" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-lead-details-title">
+        <DetailSectionHeader headingId="crm-lead-details-title" icon={UserRound} title={t("detail.leadDetails")} trailing={fieldsMessage && <p className="text-sm font-bold text-state-healthy" role="status">{fieldsMessage}</p>} />
+        <fieldset className="mt-5 grid gap-3 sm:grid-cols-2">
+          <legend className="sr-only">{t("detail.leadDetails")}</legend>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold sm:col-span-2">{t("detail.displayName")}<input value={fields.displayName} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, displayName: event.target.value }))} className={inputClassName} /></label>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.firstName")}<input value={fields.firstName} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, firstName: event.target.value }))} className={inputClassName} /></label>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.lastName")}<input value={fields.lastName} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, lastName: event.target.value }))} className={inputClassName} /></label>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.offer")}<select value={fields.offerId} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, offerId: event.target.value }))} className={inputClassName}><option value="">{t("detail.noOffer")}</option>{offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.source")}<select value={fields.source} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, source: event.target.value as CrmLeadSource }))} className={inputClassName}>{CRM_LEAD_SOURCES.map((source) => <option key={source} value={source}>{t(`leads.sourceOptions.${source}`)}</option>)}</select></label>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.potentialValue")}<input type="number" min={0} value={fields.potentialValueEur} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, potentialValueEur: event.target.value }))} className={inputClassName} /></label>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.email")}<input type="email" inputMode="email" autoComplete="email" value={fields.email} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, email: event.target.value }))} className={inputClassName} /></label>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.phone")}<input type="tel" inputMode="tel" autoComplete="tel" value={fields.phone} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, phone: event.target.value }))} className={inputClassName} /></label>
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold sm:col-span-2">{t("detail.closer")}<select value={fields.closerUserId} disabled={isPending} onChange={(event) => { const selected = closers.find((closer) => closer.id === event.target.value); setFields((current) => ({ ...current, closerUserId: event.target.value, closer: selected?.name ?? "" })); }} className={inputClassName}><option value="">{t("detail.unassigned")}</option>{closers.map((closer) => <option key={closer.id} value={closer.id}>{closer.name}</option>)}</select></label>
+        </fieldset>
+        <Button type="button" variant="outline" className="mt-5 min-h-11" disabled={isPending} onClick={saveFields}>{t("detail.saveFields")}</Button>
+      </section>
+
+      <section id="qualification" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-qualification-note-title">
+        <DetailSectionHeader headingId="crm-qualification-note-title" icon={FileText} title={t("detail.qualificationNote")} description={t("detail.qualificationHint")} trailing={lead.qualificationNote && <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent-text">{t("detail.qualificationPresent")}</span>} />
+        <label htmlFor="crm-qualification-note" className="sr-only">{t("detail.qualificationNote")}</label>
+        <textarea id="crm-qualification-note" value={qualification} onChange={(event) => { setQualification(event.target.value); setQualificationDirty(true); }} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); saveQualification(); } }} placeholder={t("detail.qualificationPlaceholder")} rows={5} className={`${textareaClassName} mt-5`} />
+        <div className="mt-4 flex flex-wrap items-center gap-3"><Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={saveQualification}>{isPending ? t("detail.saving") : t("detail.saveQualification")}</Button><p className="text-sm text-muted-foreground" aria-live="polite">{qualificationMessage}</p></div>
+      </section>
+
+      <section id="team-notes" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-quick-note-title">
+        <DetailSectionHeader headingId="crm-quick-note-title" icon={NotebookPen} title={t("detail.notes")} />
+        <div className="mt-5 flex flex-col gap-4">
+          {lead.comments.length > 0 && <ul className="divide-y divide-border rounded-[var(--radius-control)] border border-border bg-muted/20 px-3">{lead.comments.slice(-3).map((comment) => <li key={comment.id} className="py-3 first:pt-0 last:pb-0"><p className="text-sm leading-6">{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorName ?? t("detail.unknownAuthor")} · {new Date(comment.createdAt).toLocaleString()}</p></li>)}</ul>}
+          <label htmlFor="crm-team-note" className="flex flex-col gap-1.5 text-sm font-bold"><span>{t("detail.addNote")}</span><textarea id="crm-team-note" value={note} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); addNote(); } }} placeholder={t("detail.notePlaceholder")} rows={3} className={`${textareaClassName} font-normal`} /></label>
+          <Button type="button" variant="outline" className="min-h-11 self-start" disabled={isPending || !note.trim()} onClick={addNote}>{t("detail.saveNote")}</Button>
         </div>
-        {fieldsMessage && <p className="mt-3 text-sm text-muted-foreground" role="status">{fieldsMessage}</p>}
-        <Button type="button" variant="outline" className="mt-3" disabled={isPending} onClick={saveFields}>{t("detail.saveFields")}</Button>
       </section>
 
-      <section className="sticker-card p-4 sm:p-7" aria-labelledby="crm-qualification-note-title">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div><h2 id="crm-qualification-note-title" className="text-lg font-bold">{t("detail.qualificationNote")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("detail.qualificationHint")}</p></div>
-          {lead.qualificationNote && <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent-text">{t("detail.qualificationPresent")}</span>}
         </div>
-        <textarea value={qualification} onChange={(event) => { setQualification(event.target.value); setQualificationDirty(true); }} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); saveQualification(); } }} placeholder={t("detail.qualificationPlaceholder")} rows={6} className="mt-3 w-full rounded border border-border bg-background p-3 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
-        <div className="mt-3 flex flex-wrap items-center gap-3"><Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={saveQualification}>{isPending ? t("detail.saving") : t("detail.saveQualification")}</Button><p className="text-sm text-muted-foreground" aria-live="polite">{qualificationMessage}</p></div>
+        <div className="flex min-w-0 flex-col gap-5">
+      <section id="next-action" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-quick-action-title">
+        <DetailSectionHeader headingId="crm-quick-action-title" icon={CalendarClock} title={t("detail.nextAction")} description={t("detail.nextActionHelp")} trailing={<span className="shrink-0 text-right text-xs text-muted-foreground">{lead.nextAction ? new Date(lead.nextAction.dueAt).toLocaleString() : t("leads.noNextAction")}</span>} />
+        <div className="mt-5"><CrmActionForm leadId={lead.id} /></div>
       </section>
 
-      <section className="sticker-card p-4 sm:p-7" aria-labelledby="crm-quick-note-title">
-        <h2 id="crm-quick-note-title" className="text-lg font-bold">{t("detail.notes")}</h2>
-        <div className="mt-3 flex flex-col gap-3">
-          {lead.comments.length > 0 && <div className="max-h-48 overflow-y-auto rounded-[var(--radius-control)] border border-border bg-muted/20 p-3">{lead.comments.slice(-3).map((comment) => <div key={comment.id} className="border-b border-border py-2 text-sm last:border-0"><p>{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorName ?? t("detail.unknownAuthor")} · {new Date(comment.createdAt).toLocaleString()}</p></div>)}</div>}
-          <textarea value={note} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); addNote(); } }} placeholder={t("detail.notePlaceholder")} rows={3} className="w-full rounded border border-border bg-background p-3 text-sm outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
-          <Button type="button" className="min-h-11 self-start" disabled={isPending || !note.trim()} onClick={addNote}>{t("detail.saveNote")}</Button>
-        </div>
-      </section>
-
-      <section className="sticker-card p-4 sm:p-7" aria-labelledby="crm-quick-action-title">
-        <div className="flex items-center justify-between gap-3"><h2 id="crm-quick-action-title" className="text-lg font-bold">{t("detail.nextAction")}</h2><span className="text-xs text-muted-foreground">{lead.nextAction ? new Date(lead.nextAction.dueAt).toLocaleString() : t("leads.noNextAction")}</span></div>
-        <div className="mt-3"><CrmActionForm leadId={lead.id} /></div>
-      </section>
-
-      <section className="sticker-card p-5 sm:p-7" aria-labelledby="crm-history-title">
-        <h2 id="crm-history-title" className="text-lg font-bold">{t("detail.history")}</h2>
-        {lead.stageHistory.length === 0 && lead.events.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">{t("detail.noHistory")}</p> : <ul className="mt-3 flex flex-col gap-2 text-sm">
+      <section id="history" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-history-title">
+        <DetailSectionHeader headingId="crm-history-title" icon={History} title={t("detail.history")} />
+        {lead.stageHistory.length === 0 && lead.events.length === 0 ? <p className="mt-4 text-sm leading-6 text-muted-foreground">{t("detail.noHistory")}</p> : <ul className="mt-4 flex flex-col gap-3 text-sm">
           {lead.stageHistory.map((item) => <li key={item.id} className="border-l-2 border-accent pl-3"><span className="font-bold">{t(CRM_STAGE_LABEL_KEYS[item.toStage])}</span><span className="ml-2 text-muted-foreground">{new Date(item.changedAt).toLocaleString()}</span>{item.actorName && <span className="ml-2 text-muted-foreground">· {item.actorName}</span>}</li>)}
           {lead.events.filter((event) => !["first_message_sent", "conversation_started"].includes(event.type)).map((event) => <li key={event.id} className="border-l-2 border-border pl-3"><span className="font-bold">{t(CRM_EVENT_LABEL_KEYS[event.type])}</span><span className="ml-2 text-muted-foreground">{new Date(event.occurredAt ?? event.createdAt).toLocaleString()}</span>{event.actorName && <span className="ml-2 text-muted-foreground">· {event.actorName}</span>}</li>)}
         </ul>}
       </section>
 
-      <section className="sticker-card p-5 sm:p-7" aria-labelledby="crm-calls-title">
-        <h2 id="crm-calls-title" className="text-lg font-bold">{t("tabs.calls")}</h2>
-        {lead.calls.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">{t("detail.noCalls")}</p> : <ul className="mt-3 flex flex-col gap-2 text-sm">{lead.calls.map((call) => <li key={call.id}><span className="font-bold">{call.inviteeName ?? ""}</span><span className="ml-2 text-muted-foreground">{new Date(call.scheduledAt).toLocaleString()}</span></li>)}</ul>}
+      <section id="calls" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-calls-title">
+        <DetailSectionHeader headingId="crm-calls-title" icon={PhoneCall} title={t("tabs.calls")} />
+        {lead.calls.length === 0 ? <p className="mt-4 text-sm leading-6 text-muted-foreground">{t("detail.noCalls")}</p> : <ul className="mt-4 flex flex-col gap-3 text-sm">{lead.calls.map((call) => <li key={call.id} className="flex items-start gap-2"><PhoneCall className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><div className="min-w-0"><p className="font-bold">{call.inviteeName || callsT("unnamed")}</p><p className="mt-1 text-muted-foreground">{new Date(call.scheduledAt).toLocaleString()}</p></div></li>)}</ul>}
       </section>
+        </div>
+      </div>
       <CrmLossDialog lead={lead} open={lossDialogOpen} onOpenChange={setLossDialogOpen} onSaved={handleLost} />
       <CrmSaleValidationDialog lead={lead} offers={offers} setters={setters} closers={closers} open={saleDialogOpen} onOpenChange={setSaleDialogOpen} onValidated={() => setLead((current) => ({ ...current, outcome: "sold", isNoShow: false }))} />
       <ConfirmationDialog
