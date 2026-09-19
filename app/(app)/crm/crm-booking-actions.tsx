@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Check, Copy, Link2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -11,12 +12,34 @@ import { createInternalBookingAction, getBookingLinkAction, getInternalBookingSl
 
 type BookingLead = Pick<CrmLeadDetails, "id" | "displayName">;
 
+async function copyToClipboard(value: string) {
+  if (typeof navigator.clipboard?.writeText === "function") {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+
+  if (!copied) throw new Error("Clipboard copy failed");
+}
+
 export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBooked: (booking: { scheduledAt: string; timeZone: string; closerName: string }) => void }) {
   const t = useTranslations("crm.detail");
   const locale = useLocale();
   const [isPending, startTransition] = useTransition();
-  const [status, setStatus] = useState<string | null>(null);
+  const [linkStatus, setLinkStatus] = useState<string | null>(null);
+  const [bookingStatus, setBookingStatus] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [linkRecorded, setLinkRecorded] = useState(false);
   const [availability, setAvailability] = useState<CrmBookingAvailabilityView | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState("");
@@ -32,30 +55,56 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
     return availability?.slots.find((slot) => slot.startAt === startAt && slot.closerUserId === closerUserId) ?? null;
   }, [availability, selectedValue]);
 
-  async function sendLink() {
+  useEffect(() => {
+    if (!linkCopied) return;
+
+    const timeoutId = window.setTimeout(() => setLinkCopied(false), 2200);
+    return () => window.clearTimeout(timeoutId);
+  }, [linkCopied]);
+
+  async function copyBookingLink() {
     if (linkPending) return;
-    setStatus(null);
+    setLinkStatus(null);
+    setLinkCopied(false);
     setLinkPending(true);
     try {
-      const result = await getBookingLinkAction();
-      if (result.error) {
-        setStatus(result.error);
+      let href = link;
+      if (!href) {
+        const result = await getBookingLinkAction();
+        if (result.error) {
+          setLinkStatus(result.error);
+          return;
+        }
+        if (!result.href) {
+          setLinkStatus(t("bookingNoLink"));
+          return;
+        }
+        href = result.href;
+      }
+
+      const resolved = new URL(href, window.location.origin).toString();
+      try {
+        await copyToClipboard(resolved);
+      } catch {
+        setLinkStatus(t("bookingCopyError"));
         return;
       }
-      if (!result.href) {
-        setStatus(t("bookingNoLink"));
-        return;
+      setLink(href);
+      setLinkCopied(true);
+
+      if (!linkRecorded) {
+        const recorded = await recordBookingLinkSentAction({ leadId: lead.id, idempotencyKey: linkIdempotencyKey });
+        if (recorded.error) {
+          setLinkStatus(recorded.error);
+          return;
+        }
+        setLinkRecorded(true);
+        setLinkIdempotencyKey(globalThis.crypto.randomUUID());
       }
-      const resolved = typeof window === "undefined" ? result.href : new URL(result.href, window.location.origin).toString();
-      if (typeof navigator.share === "function") await navigator.share({ text: t("bookingShareText", { name: lead.displayName }), url: resolved });
-      else await navigator.clipboard.writeText(resolved);
-      const recorded = await recordBookingLinkSentAction({ leadId: lead.id, idempotencyKey: linkIdempotencyKey });
-      setStatus(recorded.error ?? (typeof navigator.share === "function" ? t("bookingLinkShared") : t("bookingLinkCopied")));
-      if (recorded.error) return;
-      setLink(result.href);
-      setLinkIdempotencyKey(globalThis.crypto.randomUUID());
-    } catch (error) {
-      setStatus(error instanceof Error && error.name === "AbortError" ? t("bookingShareCancelled") : t("bookingRequestError"));
+
+      setLinkStatus(t("bookingLinkCopied"));
+    } catch {
+      setLinkStatus(t("bookingRequestError"));
     } finally {
       setLinkPending(false);
     }
@@ -63,7 +112,7 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
 
   function openInternalBooking() {
     setBookingError(null);
-    setStatus(null);
+    setBookingStatus(null);
     startTransition(async () => {
       try {
         const result = await getInternalBookingSlotsAction({ leadId: lead.id });
@@ -96,7 +145,7 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
           return;
         }
         setBookingOpen(false);
-        setStatus(t("bookingSaved"));
+        setBookingStatus(t("bookingSaved"));
         setBookingIdempotencyKey(globalThis.crypto.randomUUID());
         onBooked(result.call);
       } catch {
@@ -109,13 +158,40 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
 
   return (
     <section className="rounded-[var(--radius-control)] border border-border bg-muted/20 p-3" aria-labelledby="crm-booking-actions-title">
-      <h3 id="crm-booking-actions-title" className="text-sm font-bold">{t("bookingTitle")}</h3>
-      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        <Button type="button" variant="outline" className="min-h-11" disabled={isBusy} onClick={() => void sendLink()}>{linkPending ? t("bookingLinkSending") : t("sendBookingLink")}</Button>
-        <Button type="button" variant="outline" className="min-h-11" disabled={isBusy} onClick={openInternalBooking}>{t("bookForProspect")}</Button>
+      <h2 id="crm-booking-actions-title" className="text-sm font-bold">{t("bookingTitle")}</h2>
+      <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(12rem,0.8fr)]">
+        <div className="rounded-[var(--radius-control)] border border-border bg-card p-3" aria-busy={linkPending}>
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-muted text-muted-foreground" aria-hidden="true">
+              <Link2 className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold">{t("bookingLinkLabel")}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("bookingLinkCopyHint")}</p>
+            </div>
+          </div>
+
+          {absoluteLink ? (
+            <div className="mt-3 flex min-w-0 items-center gap-2 rounded-[var(--radius-control)] border border-border bg-muted/20 p-2">
+              <a href={absoluteLink} target="_blank" rel="noreferrer" title={absoluteLink} className="min-w-0 flex-1 truncate text-xs font-bold text-accent-text underline underline-offset-2">{absoluteLink}</a>
+              <Button type="button" variant="outline" className="min-h-11 shrink-0 px-3" disabled={isBusy} onClick={() => void copyBookingLink()}>
+                {linkCopied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                {linkPending ? t("bookingLinkCopying") : linkCopied ? t("bookingLinkCopied") : t("copyBookingLink")}
+              </Button>
+            </div>
+          ) : (
+            <Button type="button" variant="outline" className="mt-3 min-h-11 w-full" disabled={isBusy} onClick={() => void copyBookingLink()}>
+              <Copy aria-hidden="true" />
+              {linkPending ? t("bookingLinkCopying") : t("copyBookingLink")}
+            </Button>
+          )}
+
+          {linkStatus && <p className="mt-2 text-sm font-bold text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">{linkStatus}</p>}
+        </div>
+
+        <Button type="button" variant="outline" className="min-h-11 w-full self-start" disabled={isBusy} onClick={openInternalBooking}>{t("bookForProspect")}</Button>
       </div>
-      {absoluteLink && <a href={absoluteLink} target="_blank" rel="noreferrer" className="mt-2 block truncate text-xs font-bold text-accent-text underline underline-offset-2">{absoluteLink}</a>}
-      {status && <p className="mt-2 text-sm font-bold text-muted-foreground" role="status">{status}</p>}
+      {bookingStatus && <p className="mt-2 text-sm font-bold text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">{bookingStatus}</p>}
       {bookingError && <p className="mt-2 text-sm font-bold text-state-critical" role="alert">{bookingError}</p>}
 
       <Dialog open={bookingOpen} onOpenChange={(open) => { if (!isPending) setBookingOpen(open); }}>
