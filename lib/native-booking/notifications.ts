@@ -33,7 +33,7 @@ function notificationCopy(kind: NativeBookingNotificationKind) {
   if (kind === "reschedule") {
     return { subject: "Rendez-vous déplacé", intro: "Ce rendez-vous a été déplacé.", closerAction: "Le nouvel horaire remplace l'ancien dans ton suivi." };
   }
-  return { subject: "Nouveau rendez-vous confirmé", intro: "Un nouveau rendez-vous vient d'être confirmé.", closerAction: "Pense à préparer ton appel de closing." };
+  return { subject: "Nouveau rendez-vous confirmé", intro: "Votre rendez-vous vient d'être confirmé.", closerAction: "Pense à préparer ton appel de closing." };
 }
 
 async function loadNotificationBooking(bookingId: string): Promise<NotificationBooking | null> {
