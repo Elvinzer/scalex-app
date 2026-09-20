@@ -61,8 +61,10 @@ export type NativeBookingHoldResult = {
 
 const BOOKING_HOLD_DURATION_MS = 5 * 60_000;
 
-type NativeBookingError = { error: "not_found" | "existing_booking" | "slot_unavailable" | "invalid" };
+export type NativeBookingError = { error: "not_found" | "existing_booking" | "slot_unavailable" | "invalid" };
 type BookingMode = "hold" | "confirm";
+type NativeBookingEventRow = typeof nativeBookingEvents.$inferSelect;
+type NativeBookingInternalOptions = { forcedCloserUserId?: string };
 type InternalNativeBookingResult = {
   userId: string;
   bookingId: string;
@@ -106,15 +108,22 @@ function closerIsBusy(
   });
 }
 
-async function createNativeBookingInternal(handle: string, slug: string, request: PublicBookingRequest, mode: BookingMode): Promise<InternalBookingResult> {
-  const event = await db
+async function getPublicNativeBookingEvent(handle: string, slug: string): Promise<NativeBookingEventRow | null> {
+  const [row] = await db
     .select({ event: nativeBookingEvents })
     .from(nativeBookingEvents)
     .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
     .where(and(eq(users.bookingHandle, handle), eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
     .limit(1);
-  const eventRow = event[0]?.event;
-  if (!eventRow) return { error: "not_found" };
+  return row?.event ?? null;
+}
+
+async function createNativeBookingInternal(
+  eventRow: NativeBookingEventRow,
+  request: PublicBookingRequest,
+  mode: BookingMode,
+  options: NativeBookingInternalOptions = {},
+): Promise<InternalBookingResult> {
 
   const questions = await db
     .select()
@@ -291,6 +300,7 @@ async function createNativeBookingInternal(handle: string, slug: string, request
     const startIndex = Math.abs(eventRow.roundRobinCursor) % assignedClosers.length;
     const orderedClosers = assignedClosers.map((_, index) => assignedClosers[(startIndex + index) % assignedClosers.length]);
     const selected = orderedClosers.find(({ assignment }) => {
+      if (options.forcedCloserUserId && assignment.closerUserId !== options.forcedCloserUserId) return false;
       if (calendarUnavailable.has(assignment.closerUserId)) return false;
       if ((externalBusyByCloser.get(assignment.closerUserId) ?? []).some((period) => {
         const bufferedStart = new Date(period.startAt.getTime() - eventRow.bufferBeforeMinutes * 60_000);
@@ -471,7 +481,9 @@ export async function createNativeBooking(
   slug: string,
   request: PublicBookingRequest
 ): Promise<NativeBookingResult | NativeBookingError> {
-  const result = await createNativeBookingInternal(handle, slug, request, "confirm");
+  const event = await getPublicNativeBookingEvent(handle, slug);
+  if (!event) return { error: "not_found" };
+  const result = await createNativeBookingInternal(event, request, "confirm");
   if ("error" in result) return result;
   if (!result.callId) return { error: "invalid" };
   await enqueueCrmCallMatchSuggestions(result.userId, [result.callId]);
@@ -486,6 +498,37 @@ export async function createNativeBooking(
     eventTimeZone: result.eventTimeZone,
     cancellationToken: result.cancellationToken,
     rescheduleToken: result.rescheduleToken,
+  };
+}
+
+export async function createNativeBookingForCrm(
+  accountId: string,
+  eventId: string,
+  closerUserId: string,
+  request: PublicBookingRequest,
+): Promise<NativeBookingResult | NativeBookingError> {
+  const [row] = await db
+    .select({ event: nativeBookingEvents })
+    .from(nativeBookingEvents)
+    .where(and(eq(nativeBookingEvents.id, eventId), eq(nativeBookingEvents.userId, accountId), eq(nativeBookingEvents.status, "active")))
+    .limit(1);
+  if (!row) return { error: "not_found" };
+
+  const result = await createNativeBookingInternal(row.event, request, "confirm", { forcedCloserUserId: closerUserId });
+  if ("error" in result) return result;
+  if (!result.callId) return { error: "invalid" };
+  return {
+    bookingId: result.bookingId,
+    callId: result.callId,
+    startAt: result.startAt,
+    endAt: result.endAt,
+    closerName: result.closerName,
+    meetingLabel: result.meetingLabel,
+    meetingUrl: result.meetingUrl,
+    eventTimeZone: result.eventTimeZone,
+    cancellationToken: result.cancellationToken,
+    rescheduleToken: result.rescheduleToken,
+    ...(result.calendarSyncWarning ? { calendarSyncWarning: true } : {}),
   };
 }
 
@@ -505,6 +548,10 @@ export async function scheduleNativeBookingSideEffects(bookingId: string): Promi
   if (booking.calendarConnectionId && booking.syncStatus !== "synced") {
     try {
       await inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId }));
+      // The calendar worker sends the confirmation only after Google has
+      // returned the Meet URL. Sending both jobs here creates a race where
+      // the prospect receives an email without the link.
+      return;
     } catch (error) {
       console.error("[native-booking] calendar job scheduling failed", { bookingId, error });
     }
@@ -528,7 +575,9 @@ export async function createNativeBookingHold(
   slug: string,
   request: PublicBookingRequest
 ): Promise<NativeBookingHoldResult | NativeBookingError> {
-  const result = await createNativeBookingInternal(handle, slug, request, "hold");
+  const event = await getPublicNativeBookingEvent(handle, slug);
+  if (!event) return { error: "not_found" };
+  const result = await createNativeBookingInternal(event, request, "hold");
   if ("error" in result) return result;
   return {
     holdId: result.bookingId,

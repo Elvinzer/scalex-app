@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, gt, gte, ilike, inArray, isNull, lte, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, ilike, inArray, isNull, lte, lt, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -14,6 +14,7 @@ import {
   nativeBookingEventClosers,
   nativeBookingEvents,
   nativeBookingExceptions,
+  nativeBookingQuestions,
   nativeBookings,
   salesCalls,
   sales,
@@ -49,10 +50,13 @@ import type {
   CrmStageHistoryView,
 } from "./types";
 import { getCrmCallSuggestions } from "./call-match-suggestions";
+import { createNativeBookingForCrm, type NativeBookingError } from "@/lib/native-booking/booking";
 import { listBusyForConnection } from "@/lib/native-booking/calendar";
 import { isCalendarTemporarilyUnavailable } from "@/lib/native-booking/calendar-readiness";
 import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
 import { generateBookingSlots } from "@/lib/native-booking/slots";
+import type { NativeBookingAnswerValue } from "@/lib/native-booking/questions";
+import type { PublicBookingRequest } from "@/lib/native-booking/validation";
 
 const callSetters = alias(setters, "crm_call_setter");
 const leadSetters = alias(setters, "crm_lead_setter");
@@ -852,7 +856,11 @@ async function getCrmExternalBusyByCloser(
   closerUserIds: string[],
   from: Date,
   to: Date,
-): Promise<{ busyByCloser: Map<string, ExternalBusyPeriod[]>; unavailableClosers: Set<string> }> {
+): Promise<{
+  busyByCloser: Map<string, ExternalBusyPeriod[]>;
+  unavailableClosers: Set<string>;
+  calendarStates: Awaited<ReturnType<typeof getCalendarStatesForClosers>>;
+}> {
   const busyByCloser = new Map<string, ExternalBusyPeriod[]>();
   const unavailableClosers = new Set<string>();
   const states = await getCalendarStatesForClosers(accountId, closerUserIds);
@@ -860,11 +868,12 @@ async function getCrmExternalBusyByCloser(
   await Promise.all(
     closerUserIds.map(async (closerUserId) => {
       const state = states.get(closerUserId);
-      if (!state || state.conflictCalendars.length === 0) return;
+      if (!state) return;
       if (isCalendarTemporarilyUnavailable(state.reason)) {
         unavailableClosers.add(closerUserId);
         return;
       }
+      if (state.conflictCalendars.length === 0) return;
       try {
         const periods = await Promise.all(
           state.conflictCalendars.map(({ connection, calendarId }) => listBusyForConnection(connection, from, to, [calendarId])),
@@ -877,7 +886,7 @@ async function getCrmExternalBusyByCloser(
     }),
   );
 
-  return { busyByCloser, unavailableClosers };
+  return { busyByCloser, unavailableClosers, calendarStates: states };
 }
 
 async function getCrmBookingContext(accountId: string, leadId: string) {
@@ -887,19 +896,20 @@ async function getCrmBookingContext(accountId: string, leadId: string) {
   if (!event) return { lead, event: null };
   const closerConditions = [eq(nativeBookingEventClosers.eventId, event.id), eq(nativeBookingEventClosers.isActive, true), eq(nativeBookingEventClosers.isOff, false)];
   if (lead.closerUserId) closerConditions.push(eq(nativeBookingEventClosers.closerUserId, lead.closerUserId));
-  const [availability, exceptions, closerRows] = await Promise.all([
+  const [availability, exceptions, questions, closerRows] = await Promise.all([
     db.select().from(nativeBookingAvailability).where(eq(nativeBookingAvailability.eventId, event.id)),
     db.select().from(nativeBookingExceptions).where(eq(nativeBookingExceptions.eventId, event.id)),
+    db.select().from(nativeBookingQuestions).where(eq(nativeBookingQuestions.eventId, event.id)).orderBy(asc(nativeBookingQuestions.position)),
     db.select({ assignment: nativeBookingEventClosers, user: users }).from(nativeBookingEventClosers).innerJoin(users, eq(nativeBookingEventClosers.closerUserId, users.id)).where(and(...closerConditions)).orderBy(asc(nativeBookingEventClosers.position), asc(users.email)),
   ]);
-  return { lead, event, availability, exceptions, closerRows };
+  return { lead, event, availability, exceptions, questions, closerRows };
 }
 
 export async function getCrmInternalBookingSlots(accountId: string, leadId: string): Promise<CrmBookingAvailabilityView | null> {
   const context = await getCrmBookingContext(accountId, leadId);
   if (!context || !context.event) return null;
-  const { event, availability, exceptions, closerRows } = context;
-  if (closerRows.length === 0) return { eventName: event.name, timeZone: event.timeZone, durationMinutes: event.durationMinutes, slots: [] };
+  const { event, availability, exceptions, questions, closerRows } = context;
+  if (closerRows.length === 0) return { eventName: event.name, timeZone: event.timeZone, durationMinutes: event.durationMinutes, questions, calendarNeedsAttention: false, slots: [] };
   const now = new Date();
   const baseSlots = generateBookingSlots({ event, availability, exceptions, bookings: [], now, days: event.bookingHorizonDays });
   const horizonEnd = new Date(now.getTime() + event.bookingHorizonDays * 86_400_000);
@@ -907,12 +917,13 @@ export async function getCrmInternalBookingSlots(accountId: string, leadId: stri
     db.select({ startAt: nativeBookings.startAt, endAt: nativeBookings.endAt, status: nativeBookings.status, holdExpiresAt: nativeBookings.holdExpiresAt, closerUserId: nativeBookings.closerUserId }).from(nativeBookings).where(and(eq(nativeBookings.userId, accountId), gte(nativeBookings.endAt, now), lte(nativeBookings.startAt, horizonEnd))),
     db.select({ scheduledAt: salesCalls.scheduledAt, durationMinutes: salesCalls.durationMinutes, closerUserId: salesCalls.closerUserId, attendance: salesCalls.attendance }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), gte(salesCalls.scheduledAt, now), lte(salesCalls.scheduledAt, horizonEnd), ne(salesCalls.attendance, "cancelled"))),
   ]);
-  const { busyByCloser, unavailableClosers } = await getCrmExternalBusyByCloser(
+  const { busyByCloser, unavailableClosers, calendarStates } = await getCrmExternalBusyByCloser(
     accountId,
     closerRows.map(({ assignment }) => assignment.closerUserId),
     baseSlots[0]?.startAt ?? now,
     baseSlots.at(-1)?.endAt ?? horizonEnd,
   );
+  const calendarNeedsAttention = closerRows.some(({ assignment }) => calendarStates.get(assignment.closerUserId)?.reason === "calendar_unavailable");
   const blocks: BookingBlock[] = [
     ...nativeRows,
     ...callRows.map((row) => ({ startAt: row.scheduledAt, endAt: new Date(row.scheduledAt.getTime() + (row.durationMinutes ?? event.durationMinutes) * 60_000), status: "confirmed", holdExpiresAt: null, closerUserId: row.closerUserId })),
@@ -924,87 +935,179 @@ export async function getCrmInternalBookingSlots(accountId: string, leadId: stri
       const isBusy = unavailableClosers.has(closerUserId)
         || blocks.some((block) => (block.closerUserId === closerUserId || block.closerUserId === null) && bookingBlockOverlaps(slot.startAt, slot.endAt, block, event.bufferBeforeMinutes, event.bufferAfterMinutes, now))
         || (busyByCloser.get(closerUserId) ?? []).some((period) => bookingBlockOverlaps(slot.startAt, slot.endAt, { ...period, status: "confirmed", holdExpiresAt: null, closerUserId }, event.bufferBeforeMinutes, event.bufferAfterMinutes, now));
-      if (!isBusy) slots.push({ startAt: slot.startAt.toISOString(), endAt: slot.endAt.toISOString(), timeZone: event.timeZone, closerUserId: row.assignment.closerUserId, closerName: row.user.displayName || row.user.email });
+      if (!isBusy) {
+        const calendarState = calendarStates.get(closerUserId);
+        slots.push({
+          startAt: slot.startAt.toISOString(),
+          endAt: slot.endAt.toISOString(),
+          timeZone: event.timeZone,
+          closerUserId: row.assignment.closerUserId,
+          closerName: row.user.displayName || row.user.email,
+          calendarReady: Boolean(calendarState?.invitationConnection && calendarState.invitationCalendarId),
+        });
+      }
     }
   }
-  return { eventName: event.name, timeZone: event.timeZone, durationMinutes: event.durationMinutes, slots: slots.slice(0, 120) };
+  return { eventName: event.name, timeZone: event.timeZone, durationMinutes: event.durationMinutes, questions, calendarNeedsAttention, slots: slots.slice(0, 120) };
 }
 
-export async function createCrmInternalBooking(accountId: string, leadId: string, closerUserId: string, startAt: Date, actorUserId: string, idempotencyKey: string): Promise<{ callId: string; scheduledAt: string; timeZone: string; closerName: string } | { error: "not_found" | "slot_unavailable" | "conflict" | "invalid" }> {
+type CrmInternalBookingContact = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  guestTimeZone: string;
+  answers: Record<string, NativeBookingAnswerValue>;
+};
+
+type CrmInternalBookingResult = {
+  bookingId: string;
+  callId: string;
+  scheduledAt: string;
+  timeZone: string;
+  closerName: string;
+};
+
+type CrmInternalBookingError = { error: "not_found" | "slot_unavailable" | "conflict" | "invalid" };
+
+export async function createCrmInternalBooking(
+  accountId: string,
+  leadId: string,
+  closerUserId: string,
+  startAt: Date,
+  actorUserId: string,
+  idempotencyKey: string,
+  contact: CrmInternalBookingContact,
+): Promise<CrmInternalBookingResult | CrmInternalBookingError> {
   const eventKey = `internal-booking:${idempotencyKey}`;
-  const [existingCallForKey] = await db.select({ call: salesCalls }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), eq(salesCalls.iclosedCallId, `minaly-internal:${idempotencyKey}`))).limit(1);
-  if (existingCallForKey) {
+  const [existingEvent] = await db
+    .select({ metadata: crmLeadEvents.metadata })
+    .from(crmLeadEvents)
+    .where(
+      and(
+        eq(crmLeadEvents.accountId, accountId),
+        eq(crmLeadEvents.leadId, leadId),
+        eq(crmLeadEvents.type, "call_booked"),
+        eq(crmLeadEvents.sourceEventKey, eventKey),
+      ),
+    )
+    .limit(1);
+  if (
+    existingEvent &&
+    typeof existingEvent.metadata.bookingId === "string" &&
+    typeof existingEvent.metadata.salesCallId === "string" &&
+    typeof existingEvent.metadata.timeZone === "string" &&
+    typeof existingEvent.metadata.closerName === "string"
+  ) {
     return {
-      callId: existingCallForKey.call.id,
-      scheduledAt: existingCallForKey.call.scheduledAt.toISOString(),
-      timeZone: existingCallForKey.call.timeZone ?? "UTC",
-      closerName: existingCallForKey.call.closer ?? "Closer",
+      bookingId: existingEvent.metadata.bookingId,
+      callId: existingEvent.metadata.salesCallId,
+      scheduledAt: String(existingEvent.metadata.scheduledAt),
+      timeZone: existingEvent.metadata.timeZone,
+      closerName: existingEvent.metadata.closerName,
     };
   }
+
   const context = await getCrmBookingContext(accountId, leadId);
-  if (!context || !context.event) return { error: "not_found" } as const;
-  const preflightCloser = context.closerRows.find(({ assignment }) => assignment.closerUserId === closerUserId);
-  if (!preflightCloser) return { error: "invalid" } as const;
-  const requestedEnd = new Date(startAt.getTime() + context.event.durationMinutes * 60_000);
-  const preflightNow = new Date();
-  const preflightBusy = await getCrmExternalBusyByCloser(
-    accountId,
-    [closerUserId],
-    new Date(startAt.getTime() - context.event.bufferBeforeMinutes * 60_000),
-    new Date(requestedEnd.getTime() + context.event.bufferAfterMinutes * 60_000),
-  );
-  if (
-    preflightBusy.unavailableClosers.has(closerUserId)
-    || (preflightBusy.busyByCloser.get(closerUserId) ?? []).some((period) =>
-      bookingBlockOverlaps(
-        startAt,
-        requestedEnd,
-        { ...period, status: "confirmed", holdExpiresAt: null, closerUserId },
-        context.event?.bufferBeforeMinutes ?? 0,
-        context.event?.bufferAfterMinutes ?? 0,
-        preflightNow,
-      )
-    )
-  ) return { error: "slot_unavailable" } as const;
+  if (!context || !context.event) return { error: "not_found" };
+  if (!context.closerRows.some(({ assignment }) => assignment.closerUserId === closerUserId)) return { error: "invalid" };
+
+  const nativeRequest: PublicBookingRequest = {
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    phone: contact.phone,
+    guestTimeZone: contact.guestTimeZone,
+    answers: contact.answers,
+    startAt: startAt.toISOString(),
+    idempotencyKey,
+    leadId: null,
+    leadSessionKey: null,
+    landingPage: null,
+    referrer: null,
+    linkId: null,
+    metaTouchpointToken: null,
+    metaCampaignExternalId: null,
+    metaAdSetExternalId: null,
+    metaAdExternalId: null,
+    utm: {},
+  };
+  const nativeResult = await createNativeBookingForCrm(accountId, context.event.id, closerUserId, nativeRequest);
+  if ("error" in nativeResult) {
+    const error = nativeResult.error as NativeBookingError["error"];
+    return { error: error === "not_found" ? "not_found" : error === "slot_unavailable" || error === "existing_booking" ? "slot_unavailable" : "invalid" };
+  }
+
   return db.transaction(async (tx) => {
-    const [lead] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).for("update").limit(1);
-    if (!lead) return { error: "not_found" } as const;
-    const [existingEvent] = await tx.select({ metadata: crmLeadEvents.metadata }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "call_booked"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
-    if (existingEvent && typeof existingEvent.metadata.salesCallId === "string" && typeof existingEvent.metadata.timeZone === "string" && typeof existingEvent.metadata.closerName === "string") {
-      return { callId: existingEvent.metadata.salesCallId, scheduledAt: String(existingEvent.metadata.scheduledAt), timeZone: existingEvent.metadata.timeZone, closerName: existingEvent.metadata.closerName };
-    }
-    const [event] = await tx.select().from(nativeBookingEvents).where(and(eq(nativeBookingEvents.userId, accountId), eq(nativeBookingEvents.status, "active"))).orderBy(desc(nativeBookingEvents.createdAt)).limit(1);
-    if (!event) return { error: "not_found" } as const;
-    if (lead.closerUserId && lead.closerUserId !== closerUserId) return { error: "invalid" } as const;
-    const [closerRow] = await tx.select({ assignment: nativeBookingEventClosers, user: users }).from(nativeBookingEventClosers).innerJoin(users, eq(nativeBookingEventClosers.closerUserId, users.id)).where(and(eq(nativeBookingEventClosers.eventId, event.id), eq(nativeBookingEventClosers.closerUserId, closerUserId), eq(nativeBookingEventClosers.isActive, true), eq(nativeBookingEventClosers.isOff, false))).limit(1);
-    if (!closerRow) return { error: "invalid" } as const;
-    const requestedEnd = new Date(startAt.getTime() + event.durationMinutes * 60_000);
-    const [availability, exceptions] = await Promise.all([
-      tx.select().from(nativeBookingAvailability).where(eq(nativeBookingAvailability.eventId, event.id)),
-      tx.select().from(nativeBookingExceptions).where(eq(nativeBookingExceptions.eventId, event.id)),
-    ]);
+    const [lead] = await tx
+      .select()
+      .from(leads)
+      .where(and(eq(leads.id, leadId), eq(leads.accountId, accountId)))
+      .for("update")
+      .limit(1);
+    if (!lead) return { error: "not_found" };
+
+    const [linkedCall] = await tx
+      .select({ call: salesCalls })
+      .from(salesCalls)
+      .where(and(eq(salesCalls.id, nativeResult.callId), eq(salesCalls.userId, accountId), eq(salesCalls.nativeBookingId, nativeResult.bookingId)))
+      .limit(1);
+    if (!linkedCall) return { error: "invalid" };
+
     const now = new Date();
-    const valid = generateBookingSlots({ event, availability, exceptions, bookings: [], now, days: event.bookingHorizonDays }).some((slot) => slot.startAt.getTime() === startAt.getTime() && slot.endAt.getTime() === requestedEnd.getTime());
-    if (!valid) return { error: "slot_unavailable" } as const;
-    const [sameKey] = await tx.select({ call: salesCalls }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), eq(salesCalls.iclosedCallId, `minaly-internal:${idempotencyKey}`))).limit(1);
-    if (sameKey) return { callId: sameKey.call.id, scheduledAt: sameKey.call.scheduledAt.toISOString(), timeZone: event.timeZone, closerName: sameKey.call.closer ?? closerRow.user.displayName ?? closerRow.user.email };
-    const bufferedStart = new Date(startAt.getTime() - event.bufferBeforeMinutes * 60_000);
-    const bufferedEnd = new Date(requestedEnd.getTime() + event.bufferAfterMinutes * 60_000);
-    const [nativeConflict] = await tx.select({ id: nativeBookings.id }).from(nativeBookings).where(and(eq(nativeBookings.userId, accountId), or(eq(nativeBookings.closerUserId, closerUserId), isNull(nativeBookings.closerUserId)), lt(nativeBookings.startAt, bufferedEnd), gt(nativeBookings.endAt, bufferedStart), or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed"), and(eq(nativeBookings.status, "pending"), gt(nativeBookings.holdExpiresAt, now))))).limit(1);
-    const [callConflict] = await tx.select({ id: salesCalls.id }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), or(eq(salesCalls.closerUserId, closerUserId), isNull(salesCalls.closerUserId)), lt(salesCalls.scheduledAt, bufferedEnd), sql`${salesCalls.scheduledAt} + (coalesce(${salesCalls.durationMinutes}, ${event.durationMinutes}) * interval '1 minute') > ${bufferedStart.toISOString()}`, ne(salesCalls.attendance, "cancelled"))).limit(1);
-    if (nativeConflict || callConflict) return { error: "slot_unavailable" } as const;
-    const setterId = lead.setterId;
-    const [call] = await tx.insert(salesCalls).values({ userId: accountId, iclosedCallId: `minaly-internal:${idempotencyKey}`, inviteeName: lead.displayName || `${lead.firstName} ${lead.lastName}`.trim(), inviteeEmail: lead.email, inviteePhone: lead.phone, scheduledAt: startAt, timeZone: event.timeZone, durationMinutes: event.durationMinutes, closer: closerRow.user.displayName || closerRow.user.email, closerUserId, setterId, eventType: event.name, source: "minaly_internal", attendance: "booked", outcome: "pending" }).onConflictDoNothing({ target: [salesCalls.userId, salesCalls.iclosedCallId] }).returning({ id: salesCalls.id });
-    if (!call) {
-      const [existingCall] = await tx.select({ call: salesCalls }).from(salesCalls).where(and(eq(salesCalls.userId, accountId), eq(salesCalls.iclosedCallId, `minaly-internal:${idempotencyKey}`))).limit(1);
-      if (existingCall) return { callId: existingCall.call.id, scheduledAt: existingCall.call.scheduledAt.toISOString(), timeZone: event.timeZone, closerName: existingCall.call.closer ?? closerRow.user.displayName ?? closerRow.user.email };
-      return { error: "invalid" } as const;
-    }
-    await tx.insert(crmCallLinks).values({ accountId, leadId, salesCallId: call.id, source: "app", confidence: "exact_internal_booking", linkedByUserId: actorUserId, linkedAt: now }).onConflictDoNothing();
-    await tx.update(leads).set({ crmStage: "call_booked", stage: legacyStageForCrmStage("call_booked"), contactState: "contacted", updatedAt: now }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId)));
+    const nextDisplayName = lead.displayName?.trim() ? undefined : `${contact.firstName.trim()} ${contact.lastName.trim()}`.trim();
+    await tx
+      .update(leads)
+      .set({
+        ...(nextDisplayName ? { displayName: nextDisplayName } : {}),
+        firstName: contact.firstName.trim(),
+        lastName: contact.lastName.trim(),
+        email: contact.email.trim(),
+        phone: contact.phone.trim(),
+        crmStage: "call_booked",
+        stage: legacyStageForCrmStage("call_booked"),
+        contactState: "contacted",
+        updatedAt: now,
+      })
+      .where(and(eq(leads.id, leadId), eq(leads.accountId, accountId)));
+    await tx
+      .insert(crmCallLinks)
+      .values({ accountId, leadId, salesCallId: nativeResult.callId, source: "app", confidence: "exact_internal_booking", linkedByUserId: actorUserId, linkedAt: now })
+      .onConflictDoNothing();
     await tx.insert(crmLeadStageHistory).values({ accountId, leadId, fromStage: lead.crmStage, toStage: "call_booked", actorUserId, responsibleSetterId: lead.setterId, source: "app", changedAt: now });
-    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "call_booked", source: "app", sourceEventKey: eventKey, occurredAt: startAt, capturedAt: now, metadata: { salesCallId: call.id, scheduledAt: startAt.toISOString(), timeZone: event.timeZone, closerName: closerRow.user.displayName || closerRow.user.email, closerUserId, responsibleSetterId: lead.setterId, bookingMode: "minaly_internal" } })).onConflictDoNothing();
-    return { callId: call.id, scheduledAt: startAt.toISOString(), timeZone: event.timeZone, closerName: closerRow.user.displayName || closerRow.user.email };
+    await tx
+      .insert(crmLeadEvents)
+      .values(
+        eventValues({
+          accountId,
+          leadId,
+          actorUserId,
+          type: "call_booked",
+          source: "app",
+          sourceEventKey: eventKey,
+          occurredAt: nativeResult.startAt,
+          capturedAt: now,
+          metadata: {
+            bookingId: nativeResult.bookingId,
+            salesCallId: nativeResult.callId,
+            scheduledAt: nativeResult.startAt.toISOString(),
+            timeZone: nativeResult.eventTimeZone,
+            closerName: nativeResult.closerName,
+            closerUserId,
+            responsibleSetterId: lead.setterId,
+            bookingMode: "native_crm",
+          },
+        }),
+      )
+      .onConflictDoNothing();
+
+    return {
+      bookingId: nativeResult.bookingId,
+      callId: nativeResult.callId,
+      scheduledAt: nativeResult.startAt.toISOString(),
+      timeZone: nativeResult.eventTimeZone,
+      closerName: nativeResult.closerName,
+    };
   });
 }
 

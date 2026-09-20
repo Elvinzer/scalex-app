@@ -37,6 +37,7 @@ import { confirmCrmCallMatch, decideCrmCallMatchSuggestion, generateCrmCallMatch
 import { normalizeCapturedProfile } from "@/lib/crm/normalization";
 import { actionCompletionSchema, actionRescheduleSchema, actionSchema, bookingLinkSchema, captureProfileSchema, changeStageSchema, contactStateSchema, crmLeadCaptureSchema, internalBookingSchema, internalBookingSlotsSchema, leadFieldsSchema, noteSchema, outcomeSchema, qualificationSchema, reopenSchema, responsibilitySchema, responseSchema } from "@/lib/crm/schemas";
 import type { CrmBookingAvailabilityView, CrmCallMatchStatus, CrmCapturedProfile, CrmMutationResult, CrmProfileResolution } from "@/lib/crm/types";
+import { scheduleNativeBookingSideEffects } from "@/lib/native-booking/booking";
 
 type ErrorResult = { state: "error"; error: string };
 type CrmErrorKey = "access" | "invalidProfile" | "ambiguousMatch" | "invalidData" | "invalidStage" | "invalidOutcome" | "leadNotFound" | "invalidResponsibility" | "responsibleAccount" | "invalidNote" | "invalidAction" | "cannotCreateAction" | "actionNotFound" | "invalidAssociation" | "leadOrCallNotFound" | "captureFailed" | "callMatchInvalid" | "callMatchExpired" | "callMatchConflict" | "callMatchNotFound" | "callMatchQueueUnavailable" | "bookingUnavailable" | "bookingConflict" | "bookingInvalid";
@@ -241,8 +242,24 @@ export async function createInternalBookingAction(input: unknown): Promise<CrmMu
   if (!access) return mutationError(await crmError());
   const parsed = internalBookingSchema.safeParse(input);
   if (!parsed.success) return mutationError(await crmError("bookingInvalid"));
-  const result = await createCrmInternalBooking(access.accountId, parsed.data.leadId, parsed.data.closerUserId, new Date(parsed.data.startAt), userId, parsed.data.idempotencyKey);
+  const result = await createCrmInternalBooking(
+    access.accountId,
+    parsed.data.leadId,
+    parsed.data.closerUserId,
+    new Date(parsed.data.startAt),
+    userId,
+    parsed.data.idempotencyKey,
+    {
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      guestTimeZone: parsed.data.guestTimeZone,
+      answers: parsed.data.answers,
+    },
+  );
   if ("error" in result) return mutationError(await crmError(result.error === "slot_unavailable" ? "bookingUnavailable" : result.error === "conflict" ? "bookingConflict" : "bookingInvalid"));
+  await scheduleNativeBookingSideEffects(result.bookingId);
   refreshCrm();
   return mutationSavedWith({ call: { scheduledAt: result.scheduledAt, timeZone: result.timeZone, closerName: result.closerName } });
 }

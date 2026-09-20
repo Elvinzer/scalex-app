@@ -1,3 +1,5 @@
+import type { NativeBookingQuestionRecord } from "@/lib/native-booking/questions";
+
 export const CRM_PLATFORMS = ["instagram", "linkedin"] as const;
 export type CrmPlatform = (typeof CRM_PLATFORMS)[number];
 
@@ -287,12 +289,15 @@ export type CrmBookingSlotView = {
   timeZone: string;
   closerUserId: string;
   closerName: string;
+  calendarReady: boolean;
 };
 
 export type CrmBookingAvailabilityView = {
   eventName: string;
   timeZone: string;
   durationMinutes: number;
+  questions: NativeBookingQuestionRecord[];
+  calendarNeedsAttention: boolean;
   slots: CrmBookingSlotView[];
 };
 
