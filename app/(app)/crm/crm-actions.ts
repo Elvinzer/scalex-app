@@ -1,7 +1,6 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
-import { after } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
@@ -83,19 +82,6 @@ function refreshCrm(): void {
   revalidatePath("/crm/actions");
   revalidatePath("/crm/appels");
   refresh();
-}
-
-function scheduleInternalBookingSideEffectsAfterResponse(bookingId: string): void {
-  after(async () => {
-    try {
-      await scheduleNativeBookingSideEffects(bookingId);
-    } catch (error) {
-      console.error("[crm-booking] side effects failed after response", {
-        bookingId,
-        message: error instanceof Error ? error.message : "unknown error",
-      });
-    }
-  });
 }
 
 function parseProfile(input: unknown): { profile: CrmCapturedProfile } | null {
@@ -275,8 +261,7 @@ export async function createInternalBookingAction(input: unknown): Promise<CrmMu
     },
   );
   if ("error" in result) return mutationError(await crmError(result.error === "slot_unavailable" ? "bookingUnavailable" : result.error === "conflict" ? "bookingConflict" : "bookingInvalid"));
-  const sideEffects = await getNativeBookingSideEffectStatus(access.accountId, result.bookingId) ?? { calendar: "pending", notification: "pending" };
-  scheduleInternalBookingSideEffectsAfterResponse(result.bookingId);
+  const sideEffects = await scheduleNativeBookingSideEffects(result.bookingId);
   refreshCrm();
   return mutationSavedWith({
     bookingId: result.bookingId,

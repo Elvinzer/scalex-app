@@ -3,9 +3,7 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingNotifications, nativeBookings, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
-import { sendInngestWithTimeout } from "@/lib/inngest/dispatch";
 import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
-import { inngest, nativeBookingNotificationRequested } from "@/lib/inngest/client";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
 import { getAppUrl } from "@/lib/utils";
 
@@ -80,25 +78,35 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
   const audienceAction = audience === "prospect"
     ? [management ? `Gérer mon rendez-vous : ${management}` : "", ics ? `Ajouter à mon agenda : ${ics}` : ""]
     : [copy.closerAction];
-  await getResendClient().emails.send({
-    from: process.env.RESEND_FROM_EMAIL ?? "Minaly <hello@minaly.io>",
-    to,
-    subject: `${copy.subject} — ${event.meetingLabel}`,
-    text: [
-      greeting,
-      "",
-      copy.intro,
-      `Événement : ${event.name}`,
-      dateLine,
-      `Closer : ${closerName}`,
-      joinLine,
-      event.bookingInstructions ? `Consignes : ${event.bookingInstructions}` : "",
-      "",
-      ...audienceAction,
-      "",
-      "Minaly",
-    ].filter(Boolean).join("\n"),
-  });
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      getResendClient().emails.send({
+        from: process.env.RESEND_FROM_EMAIL ?? "Minaly <hello@minaly.io>",
+        to,
+        subject: `${copy.subject} — ${event.meetingLabel}`,
+        text: [
+          greeting,
+          "",
+          copy.intro,
+          `Événement : ${event.name}`,
+          dateLine,
+          `Closer : ${closerName}`,
+          joinLine,
+          event.bookingInstructions ? `Consignes : ${event.bookingInstructions}` : "",
+          "",
+          ...audienceAction,
+          "",
+          "Minaly",
+        ].filter(Boolean).join("\n"),
+      }),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Notification delivery timed out")), 15_000);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
 }
 
 export async function scheduleNativeBookingNotification(bookingId: string, kind: NativeBookingNotificationKind): Promise<NativeBookingNotificationScheduleResult> {
@@ -119,24 +127,9 @@ export async function scheduleNativeBookingNotification(bookingId: string, kind:
   );
 
   try {
-    await sendInngestWithTimeout(inngest.send(nativeBookingNotificationRequested.create({ bookingId, kind })));
-    const [notification] = await db
-      .select({ status: nativeBookingNotifications.status })
-      .from(nativeBookingNotifications)
-      .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind)))
-      .limit(1);
-    return notification?.status === "sent" ? "sent" : "queued";
+    const deliveryResult = await deliverNativeBookingNotification(bookingId, kind);
+    return deliveryResult === "sent" ? "sent" : "failed";
   } catch (error) {
-    try {
-      const fallbackResult = await deliverNativeBookingNotification(bookingId, kind);
-      if (fallbackResult === "sent") return "sent";
-    } catch (fallbackError) {
-      console.error("[native-booking] direct notification fallback failed", {
-        bookingId,
-        kind,
-        message: fallbackError instanceof Error ? fallbackError.message : "unknown error",
-      });
-    }
     await db
       .update(nativeBookingNotifications)
       .set({ status: "failed", lastError: "La notification n'a pas pu être planifiée.", updatedAt: new Date() })

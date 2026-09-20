@@ -9,6 +9,7 @@ import {
   nativeBookingExceptions,
   nativeBookingLeads,
   nativeBookingLinks,
+  nativeBookingNotifications,
   nativeBookings,
   nativeBookingQuestions,
   nativeCalendarConnections,
@@ -16,8 +17,6 @@ import {
   users,
 } from "@/db/schema";
 import { enqueueCrmCallMatchSuggestions } from "@/lib/crm/call-match-queue";
-import { inngest, nativeBookingCalendarSyncRequested } from "@/lib/inngest/client";
-import { sendInngestWithTimeout } from "@/lib/inngest/dispatch";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 
@@ -551,31 +550,19 @@ export async function scheduleNativeBookingSideEffects(bookingId: string): Promi
 
   if (booking.calendarConnectionId && booking.syncStatus !== "synced") {
     try {
-      await sendInngestWithTimeout(inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId })));
-      // The calendar worker sends the confirmation only after Google has
-      // returned the Meet URL. Sending both jobs here creates a race where
-      // the prospect receives an email without the link.
-      return { calendar: "pending", notification: "pending" };
+      const syncResult = await retryNativeBookingCalendarSync(bookingId);
+      if (syncResult !== "synced") return { calendar: "failed", notification: "blocked" };
+      const [notification] = await db
+        .select({ status: nativeBookingNotifications.status })
+        .from(nativeBookingNotifications)
+        .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, "confirmation")))
+        .limit(1);
+      return {
+        calendar: "synced",
+        notification: notification?.status === "sent" ? "sent" : notification?.status === "failed" ? "failed" : "pending",
+      };
     } catch (error) {
-      try {
-        const fallbackResult = await retryNativeBookingCalendarSync(bookingId);
-        if (fallbackResult === "synced") return { calendar: "synced", notification: "pending" };
-      } catch (fallbackError) {
-        console.error("[native-booking] direct calendar fallback failed", {
-          bookingId,
-          message: fallbackError instanceof Error ? fallbackError.message : "unknown error",
-        });
-      }
-      await db
-        .update(nativeBookings)
-        .set({
-          status: "sync_failed",
-          syncStatus: "failed",
-          syncError: "La synchronisation du calendrier n'a pas pu être lancée.",
-          updatedAt: new Date(),
-        })
-        .where(eq(nativeBookings.id, bookingId));
-      console.error("[native-booking] calendar job scheduling failed", {
+      console.error("[native-booking] direct calendar sync failed", {
         bookingId,
         message: error instanceof Error ? error.message : "unknown error",
       });
