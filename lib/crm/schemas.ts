@@ -93,6 +93,7 @@ export const responseSchema = z.object({ leadId: z.string().uuid(), occurredAt: 
 export const contactStateSchema = z.object({ leadId: z.string().uuid(), occurredAt: z.string().datetime({ offset: true }).optional(), idempotencyKey: z.string().trim().min(8).max(240) });
 export const bookingLinkSchema = z.object({ leadId: z.string().uuid(), idempotencyKey: z.string().trim().min(8).max(240) });
 export const internalBookingSlotsSchema = z.object({ leadId: z.string().uuid() });
+export const internalBookingStatusSchema = z.object({ bookingId: z.string().uuid() });
 export const internalBookingSchema = publicBookingRequestSchema
   .pick({ firstName: true, lastName: true, email: true, phone: true, guestTimeZone: true, answers: true, startAt: true, idempotencyKey: true, leadId: true })
   .extend({ leadId: z.string().uuid(), closerUserId: z.string().uuid() });

@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { enqueueCrmCallMatchSuggestions } from "@/lib/crm/call-match-queue";
 import { inngest, nativeBookingCalendarSyncRequested } from "@/lib/inngest/client";
+import { sendInngestWithTimeout } from "@/lib/inngest/dispatch";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { resolveMetaTouchpoint, resolveMetaTouchpointFromIdentifiers, resolveMetaTouchpointFromUtm } from "@/lib/meta-ads/attribution";
 
@@ -34,6 +35,7 @@ import { validateNativeBookingAnswers } from "./questions";
 import { normalizeEmail, normalizePhone, sanitizeUtm, type PublicBookingRequest } from "./validation";
 import { scheduleNativeBookingNotification } from "./notifications";
 import { scheduleNativeBookingReminders } from "./reminders";
+import type { NativeBookingSideEffectStatus } from "./status";
 import { createBookingManagementTokens } from "./tokens";
 
 export type NativeBookingResult = {
@@ -532,7 +534,7 @@ export async function createNativeBookingForCrm(
   };
 }
 
-export async function scheduleNativeBookingSideEffects(bookingId: string): Promise<void> {
+export async function scheduleNativeBookingSideEffects(bookingId: string): Promise<NativeBookingSideEffectStatus> {
   const [booking] = await db
     .select({
       id: nativeBookings.id,
@@ -543,31 +545,59 @@ export async function scheduleNativeBookingSideEffects(bookingId: string): Promi
     .from(nativeBookings)
     .where(eq(nativeBookings.id, bookingId))
     .limit(1);
-  if (!booking || (booking.status !== "confirmed" && booking.status !== "sync_failed")) return;
+  if (!booking || (booking.status !== "confirmed" && booking.status !== "sync_failed")) {
+    return { calendar: "failed", notification: "failed" };
+  }
 
   if (booking.calendarConnectionId && booking.syncStatus !== "synced") {
     try {
-      await inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId }));
+      await sendInngestWithTimeout(inngest.send(nativeBookingCalendarSyncRequested.create({ bookingId })));
       // The calendar worker sends the confirmation only after Google has
       // returned the Meet URL. Sending both jobs here creates a race where
       // the prospect receives an email without the link.
-      return;
+      return { calendar: "pending", notification: "pending" };
     } catch (error) {
-      console.error("[native-booking] calendar job scheduling failed", { bookingId, error });
+      try {
+        const fallbackResult = await retryNativeBookingCalendarSync(bookingId);
+        if (fallbackResult === "synced") return { calendar: "synced", notification: "pending" };
+      } catch (fallbackError) {
+        console.error("[native-booking] direct calendar fallback failed", {
+          bookingId,
+          message: fallbackError instanceof Error ? fallbackError.message : "unknown error",
+        });
+      }
+      await db
+        .update(nativeBookings)
+        .set({
+          status: "sync_failed",
+          syncStatus: "failed",
+          syncError: "La synchronisation du calendrier n'a pas pu être lancée.",
+          updatedAt: new Date(),
+        })
+        .where(eq(nativeBookings.id, bookingId));
+      console.error("[native-booking] calendar job scheduling failed", {
+        bookingId,
+        message: error instanceof Error ? error.message : "unknown error",
+      });
+      return { calendar: "failed", notification: "blocked" };
     }
   }
 
-  try {
-    await scheduleNativeBookingNotification(bookingId, "confirmation");
-  } catch (error) {
-    console.error("[native-booking] confirmation notification scheduling failed", { bookingId, error });
-  }
+  const notificationResult = await scheduleNativeBookingNotification(bookingId, "confirmation");
 
   try {
     await scheduleNativeBookingReminders(bookingId);
   } catch (error) {
-    console.error("[native-booking] reminder scheduling failed", { bookingId, error });
+    console.error("[native-booking] reminder scheduling failed", {
+      bookingId,
+      message: error instanceof Error ? error.message : "unknown error",
+    });
   }
+
+  return {
+    calendar: booking.syncStatus === "synced" ? "synced" : "not_required",
+    notification: notificationResult === "sent" ? "sent" : notificationResult === "failed" ? "failed" : "pending",
+  };
 }
 
 export async function createNativeBookingHold(

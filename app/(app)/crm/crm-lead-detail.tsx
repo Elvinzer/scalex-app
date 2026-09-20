@@ -228,7 +228,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
       ...current,
       stage: "call_booked",
       contactState: "contacted",
-      nextCall: { id: `local-${booking.scheduledAt}`, scheduledAt: booking.scheduledAt, timeZone: booking.timeZone, closer: booking.closerName, source: "minaly_internal", attendance: "booked", outcome: "pending" },
+      nextCall: { id: `local-${booking.scheduledAt}`, scheduledAt: booking.scheduledAt, timeZone: booking.timeZone, closer: booking.closerName, source: "native", attendance: "booked", outcome: "pending" },
     }));
   }
 

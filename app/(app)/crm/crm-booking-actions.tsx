@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, Link2 } from "lucide-react";
+import { Check, CircleAlert, Copy, Link2, LoaderCircle } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -9,11 +9,13 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { CrmBookingAvailabilityView, CrmLeadDetails } from "@/lib/crm/types";
 import type { NativeBookingAnswerValue, NativeBookingQuestionRecord } from "@/lib/native-booking/questions";
 import { isValidPhoneNumber } from "@/lib/native-booking/validation";
+import type { NativeBookingSideEffectStatus } from "@/lib/native-booking/status";
 
-import { createInternalBookingAction, getBookingLinkAction, getInternalBookingSlotsAction, recordBookingLinkSentAction } from "./crm-actions";
+import { createInternalBookingAction, getBookingLinkAction, getInternalBookingSlotsAction, getInternalBookingStatusAction, recordBookingLinkSentAction, retryInternalBookingSideEffectsAction } from "./crm-actions";
 
 type BookingLead = Pick<CrmLeadDetails, "id" | "displayName" | "firstName" | "lastName" | "email" | "phone">;
 type BookingContact = { firstName: string; lastName: string; email: string; phone: string };
+type BookingConfirmation = { bookingId: string; status: NativeBookingSideEffectStatus };
 
 const inputClassName = "min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20";
 
@@ -29,6 +31,20 @@ function contactFromLead(lead: BookingLead): BookingContact {
 
 function questionIsAnswered(question: NativeBookingQuestionRecord, value: NativeBookingAnswerValue | undefined): boolean {
   return Array.isArray(value) ? value.some((item) => item.trim().length > 0) : Boolean(value?.trim());
+}
+
+function bookingConfirmationIsComplete(status: NativeBookingSideEffectStatus): boolean {
+  return (status.calendar === "synced" || status.calendar === "not_required") && status.notification === "sent";
+}
+
+function bookingConfirmationHasFailure(status: NativeBookingSideEffectStatus): boolean {
+  return status.calendar === "failed" || status.notification === "failed" || status.notification === "blocked";
+}
+
+function BookingStatusLine({ label, detail, state }: { label: string; detail: string; state: "success" | "pending" | "failure" }) {
+  const Icon = state === "success" ? Check : state === "failure" ? CircleAlert : LoaderCircle;
+  const className = state === "success" ? "text-state-healthy" : state === "failure" ? "text-state-critical" : "text-state-caution";
+  return <div className="flex items-start gap-2 text-sm"><Icon className={`mt-0.5 size-4 shrink-0 ${className} ${state === "pending" ? "animate-spin" : ""}`} aria-hidden="true" /><span><span className="font-bold">{label}</span><span className="ml-1 text-muted-foreground">{detail}</span></span></div>;
 }
 
 function BookingQuestionField({ question, value, error, onChange, optionalLabel, selectPlaceholder }: {
@@ -114,7 +130,7 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
   const locale = useLocale();
   const [isPending, startTransition] = useTransition();
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
-  const [bookingStatus, setBookingStatus] = useState<string | null>(null);
+  const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const [linkRecorded, setLinkRecorded] = useState(false);
@@ -128,7 +144,9 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
   const [linkPending, setLinkPending] = useState(false);
   const [linkIdempotencyKey, setLinkIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [bookingIdempotencyKey, setBookingIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
+  const [bookingPollVersion, setBookingPollVersion] = useState(0);
   const isBusy = isPending || linkPending;
+  const bookingConfirmationId = bookingConfirmation?.bookingId ?? null;
 
   const absoluteLink = link && typeof window !== "undefined" ? new URL(link, window.location.origin).toString() : link;
   const selectedSlot = useMemo(() => {
@@ -183,6 +201,31 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
     return () => window.clearTimeout(timeoutId);
   }, [linkCopied]);
 
+  useEffect(() => {
+    if (!bookingConfirmationId) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    let attempts = 0;
+
+    async function refreshBookingConfirmation() {
+      const result = await getInternalBookingStatusAction({ bookingId: bookingConfirmationId });
+      if (cancelled) return;
+      const status = result.status;
+      if (status) {
+        setBookingConfirmation((current) => current?.bookingId === bookingConfirmationId ? { ...current, status } : current);
+        if (bookingConfirmationIsComplete(status) || bookingConfirmationHasFailure(status)) return;
+      }
+      attempts += 1;
+      if (attempts < 20) timer = window.setTimeout(() => void refreshBookingConfirmation(), 1500);
+    }
+
+    void refreshBookingConfirmation();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [bookingConfirmationId, bookingPollVersion]);
+
   async function copyBookingLink() {
     if (linkPending) return;
     setLinkStatus(null);
@@ -233,7 +276,7 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
 
   function openInternalBooking() {
     setBookingError(null);
-    setBookingStatus(null);
+    setBookingConfirmation(null);
     setContact(contactFromLead(lead));
     setAnswers({});
     setFieldErrors({});
@@ -277,17 +320,33 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
           guestTimeZone: availability.timeZone,
           answers,
         });
-        if (result.error || !result.call) {
+        if (result.error || !result.call || !result.bookingId || !result.sideEffects) {
           setBookingError(result.error ?? t("bookingSaveError"));
           return;
         }
         setBookingOpen(false);
-        setBookingStatus(t("bookingSaved"));
+        setBookingConfirmation({ bookingId: result.bookingId, status: result.sideEffects });
+        setBookingPollVersion((version) => version + 1);
         setBookingIdempotencyKey(globalThis.crypto.randomUUID());
         onBooked(result.call);
       } catch {
         setBookingError(t("bookingRequestError"));
       }
+    });
+  }
+
+  function retryBookingSideEffects() {
+    if (!bookingConfirmation) return;
+    startTransition(async () => {
+      const result = await retryInternalBookingSideEffectsAction({ bookingId: bookingConfirmation.bookingId });
+      if (result.error || !result.status) {
+        setBookingError(result.error ?? t("bookingRequestError"));
+        return;
+      }
+      const status = result.status;
+      setBookingError(null);
+      setBookingConfirmation((current) => current ? { ...current, status } : current);
+      setBookingPollVersion((version) => version + 1);
     });
   }
 
@@ -328,7 +387,36 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
 
         <Button type="button" variant="outline" className="min-h-11 w-full self-start" disabled={isBusy} onClick={openInternalBooking}>{t("bookForProspect")}</Button>
       </div>
-      {bookingStatus && <p className="mt-2 text-sm font-bold text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">{bookingStatus}</p>}
+      {bookingConfirmation && (
+        <div className={`mt-3 rounded-[var(--radius-control)] border p-3 ${bookingConfirmationHasFailure(bookingConfirmation.status) ? "border-state-critical/30 bg-state-critical-bg" : bookingConfirmationIsComplete(bookingConfirmation.status) ? "border-state-healthy/30 bg-state-healthy-bg" : "border-state-caution/30 bg-state-caution/10"}`} role="status" aria-live="polite" aria-atomic="true">
+          <p className="text-sm font-bold">
+            {bookingConfirmationIsComplete(bookingConfirmation.status)
+              ? t("bookingConfirmationSuccess")
+              : bookingConfirmationHasFailure(bookingConfirmation.status)
+                ? t("bookingConfirmationFailure")
+                : t("bookingConfirmationPending")}
+          </p>
+          <div className="mt-2 flex flex-col gap-1.5">
+            <BookingStatusLine
+              label={t("bookingConfirmationAppointmentLabel")}
+              detail={t("bookingConfirmationAppointmentDone")}
+              state="success"
+            />
+            <BookingStatusLine
+              label={t("bookingConfirmationCalendarLabel")}
+              detail={bookingConfirmation.status.calendar === "synced" ? t("bookingConfirmationCalendarDone") : bookingConfirmation.status.calendar === "not_required" ? t("bookingConfirmationCalendarNotRequired") : bookingConfirmation.status.calendar === "failed" ? t("bookingConfirmationCalendarFailed") : t("bookingConfirmationCalendarPending")}
+              state={bookingConfirmation.status.calendar === "synced" || bookingConfirmation.status.calendar === "not_required" ? "success" : bookingConfirmation.status.calendar === "failed" ? "failure" : "pending"}
+            />
+            <BookingStatusLine
+              label={t("bookingConfirmationNotificationLabel")}
+              detail={bookingConfirmation.status.notification === "sent" ? t("bookingConfirmationNotificationDone") : bookingConfirmation.status.notification === "failed" ? t("bookingConfirmationNotificationFailed") : bookingConfirmation.status.notification === "blocked" ? t("bookingConfirmationNotificationBlocked") : t("bookingConfirmationNotificationPending")}
+              state={bookingConfirmation.status.notification === "sent" ? "success" : bookingConfirmation.status.notification === "failed" || bookingConfirmation.status.notification === "blocked" ? "failure" : "pending"}
+            />
+          </div>
+          {(bookingConfirmation.status.calendar === "failed" || bookingConfirmation.status.notification === "blocked") && <a href="/settings/calendars" className="mt-2 inline-flex min-h-11 items-center text-sm font-bold text-accent-text underline underline-offset-2">{t("bookingCalendarSettings")}</a>}
+          {bookingConfirmationHasFailure(bookingConfirmation.status) && <Button type="button" variant="outline" className="mt-2 min-h-11" disabled={isBusy} onClick={retryBookingSideEffects}>{t("bookingRetrySideEffects")}</Button>}
+        </div>
+      )}
       {bookingError && <p className="mt-2 text-sm font-bold text-state-critical" role="alert">{bookingError}</p>}
 
       <Dialog open={bookingOpen} onOpenChange={(open) => { if (!isPending) setBookingOpen(open); }}>

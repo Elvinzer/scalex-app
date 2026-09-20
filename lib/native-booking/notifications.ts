@@ -1,14 +1,16 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingNotifications, nativeBookings, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
+import { sendInngestWithTimeout } from "@/lib/inngest/dispatch";
 import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { inngest, nativeBookingNotificationRequested } from "@/lib/inngest/client";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
 import { getAppUrl } from "@/lib/utils";
 
 export type NativeBookingNotificationKind = "confirmation" | "cancellation" | "reschedule";
+export type NativeBookingNotificationScheduleResult = "queued" | "sent" | "failed";
 
 type NotificationBooking = {
   booking: typeof nativeBookings.$inferSelect;
@@ -99,11 +101,58 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
   });
 }
 
-export async function scheduleNativeBookingNotification(bookingId: string, kind: NativeBookingNotificationKind) {
+export async function scheduleNativeBookingNotification(bookingId: string, kind: NativeBookingNotificationKind): Promise<NativeBookingNotificationScheduleResult> {
+  const now = new Date();
+  await db
+    .insert(nativeBookingNotifications)
+    .values({ bookingId, kind, status: "pending", attempts: 0, updatedAt: now })
+    .onConflictDoNothing({ target: [nativeBookingNotifications.bookingId, nativeBookingNotifications.kind] });
+  await db
+    .update(nativeBookingNotifications)
+    .set({ status: "pending", lastError: null, updatedAt: now })
+    .where(
+      and(
+        eq(nativeBookingNotifications.bookingId, bookingId),
+        eq(nativeBookingNotifications.kind, kind),
+        ne(nativeBookingNotifications.status, "sent")
+      )
+  );
+
   try {
-    await inngest.send(nativeBookingNotificationRequested.create({ bookingId, kind }));
+    await sendInngestWithTimeout(inngest.send(nativeBookingNotificationRequested.create({ bookingId, kind })));
+    const [notification] = await db
+      .select({ status: nativeBookingNotifications.status })
+      .from(nativeBookingNotifications)
+      .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind)))
+      .limit(1);
+    return notification?.status === "sent" ? "sent" : "queued";
   } catch (error) {
-    console.error("[native-booking] notification scheduling failed", { bookingId, kind, error });
+    try {
+      const fallbackResult = await deliverNativeBookingNotification(bookingId, kind);
+      if (fallbackResult === "sent") return "sent";
+    } catch (fallbackError) {
+      console.error("[native-booking] direct notification fallback failed", {
+        bookingId,
+        kind,
+        message: fallbackError instanceof Error ? fallbackError.message : "unknown error",
+      });
+    }
+    await db
+      .update(nativeBookingNotifications)
+      .set({ status: "failed", lastError: "La notification n'a pas pu être planifiée.", updatedAt: new Date() })
+      .where(
+        and(
+          eq(nativeBookingNotifications.bookingId, bookingId),
+          eq(nativeBookingNotifications.kind, kind),
+          ne(nativeBookingNotifications.status, "sent")
+        )
+      );
+    console.error("[native-booking] notification scheduling failed", {
+      bookingId,
+      kind,
+      message: error instanceof Error ? error.message : "unknown error",
+    });
+    return "failed";
   }
 }
 
@@ -118,54 +167,67 @@ export async function deliverNativeBookingNotification(bookingId: string, kind: 
       : details.event.notifyCloserOnReschedule;
   if (!shouldNotifyCloser && !details.booking.email) return "skipped" as const;
 
-  const [existing] = await db
-    .select()
-    .from(nativeBookingNotifications)
-    .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind)))
-    .limit(1);
-  if (existing?.status === "sent") return "sent" as const;
-
-  const now = new Date();
-  const [notification] = existing
-    ? await db
-        .update(nativeBookingNotifications)
-        .set({ status: "pending", attempts: sql`${nativeBookingNotifications.attempts} + 1`, lastError: null, updatedAt: now })
-        .where(eq(nativeBookingNotifications.id, existing.id))
-        .returning()
-    : await db
-        .insert(nativeBookingNotifications)
-        .values({ bookingId, kind, status: "pending", attempts: 1, updatedAt: now })
-        .onConflictDoNothing({ target: [nativeBookingNotifications.bookingId, nativeBookingNotifications.kind] })
-        .returning();
-
-  if (!notification) {
-    const [concurrent] = await db
-      .select()
-      .from(nativeBookingNotifications)
-      .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind)))
-      .limit(1);
-    return concurrent?.status === "sent" ? ("sent" as const) : ("skipped" as const);
-  }
-
   try {
-    const recipients = new Set<string>();
-    if (details.booking.email) recipients.add(`prospect:${details.booking.email}`);
-    if (shouldNotifyCloser && details.closerEmail) recipients.add(`closer:${details.closerEmail}`);
-    for (const recipient of recipients) {
-      const [audience, address] = recipient.split(":", 2) as [NotificationAudience, string];
-      await sendNotificationEmail(address, details, kind, audience);
-    }
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(nativeBookingNotifications)
+        .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind)))
+        .for("update")
+        .limit(1);
+      if (existing?.status === "sent") return "sent" as const;
 
-    await db
-      .update(nativeBookingNotifications)
-      .set({ status: "sent", sentAt: new Date(), lastError: null, updatedAt: new Date() })
-      .where(eq(nativeBookingNotifications.id, notification.id));
-    return "sent" as const;
+      const now = new Date();
+      let notification = existing;
+      if (notification) {
+        [notification] = await tx
+          .update(nativeBookingNotifications)
+          .set({ status: "pending", attempts: sql`${nativeBookingNotifications.attempts} + 1`, lastError: null, updatedAt: now })
+          .where(eq(nativeBookingNotifications.id, notification.id))
+          .returning();
+      } else {
+        [notification] = await tx
+          .insert(nativeBookingNotifications)
+          .values({ bookingId, kind, status: "pending", attempts: 1, updatedAt: now })
+          .onConflictDoNothing({ target: [nativeBookingNotifications.bookingId, nativeBookingNotifications.kind] })
+          .returning();
+        if (!notification) {
+          [notification] = await tx
+            .select()
+            .from(nativeBookingNotifications)
+            .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind)))
+            .for("update")
+            .limit(1);
+          if (notification?.status === "sent") return "sent" as const;
+          if (!notification) return "skipped" as const;
+          [notification] = await tx
+            .update(nativeBookingNotifications)
+            .set({ status: "pending", attempts: sql`${nativeBookingNotifications.attempts} + 1`, lastError: null, updatedAt: now })
+            .where(eq(nativeBookingNotifications.id, notification.id))
+            .returning();
+        }
+      }
+      if (!notification) return "skipped" as const;
+
+      const recipients = new Set<string>();
+      if (details.booking.email) recipients.add(`prospect:${details.booking.email}`);
+      if (shouldNotifyCloser && details.closerEmail) recipients.add(`closer:${details.closerEmail}`);
+      for (const recipient of recipients) {
+        const [audience, address] = recipient.split(":", 2) as [NotificationAudience, string];
+        await sendNotificationEmail(address, details, kind, audience);
+      }
+
+      await tx
+        .update(nativeBookingNotifications)
+        .set({ status: "sent", sentAt: new Date(), lastError: null, updatedAt: new Date() })
+        .where(eq(nativeBookingNotifications.id, notification.id));
+      return "sent" as const;
+    });
   } catch (error) {
     await db
       .update(nativeBookingNotifications)
       .set({ status: "failed", lastError: "L'envoi de la notification a échoué.", updatedAt: new Date() })
-      .where(eq(nativeBookingNotifications.id, notification.id));
+      .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind), ne(nativeBookingNotifications.status, "sent")));
     throw error;
   }
 }

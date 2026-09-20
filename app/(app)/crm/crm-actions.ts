@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
@@ -35,9 +36,11 @@ import {
 } from "@/lib/crm/queries";
 import { confirmCrmCallMatch, decideCrmCallMatchSuggestion, generateCrmCallMatchSuggestion, type CrmCallMatchDecisionResult } from "@/lib/crm/call-match-suggestions";
 import { normalizeCapturedProfile } from "@/lib/crm/normalization";
-import { actionCompletionSchema, actionRescheduleSchema, actionSchema, bookingLinkSchema, captureProfileSchema, changeStageSchema, contactStateSchema, crmLeadCaptureSchema, internalBookingSchema, internalBookingSlotsSchema, leadFieldsSchema, noteSchema, outcomeSchema, qualificationSchema, reopenSchema, responsibilitySchema, responseSchema } from "@/lib/crm/schemas";
+import { actionCompletionSchema, actionRescheduleSchema, actionSchema, bookingLinkSchema, captureProfileSchema, changeStageSchema, contactStateSchema, crmLeadCaptureSchema, internalBookingSchema, internalBookingSlotsSchema, internalBookingStatusSchema, leadFieldsSchema, noteSchema, outcomeSchema, qualificationSchema, reopenSchema, responsibilitySchema, responseSchema } from "@/lib/crm/schemas";
 import type { CrmBookingAvailabilityView, CrmCallMatchStatus, CrmCapturedProfile, CrmMutationResult, CrmProfileResolution } from "@/lib/crm/types";
 import { scheduleNativeBookingSideEffects } from "@/lib/native-booking/booking";
+import { getNativeBookingSideEffectStatus } from "@/lib/native-booking/queries";
+import type { NativeBookingSideEffectStatus } from "@/lib/native-booking/status";
 
 type ErrorResult = { state: "error"; error: string };
 type CrmErrorKey = "access" | "invalidProfile" | "ambiguousMatch" | "invalidData" | "invalidStage" | "invalidOutcome" | "leadNotFound" | "invalidResponsibility" | "responsibleAccount" | "invalidNote" | "invalidAction" | "cannotCreateAction" | "actionNotFound" | "invalidAssociation" | "leadOrCallNotFound" | "captureFailed" | "callMatchInvalid" | "callMatchExpired" | "callMatchConflict" | "callMatchNotFound" | "callMatchQueueUnavailable" | "bookingUnavailable" | "bookingConflict" | "bookingInvalid";
@@ -80,6 +83,19 @@ function refreshCrm(): void {
   revalidatePath("/crm/actions");
   revalidatePath("/crm/appels");
   refresh();
+}
+
+function scheduleInternalBookingSideEffectsAfterResponse(bookingId: string): void {
+  after(async () => {
+    try {
+      await scheduleNativeBookingSideEffects(bookingId);
+    } catch (error) {
+      console.error("[crm-booking] side effects failed after response", {
+        bookingId,
+        message: error instanceof Error ? error.message : "unknown error",
+      });
+    }
+  });
 }
 
 function parseProfile(input: unknown): { profile: CrmCapturedProfile } | null {
@@ -235,7 +251,7 @@ export async function getInternalBookingSlotsAction(input: unknown): Promise<{ e
   return { error: null, availability: await getCrmInternalBookingSlots(access.accountId, parsed.data.leadId) };
 }
 
-export async function createInternalBookingAction(input: unknown): Promise<CrmMutationResult<{ call?: { scheduledAt: string; timeZone: string; closerName: string } }>> {
+export async function createInternalBookingAction(input: unknown): Promise<CrmMutationResult<{ bookingId?: string; call?: { scheduledAt: string; timeZone: string; closerName: string }; sideEffects?: NativeBookingSideEffectStatus }>> {
   const userId = await currentUser();
   if (typeof userId !== "string") return userId;
   const access = await requireCrmAccess(userId);
@@ -259,9 +275,39 @@ export async function createInternalBookingAction(input: unknown): Promise<CrmMu
     },
   );
   if ("error" in result) return mutationError(await crmError(result.error === "slot_unavailable" ? "bookingUnavailable" : result.error === "conflict" ? "bookingConflict" : "bookingInvalid"));
-  await scheduleNativeBookingSideEffects(result.bookingId);
+  const sideEffects = await getNativeBookingSideEffectStatus(access.accountId, result.bookingId) ?? { calendar: "pending", notification: "pending" };
+  scheduleInternalBookingSideEffectsAfterResponse(result.bookingId);
   refreshCrm();
-  return mutationSavedWith({ call: { scheduledAt: result.scheduledAt, timeZone: result.timeZone, closerName: result.closerName } });
+  return mutationSavedWith({
+    bookingId: result.bookingId,
+    call: { scheduledAt: result.scheduledAt, timeZone: result.timeZone, closerName: result.closerName },
+    sideEffects,
+  });
+}
+
+export async function getInternalBookingStatusAction(input: unknown): Promise<{ error: string | null; status?: NativeBookingSideEffectStatus }> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return userId;
+  const access = await requireCrmAccess(userId);
+  if (!access) return { error: await crmError() };
+  const parsed = internalBookingStatusSchema.safeParse(input);
+  if (!parsed.success) return { error: await crmError("bookingInvalid") };
+  const status = await getNativeBookingSideEffectStatus(access.accountId, parsed.data.bookingId);
+  return status ? { error: null, status } : { error: await crmError("bookingInvalid") };
+}
+
+export async function retryInternalBookingSideEffectsAction(input: unknown): Promise<{ error: string | null; status?: NativeBookingSideEffectStatus }> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return userId;
+  const access = await requireCrmAccess(userId);
+  if (!access) return { error: await crmError() };
+  const parsed = internalBookingStatusSchema.safeParse(input);
+  if (!parsed.success) return { error: await crmError("bookingInvalid") };
+  const currentStatus = await getNativeBookingSideEffectStatus(access.accountId, parsed.data.bookingId);
+  if (!currentStatus) return { error: await crmError("bookingInvalid") };
+  const status = await scheduleNativeBookingSideEffects(parsed.data.bookingId);
+  refreshCrm();
+  return { error: null, status };
 }
 
 export async function setOutcomeAction(input: unknown): Promise<CrmMutationResult> {

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { nativeBookingEvents, nativeBookingReminderDeliveries, nativeBookingReminderRules, nativeBookings, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
 import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
+import { sendInngestWithTimeout } from "@/lib/inngest/dispatch";
 import { inngest, nativeBookingReminderRequested } from "@/lib/inngest/client";
 import { getAppUrl } from "@/lib/utils";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
@@ -38,9 +39,12 @@ function renderReminderMessage(template: string, context: ReminderContext): stri
 
 async function scheduleReminderDelivery(deliveryId: string) {
   try {
-    await inngest.send(nativeBookingReminderRequested.create({ deliveryId }));
+    await sendInngestWithTimeout(inngest.send(nativeBookingReminderRequested.create({ deliveryId })));
   } catch (error) {
-    console.error("[native-booking] reminder scheduling failed", { deliveryId, error });
+    console.error("[native-booking] reminder scheduling failed", {
+      deliveryId,
+      message: error instanceof Error ? error.message : "unknown error",
+    });
   }
 }
 

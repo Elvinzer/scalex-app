@@ -7,6 +7,7 @@ import {
   nativeBookingEvents,
   nativeBookingExceptions,
   nativeBookingLinks,
+  nativeBookingNotifications,
   nativeBookingQuestions,
   nativeBookingReminderRules,
   nativeBookings,
@@ -19,6 +20,7 @@ import { getBookingPageSettingsView } from "@/lib/booking-page/queries";
 
 import { isCalendarTemporarilyUnavailable } from "./calendar-readiness";
 import { generateBookingSlots, type GeneratedBookingSlot } from "./slots";
+import type { NativeBookingSideEffectStatus } from "./status";
 
 export async function listNativeBookingEvents(accountId: string, viewer?: NativeBookingViewer) {
   const conditions = [eq(nativeBookingEvents.userId, accountId)];
@@ -260,6 +262,36 @@ export async function hasFutureNativeBooking(accountId: string, phoneNormalized:
     .orderBy(asc(nativeBookings.startAt))
     .limit(1);
   return booking ?? null;
+}
+
+export async function getNativeBookingSideEffectStatus(accountId: string, bookingId: string): Promise<NativeBookingSideEffectStatus | null> {
+  const [row] = await db
+    .select({
+      syncStatus: nativeBookings.syncStatus,
+      notificationStatus: nativeBookingNotifications.status,
+    })
+    .from(nativeBookings)
+    .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
+    .leftJoin(
+      nativeBookingNotifications,
+      and(
+        eq(nativeBookingNotifications.bookingId, nativeBookings.id),
+        eq(nativeBookingNotifications.kind, "confirmation")
+      )
+    )
+    .where(and(eq(nativeBookings.id, bookingId), eq(nativeBookingEvents.userId, accountId)))
+    .limit(1);
+  if (!row) return null;
+
+  const calendar = row.syncStatus === "not_required"
+    ? "not_required"
+    : row.syncStatus === "synced"
+      ? "synced"
+      : row.syncStatus === "failed"
+        ? "failed"
+        : "pending";
+  const notification = row.notificationStatus ?? (calendar === "failed" ? "blocked" : "pending");
+  return { calendar, notification };
 }
 
 export async function listUpcomingNativeBookings(accountId: string, now = new Date(), viewer?: NativeBookingViewer) {
