@@ -74,19 +74,26 @@ function getManagementUrl(details: NotificationBooking): string {
   return `${getAppUrl()}/book/${details.ownerHandle}/${details.event.slug}?${params.toString()}`;
 }
 
+function getPublicBookingUrl(details: NotificationBooking): string {
+  return `${getAppUrl()}/book/${details.ownerHandle}/${details.event.slug}`;
+}
+
 async function sendNotificationEmail(to: string, details: NotificationBooking, kind: NativeBookingNotificationKind, audience: NotificationAudience) {
   if (!isResendConfigured()) return;
   const copy = notificationCopy(kind);
   const { booking, event, closerName } = details;
   const dateLine = formatDateTime(booking.startAt, booking.endAt, booking.eventTimeZone);
-  const joinUrl = booking.meetingUrl ?? event.meetingUrl;
+  const joinUrl = kind === "cancellation" ? "" : booking.meetingUrl ?? event.meetingUrl;
   const joinLine = joinUrl ? `Lien pour rejoindre l'appel : ${joinUrl}` : "";
-  const management = getManagementUrl(details);
-  const icsToken = booking.rescheduleTokenEncrypted ? decrypt(booking.rescheduleTokenEncrypted) : booking.cancellationTokenEncrypted ? decrypt(booking.cancellationTokenEncrypted) : "";
+  const management = kind === "cancellation" ? "" : getManagementUrl(details);
+  const bookingUrl = kind === "cancellation" ? getPublicBookingUrl(details) : "";
+  const icsToken = kind === "cancellation" ? "" : booking.rescheduleTokenEncrypted ? decrypt(booking.rescheduleTokenEncrypted) : booking.cancellationTokenEncrypted ? decrypt(booking.cancellationTokenEncrypted) : "";
   const ics = icsToken ? `${getAppUrl()}/api/public/booking/${details.ownerHandle}/${event.slug}/ics?token=${encodeURIComponent(icsToken)}` : "";
   const greeting = audience === "prospect" ? `Bonjour ${booking.firstName},` : `Bonjour ${closerName},`;
   const audienceAction = audience === "prospect"
-    ? [management ? `Gérer mon rendez-vous : ${management}` : "", ics ? `Ajouter à mon agenda : ${ics}` : ""]
+    ? kind === "cancellation"
+      ? [bookingUrl ? `Planifier un nouveau rendez-vous : ${bookingUrl}` : ""]
+      : [management ? `Gérer mon rendez-vous : ${management}` : "", ics ? `Ajouter à mon agenda : ${ics}` : ""]
     : [copy.closerAction];
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
