@@ -80,7 +80,7 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
     : [copy.closerAction];
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
-    await Promise.race([
+    const result = await Promise.race([
       getResendClient().emails.send({
         from: process.env.RESEND_FROM_EMAIL ?? "Minaly <hello@minaly.io>",
         to,
@@ -104,6 +104,9 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
         timeoutId = setTimeout(() => reject(new Error("Notification delivery timed out")), 15_000);
       }),
     ]);
+    if (result.error) {
+      throw new Error("Resend rejected the notification email");
+    }
   } finally {
     if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
