@@ -1,7 +1,7 @@
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { nativeBookingEvents, nativeBookingNotifications, nativeBookings, users } from "@/db/schema";
+import { nativeBookingActivities, nativeBookingEvents, nativeBookingNotifications, nativeBookings, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
 import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
@@ -52,6 +52,16 @@ async function loadNotificationBooking(bookingId: string): Promise<NotificationB
     closerEmail: row.closer?.email ?? null,
     closerName: row.closer?.displayName || row.closer?.email || "ton closer",
   };
+}
+
+async function getLatestRescheduleActivityAt(bookingId: string): Promise<Date | null> {
+  const [activity] = await db
+    .select({ createdAt: nativeBookingActivities.createdAt })
+    .from(nativeBookingActivities)
+    .where(and(eq(nativeBookingActivities.bookingId, bookingId), eq(nativeBookingActivities.kind, "rescheduled")))
+    .orderBy(desc(nativeBookingActivities.createdAt))
+    .limit(1);
+  return activity?.createdAt ?? null;
 }
 
 function getManagementUrl(details: NotificationBooking): string {
@@ -114,20 +124,34 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
 
 export async function scheduleNativeBookingNotification(bookingId: string, kind: NativeBookingNotificationKind): Promise<NativeBookingNotificationScheduleResult> {
   const now = new Date();
+  const latestRescheduleActivityAt = kind === "reschedule" ? await getLatestRescheduleActivityAt(bookingId) : null;
+  const [existing] = await db
+    .select({ id: nativeBookingNotifications.id, status: nativeBookingNotifications.status, updatedAt: nativeBookingNotifications.updatedAt })
+    .from(nativeBookingNotifications)
+    .where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind)))
+    .limit(1);
+  if (
+    existing?.status === "sent" &&
+    (kind !== "reschedule" || !latestRescheduleActivityAt || existing.updatedAt.getTime() >= latestRescheduleActivityAt.getTime())
+  ) {
+    return "sent";
+  }
   await db
     .insert(nativeBookingNotifications)
     .values({ bookingId, kind, status: "pending", attempts: 0, updatedAt: now })
     .onConflictDoNothing({ target: [nativeBookingNotifications.bookingId, nativeBookingNotifications.kind] });
-  await db
-    .update(nativeBookingNotifications)
-    .set({ status: "pending", lastError: null, updatedAt: now })
-    .where(
+  const notificationUpdate = db.update(nativeBookingNotifications).set({ status: "pending", lastError: null, updatedAt: now });
+  if (kind === "reschedule" && latestRescheduleActivityAt) {
+    await notificationUpdate.where(and(eq(nativeBookingNotifications.bookingId, bookingId), eq(nativeBookingNotifications.kind, kind)));
+  } else {
+    await notificationUpdate.where(
       and(
         eq(nativeBookingNotifications.bookingId, bookingId),
         eq(nativeBookingNotifications.kind, kind),
         ne(nativeBookingNotifications.status, "sent")
       )
-  );
+    );
+  }
 
   try {
     const deliveryResult = await deliverNativeBookingNotification(bookingId, kind);
