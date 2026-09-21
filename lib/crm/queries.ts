@@ -50,6 +50,7 @@ import type {
   CrmStageHistoryView,
 } from "./types";
 import { getCrmCallSuggestions } from "./call-match-suggestions";
+import { getNoShowFollowUpDueAt } from "./no-show";
 import { createNativeBookingForCrm, type NativeBookingError } from "@/lib/native-booking/booking";
 import { listBusyForConnection } from "@/lib/native-booking/calendar";
 import { isCalendarTemporarilyUnavailable } from "@/lib/native-booking/calendar-readiness";
@@ -1122,6 +1123,17 @@ export async function setCrmOutcome(accountId: string, leadId: string, outcome: 
     }
     if (current.crmOutcome === outcome && outcome !== "no_show") return toLeadItem(current);
     const changedAt = new Date();
+    let noShowCallScheduledAt: Date | null = null;
+    if (outcome === "no_show") {
+      const [noShowCall] = await tx
+        .select({ scheduledAt: salesCalls.scheduledAt })
+        .from(crmCallLinks)
+        .innerJoin(salesCalls, eq(crmCallLinks.salesCallId, salesCalls.id))
+        .where(and(eq(crmCallLinks.accountId, accountId), eq(crmCallLinks.leadId, leadId), eq(salesCalls.userId, accountId), ne(salesCalls.attendance, "cancelled")))
+        .orderBy(desc(salesCalls.scheduledAt), desc(salesCalls.id))
+        .limit(1);
+      noShowCallScheduledAt = noShowCall?.scheduledAt ?? null;
+    }
     const [updated] = await tx.update(leads).set({ crmOutcome: outcome, isNoShow: outcome === "no_show", ...(outcome === "lost" ? { lostReason: lostReason ?? null } : { lostReason: null }), updatedAt: changedAt }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: eventForOutcome(outcome), source, sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { fromOutcome: current.crmOutcome, toOutcome: outcome, responsibleSetterId: current.setterId, lostReason: lostReason ?? null } })).onConflictDoNothing();
     if (outcome === "lost" && note?.trim()) {
@@ -1131,7 +1143,7 @@ export async function setCrmOutcome(accountId: string, leadId: string, outcome: 
     }
     if (outcome === "no_show") {
       const responsibleUserId = current.setterId ? (await tx.select({ userId: setters.userId }).from(setters).where(eq(setters.id, current.setterId)).limit(1))[0]?.userId ?? actorUserId : actorUserId;
-      const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const dueAt = getNoShowFollowUpDueAt(noShowCallScheduledAt, changedAt);
       const [createdAction] = await tx.insert(crmActions).values({ accountId, leadId, category: "appointment", type: "no_show_follow_up", title: "Recontacter le lead après son no-show", dueAt, status: "open", responsibleUserId, createdByUserId: actorUserId, source, idempotencyKey: `no-show:${leadId}` }).onConflictDoNothing().returning({ id: crmActions.id });
       if (createdAction) {
         await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "action_created", source, sourceEventKey: `action:${createdAction.id}`, occurredAt: dueAt, capturedAt: changedAt, metadata: { actionId: createdAction.id, category: "appointment", type: "no_show_follow_up" } })).onConflictDoNothing();
@@ -1189,7 +1201,7 @@ export async function setCrmCallResult(accountId: string, salesCallId: string, r
           category: "appointment",
           type: "no_show_follow_up",
           title: "Recontacter le lead après son no-show",
-          dueAt: new Date(now.getTime() + 86_400_000),
+          dueAt: getNoShowFollowUpDueAt(row.call.scheduledAt, now),
           status: "open",
           responsibleUserId,
           createdByUserId: actorUserId,
