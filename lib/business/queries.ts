@@ -99,3 +99,17 @@ const inFlightBusinessSalesOffers = new Map<string, Promise<BusinessSalesOfferSu
 export const getBusinessSalesOffers = cache(async (userId: string): Promise<BusinessSalesOfferSummary[]> => {
   return getInFlight(inFlightBusinessSalesOffers, userId, () => fetchBusinessSalesOffers(userId));
 });
+
+// CRM lead drawers and sale validation need the full offer fields (notably the
+// price), but they do not need the rest of the business profile or its
+// acquisition catalogues. Keep that page-level read narrow so a slow optional
+// catalogue cannot hold the CRM route open.
+export const getBusinessSalesOfferDetails = cache(async (userId: string): Promise<Offer[]> => {
+  const [row] = await db
+    .select({ sales: businessProfile.sales })
+    .from(businessProfile)
+    .where(eq(businessProfile.userId, userId))
+    .limit(1);
+
+  return row?.sales.offers ?? [];
+});
