@@ -62,7 +62,7 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
         <label className="flex min-h-11 items-center gap-2 text-sm font-bold lg:col-span-3"><input name="overdue" value="1" type="checkbox" defaultChecked={params.overdue === "1"} className="size-5 accent-accent" />{t("leads.overdueAction")}</label>
         <div className="flex flex-wrap items-center gap-3 lg:col-span-4"><Button type="submit" variant="outline" className="min-h-11">{t("leads.apply")}</Button><Link href="/crm/leads" className="inline-flex min-h-11 items-center text-sm font-bold underline underline-offset-4 hover:text-foreground">{t("leads.reset")}</Link><span className="text-sm text-muted-foreground" aria-live="polite">{t("leads.resultCount", { count: leads.length })}</span></div>
       </form>
-      {leads.length === 0 ? <p className="sticker-card p-8 text-center text-muted-foreground">{t("leads.empty")}</p> : <CrmLeadList leads={leads} setters={setters} offers={offers} closers={closers} canAssign={hasCrmPermission(access, "crm:assign")} canManagePipeline={hasCrmPermission(access, "crm:manage-pipeline")} />}
+      {leads.length === 0 ? <p className="sticker-card p-8 text-center text-muted-foreground">{t("leads.empty")}</p> : <><p className="text-sm text-muted-foreground">{t("leads.rowHint")}</p><CrmLeadList leads={leads} setters={setters} offers={offers} closers={closers} canAssign={hasCrmPermission(access, "crm:assign")} canManagePipeline={hasCrmPermission(access, "crm:manage-pipeline")} /></>}
     </div>
   );
 }

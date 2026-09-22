@@ -295,13 +295,14 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
 
         <CrmBookingActions lead={lead} onBooked={handleBooked} />
 
-        <div className="rounded-[var(--radius-control)] border border-border bg-muted/20 p-4">
-          <div className="mb-4 flex size-8 items-center justify-center rounded-[var(--radius-control)] bg-card text-muted-foreground" aria-hidden="true"><SlidersHorizontal className="size-4" /></div>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.35fr)]">
-          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.changeStage")}
+        <section className="rounded-[var(--radius-control)] border border-border bg-muted/20 p-4 sm:p-5" aria-labelledby="crm-lead-management-title">
+          <DetailSectionHeader headingId="crm-lead-management-title" icon={SlidersHorizontal} title={t("detail.stageManagementTitle")} description={t("detail.stageManagementDescription")} />
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold"><span>{t("detail.changeStage")}</span>
             <select value={lead.stage} disabled={isPending} onChange={(event) => changeStage(event.target.value as CrmLeadStage)} className={inputClassName}>
               {CRM_LEAD_STAGES.map((stage) => <option key={stage} value={stage}>{t(CRM_STAGE_LABEL_KEYS[stage])}</option>)}
             </select>
+            <span className="text-xs font-normal leading-5 text-muted-foreground">{t("detail.stageChangeHelp")}</span>
           </label>
           <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.responsible")}
             {canAssign ? <select value={lead.responsibleSetterId ?? ""} disabled={isPending} onChange={(event) => reassign(event.target.value)} className={inputClassName}>
@@ -309,7 +310,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
               {setters.filter((setter) => setter.active).map((setter) => <option key={setter.id} value={setter.id}>{setter.name}</option>)}
             </select> : <span className={`${inputClassName} flex items-center bg-card`}>{lead.responsibleSetterName ?? t("detail.unassigned")}</span>}
           </label>
-          <div className="flex min-w-0 flex-col gap-1.5 text-sm font-bold"><span>{t("detail.changeOutcome")}</span><div className="flex flex-wrap gap-2">
+          <fieldset className="flex min-w-0 flex-col gap-1.5 text-sm font-bold sm:col-span-2"><legend>{t("detail.changeOutcome")}</legend><div className="flex flex-wrap gap-2">
             {CRM_LEAD_OUTCOMES.filter((outcome) => outcome !== "none").map((outcome) => <Button key={outcome} type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={() => changeOutcome(outcome)}>{t(CRM_OUTCOME_LABEL_KEYS[outcome])}</Button>)}
             {(lead.outcome === "lost" || lead.outcome === "no_show") && <div className="flex basis-full flex-wrap items-end gap-2 border-t border-border pt-3">
               <label className="flex min-w-48 flex-1 flex-col gap-1.5">{t("detail.reopenStage")}
@@ -319,9 +320,9 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
               </label>
               <Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={reopen}>{t("detail.reopen")}</Button>
             </div>}
-          </div></div>
+          </div><p className="text-xs font-normal leading-5 text-muted-foreground">{t("detail.outcomeChangeHelp")}</p></fieldset>
           </div>
-        </div>
+        </section>
       </section>
 
       <div className={inDrawer ? "flex flex-col gap-5" : "grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.32fr)_minmax(18rem,0.88fr)] lg:items-start"}>
