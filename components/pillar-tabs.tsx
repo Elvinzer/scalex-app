@@ -45,7 +45,7 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
             <Link
               key={tab.href}
               href={tab.href}
-              prefetch={true}
+              prefetch={!tab.href.startsWith("/crm")}
               role="tab"
               aria-selected={isActive}
               aria-current={isActive ? "page" : undefined}

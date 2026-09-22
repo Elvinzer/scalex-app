@@ -1,7 +1,6 @@
 import type { ComponentProps } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
-import { withTimeout } from "@/lib/perf/with-timeout";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { currentMonthWindow, lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
@@ -97,26 +96,15 @@ type SidebarScaleScoreProps = {
 
 type ScoreBadgeProps = ComponentProps<typeof ScaleScoreBadge>;
 
-// The Scale Score is useful chrome, but it is not part of the page the user
-// asked to open. Keep its heavier diagnostic reads behind a Server Component
-// boundary so the main content can stream with the sidebar shell immediately.
-export async function SidebarScaleScore(props: SidebarScaleScoreProps) {
-  if (!props.canSeeScaleScore) return null;
-  try {
-    return await withTimeout(renderSidebarScaleScore(props), 5_000, "sidebar-scale-score");
-  } catch {
-    console.error("[app-shell] scale score unavailable");
-    return null;
-  }
-}
+export type SidebarScaleScoreData = ScoreBadgeProps;
 
-async function renderSidebarScaleScore({
+export async function getSidebarScaleScoreData({
   accountId,
   businessProfile,
   sector,
   canSeeScaleScore,
   callTrackingConnected,
-}: SidebarScaleScoreProps) {
+}: SidebarScaleScoreProps): Promise<SidebarScaleScoreData | null> {
   let scaleScore: ScoreBadgeProps["scaleScore"] | null = null;
   let scaleScoreGapText: string | null = null;
   let scaleScoreGapSources: ScoreBadgeProps["scaleScoreGapSources"] = [];
@@ -271,19 +259,15 @@ async function renderSidebarScaleScore({
   }
 
   if (!scaleScore) return null;
-  return (
-    <div className="px-3 pt-4">
-      <ScaleScoreBadge
-        scaleScore={scaleScore}
-        scaleScoreGapText={scaleScoreGapText}
-        scaleScoreGapSources={scaleScoreGapSources}
-        scaleScoreMonthNote={scaleScoreMonthNote}
-        delta7d={scaleScoreDelta7d}
-        delta30d={scaleScoreDelta30d}
-        sparkline={scaleScoreSparkline}
-        currentMonthlyRevenue={currentMonthlyRevenue}
-        potentialMonthlyRevenue={potentialMonthlyRevenue}
-      />
-    </div>
-  );
+  return {
+    scaleScore,
+    scaleScoreGapText,
+    scaleScoreGapSources,
+    scaleScoreMonthNote,
+    delta7d: scaleScoreDelta7d,
+    delta30d: scaleScoreDelta30d,
+    sparkline: scaleScoreSparkline,
+    currentMonthlyRevenue,
+    potentialMonthlyRevenue,
+  };
 }

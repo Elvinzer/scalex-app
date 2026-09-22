@@ -5,7 +5,7 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
 import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
-import { SidebarScaleScore } from "@/components/app-sidebar-with-scale-score";
+import { LazySidebarScaleScore } from "@/components/lazy-sidebar-scale-score";
 import { PostHogInit } from "@/components/posthog-init";
 import { AppThemeProvider } from "@/components/theme/app-theme-provider";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
@@ -78,17 +78,7 @@ async function AppChrome({
 
   return (
     <>
-      <AppSidebar {...sidebarProps} scaleScoreSlot={
-        <Suspense fallback={null}>
-          <SidebarScaleScore
-            accountId={accountId}
-            businessProfile={businessProfile}
-            sector={userRow?.sector ?? null}
-            canSeeScaleScore={canSeeScaleScore}
-            callTrackingConnected={Boolean(userRow?.iclosedConnected || userRow?.calendlyConnected)}
-          />
-        </Suspense>
-      } />
+      <AppSidebar {...sidebarProps} scaleScoreSlot={canSeeScaleScore ? <LazySidebarScaleScore /> : null} />
       <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
       <SupportDrawer />
     </>
