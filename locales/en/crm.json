@@ -73,7 +73,7 @@
     "source": "Source",
     "stage": "Stage",
     "responsibleServer": "The responsible setter is assigned by your account settings.",
-    "capture": "Capture lead",
+    "capture": "Add lead",
     "captured": "Profile captured",
     "requestFailed": "We could not save this lead. Try again.",
     "platform": "Platform",
