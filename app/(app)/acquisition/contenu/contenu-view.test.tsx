@@ -94,6 +94,7 @@ const youtubeVideo: YoutubeVideoInsightRow = {
   title: "L’Analyse technique est incroyable",
   thumbnailUrl: null,
   durationSeconds: 34,
+  creatorContentType: "VIDEO_ON_DEMAND",
   publishedAt: new Date("2026-07-28T08:00:00.000Z"),
   views: 598,
   likes: 42,
@@ -181,16 +182,16 @@ describe("ContenuView connected panels", () => {
     expect(html).toContain("Vidéos longues");
     expect(html).toContain("Rétention moyenne");
     expect(html).toContain("Rétention moyenne importée");
-    expect(html).not.toContain("Pas encore assez de données de rétention");
+    expect(html).toContain("Pas encore assez de données de rétention");
     expect(html).toContain("Tes 3 meilleures vidéos");
     expect(html).toContain("Toutes les vidéos");
     expect(html).toContain("L’Analyse technique est incroyable");
-    expect(html).toContain("Durée");
     expect(html).toContain("0:34");
-    expect(html).toContain("Temps de visionnage total");
-    expect(html).toContain("149 min");
+    expect(html).toContain("Vidéo et date");
+    expect(html).toContain("Vues");
+    expect(html).toContain("Abonnés / 1 000 vues");
+    expect(html).toContain("Diagnostic");
     expect(html).toContain("RDV bookés");
-    expect(html).toContain("RDV closés");
     expect(html).not.toContain("Tous les posts");
   });
 

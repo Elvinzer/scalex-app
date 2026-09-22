@@ -6,6 +6,13 @@ import {
   YOUTUBE_REQUEST_RETRY_DELAY_MS,
   YOUTUBE_TOKEN_URL,
 } from "./protocol";
+import { z } from "zod";
+
+import type {
+  YoutubeChannelInsightsResult,
+  YoutubeChannelSearchTerm,
+  YoutubeChannelTrafficSource,
+} from "./channel-insights";
 
 // Thin server-only HTTP client for the YouTube Data API v3 + Analytics API.
 // Auth is the channel's own OAuth token (obtained via app/api/youtube/
@@ -323,6 +330,10 @@ export async function fetchVideoDetails(accessToken: string, videoIds: string[])
 }
 
 export type VideoAnalyticsMetrics = Record<string, number>;
+export type VideoAnalyticsResult = {
+  metrics: VideoAnalyticsMetrics;
+  creatorContentType: string | null;
+};
 
 const ANALYTICS_METRICS = [
   "views",
@@ -373,9 +384,93 @@ async function queryReports(
   url.searchParams.set("metrics", metrics.join(","));
   url.searchParams.set("filters", `video==${videoIds.join(",")}`);
   url.searchParams.set("maxResults", String(YOUTUBE_ANALYTICS_BATCH_SIZE));
+  url.searchParams.set("sort", "-views");
   const { status, body } = await request(url, { headers: authHeaders(accessToken) });
   if (status < 200 || status >= 300) return new Map();
   return parseReportsResponse(body);
+}
+
+const analyticsTableSchema = z.object({
+  columnHeaders: z.array(z.object({ name: z.string().min(1) })),
+  rows: z.array(z.array(z.union([z.string(), z.number(), z.null()]))).optional().default([]),
+});
+
+function parseAnalyticsTable(body: unknown): z.infer<typeof analyticsTableSchema> | null {
+  const parsed = analyticsTableSchema.safeParse(body);
+  return parsed.success ? parsed.data : null;
+}
+
+function tableColumnIndex(table: z.infer<typeof analyticsTableSchema>, name: string): number {
+  return table.columnHeaders.findIndex((header) => header.name === name);
+}
+
+function cellText(value: string | number | null | undefined): string | null {
+  if (typeof value === "string" && value.trim() !== "") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function cellNumber(value: string | number | null | undefined): number | null {
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : null;
+  return parsed !== null && Number.isFinite(parsed) ? parsed : null;
+}
+
+async function queryCreatorContentTypes(
+  accessToken: string,
+  videoIds: string[],
+  startDate: string,
+  endDate: string,
+): Promise<Map<string, string>> {
+  const url = new URL(`${YOUTUBE_ANALYTICS_API_BASE}/reports`);
+  url.searchParams.set("ids", "channel==MINE");
+  url.searchParams.set("startDate", startDate);
+  url.searchParams.set("endDate", endDate);
+  url.searchParams.set("dimensions", "video,creatorContentType");
+  url.searchParams.set("metrics", "views");
+  url.searchParams.set("filters", `video==${videoIds.join(",")}`);
+  url.searchParams.set("maxResults", String(YOUTUBE_ANALYTICS_BATCH_SIZE));
+  url.searchParams.set("sort", "-views");
+
+  try {
+    const { status, body } = await request(url, { headers: authHeaders(accessToken) });
+    if (status < 200 || status >= 300) return new Map();
+    const table = parseAnalyticsTable(body);
+    if (!table) return new Map();
+    const videoIndex = tableColumnIndex(table, "video");
+    const contentTypeIndex = tableColumnIndex(table, "creatorContentType");
+    const viewsIndex = tableColumnIndex(table, "views");
+    if (videoIndex < 0 || contentTypeIndex < 0 || viewsIndex < 0) return new Map();
+
+    const best = new Map<string, { contentType: string; views: number }>();
+    for (const row of table.rows) {
+      const videoId = cellText(row[videoIndex]);
+      const contentType = cellText(row[contentTypeIndex]);
+      const views = cellNumber(row[viewsIndex]);
+      if (!videoId || !contentType || views === null) continue;
+      const current = best.get(videoId);
+      if (!current || views > current.views) best.set(videoId, { contentType, views });
+    }
+    return new Map(Array.from(best, ([videoId, value]) => [videoId, value.contentType]));
+  } catch (error) {
+    console.error("[youtube] creator content type report failed", error);
+    return new Map();
+  }
+}
+
+export async function fetchVideoCreatorContentTypes(
+  accessToken: string,
+  videoIds: string[],
+  channelPublishedAt: string,
+): Promise<Map<string, string>> {
+  const startDate = channelPublishedAt.slice(0, 10);
+  const endDate = new Date().toISOString().slice(0, 10);
+  const result = new Map<string, string>();
+  for (let i = 0; i < videoIds.length; i += YOUTUBE_ANALYTICS_BATCH_SIZE) {
+    const chunk = videoIds.slice(i, i + YOUTUBE_ANALYTICS_BATCH_SIZE);
+    const contentTypes = await queryCreatorContentTypes(accessToken, chunk, startDate, endDate);
+    for (const [videoId, contentType] of contentTypes) result.set(videoId, contentType);
+  }
+  return result;
 }
 
 // Batched per-video lifetime metrics via the Analytics API's `video`
@@ -396,23 +491,112 @@ export async function fetchVideoAnalytics(
   accessToken: string,
   videoIds: string[],
   channelPublishedAt: string
-): Promise<Map<string, VideoAnalyticsMetrics>> {
+): Promise<Map<string, VideoAnalyticsResult>> {
   const startDate = channelPublishedAt.slice(0, 10);
   const endDate = new Date().toISOString().slice(0, 10);
-  const result = new Map<string, VideoAnalyticsMetrics>();
+  const result = new Map<string, VideoAnalyticsResult>();
 
   for (let i = 0; i < videoIds.length; i += YOUTUBE_ANALYTICS_BATCH_SIZE) {
     const chunk = videoIds.slice(i, i + YOUTUBE_ANALYTICS_BATCH_SIZE);
-    const core = await queryReports(accessToken, chunk, ANALYTICS_METRICS, startDate, endDate).catch((error) => {
-      console.error(`[youtube] fetchVideoAnalytics core metrics chunk starting at ${i} failed`, error);
-      return new Map<string, VideoAnalyticsMetrics>();
-    });
+    const [core, contentTypes] = await Promise.all([
+      queryReports(accessToken, chunk, ANALYTICS_METRICS, startDate, endDate).catch((error) => {
+        console.error(`[youtube] fetchVideoAnalytics core metrics chunk starting at ${i} failed`, error);
+        return new Map<string, VideoAnalyticsMetrics>();
+      }),
+      queryCreatorContentTypes(accessToken, chunk, startDate, endDate),
+    ]);
     for (const videoId of chunk) {
       const metrics = core.get(videoId);
-      if (metrics && Object.keys(metrics).length > 0) result.set(videoId, metrics);
+      const creatorContentType = contentTypes.get(videoId) ?? null;
+      if ((metrics && Object.keys(metrics).length > 0) || creatorContentType !== null) {
+        result.set(videoId, { metrics: metrics ?? {}, creatorContentType });
+      }
     }
   }
   return result;
+}
+
+const CHANNEL_TRAFFIC_MAX_RESULTS = 200;
+const CHANNEL_SEARCH_MAX_RESULTS = 25;
+
+type ChannelReportResult = { table: z.infer<typeof analyticsTableSchema> | null; available: boolean };
+
+async function queryChannelReport(
+  accessToken: string,
+  params: Record<string, string>,
+): Promise<ChannelReportResult> {
+  const url = new URL(`${YOUTUBE_ANALYTICS_API_BASE}/reports`);
+  url.searchParams.set("ids", "channel==MINE");
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  try {
+    const { status, body } = await request(url, { headers: authHeaders(accessToken), timeoutMs: SLOW_REPORT_TIMEOUT_MS });
+    if (status < 200 || status >= 300) return { table: null, available: false };
+    const table = parseAnalyticsTable(body);
+    return { table, available: table !== null };
+  } catch (error) {
+    console.error("[youtube] channel Analytics report failed", error);
+    return { table: null, available: false };
+  }
+}
+
+function parseChannelTrafficSources(table: z.infer<typeof analyticsTableSchema> | null): YoutubeChannelTrafficSource[] {
+  if (!table) return [];
+  const sourceIndex = tableColumnIndex(table, "insightTrafficSourceType");
+  const contentTypeIndex = tableColumnIndex(table, "creatorContentType");
+  const viewsIndex = tableColumnIndex(table, "views");
+  if (sourceIndex < 0 || contentTypeIndex < 0 || viewsIndex < 0) return [];
+  return table.rows.flatMap((row) => {
+    const source = cellText(row[sourceIndex]);
+    const contentType = cellText(row[contentTypeIndex]);
+    const views = cellNumber(row[viewsIndex]);
+    return source && contentType && views !== null && views >= 0 ? [{ source, contentType, views: Math.round(views) }] : [];
+  });
+}
+
+function parseChannelSearchTerms(table: z.infer<typeof analyticsTableSchema> | null): YoutubeChannelSearchTerm[] {
+  if (!table) return [];
+  const termIndex = tableColumnIndex(table, "insightTrafficSourceDetail");
+  const viewsIndex = tableColumnIndex(table, "views");
+  if (termIndex < 0 || viewsIndex < 0) return [];
+  return table.rows.flatMap((row) => {
+    const term = cellText(row[termIndex]);
+    const views = cellNumber(row[viewsIndex]);
+    return term && views !== null && views >= 0 ? [{ term, views: Math.round(views) }] : [];
+  });
+}
+
+export async function fetchYoutubeChannelInsights(
+  accessToken: string,
+  channelPublishedAt: string,
+): Promise<YoutubeChannelInsightsResult> {
+  const startDate = channelPublishedAt.slice(0, 10);
+  const endDate = new Date().toISOString().slice(0, 10);
+  const [traffic, search] = await Promise.all([
+    queryChannelReport(accessToken, {
+      startDate,
+      endDate,
+      dimensions: "insightTrafficSourceType,creatorContentType",
+      metrics: "views",
+      maxResults: String(CHANNEL_TRAFFIC_MAX_RESULTS),
+      sort: "-views",
+    }),
+    queryChannelReport(accessToken, {
+      startDate,
+      endDate,
+      dimensions: "insightTrafficSourceDetail",
+      metrics: "views",
+      filters: "insightTrafficSourceType==YT_SEARCH",
+      maxResults: String(CHANNEL_SEARCH_MAX_RESULTS),
+      sort: "-views",
+    }),
+  ]);
+
+  return {
+    trafficSources: parseChannelTrafficSources(traffic.table),
+    searchTerms: parseChannelSearchTerms(search.table),
+    trafficSourcesAvailable: traffic.available,
+    searchTermsAvailable: search.available,
+  };
 }
 
 export type VideoDeepInsights = {

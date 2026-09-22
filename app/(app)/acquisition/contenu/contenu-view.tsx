@@ -13,8 +13,9 @@ import type { DateFilterKey } from "@/lib/content-posts/period-filter";
 import type { ChatContext } from "@/lib/chat-context";
 import type { FalcoSkinKey } from "@/lib/falco-skins";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
+import type { YoutubeChannelSearchTerm, YoutubeChannelTrafficSource } from "@/lib/youtube/channel-insights";
 import type { VideoFormat } from "@/lib/youtube/format";
-import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
+import type { YoutubeVideoBingeMetrics, YoutubeVideoInsightRow, YoutubeVideoSnapshotRow } from "@/lib/youtube/queries";
 import { cn } from "@/lib/utils";
 
 import { InstagramView } from "./instagram-view";
@@ -35,12 +36,18 @@ type ContenuViewProps = {
   instagramTokenUnreadable?: boolean;
   instagramLastSyncAt?: Date | null;
   youtubeVideos: YoutubeVideoInsightRow[];
-  youtubeCommercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
+  youtubeCommercialStats: Map<string, { bookings: number | null; dealsClosed: number | null; revenueEur?: number | null; salesCount?: number | null }>;
+  youtubeSnapshots?: Map<string, YoutubeVideoSnapshotRow[]>;
   youtubeConnected: boolean;
   youtubeChannelTitle: string | null;
   youtubeSyncStatus: string | null;
   youtubeLastSyncAt?: Date | null;
   youtubeSubscriberCount: number | null;
+  youtubeBingeMetrics?: Map<string, YoutubeVideoBingeMetrics>;
+  youtubeChannelTrafficSources?: YoutubeChannelTrafficSource[] | null;
+  youtubeChannelTrafficSourcesFetchedAt?: Date | null;
+  youtubeChannelSearchTerms?: YoutubeChannelSearchTerm[] | null;
+  youtubeChannelSearchTermsFetchedAt?: Date | null;
   youtubeRecommendations?: YoutubeRecommendationCard[];
   youtubeAnalyzableVideoCount?: number;
   youtubeFalcoStateText?: string;
@@ -86,11 +93,17 @@ export function ContenuView({
   instagramLastSyncAt,
   youtubeVideos,
   youtubeCommercialStats,
+  youtubeSnapshots = new Map(),
   youtubeConnected,
   youtubeChannelTitle,
   youtubeSyncStatus,
   youtubeLastSyncAt,
   youtubeSubscriberCount,
+  youtubeBingeMetrics = new Map(),
+  youtubeChannelTrafficSources = null,
+  youtubeChannelTrafficSourcesFetchedAt = null,
+  youtubeChannelSearchTerms = null,
+  youtubeChannelSearchTermsFetchedAt = null,
   youtubeRecommendations = [],
   youtubeAnalyzableVideoCount = 0,
   youtubeFalcoStateText,
@@ -210,9 +223,15 @@ export function ContenuView({
             syncStatus={youtubeSyncStatus}
             lastSyncAt={youtubeLastSyncAt}
             subscriberCount={youtubeSubscriberCount}
+            bingeMetrics={youtubeBingeMetrics}
+            channelTrafficSources={youtubeChannelTrafficSources}
+            channelTrafficSourcesFetchedAt={youtubeChannelTrafficSourcesFetchedAt}
+            channelSearchTerms={youtubeChannelSearchTerms}
+            channelSearchTermsFetchedAt={youtubeChannelSearchTermsFetchedAt}
             subscriptionActive={subscriptionActive}
             videos={youtubeVideos}
             commercialStats={youtubeCommercialStats}
+            snapshots={youtubeSnapshots}
             period={period}
             onPeriodChange={setPeriod}
             format={youtubeFormat}
@@ -274,9 +293,15 @@ function YoutubePanel({
   syncStatus,
   lastSyncAt,
   subscriberCount,
+  bingeMetrics,
+  channelTrafficSources,
+  channelTrafficSourcesFetchedAt,
+  channelSearchTerms,
+  channelSearchTermsFetchedAt,
   subscriptionActive,
   videos,
   commercialStats,
+  snapshots,
   period,
   onPeriodChange,
   format,
@@ -289,9 +314,15 @@ function YoutubePanel({
   syncStatus: string | null;
   lastSyncAt?: Date | null;
   subscriberCount: number | null;
+  bingeMetrics: Map<string, YoutubeVideoBingeMetrics>;
+  channelTrafficSources: YoutubeChannelTrafficSource[] | null;
+  channelTrafficSourcesFetchedAt: Date | null;
+  channelSearchTerms: YoutubeChannelSearchTerm[] | null;
+  channelSearchTermsFetchedAt: Date | null;
   subscriptionActive: boolean;
   videos: YoutubeVideoInsightRow[];
-  commercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
+  commercialStats: Map<string, { bookings: number | null; dealsClosed: number | null; revenueEur?: number | null; salesCount?: number | null }>;
+  snapshots: Map<string, YoutubeVideoSnapshotRow[]>;
   period: DateFilterKey;
   onPeriodChange: (period: DateFilterKey) => void;
   format: VideoFormat;
@@ -312,10 +343,19 @@ function YoutubePanel({
 
       {connected && (
         <>
-          <YoutubeHooksSection videos={videos} />
+          <YoutubeHooksSection
+            videos={videos}
+            channelTrafficSources={channelTrafficSources}
+            channelTrafficSourcesFetchedAt={channelTrafficSourcesFetchedAt}
+            channelSearchTerms={channelSearchTerms}
+            channelSearchTermsFetchedAt={channelSearchTermsFetchedAt}
+          />
           <YoutubeView
             videos={videos}
             commercialStats={commercialStats}
+            snapshots={snapshots}
+            bingeMetrics={bingeMetrics}
+            lastSyncAt={lastSyncAt}
             subscriberCount={subscriberCount}
             period={period}
             onPeriodChange={onPeriodChange}

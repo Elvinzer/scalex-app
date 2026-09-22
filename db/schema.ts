@@ -27,6 +27,7 @@ import type {
   BusinessSales,
 } from "@/lib/business/types";
 import type { YoutubePatternGroup, YoutubePatternLabel } from "@/lib/youtube/recommendation-types";
+import type { YoutubeChannelSearchTerm, YoutubeChannelTrafficSource, YoutubeCreatorContentType } from "@/lib/youtube/channel-insights";
 import type { SaleInstallment } from "@/lib/sales/types";
 import type { WeeklyReportBottleneck, WeeklyReportStatCard } from "@/lib/dashboard/weekly-report-types";
 import type {
@@ -1711,7 +1712,21 @@ export const youtubeConnections = pgTable("youtube_connections", {
   initialSyncStatus: text("initial_sync_status").notNull().default("pending"),
   initialSyncCompletedAt: timestamp("initial_sync_completed_at", { withTimezone: true }),
   lastAnalyticsSyncAt: timestamp("last_analytics_sync_at", { withTimezone: true }),
-}).enableRLS();
+  reportingSyncStatus: text("reporting_sync_status").notNull().default("pending"),
+  reportingLastSyncAt: timestamp("reporting_last_sync_at", { withTimezone: true }),
+  reportingLastError: text("reporting_last_error"),
+  channelTrafficSources: jsonb("channel_traffic_sources").$type<YoutubeChannelTrafficSource[]>(),
+  channelTrafficSourcesFetchedAt: timestamp("channel_traffic_sources_fetched_at", { withTimezone: true }),
+  channelSearchTerms: jsonb("channel_search_terms").$type<YoutubeChannelSearchTerm[]>(),
+  channelSearchTermsFetchedAt: timestamp("channel_search_terms_fetched_at", { withTimezone: true }),
+}, (table) => [
+  pgPolicy("youtube_connections_account_access", {
+    for: "all",
+    to: "authenticated",
+    using: nativeBookingAccountAccess(table.userId),
+    withCheck: nativeBookingAccountAccess(table.userId),
+  }),
+]).enableRLS();
 
 // Full-fidelity raw cache — one row per YouTube video, every metric fetched
 // from the Data API (metadata) + Analytics API (performance). content_posts
@@ -1730,6 +1745,7 @@ export const youtubeVideoInsights = pgTable(
     title: text("title").notNull(),
     thumbnailUrl: text("thumbnail_url"),
     durationSeconds: integer("duration_seconds"),
+    creatorContentType: text("creator_content_type").$type<YoutubeCreatorContentType | null>(),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
     views: integer("views"),
     likes: integer("likes"),
@@ -1790,7 +1806,169 @@ export const youtubeVideoInsights = pgTable(
   (table) => [
     uniqueIndex("youtube_video_insights_user_video_idx").on(table.userId, table.videoId),
     index("youtube_video_insights_user_published_idx").on(table.userId, table.publishedAt),
+    pgPolicy("youtube_video_insights_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
   ]
+).enableRLS();
+
+// One daily cumulative snapshot per video. YouTube's Analytics API returns
+// lifetime totals for the video dimension, so the difference between two
+// snapshots is the source for J+1/J+2/J+7 velocity.
+export const youtubeVideoSnapshots = pgTable(
+  "youtube_video_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    videoId: text("video_id").notNull(),
+    capturedOn: date("captured_on", { mode: "string" }).notNull(),
+    views: integer("views"),
+    estimatedMinutesWatched: integer("estimated_minutes_watched"),
+    averageViewPercentage: real("average_view_percentage"),
+    impressions: integer("impressions"),
+    impressionsClickThroughRate: real("impressions_click_through_rate"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("youtube_video_snapshots_user_video_day_idx").on(table.userId, table.videoId, table.capturedOn),
+    index("youtube_video_snapshots_user_video_idx").on(table.userId, table.videoId),
+    pgPolicy("youtube_video_snapshots_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Scheduled YouTube Reporting API jobs. A row is unique per account and
+// report type so retries never create duplicate daily jobs.
+export const youtubeReportingJobs = pgTable(
+  "youtube_reporting_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    channelId: text("channel_id").notNull(),
+    reportTypeId: text("report_type_id").notNull(),
+    jobId: text("job_id").notNull(),
+    status: text("status").notNull().default("active"),
+    lastReportStartAt: timestamp("last_report_start_at", { withTimezone: true }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("youtube_reporting_jobs_user_type_idx").on(table.userId, table.reportTypeId),
+    uniqueIndex("youtube_reporting_jobs_job_idx").on(table.userId, table.jobId),
+    pgPolicy("youtube_reporting_jobs_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Report metadata is the idempotency ledger for downloaded CSVs. The signed
+// download URL is intentionally not persisted because it expires.
+export const youtubeReportingReports = pgTable(
+  "youtube_reporting_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    jobId: text("job_id").notNull(),
+    reportId: text("report_id").notNull(),
+    reportTypeId: text("report_type_id").notNull(),
+    startTime: timestamp("start_time", { withTimezone: true }).notNull(),
+    endTime: timestamp("end_time", { withTimezone: true }).notNull(),
+    createTime: timestamp("create_time", { withTimezone: true }).notNull(),
+    downloadedAt: timestamp("downloaded_at", { withTimezone: true }),
+    rowCount: integer("row_count"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("youtube_reporting_reports_user_report_idx").on(table.userId, table.reportId),
+    index("youtube_reporting_reports_user_type_start_idx").on(table.userId, table.reportTypeId, table.startTime),
+    pgPolicy("youtube_reporting_reports_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+// Raw end-screen and card performance, keyed by the dimensions exposed by
+// the bulk reports. Keeping the dimensions lets a future report revision be
+// imported without dropping data that is not yet shown in the UI.
+export const youtubeEndScreenMetrics = pgTable(
+  "youtube_end_screen_metrics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    videoId: text("video_id").notNull(),
+    capturedOn: date("captured_on", { mode: "string" }).notNull(),
+    elementType: text("element_type").notNull(),
+    elementId: text("element_id").notNull(),
+    impressions: integer("impressions"),
+    clicks: integer("clicks"),
+    clickRate: real("click_rate"),
+    rawRow: jsonb("raw_row").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("youtube_end_screen_metrics_unique_idx").on(table.userId, table.videoId, table.capturedOn, table.elementType, table.elementId),
+    index("youtube_end_screen_metrics_user_video_idx").on(table.userId, table.videoId),
+    pgPolicy("youtube_end_screen_metrics_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
+).enableRLS();
+
+export const youtubeCardMetrics = pgTable(
+  "youtube_card_metrics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    videoId: text("video_id").notNull(),
+    capturedOn: date("captured_on", { mode: "string" }).notNull(),
+    cardType: text("card_type").notNull(),
+    cardId: text("card_id").notNull(),
+    impressions: integer("impressions"),
+    clicks: integer("clicks"),
+    clickRate: real("click_rate"),
+    teaserImpressions: integer("teaser_impressions"),
+    teaserClicks: integer("teaser_clicks"),
+    rawRow: jsonb("raw_row").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("youtube_card_metrics_unique_idx").on(table.userId, table.videoId, table.capturedOn, table.cardType, table.cardId),
+    index("youtube_card_metrics_user_video_idx").on(table.userId, table.videoId),
+    pgPolicy("youtube_card_metrics_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.userId),
+      withCheck: nativeBookingAccountAccess(table.userId),
+    }),
+  ],
 ).enableRLS();
 
 // Content recommendation memory — one computed profile per account. The

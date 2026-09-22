@@ -7,8 +7,9 @@ import { decrypt, encrypt } from "@/lib/crypto";
 import { requireEnv } from "@/lib/utils";
 
 import { backfillYoutubeDeepInsights, backfillYoutubeVideos, type BackfillResult } from "./backfill";
-import { fetchChannel, refreshAccessToken } from "./client";
+import { fetchChannel, fetchYoutubeChannelInsights, refreshAccessToken } from "./client";
 import { rebuildYoutubeContentRecommendations } from "./recommendations";
+import { syncYoutubeReporting } from "./reporting";
 
 export type YoutubeConnectionRow = typeof youtubeConnections.$inferSelect;
 
@@ -22,6 +23,7 @@ export type YoutubeSyncConnection = Pick<YoutubeConnectionRow, "userId" | "refre
 
 export type YoutubeSyncOptions = {
   includeEnrichment?: boolean;
+  includeChannelInsights?: boolean;
 };
 
 // Shared orchestration for every YouTube sync entry point (the "Rafraîchir"
@@ -66,7 +68,49 @@ export async function runYoutubeSync(
 
   const result = await backfillYoutubeVideos(connection.userId, accessToken, channel.uploadsPlaylistId, channel.publishedAt, sinceDate);
 
+  if (options.includeChannelInsights !== false) {
+    try {
+      const channelInsights = await fetchYoutubeChannelInsights(accessToken, channel.publishedAt);
+      if (channelInsights.trafficSourcesAvailable) {
+        await db
+          .update(youtubeConnections)
+          .set({ channelTrafficSources: channelInsights.trafficSources, channelTrafficSourcesFetchedAt: new Date() })
+          .where(eq(youtubeConnections.userId, connection.userId));
+      }
+      if (channelInsights.searchTermsAvailable) {
+        await db
+          .update(youtubeConnections)
+          .set({ channelSearchTerms: channelInsights.searchTerms, channelSearchTermsFetchedAt: new Date() })
+          .where(eq(youtubeConnections.userId, connection.userId));
+      }
+      console.log(
+        `[youtube] channel insights for ${connection.userId}: ${channelInsights.trafficSources.length} traffic rows, ${channelInsights.searchTerms.length} search terms`
+      );
+    } catch (error) {
+      console.error(`[youtube] channel insights for ${connection.userId} failed, existing snapshot kept`, error);
+    }
+  }
+
   if (options.includeEnrichment !== false) {
+    try {
+      await db
+        .update(youtubeConnections)
+        .set({ reportingSyncStatus: "syncing", reportingLastError: null })
+        .where(eq(youtubeConnections.userId, connection.userId));
+      const reporting = await syncYoutubeReporting(connection.userId, channel.channelId, accessToken);
+      await db
+        .update(youtubeConnections)
+        .set({ reportingSyncStatus: "completed", reportingLastSyncAt: new Date(), reportingLastError: null })
+        .where(eq(youtubeConnections.userId, connection.userId));
+      console.log(`[youtube] bulk reports for ${connection.userId}: ${reporting.downloaded} downloaded, ${reporting.rows} rows imported`);
+    } catch (error) {
+      await db
+        .update(youtubeConnections)
+        .set({ reportingSyncStatus: "failed", reportingLastError: "YouTube Reporting import failed" })
+        .where(eq(youtubeConnections.userId, connection.userId));
+      console.error(`[youtube] bulk reports for ${connection.userId} failed, sync itself unaffected`, error);
+    }
+
     // Deep Analytics run from the rows the backfill just wrote, so they need
     // it to have happened first. Isolated: this is enrichment for the Contenu
     // insights, never a reason to fail a sync that already stored the

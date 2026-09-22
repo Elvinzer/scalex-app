@@ -1,59 +1,92 @@
+import { resolveVideoFormat } from "./format";
 import type { YoutubeVideoInsightRow } from "./queries";
 
-// Turns raw per-video numbers into a comparative signal — "this video did
-// better/worse than your own baseline" — rather than a wall of counts with
-// no reference point. Mirrors lib/instagram/insights-comparison.ts.
-//
-// Comparison metric is audience retention (averageViewPercentage), not CTR:
-// thumbnail impressions/CTR are not retrievable via the real-time YouTube
-// Analytics API this integration uses — confirmed by a live probe, see
-// protocol.ts's YOUTUBE_THUMBNAIL_CTR_AVAILABLE — so it was never actually
-// populated and this comparison was permanently dead when built on it.
-// Retention is the closest working analog: it's the other metric YouTube's
-// own docs cite as most correlated with algorithmic promotion, alongside
-// CTR, and it's a real, always-fetchable number for every synced video.
-
 export type VideoPerformanceTier = "above" | "inline" | "below";
-export type VideoPerformanceComparison = { tier: VideoPerformanceTier; ratio: number; value: number; cohortSize: number };
+export type VideoPerformanceComparison = {
+  tier: VideoPerformanceTier;
+  ratio: number;
+  value: number;
+  baseline: number;
+  cohortSize: number;
+};
+
+export type VideoComparisonMetric =
+  | "views"
+  | "retention30"
+  | "retention"
+  | "subsPer1000"
+  | "bookingsPer1000"
+  | "revenuePer1000";
 
 const MIN_COHORT_SIZE = 3;
-const ABOVE_RATIO = 1.3;
-const BELOW_RATIO = 0.7;
+const BASELINE_SIZE = 10;
+const ABOVE_RATIO = 1.15;
+const BELOW_RATIO = 0.85;
+const MIN_COMPARABLE_VIEWS = 100;
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1]! + sorted[middle]!) / 2 : sorted[middle]!;
 }
 
-// Exported (not just used internally) so callers can show/sort by this same
-// value even for a video whose cohort is below MIN_COHORT_SIZE and therefore
-// has no entry in computeVideoPerformanceComparisons' result. Null when
-// YouTube hasn't surfaced retention data yet (common for videos in their
-// first hours/days).
 export function comparisonMetric(row: YoutubeVideoInsightRow): number | null {
   return row.averageViewPercentage;
 }
 
-// Single cohort (all videos) rather than split by duration/format — a
-// per-duration-bucket split reads as more rigorous but produces near-empty
-// cohorts for most channels early on, same reasoning as Instagram's
-// story-vs-feed simplification.
+function isLongForm(row: YoutubeVideoInsightRow): boolean {
+  return resolveVideoFormat(row) === "long";
+}
+
+function baselineForVideo(row: YoutubeVideoInsightRow, rows: YoutubeVideoInsightRow[]): YoutubeVideoInsightRow[] {
+  if (!isLongForm(row)) return [];
+  return rows
+    .filter(
+      (candidate) =>
+        candidate.videoId !== row.videoId &&
+        isLongForm(candidate) &&
+        (candidate.views ?? 0) >= MIN_COMPARABLE_VIEWS &&
+        candidate.publishedAt < row.publishedAt,
+    )
+    .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
+    .slice(0, BASELINE_SIZE)
+}
+
+function compareValues(value: number | null, baselineValues: number[]): VideoPerformanceComparison | null {
+  if (value === null || baselineValues.length < MIN_COHORT_SIZE) return null;
+  const baseline = median(baselineValues);
+  if (baseline <= 0) return null;
+  const ratio = value / baseline;
+  const tier: VideoPerformanceTier = ratio >= ABOVE_RATIO ? "above" : ratio <= BELOW_RATIO ? "below" : "inline";
+  return { tier, ratio, value, baseline, cohortSize: baselineValues.length };
+}
+
+// Each long-form video compares with the latest ten long-form videos that
+// were already published when it went live. This keeps Shorts out of the
+// benchmark and prevents later uploads from changing an old comparison.
 export function computeVideoPerformanceComparisons(rows: YoutubeVideoInsightRow[]): Map<string, VideoPerformanceComparison> {
-  const withMetric = rows
-    .map((row) => ({ videoId: row.videoId, value: comparisonMetric(row) }))
-    .filter((entry): entry is { videoId: string; value: number } => entry.value !== null);
+  return computeVideoMetricComparisons(rows, new Map(rows.map((row) => [row.videoId, comparisonMetric(row)])));
+}
 
+export function computeVideoMetricComparisons(
+  rows: YoutubeVideoInsightRow[],
+  values: Map<string, number | null>,
+): Map<string, VideoPerformanceComparison> {
   const result = new Map<string, VideoPerformanceComparison>();
-  if (withMetric.length < MIN_COHORT_SIZE) return result;
-
-  const baseline = median(withMetric.map((entry) => entry.value));
-  if (baseline <= 0) return result;
-
-  for (const entry of withMetric) {
-    const ratio = entry.value / baseline;
-    const tier: VideoPerformanceTier = ratio >= ABOVE_RATIO ? "above" : ratio <= BELOW_RATIO ? "below" : "inline";
-    result.set(entry.videoId, { tier, ratio, value: entry.value, cohortSize: withMetric.length });
+  for (const row of rows) {
+    if (!isLongForm(row) || (row.views ?? 0) < MIN_COMPARABLE_VIEWS) continue;
+    const baselineValues = baselineForVideo(row, rows)
+      .map((candidate) => values.get(candidate.videoId) ?? null)
+      .filter((value): value is number => value !== null && Number.isFinite(value));
+    const comparison = compareValues(values.get(row.videoId) ?? null, baselineValues);
+    if (comparison) result.set(row.videoId, comparison);
   }
   return result;
+}
+
+export function comparisonBaseline(row: YoutubeVideoInsightRow, rows: YoutubeVideoInsightRow[]): number | null {
+  const values = baselineForVideo(row, rows)
+    .map(comparisonMetric)
+    .filter((value): value is number => value !== null);
+  return values.length < MIN_COHORT_SIZE ? null : median(values);
 }

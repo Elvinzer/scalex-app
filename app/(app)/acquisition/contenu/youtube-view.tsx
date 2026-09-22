@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { InfoPopover } from "@/components/info-popover";
 import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
 import { type VideoFormat, matchesFormat } from "@/lib/youtube/format";
-import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
+import type { YoutubeVideoBingeMetrics, YoutubeVideoInsightRow, YoutubeVideoSnapshotRow } from "@/lib/youtube/queries";
 
 import { FormatPills, PeriodPills } from "./period-pills";
 import { YoutubeVideosTable } from "./youtube-videos-table";
@@ -16,15 +16,21 @@ import { YoutubeVideosTable } from "./youtube-videos-table";
 export function YoutubeView({
   videos,
   commercialStats,
+  snapshots,
+  bingeMetrics = new Map(),
   subscriberCount,
+  lastSyncAt = null,
   period,
   onPeriodChange,
   format,
   onFormatChange,
 }: {
   videos: YoutubeVideoInsightRow[];
-  commercialStats: Map<string, { bookings: number | null; dealsClosed: number | null }>;
+  commercialStats: Map<string, { bookings: number | null; dealsClosed: number | null; revenueEur?: number | null; salesCount?: number | null }>;
+  snapshots: Map<string, YoutubeVideoSnapshotRow[]>;
+  bingeMetrics?: Map<string, YoutubeVideoBingeMetrics>;
   subscriberCount: number | null;
+  lastSyncAt?: Date | null;
   period: DateFilterKey;
   onPeriodChange: (period: DateFilterKey) => void;
   format: VideoFormat;
@@ -42,6 +48,7 @@ export function YoutubeView({
   // real-time YouTube Analytics API (see protocol.ts's
   // YOUTUBE_THUMBNAIL_CTR_AVAILABLE), so it's never a real number to average.
   const totalViews = filtered.reduce((sum, video) => sum + (video.views ?? 0), 0);
+  const hasViews = filtered.some((video) => video.views !== null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,11 +71,19 @@ export function YoutubeView({
         </div>
         <div className="sticker-card flex flex-col p-5">
           <p className="text-sm font-bold text-muted-foreground">{t("youtubeViews")}</p>
-          <p className="mt-2 font-display text-3xl font-bold">{new Intl.NumberFormat(locale).format(totalViews)}</p>
+          <p className="mt-2 font-display text-3xl font-bold">{hasViews ? new Intl.NumberFormat(locale).format(totalViews) : "—"}</p>
         </div>
       </div>
 
-      <YoutubeVideosTable videos={videos} commercialStats={commercialStats} period={period} format={format} />
+      <YoutubeVideosTable
+        videos={videos}
+        commercialStats={commercialStats}
+        snapshots={snapshots}
+        bingeMetrics={bingeMetrics}
+        lastSyncAt={lastSyncAt}
+        period={period}
+        format={format}
+      />
     </div>
   );
 }

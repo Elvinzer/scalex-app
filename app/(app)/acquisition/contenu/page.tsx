@@ -13,9 +13,9 @@ import { tryDecrypt } from "@/lib/crypto";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { requirePermissionOrRedirect } from "@/lib/team/context";
-import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
+import { computeReliability, getVideoAttributionTotals } from "@/lib/youtube/attribution";
 import { isPublicVideo } from "@/lib/youtube/format";
-import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
+import { getYoutubeVideoBingeMetricsMap, getYoutubeVideoInsightsMap, getYoutubeVideoSnapshotsMap } from "@/lib/youtube/queries";
 import { getContentRecommendations } from "@/lib/youtube/recommendations";
 
 import { ContenuView } from "./contenu-view";
@@ -59,6 +59,8 @@ export default async function ContenuPage({
     instagramInsights,
     [youtubeConnection],
     youtubeInsights,
+    youtubeSnapshots,
+    youtubeBingeMetrics,
     videoAttributionTotals,
     youtubeRecommendations,
     subscriptionActive,
@@ -72,6 +74,8 @@ export default async function ContenuPage({
       ? db.select().from(youtubeConnections).where(eq(youtubeConnections.userId, accountId)).limit(1)
       : Promise.resolve([]),
     getYoutubeVideoInsightsMap(accountId),
+    getYoutubeVideoSnapshotsMap(accountId),
+    getYoutubeVideoBingeMetricsMap(accountId),
     getVideoAttributionTotals(accountId),
     getContentRecommendations(accountId),
     hasActiveSubscription(accountId),
@@ -89,6 +93,7 @@ export default async function ContenuPage({
 
   const instagramPosts = visiblePosts.filter((post) => post.source === "instagram");
   const youtubeVideos = Array.from(youtubeInsights.values()).filter(isPublicVideo);
+  const attributionReliability = computeReliability(videoAttributionTotals);
   const global = totalsFor(visiblePosts);
   const youtubeCommercialStats = new Map(
     posts
@@ -96,12 +101,15 @@ export default async function ContenuPage({
       .map((post) => {
         const attribution = videoAttributionTotals.get(post.externalId as string);
         const attributedDeals = attribution ? attribution.declaredSales + attribution.estimatedSales : 0;
+        const attributedRevenue = attribution ? attribution.declaredRevenueEur + attribution.estimatedRevenueEur : null;
         return [post.externalId as string, {
           bookings: post.bookings,
           // The same precedence rule as Diagnostic/content-metrics: a real
           // sale attribution wins; old/manual post annotations remain the
           // fallback when no attribution exists.
           dealsClosed: attributedDeals > 0 ? attributedDeals : post.dealsClosed,
+          revenueEur: attribution && attributionReliability.canShowEuros ? attributedRevenue : null,
+          salesCount: attribution ? attributedDeals : null,
         }] as const;
       })
   );
@@ -161,11 +169,17 @@ export default async function ContenuPage({
         instagramLastSyncAt={instagramConnection?.lastInsightsSyncAt ?? null}
         youtubeVideos={youtubeVideos}
         youtubeCommercialStats={youtubeCommercialStats}
+        youtubeSnapshots={youtubeSnapshots}
         youtubeConnected={youtubeConnected}
         youtubeChannelTitle={youtubeConnection?.channelTitle ?? null}
         youtubeSyncStatus={youtubeConnection?.initialSyncStatus ?? null}
         youtubeLastSyncAt={youtubeConnection?.lastAnalyticsSyncAt ?? null}
         youtubeSubscriberCount={youtubeConnection?.subscriberCount ?? null}
+        youtubeBingeMetrics={youtubeBingeMetrics}
+        youtubeChannelTrafficSources={youtubeConnection?.channelTrafficSources ?? null}
+        youtubeChannelTrafficSourcesFetchedAt={youtubeConnection?.channelTrafficSourcesFetchedAt ?? null}
+        youtubeChannelSearchTerms={youtubeConnection?.channelSearchTerms ?? null}
+        youtubeChannelSearchTermsFetchedAt={youtubeConnection?.channelSearchTermsFetchedAt ?? null}
         youtubeRecommendations={youtubeRecommendations.map<YoutubeRecommendationCard>((recommendation) => ({
           ...recommendation,
           createdAt: recommendation.createdAt.toISOString(),

@@ -1,22 +1,24 @@
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { contentPosts, youtubeVideoInsights } from "@/db/schema";
+import { contentPosts, youtubeVideoInsights, youtubeVideoSnapshots } from "@/db/schema";
 
-import { fetchVideoAnalytics, fetchVideoDeepInsights, fetchVideoDetails, listUploadedVideos } from "./client";
+import { fetchVideoAnalytics, fetchVideoCreatorContentTypes, fetchVideoDeepInsights, fetchVideoDetails, listUploadedVideos } from "./client";
 import { normalizeVideo } from "./events";
 import {
   YOUTUBE_BACKFILL_TIME_BUDGET_MS,
   YOUTUBE_DEEP_INSIGHTS_MAX_AGE_DAYS,
   YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT,
-  YOUTUBE_RETENTION_MIN_VIEWS,
 } from "./protocol";
 
 export type BackfillResult = { processed: number; skipped: number; completed: boolean };
 
-async function knownVideoIds(userId: string): Promise<Set<string>> {
-  const rows = await db.select({ videoId: youtubeVideoInsights.videoId }).from(youtubeVideoInsights).where(eq(youtubeVideoInsights.userId, userId));
-  return new Set(rows.map((row) => row.videoId));
+async function knownVideos(userId: string): Promise<Map<string, string | null>> {
+  const rows = await db
+    .select({ videoId: youtubeVideoInsights.videoId, creatorContentType: youtubeVideoInsights.creatorContentType })
+    .from(youtubeVideoInsights)
+    .where(eq(youtubeVideoInsights.userId, userId));
+  return new Map(rows.map((row) => [row.videoId, row.creatorContentType]));
 }
 
 // Core YouTube -> Minaly sync, shared by the Inngest connect-job and the
@@ -42,8 +44,29 @@ export async function backfillYoutubeVideos(
   channelPublishedAt: string,
   sinceDate?: Date
 ): Promise<BackfillResult> {
-  const [videos, existingVideoIds] = await Promise.all([listUploadedVideos(accessToken, uploadsPlaylistId), knownVideoIds(userId)]);
+  const [videos, existingVideos] = await Promise.all([listUploadedVideos(accessToken, uploadsPlaylistId), knownVideos(userId)]);
+  const existingVideoIds = new Set(existingVideos.keys());
   const scoped = sinceDate ? videos.filter((item) => new Date(item.publishedAt) >= sinceDate || !existingVideoIds.has(item.id)) : videos;
+
+  // A rolling metrics window must not leave old rows permanently unclassified:
+  // creatorContentType is the official format signal used by every Shorts vs
+  // long-video comparison on the page. Fetch only rows that still lack it,
+  // then update those rows without rewriting their settled metrics.
+  if (sinceDate) {
+    const missingFormatVideoIds = videos
+      .filter((video) => existingVideos.get(video.id) === null || existingVideos.get(video.id) === undefined)
+      .map((video) => video.id);
+    if (missingFormatVideoIds.length > 0) {
+      const contentTypes = await fetchVideoCreatorContentTypes(accessToken, missingFormatVideoIds, channelPublishedAt);
+      for (const [videoId, creatorContentType] of contentTypes) {
+        await db
+          .update(youtubeVideoInsights)
+          .set({ creatorContentType })
+          .where(and(eq(youtubeVideoInsights.userId, userId), eq(youtubeVideoInsights.videoId, videoId)));
+      }
+    }
+  }
+
   if (scoped.length === 0) return { processed: 0, skipped: 0, completed: true };
 
   // Analytics + duration are fetched in batches up-front (not per item like
@@ -71,7 +94,12 @@ export async function backfillYoutubeVideos(
       break;
     }
     try {
-      const normalized = normalizeVideo(item, analytics.get(item.id) ?? {}, durations.get(item.id) ?? null, privacyStatuses.get(item.id) ?? null);
+      const normalized = normalizeVideo(
+        item,
+        analytics.get(item.id) ?? { metrics: {}, creatorContentType: null },
+        durations.get(item.id) ?? null,
+        privacyStatuses.get(item.id) ?? null
+      );
       await processNormalizedVideo(userId, normalized);
       processed += 1;
     } catch (error) {
@@ -88,7 +116,12 @@ export async function backfillYoutubeVideos(
 }
 
 async function processNormalizedVideo(userId: string, normalized: ReturnType<typeof normalizeVideo>): Promise<void> {
-  const raw = { ...normalized.insights, views: normalized.views, durationSeconds: normalized.durationSeconds };
+  const raw = {
+    ...normalized.insights,
+    views: normalized.views,
+    durationSeconds: normalized.durationSeconds,
+    creatorContentType: normalized.creatorContentType,
+  };
 
   await db
     .insert(youtubeVideoInsights)
@@ -98,6 +131,7 @@ async function processNormalizedVideo(userId: string, normalized: ReturnType<typ
       title: normalized.title,
       thumbnailUrl: normalized.thumbnailUrl,
       durationSeconds: normalized.durationSeconds,
+      creatorContentType: normalized.creatorContentType,
       publishedAt: normalized.publishedAt,
       views: normalized.views,
       likes: normalized.insights.likes,
@@ -118,6 +152,7 @@ async function processNormalizedVideo(userId: string, normalized: ReturnType<typ
         title: normalized.title,
         thumbnailUrl: normalized.thumbnailUrl,
         durationSeconds: normalized.durationSeconds,
+        creatorContentType: normalized.creatorContentType,
         views: normalized.views,
         likes: normalized.insights.likes,
         comments: normalized.insights.comments,
@@ -130,6 +165,26 @@ async function processNormalizedVideo(userId: string, normalized: ReturnType<typ
         privacyStatus: normalized.privacyStatus,
         rawInsights: raw,
         lastFetchedAt: new Date(),
+      },
+    });
+
+  const capturedOn = new Date().toISOString().slice(0, 10);
+  await db
+    .insert(youtubeVideoSnapshots)
+    .values({
+      userId,
+      videoId: normalized.videoId,
+      capturedOn,
+      views: normalized.views,
+      estimatedMinutesWatched: normalized.insights.estimatedMinutesWatched,
+      averageViewPercentage: normalized.insights.averageViewPercentage,
+    })
+    .onConflictDoUpdate({
+      target: [youtubeVideoSnapshots.userId, youtubeVideoSnapshots.videoId, youtubeVideoSnapshots.capturedOn],
+      set: {
+        views: normalized.views,
+        estimatedMinutesWatched: normalized.insights.estimatedMinutesWatched,
+        averageViewPercentage: normalized.insights.averageViewPercentage,
       },
     });
 
@@ -176,16 +231,10 @@ export function insightsRefreshSinceDate(windowDays: number): Date {
 }
 
 // Deep per-video Analytics (retention curve, traffic sources, search terms),
-// fetched for the most-viewed public videos only — 3 report calls each, so
-// this is capped rather than run over the whole library (see
-// YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT). Runs AFTER the main backfill, from its
-// stored rows, so it never delays the headline sync and a failure here can't
-// lose view/retention data.
-//
-// Skips videos refreshed within YOUTUBE_DEEP_INSIGHTS_MAX_AGE_DAYS and
-// videos under YOUTUBE_RETENTION_MIN_VIEWS (a curve built from a handful of
-// sessions is noise, and those videos are excluded from the aggregates
-// anyway).
+// fetched for the latest public videos across both formats. We still store a curve for
+// a low-sample video, then let the UI mark its diagnosis as unavailable. That
+// keeps the raw data ready as the video matures instead of starving the detail
+// page until it crosses an arbitrary threshold.
 export async function backfillYoutubeDeepInsights(
   userId: string,
   accessToken: string,
@@ -207,7 +256,7 @@ export async function backfillYoutubeDeepInsights(
         or(eq(youtubeVideoInsights.privacyStatus, "public"), isNull(youtubeVideoInsights.privacyStatus))
       )
     )
-    .orderBy(desc(youtubeVideoInsights.views))
+    .orderBy(desc(youtubeVideoInsights.views), desc(youtubeVideoInsights.publishedAt))
     .limit(YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT);
 
   const startDate = channelPublishedAt.slice(0, 10);
@@ -216,9 +265,8 @@ export async function backfillYoutubeDeepInsights(
   let skipped = 0;
 
   for (const video of candidates) {
-    const tooFewViews = (video.views ?? 0) < YOUTUBE_RETENTION_MIN_VIEWS;
     const stillFresh = video.deepInsightsFetchedAt !== null && video.deepInsightsFetchedAt > staleBefore;
-    if (tooFewViews || stillFresh) {
+    if (stillFresh) {
       skipped += 1;
       continue;
     }

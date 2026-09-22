@@ -38,6 +38,17 @@ export const YOUTUBE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 // Pinned API surface — bump/re-verify here, never scattered across call sites.
 export const YOUTUBE_DATA_API_BASE = "https://www.googleapis.com/youtube/v3";
 export const YOUTUBE_ANALYTICS_API_BASE = "https://youtubeanalytics.googleapis.com/v2";
+export const YOUTUBE_REPORTING_API_BASE = "https://youtubereporting.googleapis.com/v1";
+
+// Bulk Reporting is the only supported API surface for thumbnail reach and
+// the dedicated end-screen/card reports. We schedule only the report families
+// used by the product. The importer checks availability first because Google
+// can hide a report for a channel or retire a revision.
+export const YOUTUBE_REPORTING_REPORT_TYPES = [
+  "channel_reach_basic_a1",
+  "channel_end_screens_a2",
+  "channel_cards_a1",
+] as const;
 
 // Read-only scopes only — this integration never uploads, edits, or manages
 // the channel, so no youtube.force-ssl / youtube.upload requested (narrower
@@ -127,7 +138,7 @@ export const YOUTUBE_THUMBNAIL_CTR_AVAILABLE = false;
 // aggregate insights they feed (average drop-off point, 30s hook analysis)
 // are statistically meaningless on low-view videos anyway, and those same
 // videos are the ones the UI excludes from rate rankings.
-export const YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT = 20;
+export const YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT = 30;
 
 // A video needs at least this many views before its retention curve is
 // trusted in aggregate figures — below it the curve is a handful of

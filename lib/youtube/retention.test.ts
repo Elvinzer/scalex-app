@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregateTrafficSources,
+  aggregateTrafficSourceEntries,
   averageHookRetention,
   dropOffSeconds,
   formatTimecode,
   hasUsableRetention,
   hookRetention,
   medianDropOffSeconds,
+  topTrafficSources,
 } from "./retention";
 
 // A curve that holds 100% until `dropAt`, then collapses to 20%.
@@ -52,6 +54,10 @@ describe("retention figures", () => {
     expect(hookRetention(video())).toBe(1); // still 100% at 30s of a 600s video
   });
 
+  it("uses a three-second hook window for Shorts", () => {
+    expect(hookRetention(video({ durationSeconds: 25 }), 3)).toBe(1);
+  });
+
   it("has no hook figure for a video shorter than the hook window", () => {
     expect(hookRetention(video({ durationSeconds: 25 }))).toBeNull();
   });
@@ -84,6 +90,34 @@ describe("traffic sources", () => {
 
   it("returns nothing when no video has traffic data, so the block stays hidden", () => {
     expect(aggregateTrafficSources([{ trafficSources: null }])).toEqual([]);
+  });
+
+  it("keeps unknown source codes in an explicit Other bucket", () => {
+    const result = aggregateTrafficSourceEntries([
+      { source: "YT_SEARCH", views: 90 },
+      { source: "NEW_SOURCE_FROM_YOUTUBE", views: 10 },
+    ]);
+    expect(result).toEqual([
+      { source: "YT_SEARCH", label: "Recherche YouTube", views: 90, share: 0.9 },
+      { source: "OTHER", label: "Autres sources", views: 10, share: 0.1 },
+    ]);
+  });
+
+  it("adds the omitted tail to Other so the visible bars still total 100%", () => {
+    const result = topTrafficSources(
+      aggregateTrafficSourceEntries([
+        { source: "YT_SEARCH", views: 50 },
+        { source: "BROWSE", views: 30 },
+        { source: "RELATED_VIDEO", views: 10 },
+        { source: "EXT_URL", views: 5 },
+        { source: "PLAYLIST", views: 3 },
+        { source: "NOTIFICATION", views: 2 },
+      ]),
+      5,
+    );
+    expect(result).toHaveLength(6);
+    expect(result.at(-1)).toMatchObject({ source: "OTHER", views: 2, share: 0.02 });
+    expect(result.reduce((sum, source) => sum + source.share, 0)).toBeCloseTo(1);
   });
 });
 

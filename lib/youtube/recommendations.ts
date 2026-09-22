@@ -13,7 +13,7 @@ import { materializeSourceInsight } from "@/lib/insight-execution/source-adapter
 
 import { getVideoAttributionTotals } from "./attribution";
 import { conversionPerThousandViews } from "./attribution-rules";
-import { isPublicVideo } from "./format";
+import { isPublicVideo, resolveVideoFormat } from "./format";
 import { getYoutubeVideoInsightsMap, type YoutubeVideoInsightRow } from "./queries";
 import { estimateYoutubeRecommendationImpact } from "./recommendation-impact";
 import type {
@@ -122,8 +122,10 @@ function formatViews(value: number): string {
 }
 
 function videoFormat(video: YoutubeVideoInsightRow): string {
-  if (video.durationSeconds === null) return "Durée inconnue";
-  return video.durationSeconds < 60 ? "Short (< 60 s)" : "Longue durée (≥ 60 s)";
+  const format = resolveVideoFormat(video);
+  if (format === "short") return "Shorts";
+  if (format === "long") return "Vidéos longues";
+  return "Format inconnu";
 }
 
 function performanceExample(entry: VideoPerformance): YoutubePatternExample {

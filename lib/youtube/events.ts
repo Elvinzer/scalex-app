@@ -1,4 +1,4 @@
-import type { RawYoutubeVideo, VideoAnalyticsMetrics } from "./client";
+import type { RawYoutubeVideo, VideoAnalyticsResult } from "./client";
 
 // Normalizes a raw YouTube video + its fetched analytics into our own
 // domain, feeding both youtube_video_insights (full fidelity) and the
@@ -11,6 +11,7 @@ export type NormalizedYoutubeVideo = {
   thumbnailUrl: string | null;
   publishedAt: Date;
   durationSeconds: number | null;
+  creatorContentType: string | null;
   // "public" | "unlisted" | "private" — null when the Data API didn't return
   // a status for this id. Only public videos are surfaced in the UI, see
   // isPublicVideo in lib/youtube/format.ts.
@@ -32,22 +33,24 @@ export type NormalizedYoutubeVideo = {
   };
 };
 
-function metric(metrics: VideoAnalyticsMetrics, key: string): number | null {
+function metric(metrics: VideoAnalyticsResult["metrics"], key: string): number | null {
   return typeof metrics[key] === "number" ? metrics[key] : null;
 }
 
 export function normalizeVideo(
   video: RawYoutubeVideo,
-  metrics: VideoAnalyticsMetrics,
+  analytics: VideoAnalyticsResult,
   durationSeconds: number | null,
   privacyStatus: string | null
 ): NormalizedYoutubeVideo {
+  const { metrics } = analytics;
   return {
     videoId: video.id,
     title: video.title,
     thumbnailUrl: video.thumbnailUrl,
     publishedAt: new Date(video.publishedAt),
     durationSeconds,
+    creatorContentType: analytics.creatorContentType,
     privacyStatus,
     views: metric(metrics, "views") ?? 0,
     insights: {

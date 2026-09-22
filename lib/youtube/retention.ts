@@ -15,12 +15,15 @@ const DROP_OFF_THRESHOLD = 0.5;
 
 // The window YouTube creators actually call "the hook". Measured as a
 // fraction of the video so it maps onto elapsedVideoTimeRatio.
-const HOOK_SECONDS = 30;
+const LONG_HOOK_SECONDS = 30;
+
+export function hasRetentionCurve(video: Pick<YoutubeVideoInsightRow, "retentionCurve">): boolean {
+  return Array.isArray(video.retentionCurve) && video.retentionCurve.length > 0;
+}
 
 export function hasUsableRetention(video: Pick<YoutubeVideoInsightRow, "retentionCurve" | "views">): boolean {
   return (
-    Array.isArray(video.retentionCurve) &&
-    video.retentionCurve.length > 0 &&
+    hasRetentionCurve(video) &&
     (video.views ?? 0) >= YOUTUBE_RETENTION_MIN_VIEWS
   );
 }
@@ -43,11 +46,27 @@ export function dropOffSeconds(video: Pick<YoutubeVideoInsightRow, "retentionCur
 // that's nonsense — 110% of an audience cannot be watching. Above 1 simply
 // means everyone was still there and some rewound, which is exactly 100%
 // still present. Kept raw in the stored curve, clamped only at read.
-export function hookRetention(video: Pick<YoutubeVideoInsightRow, "retentionCurve" | "views" | "durationSeconds">): number | null {
-  if (!hasUsableRetention(video) || !video.durationSeconds || video.durationSeconds <= HOOK_SECONDS) return null;
-  const target = HOOK_SECONDS / video.durationSeconds;
+export function hookRetention(
+  video: Pick<YoutubeVideoInsightRow, "retentionCurve" | "views" | "durationSeconds">,
+  hookSeconds = LONG_HOOK_SECONDS
+): number | null {
+  if (!hasUsableRetention(video) || !video.durationSeconds || video.durationSeconds <= hookSeconds) return null;
+  const target = hookSeconds / video.durationSeconds;
   const curve = video.retentionCurve as RetentionPoint[];
   const closest = curve.reduce((best, p) => (Math.abs(p.ratio - target) < Math.abs(best.ratio - target) ? p : best));
+  return Math.min(1, closest.watchRatio);
+}
+
+export function retentionAtSeconds(
+  video: Pick<YoutubeVideoInsightRow, "retentionCurve" | "durationSeconds">,
+  seconds: number,
+): number | null {
+  if (!hasRetentionCurve(video) || !video.durationSeconds || video.durationSeconds <= seconds) return null;
+  const target = seconds / video.durationSeconds;
+  const curve = video.retentionCurve as RetentionPoint[];
+  const closest = curve.reduce((best, point) =>
+    Math.abs(point.ratio - target) < Math.abs(best.ratio - target) ? point : best
+  );
   return Math.min(1, closest.watchRatio);
 }
 
@@ -65,14 +84,18 @@ export function medianDropOffSeconds(videos: Pick<YoutubeVideoInsightRow, "reten
   return values.length % 2 === 0 ? Math.round((values[middle - 1] + values[middle]) / 2) : values[middle];
 }
 
-export function averageHookRetention(videos: Pick<YoutubeVideoInsightRow, "retentionCurve" | "views" | "durationSeconds">[]): number | null {
-  const values = videos.map(hookRetention).filter((v): v is number => v !== null);
+export function averageHookRetention(
+  videos: Pick<YoutubeVideoInsightRow, "retentionCurve" | "views" | "durationSeconds">[],
+  hookSeconds = LONG_HOOK_SECONDS
+): number | null {
+  const values = videos.map((video) => hookRetention(video, hookSeconds)).filter((v): v is number => v !== null);
   if (values.length === 0) return null;
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
-// YouTube's raw dimension values are SCREAMING_SNAKE and meaningless to a
-// coach — mapped to the wording YouTube Studio itself uses in French.
+// YouTube's raw dimension values are SCREAMING_SNAKE. Keep the raw code for
+// auditability, but collapse codes added by Google into one explicit bucket
+// until they have a reviewed translation in the catalogues.
 const TRAFFIC_SOURCE_LABELS: Record<string, string> = {
   YT_SEARCH: "Recherche YouTube",
   RELATED_VIDEO: "Vidéos suggérées",
@@ -90,10 +113,54 @@ const TRAFFIC_SOURCE_LABELS: Record<string, string> = {
   SHORTS: "Flux Shorts",
   HASHTAGS: "Hashtags",
   SOUND_PAGE: "Page du son",
+  ANNOTATION: "Annotations",
+  CAMPAIGN_CARD: "Cartes de campagne",
+  LIVE_REDIRECT: "Redirection de live",
+  PRODUCT_PAGE: "Fiche produit",
+  PROMOTED: "Promotion YouTube",
+  VIDEO_REMIXES: "Remixes vidéo",
+  WATCH_WITH: "Regarder avec",
+  OTHER: "Autres sources",
 };
 
+const KNOWN_TRAFFIC_SOURCES = new Set(Object.keys(TRAFFIC_SOURCE_LABELS));
+
+export function trafficSourceKey(source: string): string {
+  return KNOWN_TRAFFIC_SOURCES.has(source) ? source : "OTHER";
+}
+
 export function trafficSourceLabel(source: string): string {
-  return TRAFFIC_SOURCE_LABELS[source] ?? source;
+  return TRAFFIC_SOURCE_LABELS[trafficSourceKey(source)] ?? TRAFFIC_SOURCE_LABELS.OTHER;
+}
+
+export type TrafficSourceAggregate = { source: string; label: string; views: number; share: number };
+
+export function aggregateTrafficSourceEntries(entries: { source: string; views: number }[]): TrafficSourceAggregate[] {
+  const totals = new Map<string, number>();
+  for (const entry of entries) {
+    if (!Number.isFinite(entry.views) || entry.views < 0) continue;
+    const source = trafficSourceKey(entry.source);
+    totals.set(source, (totals.get(source) ?? 0) + entry.views);
+  }
+  const grandTotal = Array.from(totals.values()).reduce((sum, value) => sum + value, 0);
+  if (grandTotal === 0) return [];
+  return Array.from(totals.entries())
+    .map(([source, views]) => ({ source, label: trafficSourceLabel(source), views, share: views / grandTotal }))
+    .sort((a, b) => b.views - a.views);
+}
+
+export function topTrafficSources(sources: TrafficSourceAggregate[], limit = 5): TrafficSourceAggregate[] {
+  if (sources.length <= limit) return sources;
+  const top = sources.slice(0, limit);
+  const remainder = sources.slice(limit).reduce((sum, source) => sum + source.views, 0);
+  const other = top.find((source) => source.source === "OTHER");
+  if (other) {
+    other.views += remainder;
+  } else if (remainder > 0) {
+    top.push({ source: "OTHER", label: trafficSourceLabel("OTHER"), views: remainder, share: 0 });
+  }
+  const total = top.reduce((sum, source) => sum + source.views, 0);
+  return top.map((source) => ({ ...source, share: source.views / total }));
 }
 
 // Channel-wide traffic mix: sums each source across the videos that have the
@@ -101,18 +168,8 @@ export function trafficSourceLabel(source: string): string {
 // available, so callers hide the block instead of rendering empty bars.
 export function aggregateTrafficSources(
   videos: Pick<YoutubeVideoInsightRow, "trafficSources">[]
-): { source: string; label: string; views: number; share: number }[] {
-  const totals = new Map<string, number>();
-  for (const video of videos) {
-    for (const entry of video.trafficSources ?? []) {
-      totals.set(entry.source, (totals.get(entry.source) ?? 0) + entry.views);
-    }
-  }
-  const grandTotal = Array.from(totals.values()).reduce((sum, v) => sum + v, 0);
-  if (grandTotal === 0) return [];
-  return Array.from(totals.entries())
-    .map(([source, views]) => ({ source, label: trafficSourceLabel(source), views, share: views / grandTotal }))
-    .sort((a, b) => b.views - a.views);
+): TrafficSourceAggregate[] {
+  return aggregateTrafficSourceEntries(videos.flatMap((video) => video.trafficSources ?? []));
 }
 
 export function aggregateSearchTerms(

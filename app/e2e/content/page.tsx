@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
+import { NextIntlClientProvider } from "next-intl";
 
 import type { ContentPostRow } from "@/lib/content-posts/types";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
 import type { YoutubeVideoInsightRow } from "@/lib/youtube/queries";
+import { loadMessagesFor } from "@/lib/i18n/messages";
 
 import { ContenuView } from "@/app/(app)/acquisition/contenu/contenu-view";
 
@@ -25,6 +27,15 @@ function fixtureDate(index: number): string {
   if (index === 10) return "2026-07-20";
   if (index === 9) return "2026-05-15";
   return `2026-08-${String(7 - (index % 6)).padStart(2, "0")}`;
+}
+
+function fixtureRetentionCurve(index: number): { ratio: number; watchRatio: number }[] | null {
+  if (index >= 6) return null;
+  const dropRatio = index % 2 === 0 ? 0.45 : 0.7;
+  return Array.from({ length: 100 }, (_, point) => {
+    const ratio = (point + 1) / 100;
+    return { ratio, watchRatio: ratio < dropRatio ? 1 : 0.35 };
+  });
 }
 
 function createInstagramPost(index: number): ContentPostRow {
@@ -92,6 +103,7 @@ function createYoutubeVideo(index: number): YoutubeVideoInsightRow {
     title: `${index % 2 === 0 ? "Short" : "Vidéo longue"} fixture YouTube ${index + 1}`,
     thumbnailUrl: null,
     durationSeconds: index % 2 === 0 ? 45 : 600,
+    creatorContentType: index % 2 === 0 ? "SHORTS" : "VIDEO_ON_DEMAND",
     publishedAt,
     views: 1900 - index * 31,
     likes: 90 - index,
@@ -105,9 +117,13 @@ function createYoutubeVideo(index: number): YoutubeVideoInsightRow {
     impressions: 12000 - index * 100,
     impressionsClickThroughRate: 7.2,
     privacyStatus: "public",
-    retentionCurve: null,
-    trafficSources: null,
-    searchTerms: null,
+    retentionCurve: fixtureRetentionCurve(index),
+    trafficSources: index % 2 === 0
+      ? [{ source: "SHORTS", views: 500 - index * 10 }, { source: "YT_SEARCH", views: 120 }]
+      : [{ source: "YT_SEARCH", views: 600 - index * 10 }, { source: "BROWSE", views: 160 }],
+    searchTerms: index % 2 === 0
+      ? [{ term: "trade republic", views: 90 }]
+      : [{ term: "pea trade republic", views: 70 }],
     deepInsightsFetchedAt: null,
     productionHours: null,
     rawInsights: {},
@@ -132,17 +148,19 @@ export default async function ContentE2EFixturePage({
   const { state: requestedState, platform: requestedPlatform } = await searchParams;
   const state = parseState(requestedState);
   const initialPlatform = parsePlatform(requestedPlatform);
+  const messages = await loadMessagesFor("fr", ["common", "content", "integrations"]);
   const instagramConnected = state === "instagram" || state === "both";
   const youtubeConnected = state === "youtube" || state === "both";
 
   return (
-    <main className="min-h-screen overflow-x-clip bg-panel px-4 py-8 md:px-16">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <div>
-          <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Fixture locale uniquement</p>
-          <h1 className="mt-1 text-3xl font-bold">Contenu — {state}</h1>
-        </div>
-        <ContenuView
+    <NextIntlClientProvider locale="fr" messages={messages}>
+      <main className="min-h-screen overflow-x-clip bg-panel px-4 py-8 md:px-16">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6">
+          <div>
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">Fixture locale uniquement</p>
+            <h1 className="mt-1 text-3xl font-bold">Contenu — {state}</h1>
+          </div>
+          <ContenuView
           initialPlatform={initialPlatform}
           posts={instagramConnected ? instagramPosts : []}
           instagramInsights={instagramConnected ? instagramInsights : new Map()}
@@ -157,11 +175,32 @@ export default async function ContentE2EFixturePage({
           youtubeSyncStatus={youtubeConnected ? "completed" : null}
           youtubeLastSyncAt={youtubeConnected ? FIXTURE_SYNCED_AT : null}
           youtubeSubscriberCount={youtubeConnected ? 386 : null}
+          youtubeChannelTrafficSources={youtubeConnected ? [
+            { contentType: "VIDEO_ON_DEMAND", source: "YT_SEARCH", views: 862 },
+            { contentType: "VIDEO_ON_DEMAND", source: "BROWSE", views: 296 },
+            { contentType: "VIDEO_ON_DEMAND", source: "RELATED_VIDEO", views: 154 },
+            { contentType: "VIDEO_ON_DEMAND", source: "EXT_URL", views: 40 },
+            { contentType: "VIDEO_ON_DEMAND", source: "NOTIFICATION", views: 10 },
+            { contentType: "VIDEO_ON_DEMAND", source: "PLAYLIST", views: 5 },
+            { contentType: "SHORTS", source: "SHORTS", views: 670 },
+            { contentType: "SHORTS", source: "SUBSCRIBER", views: 140 },
+            { contentType: "SHORTS", source: "YT_SEARCH", views: 90 },
+            { contentType: "SHORTS", source: "BROWSE", views: 50 },
+            { contentType: "SHORTS", source: "RELATED_VIDEO", views: 20 },
+          ] : null}
+          youtubeChannelTrafficSourcesFetchedAt={youtubeConnected ? FIXTURE_SYNCED_AT : null}
+          youtubeChannelSearchTerms={youtubeConnected ? [
+            { term: "trade republic", views: 862 },
+            { term: "pea trade republic", views: 296 },
+            { term: "trade republic pea", views: 154 },
+          ] : null}
+          youtubeChannelSearchTermsFetchedAt={youtubeConnected ? FIXTURE_SYNCED_AT : null}
           youtubeAnalyzableVideoCount={youtubeConnected ? youtubeVideos.length : 0}
           subscriptionActive
           hasConnectedPlatform={instagramConnected || youtubeConnected}
-        />
-      </div>
-    </main>
+          />
+        </div>
+      </main>
+    </NextIntlClientProvider>
   );
 }
