@@ -27,6 +27,18 @@ describe("ChatMessageContent", () => {
     expect(markup).toContain("<ul");
   });
 
+  it("renders safe Markdown links with bold labels", () => {
+    const markup = renderToStaticMarkup(
+      <ChatMessageContent text={'Voir [**Post Instagram du 2026-09-18**](https://www.instagram.com/reel/example/)**.'} />,
+    );
+
+    expect(markup).toContain('href="https://www.instagram.com/reel/example/"');
+    expect(markup).toContain("<strong");
+    expect(markup).toContain("Post Instagram du 2026-09-18");
+    expect(markup).not.toContain("](");
+    expect(markup).not.toContain("**");
+  });
+
   it("normalizes the common inline LaTeX commands without exposing syntax", () => {
     expect(normalizeChatMath("\\text{new followers} \\times 2 \\approx 4\\%"))
       .toBe("new followers × 2 ≈ 4%");

@@ -12,6 +12,7 @@ describe("Instagram API client", () => {
           data: [
             {
               id: "media-1",
+              caption: "Un vrai titre de Reel",
               media_type: "VIDEO",
               permalink: "https://www.instagram.com/reel/example",
               timestamp: "2026-08-01T08:00:00.000Z",
@@ -33,7 +34,8 @@ describe("Instagram API client", () => {
 
     expect(media).toHaveLength(1);
     expect(media[0]?.mediaType).toBe("VIDEO");
-    expect(fields).not.toContain("caption");
+    expect(media[0]?.caption).toBe("Un vrai titre de Reel");
+    expect(fields).toContain("caption");
     expect(fields).not.toContain("media_product_type");
     expect(fields).toContain("media_type");
     expect(fields).toContain("media_url");

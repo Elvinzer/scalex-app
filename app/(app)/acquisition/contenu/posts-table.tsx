@@ -31,6 +31,12 @@ const TIER_TEXT_CLASS: Record<PostPerformanceTier, string> = {
   below: "text-state-critical",
 };
 
+function formatFollowerChange(value: number | null, locale: string): string {
+  if (value === null) return "—";
+  const formatted = new Intl.NumberFormat(locale).format(value);
+  return value > 0 ? `+${formatted}` : formatted;
+}
+
 // Small thumbnail for the title cell. thumbnailUrl is preferred whenever
 // present — it's the resolved "cover" for anything that isn't a plain
 // static image (VIDEO/REELS' cover frame, a CAROUSEL_ALBUM's first child,
@@ -351,7 +357,7 @@ export function PostsTable({
                       {formatWatchTime(insight?.avgWatchTimeMs ?? null)}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", insight?.follows == null && "text-muted-foreground")}>
-                      {insight?.follows == null ? "—" : `+${new Intl.NumberFormat(locale).format(insight.follows)}`}
+                      {formatFollowerChange(insight?.follows ?? null, locale)}
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">

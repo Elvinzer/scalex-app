@@ -93,7 +93,7 @@ const youtubeVideo: YoutubeVideoInsightRow = {
   videoId: "youtube-video-1",
   title: "L’Analyse technique est incroyable",
   thumbnailUrl: null,
-  durationSeconds: 600,
+  durationSeconds: 34,
   publishedAt: new Date("2026-07-28T08:00:00.000Z"),
   views: 598,
   likes: 42,
@@ -185,7 +185,10 @@ describe("ContenuView connected panels", () => {
     expect(html).toContain("Tes 3 meilleures vidéos");
     expect(html).toContain("Toutes les vidéos");
     expect(html).toContain("L’Analyse technique est incroyable");
-    expect(html).toContain("Watch time");
+    expect(html).toContain("Durée");
+    expect(html).toContain("0:34");
+    expect(html).toContain("Temps de visionnage total");
+    expect(html).toContain("149 min");
     expect(html).toContain("RDV bookés");
     expect(html).toContain("RDV closés");
     expect(html).not.toContain("Tous les posts");

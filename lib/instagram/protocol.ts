@@ -88,10 +88,17 @@ export type InstagramAccountType = "BUSINESS" | "MEDIA_CREATOR" | "PERSONAL";
 
 export type InstagramMediaType = "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM" | "STORY";
 
-// Fields supported by the Instagram Login media edge. `caption` and
-// `media_product_type` are only available through the Facebook Login flow,
-// so requesting them here makes GET /me/media fail for Instagram Login users.
+// Fields supported by the Instagram Login media edge. The `caption` is needed
+// for the post title shown in the content table. `media_product_type` is
+// still omitted because requesting it can make GET /me/media fail for
+// Instagram Login users; `media_type` is enough for the metrics we use here.
 export const INSTAGRAM_MEDIA_FIELDS =
+  "id,caption,media_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url";
+
+// Kept as a compatibility fallback for accounts/API versions that reject the
+// caption field. The sync still imports the media and metrics in that case,
+// while the title uses the existing dated fallback.
+export const INSTAGRAM_MEDIA_FIELDS_WITHOUT_CAPTION =
   "id,media_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url";
 
 // Per-media-type metric list for GET /{media-id}/insights?metric=... — Meta

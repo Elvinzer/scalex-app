@@ -71,7 +71,12 @@ export async function refreshYoutubeVideos(): Promise<{ error: string | null; im
   }
 
   try {
-    const result = await runYoutubeSync(connection, insightsRefreshSinceDate(YOUTUBE_INSIGHTS_REFRESH_WINDOW_DAYS));
+    // Keep the interactive action bounded to the metrics shown in the table.
+    // Deep insights and recommendations are enrichment work handled by the
+    // recurring background sync, so they must not hold this request open.
+    const result = await runYoutubeSync(connection, insightsRefreshSinceDate(YOUTUBE_INSIGHTS_REFRESH_WINDOW_DAYS), {
+      includeEnrichment: false,
+    });
     await db
       .update(youtubeConnections)
       .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date(), lastAnalyticsSyncAt: new Date() })

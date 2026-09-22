@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { InfoPopover } from "@/components/info-popover";
 import { Button } from "@/components/ui/button";
-import { YoutubeVideoDetailDialog } from "@/components/youtube/youtube-video-detail-dialog";
+import { formatDurationSeconds, YoutubeVideoDetailDialog } from "@/components/youtube/youtube-video-detail-dialog";
 import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
 import { type VideoFormat, matchesFormat } from "@/lib/youtube/format";
 import { comparisonMetric, computeVideoPerformanceComparisons, type VideoPerformanceTier } from "@/lib/youtube/insights-comparison";
@@ -245,6 +245,12 @@ export function YoutubeVideosTable({
                 </th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
+                    <span className="text-xs font-bold text-muted-foreground">{t("duration")}</span>
+                    <InfoPopover text={t("explanations.duration")} />
+                  </div>
+                </th>
+                <th className="p-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
                     <span className="text-xs font-bold text-muted-foreground">{t("watchTime")}</span>
                     <InfoPopover text={t("explanations.watchTime")} />
                   </div>
@@ -312,6 +318,9 @@ export function YoutubeVideosTable({
                           {`${numberFormat.format(Math.round(retention * 10) / 10)}%`}
                         </span>
                       )}
+                    </td>
+                    <td className={cn("p-3 text-right tabular-nums", video.durationSeconds === null && "text-muted-foreground")}>
+                      {formatDurationSeconds(video.durationSeconds)}
                     </td>
                     <td className={cn("p-3 text-right tabular-nums", video.estimatedMinutesWatched === null && "text-muted-foreground")}>
                       {video.estimatedMinutesWatched === null ? "—" : `${numberFormat.format(video.estimatedMinutesWatched)} ${t("minutes")}`}

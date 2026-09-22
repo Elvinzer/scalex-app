@@ -20,6 +20,10 @@ export type YoutubeConnectionRow = typeof youtubeConnections.$inferSelect;
 // these two string fields are ever used here.
 export type YoutubeSyncConnection = Pick<YoutubeConnectionRow, "userId" | "refreshTokenEncrypted">;
 
+export type YoutubeSyncOptions = {
+  includeEnrichment?: boolean;
+};
+
 // Shared orchestration for every YouTube sync entry point (the "Rafraîchir"
 // Server Action, the one-time connect job, the recurring cron, and the
 // backfill continuation chain): refreshes the short-lived access token via
@@ -33,7 +37,11 @@ export type YoutubeSyncConnection = Pick<YoutubeConnectionRow, "userId" | "refre
 // YoutubeTokenRevokedError/YoutubeChannelNotFoundError (from
 // lib/youtube/client.ts) for callers to branch on, same as
 // InstagramNotProfessionalAccountError.
-export async function runYoutubeSync(connection: YoutubeSyncConnection, sinceDate?: Date): Promise<BackfillResult> {
+export async function runYoutubeSync(
+  connection: YoutubeSyncConnection,
+  sinceDate?: Date,
+  options: YoutubeSyncOptions = {}
+): Promise<BackfillResult> {
   const clientId = requireEnv("YOUTUBE_CLIENT_ID");
   const clientSecret = requireEnv("YOUTUBE_CLIENT_SECRET");
   const refreshToken = decrypt(connection.refreshTokenEncrypted);
@@ -58,28 +66,30 @@ export async function runYoutubeSync(connection: YoutubeSyncConnection, sinceDat
 
   const result = await backfillYoutubeVideos(connection.userId, accessToken, channel.uploadsPlaylistId, channel.publishedAt, sinceDate);
 
-  // Deep Analytics run from the rows the backfill just wrote, so they need
-  // it to have happened first. Isolated: this is enrichment for the Contenu
-  // insights, never a reason to fail a sync that already stored the
-  // headline metrics successfully.
-  try {
-    const deep = await backfillYoutubeDeepInsights(connection.userId, accessToken, channel.publishedAt);
-    console.log(`[youtube] deep insights for ${connection.userId}: ${deep.processed} fetched, ${deep.skipped} skipped`);
-  } catch (error) {
-    console.error(`[youtube] deep insights for ${connection.userId} failed, sync itself unaffected`, error);
-  }
-
-  // Recommendations are a derived product of the freshly upserted videos +
-  // attribution rows. An AI provider outage must never make a successful YouTube
-  // analytics sync fail, so this enrichment is isolated just like deep
-  // insights above.
-  try {
-    const recommendations = await rebuildYoutubeContentRecommendations(connection.userId);
-    if (recommendations.state === "generated") {
-      await track("content_reco_generated", connection.userId, { count: recommendations.count });
+  if (options.includeEnrichment !== false) {
+    // Deep Analytics run from the rows the backfill just wrote, so they need
+    // it to have happened first. Isolated: this is enrichment for the Contenu
+    // insights, never a reason to fail a sync that already stored the
+    // headline metrics successfully.
+    try {
+      const deep = await backfillYoutubeDeepInsights(connection.userId, accessToken, channel.publishedAt);
+      console.log(`[youtube] deep insights for ${connection.userId}: ${deep.processed} fetched, ${deep.skipped} skipped`);
+    } catch (error) {
+      console.error(`[youtube] deep insights for ${connection.userId} failed, sync itself unaffected`, error);
     }
-  } catch (error) {
-    console.error(`[youtube] content recommendations for ${connection.userId} failed, sync itself unaffected`, error);
+
+    // Recommendations are a derived product of the freshly upserted videos +
+    // attribution rows. An AI provider outage must never make a successful YouTube
+    // analytics sync fail, so this enrichment is isolated just like deep
+    // insights above.
+    try {
+      const recommendations = await rebuildYoutubeContentRecommendations(connection.userId);
+      if (recommendations.state === "generated") {
+        await track("content_reco_generated", connection.userId, { count: recommendations.count });
+      }
+    } catch (error) {
+      console.error(`[youtube] content recommendations for ${connection.userId} failed, sync itself unaffected`, error);
+    }
   }
 
   return result;

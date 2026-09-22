@@ -4,6 +4,7 @@ import {
   INSTAGRAM_INSIGHTS_METRICS,
   INSTAGRAM_LONG_LIVED_TOKEN_URL,
   INSTAGRAM_MEDIA_FIELDS,
+  INSTAGRAM_MEDIA_FIELDS_WITHOUT_CAPTION,
   INSTAGRAM_MAX_BACKFILL_MEDIA,
   INSTAGRAM_PAGE_RETRY_DELAY_MS,
   INSTAGRAM_REFRESH_TOKEN_URL,
@@ -252,15 +253,27 @@ function parseMediaItem(raw: unknown): RawInstagramMedia | null {
 // hiccuped was a real cause of posts silently disappearing from a sync.
 export async function listMedia(accessToken: string): Promise<RawInstagramMedia[]> {
   const items: RawInstagramMedia[] = [];
-  let url: URL | null = new URL(`${INSTAGRAM_GRAPH_API_BASE}/me/media`);
+  let url: URL | null = new URL(INSTAGRAM_GRAPH_API_BASE + "/me/media");
   url.searchParams.set("fields", INSTAGRAM_MEDIA_FIELDS);
   url.searchParams.set("access_token", accessToken);
   url.searchParams.set("limit", "50");
+  let retriedWithoutCaption = false;
 
   while (url && items.length < INSTAGRAM_MAX_BACKFILL_MEDIA) {
     const page = await fetchPageWithRetry(url);
     if (!page) {
       if (items.length === 0) {
+        if (!retriedWithoutCaption) {
+          // Meta has changed the fields accepted by this edge across API
+          // versions. Preserve the sync if a legacy account rejects caption,
+          // but use it whenever the edge accepts it so titles stay useful.
+          retriedWithoutCaption = true;
+          url = new URL(INSTAGRAM_GRAPH_API_BASE + "/me/media");
+          url.searchParams.set("fields", INSTAGRAM_MEDIA_FIELDS_WITHOUT_CAPTION);
+          url.searchParams.set("access_token", accessToken);
+          url.searchParams.set("limit", "50");
+          continue;
+        }
         throw new Error("Instagram media list failed on the first page");
       }
       console.error("[instagram] listMedia: a later page failed after retry, returning partial results");

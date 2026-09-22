@@ -22,7 +22,8 @@ const LATEX_SYMBOLS: Readonly<Record<string, string>> = {
 
 const LATEX_COMMAND_PATTERN = /\\(?:frac|text|approx|cdot|ge|le|neq|pm|rightarrow|to|times|left|right|[%!,;])/u;
 const DISPLAY_MATH_PATTERN = /\\\[([\s\S]*?)(?:\\\]|$)|\$\$([\s\S]*?)(?:\$\$|$)/g;
-const INLINE_TOKEN_PATTERN = /(\*\*[^*\r\n]+\*\*|\\\([^\\r\n]*?\\\))/g;
+const INLINE_TOKEN_PATTERN = /(\[[^\]\r\n]+\]\(https?:\/\/[^\s)\r\n]+\)\*{0,2}|\*\*[^*\r\n]+\*\*|\\\([^\\r\n]*?\\\))/g;
+const LINK_TOKEN_PATTERN = /^\[([^\]\r\n]+)\]\((https?:\/\/[^\s)\r\n]+)\)(\*\*)?$/u;
 
 function readBalancedGroup(source: string, start: number): { content: string; nextIndex: number } | null {
   let index = start;
@@ -101,7 +102,20 @@ function renderInline(text: string): ReactNode[] {
     if (match.index > cursor) nodes.push(<span key={`text-${key++}`}>{formatPlainText(text.slice(cursor, match.index))}</span>);
 
     const token = match[0];
-    if (token.startsWith("**")) {
+    const linkMatch = token.match(LINK_TOKEN_PATTERN);
+    if (linkMatch) {
+      nodes.push(
+        <a
+          key={"link-" + key++}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent-text underline underline-offset-2 hover:no-underline"
+        >
+          {renderInline(linkMatch[1])}
+        </a>,
+      );
+    } else if (token.startsWith("**")) {
       nodes.push(
         <strong key={`bold-${key++}`} className="font-bold">
           {renderInline(token.slice(2, -2))}
