@@ -24,6 +24,7 @@ import {
 } from "@/db/schema";
 
 import { defaultStageAfterReopen, eventForOutcome, eventForStage, legacyStageForCrmStage } from "./machine";
+import type { CrmKpiStageChange } from "./kpis";
 import type { CrmSaleValidationInput } from "@/lib/sales/schema";
 import type {
   CrmActionCategory,
@@ -485,7 +486,8 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
   const capturedAt = new Date(input.profile.capturedAt);
   const messageDate = input.profile.messageOccurredAt ? new Date(input.profile.messageOccurredAt) : null;
   const stage = input.stage ?? "first_message_sent";
-  const contactState = messageDate || stage !== "first_message_sent" ? "contacted" as const : "new" as const;
+  const createdMessageDate = messageDate ?? (stage === "first_message_sent" ? capturedAt : null);
+  const contactState = createdMessageDate || stage !== "first_message_sent" ? "contacted" as const : "new" as const;
   const captureKey = input.idempotencyKey ?? input.sourceEventKey ?? `capture:${input.profile.platform}:${input.profile.canonicalProfileUrl}:${input.profile.capturedAt}`;
 
   return db.transaction(async (tx) => {
@@ -559,7 +561,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       crmStage: stage,
       contactState,
       crmOutcome: "none",
-      messageOccurredAt: messageDate,
+      messageOccurredAt: createdMessageDate,
       capturedAt,
       updatedAt: new Date(),
     }).returning();
@@ -572,11 +574,12 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       actorUserId: input.actorUserId,
       responsibleSetterId: setterId,
       source: input.source,
+      changedAt: createdMessageDate ?? capturedAt,
     });
     await tx.insert(crmLeadEvents).values([
       eventValues({ accountId, leadId: created.id, actorUserId: input.actorUserId, type: "lead_created", source: input.source, sourceEventKey: captureKey, capturedAt, metadata: { platform: input.profile.platform } }),
       eventValues({ accountId, leadId: created.id, actorUserId: input.actorUserId, type: "profile_captured", source: input.source, sourceEventKey: `${captureKey}:profile`, occurredAt: messageDate, capturedAt, metadata: { platform: input.profile.platform, handle: input.profile.normalizedHandle, mode: "unknown" } }),
-      ...(stage !== "first_message_sent" || messageDate ? [eventValues({ accountId, leadId: created.id, actorUserId: input.actorUserId, type: eventForStage(stage), source: input.source, sourceEventKey: `${captureKey}:stage`, occurredAt: stage === "first_message_sent" ? messageDate : capturedAt, capturedAt, metadata: { selectedAtCapture: true, responsibleSetterId: setterId } })] : []),
+      eventValues({ accountId, leadId: created.id, actorUserId: input.actorUserId, type: eventForStage(stage), source: input.source, sourceEventKey: `${captureKey}:stage`, occurredAt: stage === "first_message_sent" ? createdMessageDate : capturedAt, capturedAt, metadata: { selectedAtCapture: true, responsibleSetterId: setterId } }),
     ]).onConflictDoNothing();
     return { lead: toLeadItem(created, setter?.name ?? null), created: true };
   });
@@ -774,6 +777,9 @@ export async function changeCrmStage(accountId: string, leadId: string, stage: C
     await tx.insert(crmLeadStageHistory).values({ accountId, leadId, fromStage: current.crmStage, toStage: stage, actorUserId, responsibleSetterId: current.setterId, source, changedAt });
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "stage_changed", source, sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { fromStage: current.crmStage, toStage: stage, responsibleSetterId: current.setterId } })).onConflictDoNothing();
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: eventForStage(stage), source, sourceEventKey: eventKey ? `${eventKey}:milestone` : null, occurredAt: changedAt, capturedAt: changedAt, metadata: { source: "manual_stage_change", responsibleSetterId: current.setterId } })).onConflictDoNothing();
+    if (current.crmStage === "first_message_sent" && stage === "conversation_in_progress") {
+      await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "response_received", source, sourceEventKey: eventKey ? `${eventKey}:response` : null, occurredAt: changedAt, capturedAt: changedAt, metadata: { responsibleSetterId: current.setterId, confirmedFrom: "stage_change" } })).onConflictDoNothing();
+    }
     return updated ? toLeadItem(updated) : null;
   });
 }
@@ -1253,6 +1259,9 @@ export async function reopenCrmLead(accountId: string, leadId: string, actorUser
       await tx.insert(crmLeadStageHistory).values({ accountId, leadId, fromStage: current.crmStage, toStage: nextStage, actorUserId, responsibleSetterId: current.setterId, source: "app", changedAt });
       await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "stage_changed", source: "app", sourceEventKey: stageEventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { fromStage: current.crmStage, toStage: nextStage, responsibleSetterId: current.setterId, source: "reopen" } })).onConflictDoNothing();
       await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: eventForStage(nextStage), source: "app", sourceEventKey: stageEventKey ? `${stageEventKey}:milestone` : null, occurredAt: changedAt, capturedAt: changedAt, metadata: { source: "reopen", responsibleSetterId: current.setterId } })).onConflictDoNothing();
+      if (current.crmStage === "first_message_sent" && nextStage === "conversation_in_progress") {
+        await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "response_received", source: "app", sourceEventKey: stageEventKey ? `${stageEventKey}:response` : null, occurredAt: changedAt, capturedAt: changedAt, metadata: { responsibleSetterId: current.setterId, confirmedFrom: "stage_change" } })).onConflictDoNothing();
+      }
     }
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "lead_reopened", source: "app", sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { previousOutcome: current.crmOutcome, previousStage: current.crmStage, stage: nextStage } })).onConflictDoNothing();
     return updated ? toLeadItem(updated) : null;
@@ -1481,13 +1490,15 @@ export type CrmKpiFilters = {
 export async function getCrmKpiSources(accountId: string, from: Date, to: Date, filters: CrmKpiFilters = {}) {
   const fromDate = from.toISOString().slice(0, 10);
   const toDate = to.toISOString().slice(0, 10);
-  const [setter, eventRows, callRows, saleRows] = await Promise.all([
+  const [setter, eventRows, stageRows, leadRows, callRows, saleRows] = await Promise.all([
     filters.setterId ? db.select({ id: setters.id, userId: setters.userId }).from(setters).where(and(eq(setters.id, filters.setterId), eq(setters.userId, accountId))).limit(1) : Promise.resolve([] as Array<{ id: string; userId: string }>),
     db.select({ event: crmLeadEvents, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(crmLeadEvents).innerJoin(leads, and(eq(crmLeadEvents.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(crmLeadEvents.accountId, accountId), gte(sql`coalesce(${crmLeadEvents.occurredAt}, ${crmLeadEvents.createdAt})`, from.toISOString()), lte(sql`coalesce(${crmLeadEvents.occurredAt}, ${crmLeadEvents.createdAt})`, to.toISOString()))),
+    db.select({ history: crmLeadStageHistory, lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, createdAt: leads.createdAt } }).from(crmLeadStageHistory).innerJoin(leads, and(eq(crmLeadStageHistory.leadId, leads.id), eq(leads.accountId, accountId))).where(eq(crmLeadStageHistory.accountId, accountId)),
+    db.select({ lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, createdAt: leads.createdAt } }).from(leads).where(eq(leads.accountId, accountId)),
     db.select({ call: salesCalls, link: crmCallLinks, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(salesCalls).leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId))).leftJoin(leads, and(eq(crmCallLinks.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(salesCalls.userId, accountId), gte(salesCalls.scheduledAt, from), lte(salesCalls.scheduledAt, to))),
     db.select({ sale: sales, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(sales).leftJoin(leads, and(eq(sales.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(sales.userId, accountId), gte(sales.saleDate, fromDate), lte(sales.saleDate, toDate))),
   ]);
-  if (filters.setterId && !setter[0]) return { events: [], calls: [], sales: [] };
+  if (filters.setterId && !setter[0]) return { events: [], stageChanges: [], calls: [], sales: [] };
   const setterUserId = setter[0]?.userId;
   const matchesLead = (lead: { platform: "instagram" | "linkedin" | null; offerId: string | null; source: string; setterId: string | null } | null, includeCurrentSetter = true) => {
     if (!lead) return false;
@@ -1503,7 +1514,26 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
     const responsibleSetterId = event.metadata.responsibleSetterId;
     return event.actorUserId === setterUserId || responsibleSetterId === filters.setterId;
   }).map(({ event }) => ({ leadId: event.leadId, type: event.type, actorUserId: event.actorUserId, source: event.source, occurredAt: event.occurredAt, capturedAt: event.capturedAt, createdAt: event.createdAt, metadata: event.metadata }));
+  const stageRowsAtEnd = stageRows.filter(({ history }) => history.changedAt <= to);
+  const allHistoryLeadIds = new Set(stageRows.map(({ history }) => history.leadId));
+  const candidateStageLeadIds = new Set(
+    stageRowsAtEnd
+      .filter(({ history, lead }) => {
+        if (!matchesLead(lead, false)) return false;
+        if (!filters.setterId) return true;
+        return lead.setterId === filters.setterId || history.actorUserId === setterUserId || history.responsibleSetterId === filters.setterId;
+      })
+      .map(({ history }) => history.leadId),
+  );
+  const stageChanges: CrmKpiStageChange[] = stageRowsAtEnd
+    .filter(({ history, lead }) => matchesLead(lead, false) && (!filters.setterId || candidateStageLeadIds.has(history.leadId)))
+    .map(({ history }) => ({ leadId: history.leadId, fromStage: history.fromStage, toStage: history.toStage, actorUserId: history.actorUserId, responsibleSetterId: history.responsibleSetterId, occurredAt: history.changedAt }));
+  for (const { lead } of leadRows) {
+    if (lead.createdAt > to || allHistoryLeadIds.has(lead.id) || !matchesLead(lead, false)) continue;
+    if (filters.setterId && lead.setterId !== filters.setterId) continue;
+    stageChanges.push({ leadId: lead.id, fromStage: null, toStage: lead.crmStage, actorUserId: null, responsibleSetterId: lead.setterId, occurredAt: lead.createdAt });
+  }
   const calls = callRows.filter(({ link, lead }) => Boolean(link?.leadId) && matchesLead(lead)).map(({ link, call }) => ({ leadId: link?.leadId ?? null, scheduledAt: call.scheduledAt, attendance: call.attendance }));
   const linkedSales = saleRows.filter(({ sale, lead }) => Boolean(sale.leadId) && matchesLead(lead)).map(({ sale }) => ({ leadId: sale.leadId, saleDate: sale.saleDate, totalPrice: sale.totalPrice }));
-  return { events, calls, sales: linkedSales };
+  return { events, stageChanges, calls, sales: linkedSales };
 }

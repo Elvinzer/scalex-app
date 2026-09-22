@@ -13,7 +13,7 @@ import { CRM_EVENT_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } fr
 import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
 
-import { addNoteAction, changeStageAction, deleteLeadAction, markContactedAction, markResponseAction, reopenLeadAction, reassignLeadAction, saveQualificationAction, setOutcomeAction, updateLeadFieldsAction } from "./crm-actions";
+import { addNoteAction, changeStageAction, deleteLeadAction, reopenLeadAction, reassignLeadAction, saveQualificationAction, setOutcomeAction, updateLeadFieldsAction } from "./crm-actions";
 import { CrmActionForm } from "./crm-action-form";
 import { CrmBookingActions } from "./crm-booking-actions";
 import { CrmLossDialog } from "./crm-loss-dialog";
@@ -73,8 +73,6 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
   const [qualificationIdempotencyKey, setQualificationIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [fieldsIdempotencyKey, setFieldsIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [stageIdempotencyKey, setStageIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
-  const [contactIdempotencyKey, setContactIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
-  const [responseIdempotencyKey, setResponseIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [outcomeIdempotencyKey, setOutcomeIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [reopenIdempotencyKey, setReopenIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [responsibilityIdempotencyKey, setResponsibilityIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
@@ -187,14 +185,6 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
     });
   }
 
-  function markContacted() {
-    mutate(() => markContactedAction({ leadId: lead.id, idempotencyKey: contactIdempotencyKey }), (current) => ({ ...current, contactState: "contacted", messageOccurredAt: current.messageOccurredAt ?? new Date().toISOString() }), () => setContactIdempotencyKey(globalThis.crypto.randomUUID()));
-  }
-
-  function markResponded() {
-    mutate(() => markResponseAction({ leadId: lead.id, idempotencyKey: responseIdempotencyKey }), (current) => ({ ...current, respondedAt: current.respondedAt ?? new Date().toISOString() }), () => setResponseIdempotencyKey(globalThis.crypto.randomUUID()));
-  }
-
   function saveQualification() {
     setQualificationMessage(null);
     startTransition(async () => {
@@ -286,12 +276,6 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextCall")}</p>{lead.nextCall ? <><p className="mt-1 break-words font-bold">{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: lead.nextCall.timeZone ?? undefined }).format(new Date(lead.nextCall.scheduledAt))}</p><p className="mt-1 break-words text-xs text-muted-foreground">{lead.nextCall.timeZone ?? t("detail.localTime")} · {lead.nextCall.closer ?? t("detail.unassigned")} · {callOutcomeLabel(lead.nextCall.outcome)}</p></> : <p className="mt-1 break-words font-bold">{t("detail.noNextCall")}</p>}</div>
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextAction")}</p><p className="mt-1 break-words font-bold">{lead.nextAction?.title ?? t("leads.noNextAction")}</p></div>
         </div>
-
-        {(lead.contactState === "new" || !lead.respondedAt) && <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5" role="group" aria-label={t("detail.quickActions")}>
-          <span className="text-sm font-bold text-muted-foreground">{t("detail.quickActions")}</span>
-          {lead.contactState === "new" && <Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={markContacted}>{t("detail.messageSent")}</Button>}
-          {!lead.respondedAt && <Button type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={markResponded}>{t("detail.markResponded")}</Button>}
-        </div>}
 
         <CrmBookingActions lead={lead} onBooked={handleBooked} />
 

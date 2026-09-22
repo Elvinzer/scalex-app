@@ -423,7 +423,7 @@
   },
   "kpis": {
     "messages": "Messages sent",
-    "responses": "Responses",
+    "responses": "First-message replies",
     "qualificationNotes": "Qualifications added",
     "conversations": "Conversations",
     "valueContent": "Value content",
@@ -451,7 +451,7 @@
     "scope": "{view} from {from} to {to} (UTC)",
     "ratesTitle": "Funnel rates",
     "cohort": "First-message cohort: {count} unique leads",
-    "rateResponse": "Conversation rate",
+    "rateResponse": "First-message reply rate",
     "rateQualification": "Qualification rate",
     "rateValueContent": "Value-content rate",
     "rateCallProposed": "Call proposal rate",
@@ -460,7 +460,38 @@
     "rateNoShow": "No-show rate",
     "rateClosing": "Closing rate",
     "notMeasured": "Not measured",
-    "reset": "Reset filters"
+    "reset": "Reset filters",
+    "periodPicker": {
+      "title": "Choose a period",
+      "open": "Choose the KPI period",
+      "presetsTitle": "Date ranges",
+      "calendarTitle": "Custom range",
+      "today": "Today",
+      "last-30-days": "Last 30 days",
+      "current-month": "This month",
+      "previous-month": "Last month",
+      "all": "All time",
+      "custom": "Custom range",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "from": "From",
+      "to": "To",
+      "rangeTo": "to",
+      "chooseRange": "Choose a start and end date.",
+      "rangeRequired": "Choose a start and end date.",
+      "rangeOrder": "The start date must come before the end date.",
+      "cancel": "Cancel",
+      "apply": "Update",
+      "timezone": "Dates are shown in UTC.",
+      "presets": {
+        "today": "Today",
+        "last-30-days": "Last 30 days",
+        "current-month": "This month",
+        "previous-month": "Last month",
+        "all": "All time",
+        "custom": "Custom range"
+      }
+    }
   },
   "sources": {
     "instagram": "Instagram",

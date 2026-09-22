@@ -423,7 +423,7 @@
   },
   "kpis": {
     "messages": "Messages envoyés",
-    "responses": "Réponses",
+    "responses": "Réponses 1er message",
     "qualificationNotes": "Qualifications renseignées",
     "conversations": "Conversations",
     "valueContent": "Contenus de valeur",
@@ -451,7 +451,7 @@
     "scope": "{view} du {from} au {to} (UTC)",
     "ratesTitle": "Taux du funnel",
     "cohort": "Cohorte des premiers messages : {count} lead(s) uniques",
-    "rateResponse": "Taux de conversation",
+    "rateResponse": "Taux de réponse au 1er message",
     "rateQualification": "Taux de qualification",
     "rateValueContent": "Taux de contenu de valeur",
     "rateCallProposed": "Taux de proposition d'appel",
@@ -460,7 +460,38 @@
     "rateNoShow": "Taux de no-show",
     "rateClosing": "Taux de closing",
     "notMeasured": "Non mesuré",
-    "reset": "Réinitialiser les filtres"
+    "reset": "Réinitialiser les filtres",
+    "periodPicker": {
+      "title": "Choisir une période",
+      "open": "Choisir la période des KPI",
+      "presetsTitle": "Périodes",
+      "calendarTitle": "Période personnalisée",
+      "today": "Aujourd'hui",
+      "last-30-days": "30 derniers jours",
+      "current-month": "Ce mois-ci",
+      "previous-month": "Dernier mois",
+      "all": "Maximum",
+      "custom": "Personnalisée",
+      "previousMonth": "Mois précédent",
+      "nextMonth": "Mois suivant",
+      "from": "Du",
+      "to": "Au",
+      "rangeTo": "au",
+      "chooseRange": "Sélectionne une date de début et une date de fin.",
+      "rangeRequired": "Sélectionne une date de début et une date de fin.",
+      "rangeOrder": "La date de début doit précéder la date de fin.",
+      "cancel": "Annuler",
+      "apply": "Mettre à jour",
+      "timezone": "Les dates sont affichées en UTC.",
+      "presets": {
+        "today": "Aujourd'hui",
+        "last-30-days": "30 derniers jours",
+        "current-month": "Ce mois-ci",
+        "previous-month": "Dernier mois",
+        "all": "Maximum",
+        "custom": "Personnalisée"
+      }
+    }
   },
   "sources": {
     "instagram": "Instagram",

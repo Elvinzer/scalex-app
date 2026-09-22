@@ -11,6 +11,15 @@ export type CrmKpiEvent = {
   metadata?: CrmEventMetadata;
 };
 
+export type CrmKpiStageChange = {
+  leadId: string;
+  fromStage: CrmLeadStage | null;
+  toStage: CrmLeadStage;
+  actorUserId?: string | null;
+  responsibleSetterId?: string | null;
+  occurredAt: Date;
+};
+
 export type CrmKpiCall = {
   leadId: string | null;
   scheduledAt: Date;
@@ -90,6 +99,7 @@ function addCohortMilestone(map: Map<string, Set<string>>, milestone: string, le
 
 export function computeCrmKpis(input: {
   events: CrmKpiEvent[];
+  stageChanges?: CrmKpiStageChange[];
   calls: CrmKpiCall[];
   sales: CrmKpiSale[];
   period: CrmKpiPeriod;
@@ -107,33 +117,71 @@ export function computeCrmKpis(input: {
   const cohortMilestones = new Map<string, Set<string>>();
   const soldLeadIds = new Set<string>();
   const noShowEventLeadIds = new Set<string>();
+  const stageChanges = input.stageChanges ?? [];
+  const hasStageHistory = stageChanges.length > 0;
+  const stageAtPeriodEnd = new Map<string, CrmLeadStage>();
+  const responseLeadIds = new Set<string>();
   let hasPeriodData = false;
   let revenue = 0;
+
+  if (hasStageHistory) {
+    const orderedStageChanges = [...stageChanges].sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
+    for (const change of orderedStageChanges) {
+      if (change.occurredAt > input.period.to) continue;
+      stageAtPeriodEnd.set(change.leadId, change.toStage);
+      if (change.fromStage === null && change.toStage === "first_message_sent" && inPeriod(change.occurredAt, input.period)) {
+        const current = firstMessageDates.get(change.leadId);
+        if (!current || change.occurredAt < current) firstMessageDates.set(change.leadId, change.occurredAt);
+      }
+      if (change.fromStage === "first_message_sent" && change.toStage === "conversation_in_progress" && inPeriod(change.occurredAt, input.period)) {
+        responseLeadIds.add(change.leadId);
+      }
+    }
+    hasPeriodData = stageAtPeriodEnd.size > 0;
+    for (const [leadId, stage] of stageAtPeriodEnd) {
+      const bucket = stageBucket(stage);
+      if (bucket) buckets[bucket].add(leadId);
+    }
+    for (const leadId of responseLeadIds) buckets.responses.add(leadId);
+  }
 
   for (const event of input.events) {
     const date = eventDate(event);
     const isInPeriod = inPeriod(date, input.period);
     if (isInPeriod) hasPeriodData = true;
-    if (event.type === "first_message_sent" && isInPeriod) {
+    if (!hasStageHistory && event.type === "first_message_sent" && isInPeriod) {
       const current = firstMessageDates.get(event.leadId);
       if (!current || date < current) firstMessageDates.set(event.leadId, date);
     }
     if (event.type === "sale_validated" && isInPeriod) soldLeadIds.add(event.leadId);
     if (event.type === "qualification_updated" && isInPeriod) qualificationLeadIds.add(event.leadId);
     if (event.type === "no_show_marked" && isInPeriod) noShowEventLeadIds.add(event.leadId);
-    const bucket = EVENT_KPI[event.type];
-    if (bucket && isInPeriod) buckets[bucket].add(event.leadId);
+    if (!hasStageHistory) {
+      const bucket = EVENT_KPI[event.type];
+      if (bucket && isInPeriod) buckets[bucket].add(event.leadId);
+    }
   }
 
-  for (const event of input.events) {
-    const firstMessageAt = firstMessageDates.get(event.leadId);
-    if (!firstMessageAt) continue;
-    const date = eventDate(event);
-    if (date < firstMessageAt || date > input.period.to) continue;
-    if (event.type === COHORT_MILESTONES.conversation) addCohortMilestone(cohortMilestones, "conversation", event.leadId);
-    if (event.type === COHORT_MILESTONES.valueContent) addCohortMilestone(cohortMilestones, "valueContent", event.leadId);
-    if (event.type === COHORT_MILESTONES.callProposed) addCohortMilestone(cohortMilestones, "callProposed", event.leadId);
-    if (event.type === COHORT_MILESTONES.callBooked) addCohortMilestone(cohortMilestones, "callBooked", event.leadId);
+  if (hasStageHistory) {
+    for (const change of stageChanges) {
+      const firstMessageAt = firstMessageDates.get(change.leadId);
+      if (!firstMessageAt || change.occurredAt < firstMessageAt || change.occurredAt > input.period.to) continue;
+      if (change.toStage === "conversation_in_progress") addCohortMilestone(cohortMilestones, "conversation", change.leadId);
+      if (change.toStage === "value_content_sent") addCohortMilestone(cohortMilestones, "valueContent", change.leadId);
+      if (change.toStage === "call_proposed") addCohortMilestone(cohortMilestones, "callProposed", change.leadId);
+      if (change.toStage === "call_booked") addCohortMilestone(cohortMilestones, "callBooked", change.leadId);
+    }
+  } else {
+    for (const event of input.events) {
+      const firstMessageAt = firstMessageDates.get(event.leadId);
+      if (!firstMessageAt) continue;
+      const date = eventDate(event);
+      if (date < firstMessageAt || date > input.period.to) continue;
+      if (event.type === COHORT_MILESTONES.conversation) addCohortMilestone(cohortMilestones, "conversation", event.leadId);
+      if (event.type === COHORT_MILESTONES.valueContent) addCohortMilestone(cohortMilestones, "valueContent", event.leadId);
+      if (event.type === COHORT_MILESTONES.callProposed) addCohortMilestone(cohortMilestones, "callProposed", event.leadId);
+      if (event.type === COHORT_MILESTONES.callBooked) addCohortMilestone(cohortMilestones, "callBooked", event.leadId);
+    }
   }
 
   let callsAttended = 0;
@@ -172,7 +220,7 @@ export function computeCrmKpis(input: {
   for (const leadId of soldLeadIds) if (firstMessageDates.has(leadId)) cohortConverted.add(leadId);
 
   return {
-    messages: buckets.messages.size,
+    messages: hasStageHistory ? firstMessageDates.size : buckets.messages.size,
     responses: buckets.responses.size,
     qualificationNotes: qualificationLeadIds.size,
     conversations: buckets.conversations.size,
@@ -201,6 +249,14 @@ export function computeCrmKpis(input: {
     },
     incomplete: !hasPeriodData,
   };
+}
+
+function stageBucket(stage: CrmLeadStage): keyof Pick<CrmKpiCounts, "conversations" | "valueContent" | "callsProposed" | "callsBooked"> | null {
+  if (stage === "conversation_in_progress") return "conversations";
+  if (stage === "value_content_sent") return "valueContent";
+  if (stage === "call_proposed") return "callsProposed";
+  if (stage === "call_booked") return "callsBooked";
+  return null;
 }
 
 export function currentCrmPeriod(now = new Date()): CrmKpiPeriod {

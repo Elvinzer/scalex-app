@@ -85,6 +85,32 @@ describe("CRM KPI projection", () => {
     expect(counts.rates.valueContent).toBe(1);
   });
 
+  it("uses first-column creation, first-message replies and the current pipeline state", () => {
+    const counts = computeCrmKpis({
+      period,
+      stageChanges: [
+        { leadId: "lead-1", fromStage: null, toStage: "first_message_sent", occurredAt: new Date("2026-09-01T09:00:00Z") },
+        { leadId: "lead-1", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-09-05T09:00:00Z") },
+        { leadId: "lead-2", fromStage: null, toStage: "first_message_sent", occurredAt: new Date("2026-09-02T09:00:00Z") },
+        { leadId: "lead-2", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-09-06T09:00:00Z") },
+        { leadId: "lead-2", fromStage: "conversation_in_progress", toStage: "first_message_sent", occurredAt: new Date("2026-09-07T09:00:00Z") },
+        { leadId: "lead-3", fromStage: null, toStage: "first_message_sent", occurredAt: new Date("2026-08-20T09:00:00Z") },
+        { leadId: "lead-3", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-08-21T09:00:00Z") },
+        { leadId: "lead-3", fromStage: "conversation_in_progress", toStage: "value_content_sent", occurredAt: new Date("2026-09-10T09:00:00Z") },
+      ],
+      events: [],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(2);
+    expect(counts.responses).toBe(2);
+    expect(counts.conversations).toBe(1);
+    expect(counts.valueContent).toBe(1);
+    expect(counts.cohortFirstMessages).toBe(2);
+    expect(counts.cohortConversations).toBe(2);
+  });
+
   it("returns null for rates with no denominator", () => {
     const counts = computeCrmKpis({ period, events: [], calls: [], sales: [] });
 
