@@ -58,6 +58,7 @@ import { getCalendarStatesForClosers } from "@/lib/native-booking/settings";
 import { generateBookingSlots } from "@/lib/native-booking/slots";
 import type { NativeBookingAnswerValue } from "@/lib/native-booking/questions";
 import type { PublicBookingRequest } from "@/lib/native-booking/validation";
+import { getOrCreateSetterForActor } from "@/lib/setters/queries";
 
 const callSetters = alias(setters, "crm_call_setter");
 const leadSetters = alias(setters, "crm_lead_setter");
@@ -342,11 +343,6 @@ export async function getCrmSetterForActor(accountId: string, actorUserId: strin
   return setter ?? null;
 }
 
-async function defaultSetterForActor(accountId: string, actorUserId: string): Promise<string | null> {
-  const setter = await getCrmSetterForActor(accountId, actorUserId);
-  return setter?.id ?? null;
-}
-
 export async function getCrmSetters(accountId: string): Promise<Array<{ id: string; userId: string; name: string; active: boolean }>> {
   return db
     .select({ id: setters.id, userId: setters.userId, name: setters.name, active: setters.active })
@@ -483,10 +479,7 @@ export type CreateCrmLeadInput = {
 export async function createCrmLead(accountId: string, input: CreateCrmLeadInput): Promise<{ lead: CrmLeadListItem; created: boolean }> {
   const setter = input.responsibleSetterId
     ? await getSetterForAccount(accountId, input.responsibleSetterId)
-    : await (async () => {
-        const setterId = await defaultSetterForActor(accountId, input.actorUserId);
-        return setterId ? getSetterForAccount(accountId, setterId) : null;
-      })();
+    : await getOrCreateSetterForActor(accountId, input.actorUserId);
   if (input.responsibleSetterId && !setter) throw new Error("Le responsable n'appartient pas à ce compte.");
   const setterId = setter?.id ?? null;
   const capturedAt = new Date(input.profile.capturedAt);

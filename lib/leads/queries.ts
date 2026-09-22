@@ -3,6 +3,7 @@ import { cache } from "react";
 
 import { db } from "@/db";
 import { leadComments, leadStageHistory, leads } from "@/db/schema";
+import { getOrCreateSetterForActor } from "@/lib/setters/queries";
 
 import type { LeadInput } from "./schema";
 import type { LeadCommentRow, LeadLostReason, LeadRow, LeadStage, LeadStageHistoryRow, LeadWithRelations } from "./types";
@@ -129,9 +130,11 @@ export async function getLead(userId: string, id: string): Promise<LeadWithRelat
 
 // Insert + its first history row (fromStage: null) in one transaction, so
 // a lead never exists without at least one history entry.
-export async function createLead(userId: string, data: LeadInput): Promise<LeadRow> {
+export async function createLead(accountId: string, actorUserId: string, data: LeadInput): Promise<LeadRow> {
+  const defaultSetter = data.setterId ? null : await getOrCreateSetterForActor(accountId, actorUserId);
+  const setterId = data.setterId ?? defaultSetter?.id ?? null;
   return db.transaction(async (tx) => {
-    const [row] = await tx.insert(leads).values({ userId, accountId: userId, ...data }).returning();
+    const [row] = await tx.insert(leads).values({ userId: accountId, accountId, ...data, setterId }).returning();
     await tx.insert(leadStageHistory).values({ leadId: row.id, fromStage: null, toStage: row.stage });
     return toRow(row);
   });

@@ -43,7 +43,7 @@ export async function createLeadAction(data: unknown): Promise<{ error: string |
   const parsed = leadInputSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
 
-  const lead = await createLead(access.accountId, parsed.data);
+  const lead = await createLead(access.accountId, userId, parsed.data);
   after(() => track("lead_created", userId, { source: lead.source }));
   revalidatePath("/ventes/pipeline");
   revalidateBusinessData(access.accountId);

@@ -1,8 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { setters } from "@/db/schema";
+import { setters, users } from "@/db/schema";
 import type { Offer } from "@/lib/business/types";
 import { summarize } from "@/lib/sales/installments";
 import { getSales } from "@/lib/sales/queries";
@@ -26,6 +26,33 @@ export const getSetters = cache(async (userId: string): Promise<SetterRow[]> => 
   const rows = await db.select().from(setters).where(eq(setters.userId, userId)).orderBy(setters.name);
   return rows.map(toRow);
 });
+
+// A lead created by a team member must still have a setter even when the
+// account owner has not created that setter manually yet. Reuse an existing
+// row by email, otherwise create the account-scoped setter from the actor's
+// user record.
+export async function getOrCreateSetterForActor(accountId: string, actorUserId: string): Promise<typeof setters.$inferSelect | null> {
+  const [actor] = await db
+    .select({ email: users.email, displayName: users.displayName })
+    .from(users)
+    .where(eq(users.id, actorUserId))
+    .limit(1);
+  if (!actor) return null;
+
+  const normalizedEmail = actor.email.trim().toLowerCase();
+  const [existing] = await db
+    .select()
+    .from(setters)
+    .where(and(eq(setters.userId, accountId), sql`lower(trim(${setters.email})) = ${normalizedEmail}`))
+    .limit(1);
+  if (existing) return existing;
+
+  const [created] = await db
+    .insert(setters)
+    .values({ userId: accountId, name: actor.displayName?.trim() || actor.email, email: actor.email, active: true })
+    .returning();
+  return created ?? null;
+}
 
 // For the /ventes/setters/[setterId] detail page — null both when the
 // id doesn't exist and when it belongs to another account (same
