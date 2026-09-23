@@ -14,9 +14,11 @@ export function InfoPopover({ text, ariaLabel = "En savoir plus" }: { text: stri
         <button
           type="button"
           aria-label={ariaLabel}
-          className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground hover:text-signal"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-signal focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
         >
-          <Info className="size-3.5" />
+          <Info className="size-3.5" aria-hidden="true" />
         </button>
       </PopoverTrigger>
       <PopoverContent>

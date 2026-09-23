@@ -3,7 +3,7 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown, ExternalLink, Info, MonitorPlay, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
@@ -94,10 +94,17 @@ const SIGNAL_TEXT_CLASS: Record<YoutubeTableSignal, string> = {
 };
 
 const DIAGNOSTIC_TONE_CLASS: Record<YoutubeTableDiagnostic["tone"], string> = {
-  healthy: "border-state-healthy/30 bg-state-healthy/10 text-state-healthy",
-  caution: "border-state-caution/30 bg-state-caution/10 text-state-caution",
-  critical: "border-state-critical/30 bg-state-critical/10 text-state-critical",
-  unknown: "border-state-unknown/30 bg-muted text-muted-foreground",
+  healthy: "text-state-healthy",
+  caution: "text-state-caution",
+  critical: "text-state-critical",
+  unknown: "text-muted-foreground",
+};
+
+const DIAGNOSTIC_DOT_CLASS: Record<YoutubeTableDiagnostic["tone"], string> = {
+  healthy: "bg-state-healthy",
+  caution: "bg-state-caution",
+  critical: "bg-state-critical",
+  unknown: "bg-state-unknown",
 };
 
 const DIAGNOSTIC_LEVEL_CLASS: Record<YoutubeDiagnosticLevel, string> = {
@@ -182,16 +189,20 @@ function comparisonDetail(
 function SignalStatus({
   status,
   comparison,
+  compact = false,
+  showComparison = true,
   t,
 }: {
   status: YoutubeTableSignal;
   comparison: VideoPerformanceComparison | null;
+  compact?: boolean;
+  showComparison?: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-0.5 text-xs font-bold", SIGNAL_TEXT_CLASS[status])}>
-      {t(`signal.${status}`)}
-      {comparison && <InfoPopover text={comparisonDetail(t, comparison)} ariaLabel={t("comparisonDetails")} />}
+    <span className={cn("inline-flex max-w-full items-center gap-0.5 text-xs font-bold leading-tight", SIGNAL_TEXT_CLASS[status])}>
+      {t(`${compact ? "signalShort" : "signal"}.${status}`)}
+      {showComparison && comparison && <InfoPopover text={comparisonDetail(t, comparison)} ariaLabel={t("comparisonDetails")} />}
     </span>
   );
 }
@@ -203,6 +214,8 @@ function MetricBlock({
   status,
   comparison,
   help,
+  compact = false,
+  showNeutralStatus = false,
   t,
 }: {
   label: string;
@@ -211,17 +224,19 @@ function MetricBlock({
   status?: YoutubeTableSignal;
   comparison?: VideoPerformanceComparison | null;
   help?: string;
+  compact?: boolean;
+  showNeutralStatus?: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+      {!compact && <div className="flex items-center gap-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
         <span>{label}</span>
         {help && <InfoPopover text={help} ariaLabel={t("metricHelp")} />}
-      </div>
+      </div>}
       <p className="mt-1 font-display text-base font-bold leading-tight tabular-nums">{value}</p>
       {secondary && <p className="mt-0.5 text-xs text-muted-foreground">{secondary}</p>}
-      {status && <SignalStatus status={status} comparison={comparison ?? null} t={t} />}
+      {status && (showNeutralStatus || status !== "neutral") && <SignalStatus status={status} comparison={comparison ?? null} compact={compact} showComparison={!compact} t={t} />}
     </div>
   );
 }
@@ -257,7 +272,9 @@ function DiagnosticDetails({
         <button
           type="button"
           aria-label={t("diagnosticDetails")}
-          className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
         >
           <Info className="size-3.5" aria-hidden="true" />
         </button>
@@ -322,8 +339,9 @@ function DiagnosticSummary({
     revenueEur,
   });
   return (
-    <div className={cn("inline-flex max-w-[15rem] items-center gap-1 rounded-[var(--radius-control)] border px-2 py-1", DIAGNOSTIC_TONE_CLASS[summary.tone])} role="group" aria-label={t("diagnosisLabel")}>
-      <span className="text-xs font-bold leading-tight">{t(`diagnosis.${summary.key}`)}</span>
+    <div className="flex min-w-0 items-start gap-1" role="group" aria-label={t("diagnosisLabel")}>
+      <span className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", DIAGNOSTIC_DOT_CLASS[summary.tone])} aria-hidden="true" />
+      <span className={cn("min-w-0 text-xs font-bold leading-tight", DIAGNOSTIC_TONE_CLASS[summary.tone])}>{t(`diagnosis.${summary.key}`)}</span>
       <DiagnosticDetails diagnostics={diagnostics} hook={hook} t={t} />
     </div>
   );
@@ -560,6 +578,12 @@ export function YoutubeVideosTable({
     router.push(`/acquisition/contenu/youtube/videos/${encodeURIComponent(videoId)}`);
   }
 
+  function handleRowClick(event: MouseEvent<HTMLTableRowElement>, videoId: string) {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest("button, a")) return;
+    goToVideo(videoId);
+  }
+
   function handleRowKeyDown(event: KeyboardEvent<HTMLElement>, videoId: string) {
     if (event.target !== event.currentTarget) return;
     if (event.key === "Enter" || event.key === " ") {
@@ -659,7 +683,9 @@ export function YoutubeVideosTable({
     return "—";
   }
 
-  function renderPrimaryColumn(video: YoutubeVideoInsightRow, column: PrimaryColumnKey, showHelp = false): ReactNode {
+  function renderPrimaryColumn(video: YoutubeVideoInsightRow, column: PrimaryColumnKey, mode: "desktop" | "mobile" = "desktop"): ReactNode {
+    const compact = mode === "desktop";
+    const showHelp = mode === "mobile";
     const analysis = analysisFor(video);
     const retentionComparison = analysis.comparisons.retention ?? analysis.comparisons.retention30;
     const retentionAverage = formatPercent(video.averageViewPercentage, locale);
@@ -685,22 +711,22 @@ export function YoutubeVideosTable({
       : undefined;
 
     if (column === "performance") {
-      return <MetricBlock label={t("column.performance")} value={video.views === null ? "—" : `${formatNumber(video.views, locale)} ${t("viewsShort")}`} status={analysis.performanceStatus} comparison={analysis.comparisons.views} t={t} />;
+      return <MetricBlock label={t("column.performance")} value={video.views === null ? "—" : `${formatNumber(video.views, locale)} ${t("viewsShort")}`} status={analysis.performanceStatus} comparison={analysis.comparisons.views} compact={compact} t={t} />;
     }
     if (column === "diffusion") {
-      return <MetricBlock label={t("column.diffusion")} value={video.impressions === null ? "—" : `${formatNumber(video.impressions, locale)} ${t("impressionsShort")}`} status={analysis.diffusionStatus} comparison={analysis.comparisons.impressions} help={showHelp ? t("diffusionHelp") : undefined} t={t} />;
+      return <MetricBlock label={t("column.diffusion")} value={video.impressions === null ? "—" : `${formatNumber(video.impressions, locale)} ${t("impressionsShort")}`} status={analysis.diffusionStatus} comparison={analysis.comparisons.impressions} help={showHelp ? t("diffusionHelp") : undefined} compact={compact} t={t} />;
     }
     if (column === "click") {
-      return <MetricBlock label={t("column.click")} value={formatPercent(video.impressionsClickThroughRate, locale)} status={analysis.clickStatus} comparison={analysis.comparisons.ctr} help={showHelp ? t("clickHelp") : undefined} t={t} />;
+      return <MetricBlock label={t("column.click")} value={formatPercent(video.impressionsClickThroughRate, locale)} status={analysis.clickStatus} comparison={analysis.comparisons.ctr} help={showHelp ? t("clickHelp") : undefined} compact={compact} t={t} />;
     }
     if (column === "retention") {
-      return <MetricBlock label={t("column.retention")} value={retentionValue} secondary={retentionSecondary} status={analysis.retentionStatus} comparison={retentionComparison} help={showHelp ? t("retentionHelp") : undefined} t={t} />;
+      return <MetricBlock label={t("column.retention")} value={retentionValue} secondary={retentionSecondary} status={analysis.retentionStatus} comparison={retentionComparison} help={showHelp ? t("retentionHelp") : undefined} compact={compact} t={t} />;
     }
     if (column === "growth") {
-      return <MetricBlock label={t("column.growth")} value={growthValue} secondary={growthSecondary} status={analysis.growthStatus} comparison={analysis.comparisons.subsPer1000} help={showHelp ? t("growthHelp") : undefined} t={t} />;
+      return <MetricBlock label={t("column.growth")} value={growthValue} secondary={growthSecondary} status={analysis.growthStatus} comparison={analysis.comparisons.subsPer1000} help={showHelp ? t("growthHelp") : undefined} compact={compact} t={t} />;
     }
     if (column === "business") {
-      return <MetricBlock label={t("column.business")} value={businessValue} secondary={businessSecondary} help={showHelp ? t("businessHelp") : undefined} t={t} />;
+      return <MetricBlock label={t("column.business")} value={businessValue} secondary={businessSecondary} help={showHelp ? t("businessHelp") : undefined} compact={compact} t={t} />;
     }
     return (
       <DiagnosticSummary
@@ -770,7 +796,7 @@ export function YoutubeVideosTable({
                         tabIndex={0}
                         role="link"
                         aria-label={`${t("viewDetails")}: ${video.title}`}
-                        onClick={() => goToVideo(video.videoId)}
+                        onClick={(event) => handleRowClick(event, video.videoId)}
                         onKeyDown={(event) => handleRowKeyDown(event, video.videoId)}
                         className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
                       >
@@ -822,7 +848,7 @@ export function YoutubeVideosTable({
                     <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3">
                       {DEFAULT_COLUMNS.filter((column) => column !== "diagnosis").map((column) => (
                         <div key={column} className="min-w-0 rounded-[var(--radius-control)] bg-muted/40 p-2.5">
-                          {renderPrimaryColumn(video, column, true)}
+                          {renderPrimaryColumn(video, column, "mobile")}
                         </div>
                       ))}
                       <div className="col-span-2 min-w-0 rounded-[var(--radius-control)] bg-muted/40 p-2.5">

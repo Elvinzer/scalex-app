@@ -239,7 +239,7 @@
     "retentionAtThirtyShort": "{value} à 30 sec",
     "retentionAverageShort": "{value} en moyenne",
     "tableTitle": "Vidéos",
-    "tableSubtitle": "Comprends en un coup d’œil ce qui fonctionne et ce qui mérite ton attention.",
+    "tableSubtitle": "Comprends en un coup d’œil ce qui fonctionne et ce qui mérite ton attention. Les statuts sont comparés à ton niveau habituel.",
     "freshness": "Mis à jour il y a {hours} h",
     "viewDetails": "Voir le détail",
     "viewOnYoutube": "Voir sur YouTube",
@@ -291,6 +291,13 @@
       "neutral": "Dans l'habitude",
       "weak": "En dessous de l'habitude",
       "unavailable": "Donnée indisponible"
+    },
+    "signalShort": {
+      "strong": "Très au-dessus",
+      "good": "Au-dessus",
+      "neutral": "Habituel",
+      "weak": "En dessous",
+      "unavailable": "Indisponible"
     },
     "diagnosis": {
       "veryGoodPerformance": "Très bonne performance",

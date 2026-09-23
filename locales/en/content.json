@@ -239,7 +239,7 @@
     "retentionAtThirtyShort": "{value} at 30 seconds",
     "retentionAverageShort": "{value} average",
     "tableTitle": "Videos",
-    "tableSubtitle": "See what works and what needs attention at a glance.",
+    "tableSubtitle": "See what works and what needs attention at a glance. Statuses use your usual baseline.",
     "freshness": "Updated {hours}h ago",
     "viewDetails": "View details",
     "viewOnYoutube": "View on YouTube",
@@ -291,6 +291,13 @@
       "neutral": "Within usual range",
       "weak": "Below usual",
       "unavailable": "Data unavailable"
+    },
+    "signalShort": {
+      "strong": "Well above",
+      "good": "Above",
+      "neutral": "Usual",
+      "weak": "Below",
+      "unavailable": "Unavailable"
     },
     "diagnosis": {
       "veryGoodPerformance": "Very strong performance",
