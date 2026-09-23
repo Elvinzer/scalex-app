@@ -109,28 +109,61 @@ export const INSTAGRAM_MEDIA_DETAIL_CONCURRENCY = 4;
 export const INSTAGRAM_MEDIA_DETAIL_THROTTLE_MS = 100;
 
 // Per-media-type metric list for GET /{media-id}/insights?metric=... — Meta
-// rejects a metric that doesn't apply to a given media_type, so the request
-// must branch on it rather than requesting one fixed list for everything.
-// "reach" is requested everywhere (primary/reliable); "impressions" is
-// opportunistic-only (see lib/instagram/client.ts's graceful per-metric
+// rejects a metric that doesn't apply to a given media product type, so the
+// request must branch on it rather than requesting one fixed list for
+// everything. "reach" is requested everywhere (primary/reliable);
+// "impressions" is opportunistic-only (see client.ts's graceful per-metric
 // degradation — a rejected metric must never fail the whole insights call).
+const INSTAGRAM_FEED_INSIGHTS_METRICS = [
+  "reach",
+  "impressions",
+  "saved",
+  "shares",
+  "profile_visits",
+  "follows",
+  "total_interactions",
+] as const;
+
+const INSTAGRAM_REELS_INSIGHTS_METRICS = [
+  "reach",
+  "saved",
+  "shares",
+  "total_interactions",
+  "views",
+  "ig_reels_avg_watch_time",
+  "ig_reels_video_view_total_time",
+] as const;
+
 export const INSTAGRAM_INSIGHTS_METRICS: Record<InstagramMediaType, readonly string[]> = {
-  IMAGE: ["reach", "impressions", "saved", "shares", "profile_visits", "follows", "total_interactions"],
-  CAROUSEL_ALBUM: ["reach", "impressions", "saved", "shares", "profile_visits", "follows", "total_interactions"],
-  VIDEO: [
-    "reach",
-    "impressions",
-    "saved",
-    "shares",
-    "profile_visits",
-    "follows",
-    "total_interactions",
-    "views",
-    "ig_reels_avg_watch_time",
-    "ig_reels_video_view_total_time",
-  ],
+  IMAGE: INSTAGRAM_FEED_INSIGHTS_METRICS,
+  CAROUSEL_ALBUM: INSTAGRAM_FEED_INSIGHTS_METRICS,
+  // Instagram Login exposes Reels as media_type=VIDEO. Feed videos still use
+  // the feed metric set when their /p/ permalink makes that surface clear.
+  VIDEO: INSTAGRAM_REELS_INSIGHTS_METRICS,
   STORY: ["reach", "impressions", "taps_forward", "taps_back", "exits", "replies"],
 } as const;
+
+export function instagramInsightsMetricsFor(
+  mediaType: InstagramMediaType,
+  permalink: string | null,
+): readonly string[] {
+  if (mediaType !== "VIDEO") return INSTAGRAM_INSIGHTS_METRICS[mediaType];
+
+  // media_product_type is only available with Meta's Facebook Login flow.
+  // The Instagram Login flow gives us the permalink, so use its URL surface
+  // to keep feed videos and Reels on the right metric set.
+  if (permalink) {
+    try {
+      const pathname = new URL(permalink).pathname;
+      if (/\/(?:reel|reels)(?:\/|$)/i.test(pathname)) return INSTAGRAM_REELS_INSIGHTS_METRICS;
+      if (/\/p(?:\/|$)/i.test(pathname)) return INSTAGRAM_FEED_INSIGHTS_METRICS;
+    } catch {
+      // Fall back to the Instagram Login default below for malformed URLs.
+    }
+  }
+
+  return INSTAGRAM_REELS_INSIGHTS_METRICS;
+}
 
 // Fields for GET /me/stories (client.ts's listStories) — no like_count/
 // comments_count/caption, Meta doesn't expose those on this edge.

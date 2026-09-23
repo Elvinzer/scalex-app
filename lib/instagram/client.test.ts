@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { listMedia } from "./client";
+import { fetchMediaInsights, listMedia } from "./client";
 
 describe("Instagram API client", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -77,5 +77,53 @@ describe("Instagram API client", () => {
     expect(media[0]?.captionFetched).toBe(true);
     expect(captionRequestUrl.pathname).toContain("/media-2");
     expect(captionRequestUrl.searchParams.get("fields")).toBe("caption");
+  });
+
+  it("does not request feed-only metrics for a Reel", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchMediaInsights(
+      "instagram-test-token",
+      "media-reel",
+      "VIDEO",
+      "https://www.instagram.com/reel/example",
+    );
+
+    const requestUrl = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    const metrics = requestUrl.searchParams.get("metric") ?? "";
+
+    expect(metrics).not.toContain("follows");
+    expect(metrics).not.toContain("profile_visits");
+    expect(metrics).not.toContain("impressions");
+    expect(metrics).toContain("views");
+  });
+
+  it("keeps feed-only metrics for a video published in the feed", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchMediaInsights(
+      "instagram-test-token",
+      "media-feed-video",
+      "VIDEO",
+      "https://www.instagram.com/p/example",
+    );
+
+    const requestUrl = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    const metrics = requestUrl.searchParams.get("metric") ?? "";
+
+    expect(metrics).toContain("follows");
+    expect(metrics).toContain("profile_visits");
   });
 });

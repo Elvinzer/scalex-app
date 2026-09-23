@@ -261,7 +261,6 @@ export function PostsTable({
               <tr className="border-b border-border">
                 <th className="p-3 text-left"><SortHeader label={t("table.date")} sortKeyValue="publishedAt" /></th>
                 <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("table.title")}</th>
-                <th className="p-3 text-left text-xs font-bold text-muted-foreground">{t("table.platform")}</th>
                 <th className="p-3 text-right"><SortHeader label={t("table.views")} sortKeyValue="views" /></th>
                 <th className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -321,12 +320,6 @@ export function PostsTable({
                           )}
                         </div>
                       </div>
-                    </td>
-                    <td className="p-3 text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        {post.source === "instagram" && <Camera className="size-3.5 shrink-0" aria-label={t("table.syncedInstagram")} />}
-                        {post.platform}
-                      </span>
                     </td>
                     <td className="p-3 text-right tabular-nums">{new Intl.NumberFormat(locale).format(post.views)}</td>
                     <td className="p-3 text-right">

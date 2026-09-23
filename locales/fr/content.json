@@ -136,7 +136,6 @@
     "noPostsPeriodHelp": "Choisis « Tout » pour voir l'historique complet.",
     "date": "Date",
     "title": "Titre",
-    "platform": "Plateforme",
     "views": "Vues",
     "interactionRate": "Taux d'interaction",
     "shares": "Partages",
@@ -145,12 +144,11 @@
     "interactionRateHelp": "Interactions divisées par la portée du post.",
     "sharesHelp": "Partages divisés par la portée du post.",
     "watchTimeHelp": "Temps de visionnage moyen par vue.",
-    "followersHelp": "Nouveaux abonnés générés par ce post. Instagram ne renvoie pas cette métrique pour tous les formats. « — » signifie que la donnée est indisponible, pas qu'elle vaut zéro.",
+    "followersHelp": "Meta renvoie cette donnée pour les posts du feed et les stories, mais pas pour les Reels. « — » signifie que la donnée est indisponible, pas qu'elle vaut zéro.",
     "above": "Au-dessus",
     "below": "En dessous",
     "average": "Dans la moyenne",
     "comparablePosts": "de tes {count} posts comparables",
-    "syncedInstagram": "Synchronisé depuis Instagram",
     "viewDetail": "Voir le détail"
   },
   "detail": {

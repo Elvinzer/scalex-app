@@ -1,7 +1,7 @@
 import {
   INSTAGRAM_CAROUSEL_CHILDREN_FIELDS,
   INSTAGRAM_GRAPH_API_BASE,
-  INSTAGRAM_INSIGHTS_METRICS,
+  instagramInsightsMetricsFor,
   INSTAGRAM_LONG_LIVED_TOKEN_URL,
   INSTAGRAM_MEDIA_DETAIL_CONCURRENCY,
   INSTAGRAM_MEDIA_DETAIL_FIELDS,
@@ -407,8 +407,13 @@ export type MediaInsights = Record<string, number>;
 // unsupported metric for this account/media combination is enough to fail
 // the whole call on Meta's side), retry each metric individually and keep
 // whichever succeed — never an all-or-nothing failure for one bad metric.
-export async function fetchMediaInsights(accessToken: string, mediaId: string, mediaType: InstagramMediaType): Promise<{ metrics: MediaInsights; raw: Record<string, unknown> }> {
-  const metricList = INSTAGRAM_INSIGHTS_METRICS[mediaType];
+export async function fetchMediaInsights(
+  accessToken: string,
+  mediaId: string,
+  mediaType: InstagramMediaType,
+  permalink: string | null = null,
+): Promise<{ metrics: MediaInsights; raw: Record<string, unknown> }> {
+  const metricList = instagramInsightsMetricsFor(mediaType, permalink);
   const full = await fetchInsightsOnce(accessToken, mediaId, metricList);
   if (full.ok) return { metrics: full.metrics, raw: full.raw };
 

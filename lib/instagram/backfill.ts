@@ -87,7 +87,7 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
       break;
     }
     try {
-      const { metrics, raw } = await fetchMediaInsights(accessToken, item.id, item.mediaType);
+      const { metrics, raw } = await fetchMediaInsights(accessToken, item.id, item.mediaType, item.permalink);
       // A failed media-level caption lookup must not replace a caption we
       // already stored with the dated fallback. A successful empty caption
       // remains authoritative and is allowed to use the fallback.
