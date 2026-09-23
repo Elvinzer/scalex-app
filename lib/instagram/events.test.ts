@@ -6,6 +6,7 @@ import type { RawInstagramMedia } from "./client";
 const media: RawInstagramMedia = {
   id: "media-1",
   caption: "Un titre utile\nLe reste de la légende",
+  captionFetched: true,
   mediaType: "VIDEO",
   permalink: "https://www.instagram.com/reel/example",
   timestamp: "2026-09-18T16:30:07.000Z",

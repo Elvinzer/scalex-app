@@ -96,10 +96,17 @@ export const INSTAGRAM_MEDIA_FIELDS =
   "id,caption,media_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url";
 
 // Kept as a compatibility fallback for accounts/API versions that reject the
-// caption field. The sync still imports the media and metrics in that case,
-// while the title uses the existing dated fallback.
+// full field list. The sync still imports the media and metrics in that case;
+// captions are recovered from each media object by the client.
 export const INSTAGRAM_MEDIA_FIELDS_WITHOUT_CAPTION =
   "id,media_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url";
+
+// A media-level caption request is the compatibility path when the media
+// collection rejects one of its requested fields. Keeping it separate means
+// one unsupported collection field cannot silently erase every post title.
+export const INSTAGRAM_MEDIA_DETAIL_FIELDS = "caption";
+export const INSTAGRAM_MEDIA_DETAIL_CONCURRENCY = 4;
+export const INSTAGRAM_MEDIA_DETAIL_THROTTLE_MS = 100;
 
 // Per-media-type metric list for GET /{media-id}/insights?metric=... — Meta
 // rejects a metric that doesn't apply to a given media_type, so the request

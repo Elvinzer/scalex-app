@@ -3,6 +3,9 @@ import {
   INSTAGRAM_GRAPH_API_BASE,
   INSTAGRAM_INSIGHTS_METRICS,
   INSTAGRAM_LONG_LIVED_TOKEN_URL,
+  INSTAGRAM_MEDIA_DETAIL_CONCURRENCY,
+  INSTAGRAM_MEDIA_DETAIL_FIELDS,
+  INSTAGRAM_MEDIA_DETAIL_THROTTLE_MS,
   INSTAGRAM_MEDIA_FIELDS,
   INSTAGRAM_MEDIA_FIELDS_WITHOUT_CAPTION,
   INSTAGRAM_MAX_BACKFILL_MEDIA,
@@ -187,6 +190,9 @@ export async function fetchProfile(accessToken: string): Promise<InstagramProfil
 export type RawInstagramMedia = {
   id: string;
   caption: string | null;
+  // False means the API did not return a caption field. Callers must not use
+  // that absence to erase a caption already stored for the same media.
+  captionFetched: boolean;
   mediaType: InstagramMediaType;
   permalink: string | null;
   timestamp: string; // ISO
@@ -235,6 +241,7 @@ function parseMediaItem(raw: unknown): RawInstagramMedia | null {
   return {
     id,
     caption: str(item.caption),
+    captionFetched: Object.prototype.hasOwnProperty.call(item, "caption"),
     mediaType,
     permalink: str(item.permalink),
     timestamp,
@@ -243,6 +250,46 @@ function parseMediaItem(raw: unknown): RawInstagramMedia | null {
     mediaUrl: str(item.media_url),
     thumbnailUrl: str(item.thumbnail_url),
   };
+}
+
+// Fetches the caption directly from an IG Media object. The collection edge
+// can reject an otherwise valid field list depending on the account/API
+// version, while the media object still exposes the caption. A failed detail
+// request is deliberately non-fatal so metrics continue syncing.
+export async function fetchMediaCaption(accessToken: string, mediaId: string): Promise<{ caption: string | null; fetched: boolean }> {
+  try {
+    const url = new URL(`${INSTAGRAM_GRAPH_API_BASE}/${encodeURIComponent(mediaId)}`);
+    url.searchParams.set("fields", INSTAGRAM_MEDIA_DETAIL_FIELDS);
+    url.searchParams.set("access_token", accessToken);
+    const { status, body } = await request(url);
+    if (status < 200 || status >= 300) return { caption: null, fetched: false };
+    const rec = asRecord(body);
+    if (!rec || !Object.prototype.hasOwnProperty.call(rec, "caption")) return { caption: null, fetched: false };
+    return { caption: str(rec.caption), fetched: true };
+  } catch {
+    return { caption: null, fetched: false };
+  }
+}
+
+async function hydrateMediaCaptions(accessToken: string, items: RawInstagramMedia[]): Promise<RawInstagramMedia[]> {
+  const hydrated: RawInstagramMedia[] = [];
+  for (let index = 0; index < items.length; index += INSTAGRAM_MEDIA_DETAIL_CONCURRENCY) {
+    const batch = items.slice(index, index + INSTAGRAM_MEDIA_DETAIL_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (item) => {
+        if (item.captionFetched) return item;
+        const result = await fetchMediaCaption(accessToken, item.id);
+        return {
+          ...item,
+          caption: result.fetched ? result.caption : item.caption,
+          captionFetched: result.fetched,
+        };
+      }),
+    );
+    hydrated.push(...results);
+    if (hydrated.length < items.length) await sleep(INSTAGRAM_MEDIA_DETAIL_THROTTLE_MS);
+  }
+  return hydrated;
 }
 
 // GET /me/media, paginated via the response's own paging.next cursor URL —
@@ -258,6 +305,7 @@ export async function listMedia(accessToken: string): Promise<RawInstagramMedia[
   url.searchParams.set("access_token", accessToken);
   url.searchParams.set("limit", "50");
   let retriedWithoutCaption = false;
+  let captionsNeedHydration = false;
 
   while (url && items.length < INSTAGRAM_MAX_BACKFILL_MEDIA) {
     const page = await fetchPageWithRetry(url);
@@ -268,6 +316,7 @@ export async function listMedia(accessToken: string): Promise<RawInstagramMedia[
           // versions. Preserve the sync if a legacy account rejects caption,
           // but use it whenever the edge accepts it so titles stay useful.
           retriedWithoutCaption = true;
+          captionsNeedHydration = true;
           url = new URL(INSTAGRAM_GRAPH_API_BASE + "/me/media");
           url.searchParams.set("fields", INSTAGRAM_MEDIA_FIELDS_WITHOUT_CAPTION);
           url.searchParams.set("access_token", accessToken);
@@ -281,12 +330,16 @@ export async function listMedia(accessToken: string): Promise<RawInstagramMedia[
     }
     for (const raw of page.data) {
       const parsed = parseMediaItem(raw);
-      if (parsed) items.push(parsed);
+      if (parsed) {
+        if (!parsed.captionFetched) captionsNeedHydration = true;
+        items.push(parsed);
+      }
     }
     url = page.next;
     if (page.data.length === 0) break;
   }
-  return items.slice(0, INSTAGRAM_MAX_BACKFILL_MEDIA);
+  const limitedItems = items.slice(0, INSTAGRAM_MAX_BACKFILL_MEDIA);
+  return captionsNeedHydration ? hydrateMediaCaptions(accessToken, limitedItems) : limitedItems;
 }
 
 // GET /me/stories — see protocol.ts's INSTAGRAM_STORY_MEDIA_FIELDS for the

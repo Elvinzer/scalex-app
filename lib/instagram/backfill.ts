@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { contentPosts, instagramPostInsights } from "@/db/schema";
@@ -13,9 +13,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function knownMediaIds(userId: string): Promise<Set<string>> {
-  const rows = await db.select({ mediaId: instagramPostInsights.mediaId }).from(instagramPostInsights).where(eq(instagramPostInsights.userId, userId));
-  return new Set(rows.map((row) => row.mediaId));
+async function knownMediaCaptions(userId: string): Promise<Map<string, string | null>> {
+  const rows = await db
+    .select({ mediaId: instagramPostInsights.mediaId, caption: instagramPostInsights.caption })
+    .from(instagramPostInsights)
+    .where(eq(instagramPostInsights.userId, userId));
+  return new Map(rows.map((row) => [row.mediaId, row.caption]));
 }
 
 // Core Instagram -> Minaly sync, shared by the Inngest connect-job and the
@@ -40,16 +43,31 @@ async function knownMediaIds(userId: string): Promise<Set<string>> {
 // disconnect+reconnect — every recurring cron run and every manual
 // "Rafraîchir" click would keep silently ignoring it forever, since both
 // only ever pass a recent `sinceDate`, never omit it.
+// Caption/title projection is refreshed for every already-known media even
+// when `sinceDate` excludes its insights. This repairs titles imported before
+// the caption compatibility path was added without paying for old metrics.
 export async function backfillInstagramPosts(userId: string, accessToken: string, sinceDate?: Date): Promise<BackfillResult> {
   // /me/media never returns Stories (a separate, ephemeral edge — see
   // client.ts's listStories) — combined here so both flow through the same
   // insights-fetch + upsert pipeline below. Distinct ID spaces, no dedup
   // needed.
-  const [media, stories, existingMediaIds] = await Promise.all([listMedia(accessToken), listStories(accessToken), knownMediaIds(userId)]);
+  const [media, stories, existingMediaCaptions] = await Promise.all([listMedia(accessToken), listStories(accessToken), knownMediaCaptions(userId)]);
   const combined = [...media, ...stories];
   const scoped = sinceDate
-    ? combined.filter((item) => new Date(item.timestamp) >= sinceDate || !existingMediaIds.has(item.id))
+    ? combined.filter((item) => new Date(item.timestamp) >= sinceDate || !existingMediaCaptions.has(item.id))
     : combined;
+
+  if (sinceDate) {
+    for (const item of combined) {
+      if (new Date(item.timestamp) >= sinceDate || !existingMediaCaptions.has(item.id) || !item.captionFetched) continue;
+      try {
+        await refreshCaptionProjection(userId, item);
+      } catch (error) {
+        console.error(`[instagram] could not refresh the title for media ${item.id}`, error);
+      }
+    }
+  }
+
   if (scoped.length === 0) return { processed: 0, skipped: 0, completed: true };
 
   const startedAt = Date.now();
@@ -70,12 +88,19 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
     }
     try {
       const { metrics, raw } = await fetchMediaInsights(accessToken, item.id, item.mediaType);
+      // A failed media-level caption lookup must not replace a caption we
+      // already stored with the dated fallback. A successful empty caption
+      // remains authoritative and is allowed to use the fallback.
+      const mediaForSync =
+        item.captionFetched || !existingMediaCaptions.has(item.id)
+          ? item
+          : { ...item, caption: existingMediaCaptions.get(item.id) ?? null };
       // A CAROUSEL_ALBUM's own object never exposes media_url/thumbnail_url
       // — resolve its cover from the first child instead (best-effort, null
       // on any failure).
       const carouselCoverUrl =
         item.mediaType === "CAROUSEL_ALBUM" ? (await fetchCarouselChildren(accessToken, item.id)).coverUrl : null;
-      const normalized = normalizeMedia(item, metrics, carouselCoverUrl);
+      const normalized = normalizeMedia(mediaForSync, metrics, carouselCoverUrl);
 
       await processNormalizedPost(userId, normalized, raw);
       processed += 1;
@@ -94,6 +119,18 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
   }
 
   return { processed, skipped, completed };
+}
+
+async function refreshCaptionProjection(userId: string, item: Parameters<typeof normalizeMedia>[0]): Promise<void> {
+  const normalized = normalizeMedia(item, {});
+  await db
+    .update(instagramPostInsights)
+    .set({ caption: normalized.caption })
+    .where(and(eq(instagramPostInsights.userId, userId), eq(instagramPostInsights.mediaId, item.id)));
+  await db
+    .update(contentPosts)
+    .set({ title: normalized.title })
+    .where(and(eq(contentPosts.userId, userId), eq(contentPosts.source, "instagram"), eq(contentPosts.externalId, item.id)));
 }
 
 async function processNormalizedPost(
