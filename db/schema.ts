@@ -28,6 +28,7 @@ import type {
 } from "@/lib/business/types";
 import type { YoutubePatternGroup, YoutubePatternLabel } from "@/lib/youtube/recommendation-types";
 import type { YoutubeChannelSearchTerm, YoutubeChannelTrafficSource, YoutubeCreatorContentType } from "@/lib/youtube/channel-insights";
+import type { YoutubeReachStatus } from "@/lib/youtube/reach";
 import type { SaleInstallment } from "@/lib/sales/types";
 import type { WeeklyReportBottleneck, WeeklyReportStatCard } from "@/lib/dashboard/weekly-report-types";
 import type {
@@ -1768,6 +1769,10 @@ export const youtubeVideoInsights = pgTable(
     // metric as content_posts.clicks (an outbound link click) — see
     // YOUTUBE_ORGANIC_CLICKS_AVAILABLE in lib/youtube/protocol.ts.
     impressionsClickThroughRate: real("impressions_click_through_rate"),
+    // Reach data comes from the asynchronous YouTube Reporting API. Keeping
+    // the state beside the imported values lets the UI distinguish a fresh
+    // job from a video outside the initial history window.
+    reachStatus: text("reach_status").$type<YoutubeReachStatus>().notNull().default("pending"),
     // "public" | "unlisted" | "private", straight from the Data API's
     // status.privacyStatus. Only "public" videos are surfaced in
     // /acquisition/contenu — a private or unlisted upload isn't part of the
@@ -1859,6 +1864,10 @@ export const youtubeReportingJobs = pgTable(
     reportTypeId: text("report_type_id").notNull(),
     jobId: text("job_id").notNull(),
     status: text("status").notNull().default("active"),
+    // The local createdAt is not the YouTube job creation time. This value is
+    // needed to calculate the roughly 30-day history window returned by a new
+    // Reporting API job.
+    remoteCreatedAt: timestamp("remote_created_at", { withTimezone: true }),
     lastReportStartAt: timestamp("last_report_start_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastError: text("last_error"),

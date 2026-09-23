@@ -116,6 +116,7 @@ function createYoutubeVideo(index: number): YoutubeVideoInsightRow {
     subscribersLost: 0,
     impressions: 12000 - index * 100,
     impressionsClickThroughRate: 7.2,
+    reachStatus: "available",
     privacyStatus: "public",
     retentionCurve: fixtureRetentionCurve(index),
     trafficSources: index % 2 === 0

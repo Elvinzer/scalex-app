@@ -42,6 +42,7 @@ type ContenuViewProps = {
   youtubeChannelTitle: string | null;
   youtubeSyncStatus: string | null;
   youtubeLastSyncAt?: Date | null;
+  youtubeReportingSyncStatus?: string | null;
   youtubeSubscriberCount: number | null;
   youtubeBingeMetrics?: Map<string, YoutubeVideoBingeMetrics>;
   youtubeChannelTrafficSources?: YoutubeChannelTrafficSource[] | null;
@@ -98,6 +99,7 @@ export function ContenuView({
   youtubeChannelTitle,
   youtubeSyncStatus,
   youtubeLastSyncAt,
+  youtubeReportingSyncStatus = null,
   youtubeSubscriberCount,
   youtubeBingeMetrics = new Map(),
   youtubeChannelTrafficSources = null,
@@ -222,6 +224,7 @@ export function ContenuView({
             channelTitle={youtubeChannelTitle}
             syncStatus={youtubeSyncStatus}
             lastSyncAt={youtubeLastSyncAt}
+            reportingSyncStatus={youtubeReportingSyncStatus}
             subscriberCount={youtubeSubscriberCount}
             bingeMetrics={youtubeBingeMetrics}
             channelTrafficSources={youtubeChannelTrafficSources}
@@ -292,6 +295,7 @@ function YoutubePanel({
   channelTitle,
   syncStatus,
   lastSyncAt,
+  reportingSyncStatus,
   subscriberCount,
   bingeMetrics,
   channelTrafficSources,
@@ -313,6 +317,7 @@ function YoutubePanel({
   channelTitle: string | null;
   syncStatus: string | null;
   lastSyncAt?: Date | null;
+  reportingSyncStatus: string | null;
   subscriberCount: number | null;
   bingeMetrics: Map<string, YoutubeVideoBingeMetrics>;
   channelTrafficSources: YoutubeChannelTrafficSource[] | null;
@@ -350,12 +355,13 @@ function YoutubePanel({
             channelSearchTerms={channelSearchTerms}
             channelSearchTermsFetchedAt={channelSearchTermsFetchedAt}
           />
-          <YoutubeView
+        <YoutubeView
             videos={videos}
             commercialStats={commercialStats}
             snapshots={snapshots}
             bingeMetrics={bingeMetrics}
             lastSyncAt={lastSyncAt}
+            reportingSyncStatus={reportingSyncStatus}
             subscriberCount={subscriberCount}
             period={period}
             onPeriodChange={onPeriodChange}

@@ -22,6 +22,7 @@ export type YoutubeConnectionRow = typeof youtubeConnections.$inferSelect;
 export type YoutubeSyncConnection = Pick<YoutubeConnectionRow, "userId" | "refreshTokenEncrypted">;
 
 export type YoutubeSyncOptions = {
+  includeReporting?: boolean;
   includeEnrichment?: boolean;
   includeChannelInsights?: boolean;
 };
@@ -91,7 +92,7 @@ export async function runYoutubeSync(
     }
   }
 
-  if (options.includeEnrichment !== false) {
+  if (options.includeReporting !== false) {
     try {
       await db
         .update(youtubeConnections)
@@ -100,9 +101,16 @@ export async function runYoutubeSync(
       const reporting = await syncYoutubeReporting(connection.userId, channel.channelId, accessToken);
       await db
         .update(youtubeConnections)
-        .set({ reportingSyncStatus: "completed", reportingLastSyncAt: new Date(), reportingLastError: null })
+        .set({
+          reportingSyncStatus: reporting.status,
+          reportingLastSyncAt: new Date(),
+          reportingLastError:
+            reporting.status === "failed" ? "YouTube reach data needs another synchronization" : null,
+        })
         .where(eq(youtubeConnections.userId, connection.userId));
-      console.log(`[youtube] bulk reports for ${connection.userId}: ${reporting.downloaded} downloaded, ${reporting.rows} rows imported`);
+      console.log(
+        `[youtube] bulk reports for ${connection.userId}: ${reporting.downloaded} downloaded, ${reporting.rows} rows imported, status ${reporting.status}`
+      );
     } catch (error) {
       await db
         .update(youtubeConnections)
@@ -110,7 +118,9 @@ export async function runYoutubeSync(
         .where(eq(youtubeConnections.userId, connection.userId));
       console.error(`[youtube] bulk reports for ${connection.userId} failed, sync itself unaffected`, error);
     }
+  }
 
+  if (options.includeEnrichment !== false) {
     // Deep Analytics run from the rows the backfill just wrote, so they need
     // it to have happened first. Isolated: this is enrichment for the Contenu
     // insights, never a reason to fail a sync that already stored the

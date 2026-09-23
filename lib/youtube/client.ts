@@ -482,11 +482,9 @@ export async function fetchVideoCreatorContentTypes(
 // that batch's videos simply get an empty metrics object, same
 // graceful-degradation rule as fetchMediaInsights.
 //
-// Deliberately does NOT query impressions/impressionsClickThroughRate —
-// see protocol.ts's YOUTUBE_THUMBNAIL_CTR_AVAILABLE for why (confirmed via
-// a live probe: those metric names are rejected outright by the real-time
-// Analytics API, for every video, so querying them was a wasted call that
-// always failed).
+// Deliberately does NOT query impressions/impressionsClickThroughRate. Those
+// fields belong to the asynchronous Reporting API reach report, not this
+// targeted Analytics API query; see protocol.ts for the two-source contract.
 export async function fetchVideoAnalytics(
   accessToken: string,
   videoIds: string[],
@@ -620,8 +618,8 @@ function parseDimensionRows(body: unknown): [string | number, number][] {
 // API allows only one dimension per report), hence the caller's video cap —
 // see YOUTUBE_DEEP_INSIGHTS_VIDEO_LIMIT.
 //
-// Unlike thumbnail CTR (see protocol.ts's YOUTUBE_THUMBNAIL_CTR_AVAILABLE),
-// all three of these were probed against the live API and answer correctly.
+// Unlike thumbnail CTR, all three of these were probed against the live API
+// and answer correctly.
 // Each is independently fault-tolerant: a failing report yields an empty
 // array rather than losing the other two.
 export async function fetchVideoDeepInsights(

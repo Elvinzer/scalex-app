@@ -19,8 +19,8 @@ export type NormalizedYoutubeVideo = {
   // Projection field for content_posts — see backfill.ts.
   views: number;
   // Full metric set for youtube_video_insights. No impressions/CTR fields —
-  // see protocol.ts's YOUTUBE_THUMBNAIL_CTR_AVAILABLE, that data is never
-  // fetched (the query always failed on the real API).
+  // the targeted Analytics API does not return them. The Reporting API
+  // importer fills those columns separately after its CSV reports arrive.
   insights: {
     likes: number | null;
     comments: number | null;

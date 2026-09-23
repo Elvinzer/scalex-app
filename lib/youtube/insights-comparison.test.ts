@@ -24,6 +24,7 @@ function video(id: string, publishedAt: string, retention: number): YoutubeVideo
     subscribersLost: null,
     impressions: null,
     impressionsClickThroughRate: null,
+    reachStatus: "pending",
     privacyStatus: "public",
     retentionCurve: null,
     trafficSources: null,

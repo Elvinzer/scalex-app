@@ -4,6 +4,7 @@ import { ArrowLeft, Check, ChevronRight, ExternalLink, Play, RefreshCw } from "l
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
+import { InfoPopover } from "@/components/info-popover";
 import { Button } from "@/components/ui/button";
 import { formatDurationSeconds } from "@/components/youtube/youtube-video-detail-dialog";
 import { diagnoseYoutubeVideo, type YoutubeDiagnosticLevel } from "@/lib/youtube/diagnosis";
@@ -73,14 +74,37 @@ function linePath(video: YoutubeVideoInsightRow): string | null {
     .join(" ");
 }
 
-function MetricCard({ label, value, note, muted = false, accent = false }: { label: string; value: string; note?: string; muted?: boolean; accent?: boolean }) {
+function MetricCard({ label, value, note, help, muted = false, accent = false }: { label: string; value: string; note?: string; help?: string; muted?: boolean; accent?: boolean }) {
   return (
     <div className={cn("rounded-[var(--radius-control)] border p-4", accent ? "border-accent-border bg-accent-soft" : muted ? "border-border bg-muted" : "border-border bg-card")}>
-      <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{label}</p>
+      <div className="flex items-center gap-1">
+        <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{label}</p>
+        {help && <InfoPopover text={help} ariaLabel={label} />}
+      </div>
       <p className={cn("mt-1 font-display text-xl font-bold tabular-nums", muted && "text-muted-foreground")}>{value}</p>
       {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
     </div>
   );
+}
+
+function reachDetailMetric(
+  value: number | null,
+  video: YoutubeVideoInsightRow,
+  reportingSyncStatus: string | null,
+  formatValue: (value: number) => string,
+  t: ReturnType<typeof useTranslations>,
+): { value: string; help?: string; muted: boolean } {
+  if (value !== null) return { value: formatValue(value), muted: false };
+  if (video.reachStatus === "historically_unavailable") {
+    return { value: t("reachHistoricalUnavailable"), help: t("reachHistoricalHelp"), muted: true };
+  }
+  if (video.reachStatus === "pending" && reportingSyncStatus === "failed") {
+    return { value: t("reachSyncError"), help: t("reachSyncErrorHelp"), muted: true };
+  }
+  if (video.reachStatus === "pending") {
+    return { value: t("reachPending"), help: t("reachPendingHelp"), muted: true };
+  }
+  return { value: t("dataUnavailable"), help: t("reachMetricUnavailableHelp"), muted: true };
 }
 
 export function YoutubeVideoDetailPage({
@@ -135,7 +159,21 @@ export function YoutubeVideoDetailPage({
   const impressionsJ7 = snapshotImpressionsAtDay(snapshots, video.publishedAt, 7);
   const velocityDelta = velocityPercent(velocityJ7, velocity.benchmarkDay7);
   const numberLocale = locale || currentLocale;
-  const activeReporting = reportingSyncStatus === "syncing";
+  const activeReporting = reportingSyncStatus === "pending" || reportingSyncStatus === "syncing";
+  const thumbnailImpressions = reachDetailMetric(
+    video.impressions,
+    video,
+    reportingSyncStatus,
+    (value) => formatNumber(value, numberLocale),
+    t,
+  );
+  const thumbnailCtr = reachDetailMetric(
+    video.impressionsClickThroughRate,
+    video,
+    reportingSyncStatus,
+    (value) => formatPercent(value, numberLocale),
+    t,
+  );
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-10">
@@ -187,9 +225,9 @@ export function YoutubeVideoDetailPage({
           <span className="text-muted-foreground" title={t("funnelHelp")}>ⓘ</span>
         </div>
         <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-          <MetricCard label={t("thumbnailImpressions")} value={formatNumber(video.impressions, numberLocale)} muted={video.impressions === null} />
+          <MetricCard label={t("thumbnailImpressions")} value={thumbnailImpressions.value} help={thumbnailImpressions.help} muted={thumbnailImpressions.muted} />
           <ChevronRight className="hidden self-center text-muted-foreground lg:block" aria-hidden="true" />
-          <MetricCard label={t("thumbnailCtr")} value={formatPercent(video.impressionsClickThroughRate, numberLocale)} muted={video.impressionsClickThroughRate === null} />
+          <MetricCard label={t("thumbnailCtr")} value={thumbnailCtr.value} help={thumbnailCtr.help} muted={thumbnailCtr.muted} />
           <ChevronRight className="hidden self-center text-muted-foreground lg:block" aria-hidden="true" />
           <MetricCard label={t("column.views")} value={formatNumber(video.views, numberLocale)} accent />
           <ChevronRight className="hidden self-center text-muted-foreground lg:block" aria-hidden="true" />

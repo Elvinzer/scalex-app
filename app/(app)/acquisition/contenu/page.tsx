@@ -174,6 +174,7 @@ export default async function ContenuPage({
         youtubeChannelTitle={youtubeConnection?.channelTitle ?? null}
         youtubeSyncStatus={youtubeConnection?.initialSyncStatus ?? null}
         youtubeLastSyncAt={youtubeConnection?.lastAnalyticsSyncAt ?? null}
+        youtubeReportingSyncStatus={youtubeConnection?.reportingSyncStatus ?? null}
         youtubeSubscriberCount={youtubeConnection?.subscriberCount ?? null}
         youtubeBingeMetrics={youtubeBingeMetrics}
         youtubeChannelTrafficSources={youtubeConnection?.channelTrafficSources ?? null}

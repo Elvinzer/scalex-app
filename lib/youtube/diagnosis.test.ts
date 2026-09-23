@@ -24,6 +24,7 @@ function video(overrides: Partial<YoutubeVideoInsightRow> = {}): YoutubeVideoIns
     subscribersLost: 2,
     impressions: null,
     impressionsClickThroughRate: null,
+    reachStatus: "pending",
     privacyStatus: "public",
     retentionCurve: [{ ratio: 0.05, watchRatio: 0.7 }],
     trafficSources: null,

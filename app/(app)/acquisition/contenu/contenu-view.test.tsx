@@ -107,6 +107,7 @@ const youtubeVideo: YoutubeVideoInsightRow = {
   subscribersLost: 0,
   impressions: 12000,
   impressionsClickThroughRate: 7.2,
+  reachStatus: "available",
   privacyStatus: "public",
   retentionCurve: null,
   trafficSources: null,

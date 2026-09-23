@@ -20,6 +20,7 @@ export function YoutubeView({
   bingeMetrics = new Map(),
   subscriberCount,
   lastSyncAt = null,
+  reportingSyncStatus = null,
   period,
   onPeriodChange,
   format,
@@ -31,6 +32,7 @@ export function YoutubeView({
   bingeMetrics?: Map<string, YoutubeVideoBingeMetrics>;
   subscriberCount: number | null;
   lastSyncAt?: Date | null;
+  reportingSyncStatus?: string | null;
   period: DateFilterKey;
   onPeriodChange: (period: DateFilterKey) => void;
   format: VideoFormat;
@@ -44,9 +46,6 @@ export function YoutubeView({
   );
   const retentionValues = filtered.map((video) => video.averageViewPercentage).filter((value): value is number => value !== null);
   const avgRetention = retentionValues.length > 0 ? retentionValues.reduce((sum, value) => sum + value, 0) / retentionValues.length : null;
-  // No CTR KPI — thumbnail impressions/CTR aren't retrievable via the
-  // real-time YouTube Analytics API (see protocol.ts's
-  // YOUTUBE_THUMBNAIL_CTR_AVAILABLE), so it's never a real number to average.
   const totalViews = filtered.reduce((sum, video) => sum + (video.views ?? 0), 0);
   const hasViews = filtered.some((video) => video.views !== null);
 
@@ -81,6 +80,7 @@ export function YoutubeView({
         snapshots={snapshots}
         bingeMetrics={bingeMetrics}
         lastSyncAt={lastSyncAt}
+        reportingSyncStatus={reportingSyncStatus}
         period={period}
         format={format}
       />

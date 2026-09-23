@@ -158,6 +158,48 @@ function formatCurrency(value: number | null, locale: string): string {
     : new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
 }
 
+type ReachMetricDisplay = {
+  value: string;
+  help?: string;
+  hasStateLabel: boolean;
+};
+
+function reachMetricDisplay(
+  value: number | null,
+  video: YoutubeVideoInsightRow,
+  reportingSyncStatus: string | null | undefined,
+  formatValue: (value: number) => string,
+  t: ReturnType<typeof useTranslations>,
+): ReachMetricDisplay {
+  if (value !== null) return { value: formatValue(value), hasStateLabel: false };
+  if (video.reachStatus === "historically_unavailable") {
+    return {
+      value: t("reachHistoricalUnavailable"),
+      help: t("reachHistoricalHelp"),
+      hasStateLabel: true,
+    };
+  }
+  if (video.reachStatus === "pending" && reportingSyncStatus === "failed") {
+    return {
+      value: t("reachSyncError"),
+      help: t("reachSyncErrorHelp"),
+      hasStateLabel: true,
+    };
+  }
+  if (video.reachStatus === "pending") {
+    return {
+      value: t("reachPending"),
+      help: t("reachPendingHelp"),
+      hasStateLabel: true,
+    };
+  }
+  return {
+    value: t("dataUnavailable"),
+    help: t("reachMetricUnavailableHelp"),
+    hasStateLabel: true,
+  };
+}
+
 function dayString(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -214,6 +256,8 @@ function MetricBlock({
   status,
   comparison,
   help,
+  valueHelp,
+  valueClassName,
   compact = false,
   showNeutralStatus = false,
   t,
@@ -224,6 +268,8 @@ function MetricBlock({
   status?: YoutubeTableSignal;
   comparison?: VideoPerformanceComparison | null;
   help?: string;
+  valueHelp?: string;
+  valueClassName?: string;
   compact?: boolean;
   showNeutralStatus?: boolean;
   t: ReturnType<typeof useTranslations>;
@@ -234,7 +280,10 @@ function MetricBlock({
         <span>{label}</span>
         {help && <InfoPopover text={help} ariaLabel={t("metricHelp")} />}
       </div>}
-      <p className="mt-1 font-display text-base font-bold leading-tight tabular-nums">{value}</p>
+      <div className="mt-1 flex min-w-0 items-start gap-1">
+        <p className={cn("min-w-0 max-w-full font-display text-base font-bold leading-tight tabular-nums", valueClassName)}>{value}</p>
+        {valueHelp && <InfoPopover text={valueHelp} ariaLabel={t("metricHelp")} />}
+      </div>
       {secondary && <p className="mt-0.5 text-xs text-muted-foreground">{secondary}</p>}
       {status && (showNeutralStatus || status !== "neutral") && <SignalStatus status={status} comparison={comparison ?? null} compact={compact} showComparison={!compact} t={t} />}
     </div>
@@ -472,6 +521,7 @@ export function YoutubeVideosTable({
   snapshots,
   bingeMetrics,
   lastSyncAt,
+  reportingSyncStatus,
   period,
   format,
 }: {
@@ -480,6 +530,7 @@ export function YoutubeVideosTable({
   snapshots: Map<string, YoutubeVideoSnapshotRow[]>;
   bingeMetrics: Map<string, YoutubeVideoBingeMetrics>;
   lastSyncAt: Date | null;
+  reportingSyncStatus?: string | null;
   period: DateFilterKey;
   format: VideoFormat;
 }) {
@@ -660,8 +711,12 @@ export function YoutubeVideosTable({
   function cellValue(video: YoutubeVideoInsightRow, column: OptionalColumnKey): string {
     const stats = statsFor(video);
     const videoSnapshots = snapshots.get(video.videoId) ?? [];
-    if (column === "impressions") return formatNumber(video.impressions, locale);
-    if (column === "ctr") return formatPercent(video.impressionsClickThroughRate, locale);
+    if (column === "impressions") {
+      return reachMetricDisplay(video.impressions, video, reportingSyncStatus, (value) => formatNumber(value, locale), t).value;
+    }
+    if (column === "ctr") {
+      return reachMetricDisplay(video.impressionsClickThroughRate, video, reportingSyncStatus, (value) => formatPercent(value, locale), t).value;
+    }
     if (column === "browse" || column === "suggested" || column === "search") {
       const source = column === "browse" ? "BROWSE" : column === "suggested" ? "RELATED_VIDEO" : "YT_SEARCH";
       const share = aggregateTrafficSources([video]).find((item) => item.source === source)?.share ?? null;
@@ -709,15 +764,29 @@ export function YoutubeVideosTable({
     const businessSecondary = hasBusinessData && analysis.stats.revenueEur !== null
       ? formatCurrency(analysis.stats.revenueEur, locale)
       : undefined;
+    const impressionsDisplay = reachMetricDisplay(
+      video.impressions,
+      video,
+      reportingSyncStatus,
+      (value) => `${formatNumber(value, locale)} ${t("impressionsShort")}`,
+      t,
+    );
+    const clickDisplay = reachMetricDisplay(
+      video.impressionsClickThroughRate,
+      video,
+      reportingSyncStatus,
+      (value) => formatPercent(value, locale),
+      t,
+    );
 
     if (column === "performance") {
       return <MetricBlock label={t("column.performance")} value={video.views === null ? "—" : `${formatNumber(video.views, locale)} ${t("viewsShort")}`} status={analysis.performanceStatus} comparison={analysis.comparisons.views} compact={compact} t={t} />;
     }
     if (column === "diffusion") {
-      return <MetricBlock label={t("column.diffusion")} value={video.impressions === null ? "—" : `${formatNumber(video.impressions, locale)} ${t("impressionsShort")}`} status={analysis.diffusionStatus} comparison={analysis.comparisons.impressions} help={showHelp ? t("diffusionHelp") : undefined} compact={compact} t={t} />;
+      return <MetricBlock label={t("column.diffusion")} value={impressionsDisplay.value} status={impressionsDisplay.hasStateLabel ? undefined : analysis.diffusionStatus} comparison={analysis.comparisons.impressions} help={showHelp ? t("diffusionHelp") : undefined} valueHelp={impressionsDisplay.help} valueClassName={impressionsDisplay.hasStateLabel ? "text-xs break-words" : undefined} compact={compact} t={t} />;
     }
     if (column === "click") {
-      return <MetricBlock label={t("column.click")} value={formatPercent(video.impressionsClickThroughRate, locale)} status={analysis.clickStatus} comparison={analysis.comparisons.ctr} help={showHelp ? t("clickHelp") : undefined} compact={compact} t={t} />;
+      return <MetricBlock label={t("column.click")} value={clickDisplay.value} status={clickDisplay.hasStateLabel ? undefined : analysis.clickStatus} comparison={analysis.comparisons.ctr} help={showHelp ? t("clickHelp") : undefined} valueHelp={clickDisplay.help} valueClassName={clickDisplay.hasStateLabel ? "text-xs break-words" : undefined} compact={compact} t={t} />;
     }
     if (column === "retention") {
       return <MetricBlock label={t("column.retention")} value={retentionValue} secondary={retentionSecondary} status={analysis.retentionStatus} comparison={retentionComparison} help={showHelp ? t("retentionHelp") : undefined} compact={compact} t={t} />;
@@ -751,6 +820,18 @@ export function YoutubeVideosTable({
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3">
             <span className="text-xs text-muted-foreground">{freshnessLabel()}</span>
+            {(reportingSyncStatus === "pending" || reportingSyncStatus === "syncing") && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-state-caution">
+                {t("reachSyncPending")}
+                <InfoPopover text={t("reachSyncHelp")} ariaLabel={t("metricHelp")} />
+              </span>
+            )}
+            {reportingSyncStatus === "failed" && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-state-critical">
+                {t("reachSyncFailed")}
+                <InfoPopover text={t("reachSyncErrorHelp")} ariaLabel={t("metricHelp")} />
+              </span>
+            )}
             <ColumnSelector columns={columns} onChange={setColumns} t={t} />
           </div>
         </div>

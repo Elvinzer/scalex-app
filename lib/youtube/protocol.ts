@@ -44,6 +44,7 @@ export const YOUTUBE_REPORTING_API_BASE = "https://youtubereporting.googleapis.c
 // the dedicated end-screen/card reports. We schedule only the report families
 // used by the product. The importer checks availability first because Google
 // can hide a report for a channel or retire a revision.
+// Channel reach reports became available for channels on January 15, 2026.
 export const YOUTUBE_REPORTING_REPORT_TYPES = [
   "channel_reach_basic_a1",
   "channel_end_screens_a2",
@@ -107,7 +108,14 @@ export const YOUTUBE_REQUEST_RETRY_DELAY_MS = 750;
 export const YOUTUBE_ORGANIC_CLICKS_AVAILABLE = false;
 
 // Thumbnail impressions/CTR are NOT retrievable via the real-time Analytics
-// API (`youtubeAnalytics/v2/reports`) this integration is built on —
+// API (`youtubeAnalytics/v2/reports`) this integration uses for the daily
+// video metrics.
+//
+// They ARE retrievable through the separate asynchronous Reporting API using
+// the `channel_reach_basic_a1` report. `lib/youtube/reporting.ts` schedules
+// that job and imports its CSV reports when YouTube makes them available.
+// The details below document why these metrics must stay out of the real-time
+// query rather than being treated as a missing metric-name fix.
 // confirmed 2026-08 by probing the live API with a real refreshed token:
 //   - metrics=impressions,impressionsClickThroughRate -> 400 "Unknown
 //     identifier (impressions) given in field parameters.metrics." for
@@ -121,14 +129,17 @@ export const YOUTUBE_ORGANIC_CLICKS_AVAILABLE = false;
 //     dimension; with/without a video filter). This data appears to only
 //     be exposed via the separate, async Bulk Reporting API
 //     (`youtube/reporting/v1`, scheduled CSV report jobs) — a materially
-//     different integration, not a metric-name fix, and out of scope here.
-// Consequence: youtubeVideoInsights.impressions/impressionsClickThroughRate
-// are never populated (columns kept, always null, no migration needed) —
-// lib/youtube/client.ts no longer even queries them (the query always
-// failed anyway), and the per-video comparison tier in insights-comparison.ts
-// uses averageViewPercentage (retention) instead, the closest working
-// analog to "how well is this thumbnail/hook performing".
-export const YOUTUBE_THUMBNAIL_CTR_AVAILABLE = false;
+//     different integration, not a metric-name fix. It is implemented by the
+//     dedicated importer below rather than added to the real-time query.
+// Consequence: lib/youtube/client.ts does not query these fields. The columns
+// are populated by the Reporting API importer once its daily CSV exists, and
+// remain null until then. The per-video comparison tier in
+// insights-comparison.ts uses averageViewPercentage (retention) instead of
+// pretending that a missing reach report is a weak thumbnail signal.
+// The targeted Analytics API query is still unable to return these fields;
+// the Reporting API support above is the separate source of truth.
+export const YOUTUBE_THUMBNAIL_CTR_REALTIME_AVAILABLE = false;
+export const YOUTUBE_THUMBNAIL_CTR_REPORTING_AVAILABLE = true;
 
 // Deep per-video Analytics (retention curve, traffic sources, search terms)
 // cost ONE report call each — 3 calls per video, versus the single batched
