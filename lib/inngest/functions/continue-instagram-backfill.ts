@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { instagramConnections } from "@/db/schema";
@@ -20,10 +20,15 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 export const continueInstagramBackfill = inngest.createFunction(
   { id: "continue-instagram-backfill", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [instagramBackfillContinue] },
   async ({ event, step }) => {
-    const { userId } = event.data;
+    const { userId, connectionId } = event.data;
+    if (!connectionId) return { skipped: true, reason: "missing_connection_id" };
 
     const connection = await step.run("load-connection", async () => {
-      const [row] = await db.select().from(instagramConnections).where(eq(instagramConnections.userId, userId)).limit(1);
+      const [row] = await db
+        .select()
+        .from(instagramConnections)
+        .where(and(eq(instagramConnections.id, connectionId), eq(instagramConnections.userId, userId)))
+        .limit(1);
       return row ?? null;
     });
     if (!connection) return { skipped: true, reason: "connection_removed" };
@@ -34,7 +39,7 @@ export const continueInstagramBackfill = inngest.createFunction(
         await db
           .update(instagramConnections)
           .set({ initialSyncStatus: "token_unreadable" })
-          .where(eq(instagramConnections.userId, userId));
+          .where(eq(instagramConnections.id, connectionId));
       });
       return { skipped: true, reason: "token_unreadable" };
     }
@@ -43,11 +48,11 @@ export const continueInstagramBackfill = inngest.createFunction(
       const result = await step.run("continue-backfill", () => backfillInstagramPosts(userId, accessToken));
 
       await step.run("update-sync-timestamp", async () => {
-        await db.update(instagramConnections).set({ lastInsightsSyncAt: new Date() }).where(eq(instagramConnections.userId, userId));
+        await db.update(instagramConnections).set({ lastInsightsSyncAt: new Date() }).where(eq(instagramConnections.id, connectionId));
       });
 
       if (!result.completed) {
-        await step.sendEvent("chain-continue", instagramBackfillContinue.create({ userId }));
+        await step.sendEvent("chain-continue", instagramBackfillContinue.create({ userId, connectionId }));
       }
 
       revalidateBusinessData(userId);
@@ -58,7 +63,7 @@ export const continueInstagramBackfill = inngest.createFunction(
         await db
           .update(instagramConnections)
           .set({ initialSyncStatus: notProfessional ? "no_api_access" : "failed" })
-          .where(eq(instagramConnections.userId, userId));
+          .where(eq(instagramConnections.id, connectionId));
       });
       if (notProfessional) return { skipped: true, reason: "no_api_access" };
       throw error;

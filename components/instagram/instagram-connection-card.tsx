@@ -121,7 +121,7 @@ export function InstagramConnectionCard({
               {t("tokenExpired")}
             </div>
           )}
-          {(tokenUnreadable || initialSyncStatus === "token_unreadable") && (
+          {tokenUnreadable && (
             <div className="mt-4 rounded-[var(--radius-control)] border border-state-critical/40 bg-state-critical/10 px-3 py-2 text-sm font-bold text-state-critical">
               {t("tokenUnreadable")}
             </div>

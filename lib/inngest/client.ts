@@ -52,6 +52,7 @@ export const calendlyAccountConnected = eventType("calendly/account.connected", 
 
 type InstagramAccountConnected = {
   userId: string;
+  connectionId: string;
 };
 
 export const instagramAccountConnected = eventType("instagram/account.connected", {
@@ -60,6 +61,7 @@ export const instagramAccountConnected = eventType("instagram/account.connected"
 
 type InstagramBackfillContinue = {
   userId: string;
+  connectionId: string;
 };
 
 // Self-chained follow-up when backfillInstagramPosts stops early because it

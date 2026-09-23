@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 
 import { db } from "@/db";
@@ -21,11 +21,16 @@ import { revalidateBusinessData } from "@/lib/revalidate-data";
 export const syncInstagramAccount = inngest.createFunction(
   { id: "sync-instagram-account", concurrency: { limit: 1, key: "event.data.userId" }, triggers: [instagramAccountConnected] },
   async ({ event, step }) => {
-    const { userId } = event.data;
+    const { userId, connectionId } = event.data;
+    if (!connectionId) throw new NonRetriableError(`No Instagram connection id for user ${userId}`);
 
     const connection = await step.run("load-connection", async () => {
-      const [row] = await db.select().from(instagramConnections).where(eq(instagramConnections.userId, userId)).limit(1);
-      if (!row) throw new NonRetriableError(`No Instagram connection for user ${userId}`);
+      const [row] = await db
+        .select()
+        .from(instagramConnections)
+        .where(and(eq(instagramConnections.id, connectionId), eq(instagramConnections.userId, userId)))
+        .limit(1);
+      if (!row) throw new NonRetriableError(`No Instagram connection for event ${connectionId}`);
       return row;
     });
 
@@ -35,7 +40,7 @@ export const syncInstagramAccount = inngest.createFunction(
         await db
           .update(instagramConnections)
           .set({ initialSyncStatus: "token_unreadable", initialSyncCompletedAt: new Date() })
-          .where(eq(instagramConnections.userId, userId));
+          .where(eq(instagramConnections.id, connectionId));
       });
       await track("instagram_sync_failed", userId, { step: "decrypt-token", reason: "token_unreadable" });
       return;
@@ -48,7 +53,7 @@ export const syncInstagramAccount = inngest.createFunction(
         await db
           .update(instagramConnections)
           .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date(), lastInsightsSyncAt: new Date() })
-          .where(eq(instagramConnections.userId, userId));
+          .where(eq(instagramConnections.id, connectionId));
       });
 
       // A large account's history can exceed this invocation's time budget
@@ -58,7 +63,7 @@ export const syncInstagramAccount = inngest.createFunction(
       // in the background, re-chaining itself until the whole backlog is
       // caught up.
       if (!result.completed) {
-        await step.sendEvent("continue-backfill", instagramBackfillContinue.create({ userId }));
+        await step.sendEvent("continue-backfill", instagramBackfillContinue.create({ userId, connectionId }));
       }
 
       revalidateBusinessData(userId);
@@ -72,7 +77,7 @@ export const syncInstagramAccount = inngest.createFunction(
             initialSyncStatus: notProfessional ? "no_api_access" : "failed",
             initialSyncCompletedAt: new Date(),
           })
-          .where(eq(instagramConnections.userId, userId));
+          .where(eq(instagramConnections.id, connectionId));
       });
       await track("instagram_sync_failed", userId, { step: "backfill-posts", reason: notProfessional ? "no_api_access" : "error" });
 

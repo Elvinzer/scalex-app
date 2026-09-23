@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
@@ -78,7 +78,7 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
     await db
       .update(instagramConnections)
       .set({ initialSyncStatus: "token_unreadable", initialSyncCompletedAt: new Date() })
-      .where(eq(instagramConnections.userId, accountId));
+      .where(and(eq(instagramConnections.id, connection.id), eq(instagramConnections.userId, accountId)));
     revalidatePath("/acquisition/contenu");
     return { error: "token_unreadable" };
   }
@@ -89,13 +89,13 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
       await db
         .update(instagramConnections)
         .set({ followersCount: profile.followersCount, followersCountUpdatedAt: new Date() })
-        .where(eq(instagramConnections.userId, accountId));
+        .where(and(eq(instagramConnections.id, connection.id), eq(instagramConnections.userId, accountId)));
     }
     const result = await backfillInstagramPosts(accountId, accessToken, insightsRefreshSinceDate(INSTAGRAM_INSIGHTS_REFRESH_WINDOW_DAYS));
-    await db
-      .update(instagramConnections)
-      .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date(), lastInsightsSyncAt: new Date() })
-      .where(eq(instagramConnections.userId, accountId));
+      await db
+        .update(instagramConnections)
+        .set({ initialSyncStatus: "completed", initialSyncCompletedAt: new Date(), lastInsightsSyncAt: new Date() })
+        .where(and(eq(instagramConnections.id, connection.id), eq(instagramConnections.userId, accountId)));
 
     // A never-synced backlog can be larger than what a single click's time
     // budget covers (see protocol.ts's INSTAGRAM_BACKFILL_TIME_BUDGET_MS) —
@@ -103,7 +103,7 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
     // the request), hand the rest to the same background chain the
     // recurring cron uses so it finishes on its own.
     if (!result.completed) {
-      await inngest.send(instagramBackfillContinue.create({ userId: accountId }));
+      await inngest.send(instagramBackfillContinue.create({ userId: accountId, connectionId: connection.id }));
     }
 
     revalidatePath("/acquisition/contenu");
@@ -114,7 +114,7 @@ export async function refreshInstagramPosts(): Promise<{ error: string | null; i
     await db
       .update(instagramConnections)
       .set({ initialSyncStatus: notProfessional ? "no_api_access" : "failed", initialSyncCompletedAt: new Date() })
-      .where(eq(instagramConnections.userId, accountId));
+      .where(and(eq(instagramConnections.id, connection.id), eq(instagramConnections.userId, accountId)));
     revalidatePath("/acquisition/contenu");
     return {
       error: notProfessional

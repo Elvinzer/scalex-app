@@ -34,8 +34,8 @@ export const refreshInstagramInsights = inngest.createFunction(
             await db
               .update(instagramConnections)
               .set({ initialSyncStatus: "token_expired" })
-              .where(eq(instagramConnections.userId, connection.userId));
-            return { userId: connection.userId, skipped: true, reason: "token_expired" };
+              .where(eq(instagramConnections.id, connection.id));
+            return { connectionId: connection.id, userId: connection.userId, skipped: true, reason: "token_expired" };
           }
 
           const decryptedToken = tryDecrypt(connection.accessTokenEncrypted);
@@ -43,8 +43,8 @@ export const refreshInstagramInsights = inngest.createFunction(
             await db
               .update(instagramConnections)
               .set({ initialSyncStatus: "token_unreadable" })
-              .where(eq(instagramConnections.userId, connection.userId));
-            return { userId: connection.userId, skipped: true, reason: "token_unreadable" };
+              .where(eq(instagramConnections.id, connection.id));
+            return { connectionId: connection.id, userId: connection.userId, skipped: true, reason: "token_unreadable" };
           }
 
           let accessToken = decryptedToken;
@@ -59,7 +59,7 @@ export const refreshInstagramInsights = inngest.createFunction(
                   accessTokenEncrypted: encrypt(refreshed.accessToken),
                   tokenExpiresAt: new Date(Date.now() + refreshed.expiresInSeconds * 1000),
                 })
-                .where(eq(instagramConnections.userId, connection.userId));
+                .where(eq(instagramConnections.id, connection.id));
             } catch (error) {
               console.error(`Instagram token refresh failed for user ${connection.userId}, continuing with current token`, error);
             }
@@ -71,7 +71,7 @@ export const refreshInstagramInsights = inngest.createFunction(
               await db
                 .update(instagramConnections)
                 .set({ followersCount: profile.followersCount, followersCountUpdatedAt: new Date() })
-                .where(eq(instagramConnections.userId, connection.userId));
+                .where(eq(instagramConnections.id, connection.id));
             }
             const result = await backfillInstagramPosts(
               connection.userId,
@@ -81,15 +81,15 @@ export const refreshInstagramInsights = inngest.createFunction(
             await db
               .update(instagramConnections)
               .set({ initialSyncStatus: "completed", lastInsightsSyncAt: new Date() })
-              .where(eq(instagramConnections.userId, connection.userId));
-            return { userId: connection.userId, skipped: false, imported: result.processed, needsContinuation: !result.completed };
+              .where(eq(instagramConnections.id, connection.id));
+            return { connectionId: connection.id, userId: connection.userId, skipped: false, imported: result.processed, needsContinuation: !result.completed };
           } catch (error) {
             const notProfessional = error instanceof InstagramNotProfessionalAccountError;
             await db
               .update(instagramConnections)
               .set({ initialSyncStatus: notProfessional ? "no_api_access" : "failed" })
-              .where(eq(instagramConnections.userId, connection.userId));
-            return { userId: connection.userId, skipped: true, reason: notProfessional ? "no_api_access" : "error" };
+              .where(eq(instagramConnections.id, connection.id));
+            return { connectionId: connection.id, userId: connection.userId, skipped: true, reason: notProfessional ? "no_api_access" : "error" };
           }
         })
       )
@@ -103,7 +103,10 @@ export const refreshInstagramInsights = inngest.createFunction(
     // by continueInstagramBackfill instead of waiting for the next 6h cron.
     for (const result of results) {
       if ("needsContinuation" in result && result.needsContinuation) {
-        await step.sendEvent(`continue-backfill-${result.userId}`, instagramBackfillContinue.create({ userId: result.userId }));
+        await step.sendEvent(
+          `continue-backfill-${result.userId}`,
+          instagramBackfillContinue.create({ userId: result.userId, connectionId: result.connectionId })
+        );
       }
     }
 

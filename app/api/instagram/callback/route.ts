@@ -81,22 +81,23 @@ export async function GET(request: NextRequest) {
       initialSyncStatus: "pending" as const,
     };
 
-    await Promise.all([
-      db
-        .insert(instagramConnections)
-        .values(values)
-        .onConflictDoUpdate({
-          target: instagramConnections.userId,
-          set: { ...values, connectedAt: new Date(), initialSyncCompletedAt: null },
-        }),
-      db.update(users).set({ instagramConnected: true }).where(eq(users.id, access.accountId)),
-    ]);
+    const [connection] = await db
+      .insert(instagramConnections)
+      .values(values)
+      .onConflictDoUpdate({
+        target: instagramConnections.userId,
+        set: { ...values, connectedAt: new Date(), initialSyncCompletedAt: null },
+      })
+      .returning({ id: instagramConnections.id });
+    if (!connection) throw new Error("Instagram connection could not be saved");
+
+    await db.update(users).set({ instagramConnected: true }).where(eq(users.id, access.accountId));
 
     // Best-effort — the connection itself is already durably saved above by
     // this point. An Inngest hiccup must never turn a successful Instagram
     // connection into a crashed OAuth callback.
     try {
-      await inngest.send(instagramAccountConnected.create({ userId: access.accountId }));
+      await inngest.send(instagramAccountConnected.create({ userId: access.accountId, connectionId: connection.id }));
     } catch (error) {
       console.error("inngest.send(instagramAccountConnected) failed, Instagram connection saved anyway", error);
     }
