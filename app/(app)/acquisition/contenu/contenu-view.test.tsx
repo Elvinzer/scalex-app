@@ -188,10 +188,16 @@ describe("ContenuView connected panels", () => {
     expect(html).toContain("L’Analyse technique est incroyable");
     expect(html).toContain("0:34");
     expect(html).toContain("Vidéo et date");
-    expect(html).toContain("Vues");
-    expect(html).toContain("Abonnés / 1 000 vues");
+    expect(html).toContain("Performance");
+    expect(html).toContain("Diffusion");
+    expect(html).toContain("Clic");
+    expect(html).toContain("Rétention");
+    expect(html).toContain("Croissance");
+    expect(html).toContain("Business");
     expect(html).toContain("Diagnostic");
-    expect(html).toContain("RDV bookés");
+    expect(html).toContain("Des signaux à surveiller");
+    expect(html).not.toContain("vs moyenne");
+    expect(html).not.toContain("Axes du diagnostic");
     expect(html).not.toContain("Tous les posts");
   });
 

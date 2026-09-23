@@ -1,36 +1,39 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ChevronsUpDown, ExternalLink, MonitorPlay, SlidersHorizontal } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, ExternalLink, Info, MonitorPlay, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
 import { InfoPopover } from "@/components/info-popover";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDurationSeconds } from "@/components/youtube/youtube-video-detail-dialog";
 import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
 import { diagnoseYoutubeVideo, type YoutubeDiagnosticLevel } from "@/lib/youtube/diagnosis";
 import { type VideoFormat, matchesFormat } from "@/lib/youtube/format";
 import { comparisonMetric, computeVideoMetricComparisons, type VideoPerformanceComparison } from "@/lib/youtube/insights-comparison";
 import { aggregateTrafficSources } from "@/lib/youtube/retention";
-import { bookingsPerThousandViews, revenuePerThousandViews, subscribersPerThousandViews } from "@/lib/youtube/rates";
+import { bookingsPerThousandViews, netSubscribers, revenuePerThousandViews, subscribersPerThousandViews } from "@/lib/youtube/rates";
 import type { YoutubeVideoBingeMetrics, YoutubeVideoInsightRow, YoutubeVideoSnapshotRow } from "@/lib/youtube/queries";
+import { summarizeYoutubeTableRow, tableSignalFromComparison, type YoutubeTableDiagnostic, type YoutubeTableSignal } from "@/lib/youtube/table-analysis";
 import { cn } from "@/lib/utils";
 
 import { Pager } from "./pager";
 
 type SortKey = "publishedAt" | "views" | "retention";
-type ColumnKey =
-  | "views"
-  | "retention30"
+type PrimaryColumnKey =
+  | "performance"
+  | "diffusion"
+  | "click"
   | "retention"
-  | "subsPer1000"
-  | "bookings"
-  | "revenue"
-  | "diagnosis"
+  | "growth"
+  | "business"
+  | "diagnosis";
+type OptionalColumnKey =
   | "impressions"
   | "ctr"
   | "browse"
@@ -49,49 +52,64 @@ type ColumnKey =
   | "endScreenCtr"
   | "cardCtr"
   | "revenuePer1000";
+type ColumnKey = PrimaryColumnKey | OptionalColumnKey;
+type OptionalColumnGroupKey = "performance" | "acquisition" | "retention" | "engagement" | "binge" | "business";
+type OptionalColumnGroup = { key: OptionalColumnGroupKey; columns: readonly OptionalColumnKey[] };
 
 const PAGE_SIZE = 10;
 const LOW_SAMPLE_VIEWS = 100;
-const DEFAULT_COLUMNS: ColumnKey[] = ["views", "retention30", "retention", "subsPer1000", "bookings", "revenue", "diagnosis"];
-const ALWAYS_VISIBLE_COLUMNS: ColumnKey[] = ["views", "retention30", "retention", "subsPer1000", "bookings", "revenue", "diagnosis"];
-const OPTIONAL_COLUMNS: ColumnKey[] = [
-  "impressions",
-  "ctr",
-  "browse",
-  "suggested",
-  "search",
-  "avgDuration",
-  "watchTime",
-  "likes",
-  "comments",
-  "shares",
-  "subsGained",
-  "subsLost",
-  "velocity1",
-  "velocity2",
-  "velocity7",
-  "endScreenCtr",
-  "cardCtr",
-  "revenuePer1000",
+const DEFAULT_COLUMNS: PrimaryColumnKey[] = ["performance", "diffusion", "click", "retention", "growth", "business", "diagnosis"];
+const ALWAYS_VISIBLE_COLUMNS: PrimaryColumnKey[] = [...DEFAULT_COLUMNS];
+const OPTIONAL_COLUMN_GROUPS: readonly OptionalColumnGroup[] = [
+  { key: "performance", columns: ["impressions", "velocity1", "velocity2", "velocity7"] },
+  { key: "acquisition", columns: ["ctr", "browse", "suggested", "search"] },
+  { key: "retention", columns: ["avgDuration", "watchTime"] },
+  { key: "engagement", columns: ["likes", "comments", "shares", "subsGained", "subsLost"] },
+  { key: "binge", columns: ["endScreenCtr", "cardCtr"] },
+  { key: "business", columns: ["revenuePer1000"] },
 ];
-const STORAGE_KEY = "minaly:youtube-table-columns:v1";
+const OPTIONAL_COLUMNS: OptionalColumnKey[] = OPTIONAL_COLUMN_GROUPS.flatMap((group) => [...group.columns]);
+const ALL_COLUMNS: ColumnKey[] = [...DEFAULT_COLUMNS, ...OPTIONAL_COLUMNS];
+const STORAGE_KEY = "minaly:youtube-table-columns:v2";
 
-const TIER_TEXT_CLASS: Record<"above" | "inline" | "below", string> = {
-  above: "text-state-healthy",
-  inline: "text-foreground",
-  below: "text-state-critical",
+function isPrimaryColumn(column: ColumnKey): column is PrimaryColumnKey {
+  return DEFAULT_COLUMNS.includes(column as PrimaryColumnKey);
+}
+
+function desktopColumnWidth(column: ColumnKey): string {
+  if (column === "diagnosis") return "w-[7.5rem]";
+  if (column === "retention") return "w-[6.75rem]";
+  if (column === "click") return "w-[4.375rem]";
+  if (column === "growth") return "w-[5.625rem]";
+  if (column === "business") return "w-[5.125rem]";
+  return isPrimaryColumn(column) ? "w-[5.5rem]" : "w-[6rem]";
+}
+
+const SIGNAL_TEXT_CLASS: Record<YoutubeTableSignal, string> = {
+  strong: "text-state-healthy",
+  good: "text-state-healthy",
+  neutral: "text-foreground",
+  weak: "text-state-critical",
+  unavailable: "text-state-unknown",
 };
 
-const DIAGNOSTIC_DOT_CLASS: Record<YoutubeDiagnosticLevel, string> = {
-  strong: "bg-state-healthy",
-  good: "bg-state-healthy/55",
-  medium: "bg-state-caution",
-  weak: "bg-state-critical",
-  unavailable: "bg-state-unknown",
+const DIAGNOSTIC_TONE_CLASS: Record<YoutubeTableDiagnostic["tone"], string> = {
+  healthy: "border-state-healthy/30 bg-state-healthy/10 text-state-healthy",
+  caution: "border-state-caution/30 bg-state-caution/10 text-state-caution",
+  critical: "border-state-critical/30 bg-state-critical/10 text-state-critical",
+  unknown: "border-state-unknown/30 bg-muted text-muted-foreground",
+};
+
+const DIAGNOSTIC_LEVEL_CLASS: Record<YoutubeDiagnosticLevel, string> = {
+  strong: "text-state-healthy",
+  good: "text-state-healthy",
+  medium: "text-state-caution",
+  weak: "text-state-critical",
+  unavailable: "text-state-unknown",
 };
 
 type YoutubeMetricComparisons = Record<
-  "views" | "retention30" | "retention" | "subsPer1000" | "bookingsPer1000" | "revenuePer1000",
+  "views" | "impressions" | "ctr" | "retention30" | "retention" | "subsPer1000" | "bookingsPer1000" | "revenuePer1000",
   Map<string, VideoPerformanceComparison>
 >;
 
@@ -150,31 +168,153 @@ function computeTopVideos(videos: YoutubeVideoInsightRow[]): YoutubeVideoInsight
     .slice(0, 3);
 }
 
-function DiagnosticDots({
+function comparisonDetail(
+  t: ReturnType<typeof useTranslations>,
+  comparison: VideoPerformanceComparison,
+): string {
+  const delta = Math.round((comparison.ratio - 1) * 100);
+  return t("comparisonDetail", {
+    delta: `${delta > 0 ? "+" : ""}${delta}`,
+    count: comparison.cohortSize,
+  });
+}
+
+function SignalStatus({
+  status,
+  comparison,
+  t,
+}: {
+  status: YoutubeTableSignal;
+  comparison: VideoPerformanceComparison | null;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 text-xs font-bold", SIGNAL_TEXT_CLASS[status])}>
+      {t(`signal.${status}`)}
+      {comparison && <InfoPopover text={comparisonDetail(t, comparison)} ariaLabel={t("comparisonDetails")} />}
+    </span>
+  );
+}
+
+function MetricBlock({
+  label,
+  value,
+  secondary,
+  status,
+  comparison,
+  help,
+  t,
+}: {
+  label: string;
+  value: ReactNode;
+  secondary?: ReactNode;
+  status?: YoutubeTableSignal;
+  comparison?: VideoPerformanceComparison | null;
+  help?: string;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-1 text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+        <span>{label}</span>
+        {help && <InfoPopover text={help} ariaLabel={t("metricHelp")} />}
+      </div>
+      <p className="mt-1 font-display text-base font-bold leading-tight tabular-nums">{value}</p>
+      {secondary && <p className="mt-0.5 text-xs text-muted-foreground">{secondary}</p>}
+      {status && <SignalStatus status={status} comparison={comparison ?? null} t={t} />}
+    </div>
+  );
+}
+
+function diagnosticLevelFromSignal(signal: YoutubeTableSignal): YoutubeDiagnosticLevel {
+  if (signal === "strong") return "strong";
+  if (signal === "good") return "good";
+  if (signal === "weak") return "weak";
+  if (signal === "unavailable") return "unavailable";
+  return "medium";
+}
+
+function DiagnosticDetails({
+  diagnostics,
+  hook,
+  t,
+}: {
+  diagnostics: ReturnType<typeof diagnoseYoutubeVideo>;
+  hook: YoutubeTableSignal;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const details = [
+    ...diagnostics.map((diagnostic) => ({
+      label: t(`axis.${diagnostic.axis}`),
+      level: diagnostic.level,
+    })),
+    { label: t("axis.hook"), level: diagnosticLevelFromSignal(hook) },
+  ];
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={t("diagnosticDetails")}
+          className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
+        >
+          <Info className="size-3.5" aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-56 p-3">
+        <p className="text-xs font-bold">{t("diagnosticDetails")}</p>
+        <dl className="mt-2 space-y-1.5 text-xs">
+          {details.map((detail) => (
+            <div key={detail.label} className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">{detail.label}</dt>
+              <dd className={cn("font-bold", DIAGNOSTIC_LEVEL_CLASS[detail.level])}>{t(`level.${detail.level}`)}</dd>
+            </div>
+          ))}
+        </dl>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function DiagnosticSummary({
   video,
   bookings,
   revenueEur,
   metricComparisons,
-  videos,
   t,
 }: {
   video: YoutubeVideoInsightRow;
   bookings: number | null;
   revenueEur: number | null;
   metricComparisons: YoutubeMetricComparisons;
-  videos: YoutubeVideoInsightRow[];
   t: ReturnType<typeof useTranslations>;
 }) {
   const viewsComparison = metricComparisons.views.get(video.videoId);
+  const impressionsComparison = metricComparisons.impressions.get(video.videoId);
+  const clickComparison = metricComparisons.ctr.get(video.videoId);
+  const retention30Comparison = metricComparisons.retention30.get(video.videoId);
   const retentionComparison = metricComparisons.retention.get(video.videoId);
   const revenueValue = revenuePerThousandViews(revenueEur, video.views);
   const bookingsValue = bookingsPerThousandViews(bookings, video.views);
   const businessComparison = revenueValue !== null
     ? metricComparisons.revenuePer1000.get(video.videoId)
     : metricComparisons.bookingsPer1000.get(video.videoId);
+  const retention30 = video.retentionCurve && video.durationSeconds && (video.views ?? 0) >= LOW_SAMPLE_VIEWS ? retentionAtThirty(video) : null;
+  const growthValue = subscribersPerThousandViews(video);
+  const performance = tableSignalFromComparison(video.views, viewsComparison ?? null);
+  const diffusion = tableSignalFromComparison(video.impressions, impressionsComparison ?? null);
+  const click = tableSignalFromComparison(video.impressionsClickThroughRate, clickComparison ?? null);
+  const hook = tableSignalFromComparison(retention30, retention30Comparison ?? null);
+  const retention = tableSignalFromComparison(video.averageViewPercentage, retentionComparison ?? null);
+  const growth = tableSignalFromComparison(growthValue, metricComparisons.subsPer1000.get(video.videoId) ?? null);
+  const business = tableSignalFromComparison(revenueValue ?? bookingsValue, businessComparison ?? null);
+  const summary = summarizeYoutubeTableRow({ performance, diffusion, click, hook, retention, growth, business });
   const diagnostics = diagnoseYoutubeVideo({
     video,
     baselineViews: viewsComparison?.baseline ?? null,
+    baselineImpressions: impressionsComparison?.baseline ?? null,
+    baselineClick: clickComparison?.baseline ?? null,
     baselineRetention: retentionComparison?.baseline ?? null,
     businessValue: revenueValue ?? bookingsValue,
     businessBaseline: businessComparison?.baseline ?? null,
@@ -182,17 +322,9 @@ function DiagnosticDots({
     revenueEur,
   });
   return (
-    <div className="flex items-center justify-end gap-1.5" role="group" aria-label={t("diagnosisLabel")}>
-      {diagnostics.map((diagnostic) => (
-        <span
-          key={diagnostic.axis}
-          className={cn("size-2 rounded-full", DIAGNOSTIC_DOT_CLASS[diagnostic.level])}
-          role="img"
-          aria-label={`${t(`axis.${diagnostic.axis}`)} : ${t(`level.${diagnostic.level}`)}`}
-          title={`${t(`axis.${diagnostic.axis}`)} : ${t(`level.${diagnostic.level}`)}`}
-        />
-      ))}
-      <span className="sr-only">{videos.length > 0 ? t("diagnosisHelp") : ""}</span>
+    <div className={cn("inline-flex max-w-[15rem] items-center gap-1 rounded-[var(--radius-control)] border px-2 py-1", DIAGNOSTIC_TONE_CLASS[summary.tone])} role="group" aria-label={t("diagnosisLabel")}>
+      <span className="text-xs font-bold leading-tight">{t(`diagnosis.${summary.key}`)}</span>
+      <DiagnosticDetails diagnostics={diagnostics} hook={hook} t={t} />
     </div>
   );
 }
@@ -215,7 +347,7 @@ function ColumnSelector({
   }
 
   function toggle(column: ColumnKey) {
-    if (ALWAYS_VISIBLE_COLUMNS.includes(column)) return;
+    if (isPrimaryColumn(column)) return;
     setDraftColumns((current) => current.includes(column) ? current.filter((item) => item !== column) : [...current, column]);
   }
 
@@ -242,17 +374,24 @@ function ColumnSelector({
           </div>
           <div>
             <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t("optionalColumns")}</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {OPTIONAL_COLUMNS.map((column) => (
-                <label key={column} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-border px-3 text-sm hover:bg-muted">
-                  <input
-                    type="checkbox"
-                    checked={draftColumns.includes(column)}
-                    onChange={() => toggle(column)}
-                    className="size-4 accent-(--accent)"
-                  />
-                  <span>{t(`column.${column}`)}</span>
-                </label>
+            <div className="mt-3 space-y-4">
+              {OPTIONAL_COLUMN_GROUPS.map((group) => (
+                <fieldset key={group.key}>
+                  <legend className="text-xs font-bold tracking-wide text-muted-foreground uppercase">{t(`columnGroup.${group.key}`)}</legend>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {group.columns.map((column) => (
+                      <label key={column} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-border px-3 text-sm hover:bg-muted">
+                        <input
+                          type="checkbox"
+                          checked={draftColumns.includes(column)}
+                          onChange={() => toggle(column)}
+                          className="size-4 accent-(--accent)"
+                        />
+                        <span>{t(`column.${column}`)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               ))}
             </div>
           </div>
@@ -340,6 +479,8 @@ export function YoutubeVideosTable({
   const comparisonValues = useMemo(() => {
     const values = {
       views: new Map<string, number | null>(),
+      impressions: new Map<string, number | null>(),
+      ctr: new Map<string, number | null>(),
       retention30: new Map<string, number | null>(),
       retention: new Map<string, number | null>(),
       subsPer1000: new Map<string, number | null>(),
@@ -350,6 +491,8 @@ export function YoutubeVideosTable({
       const stats = commercialStats.get(video.videoId);
       const retention30 = video.retentionCurve && video.durationSeconds && (video.views ?? 0) >= LOW_SAMPLE_VIEWS ? retentionAtThirty(video) : null;
       values.views.set(video.videoId, video.views);
+      values.impressions.set(video.videoId, video.impressions);
+      values.ctr.set(video.videoId, video.impressionsClickThroughRate);
       values.retention30.set(video.videoId, retention30 === null ? null : retention30 * 100);
       values.retention.set(video.videoId, video.averageViewPercentage);
       values.subsPer1000.set(video.videoId, subscribersPerThousandViews(video));
@@ -360,6 +503,8 @@ export function YoutubeVideosTable({
   }, [commercialStats, formatFiltered]);
   const metricComparisons = useMemo(() => ({
     views: computeVideoMetricComparisons(formatFiltered, comparisonValues.views),
+    impressions: computeVideoMetricComparisons(formatFiltered, comparisonValues.impressions),
+    ctr: computeVideoMetricComparisons(formatFiltered, comparisonValues.ctr),
     retention30: computeVideoMetricComparisons(formatFiltered, comparisonValues.retention30),
     retention: computeVideoMetricComparisons(formatFiltered, comparisonValues.retention),
     subsPer1000: computeVideoMetricComparisons(formatFiltered, comparisonValues.subsPer1000),
@@ -371,8 +516,8 @@ export function YoutubeVideosTable({
     try {
       const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "null") as unknown;
       if (Array.isArray(stored)) {
-        const valid = stored.filter((value): value is ColumnKey => typeof value === "string" && DEFAULT_COLUMNS.concat(OPTIONAL_COLUMNS).includes(value as ColumnKey));
-        setColumns([...new Set([...DEFAULT_COLUMNS, ...valid.filter((value) => !DEFAULT_COLUMNS.includes(value))])]);
+        const valid = stored.filter((value): value is ColumnKey => typeof value === "string" && ALL_COLUMNS.includes(value as ColumnKey));
+        setColumns([...new Set([...DEFAULT_COLUMNS, ...valid.filter((value) => !isPrimaryColumn(value))])]);
       }
     } catch {
       // An invalid local preference falls back to the product defaults.
@@ -428,18 +573,58 @@ export function YoutubeVideosTable({
     return { bookings: stats?.bookings ?? null, dealsClosed: stats?.dealsClosed ?? null, revenueEur: stats?.revenueEur ?? null, salesCount: stats?.salesCount ?? null };
   }
 
-  function comparisonFor(video: YoutubeVideoInsightRow, column: ColumnKey) {
-    const metricByColumn: Partial<Record<ColumnKey, keyof typeof metricComparisons>> = {
-      views: "views",
-      retention30: "retention30",
-      retention: "retention",
-      subsPer1000: "subsPer1000",
-      bookings: "bookingsPer1000",
-      revenue: "revenuePer1000",
-      revenuePer1000: "revenuePer1000",
+  function analysisFor(video: YoutubeVideoInsightRow) {
+    const stats = statsFor(video);
+    const retention30 = video.retentionCurve && video.durationSeconds && (video.views ?? 0) >= LOW_SAMPLE_VIEWS ? retentionAtThirty(video) : null;
+    const revenueValue = revenuePerThousandViews(stats.revenueEur, video.views);
+    const bookingsValue = bookingsPerThousandViews(stats.bookings, video.views);
+    const businessComparison = revenueValue !== null
+      ? metricComparisons.revenuePer1000.get(video.videoId) ?? null
+      : metricComparisons.bookingsPer1000.get(video.videoId) ?? null;
+    const growthValue = subscribersPerThousandViews(video);
+    const performanceStatus = tableSignalFromComparison(video.views, metricComparisons.views.get(video.videoId) ?? null);
+    const diffusionStatus = tableSignalFromComparison(video.impressions, metricComparisons.impressions.get(video.videoId) ?? null);
+    const clickStatus = tableSignalFromComparison(video.impressionsClickThroughRate, metricComparisons.ctr.get(video.videoId) ?? null);
+    const hookStatus = tableSignalFromComparison(retention30 === null ? null : retention30 * 100, metricComparisons.retention30.get(video.videoId) ?? null);
+    const retentionStatus = tableSignalFromComparison(
+      video.averageViewPercentage ?? (retention30 === null ? null : retention30 * 100),
+      metricComparisons.retention.get(video.videoId) ?? metricComparisons.retention30.get(video.videoId) ?? null,
+    );
+    const growthStatus = tableSignalFromComparison(growthValue, metricComparisons.subsPer1000.get(video.videoId) ?? null);
+    const businessStatus = tableSignalFromComparison(revenueValue ?? bookingsValue, businessComparison);
+    const diagnosis = summarizeYoutubeTableRow({
+      performance: performanceStatus,
+      diffusion: diffusionStatus,
+      click: clickStatus,
+      hook: hookStatus,
+      retention: retentionStatus,
+      growth: growthStatus,
+      business: businessStatus,
+    });
+    return {
+      stats,
+      retention30,
+      revenueValue,
+      bookingsValue,
+      growthValue,
+      performanceStatus,
+      diffusionStatus,
+      clickStatus,
+      hookStatus,
+      retentionStatus,
+      growthStatus,
+      businessStatus,
+      diagnosis,
+      comparisons: {
+        views: metricComparisons.views.get(video.videoId) ?? null,
+        impressions: metricComparisons.impressions.get(video.videoId) ?? null,
+        ctr: metricComparisons.ctr.get(video.videoId) ?? null,
+        retention30: metricComparisons.retention30.get(video.videoId) ?? null,
+        retention: metricComparisons.retention.get(video.videoId) ?? null,
+        subsPer1000: metricComparisons.subsPer1000.get(video.videoId) ?? null,
+        business: businessComparison,
+      },
     };
-    const metric = metricByColumn[column];
-    return metric ? metricComparisons[metric].get(video.videoId) ?? null : null;
   }
 
   function freshnessLabel(): string {
@@ -448,18 +633,9 @@ export function YoutubeVideosTable({
     return t("freshness", { hours });
   }
 
-  function cellValue(video: YoutubeVideoInsightRow, column: ColumnKey): string {
+  function cellValue(video: YoutubeVideoInsightRow, column: OptionalColumnKey): string {
     const stats = statsFor(video);
     const videoSnapshots = snapshots.get(video.videoId) ?? [];
-    if (column === "views") return formatNumber(video.views, locale);
-    if (column === "retention30") {
-      const value = video.retentionCurve && video.durationSeconds && video.views !== null && video.views >= LOW_SAMPLE_VIEWS ? retentionAtThirty(video) : null;
-      return formatPercent(value === null ? null : value * 100, locale);
-    }
-    if (column === "retention") return formatPercent(video.averageViewPercentage, locale);
-    if (column === "subsPer1000") return formatNumberValue(subscribersPerThousandViews(video), locale);
-    if (column === "bookings") return formatNumber(stats.bookings, locale);
-    if (column === "revenue") return formatCurrency(stats.revenueEur, locale);
     if (column === "impressions") return formatNumber(video.impressions, locale);
     if (column === "ctr") return formatPercent(video.impressionsClickThroughRate, locale);
     if (column === "browse" || column === "suggested" || column === "search") {
@@ -479,8 +655,62 @@ export function YoutubeVideosTable({
     if (column === "velocity7") return formatNumber(velocityAtDay(videoSnapshots, video.publishedAt, 7), locale);
     if (column === "endScreenCtr") return formatPercent(bingeMetrics.get(video.videoId)?.endScreenCtr ?? null, locale);
     if (column === "cardCtr") return formatPercent(bingeMetrics.get(video.videoId)?.cardCtr ?? null, locale);
-    if (column === "revenuePer1000") return formatCurrency(stats.revenueEur === null || video.views === null || video.views <= 0 ? null : (stats.revenueEur / video.views) * 1000, locale);
+    if (column === "revenuePer1000") return formatCurrency(revenuePerThousandViews(stats.revenueEur, video.views), locale);
     return "—";
+  }
+
+  function renderPrimaryColumn(video: YoutubeVideoInsightRow, column: PrimaryColumnKey, showHelp = false): ReactNode {
+    const analysis = analysisFor(video);
+    const retentionComparison = analysis.comparisons.retention ?? analysis.comparisons.retention30;
+    const retentionAverage = formatPercent(video.averageViewPercentage, locale);
+    const retentionValue = analysis.retention30 !== null
+      ? t("retentionAtThirtyShort", { value: formatPercent(analysis.retention30 * 100, locale) })
+      : video.averageViewPercentage === null
+        ? "—"
+        : t("retentionAverageShort", { value: retentionAverage });
+    const retentionSecondary = analysis.retention30 !== null && video.averageViewPercentage !== null
+      ? t("retentionAverageShort", { value: retentionAverage })
+      : undefined;
+    const net = netSubscribers(video);
+    const growthValue = analysis.growthValue === null ? "—" : `${formatNumberValue(analysis.growthValue, locale)} / 1 000`;
+    const growthSecondary = net === null ? undefined : `${net > 0 ? "+" : ""}${formatNumber(net, locale)} ${t("subscribersShort")}`;
+    const hasBusinessData = analysis.stats.bookings !== null || analysis.stats.revenueEur !== null;
+    const businessValue = hasBusinessData
+      ? analysis.stats.bookings === null
+        ? "—"
+        : `${formatNumber(analysis.stats.bookings, locale)} ${t("bookingsShort")}`
+      : t("notTracked");
+    const businessSecondary = hasBusinessData && analysis.stats.revenueEur !== null
+      ? formatCurrency(analysis.stats.revenueEur, locale)
+      : undefined;
+
+    if (column === "performance") {
+      return <MetricBlock label={t("column.performance")} value={video.views === null ? "—" : `${formatNumber(video.views, locale)} ${t("viewsShort")}`} status={analysis.performanceStatus} comparison={analysis.comparisons.views} t={t} />;
+    }
+    if (column === "diffusion") {
+      return <MetricBlock label={t("column.diffusion")} value={video.impressions === null ? "—" : `${formatNumber(video.impressions, locale)} ${t("impressionsShort")}`} status={analysis.diffusionStatus} comparison={analysis.comparisons.impressions} help={showHelp ? t("diffusionHelp") : undefined} t={t} />;
+    }
+    if (column === "click") {
+      return <MetricBlock label={t("column.click")} value={formatPercent(video.impressionsClickThroughRate, locale)} status={analysis.clickStatus} comparison={analysis.comparisons.ctr} help={showHelp ? t("clickHelp") : undefined} t={t} />;
+    }
+    if (column === "retention") {
+      return <MetricBlock label={t("column.retention")} value={retentionValue} secondary={retentionSecondary} status={analysis.retentionStatus} comparison={retentionComparison} help={showHelp ? t("retentionHelp") : undefined} t={t} />;
+    }
+    if (column === "growth") {
+      return <MetricBlock label={t("column.growth")} value={growthValue} secondary={growthSecondary} status={analysis.growthStatus} comparison={analysis.comparisons.subsPer1000} help={showHelp ? t("growthHelp") : undefined} t={t} />;
+    }
+    if (column === "business") {
+      return <MetricBlock label={t("column.business")} value={businessValue} secondary={businessSecondary} help={showHelp ? t("businessHelp") : undefined} t={t} />;
+    }
+    return (
+      <DiagnosticSummary
+        video={video}
+        bookings={analysis.stats.bookings}
+        revenueEur={analysis.stats.revenueEur}
+        metricComparisons={metricComparisons}
+        t={t}
+      />
+    );
   }
 
   return (
@@ -507,24 +737,32 @@ export function YoutubeVideosTable({
         ) : (
           <>
             <div className="sticker-card hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[980px] text-sm">
+              <table className="w-full min-w-[880px] table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[11.5rem]" />
+                  {columns.map((column) => <col key={column} className={desktopColumnWidth(column)} />)}
+                  <col className="w-12" />
+                </colgroup>
                 <thead className="border-b border-border bg-surface-sunken">
                   <tr className="text-left">
-                    <th className="p-3" scope="col"><SortHeader label={t("videoDate")} sortKeyValue="publishedAt" /></th>
+                    <th className="p-2" scope="col"><SortHeader label={t("videoDate")} sortKeyValue="publishedAt" /></th>
                     {columns.map((column) => (
-                      <th key={column} className="p-3 text-right" scope="col">
+                      <th key={column} className="p-2 text-right" scope="col">
                         <span className="inline-flex items-center justify-end gap-1 text-xs font-bold text-muted-foreground">
                           {t(`column.${column}`)}
-                          {column === "retention" && <InfoPopover text={t("retentionHelp")} />}
+                          {column === "diffusion" && <InfoPopover text={t("diffusionHelp")} ariaLabel={t("metricHelp")} />}
+                          {column === "click" && <InfoPopover text={t("clickHelp")} ariaLabel={t("metricHelp")} />}
+                          {column === "retention" && <InfoPopover text={t("retentionHelp")} ariaLabel={t("metricHelp")} />}
+                          {column === "growth" && <InfoPopover text={t("growthHelp")} ariaLabel={t("metricHelp")} />}
+                          {column === "business" && <InfoPopover text={t("businessHelp")} ariaLabel={t("metricHelp")} />}
                         </span>
                       </th>
                     ))}
-                    <th className="p-3" scope="col"><span className="sr-only">{t("actions")}</span></th>
+                    <th className="p-2" scope="col"><span className="sr-only">{t("actions")}</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.map((video) => {
-                    const stats = statsFor(video);
                     const lowSample = (video.views ?? 0) < LOW_SAMPLE_VIEWS;
                     return (
                       <tr
@@ -536,8 +774,8 @@ export function YoutubeVideosTable({
                         onKeyDown={(event) => handleRowKeyDown(event, video.videoId)}
                         className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
                       >
-                        <td className="p-3">
-                          <div className="flex min-w-[15rem] items-center gap-3">
+                        <td className="p-2">
+                          <div className="flex min-w-0 items-center gap-3">
                             <VideoThumbnail thumbnailUrl={video.thumbnailUrl} />
                             <div className="min-w-0">
                               <p className="line-clamp-1 font-bold">{video.title}</p>
@@ -547,11 +785,11 @@ export function YoutubeVideosTable({
                           </div>
                         </td>
                         {columns.map((column) => (
-                          <td key={column} className={cn("p-3 text-right tabular-nums", ["impressions", "ctr", "browse", "suggested", "search", "avgDuration", "watchTime", "likes", "comments", "shares", "subsGained", "subsLost", "velocity1", "velocity2", "velocity7", "endScreenCtr", "cardCtr"].includes(column) && "text-muted-foreground")}>
-                            {column === "diagnosis" ? <DiagnosticDots video={video} bookings={stats.bookings} revenueEur={stats.revenueEur} metricComparisons={metricComparisons} videos={formatFiltered} t={t} /> : <ComparisonValue value={cellValue(video, column)} comparison={comparisonFor(video, column)} t={t} />}
+                          <td key={column} className={cn("p-2 align-top text-right tabular-nums", !isPrimaryColumn(column) && "text-muted-foreground")}>
+                            {isPrimaryColumn(column) ? renderPrimaryColumn(video, column) : cellValue(video, column)}
                           </td>
                         ))}
-                        <td className="p-3 text-right">
+                        <td className="p-2 text-right">
                           <a href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noreferrer" aria-label={`${t("viewOnYoutube")}: ${video.title}`} onClick={(event) => event.stopPropagation()} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
                             <ExternalLink className="size-4" aria-hidden="true" />
                           </a>
@@ -567,7 +805,6 @@ export function YoutubeVideosTable({
 
             <div className="grid gap-3 md:hidden">
               {paged.map((video) => {
-                const stats = statsFor(video);
                 const lowSample = (video.views ?? 0) < LOW_SAMPLE_VIEWS;
                 return (
                   <article
@@ -582,13 +819,17 @@ export function YoutubeVideosTable({
                         {lowSample && <span className="mt-1 inline-flex rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">{t("lowSample")}</span>}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-3 border-t border-border pt-3">
-                      <Metric label={t("column.views")} value={cellValue(video, "views")} />
-                      <Metric label={t("column.retention")} value={cellValue(video, "retention")} />
-                      <Metric label={t("column.revenue")} value={cellValue(video, "revenue")} />
+                    <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3">
+                      {DEFAULT_COLUMNS.filter((column) => column !== "diagnosis").map((column) => (
+                        <div key={column} className="min-w-0 rounded-[var(--radius-control)] bg-muted/40 p-2.5">
+                          {renderPrimaryColumn(video, column, true)}
+                        </div>
+                      ))}
+                      <div className="col-span-2 min-w-0 rounded-[var(--radius-control)] bg-muted/40 p-2.5">
+                        {renderPrimaryColumn(video, "diagnosis")}
+                      </div>
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <DiagnosticDots video={video} bookings={stats.bookings} revenueEur={stats.revenueEur} metricComparisons={metricComparisons} videos={formatFiltered} t={t} />
                       <div className="flex items-center gap-2">
                         <Button type="button" variant="default" size="sm" asChild className="flex-1 justify-center" onClick={(event) => event.stopPropagation()}>
                           <Link href={`/acquisition/contenu/youtube/videos/${encodeURIComponent(video.videoId)}`}>{t("viewDetails")}</Link>
@@ -621,35 +862,6 @@ export function YoutubeVideosTable({
       </button>
     );
   }
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="truncate text-[10px] font-bold tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1 truncate font-display text-base font-bold tabular-nums">{value}</p>
-    </div>
-  );
-}
-
-function ComparisonValue({
-  value,
-  comparison,
-  t,
-}: {
-  value: string;
-  comparison: VideoPerformanceComparison | null;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  if (!comparison) return <span>{value}</span>;
-  const delta = Math.round((comparison.ratio - 1) * 100);
-  const deltaLabel = `${delta > 0 ? "+" : ""}${delta}`;
-  return (
-    <span className="inline-flex flex-col items-end">
-      <span className={TIER_TEXT_CLASS[comparison.tier]} title={t("comparisonTitle", { count: comparison.cohortSize })}>{value}</span>
-      <span className={cn("text-[10px] font-bold", TIER_TEXT_CLASS[comparison.tier])}>{t("comparisonDelta", { value: deltaLabel })}</span>
-    </span>
-  );
 }
 
 function formatNumberValue(value: number | null, locale: string): string {

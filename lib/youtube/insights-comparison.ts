@@ -12,6 +12,8 @@ export type VideoPerformanceComparison = {
 
 export type VideoComparisonMetric =
   | "views"
+  | "impressions"
+  | "ctr"
   | "retention30"
   | "retention"
   | "subsPer1000"

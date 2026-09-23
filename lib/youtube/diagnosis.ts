@@ -14,6 +14,8 @@ export type YoutubeDiagnostic = {
 export type YoutubeDiagnosticInput = {
   video: YoutubeVideoInsightRow;
   baselineViews?: number | null;
+  baselineImpressions?: number | null;
+  baselineClick?: number | null;
   baselineRetention?: number | null;
   baselineBookings?: number | null;
   baselineRevenueEur?: number | null;
@@ -53,21 +55,23 @@ export function diagnoseYoutubeVideo(input: YoutubeDiagnosticInput): YoutubeDiag
 
   const hook = hookRetention(video);
   const retention = video.averageViewPercentage === null ? hook : video.averageViewPercentage;
+  const diffusionValue = video.impressions ?? video.views;
+  const diffusionBaseline = input.baselineImpressions ?? input.baselineViews ?? null;
   const businessValue = input.businessValue ?? input.revenueEur ?? input.bookings;
   const businessBaseline = input.businessBaseline ?? (input.revenueEur !== null ? input.baselineRevenueEur ?? null : input.baselineBookings ?? null);
 
   return [
     {
       axis: "diffusion",
-      level: compare(video.views, input.baselineViews ?? null),
-      value: video.views,
-      baseline: input.baselineViews ?? null,
+      level: compare(diffusionValue, diffusionBaseline),
+      value: diffusionValue,
+      baseline: diffusionBaseline,
     },
     {
       axis: "click",
-      level: "unavailable",
+      level: compare(video.impressionsClickThroughRate, input.baselineClick ?? null),
       value: video.impressionsClickThroughRate,
-      baseline: null,
+      baseline: input.baselineClick ?? null,
     },
     {
       axis: "retention",
