@@ -7,7 +7,7 @@ import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import type { ChatContext } from "@/lib/chat-context";
 import { getContentPosts } from "@/lib/content-posts/queries";
 import type { ContentPostRow } from "@/lib/content-posts/types";
-import { filterVisibleContentPosts } from "@/lib/content-posts/visibility";
+import { excludeInstagramStories, filterVisibleContentPosts } from "@/lib/content-posts/visibility";
 import { getCurrentUser } from "@/lib/current-user";
 import { tryDecrypt } from "@/lib/crypto";
 import { resolveFalcoSkin } from "@/lib/falco-skins";
@@ -87,14 +87,15 @@ export default async function ContenuPage({
   // column of its own, so the public set is resolved through the insights
   // map (externalId == videoId for source="youtube" rows).
   const visiblePosts = filterVisibleContentPosts(posts, Array.from(youtubeInsights.values()));
+  const pagePosts = excludeInstagramStories(visiblePosts);
   const instagramTokenUnreadable = Boolean(
     instagramConnection && !tryDecrypt(instagramConnection.accessTokenEncrypted)
   );
 
-  const instagramPosts = visiblePosts.filter((post) => post.source === "instagram");
+  const instagramPosts = pagePosts.filter((post) => post.source === "instagram");
   const youtubeVideos = Array.from(youtubeInsights.values()).filter(isPublicVideo);
   const attributionReliability = computeReliability(videoAttributionTotals);
-  const global = totalsFor(visiblePosts);
+  const global = totalsFor(pagePosts);
   const youtubeCommercialStats = new Map(
     posts
       .filter((post) => post.source === "youtube" && post.externalId)

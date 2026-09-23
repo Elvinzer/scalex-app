@@ -15,3 +15,9 @@ export function filterVisibleContentPosts(
     (post) => post.source !== "youtube" || (post.externalId !== null && publicVideoIds.has(post.externalId))
   );
 }
+
+// Stories remain available in the synced history, but this page reports feed
+// posts only so its table and overview metrics use the same population.
+export function excludeInstagramStories(posts: readonly ContentPostRow[]): ContentPostRow[] {
+  return posts.filter((post) => post.source !== "instagram" || post.type !== "story");
+}

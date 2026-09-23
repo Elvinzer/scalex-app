@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import type { ContentPostRow } from "./types";
-import { filterVisibleContentPosts } from "./visibility";
+import { excludeInstagramStories, filterVisibleContentPosts } from "./visibility";
 
-function post(source: string, externalId: string | null): ContentPostRow {
+function post(
+  source: string,
+  externalId: string | null,
+  type: ContentPostRow["type"] = source === "youtube" ? "video" : "post"
+): ContentPostRow {
   return {
     id: `${source}-${externalId ?? "manual"}`,
     platform: source,
-    type: source === "youtube" ? "video" : "post",
+    type,
     title: "Post",
     publishedAt: "2026-08-10",
     url: null,
@@ -42,5 +46,17 @@ describe("filterVisibleContentPosts", () => {
     expect(
       filterVisibleContentPosts([post("youtube", "legacy")], [{ videoId: "legacy", privacyStatus: null }])
     ).toHaveLength(1);
+  });
+});
+
+describe("excludeInstagramStories", () => {
+  it("removes Instagram stories while keeping feed posts and other platforms", () => {
+    const visible = excludeInstagramStories([
+      post("instagram", "story-1", "story"),
+      post("instagram", "post-1"),
+      post("youtube", "video-1"),
+    ]);
+
+    expect(visible.map((row) => row.externalId)).toEqual(["post-1", "video-1"]);
   });
 });
