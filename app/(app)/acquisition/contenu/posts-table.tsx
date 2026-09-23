@@ -37,6 +37,10 @@ function formatFollowerChange(value: number | null, locale: string): string {
   return value > 0 ? `+${formatted}` : formatted;
 }
 
+function getInstagramPostUrl(post: ContentPostRow, insight: InstagramPostInsightRow | undefined): string | null {
+  return insight?.permalink ?? post.url;
+}
+
 // Small thumbnail for the title cell. thumbnailUrl is preferred whenever
 // present — it's the resolved "cover" for anything that isn't a plain
 // static image (VIDEO/REELS' cover frame, a CAROUSEL_ALBUM's first child,
@@ -112,9 +116,9 @@ function TopPostsPanel({ entries, locale, t }: { entries: { post: ContentPostRow
         {entries.map(({ post, insight }, index) => (
           <a
             key={post.id}
-            href={post.url ?? undefined}
-            target={post.url ? "_blank" : undefined}
-            rel={post.url ? "noreferrer" : undefined}
+            href={getInstagramPostUrl(post, insight) ?? undefined}
+            target={getInstagramPostUrl(post, insight) ? "_blank" : undefined}
+            rel={getInstagramPostUrl(post, insight) ? "noreferrer" : undefined}
             className={cn(
               "flex flex-col gap-3 rounded-[var(--radius-control)] border p-4 transition-colors",
               index === 0 ? "border-accent-border bg-accent-soft" : "border-border hover:border-border-hover"
@@ -294,6 +298,7 @@ export function PostsTable({
             <tbody>
               {paged.map((post) => {
                 const insight = post.externalId ? instagramInsights?.get(post.externalId) : undefined;
+                const postUrl = getInstagramPostUrl(post, insight);
                 const isStory = insight?.mediaType === "STORY";
                 const rate = insight && !isStory ? comparisonMetric(insight) : null;
                 const tier = insight ? comparisons.get(insight.mediaId)?.tier : undefined;
@@ -306,8 +311,8 @@ export function PostsTable({
                       <div className="flex items-center gap-3">
                         <PostThumbnail insight={insight} />
                         <div className="flex items-center gap-2">
-                          {post.url ? (
-                            <a href={post.url} target="_blank" rel="noreferrer" className="font-bold hover:underline">
+                          {postUrl ? (
+                            <a href={postUrl} target="_blank" rel="noreferrer" className="font-bold hover:underline">
                               {post.title}
                             </a>
                           ) : (

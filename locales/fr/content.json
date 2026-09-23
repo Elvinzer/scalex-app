@@ -144,7 +144,7 @@
     "interactionRateHelp": "Interactions divisées par la portée du post.",
     "sharesHelp": "Partages divisés par la portée du post.",
     "watchTimeHelp": "Temps de visionnage moyen par vue.",
-    "followersHelp": "Meta renvoie cette donnée pour les posts du feed et les stories, mais pas pour les Reels. « — » signifie que la donnée est indisponible, pas qu'elle vaut zéro.",
+    "followersHelp": "Meta renvoie cette donnée uniquement pour les posts simples, mais pas pour les Reels.",
     "above": "Au-dessus",
     "below": "En dessous",
     "average": "Dans la moyenne",

@@ -170,6 +170,21 @@ describe("ContenuView connected panels", () => {
     expect(html).not.toContain("Toutes les vidéos");
   });
 
+  it("uses the Instagram insight permalink when the content projection is stale", () => {
+    const expectedUrl = "https://www.instagram.com/reel/DdmMimbgXFX/";
+    const staleUrl = "https://www.instagram.com/reel/wrong-link/";
+    const props = baseProps();
+    props.posts = [{ ...instagramPost, url: staleUrl }];
+    props.instagramInsights = new Map([
+      [instagramInsight.mediaId, { ...instagramInsight, permalink: expectedUrl }],
+    ]);
+
+    const html = renderView(<ContenuView {...props} />);
+
+    expect(html).toContain(`href="${expectedUrl}"`);
+    expect(html).not.toContain(staleUrl);
+  });
+
   it("keeps the specialized YouTube panel and commercial metrics", () => {
     const html = renderView(
       <ContenuView
