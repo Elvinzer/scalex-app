@@ -5,6 +5,8 @@ import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import type { CloserRow } from "@/lib/closers/types";
 
+import { RemoveCloserButton } from "./closer-card-actions";
+
 export async function CloserCard({ closer }: { closer: CloserRow }) {
   const t = await getTranslations("settings.team");
   const name = closer.isOwner ? t("you") : closer.name;
@@ -37,14 +39,29 @@ export async function CloserCard({ closer }: { closer: CloserRow }) {
         <p className="text-xs text-muted-foreground">
           {closer.status === "invited" ? t("closerInviteHelp") : t("closerAssignmentHelp")}
         </p>
-        {closer.status !== "invited" && (
-          <Button asChild type="button" variant="outline" size="sm">
-            <Link href="/settings/calendars">
-              <CalendarDays className="size-3.5" />
-              {t("manageCloserCalendar")}
-            </Link>
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {closer.status !== "invited" && (
+            <Button asChild type="button" variant="outline" size="sm" className="min-h-11">
+              <Link href="/settings/calendars">
+                <CalendarDays className="size-3.5" />
+                {t("manageCloserCalendar")}
+              </Link>
+            </Button>
+          )}
+          {closer.memberId && (
+            <RemoveCloserButton
+              memberId={closer.memberId}
+              copy={{
+                remove: t("removeCloser"),
+                title: t("removeCloserTitle", { name }),
+                description: t("removeCloserDescription"),
+                confirm: t("removeCloserConfirm"),
+                cancel: t("cancel"),
+                pending: t("removingCloser"),
+              }}
+            />
+          )}
+        </div>
       </div>
     </article>
   );

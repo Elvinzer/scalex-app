@@ -1,11 +1,16 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
 import { track } from "@/lib/analytics";
 import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
 import { requirePermission } from "@/lib/team/context";
 import { createSetter, updateSetter } from "@/lib/setters/queries";
 import { setterInputSchema } from "@/lib/setters/schema";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
+
+const setterIdSchema = z.string().uuid();
 
 export async function saveSetter(id: string | null, data: unknown): Promise<{ error: string | null }> {
   const userId = await requireUserId();
@@ -37,7 +42,11 @@ export async function toggleSetterActive(id: string, active: boolean): Promise<{
   const access = await requirePermission(userId, "acquisition:setters");
   if (!access) return { error: "Tu n'as pas accès à cette section." };
 
-  await updateSetter(access.accountId, id, { active });
+  const parsedId = setterIdSchema.safeParse(id);
+  if (!parsedId.success || typeof active !== "boolean") return { error: "Données invalides" };
+
+  await updateSetter(access.accountId, parsedId.data, { active });
+  revalidatePath("/settings/equipe");
   revalidateBusinessData(access.accountId);
   return { error: null };
 }
