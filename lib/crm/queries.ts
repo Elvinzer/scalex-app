@@ -330,8 +330,20 @@ function eventValues(input: {
 
 async function getSetterForAccount(accountId: string, setterId: string | null | undefined) {
   if (!setterId) return null;
-  const [setter] = await db.select().from(setters).where(and(eq(setters.id, setterId), eq(setters.userId, accountId))).limit(1);
-  return setter ?? null;
+  const [row] = await db
+    .select({ setter: setters })
+    .from(setters)
+    .innerJoin(
+      teamMembers,
+      and(
+        eq(teamMembers.accountId, accountId),
+        ne(teamMembers.status, "removed"),
+        sql`lower(trim(${teamMembers.email})) = lower(trim(${setters.email}))`,
+      ),
+    )
+    .where(and(eq(setters.id, setterId), eq(setters.userId, accountId), eq(setters.active, true)))
+    .limit(1);
+  return row?.setter ?? null;
 }
 
 export async function getCrmSetterForActor(accountId: string, actorUserId: string): Promise<{ id: string; name: string } | null> {
@@ -348,6 +360,14 @@ export async function getCrmSetters(accountId: string): Promise<Array<{ id: stri
   return db
     .select({ id: setters.id, userId: setters.userId, name: setters.name, active: setters.active })
     .from(setters)
+    .innerJoin(
+      teamMembers,
+      and(
+        eq(teamMembers.accountId, accountId),
+        ne(teamMembers.status, "removed"),
+        sql`lower(trim(${teamMembers.email})) = lower(trim(${setters.email}))`,
+      ),
+    )
     .where(eq(setters.userId, accountId))
     .orderBy(asc(setters.name));
 }

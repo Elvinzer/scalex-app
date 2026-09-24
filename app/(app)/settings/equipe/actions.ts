@@ -2,11 +2,12 @@
 
 import { randomBytes } from "node:crypto";
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { db } from "@/db";
-import { subscriptionPlans, subscriptions, teamMemberRoles, teamMembers, teamRoles } from "@/db/schema";
+import { leads, setters, subscriptionPlans, subscriptions, teamMemberRoles, teamMembers, teamRoles } from "@/db/schema";
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { requireUserId } from "@/lib/current-user";
@@ -21,6 +22,7 @@ import {
 import { getAppUrl } from "@/lib/utils";
 
 const INVITE_EXPIRY_DAYS = 7;
+const memberIdSchema = z.string().uuid();
 
 async function validateRoleIds(accountId: string, roleIds: string[]): Promise<boolean> {
   const accountRoles = await db.select({ id: teamRoles.id }).from(teamRoles).where(eq(teamRoles.accountId, accountId));
@@ -122,13 +124,49 @@ export async function removeMember(memberId: string): Promise<{ error: string | 
   const userId = await requireUserId();
   const access = await requireOwner(userId);
   if (!access) return { error: "Action réservée au propriétaire du compte." };
+  const parsedMemberId = memberIdSchema.safeParse(memberId);
+  if (!parsedMemberId.success) return { error: "Membre introuvable" };
 
-  await db
-    .update(teamMembers)
-    .set({ status: "removed" })
-    .where(and(eq(teamMembers.id, memberId), eq(teamMembers.accountId, access.accountId)));
+  const result = await db.transaction(async (tx) => {
+    const [member] = await tx
+      .select({ id: teamMembers.id, email: teamMembers.email })
+      .from(teamMembers)
+      .where(and(eq(teamMembers.id, parsedMemberId.data), eq(teamMembers.accountId, access.accountId)))
+      .limit(1);
+    if (!member) return false;
+
+    const setterRows = await tx
+      .select({ id: setters.id })
+      .from(setters)
+      .where(
+        and(
+          eq(setters.userId, access.accountId),
+          sql`lower(trim(${setters.email})) = lower(trim(${member.email}))`,
+        ),
+      );
+    const setterIds = setterRows.map((setter) => setter.id);
+
+    if (setterIds.length > 0) {
+      await tx
+        .update(leads)
+        .set({ setterId: null, updatedAt: new Date() })
+        .where(and(eq(leads.accountId, access.accountId), inArray(leads.setterId, setterIds)));
+    }
+
+    await tx
+      .update(teamMembers)
+      .set({ status: "removed" })
+      .where(and(eq(teamMembers.id, member.id), eq(teamMembers.accountId, access.accountId)));
+
+    return true;
+  });
+
+  if (!result) return { error: "Membre introuvable" };
 
   revalidatePath("/settings/equipe");
+  revalidatePath("/crm");
+  revalidatePath("/crm/leads");
+  revalidatePath("/crm/pipeline");
   return { error: null };
 }
 
