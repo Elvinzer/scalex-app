@@ -8,9 +8,9 @@ L'accès anticipé est séparé de l'authentification : la page `/early-access`
 enregistre prénom, email, source et UTM dans une table dédiée, sans créer de
 compte. Un seul point de contrôle (`/start`) redirige les CTA d'inscription
 vers la liste tant que `EARLY_ACCESS_MODE` n'est pas explicitement à `open`.
-Le lien magique Supabase reçoit aussi `shouldCreateUser: false` en mode fermé.
-Le réglage Supabase qui interdit les nouvelles inscriptions doit rester aligné
-avec ce mode pour couvrir les connexions Google.
+Le lien magique Supabase reçoit aussi `shouldCreateUser: false` en mode fermé et
+le bouton Google est masqué pendant cette période. Un seul flag suffit donc pour
+ouvrir le parcours, sans dépendre d'un second réglage manuel dans Supabase.
 
 ## 2026-08-04
 
