@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronDown, Plus } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
@@ -45,8 +46,16 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="flex flex-col gap-6">
       <div><h2 className="text-2xl font-bold">{t("leads.title")}</h2><p className="mt-1 text-muted-foreground">{t("leads.subtitle")}</p></div>
-      <details className="sticker-card overflow-hidden">
-        <summary className="flex min-h-11 cursor-pointer items-center px-5 py-4 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("leads.captureToggle")}</summary>
+      <details className="sticker-card group overflow-hidden">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-bold outline-none transition-colors hover:bg-accent-soft focus-visible:ring-3 focus-visible:ring-accent/20 sm:px-5 [&::-webkit-details-marker]:hidden">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent text-accent-foreground shadow-sm">
+              <Plus className="size-5 transition-transform duration-[var(--motion-fast)] group-open:rotate-45" strokeWidth={2.5} aria-hidden="true" />
+            </span>
+            <span className="truncate">{t("leads.captureToggle")}</span>
+          </span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] group-open:rotate-180" aria-hidden="true" />
+        </summary>
         <div className="border-t border-border p-4"><CrmLeadCaptureForm offers={offers} setters={setters} /></div>
       </details>
       <form method="get" className="sticker-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
