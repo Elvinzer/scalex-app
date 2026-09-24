@@ -1,16 +1,22 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import type { Offer } from "@/lib/business/types";
 import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
 
-import { captureProfileAction } from "./crm-actions";
+const captureResponseSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("saved"), error: z.null(), leadId: z.string().uuid().optional(), created: z.boolean().optional() }),
+  z.object({ state: z.literal("error"), error: z.string().min(1) }),
+]);
 
 export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Offer[]; setters?: Array<{ id: string; name: string; active: boolean }> }) {
   const t = useTranslations("crm.leads");
+  const router = useRouter();
   void offers;
   void setters;
   const [isPending, startTransition] = useTransition();
@@ -55,19 +61,29 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
     setMessage(null);
     startTransition(async () => {
       try {
-        const result = await captureProfileAction({
-          profileUrl: isUrl ? identity : "",
-          handle: isUrl ? null : identity,
-          platform,
-          displayName: String(form.get("displayName") ?? "") || null,
-          firstName: String(form.get("firstName") ?? "") || null,
-          lastName: String(form.get("lastName") ?? "") || null,
-          offerId: String(form.get("offerId") ?? "") || null,
-          source,
-          idempotencyKey,
+        const response = await fetch("/api/crm/leads/capture", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profileUrl: isUrl ? identity : "",
+            handle: isUrl ? null : identity,
+            platform,
+            displayName: String(form.get("displayName") ?? "") || null,
+            firstName: String(form.get("firstName") ?? "") || null,
+            lastName: String(form.get("lastName") ?? "") || null,
+            offerId: String(form.get("offerId") ?? "") || null,
+            source,
+            idempotencyKey,
+          }),
         });
-        if (result.error) {
-          setMessage(result.error);
+        const payload: unknown = await response.json().catch(() => null);
+        const result = captureResponseSchema.safeParse(payload);
+        if (!result.success) {
+          setMessage(t("requestFailed"));
+          return;
+        }
+        if (result.data.state === "error") {
+          setMessage(result.data.error);
           return;
         }
         setMessage(t("captured"));
@@ -77,6 +93,7 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
         setSourceWasEdited(false);
         setIdempotencyKey(globalThis.crypto.randomUUID());
         sessionStorage.removeItem("minaly.crm.capture-draft");
+        router.refresh();
       } catch {
         setMessage(t("requestFailed"));
       }
