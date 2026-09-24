@@ -128,7 +128,7 @@ export default async function CoachBusinessScalingResourcePage() {
               <h2 className="text-2xl font-bold text-foreground">{t("resource.toolHeading")}</h2>
               <p className="mt-3 leading-relaxed text-muted-foreground">{t("resource.tool")}</p>
               <Link
-                href="/sign-in"
+                href="/start"
                 className="mt-6 inline-flex rounded-[12px] bg-accent px-6 py-3 font-bold text-white transition-opacity hover:opacity-90"
               >
                 {t("resource.cta")}

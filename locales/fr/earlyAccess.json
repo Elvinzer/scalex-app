@@ -1,0 +1,97 @@
+{
+  "metadata": {
+    "title": "Minaly Accès anticipé | Trouve ce qui ralentit ta croissance",
+    "description": "Rejoins l'accès anticipé de Minaly pour les coachs et formateurs en ligne. Vois ce qui ralentit ton business et quoi travailler ensuite."
+  },
+  "header": {
+    "navigation": "Navigation de l'accès anticipé",
+    "discover": "Découvrir Minaly",
+    "signIn": "Déjà un compte ? Se connecter",
+    "signInShort": "Se connecter",
+    "ctaShort": "Rejoindre la liste"
+  },
+  "hero": {
+    "eyebrow": "Accès anticipé pour les coachs et formateurs en ligne",
+    "title": "Trouve où ton business perd de l'argent.",
+    "accent": "Sache quoi corriger ensuite.",
+    "description": "Minaly rassemble tes chiffres, trouve le goulot d'étranglement qui ralentit ta croissance et te donne une priorité claire.",
+    "mockupAlt": "Tableau de bord Minaly montrant les pertes, le revenu récupérable et les actions prioritaires",
+    "formNote": "Nous ouvrons l'accès progressivement. Inscris-toi et nous t'écrirons lors de la prochaine ouverture."
+  },
+  "form": {
+    "title": "Rejoindre l'accès anticipé",
+    "description": "Laisse tes coordonnées et nous te contacterons à l'ouverture.",
+    "firstName": "Prénom",
+    "firstNamePlaceholder": "Ton prénom",
+    "email": "Email professionnel",
+    "emailPlaceholder": "toi@tonbusiness.com",
+    "submit": "Rejoindre l'accès anticipé",
+    "submitting": "Enregistrement...",
+    "privacy": "En envoyant ce formulaire, tu acceptes de recevoir des nouvelles de Minaly.",
+    "privacyLink": "Politique de confidentialité",
+    "successTitle": "Tu es sur la liste.",
+    "successDescription": "Ta demande est enregistrée. Nous t'écrirons lors de la prochaine ouverture.",
+    "successHome": "Découvrir Minaly",
+    "error": "Impossible d'enregistrer ta demande. Réessaie."
+  },
+  "problem": {
+    "heading": "Tes chiffres sont dispersés partout.",
+    "intro": "Un tableau de bord sert à décider quoi faire ensuite.",
+    "acquisition": {
+      "title": "Acquisition",
+      "description": "Tu vois les vues et les prospects, mais pas l'étape où le parcours ralentit."
+    },
+    "sales": {
+      "title": "Ventes",
+      "description": "Tu as des messages, des appels et des ventes, mais pas une vision claire des taux entre chaque étape."
+    },
+    "content": {
+      "title": "Contenu",
+      "description": "Tu publies régulièrement sans savoir quels posts créent de vraies opportunités."
+    }
+  },
+  "process": {
+    "heading": "Des chiffres à ta prochaine action.",
+    "intro": "Minaly transforme tes données dispersées en une courte liste de tâches utiles.",
+    "measure": {
+      "title": "Mesurer",
+      "description": "Rassemble les chiffres qui comptent au même endroit."
+    },
+    "diagnose": {
+      "title": "Diagnostiquer",
+      "description": "Trouve l'étape qui ralentit ta croissance."
+    },
+    "execute": {
+      "title": "Agir",
+      "description": "Transforme le diagnostic en une action concrète."
+    }
+  },
+  "audience": {
+    "heading": "Pensé pour les coachs et les formateurs en ligne.",
+    "intro": "Pars des chiffres que tu suis déjà. Minaly t'aide à comprendre ce qu'ils veulent dire.",
+    "coach": {
+      "title": "Coach",
+      "description": "Vois le parcours de l'acquisition aux ventes et à la livraison."
+    },
+    "infobusiness": {
+      "title": "Formateur en ligne",
+      "description": "Relie contenu, prospects, appels et revenu dans une seule vue."
+    },
+    "smallTeam": {
+      "title": "Petite équipe",
+      "description": "Donne à chacun la même vision des résultats et des priorités."
+    }
+  },
+  "faq": {
+    "heading": "Quelques réponses pratiques.",
+    "accountQuestion": "Est-ce que cela crée un compte Minaly ?",
+    "accountAnswer": "Non. Ce formulaire enregistre seulement ta demande d'accès anticipé. Nous t'inviterons avant la création de ton compte.",
+    "accessQuestion": "Quand aurai-je accès à Minaly ?",
+    "accessAnswer": "Nous ouvrons l'accès progressivement. Nous t'écrirons quand ton accès sera disponible."
+  },
+  "final": {
+    "heading": "Tu veux savoir quoi corriger en premier ?",
+    "description": "Rejoins la liste d'accès anticipé et nous te préviendrons lors de la prochaine ouverture.",
+    "cta": "Rejoindre l'accès anticipé"
+  }
+}

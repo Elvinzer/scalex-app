@@ -2,6 +2,16 @@
 
 Un insight ou une décision par jour — matière pour le build in public.
 
+## 2026-09-24
+
+L'accès anticipé est séparé de l'authentification : la page `/early-access`
+enregistre prénom, email, source et UTM dans une table dédiée, sans créer de
+compte. Un seul point de contrôle (`/start`) redirige les CTA d'inscription
+vers la liste tant que `EARLY_ACCESS_MODE` n'est pas explicitement à `open`.
+Le lien magique Supabase reçoit aussi `shouldCreateUser: false` en mode fermé.
+Le réglage Supabase qui interdit les nouvelles inscriptions doit rester aligné
+avec ce mode pour couvrir les connexions Google.
+
 ## 2026-08-04
 
 Nettoyage d'IA (Proposition C d'un audit d'organisation) : l'app avait

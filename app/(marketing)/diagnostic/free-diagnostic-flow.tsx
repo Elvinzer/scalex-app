@@ -306,7 +306,7 @@ export function FreeDiagnosticFlow() {
 
                 <div className="flex flex-col gap-3 border-t border-border pt-6">
                   <Button asChild size="lg" className="w-full rounded-[12px]" onClick={savePrefill}>
-                    <Link href="/sign-in?intent=diagnostic">{t("result.primaryCta")}</Link>
+                    <Link href="/start?intent=diagnostic">{t("result.primaryCta")}</Link>
                   </Button>
                   <div className="rounded-[14px] border border-border bg-muted/40 p-4">
                     <p className="mb-3 text-sm font-semibold text-foreground">{t("result.emailCta")}</p>

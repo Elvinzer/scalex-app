@@ -229,6 +229,24 @@ export const users = pgTable("users", {
     .where(sql`booking_handle is not null`),
 ]).enableRLS();
 
+export const earlyAccessSignups = pgTable("early_access_signups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  firstName: text("first_name").notNull(),
+  email: text("email").notNull(),
+  emailNormalized: text("email_normalized").notNull().unique(),
+  locale: text("locale").$type<"fr" | "en">().notNull(),
+  source: text("source"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmContent: text("utm_content"),
+  utmTerm: text("utm_term"),
+  referrer: text("referrer"),
+  consentAt: timestamp("consent_at", { withTimezone: true }).notNull().defaultNow(),
+  consentVersion: text("consent_version").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
 export const stripeConnections = pgTable("stripe_connections", {
   id: uuid("id").primaryKey().defaultRandom(),
   // Unique: one active Stripe connection per user. Reconnecting overwrites

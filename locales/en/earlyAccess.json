@@ -1,0 +1,97 @@
+{
+  "metadata": {
+    "title": "Minaly Early Access | Find the bottleneck slowing growth",
+    "description": "Join Minaly's early access for coaches and online educators. See where your business slows down and what to work on next."
+  },
+  "header": {
+    "navigation": "Early access navigation",
+    "discover": "Discover Minaly",
+    "signIn": "Already have an account? Sign in",
+    "signInShort": "Sign in",
+    "ctaShort": "Join list"
+  },
+  "hero": {
+    "eyebrow": "Early access for coaches and online educators",
+    "title": "Find where your business loses money.",
+    "accent": "Know what to fix next.",
+    "description": "Minaly brings your business numbers together, finds the bottleneck slowing growth and gives you one clear priority.",
+    "mockupAlt": "Minaly dashboard showing losses, recoverable revenue and priority actions",
+    "formNote": "We are opening access gradually. Join the list and we will email you when the next window opens."
+  },
+  "form": {
+    "title": "Join the early access list",
+    "description": "Leave your details and we will contact you when access opens.",
+    "firstName": "First name",
+    "firstNamePlaceholder": "Your first name",
+    "email": "Work email",
+    "emailPlaceholder": "you@yourbusiness.com",
+    "submit": "Join the early access list",
+    "submitting": "Saving...",
+    "privacy": "By submitting, you agree to receive news about Minaly.",
+    "privacyLink": "Privacy policy",
+    "successTitle": "You are on the list.",
+    "successDescription": "We saved your request. We will email you when the next access window opens.",
+    "successHome": "Discover Minaly",
+    "error": "We could not save your request. Please try again."
+  },
+  "problem": {
+    "heading": "Your numbers are spread across too many places.",
+    "intro": "A dashboard is useful when it helps you decide what to do next.",
+    "acquisition": {
+      "title": "Acquisition",
+      "description": "You can see views and leads, but not where the path starts to slow down."
+    },
+    "sales": {
+      "title": "Sales",
+      "description": "You have messages, calls and sales, but no clear view of the rates between each step."
+    },
+    "content": {
+      "title": "Content",
+      "description": "You publish regularly without knowing which posts create real opportunities."
+    }
+  },
+  "process": {
+    "heading": "From numbers to your next move.",
+    "intro": "Minaly turns scattered business data into a short list of work that matters.",
+    "measure": {
+      "title": "Measure",
+      "description": "Bring the numbers that matter into one place."
+    },
+    "diagnose": {
+      "title": "Diagnose",
+      "description": "Find the step that slows your growth."
+    },
+    "execute": {
+      "title": "Act",
+      "description": "Turn the diagnosis into one concrete action."
+    }
+  },
+  "audience": {
+    "heading": "Built for coaches and online educators.",
+    "intro": "Start with the numbers you already track. Minaly helps you see what they mean.",
+    "coach": {
+      "title": "Coach",
+      "description": "See the path from acquisition to sales and delivery."
+    },
+    "infobusiness": {
+      "title": "Online educator",
+      "description": "Connect content, leads, calls and revenue in one view."
+    },
+    "smallTeam": {
+      "title": "Small team",
+      "description": "Give everyone a shared view of performance and priorities."
+    }
+  },
+  "faq": {
+    "heading": "A few practical answers.",
+    "accountQuestion": "Does this create a Minaly account?",
+    "accountAnswer": "No. This form only saves your request for early access. We will invite you before you create an account.",
+    "accessQuestion": "When will I get access?",
+    "accessAnswer": "We are opening access gradually. We will email you when your access is available."
+  },
+  "final": {
+    "heading": "Want to know what to fix first?",
+    "description": "Join the early access list and we will let you know when the next access window opens.",
+    "cta": "Join the early access list"
+  }
+}

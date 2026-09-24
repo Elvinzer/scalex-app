@@ -509,7 +509,7 @@ function GrowthReport({ result, onRestart, fullPage }: { result: GrowthResult; o
         <h3 className="text-[17px] font-bold text-foreground">{t("report.ctaTitle")}</h3>
         <p className="mx-auto mt-2 max-w-[420px] text-[12px] leading-relaxed text-muted-foreground">{t("report.ctaDescription")}</p>
         <Button asChild className="mt-4 h-11 rounded-[11px] px-5 text-[13px] font-semibold">
-          <Link href="/sign-in?intent=trial&plan=solo">
+          <Link href="/start?intent=trial&plan=solo">
             {t("report.cta")}
             <ArrowRight aria-hidden className="size-4" />
           </Link>

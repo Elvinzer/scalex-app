@@ -14,5 +14,11 @@
 ## Useful pages
 
 - Homepage: https://www.minaly.io/
+- Early access: https://www.minaly.io/early-access
 - Scaling guide: https://www.minaly.io/ressources/coach-business-scaling
 - Privacy policy: https://www.minaly.io/politique-de-confidentialite
+
+## Early access
+
+- The early access page is for coaches and online educators who want to see where their business slows down and what to fix next.
+- The form saves an early access request. It does not create a Minaly account.

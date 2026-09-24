@@ -53,5 +53,12 @@ BYOK means bring your own key. A customer can provide an Anthropic API key for a
 ## Public resources
 
 - Homepage: https://www.minaly.io/
+- Early access: https://www.minaly.io/early-access
 - Guide to scaling a coaching business from $10k to $100k per month: https://www.minaly.io/ressources/coach-business-scaling
 - Privacy policy: https://www.minaly.io/politique-de-confidentialite
+
+## Early access
+
+The early access page is for coaches and online educators who want to see where their business slows down and what to fix next. It brings business numbers together, finds the bottleneck slowing growth and gives the founder one clear priority.
+
+The form asks for a first name and work email. It saves an early access request and does not create a Minaly account. Access opens gradually, and Minaly emails people on the list when the next access window is available.

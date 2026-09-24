@@ -25,6 +25,7 @@ export const NAMESPACES = [
   "app",
   "funnelBlocks",
   "marketing",
+  "earlyAccess",
   "freeDiagnostic",
   "growthDiagnostic",
   "deliverability",

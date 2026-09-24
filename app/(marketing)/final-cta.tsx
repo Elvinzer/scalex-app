@@ -31,7 +31,7 @@ export function FinalCta() {
                 <Link href="/diagnostic">{t("finalCta.primaryCta")}</Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="rounded-[12px] border-foreground/20 bg-white/70 px-7 py-6 text-[15px]">
-                <Link href="/sign-in?intent=trial&plan=solo">{t("finalCta.secondaryCta")}</Link>
+                <Link href="/start?intent=trial&plan=solo">{t("finalCta.secondaryCta")}</Link>
               </Button>
             </div>
             <p className="mt-3 text-xs text-foreground/60">{t("finalCta.secondaryNote")}</p>

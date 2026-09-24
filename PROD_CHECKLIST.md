@@ -15,6 +15,10 @@ dans un dashboard externe (pas du code, donc rien que `git log` ne peut retrouve
 ## 2. Supabase
 - [ ] Provider Google activé en prod (Authentication → Providers → Google) si projet Supabase
       séparé du dev — Client ID/Secret à recopier
+- [ ] Tant que `EARLY_ACCESS_MODE=waitlist`, désactiver **Allow new users to sign up** dans
+      Authentication → Settings → User Signups. Cela bloque aussi les nouveaux comptes Google
+      tout en laissant les comptes existants se connecter. Réactiver ce réglage seulement en
+      même temps que `EARLY_ACCESS_MODE=open`.
 - [ ] RLS (Row Level Security) activée sur **toutes** les tables user-scoped de `db/schema.ts`,
       policies revérifiées une à une (pas seulement testées en dev)
 - [ ] Migrations Drizzle appliquées sur la DB de prod — automatique au déploiement (`vercel-build`
@@ -59,6 +63,9 @@ avec des valeurs différentes de dev pour celles qui ne doivent jamais être par
 - [ ] `UNSUBSCRIBE_TOKEN_SECRET` — valeur unique prod
 - [ ] `ADMIN_EMAILS` — liste à jour
 - [ ] `APP_URL` et `NEXT_PUBLIC_APP_URL` — `https://www.minaly.io`, sans slash final
+- [ ] `EARLY_ACCESS_MODE=waitlist` tant que la liste est ouverte. Pour le lancement,
+      passer à `open` et réactiver les inscriptions Supabase dans la même fenêtre de déploiement
+      après un smoke test de `/start`, `/sign-in` et `/early-access`.
 - [ ] `INSTAGRAM_REDIRECT_URI` — `https://www.minaly.io/api/instagram/callback`, exactement la même valeur que dans Meta > Instagram > API setup with Instagram login > Business login settings
 - [ ] Reste des variables (`NEXT_PUBLIC_SUPABASE_*`, `DATABASE_URL`, `DIRECT_URL`,
       `ANTHROPIC_SHARED_API_KEY`, `GROQ_API_KEY`, `POSTHOG_*`) présentes et pointées sur les

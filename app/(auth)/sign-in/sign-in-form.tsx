@@ -14,12 +14,14 @@ export function SignInForm({
   plan = "solo",
   billing = "monthly",
   extensionCompletionPath,
+  newAccountsOpen = false,
 }: {
   authCallbackError?: boolean;
   intent?: "trial" | "diagnostic" | null;
   plan?: "solo" | "team";
   billing?: "monthly" | "annual";
   extensionCompletionPath?: string | null;
+  newAccountsOpen?: boolean;
 }) {
   const t = useTranslations("auth.signIn");
   const [email, setEmail] = useState("");
@@ -46,6 +48,7 @@ export function SignInForm({
       email,
       options: {
         emailRedirectTo: getAuthCallbackUrl(),
+        shouldCreateUser: newAccountsOpen,
       },
     });
 
@@ -81,6 +84,12 @@ export function SignInForm({
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold">{t("title")}</h1>
+
+      {!newAccountsOpen && (
+        <p className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+          {t("newAccountsClosed")}
+        </p>
+      )}
 
       {authCallbackError && status === "idle" && (
         <p className="rounded-lg border border-state-critical/30 bg-state-critical-bg px-3 py-2 text-sm text-state-critical">

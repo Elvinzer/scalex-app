@@ -5,6 +5,7 @@ import { ensureUserRow } from "@/lib/current-user";
 import { crmExtensionCompletionPath, readCrmExtensionAuthQuery } from "@/lib/crm/extension-auth";
 import { createClient } from "@/lib/supabase/server";
 import { getPostAuthDestination } from "@/lib/team/context";
+import { isEarlyAccessMode } from "@/lib/early-access";
 
 import { PublicLocaleSwitcher } from "@/components/i18n/public-locale-switcher";
 import { getRequestLocale } from "@/lib/i18n/locale";
@@ -26,6 +27,7 @@ export default async function SignInPage({
   const trialPlan = params.plan === "solo" || params.plan === "team" ? params.plan : "solo";
   const intent = params.intent === "trial" || params.intent === "diagnostic" ? params.intent : null;
   const billing = params.billing === "annual" ? "annual" : "monthly";
+  const newAccountsOpen = !isEarlyAccessMode();
   // Un utilisateur déjà connecté qui atterrit sur /sign-in (session encore
   // valide) ne doit pas revoir le formulaire : on le renvoie directement dans
   // l'app. Même résolution de destination que app/auth/callback/route.ts.
@@ -54,7 +56,14 @@ export default async function SignInPage({
       <div className="absolute top-6 right-6">
         <PublicLocaleSwitcher current={locale} />
       </div>
-      <SignInForm authCallbackError={params.error === "auth_callback"} intent={intent} plan={trialPlan} billing={billing} extensionCompletionPath={extensionCompletionPath} />
+      <SignInForm
+        authCallbackError={params.error === "auth_callback"}
+        intent={intent}
+        plan={trialPlan}
+        billing={billing}
+        extensionCompletionPath={extensionCompletionPath}
+        newAccountsOpen={newAccountsOpen}
+      />
     </main>
   );
 }

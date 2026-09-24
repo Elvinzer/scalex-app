@@ -61,7 +61,12 @@ export type ClientAnalyticsEvent =
   | "free_diagnostic_started"
   | "free_diagnostic_completed"
   | "free_diagnostic_email_captured"
-  | "free_diagnostic_to_signup";
+  | "free_diagnostic_to_signup"
+  | "early_access_page_view"
+  | "early_access_cta_click"
+  | "early_access_form_start"
+  | "early_access_submit"
+  | "early_access_success";
 
 export function trackClient(event: ClientAnalyticsEvent, properties?: Record<string, unknown>): void {
   void loadPostHog().then(() => posthogInstance?.capture(event, properties));

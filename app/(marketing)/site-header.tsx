@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { trackClient } from "@/lib/analytics-client";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
@@ -16,8 +17,9 @@ function getAnchorId(href: string) {
   return hashIndex === -1 ? "" : href.slice(hashIndex + 1);
 }
 
-export function SiteHeader() {
+export function SiteHeader({ variant = "default" }: { variant?: "default" | "earlyAccess" }) {
   const t = useTranslations("marketing");
+  const earlyAccessT = useTranslations("earlyAccess");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeId, setActiveId] = useState<string>("");
 
@@ -43,6 +45,42 @@ export function SiteHeader() {
 
     return () => observer.disconnect();
   }, []);
+
+  if (variant === "earlyAccess") {
+    return (
+      <header className="sticky top-0 z-50 border-b border-white/10" style={{ background: "var(--gradient-dark)" }}>
+        <div className="mx-auto flex h-16 max-w-[1180px] items-center justify-between gap-3 px-4 sm:px-10">
+          <Link href="/" className="flex shrink-0 items-center">
+            <Image
+              src="/minaly-wordmark.png"
+              alt={t("nav.home")}
+              width={398}
+              height={100}
+              priority
+              sizes="150px"
+              className="h-8 w-auto max-w-[106px] object-contain sm:h-10 sm:max-w-none"
+            />
+          </Link>
+
+          <nav className="flex items-center gap-2 sm:gap-5" aria-label={earlyAccessT("header.navigation")}>
+            <Link href="/" className="hidden text-sm font-semibold text-mist/75 transition-colors hover:text-mist sm:inline">
+              {earlyAccessT("header.discover")}
+            </Link>
+            <Link href="/sign-in" className="inline-flex min-h-10 items-center text-xs font-semibold text-mist/75 transition-colors hover:text-mist sm:text-sm">
+              <span className="sm:hidden">{earlyAccessT("header.signInShort")}</span>
+              <span className="hidden sm:inline">{earlyAccessT("header.signIn")}</span>
+            </Link>
+            <Button asChild size="sm" className="min-h-10 rounded-[10px] px-3 text-xs">
+              <Link href="#early-access-form" onClick={() => trackClient("early_access_cta_click", { location: "header" })}>
+                <span className="sm:hidden">{earlyAccessT("header.ctaShort")}</span>
+                <span className="hidden sm:inline">{earlyAccessT("form.submit")}</span>
+              </Link>
+            </Button>
+          </nav>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header

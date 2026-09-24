@@ -58,7 +58,7 @@ export function DashboardMockup({ ariaLabel }: { ariaLabel?: string }) {
         </div>
         <div className="rounded-[14px] border border-border p-3.5">
           <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">{t("dashboard.recoverable")}</p>
-          <p className="font-display text-lg font-bold text-accent">{t("dashboard.valueRecoverable")}</p>
+          <p className="font-display text-lg font-bold text-accent-text">{t("dashboard.valueRecoverable")}</p>
         </div>
         <div className="rounded-[14px] border border-border p-3.5">
           <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">{t("dashboard.actions")}</p>

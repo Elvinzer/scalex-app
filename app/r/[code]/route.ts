@@ -11,7 +11,7 @@ import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 export async function GET(request: NextRequest, context: { params: Promise<{ code: string }> }) {
   const { code: rawCode } = await context.params;
   const parsedCode = referralCodeSchema.safeParse(rawCode);
-  const destination = new URL("/sign-in", request.url);
+  const destination = new URL("/start", request.url);
 
   if (!parsedCode.success || isRateLimited(`referral-link:${getClientIp(request)}`, 60)) {
     return NextResponse.redirect(destination);

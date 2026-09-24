@@ -28,6 +28,8 @@ function getClient(): PostHog | null {
 // exhaustive list this mirrors. Never call posthog-node anywhere else.
 export type AnalyticsEvent =
   | "signup"
+  | "early_access_success"
+  | "early_access_duplicate"
   | "onboarding_step_completed"
   | "activation_reached"
   | "business_profile_completed"

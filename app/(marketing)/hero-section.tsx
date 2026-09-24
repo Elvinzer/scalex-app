@@ -31,7 +31,7 @@ export function HeroSection() {
               <Link href="/diagnostic">{t("hero.primaryCta")}</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-[12px] px-7 py-6 text-[15px]">
-              <Link href="/sign-in?intent=trial&plan=solo">{t("hero.secondaryCta")}</Link>
+              <Link href="/start?intent=trial&plan=solo">{t("hero.secondaryCta")}</Link>
             </Button>
           </div>
           <p className="-mt-3 text-xs text-muted-foreground">{t("hero.secondaryNote")}</p>
