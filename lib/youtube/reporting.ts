@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -315,26 +315,32 @@ function rowVideoId(row: CsvRow): string | null {
 }
 
 async function importReachRows(userId: string, rows: CsvRow[]): Promise<number> {
-  let imported = 0;
-
-  for (const row of rows) {
+  const values = rows.flatMap((row) => {
     const videoId = rowVideoId(row);
     const capturedOn = asDate(row.date);
-    if (!videoId || !capturedOn) continue;
-    const impressions = asInteger(row.video_thumbnail_impressions);
-    const clickRate = normalizeClickRate(row.video_thumbnail_impressions_ctr);
-    await db
-      .insert(youtubeVideoSnapshots)
-      .values({ userId, videoId, capturedOn, impressions, impressionsClickThroughRate: clickRate })
-      .onConflictDoUpdate({
-        target: [youtubeVideoSnapshots.userId, youtubeVideoSnapshots.videoId, youtubeVideoSnapshots.capturedOn],
-        set: { impressions, impressionsClickThroughRate: clickRate },
-      });
+    if (!videoId || !capturedOn) return [];
+    return [{
+      userId,
+      videoId,
+      capturedOn,
+      impressions: asInteger(row.video_thumbnail_impressions),
+      impressionsClickThroughRate: normalizeClickRate(row.video_thumbnail_impressions_ctr),
+    }];
+  });
 
-    imported += 1;
-  }
+  if (values.length === 0) return 0;
+  await db
+    .insert(youtubeVideoSnapshots)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [youtubeVideoSnapshots.userId, youtubeVideoSnapshots.videoId, youtubeVideoSnapshots.capturedOn],
+      set: {
+        impressions: sql`excluded.impressions`,
+        impressionsClickThroughRate: sql`excluded.impressions_click_through_rate`,
+      },
+    });
 
-  return imported;
+  return values.length;
 }
 
 async function refreshReachInsights(userId: string): Promise<void> {

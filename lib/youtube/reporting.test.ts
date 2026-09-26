@@ -62,28 +62,34 @@ describe("YouTube Reporting synchronization", () => {
 
     dbMock.insert.mockImplementation((table: unknown) => ({
       values: (values: unknown) => {
-        const normalizedValues = values && typeof values === "object" ? Object.fromEntries(Object.entries(values)) : {};
-        state.inserts.push({ table, values: normalizedValues });
-        if (table === youtubeReportingReports && typeof normalizedValues.reportId === "string") {
-          state.existingReports.push({
-            reportId: normalizedValues.reportId,
-            downloadedAt: new Date(),
-            reportTypeId: typeof normalizedValues.reportTypeId === "string" ? normalizedValues.reportTypeId : "",
-            endTime: normalizedValues.endTime instanceof Date ? normalizedValues.endTime : new Date(),
-            createTime: normalizedValues.createTime instanceof Date ? normalizedValues.createTime : new Date(),
-            rowCount: typeof normalizedValues.rowCount === "number" ? normalizedValues.rowCount : 0,
-          });
-        }
-        if (table === youtubeVideoSnapshots && typeof normalizedValues.videoId === "string") {
-          const existing = state.snapshots.find((snapshot) => snapshot.videoId === normalizedValues.videoId && snapshot.capturedOn === normalizedValues.capturedOn);
-          const snapshot = {
-            videoId: normalizedValues.videoId,
-            capturedOn: typeof normalizedValues.capturedOn === "string" ? normalizedValues.capturedOn : "",
-            impressions: typeof normalizedValues.impressions === "number" ? normalizedValues.impressions : null,
-            impressionsClickThroughRate: typeof normalizedValues.impressionsClickThroughRate === "number" ? normalizedValues.impressionsClickThroughRate : null,
-          };
-          if (existing) Object.assign(existing, snapshot);
-          else state.snapshots.push(snapshot);
+        const normalizeValues = (value: unknown): Record<string, unknown> => (
+          value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : {}
+        );
+        const normalizedValuesList = Array.isArray(values) ? values.map(normalizeValues) : [normalizeValues(values)];
+        const firstNormalizedValues = normalizedValuesList[0] ?? {};
+        for (const normalizedValues of normalizedValuesList) {
+          state.inserts.push({ table, values: normalizedValues });
+          if (table === youtubeReportingReports && typeof normalizedValues.reportId === "string") {
+            state.existingReports.push({
+              reportId: normalizedValues.reportId,
+              downloadedAt: new Date(),
+              reportTypeId: typeof normalizedValues.reportTypeId === "string" ? normalizedValues.reportTypeId : "",
+              endTime: normalizedValues.endTime instanceof Date ? normalizedValues.endTime : new Date(),
+              createTime: normalizedValues.createTime instanceof Date ? normalizedValues.createTime : new Date(),
+              rowCount: typeof normalizedValues.rowCount === "number" ? normalizedValues.rowCount : 0,
+            });
+          }
+          if (table === youtubeVideoSnapshots && typeof normalizedValues.videoId === "string") {
+            const existing = state.snapshots.find((snapshot) => snapshot.videoId === normalizedValues.videoId && snapshot.capturedOn === normalizedValues.capturedOn);
+            const snapshot = {
+              videoId: normalizedValues.videoId,
+              capturedOn: typeof normalizedValues.capturedOn === "string" ? normalizedValues.capturedOn : "",
+              impressions: typeof normalizedValues.impressions === "number" ? normalizedValues.impressions : null,
+              impressionsClickThroughRate: typeof normalizedValues.impressionsClickThroughRate === "number" ? normalizedValues.impressionsClickThroughRate : null,
+            };
+            if (existing) Object.assign(existing, snapshot);
+            else state.snapshots.push(snapshot);
+          }
         }
         return {
           onConflictDoUpdate: () => {
@@ -91,9 +97,9 @@ describe("YouTube Reporting synchronization", () => {
               return {
                 returning: async () => [
                   {
-                    userId: typeof normalizedValues.userId === "string" ? normalizedValues.userId : "user-1",
-                    reportTypeId: typeof normalizedValues.reportTypeId === "string" ? normalizedValues.reportTypeId : "channel_reach_basic_a1",
-                    jobId: typeof normalizedValues.jobId === "string" ? normalizedValues.jobId : "job-reach",
+                    userId: typeof firstNormalizedValues.userId === "string" ? firstNormalizedValues.userId : "user-1",
+                    reportTypeId: typeof firstNormalizedValues.reportTypeId === "string" ? firstNormalizedValues.reportTypeId : "channel_reach_basic_a1",
+                    jobId: typeof firstNormalizedValues.jobId === "string" ? firstNormalizedValues.jobId : "job-reach",
                     remoteCreatedAt: new Date("2026-09-01T00:00:00Z"),
                     lastReportStartAt: null,
                     status: "active",
