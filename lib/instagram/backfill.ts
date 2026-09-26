@@ -6,7 +6,7 @@ import { contentPosts, instagramPostInsights } from "@/db/schema";
 import { fetchCarouselChildren, fetchMediaInsights, listMedia, listStories } from "./client";
 import { normalizeMedia } from "./events";
 import { INSTAGRAM_BACKFILL_ITEM_THROTTLE_MS, INSTAGRAM_BACKFILL_TIME_BUDGET_MS } from "./protocol";
-import { isInstagramPermalink } from "./urls";
+import { normalizeInstagramPermalink } from "./urls";
 
 export type BackfillResult = { processed: number; skipped: number; completed: boolean };
 
@@ -14,12 +14,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function knownMediaCaptions(userId: string): Promise<Map<string, string | null>> {
+type KnownMediaMetadata = { caption: string | null; permalink: string | null };
+
+async function knownMediaMetadata(userId: string): Promise<Map<string, KnownMediaMetadata>> {
   const rows = await db
-    .select({ mediaId: instagramPostInsights.mediaId, caption: instagramPostInsights.caption })
+    .select({
+      mediaId: instagramPostInsights.mediaId,
+      caption: instagramPostInsights.caption,
+      permalink: instagramPostInsights.permalink,
+    })
     .from(instagramPostInsights)
     .where(eq(instagramPostInsights.userId, userId));
-  return new Map(rows.map((row) => [row.mediaId, row.caption]));
+  return new Map(rows.map((row) => [row.mediaId, { caption: row.caption, permalink: row.permalink }]));
 }
 
 // Core Instagram -> Minaly sync, shared by the Inngest connect-job and the
@@ -52,16 +58,18 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
   // client.ts's listStories) — combined here so both flow through the same
   // insights-fetch + upsert pipeline below. Distinct ID spaces, no dedup
   // needed.
-  const [media, stories, existingMediaCaptions] = await Promise.all([listMedia(accessToken), listStories(accessToken), knownMediaCaptions(userId)]);
+  const [media, stories, existingMediaMetadata] = await Promise.all([listMedia(accessToken), listStories(accessToken), knownMediaMetadata(userId)]);
   const combined = [...media, ...stories];
   const scoped = sinceDate
-    ? combined.filter((item) => new Date(item.timestamp) >= sinceDate || !existingMediaCaptions.has(item.id))
+    ? combined.filter((item) => new Date(item.timestamp) >= sinceDate || !existingMediaMetadata.has(item.id))
     : combined;
 
   if (sinceDate) {
     for (const item of combined) {
-      if (new Date(item.timestamp) >= sinceDate || !existingMediaCaptions.has(item.id)) continue;
-      if (!item.captionFetched && !isInstagramPermalink(item.permalink)) continue;
+      const existing = existingMediaMetadata.get(item.id);
+      if (new Date(item.timestamp) >= sinceDate || !existing) continue;
+      const permalink = normalizeInstagramPermalink(item.permalink);
+      if (!permalink || permalink === existing.permalink) continue;
       try {
         await refreshMetadataProjection(userId, item);
       } catch (error) {
@@ -94,9 +102,9 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
       // already stored with the dated fallback. A successful empty caption
       // remains authoritative and is allowed to use the fallback.
       const mediaForSync =
-        item.captionFetched || !existingMediaCaptions.has(item.id)
+        item.captionFetched || !existingMediaMetadata.has(item.id)
           ? item
-          : { ...item, caption: existingMediaCaptions.get(item.id) ?? null };
+          : { ...item, caption: existingMediaMetadata.get(item.id)?.caption ?? null };
       // A CAROUSEL_ALBUM's own object never exposes media_url/thumbnail_url
       // — resolve its cover from the first child instead (best-effort, null
       // on any failure).

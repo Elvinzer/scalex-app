@@ -41,10 +41,10 @@ const existingMedia = {
   thumbnailUrl: null,
 } satisfies RawInstagramMedia;
 
-function setupKnownMedia(media: RawInstagramMedia): void {
+function setupKnownMedia(media: RawInstagramMedia, storedPermalink = "https://www.instagram.com/reel/stored-slug/"): void {
   mocks.select.mockReturnValue({
     from: () => ({
-      where: vi.fn().mockResolvedValue([{ mediaId: media.id, caption: "Titre actuel" }]),
+      where: vi.fn().mockResolvedValue([{ mediaId: media.id, caption: "Titre actuel", permalink: storedPermalink }]),
     }),
   });
   mocks.listMedia.mockResolvedValue([media]);
@@ -89,5 +89,13 @@ describe("Instagram historical metadata refresh", () => {
     expect(mocks.update.mock.results[1]?.value.set).toHaveBeenCalledWith({
       url: "https://www.instagram.com/p/refreshed-slug/",
     });
+  });
+
+  it("skips historical writes when the stored permalink is already current", async () => {
+    setupKnownMedia(existingMedia, existingMedia.permalink);
+
+    await backfillInstagramPosts("user-1", "token", new Date("2026-09-01T00:00:00.000Z"));
+
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });
