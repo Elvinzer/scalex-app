@@ -235,7 +235,7 @@
     "subscribersShort": "subscribers",
     "bookingsShort": "booked calls",
     "retentionAtThirtyShort": "{value} at 30 seconds",
-    "retentionAverageShort": "{value} average",
+    "retentionAverageShort": "{value} avg",
     "tableTitle": "Videos",
     "tableSubtitle": "See what works and what needs attention at a glance. Statuses use your usual baseline.",
     "freshness": "Updated {hours}h ago",

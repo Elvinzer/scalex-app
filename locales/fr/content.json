@@ -235,7 +235,7 @@
     "subscribersShort": "abonnés",
     "bookingsShort": "RDV",
     "retentionAtThirtyShort": "{value} à 30 sec",
-    "retentionAverageShort": "{value} en moyenne",
+    "retentionAverageShort": "{value} en moy",
     "tableTitle": "Vidéos",
     "tableSubtitle": "Comprends en un coup d’œil ce qui fonctionne et ce qui mérite ton attention. Les statuts sont comparés à ton niveau habituel.",
     "freshness": "Mis à jour il y a {hours} h",

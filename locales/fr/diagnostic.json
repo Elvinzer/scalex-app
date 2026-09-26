@@ -177,7 +177,7 @@
     "calculatedFromData": "Calculé à partir de tes données, des taux de ton funnel et du prix de ton offre.",
     "scaleWarning": "Vérifie que ton closing est stable avant d’augmenter le volume.",
     "leverContext": "Cette estimation combine ta performance actuelle avec le benchmark du levier.",
-    "firstResults": "Premiers résultats : ≈ {horizon} en moyenne",
+    "firstResults": "Premiers résultats : ≈ {horizon} en moy",
     "questionnaireDone": "Questionnaire de découverte terminé",
     "reviewedLevers": "Tu as passé en revue tes {count} leviers.",
     "viewDiscoveries": "Voir mes découvertes",

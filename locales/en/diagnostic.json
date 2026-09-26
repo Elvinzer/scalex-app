@@ -177,7 +177,7 @@
     "calculatedFromData": "Calculated from your data, funnel rates and offer price.",
     "scaleWarning": "Make sure your closing process is stable before scaling volume.",
     "leverContext": "This estimate combines your current performance with the lever benchmark.",
-    "firstResults": "First results: ≈ {horizon} on average",
+    "firstResults": "First results: ≈ {horizon} in avg",
     "questionnaireDone": "Discovery questionnaire complete",
     "reviewedLevers": "You reviewed your {count} levers.",
     "viewDiscoveries": "View discoveries",
