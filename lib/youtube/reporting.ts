@@ -575,12 +575,17 @@ export async function syncYoutubeReporting(
           if (!startTime || !endTime || !createTime) throw new Error("Invalid YouTube Reporting report timestamp");
           const rows = await downloadReport(accessToken, report.downloadUrl);
           if (job.reportTypeId === "channel_reach_basic_a1") {
-            const videoDateRows = rows.filter((row) => rowVideoId(row) !== null && asDate(row.date) !== null).length;
+            const videoIdRows = rows.filter((row) => rowVideoId(row) !== null).length;
+            const dateRows = rows.filter((row) => asDate(row.date) !== null).length;
             const metricRows = rows.filter(
               (row) => asInteger(row.video_thumbnail_impressions) !== null || normalizeClickRate(row.video_thumbnail_impressions_ctr) !== null,
             ).length;
+            const dateShapes = [...new Set(rows.slice(0, 3).map((row) => {
+              const date = row.date?.trim() ?? "";
+              return `${date.length}:${date.replace(/\d/gu, "D").replace(/[A-Za-z]/gu, "L")}`;
+            }))].join("|");
             console.log(
-              `[youtube] reach report ${report.id}: ${rows.length} rows, ${videoDateRows} video-date rows, ${metricRows} metric rows, columns ${Object.keys(rows[0] ?? {}).join(",")}`,
+              `[youtube] reach report ${report.id}: ${rows.length} rows, ${videoIdRows} video-id rows, ${dateRows} date rows, ${metricRows} metric rows, date shapes ${dateShapes}, columns ${Object.keys(rows[0] ?? {}).join(",")}`,
             );
           }
           rowsImported += await importRows(userId, job.reportTypeId, rows);
