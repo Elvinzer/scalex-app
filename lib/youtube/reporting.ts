@@ -86,7 +86,11 @@ function asInteger(value: string | undefined): number | null {
 
 function asDate(value: string | undefined): string | null {
   const normalized = value?.trim();
-  if (!normalized || !/^\d{4}-\d{2}-\d{2}/u.test(normalized)) return null;
+  if (!normalized) return null;
+  if (/^\d{8}$/u.test(normalized)) {
+    return `${normalized.slice(0, 4)}-${normalized.slice(4, 6)}-${normalized.slice(6, 8)}`;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}/u.test(normalized)) return null;
   return normalized.slice(0, 10);
 }
 
@@ -574,20 +578,6 @@ export async function syncYoutubeReporting(
           const createTime = parseTimestamp(report.createTime);
           if (!startTime || !endTime || !createTime) throw new Error("Invalid YouTube Reporting report timestamp");
           const rows = await downloadReport(accessToken, report.downloadUrl);
-          if (job.reportTypeId === "channel_reach_basic_a1") {
-            const videoIdRows = rows.filter((row) => rowVideoId(row) !== null).length;
-            const dateRows = rows.filter((row) => asDate(row.date) !== null).length;
-            const metricRows = rows.filter(
-              (row) => asInteger(row.video_thumbnail_impressions) !== null || normalizeClickRate(row.video_thumbnail_impressions_ctr) !== null,
-            ).length;
-            const dateShapes = [...new Set(rows.slice(0, 3).map((row) => {
-              const date = row.date?.trim() ?? "";
-              return `${date.length}:${date.replace(/\d/gu, "D").replace(/[A-Za-z]/gu, "L")}`;
-            }))].join("|");
-            console.log(
-              `[youtube] reach report ${report.id}: ${rows.length} rows, ${videoIdRows} video-id rows, ${dateRows} date rows, ${metricRows} metric rows, date shapes ${dateShapes}, columns ${Object.keys(rows[0] ?? {}).join(",")}`,
-            );
-          }
           rowsImported += await importRows(userId, job.reportTypeId, rows);
           const downloadedAt = new Date();
           await db

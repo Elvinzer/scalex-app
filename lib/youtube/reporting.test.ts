@@ -180,10 +180,10 @@ describe("YouTube Reporting synchronization", () => {
         }));
       }
       if (url.href === "https://download.test/report-1") {
-        return Promise.resolve(csvResponse("date,video_id,video_thumbnail_impressions,video_thumbnail_impressions_ctr\n2026-09-19,video-1,1200,6.5\n"));
+        return Promise.resolve(csvResponse("date,video_id,video_thumbnail_impressions,video_thumbnail_impressions_ctr\n20260919,video-1,1200,6.5\n"));
       }
       if (url.href === "https://download.test/report-2") {
-        return Promise.resolve(csvResponse("date,video_id,video_thumbnail_impressions,video_thumbnail_impressions_ctr\n2026-09-20,video-1,1300,7.5\n"));
+        return Promise.resolve(csvResponse("date,video_id,video_thumbnail_impressions,video_thumbnail_impressions_ctr\n20260920,video-1,1300,7.5\n"));
       }
       return Promise.reject(new Error(`Unexpected YouTube Reporting URL: ${url.href}`));
     });
