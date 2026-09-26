@@ -89,9 +89,9 @@ describe("YouTube Reporting synchronization", () => {
               return {
                 returning: async () => [
                   {
-                    userId: "user-1",
-                    reportTypeId: "channel_reach_basic_a1",
-                    jobId: "job-reach",
+                    userId: typeof normalizedValues.userId === "string" ? normalizedValues.userId : "user-1",
+                    reportTypeId: typeof normalizedValues.reportTypeId === "string" ? normalizedValues.reportTypeId : "channel_reach_basic_a1",
+                    jobId: typeof normalizedValues.jobId === "string" ? normalizedValues.jobId : "job-reach",
                     remoteCreatedAt: new Date("2026-09-01T00:00:00Z"),
                     lastReportStartAt: null,
                     status: "active",
@@ -259,5 +259,96 @@ describe("YouTube Reporting synchronization", () => {
       reachNeedsInvestigation: 0,
     });
     expect(state.inserts.some(({ table }) => table === youtubeVideoSnapshots)).toBe(false);
+  });
+
+  it("does not fail the reporting run when a covered video row is still missing", async () => {
+    const fetchMock = vi.fn((input: unknown, init?: RequestInit): Promise<Response> => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/reportTypes")) {
+        return Promise.resolve(jsonResponse({ reportTypes: [{ id: "channel_reach_basic_a1" }] }));
+      }
+      if (url.pathname.endsWith("/jobs") && init?.method !== "POST") {
+        return Promise.resolve(jsonResponse({ jobs: [{ id: "job-reach", reportTypeId: "channel_reach_basic_a1", createTime: "2026-09-01T00:00:00Z" }] }));
+      }
+      if (url.pathname.endsWith("/reports")) {
+        return Promise.resolve(jsonResponse({
+          reports: [{
+            id: "report-1",
+            jobId: "job-reach",
+            startTime: "2026-09-19T00:00:00Z",
+            endTime: "2026-09-20T00:00:00Z",
+            createTime: "2026-09-21T00:00:00Z",
+            downloadUrl: "https://download.test/report-1",
+          }],
+        }));
+      }
+      if (url.href === "https://download.test/report-1") {
+        return Promise.resolve(csvResponse("date,video_id,video_thumbnail_impressions,video_thumbnail_impressions_ctr\n"));
+      }
+      return Promise.reject(new Error(`Unexpected YouTube Reporting URL: ${url.href}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await syncYoutubeReporting("user-1", "channel-1", "access-token");
+
+    expect(result).toMatchObject({
+      downloaded: 1,
+      rows: 0,
+      skipped: 0,
+      status: "completed",
+      reachReportsAvailable: true,
+      reachPending: 1,
+      reachNeedsInvestigation: 1,
+    });
+  });
+
+  it("keeps reach healthy when a secondary report import fails", async () => {
+    const fetchMock = vi.fn((input: unknown, init?: RequestInit): Promise<Response> => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/reportTypes")) {
+        return Promise.resolve(jsonResponse({ reportTypes: [
+          { id: "channel_reach_basic_a1" },
+          { id: "channel_cards_a2" },
+        ] }));
+      }
+      if (url.pathname.endsWith("/jobs") && init?.method !== "POST") {
+        return Promise.resolve(jsonResponse({ jobs: [
+          { id: "job-reach", reportTypeId: "channel_reach_basic_a1", createTime: "2026-09-01T00:00:00Z" },
+          { id: "job-cards", reportTypeId: "channel_cards_a2", createTime: "2026-09-01T00:00:00Z" },
+        ] }));
+      }
+      if (url.pathname.endsWith("/reports") && url.pathname.includes("job-reach")) {
+        return Promise.resolve(jsonResponse({ reports: [] }));
+      }
+      if (url.pathname.endsWith("/reports") && url.pathname.includes("job-cards")) {
+        return Promise.resolve(jsonResponse({ reports: [{
+          id: "report-cards-1",
+          jobId: "job-cards",
+          startTime: "2026-09-19T00:00:00Z",
+          endTime: "2026-09-20T00:00:00Z",
+          createTime: "2026-09-21T00:00:00Z",
+          downloadUrl: "https://download.test/report-cards-1",
+        }] }));
+      }
+      if (url.href === "https://download.test/report-cards-1") {
+        return Promise.reject(new Error("secondary report unavailable"));
+      }
+      return Promise.reject(new Error(`Unexpected YouTube Reporting URL: ${url.href}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await syncYoutubeReporting("user-1", "channel-1", "access-token");
+
+    expect(result).toMatchObject({
+      scheduled: 2,
+      downloaded: 0,
+      rows: 0,
+      skipped: 1,
+      status: "pending",
+      reachJobConfigured: true,
+      reachReportsAvailable: false,
+      reachPending: 1,
+      reachNeedsInvestigation: 0,
+    });
   });
 });

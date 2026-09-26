@@ -205,8 +205,8 @@ describe("ContenuView connected panels", () => {
     expect(html).toContain("0:34");
     expect(html).toContain("Vidéo et date");
     expect(html).toContain("Performance");
-    expect(html).toContain("Diffusion");
-    expect(html).toContain("Clic");
+    expect(html).toContain("Impressions");
+    expect(html).toContain("CTR");
     expect(html).toContain("Rétention");
     expect(html).toContain("Croissance");
     expect(html).toContain("Business");

@@ -428,7 +428,7 @@ async function importCardRows(userId: string, rows: CsvRow[]): Promise<number> {
 async function importRows(userId: string, reportTypeId: string, rows: CsvRow[]): Promise<number> {
   if (reportTypeId === "channel_reach_basic_a1") return importReachRows(userId, rows);
   if (reportTypeId === "channel_end_screens_a2") return importEndScreenRows(userId, rows);
-  if (reportTypeId === "channel_cards_a1") return importCardRows(userId, rows);
+  if (reportTypeId === "channel_cards_a2") return importCardRows(userId, rows);
   return 0;
 }
 
@@ -503,6 +503,7 @@ export async function syncYoutubeReporting(
   let downloaded = 0;
   let rowsImported = 0;
   let skipped = 0;
+  let reachSkipped = 0;
 
   for (const job of jobs) {
     let jobSkipped = 0;
@@ -555,6 +556,7 @@ export async function syncYoutubeReporting(
         } catch (error) {
           skipped += 1;
           jobSkipped += 1;
+          if (job.reportTypeId === "channel_reach_basic_a1") reachSkipped += 1;
           console.error(`[youtube] reporting import ${job.reportTypeId} failed`, error);
         }
       }
@@ -572,6 +574,7 @@ export async function syncYoutubeReporting(
     } catch (error) {
       skipped += 1;
       jobSkipped += 1;
+      if (job.reportTypeId === "channel_reach_basic_a1") reachSkipped += 1;
       console.error(`[youtube] reporting job ${job.reportTypeId} failed`, error);
       await db
         .update(youtubeReportingJobs)
@@ -587,8 +590,12 @@ export async function syncYoutubeReporting(
 
   const reachJob = jobs.find((job) => job.reportTypeId === "channel_reach_basic_a1");
   const reachSummary = await updateReachStatuses(userId, reachJob, reachReportsAvailable, latestReachReportEndAt);
+  // A report can cover a video's publication date before YouTube includes a
+  // row for that video. That is a data-availability state, not a failed
+  // synchronization. Secondary reports are enrichment for other panels and
+  // must not turn the reach metrics into an error state.
   const status =
-    skipped > 0 || reachSummary.needsInvestigation > 0 || !reachJob
+    reachSkipped > 0 || !reachJob
       ? "failed"
       : !reachReportsAvailable
         ? "pending"

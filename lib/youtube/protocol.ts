@@ -48,7 +48,7 @@ export const YOUTUBE_REPORTING_API_BASE = "https://youtubereporting.googleapis.c
 export const YOUTUBE_REPORTING_REPORT_TYPES = [
   "channel_reach_basic_a1",
   "channel_end_screens_a2",
-  "channel_cards_a1",
+  "channel_cards_a2",
 ] as const;
 
 // Read-only scopes only — this integration never uploads, edits, or manages

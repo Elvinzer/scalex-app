@@ -258,8 +258,8 @@
     "diagnosticDetails": "See signal details",
     "metricHelp": "Learn more",
     "retentionHelp": "Retention shows both the share of viewers still watching at 30 seconds and the average share watched.",
-    "diffusionHelp": "Reach shows whether YouTube is putting the video in front of viewers. Impressions count thumbnail exposures.",
-    "clickHelp": "CTR is the share of people who clicked after seeing the title and thumbnail.",
+    "diffusionHelp": "Impressions count how often YouTube showed the video thumbnail. The daily YouTube reach report supplies this number.",
+    "clickHelp": "CTR is how often viewers watched the video after seeing its thumbnail.",
     "growthHelp": "Growth shows how many subscribers the video brings for every 1,000 views. The raw count is secondary.",
     "businessHelp": "Bookings and revenue come from Minaly's commercial tracking. A missing value means it has not been tracked.",
     "comparisonDetails": "See comparison",
@@ -270,8 +270,8 @@
     "sortedAscending": "Sorted ascending",
     "sortColumn": "Sort this column",
     "axis": {
-      "diffusion": "Reach",
-      "click": "Clicks",
+      "diffusion": "Impressions",
+      "click": "CTR",
       "hook": "Hook",
       "retention": "Retention",
       "business": "Business"
@@ -320,8 +320,8 @@
     },
     "column": {
       "performance": "Performance",
-      "diffusion": "Reach",
-      "click": "Clicks",
+      "diffusion": "Impressions",
+      "click": "CTR",
       "growth": "Growth",
       "business": "Business",
       "views": "Views",

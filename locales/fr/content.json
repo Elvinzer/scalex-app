@@ -258,8 +258,8 @@
     "diagnosticDetails": "Voir le détail des signaux",
     "metricHelp": "En savoir plus",
     "retentionHelp": "La rétention montre à la fois la part des spectateurs encore présents à 30 secondes et la part moyenne de la vidéo regardée.",
-    "diffusionHelp": "La diffusion indique si YouTube montre la vidéo. Les impressions comptent les affichages de sa miniature.",
-    "clickHelp": "Le CTR est le pourcentage de personnes qui cliquent après avoir vu le titre et la miniature.",
+    "diffusionHelp": "Les impressions comptent le nombre de fois où YouTube a affiché la miniature. Cette donnée vient du rapport quotidien de portée YouTube.",
+    "clickHelp": "Le CTR indique à quelle fréquence les spectateurs ont regardé la vidéo après avoir vu sa miniature.",
     "growthHelp": "La croissance montre combien d’abonnés la vidéo génère pour 1 000 vues. Le nombre brut reste secondaire.",
     "businessHelp": "Les RDV et le CA viennent du suivi commercial de Minaly. Une donnée absente signifie qu’elle n’est pas encore trackée.",
     "comparisonDetails": "Voir la comparaison",
@@ -270,8 +270,8 @@
     "sortedAscending": "Tri croissant",
     "sortColumn": "Trier cette colonne",
     "axis": {
-      "diffusion": "Diffusion",
-      "click": "Clic",
+      "diffusion": "Impressions",
+      "click": "CTR",
       "hook": "Hook",
       "retention": "Rétention",
       "business": "Business"
@@ -320,8 +320,8 @@
     },
     "column": {
       "performance": "Performance",
-      "diffusion": "Diffusion",
-      "click": "Clic",
+      "diffusion": "Impressions",
+      "click": "CTR",
       "growth": "Croissance",
       "business": "Business",
       "views": "Vues",
