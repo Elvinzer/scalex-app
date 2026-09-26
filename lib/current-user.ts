@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import { cache } from "react";
 
-import { db } from "@/db";
+import { db, resetDatabaseClient } from "@/db";
 import { users } from "@/db/schema";
 import { getAuthIdentity } from "@/lib/auth/request";
 import { track } from "@/lib/analytics";
+import { withDatabaseReadRetry } from "@/lib/perf/database-retry";
 import { getInFlight } from "@/lib/perf/in-flight";
 import { getAccountContext } from "@/lib/team/context";
 import { captureReferralAttribution } from "@/lib/referrals/attribution";
@@ -28,7 +29,10 @@ import { captureReferralAttribution } from "@/lib/referrals/attribution";
 // page being opened. Both need the same account row before rendering useful
 // content, so keep one database read.
 async function fetchUserById(userId: string) {
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [user] = await withDatabaseReadRetry(
+    () => db.select().from(users).where(eq(users.id, userId)).limit(1),
+    { operation: "current-user", resetClient: resetDatabaseClient },
+  );
   return user;
 }
 
@@ -89,11 +93,14 @@ export async function ensureUserRow(
   email: string,
   options: { captureReferral?: boolean } = {}
 ): Promise<{ isNewUser: boolean }> {
-  const [existing] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const [existing] = await withDatabaseReadRetry(
+    () => db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
+    { operation: "ensure-user-row", resetClient: resetDatabaseClient },
+  );
   if (existing) return { isNewUser: false };
 
   let inserted: { id: string } | undefined;

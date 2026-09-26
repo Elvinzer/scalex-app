@@ -2,10 +2,11 @@ import { and, desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { db } from "@/db";
+import { db, resetDatabaseClient } from "@/db";
 import { teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
+import { withDatabaseReadRetry } from "@/lib/perf/database-retry";
 import { getInFlight } from "@/lib/perf/in-flight";
 import { expandPermissionKeys, type PermissionKey } from "@/lib/team/permissions";
 
@@ -76,13 +77,19 @@ export async function getPostAuthDestination(userId: string): Promise<string> {
 // subscription directly rather than through this function).
 async function fetchAccountContext(userId: string): Promise<AccountContext | null> {
   const [[userRow], [membership]] = await Promise.all([
-    db.select({ email: users.email, advancedModulesEnabled: users.advancedModulesEnabled, crmEnabled: users.crmEnabled }).from(users).where(eq(users.id, userId)).limit(1),
-    db
-      .select({ id: teamMembers.id, accountId: teamMembers.accountId })
-      .from(teamMembers)
-      .where(and(eq(teamMembers.memberUserId, userId), eq(teamMembers.status, "active")))
-      .orderBy(desc(teamMembers.joinedAt))
-      .limit(1),
+    withDatabaseReadRetry(
+      () => db.select({ email: users.email, advancedModulesEnabled: users.advancedModulesEnabled, crmEnabled: users.crmEnabled }).from(users).where(eq(users.id, userId)).limit(1),
+      { operation: "account-context-user", resetClient: resetDatabaseClient },
+    ),
+    withDatabaseReadRetry(
+      () => db
+        .select({ id: teamMembers.id, accountId: teamMembers.accountId })
+        .from(teamMembers)
+        .where(and(eq(teamMembers.memberUserId, userId), eq(teamMembers.status, "active")))
+        .orderBy(desc(teamMembers.joinedAt))
+        .limit(1),
+      { operation: "account-context-membership", resetClient: resetDatabaseClient },
+    ),
   ]);
 
   if (userRow && isAdminEmail(userRow.email)) {
