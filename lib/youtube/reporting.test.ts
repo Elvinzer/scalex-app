@@ -7,7 +7,7 @@ const { dbMock, state } = vi.hoisted(() => ({
     update: vi.fn(),
   },
   state: {
-    existingReports: [] as Array<{ reportId: string; downloadedAt: Date | null; reportTypeId: string; endTime: Date }>,
+    existingReports: [] as Array<{ reportId: string; downloadedAt: Date | null; reportTypeId: string; endTime: Date; createTime: Date; rowCount: number }>,
     snapshots: [] as Array<{ videoId: string; capturedOn: string; impressions: number | null; impressionsClickThroughRate: number | null }>,
     videos: [] as Array<{
       videoId: string;
@@ -70,6 +70,8 @@ describe("YouTube Reporting synchronization", () => {
             downloadedAt: new Date(),
             reportTypeId: typeof normalizedValues.reportTypeId === "string" ? normalizedValues.reportTypeId : "",
             endTime: normalizedValues.endTime instanceof Date ? normalizedValues.endTime : new Date(),
+            createTime: normalizedValues.createTime instanceof Date ? normalizedValues.createTime : new Date(),
+            rowCount: typeof normalizedValues.rowCount === "number" ? normalizedValues.rowCount : 0,
           });
         }
         if (table === youtubeVideoSnapshots && typeof normalizedValues.videoId === "string") {
@@ -135,6 +137,7 @@ describe("YouTube Reporting synchronization", () => {
   });
 
   it("creates the reach job, follows report pages, imports CSV rows, and persists them", async () => {
+    let report1CreateTime = "2026-09-21T00:00:00Z";
     const fetchMock = vi.fn((input: unknown, init?: RequestInit): Promise<Response> => {
       const url = new URL(String(input));
       if (url.pathname.endsWith("/reportTypes")) {
@@ -158,7 +161,7 @@ describe("YouTube Reporting synchronization", () => {
             jobId: "job-reach",
             startTime: "2026-09-19T00:00:00Z",
             endTime: "2026-09-20T00:00:00Z",
-            createTime: "2026-09-21T00:00:00Z",
+            createTime: report1CreateTime,
             downloadUrl: "https://download.test/report-1",
           }],
           nextPageToken: "page-2",
@@ -228,6 +231,11 @@ describe("YouTube Reporting synchronization", () => {
     const rerun = await syncYoutubeReporting("user-1", "channel-1", "access-token");
     expect(rerun).toMatchObject({ downloaded: 0, rows: 0, skipped: 0, status: "completed" });
     expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith("https://download.test/")).length).toBe(2);
+
+    report1CreateTime = "2026-09-23T00:00:00Z";
+    const updatedReport = await syncYoutubeReporting("user-1", "channel-1", "access-token");
+    expect(updatedReport).toMatchObject({ downloaded: 1, rows: 1, skipped: 0, status: "completed" });
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).startsWith("https://download.test/")).length).toBe(3);
   });
 
   it("keeps the UI state pending when the new job has no report yet", async () => {
@@ -308,13 +316,13 @@ describe("YouTube Reporting synchronization", () => {
       if (url.pathname.endsWith("/reportTypes")) {
         return Promise.resolve(jsonResponse({ reportTypes: [
           { id: "channel_reach_basic_a1" },
-          { id: "channel_cards_a2" },
+          { id: "channel_cards_a1" },
         ] }));
       }
       if (url.pathname.endsWith("/jobs") && init?.method !== "POST") {
         return Promise.resolve(jsonResponse({ jobs: [
           { id: "job-reach", reportTypeId: "channel_reach_basic_a1", createTime: "2026-09-01T00:00:00Z" },
-          { id: "job-cards", reportTypeId: "channel_cards_a2", createTime: "2026-09-01T00:00:00Z" },
+          { id: "job-cards", reportTypeId: "channel_cards_a1", createTime: "2026-09-01T00:00:00Z" },
         ] }));
       }
       if (url.pathname.endsWith("/reports") && url.pathname.includes("job-reach")) {

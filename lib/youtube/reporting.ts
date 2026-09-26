@@ -242,6 +242,18 @@ async function listRemoteReports(accessToken: string, jobId: string): Promise<Re
   throw new Error("YouTube Reporting reports pagination exceeded the safety limit");
 }
 
+function newestReportsPerPeriod(reports: RemoteReport[]): RemoteReport[] {
+  const newestByPeriod = new Map<string, RemoteReport>();
+  for (const report of reports) {
+    const period = `${report.startTime}|${report.endTime}`;
+    const current = newestByPeriod.get(period);
+    if (!current || Date.parse(report.createTime) > Date.parse(current.createTime)) {
+      newestByPeriod.set(period, report);
+    }
+  }
+  return [...newestByPeriod.values()];
+}
+
 async function ensureJobs(userId: string, channelId: string, accessToken: string): Promise<typeof youtubeReportingJobs.$inferSelect[]> {
   const [available, remoteJobs] = await Promise.all([
     availableReportTypes(accessToken),
@@ -428,7 +440,7 @@ async function importCardRows(userId: string, rows: CsvRow[]): Promise<number> {
 async function importRows(userId: string, reportTypeId: string, rows: CsvRow[]): Promise<number> {
   if (reportTypeId === "channel_reach_basic_a1") return importReachRows(userId, rows);
   if (reportTypeId === "channel_end_screens_a2") return importEndScreenRows(userId, rows);
-  if (reportTypeId === "channel_cards_a2") return importCardRows(userId, rows);
+  if (reportTypeId === "channel_cards_a1") return importCardRows(userId, rows);
   return 0;
 }
 
@@ -490,10 +502,33 @@ export async function syncYoutubeReporting(
       downloadedAt: youtubeReportingReports.downloadedAt,
       reportTypeId: youtubeReportingReports.reportTypeId,
       endTime: youtubeReportingReports.endTime,
+      createTime: youtubeReportingReports.createTime,
+      rowCount: youtubeReportingReports.rowCount,
     })
     .from(youtubeReportingReports)
     .where(eq(youtubeReportingReports.userId, userId));
-  const downloadedReportIds = new Set(existingReports.filter((row) => row.downloadedAt !== null).map((row) => row.reportId));
+  const existingReachSnapshots = await db
+    .select({
+      impressions: youtubeVideoSnapshots.impressions,
+      impressionsClickThroughRate: youtubeVideoSnapshots.impressionsClickThroughRate,
+    })
+    .from(youtubeVideoSnapshots)
+    .where(eq(youtubeVideoSnapshots.userId, userId));
+  const hasImportedReachMetrics = existingReachSnapshots.some(
+    (snapshot) => snapshot.impressions !== null || snapshot.impressionsClickThroughRate !== null,
+  );
+  const reachReportsToRepair = new Set(
+    !hasImportedReachMetrics
+      ? existingReports
+        .filter((row) => row.reportTypeId === "channel_reach_basic_a1" && row.downloadedAt !== null && (row.rowCount ?? 0) > 0)
+        .map((row) => row.reportId)
+      : [],
+  );
+  const processedReportCreateTimes = new Map(
+    existingReports
+      .filter((row) => row.downloadedAt !== null)
+      .map((row) => [row.reportId, row.createTime]),
+  );
   const localReachReports = existingReports.filter((row) => row.reportTypeId === "channel_reach_basic_a1");
   let reachReportsAvailable = localReachReports.length > 0;
   let latestReachReportEndAt = localReachReports.reduce<Date | null>(
@@ -518,8 +553,14 @@ export async function syncYoutubeReporting(
           }
         }
       }
-      const reports = remoteReports
-        .filter((report) => !downloadedReportIds.has(report.id))
+      const reports = newestReportsPerPeriod(remoteReports)
+        .filter((report) => {
+          const processedCreateTime = processedReportCreateTimes.get(report.id);
+          if (processedCreateTime === undefined) return true;
+          if (job.reportTypeId === "channel_reach_basic_a1" && reachReportsToRepair.has(report.id)) return true;
+          const remoteCreateTime = parseTimestamp(report.createTime);
+          return remoteCreateTime !== null && remoteCreateTime > processedCreateTime;
+        })
         .sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime))
         // Drain the oldest pending reports first. Taking the newest slice
         // would starve an older report forever once a job has more reports
@@ -533,7 +574,17 @@ export async function syncYoutubeReporting(
           const createTime = parseTimestamp(report.createTime);
           if (!startTime || !endTime || !createTime) throw new Error("Invalid YouTube Reporting report timestamp");
           const rows = await downloadReport(accessToken, report.downloadUrl);
+          if (job.reportTypeId === "channel_reach_basic_a1") {
+            const videoDateRows = rows.filter((row) => rowVideoId(row) !== null && asDate(row.date) !== null).length;
+            const metricRows = rows.filter(
+              (row) => asInteger(row.video_thumbnail_impressions) !== null || normalizeClickRate(row.video_thumbnail_impressions_ctr) !== null,
+            ).length;
+            console.log(
+              `[youtube] reach report ${report.id}: ${rows.length} rows, ${videoDateRows} video-date rows, ${metricRows} metric rows, columns ${Object.keys(rows[0] ?? {}).join(",")}`,
+            );
+          }
           rowsImported += await importRows(userId, job.reportTypeId, rows);
+          const downloadedAt = new Date();
           await db
             .insert(youtubeReportingReports)
             .values({
@@ -549,10 +600,10 @@ export async function syncYoutubeReporting(
             })
             .onConflictDoUpdate({
               target: [youtubeReportingReports.userId, youtubeReportingReports.reportId],
-              set: { downloadedAt: new Date(), rowCount: rows.length },
+              set: { createTime, downloadedAt, rowCount: rows.length },
             });
           downloaded += 1;
-          downloadedReportIds.add(report.id);
+          processedReportCreateTimes.set(report.id, createTime);
         } catch (error) {
           skipped += 1;
           jobSkipped += 1;
