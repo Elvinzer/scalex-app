@@ -1,5 +1,6 @@
 import type { InstagramMediaType } from "./protocol";
 import type { MediaInsights, RawInstagramMedia } from "./client";
+import { normalizeInstagramPermalink } from "./urls";
 
 // Normalizes a raw Instagram media item + its fetched insights into our own
 // domain, feeding both instagram_post_insights (full fidelity) and the
@@ -89,7 +90,7 @@ export function normalizeMedia(media: RawInstagramMedia, insights: MediaInsights
     mediaId: media.id,
     mediaType: media.mediaType,
     caption: media.caption,
-    permalink: media.permalink,
+    permalink: normalizeInstagramPermalink(media.permalink),
     mediaUrl: media.mediaUrl,
     thumbnailUrl: carouselCoverUrl ?? media.thumbnailUrl,
     publishedAt,

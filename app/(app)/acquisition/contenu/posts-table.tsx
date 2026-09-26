@@ -12,6 +12,7 @@ import type { ContentPostRow } from "@/lib/content-posts/types";
 import { type DateFilterKey, isWithinPeriod } from "@/lib/content-posts/period-filter";
 import { comparisonMetric, computePostPerformanceComparisons, type PostPerformanceTier } from "@/lib/instagram/insights-comparison";
 import type { InstagramPostInsightRow } from "@/lib/instagram/queries";
+import { isInstagramPermalink } from "@/lib/instagram/urls";
 import { formatPercent } from "@/lib/setting/funnel";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +39,10 @@ function formatFollowerChange(value: number | null, locale: string): string {
 }
 
 function getInstagramPostUrl(post: ContentPostRow, insight: InstagramPostInsightRow | undefined): string | null {
-  return insight?.permalink ?? post.url;
+  const insightUrl = insight?.permalink ?? null;
+  if (isInstagramPermalink(insightUrl)) return insightUrl;
+  if (isInstagramPermalink(post.url)) return post.url;
+  return null;
 }
 
 // Small thumbnail for the title cell. thumbnailUrl is preferred whenever

@@ -6,6 +6,7 @@ import { contentPosts, instagramPostInsights } from "@/db/schema";
 import { fetchCarouselChildren, fetchMediaInsights, listMedia, listStories } from "./client";
 import { normalizeMedia } from "./events";
 import { INSTAGRAM_BACKFILL_ITEM_THROTTLE_MS, INSTAGRAM_BACKFILL_TIME_BUDGET_MS } from "./protocol";
+import { isInstagramPermalink } from "./urls";
 
 export type BackfillResult = { processed: number; skipped: number; completed: boolean };
 
@@ -59,11 +60,12 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
 
   if (sinceDate) {
     for (const item of combined) {
-      if (new Date(item.timestamp) >= sinceDate || !existingMediaCaptions.has(item.id) || !item.captionFetched) continue;
+      if (new Date(item.timestamp) >= sinceDate || !existingMediaCaptions.has(item.id)) continue;
+      if (!item.captionFetched && !isInstagramPermalink(item.permalink)) continue;
       try {
-        await refreshCaptionProjection(userId, item);
+        await refreshMetadataProjection(userId, item);
       } catch (error) {
-        console.error(`[instagram] could not refresh the title for media ${item.id}`, error);
+        console.error(`[instagram] could not refresh metadata for media ${item.id}`, error);
       }
     }
   }
@@ -121,16 +123,29 @@ export async function backfillInstagramPosts(userId: string, accessToken: string
   return { processed, skipped, completed };
 }
 
-async function refreshCaptionProjection(userId: string, item: Parameters<typeof normalizeMedia>[0]): Promise<void> {
+async function refreshMetadataProjection(userId: string, item: Parameters<typeof normalizeMedia>[0]): Promise<void> {
   const normalized = normalizeMedia(item, {});
-  await db
-    .update(instagramPostInsights)
-    .set({ caption: normalized.caption })
-    .where(and(eq(instagramPostInsights.userId, userId), eq(instagramPostInsights.mediaId, item.id)));
-  await db
-    .update(contentPosts)
-    .set({ title: normalized.title })
-    .where(and(eq(contentPosts.userId, userId), eq(contentPosts.source, "instagram"), eq(contentPosts.externalId, item.id)));
+  const insightSet = {
+    ...(item.captionFetched ? { caption: normalized.caption } : {}),
+    ...(normalized.permalink ? { permalink: normalized.permalink } : {}),
+  };
+  const contentPostSet = {
+    ...(item.captionFetched ? { title: normalized.title } : {}),
+    ...(normalized.permalink ? { url: normalized.permalink } : {}),
+  };
+
+  if (Object.keys(insightSet).length > 0) {
+    await db
+      .update(instagramPostInsights)
+      .set(insightSet)
+      .where(and(eq(instagramPostInsights.userId, userId), eq(instagramPostInsights.mediaId, item.id)));
+  }
+  if (Object.keys(contentPostSet).length > 0) {
+    await db
+      .update(contentPosts)
+      .set(contentPostSet)
+      .where(and(eq(contentPosts.userId, userId), eq(contentPosts.source, "instagram"), eq(contentPosts.externalId, item.id)));
+  }
 }
 
 async function processNormalizedPost(
@@ -138,6 +153,9 @@ async function processNormalizedPost(
   normalized: ReturnType<typeof normalizeMedia>,
   raw: Record<string, unknown>
 ): Promise<void> {
+  const permalinkProjection = normalized.permalink ? { permalink: normalized.permalink } : {};
+  const contentPostUrlProjection = normalized.permalink ? { url: normalized.permalink } : {};
+
   await db
     .insert(instagramPostInsights)
     .values({
@@ -172,7 +190,7 @@ async function processNormalizedPost(
       target: [instagramPostInsights.userId, instagramPostInsights.mediaId],
       set: {
         caption: normalized.caption,
-        permalink: normalized.permalink,
+        ...permalinkProjection,
         mediaUrl: normalized.mediaUrl,
         thumbnailUrl: normalized.thumbnailUrl,
         reach: normalized.insights.reach,
@@ -222,7 +240,7 @@ async function processNormalizedPost(
       target: [contentPosts.userId, contentPosts.source, contentPosts.externalId],
       set: {
         title: normalized.title,
-        url: normalized.permalink,
+        ...contentPostUrlProjection,
         views: normalized.views,
         likes: normalized.insights.likeCount,
         comments: normalized.insights.commentsCount,
