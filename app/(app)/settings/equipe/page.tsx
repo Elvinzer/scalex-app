@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
-import { getBusinessProfile } from "@/lib/business/queries";
+import { getBusinessSalesOfferDetails } from "@/lib/business/queries";
 import { getClosers } from "@/lib/closers/queries";
 import { requireUserId } from "@/lib/current-user";
 import { requireOwnerOrRedirect } from "@/lib/team/context";
@@ -30,15 +30,15 @@ export default async function EquipePage() {
   const { accountId } = access;
 
   await ensureDefaultRoles(accountId);
-  const [members, roles, subscriptionActive, setters, businessProfile, closers] = await Promise.all([
+  const [members, roles, subscriptionActive, setters, salesOffers, closers] = await Promise.all([
     getTeamMembers(accountId),
     getRoles(accountId),
     hasActiveTeamSubscription(accountId),
     getSetters(accountId),
-    getBusinessProfile(accountId),
+    getBusinessSalesOfferDetails(accountId),
     getClosers(accountId),
   ]);
-  const setterSummaries = await computeSettersCommissions(accountId, setters, businessProfile.sales.offers);
+  const setterSummaries = await computeSettersCommissions(accountId, setters, salesOffers);
 
   return (
     <div className="flex flex-col gap-8">

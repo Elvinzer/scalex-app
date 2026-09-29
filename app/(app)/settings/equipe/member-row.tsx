@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 
@@ -18,9 +19,12 @@ type Member = {
 
 export function MemberRow({ member, roles, statusLabel }: { member: Member; roles: RoleOption[]; statusLabel: string }) {
   const t = useTranslations("settings.team");
+  const tCommonStates = useTranslations("common.states");
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>(member.roles.map((role) => role.id));
   const [error, setError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function toggleRole(roleId: string) {
@@ -43,8 +47,18 @@ export function MemberRow({ member, roles, statusLabel }: { member: Member; role
 
   function handleRemove() {
     if (!confirm(t("removeConfirm", { email: member.email }))) return;
+    setRemoveError(null);
     startTransition(async () => {
-      await removeMember(member.id);
+      try {
+        const result = await removeMember(member.id);
+        if (result.error) {
+          setRemoveError(result.error);
+          return;
+        }
+        router.refresh();
+      } catch {
+        setRemoveError(tCommonStates("error"));
+      }
     });
   }
 
@@ -101,6 +115,7 @@ export function MemberRow({ member, roles, statusLabel }: { member: Member; role
             {t("remove")}
           </Button>
         </div>
+        {removeError && <p className="mt-2 text-sm text-state-critical" role="alert">{removeError}</p>}
       </td>
     </tr>
   );
