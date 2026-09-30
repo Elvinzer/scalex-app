@@ -22,7 +22,7 @@ import { getUserById } from "@/lib/current-user";
 import { getAccountContext } from "@/lib/team/context";
 import { getSupportUnseenActivity } from "@/lib/support/queries";
 import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
-import { withTimeout } from "@/lib/perf/with-timeout";
+import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
@@ -46,20 +46,20 @@ async function AppChrome({
   supportLastSeenAt: Date | null | undefined;
 }) {
   const [businessProfile, userRow, supportHasUnseenActivity] = await Promise.all([
-    withTimeout(getBusinessProfile(accountId), 5_000, "shell-business-profile").catch(() => {
+    withDatabaseReadTimeout(() => getBusinessProfile(accountId), { operation: "shell-business-profile", timeoutMs: 5_000, attempts: 1 }).catch(() => {
       console.error("[app-shell] business profile unavailable");
       return EMPTY_BUSINESS_PROFILE;
     }),
-    withTimeout(getUserById(accountId), 5_000, "shell-account-user").catch(() => {
+    withDatabaseReadTimeout(() => getUserById(accountId), { operation: "shell-account-user", timeoutMs: 5_000, attempts: 1 }).catch(() => {
       console.error("[app-shell] account user unavailable");
       return undefined;
     }),
-    withTimeout(getSupportUnseenActivity({
+    withDatabaseReadTimeout(() => getSupportUnseenActivity({
       userId,
       accountId,
       isOwner: sidebarBaseProps.isOwner,
       lastSeenAt: supportLastSeenAt,
-    }), 3_000, "shell-support-activity").catch(() => {
+    }), { operation: "shell-support-activity", timeoutMs: 3_000, attempts: 1 }).catch(() => {
       console.error("[app-shell] support activity unavailable");
       return false;
     }),

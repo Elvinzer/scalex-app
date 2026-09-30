@@ -10,8 +10,8 @@ import { getStreakSnapshot } from "@/lib/streak/queries";
 import { getCallRoadmapRecommendations } from "@/lib/closing-videos/queries";
 import { toIsoDate, todayUtc } from "@/lib/date-range";
 import { getAccountContext, requirePermissionOrRedirect } from "@/lib/team/context";
+import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 import { measureAsync } from "@/lib/perf/timing";
-import { withTimeout } from "@/lib/perf/with-timeout";
 
 type RoadmapPageProps = {
   searchParams: Promise<{ year?: string | string[]; month?: string | string[] }>;
@@ -24,7 +24,10 @@ function queryNumber(value: string | string[] | undefined, fallback: number): nu
 }
 
 export default function RoadmapPage(props: RoadmapPageProps) {
-  return measureAsync("page.roadmap", () => withTimeout(renderRoadmapPage(props), 20_000, "roadmap-render"));
+  return measureAsync("page.roadmap", () => withDatabaseReadTimeout(
+    () => renderRoadmapPage(props),
+    { operation: "roadmap-render", timeoutMs: 20_000, attempts: 1 },
+  ));
 }
 
 async function renderRoadmapPage({ searchParams }: RoadmapPageProps) {
@@ -43,8 +46,8 @@ async function renderRoadmapPage({ searchParams }: RoadmapPageProps) {
   }
   await requirePermissionOrRedirect(userId, "dashboard");
 
-  const [data, streak, callRoadmapRecommendations, journalTodos, journalProjects, journalDays] = await withTimeout(
-    Promise.all([
+  const [data, streak, callRoadmapRecommendations, journalTodos, journalProjects, journalDays] = await withDatabaseReadTimeout(
+    () => Promise.all([
       getJournalActionLoopData(accountId, user?.sector ?? null),
       // The app shell has already refreshed this request's snapshot for the
       // sidebar flame, so this is a request-local cache hit.
@@ -54,8 +57,7 @@ async function renderRoadmapPage({ searchParams }: RoadmapPageProps) {
       getJournalProjects(accountId),
       getJournalMonth(accountId, year, month),
     ]),
-    18_000,
-    "roadmap-data",
+    { operation: "roadmap-data", timeoutMs: 18_000, attempts: 1 },
   );
 
   const todos: RoadmapTodo[] = journalTodos.map((todo) => ({

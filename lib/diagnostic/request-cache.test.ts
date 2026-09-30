@@ -26,7 +26,10 @@ vi.mock("next/cache", () => ({
     return result;
   },
 }));
-vi.mock("@/db", () => ({ db: { select: () => ({ from: () => ({ where: mocks.sql }) }) } }));
+vi.mock("@/db", () => ({
+  db: { select: () => ({ from: () => ({ where: mocks.sql }) }) },
+  resetDatabaseClient: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/monthly-metrics/queries", () => ({ getSettingKpiEntries: mocks.setting, getClosingKpiEntries: mocks.closing, getAllMonthlyMetrics: mocks.monthly, getSalesCallKpiRecords: mocks.calls }));
 vi.mock("@/lib/sales/queries", () => ({ getSales: mocks.sales }));
 vi.mock("@/lib/leads/queries", () => ({ getLeads: mocks.leads, getLeadStageHistory: mocks.history }));

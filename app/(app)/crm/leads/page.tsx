@@ -11,7 +11,7 @@ import { CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine"
 import { getCrmLeads, getCrmSetters } from "@/lib/crm/queries";
 import { crmEventTypeSchema, crmOutcomeSchema, crmStageSchema } from "@/lib/crm/schemas";
 import { CRM_LEAD_OUTCOMES, CRM_LEAD_STAGES } from "@/lib/crm/types";
-import { withTimeout } from "@/lib/perf/with-timeout";
+import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 
 import { CrmLeadCaptureForm } from "../crm-lead-capture-form";
 import { CrmLeadList } from "../crm-lead-list";
@@ -24,11 +24,14 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   const access = await requireCrmAccess(userId);
   if (!access) return null;
   const params = await searchParams;
-  const [offers, setters, closers] = await Promise.all([
-    withTimeout(getBusinessSalesOfferDetails(access.accountId), 15_000, "crm-leads-offers"),
-    withTimeout(getCrmSetters(access.accountId), 15_000, "crm-leads-setters"),
-    withTimeout(getActiveClosers(access.accountId), 15_000, "crm-leads-closers"),
-  ]);
+  const [offers, setters, closers] = await withDatabaseReadTimeout(
+    () => Promise.all([
+      getBusinessSalesOfferDetails(access.accountId),
+      getCrmSetters(access.accountId),
+      getActiveClosers(access.accountId),
+    ]),
+    { operation: "crm-leads-metadata", timeoutMs: 15_000 },
+  );
   const platform = params.platform === "instagram" || params.platform === "linkedin" ? params.platform : undefined;
   const stage = crmStageSchema.safeParse(params.stage).success ? crmStageSchema.parse(params.stage) : undefined;
   const outcome = crmOutcomeSchema.safeParse(params.outcome).success ? crmOutcomeSchema.parse(params.outcome) : undefined;
@@ -41,7 +44,10 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   const eventType = crmEventTypeSchema.safeParse(params.event).success ? crmEventTypeSchema.parse(params.event) : undefined;
   const eventFrom = datePattern.test(params.eventFrom ?? "") ? params.eventFrom : undefined;
   const eventTo = datePattern.test(params.eventTo ?? "") ? params.eventTo : undefined;
-  const leads = await withTimeout(getCrmLeads(access.accountId, { search: params.search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, overdueActionOnly: params.overdue === "1", respondedOnly: params.responded === "1", qualificationOnly: params.qualification === "1" }), 15_000, "crm-leads-data");
+  const leads = await withDatabaseReadTimeout(
+    () => getCrmLeads(access.accountId, { search: params.search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, overdueActionOnly: params.overdue === "1", respondedOnly: params.responded === "1", qualificationOnly: params.qualification === "1" }),
+    { operation: "crm-leads-data", timeoutMs: 15_000 },
+  );
 
   return (
     <div className="flex flex-col gap-6">

@@ -1,5 +1,5 @@
 import { DataUnavailable } from "@/components/data-unavailable";
-import { withTimeout } from "@/lib/perf/with-timeout";
+import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getPostLeadsSumByMonth } from "@/lib/content-posts/queries";
 import { getCurrentUser } from "@/lib/current-user";
@@ -50,14 +50,17 @@ export default async function DatasPage({
   // guess the current month: only a source with a known target may open the modal.
   const targetMonth = Number.isInteger(monthCandidate) && monthCandidate >= 1 && monthCandidate <= 12 ? monthCandidate : null;
 
-  const data = await withTimeout(Promise.all([
-    getPostLeadsSumByMonth(accountId, year),
-    getBusinessProfile(accountId),
-    // The modal crosses year boundaries, so keep the financial history, but
-    // do not fetch social media insight payloads for this screen.
-    getDiagnosticCoreData(accountId),
-    getFunnelBlockCatalog(),
-  ]), 12_000, "datas-data").catch(() => {
+  const data = await withDatabaseReadTimeout(
+    () => Promise.all([
+      getPostLeadsSumByMonth(accountId, year),
+      getBusinessProfile(accountId),
+      // The modal crosses year boundaries, so keep the financial history, but
+      // do not fetch social media insight payloads for this screen.
+      getDiagnosticCoreData(accountId),
+      getFunnelBlockCatalog(),
+    ]),
+    { operation: "datas-data", timeoutMs: 12_000, attempts: 1 },
+  ).catch(() => {
     console.error("[datas] data unavailable");
     return null;
   });

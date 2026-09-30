@@ -13,24 +13,34 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
+import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 import { getInFlight } from "@/lib/perf/in-flight";
 import { measureAsync } from "@/lib/perf/timing";
 
 const DIAGNOSTIC_CACHE_REVALIDATE_SECONDS = 30;
 
 // Each source has one loader and one cache identity, shared by the sidebar,
-// pages and background revalidation. Keep SQL in flight after a caller times
-// out: releasing it early would let the next navigation duplicate that work.
+// pages and background revalidation. Timed-out work must be released after the
+// database client is recycled; retaining a stale promise would poison every
+// later navigation in the warm Vercel function.
 function diagnosticSource<T>(source: string, loader: (accountId: string) => Promise<T>) {
   const reads = new Map<string, Promise<T>>();
   const cacheReads = new Map<string, Promise<T>>();
   return cache((accountId: string) => getInFlight(cacheReads, accountId, () =>
     unstable_cache(
-      () => getInFlight(reads, accountId, () => measureAsync(`db.diagnostic.${source}`, () => loader(accountId))),
+      () => getInFlight(
+        reads,
+        accountId,
+        () => withDatabaseReadTimeout(
+          () => measureAsync(`db.diagnostic.${source}`, () => loader(accountId)),
+          { operation: `diagnostic-${source}`, timeoutMs: 5_000 },
+        ),
+        { timeoutMs: 11_000, timeoutLabel: `diagnostic-${source}-read` },
+      ),
       ["diagnostic-source-v2", source, accountId],
       { revalidate: DIAGNOSTIC_CACHE_REVALIDATE_SECONDS, tags: [diagnosticDataCacheTag(accountId)] }
     )(),
-    { timeoutMs: 10_000, timeoutLabel: `diagnostic-${source}`, retainUntilSettled: true }
+    { timeoutMs: 12_000, timeoutLabel: `diagnostic-${source}` }
   ));
 }
 
@@ -120,11 +130,12 @@ const inFlightDiagnosticSnapshots = new Map<string, Promise<DiagnosticKpiRawData
 
 // The source-level cache already returns plain arrays for the two Maps. The
 // request-level wrapper only shares the assembled value while it is in flight.
+// Timed-out snapshots are released so a stale cache or socket cannot block
+// future navigations indefinitely.
 const getCachedDiagnosticKpiRawData = cache(async (accountId: string) =>
   getInFlight(inFlightDiagnosticSnapshots, accountId, () => fetchDiagnosticKpiRawData(accountId), {
     timeoutMs: 12_000,
     timeoutLabel: "diagnostic-kpi-raw",
-    retainUntilSettled: true,
   })
 );
 

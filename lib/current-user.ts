@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { cache } from "react";
 
-import { db, resetDatabaseClient } from "@/db";
+import { db, ensureDatabaseConnection, resetDatabaseClient } from "@/db";
 import { users } from "@/db/schema";
 import { getAuthIdentity } from "@/lib/auth/request";
 import { track } from "@/lib/analytics";
@@ -29,9 +29,10 @@ import { captureReferralAttribution } from "@/lib/referrals/attribution";
 // page being opened. Both need the same account row before rendering useful
 // content, so keep one database read.
 async function fetchUserById(userId: string) {
+  await ensureDatabaseConnection();
   const [user] = await withDatabaseReadRetry(
     () => db.select().from(users).where(eq(users.id, userId)).limit(1),
-    { operation: "current-user", resetClient: resetDatabaseClient },
+    { operation: "current-user", timeoutMs: 8_000, resetClient: resetDatabaseClient },
   );
   return user;
 }
@@ -39,7 +40,10 @@ async function fetchUserById(userId: string) {
 const inFlightUsers = new Map<string, Promise<Awaited<ReturnType<typeof fetchUserById>>>>();
 
 export const getUserById = cache(async (userId: string) => {
-  return getInFlight(inFlightUsers, userId, () => fetchUserById(userId));
+  return getInFlight(inFlightUsers, userId, () => withDatabaseReadRetry(
+    () => fetchUserById(userId),
+    { operation: "user-by-id", timeoutMs: 10_000, attempts: 1, resetClient: resetDatabaseClient },
+  ));
 });
 
 export const getCurrentUser = cache(async () => {
@@ -99,7 +103,7 @@ export async function ensureUserRow(
       .from(users)
       .where(eq(users.id, userId))
       .limit(1),
-    { operation: "ensure-user-row", resetClient: resetDatabaseClient },
+    { operation: "ensure-user-row", timeoutMs: 8_000, resetClient: resetDatabaseClient },
   );
   if (existing) return { isNewUser: false };
 

@@ -15,14 +15,19 @@ if (process.env.NODE_ENV === "development" && poolConnection.port === "6543") {
   poolConnection.port = "5432";
 }
 
-const configuredPoolMax = Number.parseInt(process.env.DB_POOL_MAX ?? "1", 10);
+const configuredPoolMax = Number.parseInt(process.env.DB_POOL_MAX ?? "2", 10);
 const configuredPoolMaxIsValid = Number.isInteger(configuredPoolMax) && configuredPoolMax >= 1 && configuredPoolMax <= 20;
-// Vercel can freeze a warm function between invocations. Supabase recommends
-// one application-side connection per serverless instance so a stale socket
-// cannot occupy several pool slots and queue the whole render behind it.
-// Local development can opt into a larger pool when parallel query debugging
-// requires it; production stays capped at one connection.
-const poolMax = process.env.NODE_ENV === "production" ? 1 : configuredPoolMaxIsValid ? configuredPoolMax : 1;
+// App Router pages deliberately batch independent reads with Promise.all.
+// One postgres.js connection pipelines that batch through Supavisor's
+// transaction pooler and can leave the whole render waiting indefinitely.
+// Keep at least two connections in production so concurrent reads are split
+// across pooler leases; DB_POOL_MAX can still increase the pool when needed.
+const poolMax = process.env.NODE_ENV === "production"
+  ? Math.max(configuredPoolMaxIsValid ? configuredPoolMax : 2, 2)
+  : configuredPoolMaxIsValid
+    ? configuredPoolMax
+    : 1;
+const DATABASE_LIVENESS_TIMEOUT_MS = 2_500;
 
 // prepare: false — required with Supabase's Supavisor pooler in transaction
 // mode, which doesn't support prepared statements. Explicitly pin the schema
@@ -39,6 +44,7 @@ function createClient() {
     ssl: "require",
     idle_timeout: 20,
     connect_timeout: 10,
+    keep_alive: 30,
     max_lifetime: 60 * 5,
     connection: {
       application_name: "minaly-web",
@@ -65,6 +71,46 @@ let databaseState = createDatabase(initialClient);
 export let db = databaseState.db;
 
 let resetInFlight: Promise<void> | undefined;
+
+type DatabaseClient = ReturnType<typeof postgres>;
+
+async function pingDatabase(client: DatabaseClient): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Database liveness check timed out")), DATABASE_LIVENESS_TIMEOUT_MS);
+  });
+
+  try {
+    await Promise.race([client`select 1`, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+let livenessCheckInFlight: Promise<void> | undefined;
+
+/**
+ * Vercel can freeze a warm function while Supavisor or the NAT drops the TCP
+ * socket. A fresh liveness query detects that stale connection before the
+ * request starts queueing its real reads behind it.
+ */
+export function ensureDatabaseConnection(): Promise<void> {
+  if (livenessCheckInFlight) return livenessCheckInFlight;
+
+  const check = (async () => {
+    try {
+      await pingDatabase(databaseState.client);
+    } catch {
+      await resetDatabaseClient();
+      await pingDatabase(databaseState.client);
+    }
+  })();
+  const trackedCheck = check.finally(() => {
+    if (livenessCheckInFlight === trackedCheck) livenessCheckInFlight = undefined;
+  });
+  livenessCheckInFlight = trackedCheck;
+  return trackedCheck;
+}
 
 export function resetDatabaseClient(): Promise<void> {
   if (resetInFlight) return resetInFlight;

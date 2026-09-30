@@ -1,3 +1,5 @@
+import { TimeoutError, withTimeout } from "./with-timeout";
+
 const RETRYABLE_DATABASE_CODES = new Set([
   "40001", // serialization_failure
   "40P01", // deadlock_detected
@@ -33,6 +35,7 @@ type DatabaseReadRetryOptions = {
   operation: string;
   attempts?: number;
   delayMs?: number;
+  timeoutMs?: number;
   resetClient?: () => Promise<void>;
 };
 
@@ -74,28 +77,32 @@ function wait(ms: number): Promise<void> {
  */
 export async function withDatabaseReadRetry<T>(
   operation: () => Promise<T>,
-  { operation: operationName, attempts = 2, delayMs = 100, resetClient }: DatabaseReadRetryOptions,
+  { operation: operationName, attempts = 2, delayMs = 100, timeoutMs, resetClient }: DatabaseReadRetryOptions,
 ): Promise<T> {
   const totalAttempts = Math.max(1, Math.min(attempts, 3));
   let lastError: unknown;
 
   for (let attempt = 0; attempt < totalAttempts; attempt += 1) {
     try {
-      return await operation();
+      const task = operation();
+      return await (timeoutMs === undefined
+        ? task
+        : withTimeout(task, timeoutMs, `db-${operationName}`));
     } catch (error) {
       lastError = error;
-      const retryable = isRetryableDatabaseError(error);
+      const timedOut = error instanceof TimeoutError;
+      const retryable = timedOut || isRetryableDatabaseError(error);
       const hasRetry = attempt + 1 < totalAttempts;
       if (!retryable || !hasRetry) throw error;
 
-      const code = getDatabaseErrorCode(error) ?? "unknown";
+      const code = getDatabaseErrorCode(error) ?? (timedOut ? "TIMEOUT" : "unknown");
       console.warn("[db] retrying transient read", {
         operation: operationName,
         code,
         attempt: attempt + 1,
       });
 
-      if (resetClient && isConnectionFailure(error)) {
+      if (resetClient && (isConnectionFailure(error) || timedOut)) {
         try {
           await resetClient();
         } catch {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/currency";
 import { getRevenueActions } from "@/lib/dashboard/revenue-action-queries";
 import type { RevenueAction, RevenueActionAccess, RevenueActionSource } from "@/lib/dashboard/revenue-actions";
-import { withTimeout } from "@/lib/perf/with-timeout";
+import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 
 import { PostponeActionButton } from "./postpone-action-button";
 
@@ -150,10 +150,9 @@ export async function RevenueActionCenter({
 }) {
   const t = await getTranslations("dashboard");
   try {
-    const actions = await withTimeout(
-      getRevenueActions({ accountId, permissions, crmEnabled, crmUserId, crmViewTeam }),
-      5_000,
-      "dashboard-revenue-actions",
+    const actions = await withDatabaseReadTimeout(
+      () => getRevenueActions({ accountId, permissions, crmEnabled, crmUserId, crmViewTeam }),
+      { operation: "dashboard-revenue-actions", timeoutMs: 5_000 },
     );
     return <RevenueActionCenterContent actions={actions} />;
   } catch {

@@ -49,7 +49,7 @@ import { getFunnelBlockBenchmarks, getFunnelBlockCatalog } from "@/lib/funnel-bl
 import { normalizeFunnelBlockSelection } from "@/lib/funnel-blocks/selection";
 import { availableFunnelSources } from "@/lib/funnel-blocks/metrics";
 import { isFunnelSourceKey, type FunnelSourceKey } from "@/lib/funnel-blocks/types";
-import { withTimeout } from "@/lib/perf/with-timeout";
+import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 import { Button } from "@/components/ui/button";
 
 // buildMetricCards' pool grew a "show-up-rate" card for Overview's own card
@@ -66,8 +66,12 @@ const DASHBOARD_METRIC_CARD_KEYS = [
 
 const DASHBOARD_OPTIONAL_TIMEOUT_MS = 5_000;
 
-function dashboardOptional<T>(label: string, operation: Promise<T>, fallback: T): Promise<T> {
-  return withTimeout(operation, DASHBOARD_OPTIONAL_TIMEOUT_MS, `dashboard-${label}`).catch(() => {
+function dashboardOptional<T>(label: string, operation: () => Promise<T>, fallback: T): Promise<T> {
+  return withDatabaseReadTimeout(operation, {
+    operation: `dashboard-${label}`,
+    timeoutMs: DASHBOARD_OPTIONAL_TIMEOUT_MS,
+    attempts: 1,
+  }).catch(() => {
     console.error(`[dashboard] ${label} unavailable`);
     return fallback;
   });
@@ -78,7 +82,10 @@ type DashboardPageProps = {
 };
 
 export default function DashboardPage(props: DashboardPageProps) {
-  return measureAsync("page.dashboard", () => withTimeout(renderDashboardPage(props), 20_000, "dashboard-render"));
+  return measureAsync("page.dashboard", () => withDatabaseReadTimeout(
+    () => renderDashboardPage(props),
+    { operation: "dashboard-render", timeoutMs: 20_000, attempts: 1 },
+  ));
 }
 
 async function renderDashboardPage({
@@ -110,7 +117,7 @@ async function renderDashboardPage({
   // loaded by their Suspense boundary below and remain a separate projection.
   const connectionStatus = dashboardOptional(
     "connection status",
-    Promise.all([
+    () => Promise.all([
       user?.iclosedConnected
         ? db.select({ initialSyncStatus: iclosedConnections.initialSyncStatus }).from(iclosedConnections).where(eq(iclosedConnections.userId, accountId)).limit(1)
         : Promise.resolve([]),
@@ -123,29 +130,32 @@ async function renderDashboardPage({
 
   // Account sources are shared with the sidebar; connection status can load
   // alongside them instead of adding another sequential database round trip.
-  const businessProfilePromise = dashboardOptional("business profile", getBusinessProfile(accountId), EMPTY_BUSINESS_PROFILE);
-  const funnelBlockCatalogPromise = dashboardOptional("funnel block catalogue", getFunnelBlockCatalog(), DEFAULT_FUNNEL_BLOCKS);
+  const businessProfilePromise = dashboardOptional("business profile", () => getBusinessProfile(accountId), EMPTY_BUSINESS_PROFILE);
+  const funnelBlockCatalogPromise = dashboardOptional("funnel block catalogue", () => getFunnelBlockCatalog(), DEFAULT_FUNNEL_BLOCKS);
   // Benchmarks depend only on the selection, not on the diagnostic snapshot.
   // Start them as soon as the profile/catalogue arrive instead of waiting for
   // every sales and content source to finish first.
   const funnelBlockBenchmarksPromise = Promise.all([businessProfilePromise, funnelBlockCatalogPromise])
     .then(([profile, catalog]) => dashboardOptional(
       "funnel benchmarks",
-      getFunnelBlockBenchmarks(normalizeFunnelBlockSelection(profile.acquisition, catalog).blocks.map((item) => item.blockKey), user?.sector ?? null),
+      () => getFunnelBlockBenchmarks(normalizeFunnelBlockSelection(profile.acquisition, catalog).blocks.map((item) => item.blockKey), user?.sector ?? null),
       {}
     ));
   const [businessProfile, rawData, benchmarks, weeklyReports, acquisitionCatalog, funnelBlockCatalog, funnelBlockBenchmarks] =
     await Promise.all([
       businessProfilePromise,
-      getDashboardDiagnosticData(accountId).catch(() => {
+      withDatabaseReadTimeout(
+        () => getDashboardDiagnosticData(accountId),
+        { operation: "dashboard-diagnostic-data", timeoutMs: 15_000, attempts: 1 },
+      ).catch(() => {
         console.error("[dashboard] diagnostic data unavailable");
         return null;
       }),
-      dashboardOptional("benchmark data", getDiagnosticBenchmarks(user?.sector ?? null), emptyDiagnosticBenchmarks()),
-      dashboardOptional("weekly reports", getRecentWeeklyReports(accountId), []),
+      dashboardOptional("benchmark data", () => getDiagnosticBenchmarks(user?.sector ?? null), emptyDiagnosticBenchmarks()),
+      dashboardOptional("weekly reports", () => getRecentWeeklyReports(accountId), []),
       dashboardOptional(
         "acquisition catalogue",
-        getAcquisitionFunnelCatalog(),
+        () => getAcquisitionFunnelCatalog(),
         DEFAULT_ACQUISITION_FUNNELS.filter((entry) => entry.funnelKey !== "appel_direct")
       ),
       funnelBlockCatalogPromise,

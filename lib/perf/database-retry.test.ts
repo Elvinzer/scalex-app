@@ -36,6 +36,26 @@ describe("withDatabaseReadRetry", () => {
     expect(resetClient).toHaveBeenCalledOnce();
   });
 
+  it("bounds a stuck read, recycles the client, and retries it", async () => {
+    const resetClient = vi.fn(async () => undefined);
+    let attempt = 0;
+    const operation = vi.fn(() => {
+      attempt += 1;
+      return attempt === 1 ? new Promise<string>(() => {}) : Promise.resolve("ok");
+    });
+
+    await expect(
+      withDatabaseReadRetry(operation, {
+        operation: "stuck-read",
+        timeoutMs: 5,
+        delayMs: 0,
+        resetClient,
+      }),
+    ).resolves.toBe("ok");
+    expect(operation).toHaveBeenCalledTimes(2);
+    expect(resetClient).toHaveBeenCalledOnce();
+  });
+
   it("does not retry a non-transient database error", async () => {
     const operation = vi.fn(async () => {
       throw Object.assign(new Error("permission denied"), { code: "42501" });
