@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 
+import { requestFalcoJson, type FalcoProvider } from "@/lib/agent/falco-provider";
 import {
   ALL_TARGET_FIELDS,
   CRM_IMPORT_FIELDS,
@@ -21,6 +23,15 @@ const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 8000;
 const MAX_ROWS_SENT_TO_MODEL = 50; // sample only — never the full 2000-row cap, keeps tokens sane
 const MAX_PDF_CHARS_SENT_TO_MODEL = 20_000;
+const GROQ_MAPPING_RESPONSE_SCHEMA = z.object({
+  choices: z.array(z.object({ message: z.object({ content: z.string().nullable().optional() }) })).min(1),
+  usage: z
+    .object({
+      prompt_tokens: z.number().int().nonnegative().optional(),
+      completion_tokens: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
+});
 
 const FIELD_DEFINITIONS = `Champs "monthly_metrics" (funnel mensuel — destination canonique par défaut) :
 - cashCollected : CA encaissé ce mois (euros)
@@ -167,6 +178,19 @@ function buildFileContent(unit: MappableUnit): Anthropic.ContentBlockParam[] {
   return [{ type: "text", text: `Feuille "${sheet.name}" (fichier "${unit.fileName}") — colonnes : ${sheet.headers.join(" | ")}\n${rowsText}` }];
 }
 
+function buildTextContent(unit: MappableUnit): string {
+  if (unit.kind === "image") {
+    throw new Error("Falco ne peut pas analyser une image dans cet import. Envoie un fichier Excel ou CSV.");
+  }
+  if (unit.kind === "text") return `Fichier PDF "${unit.fileName}" (texte extrait) :\n\n${unit.text.slice(0, MAX_PDF_CHARS_SENT_TO_MODEL)}`;
+  const { sheet } = unit;
+  const rowsText = sheet.rows
+    .slice(0, MAX_ROWS_SENT_TO_MODEL)
+    .map((row) => row.join(" | "))
+    .join("\n");
+  return `Feuille "${sheet.name}" (fichier "${unit.fileName}") — colonnes : ${sheet.headers.join(" | ")}\n${rowsText}`;
+}
+
 // Rate/percentage columns must never be imported (CLAUDE.md: recalculated
 // in code, never pre-aggregated by the LLM) — enforced here as a
 // deterministic safety net IN ADDITION to the prompt instruction, in case
@@ -231,6 +255,45 @@ function normalizeModelInput(input: unknown): unknown {
   return { ...record, mappings, questions, ignoreReason, dateColumnName, periodDetected, unmappedColumns };
 }
 
+function parseJsonContent(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
+    if (!fenced) throw new Error("Falco n'a pas retourné un mapping JSON exploitable.");
+    try {
+      return JSON.parse(fenced);
+    } catch {
+      throw new Error("Falco n'a pas retourné un mapping JSON exploitable.");
+    }
+  }
+}
+
+function finalizeMapping(input: unknown, unit: MappableUnit, options?: ImportMappingOptions): ImportMappingResult {
+  const parsedResult = modelMappingSchema.safeParse(normalizeModelInput(input));
+  if (!parsedResult.success) {
+    throw new Error(`Mapping invalide retourné par le modèle : ${parsedResult.error.message}`);
+  }
+
+  const allowedFields = new Set(options?.targetTableHint === "crm_leads" ? CRM_IMPORT_FIELDS : DATA_IMPORT_FIELDS);
+  const safeMappings = parsedResult.data.mappings
+    .filter((mapping) => !looksLikeRateColumn(mapping.sampleValues))
+    .map((mapping) => (mapping.targetField && !allowedFields.has(mapping.targetField) ? { ...mapping, targetField: null } : mapping));
+  const safeQuestions = parsedResult.data.questions.map((question) => ({
+    ...question,
+    options: question.options.filter((option) => allowedFields.has(option)).slice(0, 3),
+  }));
+  const resultWithSheetName: ImportMappingResult = {
+    ...parsedResult.data,
+    // sheetName attached here, in code — never trusted from the model
+    // (see ImportMappingResult's own comment in lib/import/schema.ts).
+    sheetName: unitLabel(unit),
+  };
+  const constrainedResult = applyImportTargetHint(resultWithSheetName, options);
+
+  return { ...constrainedResult, mappings: safeMappings, questions: safeQuestions };
+}
+
 export type MapImportedFileResult = {
   result: ImportMappingResult;
   inputTokens: number;
@@ -263,23 +326,54 @@ Contexte supplémentaire : cet import vient de la popup « chiffres du mois ». 
 }
 
 // The only AI call in the import feature — deterministic parsing
-// (lib/import/parse.ts) always runs first. `apiKey` comes from
-// resolveAgentKey (lib/agent/client.ts), same BYOK-first/shared-fallback
-// resolution as every other agent call.
+// (lib/import/parse.ts) always runs first. `provider` comes from
+// resolveFalcoProvider (lib/agent/falco-provider.ts), so the CRM import uses
+// the same Falco/Groq fallback as the rest of the product.
 export async function mapImportedFile(
   unit: MappableUnit,
   businessContext: string,
-  apiKey: string,
+  provider: FalcoProvider,
   options?: ImportMappingOptions
 ): Promise<MapImportedFileResult> {
-  const client = new Anthropic({ apiKey });
+  const systemPrompt = `${buildSystemPrompt(options)}\n\nContexte business de l'utilisateur :\n${businessContext}\n\n${falcoLanguageInstruction(options?.locale ?? DEFAULT_LOCALE)}`;
+
+  if (provider.kind === "groq") {
+    const response = await requestFalcoJson(
+      provider,
+      `${systemPrompt}\n\nRetourne uniquement un objet JSON valide avec les clés targetTable, mappings, unmappedColumns et questions. N'utilise pas de markdown ni de bloc de code.`,
+      buildTextContent(unit),
+      0,
+      MAX_TOKENS,
+    );
+    const responseText = await response.text();
+    if (!response.ok) throw new Error(`L'IA a renvoyé une erreur (${response.status}).`);
+
+    let responseBody: unknown;
+    try {
+      responseBody = JSON.parse(responseText);
+    } catch {
+      throw new Error("Falco a renvoyé une réponse JSON inexploitable.");
+    }
+    const parsedResponse = GROQ_MAPPING_RESPONSE_SCHEMA.safeParse(responseBody);
+    if (!parsedResponse.success) throw new Error("Falco a renvoyé une réponse JSON inexploitable.");
+    const content = parsedResponse.data.choices[0]?.message.content;
+    if (!content) throw new Error("Falco n'a pas retourné de mapping.");
+
+    return {
+      result: finalizeMapping(parseJsonContent(content), unit, options),
+      inputTokens: parsedResponse.data.usage?.prompt_tokens ?? 0,
+      outputTokens: parsedResponse.data.usage?.completion_tokens ?? 0,
+    };
+  }
+
+  const client = new Anthropic({ apiKey: provider.apiKey });
 
   let message: Anthropic.Message;
   try {
     message = await client.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: `${buildSystemPrompt(options)}\n\nContexte business de l'utilisateur :\n${businessContext}\n\n${falcoLanguageInstruction(options?.locale ?? DEFAULT_LOCALE)}`,
+      system: systemPrompt,
       tools: [MAP_COLUMNS_TOOL],
       tool_choice: { type: "tool", name: "map_columns" },
       messages: [{ role: "user", content: buildFileContent(unit) }],
@@ -306,32 +400,11 @@ export async function mapImportedFile(
     throw new Error("Le modèle n'a pas retourné de mapping structuré.");
   }
 
-  // Never trust the model's declared tool schema compliance blindly —
-  // re-validated with Zod here regardless (CLAUDE.md: no unvalidated `as`
-  // on external input, and LLM output is external input).
-  const parsedResult = modelMappingSchema.safeParse(normalizeModelInput(toolUseBlock.input));
-  if (!parsedResult.success) {
-    throw new Error(`Mapping invalide retourné par le modèle : ${parsedResult.error.message}`);
-  }
-
-  const allowedFields = new Set(options?.targetTableHint === "crm_leads" ? CRM_IMPORT_FIELDS : DATA_IMPORT_FIELDS);
-  const safeMappings = parsedResult.data.mappings
-    .filter((mapping) => !looksLikeRateColumn(mapping.sampleValues))
-    .map((mapping) => (mapping.targetField && !allowedFields.has(mapping.targetField) ? { ...mapping, targetField: null } : mapping));
-  const safeQuestions = parsedResult.data.questions.map((question) => ({
-    ...question,
-    options: question.options.filter((option) => allowedFields.has(option)).slice(0, 3),
-  }));
-  const resultWithSheetName: ImportMappingResult = {
-    ...parsedResult.data,
-    // sheetName attached here, in code — never trusted from the model
-    // (see ImportMappingResult's own comment in lib/import/schema.ts).
-    sheetName: unitLabel(unit),
-  };
-  const constrainedResult = applyImportTargetHint(resultWithSheetName, options);
-
   return {
-    result: { ...constrainedResult, mappings: safeMappings, questions: safeQuestions },
+    // Never trust the model's declared tool schema compliance blindly —
+    // re-validated with Zod here regardless (CLAUDE.md: no unvalidated `as`
+    // on external input, and LLM output is external input).
+    result: finalizeMapping(toolUseBlock.input, unit, options),
     inputTokens: message.usage.input_tokens,
     outputTokens: message.usage.output_tokens,
   };

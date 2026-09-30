@@ -148,6 +148,7 @@ export async function requestFalcoJson(
       headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: provider.model,
+        max_tokens: maxTokens,
         ...(safeTemperature === undefined ? {} : { temperature: safeTemperature }),
         response_format: { type: "json_object" },
         messages: [

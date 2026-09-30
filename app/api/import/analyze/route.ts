@@ -5,7 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { resolveAgentKey } from "@/lib/agent/client";
+import { resolveFalcoProvider } from "@/lib/agent/falco-provider";
 import { mapImportedFile, type ImportMappingOptions, type MappableUnit } from "@/lib/agent/import-mapping";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { db } from "@/db";
@@ -152,23 +152,20 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Compte introuvable." }, { status: 404 });
   }
 
-  // Wrapped explicitly — resolveAgentKey throws NoAgentKeyAvailableError
-  // when neither a BYOK key nor the shared fallback is configured, which
-  // previously went uncaught here (a raw 500 with no JSON body, which the
-  // client's response.json() then fails to parse, surfacing as a
-  // misleading "erreur réseau" instead of the real "no key configured").
-  let apiKey: string;
+  // Use the same Falco provider resolution as the rest of the product:
+  // Anthropic BYOK/shared when configured, then the shared Groq key. The CRM
+  // import must not call the Anthropic-only resolver directly.
+  let falcoProvider: Awaited<ReturnType<typeof resolveFalcoProvider>>;
   let keySource: "byok" | "shared";
   let businessProfile: Awaited<ReturnType<typeof getBusinessProfile>>;
   try {
-    const [resolvedKey, resolvedProfile] = await Promise.all([resolveAgentKey(accountRow), getBusinessProfile(accountId)]);
-    apiKey = resolvedKey.apiKey;
-    keySource = resolvedKey.source;
+    const [resolvedProvider, resolvedProfile] = await Promise.all([resolveFalcoProvider(accountRow), getBusinessProfile(accountId)]);
+    falcoProvider = resolvedProvider;
+    keySource = resolvedProvider.kind === "anthropic" ? resolvedProvider.source : "shared";
     businessProfile = resolvedProfile;
   } catch (error) {
-    console.error("Import analyze setup failed", error);
-    const message = error instanceof Error ? error.message : "Impossible de préparer l'analyse.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    console.error("Import analyze setup failed", { errorName: error instanceof Error ? error.name : "unknown" });
+    return NextResponse.json({ error: "Falco n'est pas configuré pour analyser cet import. Vérifie sa clé côté serveur." }, { status: 400 });
   }
   const businessContext = buildBusinessContext(businessProfile);
 
@@ -202,7 +199,7 @@ export async function POST(request: Request): Promise<Response> {
 
     for (const unit of unitsForFile(parsed)) {
       try {
-        const { result, inputTokens, outputTokens } = await mapImportedFile(unit, businessContext, apiKey, {
+        const { result, inputTokens, outputTokens } = await mapImportedFile(unit, businessContext, falcoProvider, {
           targetTableHint,
           targetPeriod,
           locale,
