@@ -243,7 +243,7 @@ export function CrmLeadImport() {
     return (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">{t("import.description")}</p>
-        <ImportDropzone onFilesSelected={handleFilesSelected} allowPaste formatLabel={t("import.formats")} />
+        <ImportDropzone onFilesSelected={handleFilesSelected} allowPaste accept=".csv,.tsv,.xlsx,.xls" formatLabel={t("import.formats")} />
       </div>
     );
   }

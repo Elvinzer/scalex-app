@@ -44,6 +44,33 @@ function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function normalizedHeaderLabel(raw: string): string {
+  return raw
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function hasHeaderSignal(raw: string): boolean {
+  const value = normalizedHeaderLabel(raw);
+  return /(^|_)(date|mois|nom|prenom|name|first|last|email|mail|tel|telephone|phone|mobile|source|canal|channel|plateforme|platform|suivi|statut|status|stage|etape|resultat|outcome|action|contact|lead|prospect|rang|priorite|segment)(_|$)/.test(value);
+}
+
+function hasDataSignal(raw: string): boolean {
+  const value = raw.trim();
+  return Boolean(
+    value &&
+      (parseLocaleNumber(value) !== null ||
+        looksLikeDateString(value) ||
+        /^\+?[\d\s().-]{8,}$/.test(value) ||
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ||
+        /^https?:\/\//i.test(value)),
+  );
+}
+
 // ExcelJS never returns a formula cell's calculated value directly — it's
 // an object ({formula, result} or {result, sharedFormula} for cells that
 // share one formula). Unwrapping this is the #1 fix for the "every
@@ -92,7 +119,8 @@ export function detectHeaderRow(rows: string[][]): number | null {
     const nextNonEmpty = nextRow.map((c) => c.trim()).filter((c) => c.length > 0);
     if (nextNonEmpty.length < 2) continue;
     const nextNumericCount = nextNonEmpty.filter((c) => parseLocaleNumber(c) !== null || looksLikeDateString(c)).length;
-    if (nextNumericCount / nextNonEmpty.length >= 0.5) return i;
+    const nextDataSignals = nextNonEmpty.filter(hasDataSignal).length;
+    if (nextNumericCount / nextNonEmpty.length >= 0.5 || (nonEmpty.filter(hasHeaderSignal).length >= 2 && nextDataSignals >= 1)) return i;
   }
 
   return null;

@@ -2,12 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 import { requestFalcoJson, type FalcoProvider } from "@/lib/agent/falco-provider";
+import { normalizeCrmDate, normalizeCrmOutcome, normalizeCrmPlatform, normalizeCrmSource, normalizeCrmStage } from "@/lib/crm/import";
 import {
   ALL_TARGET_FIELDS,
   CRM_IMPORT_FIELDS,
   DATA_IMPORT_FIELDS,
   IMPORT_TARGET_TABLES,
   modelMappingSchema,
+  type CrmImportField,
   type ImportMappingResult,
 } from "@/lib/import/schema";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
@@ -160,6 +162,233 @@ function unitLabel(unit: MappableUnit): string {
   return unit.kind === "sheet" ? unit.sheet.name : unit.fileName;
 }
 
+type CrmColumnHint = {
+  targetField: CrmImportField | null;
+  confidence: "high" | "medium" | "low";
+};
+
+const CRM_DATE_FIELDS = new Set<CrmImportField>([
+  "leadCreatedAt",
+  "messageOccurredAt",
+  "responseAt",
+  "valueContentAt",
+  "callProposedAt",
+  "callBookedAt",
+]);
+
+const CONFIDENCE_RANK: Record<"high" | "medium" | "low", number> = { high: 3, medium: 2, low: 1 };
+
+function normalizedColumnLabel(raw: string): string {
+  return raw
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function nonEmptyValues(values: string[]): string[] {
+  return values.map((value) => value.trim()).filter(Boolean);
+}
+
+function isDateColumn(values: string[]): boolean {
+  const nonEmpty = nonEmptyValues(values);
+  return nonEmpty.length > 0 && nonEmpty.every((value) => normalizeCrmDate(value) !== null);
+}
+
+function isPhoneLike(value: string): boolean {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 && !/^\d{1,4}$/.test(value.trim());
+}
+
+function hasValidColumnValues(values: string[], normalize: (value: string) => string | null): boolean {
+  const nonEmpty = nonEmptyValues(values);
+  return nonEmpty.length > 0 && nonEmpty.every((value) => normalize(value) !== null);
+}
+
+function crmColumnHint(header: string, values: string[]): CrmColumnHint | undefined {
+  const key = normalizedColumnLabel(header);
+  const nonEmpty = nonEmptyValues(values);
+  const dates = isDateColumn(values);
+
+  if (!key) return undefined;
+  if (/whatsapp|^wa$/.test(key)) {
+    if (nonEmpty.some((value) => /^https?:\/\//i.test(value))) return { targetField: null, confidence: "high" };
+    if (nonEmpty.length > 0 && nonEmpty.every(isPhoneLike)) return { targetField: "phone", confidence: "medium" };
+  }
+  if (/action_maintenant|next_action|prochaine_action/.test(key)) return { targetField: null, confidence: "high" };
+  if (/qualite_donnee|data_quality|^rang$|^priorite$|^pays$|nb_strategy_calls/.test(key)) {
+    return { targetField: null, confidence: "high" };
+  }
+  if (/derniere_maj|last_update|updated_at/.test(key)) {
+    return dates ? { targetField: "leadCreatedAt", confidence: "low" } : { targetField: null, confidence: "high" };
+  }
+  if (/derniere_interaction|last_interaction/.test(key)) {
+    return dates ? { targetField: "responseAt", confidence: "low" } : { targetField: null, confidence: "high" };
+  }
+  if (/premier_message|first_message/.test(key)) {
+    return dates ? { targetField: "messageOccurredAt", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/date_creation|created_at|date_lead|date_entree|date_ajout|inscription/.test(key)) {
+    return dates ? { targetField: "leadCreatedAt", confidence: "high" } : { targetField: null, confidence: "high" };
+  }
+  if (/reponse|responded|response/.test(key)) {
+    return dates ? { targetField: "responseAt", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/contenu|content|value_content/.test(key)) {
+    return dates ? { targetField: "valueContentAt", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/proposition.*appel|call.*propos|appointment.*propos/.test(key)) {
+    return dates ? { targetField: "callProposedAt", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/prise.*rendez|rdv|booked|appointment|call.*book/.test(key)) {
+    return dates ? { targetField: "callBookedAt", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/(^|_)(telephone|tel|phone|mobile|gsm)(_|$)/.test(key)) return { targetField: "phone", confidence: "high" };
+  if (/(^|_)(email|e_mail|mail)(_|$)/.test(key) || (key.includes("contact") && nonEmpty.some((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)))) {
+    return { targetField: "email", confidence: "high" };
+  }
+  if (/nom_affiche|display_name|full_name|nom_complet/.test(key)) return { targetField: "displayName", confidence: "high" };
+  if (/(^|_)(prenom|first_name|firstname)(_|$)/.test(key)) return { targetField: "firstName", confidence: "high" };
+  if (/(^|_)(nom|last_name|lastname)(_|$)/.test(key)) return { targetField: "lastName", confidence: "high" };
+  if (/pseudo|username|user_name|handle/.test(key)) return { targetField: "handle", confidence: "high" };
+  if (/url.*profil|profil.*url|profile.*url|lien.*profil|profile_link/.test(key)) return { targetField: "profileUrl", confidence: "high" };
+  if (/plateforme|platform|reseau|network/.test(key)) {
+    return hasValidColumnValues(values, normalizeCrmPlatform) ? { targetField: "platform", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/source|canal|channel|origine|acquisition/.test(key)) {
+    return hasValidColumnValues(values, normalizeCrmSource) ? { targetField: "source", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/suivi|statut|status|stage|etape/.test(key)) {
+    return hasValidColumnValues(values, normalizeCrmStage) ? { targetField: "stage", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/resultat|outcome|segment/.test(key)) {
+    return hasValidColumnValues(values, normalizeCrmOutcome) ? { targetField: "outcome", confidence: "medium" } : { targetField: null, confidence: "high" };
+  }
+  if (/commentaire|comment|note|observation|remarque/.test(key)) return { targetField: "qualificationNote", confidence: "medium" };
+
+  return undefined;
+}
+
+function columnValuesForHeader(sheet: RawSheet, header: string): string[] {
+  const index = sheet.headers.findIndex((candidate) => candidate.trim().toLowerCase() === header.trim().toLowerCase());
+  return index < 0 ? [] : sheet.rows.map((row) => row[index] ?? "");
+}
+
+function isLikelyCrmSheet(sheet: RawSheet): boolean {
+  const headers = sheet.headers.map(normalizedColumnLabel);
+  const phoneIndex = headers.findIndex((header) => /(^|_)(telephone|tel|phone|mobile|gsm)(_|$)/.test(header));
+  const emailIndex = headers.findIndex((header) => /(^|_)(email|e_mail|mail)(_|$)/.test(header));
+  const identityIndex = headers.findIndex((header) => /(^|_)(nom|prenom|name|first_name|last_name|pseudo|username|contact)(_|$)/.test(header));
+  const hasPhone = phoneIndex >= 0 && sheet.rows.some((row) => isPhoneLike(row[phoneIndex] ?? ""));
+  const hasEmail = emailIndex >= 0 && sheet.rows.some((row) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((row[emailIndex] ?? "").trim()));
+  return (hasPhone || hasEmail) && identityIndex >= 0;
+}
+
+function mappingValues(unit: MappableUnit, sourceColumn: string): string[] {
+  if (unit.kind !== "sheet") return [];
+  const values = columnValuesForHeader(unit.sheet, sourceColumn);
+  return values.length > 0 ? values : [];
+}
+
+function isValidCrmMappingValue(targetField: CrmImportField, values: string[]): boolean {
+  if (!CRM_DATE_FIELDS.has(targetField)) {
+    if (targetField === "stage") return hasValidColumnValues(values, normalizeCrmStage);
+    if (targetField === "outcome") return hasValidColumnValues(values, normalizeCrmOutcome);
+    if (targetField === "source") return hasValidColumnValues(values, normalizeCrmSource);
+    if (targetField === "platform") return hasValidColumnValues(values, normalizeCrmPlatform);
+    return true;
+  }
+  return isDateColumn(values);
+}
+
+function repairCrmMapping(result: ImportMappingResult, unit: MappableUnit, options?: ImportMappingOptions): ImportMappingResult {
+  if (options?.targetTableHint !== "crm_leads" || unit.kind !== "sheet") return result;
+
+  const shouldRecoverAsCrm = isLikelyCrmSheet(unit.sheet);
+  const targetTable = result.targetTable === "crm_leads" || shouldRecoverAsCrm ? "crm_leads" : result.targetTable;
+  if (targetTable !== "crm_leads") return result;
+
+  const repaired = result.mappings.map((mapping) => {
+    const values = mappingValues(unit, mapping.sourceColumn);
+    const actualHeader = unit.sheet.headers.find((header) => header.trim().toLowerCase() === mapping.sourceColumn.trim().toLowerCase());
+    const hint = actualHeader ? crmColumnHint(actualHeader, values) : undefined;
+    if (hint) return { ...mapping, targetField: hint.targetField, confidence: hint.confidence };
+
+    const targetField = mapping.targetField as CrmImportField | null;
+    if (targetField && CRM_IMPORT_FIELDS.includes(targetField) && !isValidCrmMappingValue(targetField, values.length > 0 ? values : mapping.sampleValues)) {
+      return { ...mapping, targetField: null };
+    }
+    return mapping;
+  });
+
+  const mappedHeaders = new Set(repaired.map((mapping) => mapping.sourceColumn.trim().toLowerCase()));
+  for (const [index, header] of unit.sheet.headers.entries()) {
+    if (!header.trim() || mappedHeaders.has(header.trim().toLowerCase())) continue;
+    const values = unit.sheet.rows.map((row) => row[index] ?? "");
+    const hint = crmColumnHint(header, values);
+    if (!hint?.targetField) continue;
+    repaired.push({
+      sourceColumn: header,
+      targetField: hint.targetField,
+      confidence: hint.confidence,
+      granularity: "daily",
+      sampleValues: values.slice(0, 5),
+    });
+  }
+
+  const bestByField = new Map<CrmImportField, { index: number; rank: number }>();
+  for (const [index, mapping] of repaired.entries()) {
+    const targetField = mapping.targetField as CrmImportField | null;
+    if (!targetField || !CRM_IMPORT_FIELDS.includes(targetField)) continue;
+    const rank = CONFIDENCE_RANK[mapping.confidence];
+    const previous = bestByField.get(targetField);
+    if (!previous || rank > previous.rank) {
+      if (previous) repaired[previous.index] = { ...repaired[previous.index], targetField: null };
+      bestByField.set(targetField, { index, rank });
+    } else {
+      repaired[index] = { ...mapping, targetField: null };
+    }
+  }
+
+  return {
+    ...result,
+    targetTable,
+    ignoreReason: null,
+    mappings: repaired,
+  };
+}
+
+export function buildDeterministicCrmMapping(unit: MappableUnit): ImportMappingResult | null {
+  if (unit.kind !== "sheet" || !isLikelyCrmSheet(unit.sheet)) return null;
+  const mappings = unit.sheet.headers.map((header, index) => {
+    const values = unit.sheet.rows.map((row) => row[index] ?? "");
+    const hint = crmColumnHint(header, values);
+    return {
+      sourceColumn: header,
+      targetField: hint?.targetField ?? null,
+      confidence: hint?.confidence ?? "low",
+      granularity: "daily" as const,
+      sampleValues: values.slice(0, 5),
+    };
+  });
+  return repairCrmMapping(
+    {
+      sheetName: unit.sheet.name,
+      targetTable: "crm_leads",
+      ignoreReason: null,
+      mappings,
+      dateColumnName: null,
+      periodDetected: null,
+      unmappedColumns: [],
+      questions: [],
+    },
+    unit,
+    { targetTableHint: "crm_leads" },
+  );
+}
+
 function buildFileContent(unit: MappableUnit): Anthropic.ContentBlockParam[] {
   if (unit.kind === "image") {
     return [
@@ -275,21 +504,21 @@ function finalizeMapping(input: unknown, unit: MappableUnit, options?: ImportMap
     throw new Error(`Mapping invalide retourné par le modèle : ${parsedResult.error.message}`);
   }
 
-  const allowedFields = new Set(options?.targetTableHint === "crm_leads" ? CRM_IMPORT_FIELDS : DATA_IMPORT_FIELDS);
-  const safeMappings = parsedResult.data.mappings
-    .filter((mapping) => !looksLikeRateColumn(mapping.sampleValues))
-    .map((mapping) => (mapping.targetField && !allowedFields.has(mapping.targetField) ? { ...mapping, targetField: null } : mapping));
-  const safeQuestions = parsedResult.data.questions.map((question) => ({
-    ...question,
-    options: question.options.filter((option) => allowedFields.has(option)).slice(0, 3),
-  }));
   const resultWithSheetName: ImportMappingResult = {
     ...parsedResult.data,
     // sheetName attached here, in code — never trusted from the model
     // (see ImportMappingResult's own comment in lib/import/schema.ts).
     sheetName: unitLabel(unit),
   };
-  const constrainedResult = applyImportTargetHint(resultWithSheetName, options);
+  const constrainedResult = repairCrmMapping(applyImportTargetHint(resultWithSheetName, options), unit, options);
+  const allowedFields = new Set(options?.targetTableHint === "crm_leads" ? CRM_IMPORT_FIELDS : DATA_IMPORT_FIELDS);
+  const safeMappings = constrainedResult.mappings
+    .filter((mapping) => !looksLikeRateColumn(mapping.sampleValues))
+    .map((mapping) => (mapping.targetField && !allowedFields.has(mapping.targetField) ? { ...mapping, targetField: null } : mapping));
+  const safeQuestions = constrainedResult.questions.map((question) => ({
+    ...question,
+    options: question.options.filter((option) => allowedFields.has(option)).slice(0, 3),
+  }));
 
   return { ...constrainedResult, mappings: safeMappings, questions: safeQuestions };
 }

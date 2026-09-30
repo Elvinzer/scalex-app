@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { resolveFalcoProvider } from "@/lib/agent/falco-provider";
-import { mapImportedFile, type ImportMappingOptions, type MappableUnit } from "@/lib/agent/import-mapping";
+import { buildDeterministicCrmMapping, mapImportedFile, type ImportMappingOptions, type MappableUnit } from "@/lib/agent/import-mapping";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { db } from "@/db";
 import { monthlyMetrics, users } from "@/db/schema";
@@ -220,6 +220,18 @@ export async function POST(request: Request): Promise<Response> {
       } catch (error) {
         const sheetName = unit.kind === "sheet" ? unit.sheet.name : unit.fileName;
         console.error("Import mapping failed", fileName, sheetName, error);
+        const fallbackMapping = targetTableHint === "crm_leads" ? buildDeterministicCrmMapping(unit) : null;
+        if (fallbackMapping) {
+          results.push({
+            fileName,
+            sheetName,
+            fileHash: createHash("sha256").update(buffer).digest("hex"),
+            headerRowConfident: unit.kind === "sheet" ? unit.sheet.headerRowConfident : true,
+            previewRows: unit.kind === "sheet" ? unit.sheet.previewRows : [],
+            mapping: enrichMapping(parsed, fallbackMapping),
+          });
+          continue;
+        }
         // One sheet failing to analyze (a model hiccup, a malformed tool
         // response) must never abort the whole import — the OTHER sheets
         // in the same workbook are independent and still worth showing.

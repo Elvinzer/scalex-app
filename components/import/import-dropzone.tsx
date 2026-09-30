@@ -4,18 +4,20 @@ import { ArrowRight, ClipboardPaste, FileSpreadsheet, Upload } from "lucide-reac
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 
-const ACCEPTED = ".csv,.tsv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg";
+const DEFAULT_ACCEPTED = ".csv,.tsv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg";
 
 export function ImportDropzone({
   onFilesSelected,
   disabled,
   allowPaste = false,
   formatLabel,
+  accept,
 }: {
   onFilesSelected: (files: File[]) => void;
   disabled?: boolean;
   allowPaste?: boolean;
   formatLabel?: string;
+  accept?: string;
 }) {
   const t = useTranslations("data.importDropzone");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -127,7 +129,7 @@ export function ImportDropzone({
             ref={inputRef}
             type="file"
             multiple
-            accept={ACCEPTED}
+            accept={accept ?? DEFAULT_ACCEPTED}
             disabled={disabled}
             className="hidden"
             onChange={(event) => handleFiles(event.target.files)}

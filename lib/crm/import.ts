@@ -113,24 +113,57 @@ export function normalizeCrmPlatform(raw: string | null | undefined): CrmPlatfor
 
 export function normalizeCrmStage(raw: string | null | undefined): CrmLeadStage | null {
   return enumFromLabel(raw, CRM_LEAD_STAGES, {
+    a_contacter: "first_message_sent",
+    a_verifier: "conversation_in_progress",
     first_message: "first_message_sent",
     message_sent: "first_message_sent",
     message_envoye: "first_message_sent",
+    premier_message: "first_message_sent",
+    premier_message_envoye: "first_message_sent",
+    premier_msg_envoye: "first_message_sent",
+    non_qualifie: "first_message_sent",
     conversation: "conversation_in_progress",
     conversation_started: "conversation_in_progress",
+    conversation_en_cours: "conversation_in_progress",
+    video_sent: "value_content_sent",
+    video_envoyee: "value_content_sent",
     value_content: "value_content_sent",
     content_sent: "value_content_sent",
+    contenu_envoye: "value_content_sent",
     call: "call_proposed",
+    call_propose: "call_proposed",
+    appel_propose: "call_proposed",
     appointment_proposed: "call_proposed",
     booked: "call_booked",
+    call_booke: "call_booked",
+    appel_booke: "call_booked",
     appointment_booked: "call_booked",
   });
 }
 
 export function normalizeCrmOutcome(raw: string | null | undefined): CrmLeadOutcome | null {
   return enumFromLabel(raw, CRM_LEAD_OUTCOMES, {
+    call_annule: "none",
+    call_cancelled: "none",
+    call_booke: "none",
+    call_booked: "none",
+    donnee_modifiee: "none",
+    follow_up_planifie: "none",
+    follow_up_scheduled: "none",
+    potentiel: "none",
+    potential: "none",
+    qualifie: "none",
+    qualified: "none",
+    replanifie: "none",
+    rescheduled: "none",
+    no_sale: "lost",
+    nosale: "lost",
+    strategy_call_outcome_no_sale: "lost",
     noshow: "no_show",
+    no_show: "no_show",
     won: "sold",
+    sale: "sold",
+    sold: "sold",
   });
 }
 
