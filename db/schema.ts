@@ -2564,7 +2564,7 @@ export const leadStageEnum = pgEnum("lead_stage", [
 ]);
 
 export const leadLostReasonEnum = pgEnum("lead_lost_reason", [
-  "pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "autre",
+  "pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "non_interesse", "autre",
 ]);
 
 export const crmLeadPlatformEnum = pgEnum("crm_lead_platform", CRM_PLATFORMS);

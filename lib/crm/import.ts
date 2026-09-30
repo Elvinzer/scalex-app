@@ -173,6 +173,10 @@ export function normalizeCrmLostReason(raw: string | null | undefined): CrmLostR
     no_time: "pas_le_moment",
     competitor: "concurrent",
     ghosted: "ghoste",
+    pas_interesse: "non_interesse",
+    pas_interessee: "non_interesse",
+    non_interested: "non_interesse",
+    not_interested: "non_interesse",
     other: "autre",
   });
 }

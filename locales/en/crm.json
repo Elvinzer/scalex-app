@@ -532,7 +532,7 @@
     "lossNote": "Optional note",
     "lossSaving": "Saving...",
     "markLost": "Mark as lost",
-    "lossReasons": {"pas_le_budget": "Budget", "pas_le_moment": "Not the right time", "concurrent": "Chose a competitor", "ghoste": "Ghosted", "autre": "Other"}
+    "lossReasons": {"pas_le_budget": "Budget", "pas_le_moment": "Not the right time", "concurrent": "Chose a competitor", "ghoste": "Ghosted", "non_interesse": "Not interested", "autre": "Other"}
   },
   "salesValidation": {
     "title": "Validate the sale for {name}",

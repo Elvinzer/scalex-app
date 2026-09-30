@@ -1,0 +1,1 @@
+ALTER TYPE "public"."lead_lost_reason" ADD VALUE 'non_interesse' BEFORE 'autre';

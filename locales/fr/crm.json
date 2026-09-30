@@ -532,7 +532,7 @@
     "lossNote": "Note facultative",
     "lossSaving": "Enregistrement...",
     "markLost": "Marquer comme perdu",
-    "lossReasons": {"pas_le_budget": "Pas le budget", "pas_le_moment": "Pas le moment", "concurrent": "A choisi un concurrent", "ghoste": "Ghosté", "autre": "Autre"}
+    "lossReasons": {"pas_le_budget": "Pas le budget", "pas_le_moment": "Pas le moment", "concurrent": "A choisi un concurrent", "ghoste": "Ghosté", "non_interesse": "Non intéressé", "autre": "Autre"}
   },
   "salesValidation": {
     "title": "Valider la vente de {name}",

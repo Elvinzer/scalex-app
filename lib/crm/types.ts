@@ -18,7 +18,7 @@ export type CrmLeadOutcome = (typeof CRM_LEAD_OUTCOMES)[number];
 export const CRM_CONTACT_STATES = ["new", "contacted"] as const;
 export type CrmContactState = (typeof CRM_CONTACT_STATES)[number];
 
-export const CRM_LOST_REASONS = ["pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "autre"] as const;
+export const CRM_LOST_REASONS = ["pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "non_interesse", "autre"] as const;
 export type CrmLostReason = (typeof CRM_LOST_REASONS)[number];
 
 export const CRM_LEAD_SOURCES = [

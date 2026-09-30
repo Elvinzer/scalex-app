@@ -51,10 +51,11 @@ export function LostReasonDialog({
               key={value}
               type="button"
               onClick={() => setReason(value)}
+              aria-pressed={reason === value}
               className={
                 reason === value
-                  ? "rounded-[var(--radius-control)] border border-accent bg-accent-soft px-3 py-2 text-left text-sm font-bold text-accent-text"
-                  : "rounded-[var(--radius-control)] border border-border px-3 py-2 text-left text-sm hover:bg-muted"
+                  ? "min-h-11 rounded-[var(--radius-control)] border border-accent bg-accent-soft px-3 py-2 text-left text-sm font-bold text-accent-text outline-none focus-visible:ring-3 focus-visible:ring-accent/20"
+                  : "min-h-11 rounded-[var(--radius-control)] border border-border px-3 py-2 text-left text-sm outline-none hover:bg-muted focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20"
               }
             >
               {t(`lostReason.${value}`)}

@@ -32,7 +32,7 @@ export const LEAD_STAGE_LABELS: Record<LeadStage, string> = {
   perdu: "Perdu",
 };
 
-export const LEAD_LOST_REASONS = ["pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "autre"] as const;
+export const LEAD_LOST_REASONS = ["pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "non_interesse", "autre"] as const;
 export type LeadLostReason = (typeof LEAD_LOST_REASONS)[number];
 
 export const LEAD_LOST_REASON_LABELS: Record<LeadLostReason, string> = {
@@ -40,6 +40,7 @@ export const LEAD_LOST_REASON_LABELS: Record<LeadLostReason, string> = {
   pas_le_moment: "Pas le moment",
   concurrent: "Concurrent",
   ghoste: "Ghosté",
+  non_interesse: "Non intéressé",
   autre: "Autre",
 };
 

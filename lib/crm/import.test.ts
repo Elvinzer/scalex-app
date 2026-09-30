@@ -55,7 +55,7 @@ describe("CRM import normalization", () => {
   });
 
   it("normalizes statuses from a WhatsApp/iClosed CRM export", async () => {
-    const { normalizeCrmOutcome, normalizeCrmStage } = await import("./import");
+    const { normalizeCrmLostReason, normalizeCrmOutcome, normalizeCrmStage } = await import("./import");
     expect(normalizeCrmStage("Vidéo envoyée")).toBe("value_content_sent");
     expect(normalizeCrmStage("À vérifier")).toBe("conversation_in_progress");
     expect(normalizeCrmStage("À contacter")).toBe("first_message_sent");
@@ -63,6 +63,29 @@ describe("CRM import normalization", () => {
     expect(normalizeCrmOutcome("Call booké")).toBe("none");
     expect(normalizeCrmOutcome("No Sale")).toBe("lost");
     expect(normalizeCrmOutcome("Follow-up planifié")).toBe("none");
+    expect(normalizeCrmLostReason("Non intéressé")).toBe("non_interesse");
+    expect(normalizeCrmLostReason("non interesse")).toBe("non_interesse");
+    expect(normalizeCrmLostReason("Not interested")).toBe("non_interesse");
+    expect(normalizeCrmLostReason("Refus définitif inconnu")).toBeNull();
+  });
+
+  it("keeps an unknown imported loss reason in review", () => {
+    const prepared = prepareCrmSheet(sheet({
+      defaultSource: "instagram",
+      mapping: {
+        ...sheet().mapping,
+        mappings: [
+          { sourceColumn: "Nom", targetField: "displayName", confidence: "high", granularity: "daily", sampleValues: ["Jane Doe", "John Doe"], columnValues: ["Jane Doe", "John Doe"] },
+          { sourceColumn: "Téléphone", targetField: "phone", confidence: "high", granularity: "daily", sampleValues: ["06 12 34 56 78", "06 12 34 56 79"], columnValues: ["06 12 34 56 78", "06 12 34 56 79"] },
+          { sourceColumn: "Motif", targetField: "lostReason", confidence: "high", granularity: "daily", sampleValues: ["Non intéressé", "Refus définitif inconnu"], columnValues: ["Non intéressé", "Refus définitif inconnu"] },
+          { sourceColumn: "Date", targetField: "leadCreatedAt", confidence: "high", granularity: "daily", sampleValues: ["2026-01-01", "2026-01-02"], columnValues: ["2026-01-01", "2026-01-02"] },
+        ],
+      },
+    }), "fr");
+
+    expect(prepared.rows[0]?.values.lostReason).toBe("non_interesse");
+    expect(prepared.rows[1]?.values.lostReason).toBeUndefined();
+    expect(prepared.rows[1]?.issues).toContain("invalid_value:lostReason");
   });
 });
 
