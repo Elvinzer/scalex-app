@@ -2513,7 +2513,7 @@ export const setters = pgTable(
 
 export const leadSourceEnum = pgEnum("lead_source", [
   "instagram", "tiktok", "youtube", "linkedin", "x", "facebook",
-  "email_newsletter", "ads", "bouche_a_oreille", "autre",
+  "whatsapp", "email_newsletter", "ads", "bouche_a_oreille", "autre",
 ]);
 
 export const leadStageEnum = pgEnum("lead_stage", [

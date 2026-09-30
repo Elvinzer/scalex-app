@@ -28,6 +28,7 @@ export const CRM_LEAD_SOURCES = [
   "linkedin",
   "x",
   "facebook",
+  "whatsapp",
   "email_newsletter",
   "ads",
   "bouche_a_oreille",

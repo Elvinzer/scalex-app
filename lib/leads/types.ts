@@ -1,6 +1,6 @@
 export const LEAD_SOURCES = [
   "instagram", "tiktok", "youtube", "linkedin", "x", "facebook",
-  "email_newsletter", "ads", "bouche_a_oreille", "autre",
+  "whatsapp", "email_newsletter", "ads", "bouche_a_oreille", "autre",
 ] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
 
@@ -11,6 +11,7 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   linkedin: "LinkedIn",
   x: "X",
   facebook: "Facebook",
+  whatsapp: "WhatsApp",
   email_newsletter: "Email / newsletter",
   ads: "Publicité",
   bouche_a_oreille: "Bouche-à-oreille",

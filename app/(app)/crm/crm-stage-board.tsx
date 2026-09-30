@@ -20,6 +20,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [selectedStage, setSelectedStage] = useState<CrmLeadStage>(CRM_LEAD_STAGES[0]);
+  const [selectedSource, setSelectedSource] = useState<CrmLeadSource | "all">("all");
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [drawerLead, setDrawerLead] = useState<CrmLeadListItem | null>(null);
 
@@ -30,6 +31,8 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
   function sourceLabel(source: string): string {
     return CRM_LEAD_SOURCES.includes(source as CrmLeadSource) ? t(`sources.${source}`) : t("sources.autre");
   }
+
+  const filteredLeads = selectedSource === "all" ? leads : leads.filter((lead) => lead.source === selectedSource);
 
   function move(leadId: string, stage: CrmLeadStage) {
     const previous = leads;
@@ -58,7 +61,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
   }
 
   function stageColumn(stage: CrmLeadStage, viewport: "mobile" | "desktop") {
-    const stageLeads = leads.filter((lead) => lead.stage === stage);
+    const stageLeads = filteredLeads.filter((lead) => lead.stage === stage);
     const headingId = `crm-stage-${stage}-${viewport}`;
     return <section key={`${viewport}-${stage}`} className="min-w-[250px] rounded-[var(--radius-card)] border border-border bg-surface-sunken p-3" aria-labelledby={headingId} onDragOver={(event) => event.preventDefault()} onDrop={(event) => dropOnStage(event, stage)}>
       <div className="flex items-center justify-between gap-2">
@@ -70,7 +73,10 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
           <div className="flex items-start gap-2">
           <button type="button" onClick={() => setDrawerLead(lead)} className="inline-flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded text-left outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
             <p className="font-bold">{lead.displayName}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{lead.platform ? t(`sources.${lead.platform}`) : sourceLabel(lead.source)}</p>
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {lead.platform && lead.source !== lead.platform && <span>{t(`sources.${lead.platform}`)}</span>}
+              <span className="inline-flex max-w-full items-center whitespace-nowrap rounded-full border border-border bg-muted/40 px-2 py-0.5 font-bold text-foreground/80"><span className="sr-only">{t("leads.source")}: </span>{sourceLabel(lead.source)}</span>
+            </div>
             {lead.responsibleSetterName && <p className="mt-1 text-xs text-muted-foreground">{t("pipeline.responsible")}: {lead.responsibleSetterName}</p>}
             {lead.outcome !== "none" && <p className="mt-2 text-xs font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</p>}
           </button>
@@ -91,6 +97,15 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
   return (
     <div className="flex flex-col gap-4">
       {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <label className="flex w-full max-w-xs flex-col gap-1 text-xs font-bold text-muted-foreground">
+          <span>{t("leads.source")}</span>
+          <select value={selectedSource} onChange={(event) => setSelectedSource(CRM_LEAD_SOURCES.find((source) => source === event.target.value) ?? "all")} className="min-h-11 rounded border border-border bg-background px-2 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">
+            <option value="all">{t("leads.allSources")}</option>
+            {CRM_LEAD_SOURCES.map((source) => <option key={source} value={source}>{sourceLabel(source)}</option>)}
+          </select>
+        </label>
+      </div>
       <div className="flex flex-wrap gap-2 pb-1 lg:hidden" role="tablist" aria-label={t("pipeline.stageSelector")}>
         {CRM_LEAD_STAGES.map((stage) => <Button key={stage} type="button" role="tab" className="min-h-11" aria-selected={selectedStage === stage} variant={selectedStage === stage ? "default" : "outline"} onClick={() => setSelectedStage(stage)}>{t(CRM_STAGE_LABEL_KEYS[stage])}</Button>)}
       </div>
