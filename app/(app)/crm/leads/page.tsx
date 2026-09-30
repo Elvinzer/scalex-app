@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Plus, Upload } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES } from "@/lib/crm/
 import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 
 import { CrmLeadCaptureForm } from "../crm-lead-capture-form";
+import { CrmLeadImport } from "../crm-lead-import";
 import { CrmLeadList } from "../crm-lead-list";
 
 export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; offer?: string; source?: string; from?: string; to?: string; event?: string; eventFrom?: string; eventTo?: string; overdue?: string; responded?: string; qualification?: string }> }) {
@@ -61,6 +62,18 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
           <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] group-open:rotate-180" aria-hidden="true" />
         </summary>
         <div className="border-t border-border p-4"><CrmLeadCaptureForm offers={offers} setters={setters} /></div>
+      </details>
+      <details className="sticker-card group overflow-hidden">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-bold outline-none transition-colors hover:bg-accent-2-soft focus-visible:ring-3 focus-visible:ring-accent-2/20 sm:px-5 [&::-webkit-details-marker]:hidden">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-accent-2 text-white shadow-sm">
+              <Upload className="size-5" strokeWidth={2.5} aria-hidden="true" />
+            </span>
+            <span className="truncate">{t("import.toggle")}</span>
+          </span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="border-t border-border p-4"><CrmLeadImport /></div>
       </details>
       <form method="get" className="sticker-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.search")}<input name="search" defaultValue={params.search} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>

@@ -10,14 +10,49 @@ import { MONTHLY_METRICS_FIELDS } from "@/lib/monthly-metrics/types";
 // definition). "ignore" is a real, first-class outcome — a sheet that
 // doesn't fit anything is always shown as ignored with a reason, never
 // silently dropped.
-export const IMPORT_TARGET_TABLES = ["monthly_metrics", "sales", "ignore"] as const;
+export const IMPORT_TARGET_TABLES = ["monthly_metrics", "sales", "crm_leads", "ignore"] as const;
+export const DATA_IMPORT_TARGET_TABLES = ["monthly_metrics", "sales", "ignore"] as const;
 
 const SALES_FIELDS = ["clientName", "clientEmail", "sourceChannel", "totalPrice", "paymentType", "saleDate", "closer"] as const;
+
+// CRM import fields intentionally use human-level values for offer and setter
+// names. The commit service resolves those names inside the current account;
+// an imported file must never be allowed to submit a foreign database id.
+export const CRM_IMPORT_FIELDS = [
+  "profileUrl",
+  "platform",
+  "handle",
+  "displayName",
+  "firstName",
+  "lastName",
+  "email",
+  "phone",
+  "source",
+  "offerName",
+  "setterName",
+  "potentialValueEur",
+  "leadCreatedAt",
+  "messageOccurredAt",
+  "responseAt",
+  "valueContentAt",
+  "callProposedAt",
+  "callBookedAt",
+  "stage",
+  "outcome",
+  "lostReason",
+  "qualificationNote",
+  "closer",
+] as const;
+
+export type CrmImportField = (typeof CRM_IMPORT_FIELDS)[number];
 
 export const ALL_TARGET_FIELDS = [
   ...MONTHLY_METRICS_FIELDS,
   ...SALES_FIELDS,
+  ...CRM_IMPORT_FIELDS,
 ] as unknown as [string, ...string[]];
+
+export const DATA_IMPORT_FIELDS = [...MONTHLY_METRICS_FIELDS, ...SALES_FIELDS] as unknown as [string, ...string[]];
 
 // One entry per source column the model looked at — target_field null means
 // "I don't know what this is", handled identically to an explicit
@@ -76,7 +111,7 @@ export type ImportMappingResult = ModelMappingResult & { sheetName: string };
 // round has updated any medium/low-confidence entries. Server-side re-
 // validated in commitImport, never trusted as-is from the client.
 export const commitImportPayloadSchema = z.object({
-  targetTable: z.enum(IMPORT_TARGET_TABLES),
+  targetTable: z.enum(DATA_IMPORT_TARGET_TABLES),
   fileHash: z.string(),
   // Set after the user confirms the "tu as déjà importé ce fichier"
   // warning — first call without it, server returns a warning instead of

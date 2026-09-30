@@ -274,7 +274,7 @@ export function ImportPreview({
     // one-table-per-call.
     const payloads: CommitImportPayload[] = [];
     for (const sheet of sheets) {
-      if (sheet.mapping.targetTable === "ignore") continue;
+      if (sheet.mapping.targetTable === "ignore" || sheet.mapping.targetTable === "crm_leads") continue;
       const sheetGroups = groups.filter((g) => sheets[g.sheetIndex] === sheet);
       if (sheetGroups.length === 0) continue;
       payloads.push({

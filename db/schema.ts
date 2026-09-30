@@ -2378,6 +2378,49 @@ export const dataImports = pgTable(
   (table) => [index("data_imports_user_hash_idx").on(table.userId, table.fileHash)]
 ).enableRLS();
 
+// One row per CRM smart-import attempt. The source workbook is never stored;
+// this table only keeps bounded metadata and the final audit summary so a
+// retry can be recognized without retaining a second copy of lead PII.
+export const crmImportStatus = pgEnum("crm_import_status", ["draft", "committed", "abandoned"]);
+
+export const crmImports = pgTable(
+  "crm_imports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    fileName: text("file_name").notNull(),
+    fileHash: text("file_hash").notNull(),
+    importKey: text("import_key").notNull(),
+    status: crmImportStatus("status").notNull().default("draft"),
+    rowsCount: integer("rows_count").notNull().default(0),
+    createdCount: integer("created_count").notNull().default(0),
+    updatedCount: integer("updated_count").notNull().default(0),
+    mergedCount: integer("merged_count").notNull().default(0),
+    skippedCount: integer("skipped_count").notNull().default(0),
+    duplicateCount: integer("duplicate_count").notNull().default(0),
+    unresolvedCount: integer("unresolved_count").notNull().default(0),
+    keySource: text("key_source").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    summary: jsonb("summary").notNull().$type<Record<string, string | number | boolean | null>>().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("crm_imports_account_key_idx").on(table.accountId, table.importKey),
+    index("crm_imports_account_created_idx").on(table.accountId, table.createdAt),
+    pgPolicy("crm_imports_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: nativeBookingAccountAccess(table.accountId),
+      withCheck: nativeBookingAccountAccess(table.accountId),
+    }),
+  ],
+).enableRLS();
+
 // The 5 funnel rates the /diagnostic cascade engine can benchmark and
 // simulate against — see lib/diagnostic/cascade.ts. Deliberately a single
 // value per (sector, metric), not the 3-tier {bas,moyen,bon} band used by
@@ -2553,6 +2596,7 @@ export const leads = pgTable(
     lastName: text("last_name").notNull(),
     email: text("email"),
     phone: text("phone"),
+    phoneNormalized: text("phone_normalized"),
     source: leadSourceEnum("source").notNull(),
     platform: crmLeadPlatformEnum("platform"),
     canonicalProfileUrl: text("canonical_profile_url"),
@@ -2601,6 +2645,7 @@ export const leads = pgTable(
     index("leads_account_crm_stage_idx").on(table.accountId, table.crmStage),
     index("leads_account_contact_state_idx").on(table.accountId, table.contactState),
     index("leads_account_responded_idx").on(table.accountId, table.respondedAt),
+    index("leads_account_phone_normalized_idx").on(table.accountId, table.phoneNormalized),
     index("leads_account_platform_handle_idx").on(table.accountId, table.platform, table.normalizedHandle),
     uniqueIndex("leads_account_profile_url_idx").on(table.accountId, table.platform, table.canonicalProfileUrl),
     pgPolicy("leads_account_access", {

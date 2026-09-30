@@ -78,7 +78,15 @@ export function normalizeDateCellToIso(raw: string): string | null {
 // (sales' saleDate) rather than through the separate dateColumnName
 // mechanism — normalized here too so buildRowLevelGroups' `new Date(...)`
 // keeps working when the source cell was a bare serial number.
-const DATE_TARGET_FIELDS = new Set(["saleDate"]);
+const DATE_TARGET_FIELDS = new Set([
+  "saleDate",
+  "leadCreatedAt",
+  "messageOccurredAt",
+  "responseAt",
+  "valueContentAt",
+  "callProposedAt",
+  "callBookedAt",
+]);
 
 export function enrichMapping(parsed: ParsedFile, mapping: ImportMappingResult): EnrichedMapping {
   if (parsed.kind !== "table") {
@@ -95,18 +103,47 @@ export function enrichMapping(parsed: ParsedFile, mapping: ImportMappingResult):
   const dateColumnValues =
     dateIndex !== undefined ? (sheet?.rows.map((row) => normalizeDateCellToIso(row[dateIndex] ?? "") ?? "") ?? null) : null;
 
+  const enrichedMappings = mapping.mappings.map((entry) => {
+    const index = columnIndex.get(entry.sourceColumn.trim().toLowerCase());
+    const rawValues = index !== undefined ? (sheet?.rows.map((row) => row[index] ?? "") ?? []) : entry.sampleValues;
+    const columnValues =
+      entry.targetField && DATE_TARGET_FIELDS.has(entry.targetField)
+        ? rawValues.map((v) => normalizeDateCellToIso(v) ?? v)
+        : rawValues;
+    return { ...entry, columnValues };
+  });
+
+  // CRM review is intentionally column-complete: Falco can omit a column it
+  // considers irrelevant, but the user must still be able to see and ignore
+  // that column explicitly before a write. Keep the existing model order for
+  // known columns, then add any source headers that were omitted.
+  const mappings =
+    mapping.targetTable === "crm_leads" && sheet
+      ? sheet.headers.reduce<EnrichedMappingEntry[]>((entries, header, index) => {
+          const normalizedHeader = header.trim().toLowerCase();
+          if (!normalizedHeader) return entries;
+          const existing = enrichedMappings.find((entry) => entry.sourceColumn.trim().toLowerCase() === normalizedHeader);
+          if (existing) {
+            entries.push(existing);
+            return entries;
+          }
+          const columnValues = sheet.rows.map((row) => row[index] ?? "");
+          entries.push({
+            sourceColumn: header,
+            targetField: null,
+            confidence: "low",
+            granularity: "daily",
+            sampleValues: columnValues.slice(0, 5),
+            columnValues,
+          });
+          return entries;
+        }, [])
+      : enrichedMappings;
+
   return {
     ...mapping,
     dateColumnValues,
-    mappings: mapping.mappings.map((entry) => {
-      const index = columnIndex.get(entry.sourceColumn.trim().toLowerCase());
-      const rawValues = index !== undefined ? (sheet?.rows.map((row) => row[index] ?? "") ?? []) : entry.sampleValues;
-      const columnValues =
-        entry.targetField && DATE_TARGET_FIELDS.has(entry.targetField)
-          ? rawValues.map((v) => normalizeDateCellToIso(v) ?? v)
-          : rawValues;
-      return { ...entry, columnValues };
-    }),
+    mappings,
   };
 }
 

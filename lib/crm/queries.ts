@@ -60,6 +60,7 @@ import { generateBookingSlots } from "@/lib/native-booking/slots";
 import type { NativeBookingAnswerValue } from "@/lib/native-booking/questions";
 import type { PublicBookingRequest } from "@/lib/native-booking/validation";
 import { getOrCreateSetterForActor } from "@/lib/setters/queries";
+import { normalizeCrmPhone } from "./import";
 
 const callSetters = alias(setters, "crm_call_setter");
 const leadSetters = alias(setters, "crm_lead_setter");
@@ -508,6 +509,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
   const stage = input.stage ?? "first_message_sent";
   const createdMessageDate = messageDate ?? (stage === "first_message_sent" ? capturedAt : null);
   const contactState = createdMessageDate || stage !== "first_message_sent" ? "contacted" as const : "new" as const;
+  const phoneNormalized = input.phone ? normalizeCrmPhone(input.phone, "fr").normalized : null;
   const captureKey = input.idempotencyKey ?? input.sourceEventKey ?? `capture:${input.profile.platform}:${input.profile.canonicalProfileUrl}:${input.profile.capturedAt}`;
 
   return db.transaction(async (tx) => {
@@ -538,7 +540,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
           normalizedHandle: input.profile.normalizedHandle,
           messageOccurredAt: messageDate ?? existing.messageOccurredAt,
           ...(input.email !== undefined ? { email: input.email } : {}),
-          ...(input.phone !== undefined ? { phone: input.phone } : {}),
+          ...(input.phone !== undefined ? { phone: input.phone, phoneNormalized } : {}),
           ...(input.closerUserId !== undefined ? { closerUserId: input.closerUserId } : {}),
           ...(messageDate ? { contactState: "contacted" as const } : {}),
           capturedAt,
@@ -567,6 +569,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       lastName: input.profile.lastName,
       email: input.email ?? null,
       phone: input.phone ?? null,
+      phoneNormalized,
       source: input.marketingSource ?? input.profile.platform,
       platform: input.profile.platform,
       canonicalProfileUrl: input.profile.canonicalProfileUrl,
@@ -738,7 +741,7 @@ export async function updateCrmLeadFields(
       ...(fields.closer !== undefined ? { closer: fields.closer } : {}),
       ...(fields.closerUserId !== undefined ? { closerUserId: fields.closerUserId } : {}),
       ...(fields.email !== undefined ? { email: fields.email } : {}),
-      ...(fields.phone !== undefined ? { phone: fields.phone } : {}),
+      ...(fields.phone !== undefined ? { phone: fields.phone, phoneNormalized: fields.phone ? normalizeCrmPhone(fields.phone, "fr").normalized : null } : {}),
       updatedAt: new Date(),
     }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
     if (!updated) return null;

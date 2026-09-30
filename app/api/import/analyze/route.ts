@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { and, eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -23,6 +24,7 @@ import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
 import { getRequestLocale } from "@/lib/i18n/locale";
+import { requireCrmAccess } from "@/lib/crm/access";
 
 // Dev-only detail appended to the generic message — never in production
 // (CLAUDE.md: no internal detail in client-facing errors), but "Une erreur
@@ -67,12 +69,16 @@ function unitsForFile(parsed: ParsedFile): MappableUnit[] {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const tCrm = await getTranslations("crm");
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) {
-    return NextResponse.json({ error: "Session expirée, reconnecte-toi." }, { status: 401 });
+    return NextResponse.json({ error: tCrm("errors.session") }, { status: 401 });
   }
-  const userId = data.claims.sub as string;
+  const userId = data.claims.sub;
+  if (typeof userId !== "string" || !userId) {
+    return NextResponse.json({ error: tCrm("errors.invalidSession") }, { status: 401 });
+  }
   // Per-user: this call spends the account's BYOK Anthropic key (or the
   // shared fallback), so it's the upstream quota being protected, not just
   // request volume — a lower ceiling than the chat endpoints since each
@@ -80,13 +86,6 @@ export async function POST(request: Request): Promise<Response> {
   if (isRateLimited(`import-analyze:${userId}`, 10)) {
     return NextResponse.json({ error: "Trop d'imports lancés, réessaie dans une minute." }, { status: 429 });
   }
-  const access = await requirePermission(userId, "datas");
-  if (!access) {
-    return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });
-  }
-  const { accountId } = access;
-  const locale = await getRequestLocale();
-
   const contentLengthHeader = request.headers.get("content-length");
   const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
   const maxRequestBytes = MAX_FILES_PER_IMPORT * MAX_FILE_SIZE_BYTES + 1_048_576;
@@ -96,7 +95,13 @@ export async function POST(request: Request): Promise<Response> {
 
   const formData = await request.formData();
   const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
-  const targetTableHint = z.enum(["monthly_metrics"]).safeParse(formData.get("targetTableHint")).data;
+  const targetTableHint = z.enum(["monthly_metrics", "crm_leads"]).safeParse(formData.get("targetTableHint")).data;
+  const access = targetTableHint === "crm_leads" ? await requireCrmAccess(userId) : await requirePermission(userId, "datas");
+  if (!access) {
+    return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });
+  }
+  const { accountId } = access;
+  const locale = await getRequestLocale();
   const targetPeriodRaw = formData.get("targetPeriod");
   let targetPeriod: ImportMappingOptions["targetPeriod"] = undefined;
   if (typeof targetPeriodRaw === "string") {
@@ -189,6 +194,10 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
+    if (targetTableHint === "crm_leads" && parsed.kind !== "table") {
+      return NextResponse.json({ error: tCrm("import.tableOnly") }, { status: 400 });
+    }
+
     const fileHash = createHash("sha256").update(buffer).digest("hex");
 
     for (const unit of unitsForFile(parsed)) {
@@ -245,24 +254,26 @@ export async function POST(request: Request): Promise<Response> {
   // batch (via dateColumnValues when present, else the single
   // periodDetected fallback) — sent back so the client preview can show
   // conflicts without a second round-trip.
-  const detectedMonths = new Map<string, { year: number; month: number }>();
-  for (const r of results) {
-    const buckets = r.mapping.dateColumnValues ? groupValuesByMonth(r.mapping.dateColumnValues) : null;
-    if (buckets) {
-      for (const b of buckets) detectedMonths.set(`${b.year}-${b.month}`, { year: b.year, month: b.month });
-    } else if (r.mapping.periodDetected) {
-      const p = r.mapping.periodDetected;
-      detectedMonths.set(`${p.year}-${p.month}`, p);
-    }
-  }
   const existingMonths: Record<string, unknown> = {};
-  for (const [key, { year, month }] of detectedMonths) {
-    const [row] = await db
-      .select()
-      .from(monthlyMetrics)
-      .where(and(eq(monthlyMetrics.userId, accountId), eq(monthlyMetrics.year, year), eq(monthlyMetrics.month, month)))
-      .limit(1);
-    existingMonths[key] = row ?? null;
+  if (targetTableHint !== "crm_leads") {
+    const detectedMonths = new Map<string, { year: number; month: number }>();
+    for (const r of results) {
+      const buckets = r.mapping.dateColumnValues ? groupValuesByMonth(r.mapping.dateColumnValues) : null;
+      if (buckets) {
+        for (const b of buckets) detectedMonths.set(`${b.year}-${b.month}`, { year: b.year, month: b.month });
+      } else if (r.mapping.periodDetected) {
+        const p = r.mapping.periodDetected;
+        detectedMonths.set(`${p.year}-${p.month}`, p);
+      }
+    }
+    for (const [key, { year, month }] of detectedMonths) {
+      const [row] = await db
+        .select()
+        .from(monthlyMetrics)
+        .where(and(eq(monthlyMetrics.userId, accountId), eq(monthlyMetrics.year, year), eq(monthlyMetrics.month, month)))
+        .limit(1);
+      existingMonths[key] = row ?? null;
+    }
   }
 
   return NextResponse.json({

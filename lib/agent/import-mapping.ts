@@ -1,6 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import { ALL_TARGET_FIELDS, IMPORT_TARGET_TABLES, modelMappingSchema, type ImportMappingResult } from "@/lib/import/schema";
+import {
+  ALL_TARGET_FIELDS,
+  CRM_IMPORT_FIELDS,
+  DATA_IMPORT_FIELDS,
+  IMPORT_TARGET_TABLES,
+  modelMappingSchema,
+  type ImportMappingResult,
+} from "@/lib/import/schema";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/config";
 import type { RawSheet } from "@/lib/import/parse";
 import { falcoLanguageInstruction } from "@/lib/agent/language-instruction";
@@ -29,13 +36,16 @@ const FIELD_DEFINITIONS = `Champs "monthly_metrics" (funnel mensuel — destinat
 Champs "sales" (seulement si la feuille est manifestement une liste de ventes/clients) :
 clientName, clientEmail, sourceChannel, totalPrice (euros), paymentType (one_shot|installments), saleDate, closer
 
+Champs "crm_leads" (historique des leads, jamais des agrégats) :
+profileUrl, platform, handle, displayName, firstName, lastName, email, phone, source, offerName, setterName, potentialValueEur, leadCreatedAt, messageOccurredAt, responseAt, valueContentAt, callProposedAt, callBookedAt, stage, outcome, lostReason, qualificationNote, closer
+
 `;
 
 const SYSTEM_PROMPT = `Tu es l'agent d'import de données de Minaly, un SaaS pour infopreneurs.
 On te donne UNE feuille/fichier (tableau ou texte extrait) à la fois et tu dois la mapper vers les champs existants de l'app via l'outil map_columns.
 
 Règles absolues, non négociables :
-- Une seule table cible (targetTable) par feuille : "monthly_metrics", "sales", ou "ignore" si rien ne correspond manifestement (données de tiers/veille concurrentielle, notes libres, feuille de calcul annexe...).
+- Une seule table cible (targetTable) par feuille : "monthly_metrics", "sales", "crm_leads", ou "ignore" si rien ne correspond manifestement (données de tiers/veille concurrentielle, notes libres, feuille de calcul annexe...).
 - "ignore" exige TOUJOURS un ignoreReason concret et court (ex: "Données de veille sur des comptes concurrents, pas tes métriques.") — jamais vide, jamais générique. N'inclus PAS le champ ignoreReason du tout si targetTable n'est pas "ignore".
 - Ne JAMAIS mapper une colonne de taux/pourcentage/ratio — ces valeurs sont toujours recalculées par l'app, jamais importées. Mets cette colonne dans unmapped_columns avec l'explication.
 - Ne JAMAIS inventer une valeur qui n'est pas explicitement dans le fichier.
@@ -116,7 +126,7 @@ export type MappableUnit =
   | { kind: "image"; fileName: string; base64: string; mediaType: string };
 
 export type ImportMappingOptions = {
-  targetTableHint?: "monthly_metrics";
+  targetTableHint?: "monthly_metrics" | "crm_leads";
   targetPeriod?: { year: number; month: number };
   locale?: Locale;
 };
@@ -214,6 +224,18 @@ export type MapImportedFileResult = {
 };
 
 function buildSystemPrompt(options?: ImportMappingOptions): string {
+  if (options?.targetTableHint === "crm_leads") {
+    return [
+      SYSTEM_PROMPT,
+      "",
+      'Contexte supplémentaire : cet import vient du CRM et doit reprendre un historique de leads, ligne par ligne. Choisis targetTable = "crm_leads" pour une feuille qui contient des prospects, ou "ignore" si elle ne contient pas de fiches de leads.',
+      "- Utilise uniquement les champs crm_leads décrits ci-dessus. Ne mappe jamais une plateforme comme source d'acquisition : platform décrit le réseau du profil et source décrit l'origine marketing du lead.",
+      "- Cherche en priorité une colonne de téléphone, une colonne de date de création du lead et une colonne de source d'acquisition. Si la source n'est pas identifiable, laisse les colonnes ambiguës sans targetField : l'interface demandera un canal par feuille.",
+      "- leadCreatedAt est la date historique de création du lead, pas la date d'import dans Minaly. Ne déduis aucune date d'événement absente du fichier.",
+      "- Les colonnes de taux, ratio ou agrégats ne sont pas des fiches de leads : laisse-les sans targetField et explique-le dans unmapped_columns.",
+      "- Ne pré-agrège jamais, ne dédoublonne jamais et ne fusionne jamais les lignes : le code et la revue utilisateur s'en chargent avec le téléphone normalisé.",
+    ].join("\n");
+  }
   if (options?.targetTableHint !== "monthly_metrics") return SYSTEM_PROMPT;
 
   const period = options.targetPeriod ? ` La période ouverte dans la popup est ${String(options.targetPeriod.month).padStart(2, "0")}/${options.targetPeriod.year}.` : "";
@@ -278,12 +300,27 @@ export async function mapImportedFile(
     throw new Error(`Mapping invalide retourné par le modèle : ${parsedResult.error.message}`);
   }
 
-  const safeMappings = parsedResult.data.mappings.filter((mapping) => !looksLikeRateColumn(mapping.sampleValues));
+  const allowedFields = new Set(options?.targetTableHint === "crm_leads" ? CRM_IMPORT_FIELDS : DATA_IMPORT_FIELDS);
+  const safeMappings = parsedResult.data.mappings
+    .filter((mapping) => !looksLikeRateColumn(mapping.sampleValues))
+    .map((mapping) => (mapping.targetField && !allowedFields.has(mapping.targetField) ? { ...mapping, targetField: null } : mapping));
+  const safeQuestions = parsedResult.data.questions.map((question) => ({
+    ...question,
+    options: question.options.filter((option) => allowedFields.has(option)).slice(0, 3),
+  }));
+  const targetTable =
+    options?.targetTableHint === "crm_leads"
+      ? parsedResult.data.targetTable === "ignore"
+        ? "ignore"
+        : "crm_leads"
+      : parsedResult.data.targetTable === "crm_leads"
+        ? "ignore"
+        : parsedResult.data.targetTable;
 
   return {
     // sheetName attached here, in code — never trusted from the model
     // (see ImportMappingResult's own comment in lib/import/schema.ts).
-    result: { ...parsedResult.data, mappings: safeMappings, sheetName: unitLabel(unit) },
+    result: { ...parsedResult.data, targetTable, mappings: safeMappings, questions: safeQuestions, sheetName: unitLabel(unit) },
     inputTokens: message.usage.input_tokens,
     outputTokens: message.usage.output_tokens,
   };

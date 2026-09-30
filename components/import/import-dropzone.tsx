@@ -10,10 +10,12 @@ export function ImportDropzone({
   onFilesSelected,
   disabled,
   allowPaste = false,
+  formatLabel,
 }: {
   onFilesSelected: (files: File[]) => void;
   disabled?: boolean;
   allowPaste?: boolean;
+  formatLabel?: string;
 }) {
   const t = useTranslations("data.importDropzone");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -120,7 +122,7 @@ export function ImportDropzone({
         >
           <Upload className="size-6 text-accent-2" aria-hidden="true" />
           <p className="text-sm font-bold">{t("drop")}</p>
-          <p className="text-xs text-muted-foreground">{t("formats")}</p>
+          <p className="text-xs text-muted-foreground">{formatLabel ?? t("formats")}</p>
           <input
             ref={inputRef}
             type="file"
