@@ -1,6 +1,9 @@
 import ExcelJS from "exceljs";
 import Papa from "papaparse";
-import { PDFParse } from "pdf-parse";
+
+import { parseLocaleNumber } from "./number";
+
+export { parseLocaleNumber } from "./number";
 
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 Mo
 export const MAX_FILES_PER_IMPORT = 5;
@@ -31,32 +34,6 @@ export type ParsedFile =
   | { kind: "image"; fileName: string; base64: string; mediaType: string };
 
 export class ImportParseError extends Error {}
-
-// FR "1 234,56" / EN "1,234.56" — normalized in code, never by the model
-// (CLAUDE.md: currency/format detection is code's job, not the LLM's).
-// Lives here (not lib/import/aggregate.ts) because detectHeaderRow below
-// also needs "does this cell look numeric" — the parser and the aggregator
-// share this one interpretation of a raw cell string.
-export function parseLocaleNumber(raw: string): number | null {
-  const trimmed = raw.trim().replace(/[€$£\s]/g, "");
-  if (trimmed === "") return null;
-
-  const hasComma = trimmed.includes(",");
-  const hasDot = trimmed.includes(".");
-  let normalized = trimmed;
-
-  if (hasComma && hasDot) {
-    // Whichever separator appears LAST is the decimal separator.
-    normalized = trimmed.lastIndexOf(",") > trimmed.lastIndexOf(".") ? trimmed.replace(/\./g, "").replace(",", ".") : trimmed.replace(/,/g, "");
-  } else if (hasComma) {
-    // Single comma with exactly 2 trailing digits = decimal (FR); otherwise
-    // a thousands separator.
-    normalized = /,\d{1,2}$/.test(trimmed) ? trimmed.replace(",", ".") : trimmed.replace(/,/g, "");
-  }
-
-  const value = Number(normalized);
-  return Number.isFinite(value) ? value : null;
-}
 
 function looksLikeDateString(raw: string): boolean {
   const trimmed = raw.trim();
@@ -182,7 +159,10 @@ async function parseExcel(fileName: string, buffer: Buffer, headerOverrides?: Re
     const rawRows: string[][] = [];
     worksheet.eachRow((row) => {
       const values = (row.values as ExcelJS.CellValue[]).slice(1); // index 0 is always empty in ExcelJS
-      rawRows.push(values.map(cellToString));
+      // `Array.prototype.map` preserves holes. ExcelJS uses holes for blank
+      // cells in sparse rows, which would later serialize as `null` in the
+      // API response instead of the string shape shared by all importers.
+      rawRows.push(Array.from(values, (value) => cellToString(value)));
     });
     if (rawRows.length > MAX_ROWS_PER_FILE) {
       throw new ImportParseError(
@@ -203,6 +183,9 @@ async function parseExcel(fileName: string, buffer: Buffer, headerOverrides?: Re
 }
 
 async function parsePdf(fileName: string, buffer: Buffer): Promise<ParsedFile> {
+  // Keep the browser-oriented PDF runtime out of every Excel/CSV server
+  // graph. It is only needed after the content sniffer has confirmed a PDF.
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
   try {
     const { text } = await parser.getText();

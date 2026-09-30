@@ -1,5 +1,9 @@
-import { parseLocaleNumber, type ParsedFile } from "./parse";
+import { normalizeDateCell, normalizeDateCellToIso } from "./date";
+import { parseLocaleNumber } from "./number";
+import type { ParsedFile } from "./parse";
 import type { ImportMappingResult } from "./schema";
+
+export { excelSerialToDate, normalizeDateCell, normalizeDateCellToIso } from "./date";
 
 // A mapping entry enriched with its FULL source column values (not just the
 // 5 samples the model saw) — attached server-side after the AI call, never
@@ -16,63 +20,6 @@ export type EnrichedMapping = Omit<ImportMappingResult, "mappings"> & {
   // field" for monthly_metrics: it's a grouping key, not an imported value.
   dateColumnValues: string[] | null;
 };
-
-// A date column's raw cell value can arrive as an ISO string, an FR
-// dd/mm/yyyy string, or a BARE EXCEL SERIAL NUMBER (e.g. "46198") — the last
-// case happens whenever the source file's date column has no explicit date
-// number-format (common in programmatically-generated exports, or a column
-// left on "General"): ExcelJS then can't recognize the cell as a Date, and
-// parse.ts's cellToString faithfully returns the raw number instead (it has
-// no column context to safely guess "this number is a date" — a follower
-// count of 46198 must NOT become a date just because it's numeric). This is
-// therefore the one safe place to add that fallback: every caller here
-// already knows it's looking at an identified DATE column.
-//
-// Epoch 1899-12-30 is the standard Excel serial epoch, already correct for
-// any real business date (the historical "Excel treats 1900 as a leap
-// year" quirk only affects serials < 60, i.e. dates before 1900-03-01,
-// which never occurs in real data) — MAX_PLAUSIBLE_SERIAL is Excel's own
-// ceiling (9999-12-31), just to reject an obviously-not-a-date number
-// (e.g. a euro amount) rather than silently misreading it.
-const EXCEL_EPOCH_MS = Date.UTC(1899, 11, 30);
-const MIN_PLAUSIBLE_SERIAL = 1;
-const MAX_PLAUSIBLE_SERIAL = 2958465;
-
-export function excelSerialToDate(serial: number): Date {
-  return new Date(EXCEL_EPOCH_MS + serial * 86400000);
-}
-
-export function normalizeDateCell(raw: string): { year: number; month: number; day: number } | null {
-  const trimmed = raw.trim();
-
-  const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) };
-
-  const fr = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (fr) {
-    const month = Number(fr[2]);
-    let year = Number(fr[3]);
-    if (year < 100) year += 2000;
-    if (month < 1 || month > 12) return null;
-    return { year, month, day: Number(fr[1]) };
-  }
-
-  if (/^\d+$/.test(trimmed)) {
-    const serial = Number(trimmed);
-    if (serial >= MIN_PLAUSIBLE_SERIAL && serial <= MAX_PLAUSIBLE_SERIAL) {
-      const date = excelSerialToDate(serial);
-      return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() };
-    }
-  }
-
-  return null;
-}
-
-export function normalizeDateCellToIso(raw: string): string | null {
-  const parsed = normalizeDateCell(raw);
-  if (!parsed) return null;
-  return `${parsed.year}-${String(parsed.month).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}`;
-}
 
 // Date-typed target fields that can appear inside mapping.mappings itself
 // (sales' saleDate) rather than through the separate dateColumnName

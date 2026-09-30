@@ -1,7 +1,7 @@
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 
-import { normalizeDateCellToIso } from "@/lib/import/aggregate";
-import { parseLocaleNumber } from "@/lib/import/parse";
+import { normalizeDateCellToIso } from "@/lib/import/date";
+import { parseLocaleNumber } from "@/lib/import/number";
 import type { CrmImportField } from "@/lib/import/schema";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -18,6 +18,9 @@ import {
   type CrmPlatform,
 } from "./types";
 import type { CrmImportReview, CrmImportSheet } from "./import-schema";
+import { normalizeCrmSource, sheetNeedsDefaultSource } from "./import-source";
+
+export { normalizeCrmSource, sheetNeedsDefaultSource } from "./import-source";
 
 export type CrmImportValue = string | number;
 export type CrmImportRowValues = Partial<Record<CrmImportField, CrmImportValue>>;
@@ -100,22 +103,6 @@ function enumFromLabel<T extends string>(raw: string | null | undefined, values:
   return aliases[key] ?? null;
 }
 
-export function normalizeCrmSource(raw: string | null | undefined): CrmLeadSource | null {
-  return enumFromLabel(raw, CRM_LEAD_SOURCES, {
-    ig: "instagram",
-    insta: "instagram",
-    meta: "ads",
-    meta_ads: "ads",
-    facebook_ads: "ads",
-    paid_ads: "ads",
-    newsletter: "email_newsletter",
-    email: "email_newsletter",
-    referral: "bouche_a_oreille",
-    word_of_mouth: "bouche_a_oreille",
-    unknown: "autre",
-  });
-}
-
 export function normalizeCrmPlatform(raw: string | null | undefined): CrmPlatform | null {
   return enumFromLabel(raw, CRM_PLATFORMS, {
     ig: "instagram",
@@ -179,16 +166,6 @@ function normalizeValue(field: CrmImportField, raw: string): CrmImportValue | nu
   if (field === "outcome") return normalizeCrmOutcome(value);
   if (field === "lostReason") return normalizeCrmLostReason(value);
   return cleanString(value);
-}
-
-function sourceValuesForSheet(sheet: CrmImportSheet): string[] {
-  const sourceMapping = sheet.mapping.mappings.find((mapping) => mapping.targetField === "source");
-  return sourceMapping?.columnValues ?? [];
-}
-
-export function sheetNeedsDefaultSource(sheet: CrmImportSheet): boolean {
-  const values = sourceValuesForSheet(sheet);
-  return values.length === 0 || values.some((value) => !value.trim() || !normalizeCrmSource(value));
 }
 
 function rowCountForSheet(sheet: CrmImportSheet): number {

@@ -71,6 +71,9 @@ const nextConfig: NextConfig = {
   // card, every chart) — without this Next bundles the whole package per
   // route instead of just the symbols actually used.
   experimental: {
+    // Expose Next's runtime MCP endpoint so the mandatory dev smoke test can
+    // inspect Turbopack compilation and server/browser errors.
+    mcpServer: true,
     optimizePackageImports: ["lucide-react", "motion", "@tanstack/react-charts", "@tanstack/charts"],
     // Keep prefetched dynamic RSC payloads warm briefly. Without this,
     // loading.tsx boundaries are prefetched but discarded immediately, so

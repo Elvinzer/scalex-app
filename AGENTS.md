@@ -44,6 +44,7 @@ Avant de dire qu'une tâche est terminée :
 - [ ] `.env.example` mis à jour si une nouvelle variable d'env a été ajoutée
 - [ ] Preview Vercel qui build sans erreur
 - [ ] Migration Drizzle générée (`db:generate`) ET appliquée (`db:migrate`) si `db/schema.ts` a été touché
+- [ ] Pour toute évolution UI, route ou frontière serveur/client, vérifier le runtime avec `next-dev-loop` : lancer `npm run dev` avec Turbopack, ouvrir la route touchée avec `agent-browser`, contrôler les erreurs de compilation/runtime Next et vérifier le DOM visible. Un typecheck, un build ou un test unitaire passant ne remplace jamais cette vérification.
 
 ## Code style
 - ES modules uniquement, jamais de `require`

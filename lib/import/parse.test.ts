@@ -102,6 +102,19 @@ describe("parseImportFile — Excel", () => {
     expect(parsed.sheets[0].rows[0][0]).toBe("2026-06-25");
   });
 
+  it("normalizes sparse blank cells to empty strings", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Setting");
+    sheet.addRow(["Date", "Profil", "Leads"]);
+    sheet.addRow(["2026-06-25", undefined, 3]);
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const parsed = await parseImportFile("test.xlsx", buffer);
+    if (parsed.kind !== "table") throw new Error("expected table");
+    expect(parsed.sheets[0].rows[0]).toEqual(["2026-06-25", "", "3"]);
+    expect(parsed.sheets[0].rows.flat().every((cell) => typeof cell === "string")).toBe(true);
+  });
+
   it("detects the real header row and ignores a repeated merged title", async () => {
     const buffer = await buildXlsx({
       Setting: [

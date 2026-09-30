@@ -22,7 +22,7 @@ import {
   type CrmImportSheet,
 } from "@/lib/crm/import-schema";
 import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
-import { sheetNeedsDefaultSource } from "@/lib/crm/import";
+import { sheetNeedsDefaultSource } from "@/lib/crm/import-source";
 
 import { ImportDropzone } from "@/components/import/import-dropzone";
 

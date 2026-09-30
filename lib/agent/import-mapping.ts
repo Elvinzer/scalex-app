@@ -129,7 +129,21 @@ export type ImportMappingOptions = {
   targetTableHint?: "monthly_metrics" | "crm_leads";
   targetPeriod?: { year: number; month: number };
   locale?: Locale;
+  // Supplied by the route in the user's locale when a CRM workbook sheet is
+  // recognized as another kind of data (KPI, ads, content, etc.).
+  crmIgnoreReason?: string;
 };
+
+export function applyImportTargetHint(result: ImportMappingResult, options?: ImportMappingOptions): ImportMappingResult {
+  if (options?.targetTableHint !== "crm_leads") return result;
+
+  const targetTable = result.targetTable === "crm_leads" ? "crm_leads" : "ignore";
+  return {
+    ...result,
+    targetTable,
+    ignoreReason: targetTable === "ignore" ? result.ignoreReason ?? options.crmIgnoreReason ?? null : null,
+  };
+}
 
 function unitLabel(unit: MappableUnit): string {
   return unit.kind === "sheet" ? unit.sheet.name : unit.fileName;
@@ -308,19 +322,16 @@ export async function mapImportedFile(
     ...question,
     options: question.options.filter((option) => allowedFields.has(option)).slice(0, 3),
   }));
-  const targetTable =
-    options?.targetTableHint === "crm_leads"
-      ? parsedResult.data.targetTable === "ignore"
-        ? "ignore"
-        : "crm_leads"
-      : parsedResult.data.targetTable === "crm_leads"
-        ? "ignore"
-        : parsedResult.data.targetTable;
-
-  return {
+  const resultWithSheetName: ImportMappingResult = {
+    ...parsedResult.data,
     // sheetName attached here, in code — never trusted from the model
     // (see ImportMappingResult's own comment in lib/import/schema.ts).
-    result: { ...parsedResult.data, targetTable, mappings: safeMappings, questions: safeQuestions, sheetName: unitLabel(unit) },
+    sheetName: unitLabel(unit),
+  };
+  const constrainedResult = applyImportTargetHint(resultWithSheetName, options);
+
+  return {
+    result: { ...constrainedResult, mappings: safeMappings, questions: safeQuestions },
     inputTokens: message.usage.input_tokens,
     outputTokens: message.usage.output_tokens,
   };

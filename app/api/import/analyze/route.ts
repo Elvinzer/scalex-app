@@ -206,6 +206,7 @@ export async function POST(request: Request): Promise<Response> {
           targetTableHint,
           targetPeriod,
           locale,
+          crmIgnoreReason: targetTableHint === "crm_leads" ? tCrm("import.sheetIgnored") : undefined,
         });
         totalInputTokens += inputTokens;
         totalOutputTokens += outputTokens;
