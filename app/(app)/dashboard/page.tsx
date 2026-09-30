@@ -70,7 +70,6 @@ function dashboardOptional<T>(label: string, operation: () => Promise<T>, fallba
   return withDatabaseReadTimeout(operation, {
     operation: `dashboard-${label}`,
     timeoutMs: DASHBOARD_OPTIONAL_TIMEOUT_MS,
-    attempts: 1,
   }).catch(() => {
     console.error(`[dashboard] ${label} unavailable`);
     return fallback;
@@ -146,7 +145,7 @@ async function renderDashboardPage({
       businessProfilePromise,
       withDatabaseReadTimeout(
         () => getDashboardDiagnosticData(accountId),
-        { operation: "dashboard-diagnostic-data", timeoutMs: 15_000, attempts: 1 },
+        { operation: "dashboard-diagnostic-data", timeoutMs: 15_000 },
       ).catch(() => {
         console.error("[dashboard] diagnostic data unavailable");
         return null;

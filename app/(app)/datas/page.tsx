@@ -59,7 +59,7 @@ export default async function DatasPage({
       getDiagnosticCoreData(accountId),
       getFunnelBlockCatalog(),
     ]),
-    { operation: "datas-data", timeoutMs: 12_000, attempts: 1 },
+    { operation: "datas-data", timeoutMs: 12_000 },
   ).catch(() => {
     console.error("[datas] data unavailable");
     return null;

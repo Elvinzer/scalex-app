@@ -18,25 +18,11 @@ const RETRYABLE_DATABASE_CODES = new Set([
   "CONNECTION_DESTROYED",
 ]);
 
-const CONNECTION_FAILURE_CODES = new Set([
-  "ECONNRESET",
-  "ECONNREFUSED",
-  "ETIMEDOUT",
-  "EPIPE",
-  "CONNECT_TIMEOUT",
-  "CONNECTION_CLOSED",
-  "CONNECTION_DESTROYED",
-  "57P01",
-  "57P02",
-  "57P03",
-]);
-
 type DatabaseReadRetryOptions = {
   operation: string;
   attempts?: number;
   delayMs?: number;
   timeoutMs?: number;
-  resetClient?: () => Promise<void>;
 };
 
 function getProperty(value: unknown, property: string): unknown {
@@ -61,11 +47,6 @@ function isRetryableDatabaseError(error: unknown): boolean {
   return code ? RETRYABLE_DATABASE_CODES.has(code) : false;
 }
 
-function isConnectionFailure(error: unknown): boolean {
-  const code = getDatabaseErrorCode(error);
-  return code ? CONNECTION_FAILURE_CODES.has(code) : false;
-}
-
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -77,7 +58,7 @@ function wait(ms: number): Promise<void> {
  */
 export async function withDatabaseReadRetry<T>(
   operation: () => Promise<T>,
-  { operation: operationName, attempts = 2, delayMs = 100, timeoutMs, resetClient }: DatabaseReadRetryOptions,
+  { operation: operationName, attempts = 2, delayMs = 100, timeoutMs }: DatabaseReadRetryOptions,
 ): Promise<T> {
   const totalAttempts = Math.max(1, Math.min(attempts, 3));
   let lastError: unknown;
@@ -91,7 +72,11 @@ export async function withDatabaseReadRetry<T>(
     } catch (error) {
       lastError = error;
       const timedOut = error instanceof TimeoutError;
-      const retryable = timedOut || isRetryableDatabaseError(error);
+      // A local timeout only stops waiting for the query; postgres.js keeps
+      // the underlying query in flight until the server resolves it. Starting
+      // a second copy would amplify pool pressure, so only retry errors that
+      // already tell us the database connection or statement was interrupted.
+      const retryable = !timedOut && isRetryableDatabaseError(error);
       const hasRetry = attempt + 1 < totalAttempts;
       if (!retryable || !hasRetry) throw error;
 
@@ -101,15 +86,6 @@ export async function withDatabaseReadRetry<T>(
         code,
         attempt: attempt + 1,
       });
-
-      if (resetClient && (isConnectionFailure(error) || timedOut)) {
-        try {
-          await resetClient();
-        } catch {
-          // The next attempt will report the database error if the new client
-          // cannot connect either. Do not mask the original query failure.
-        }
-      }
 
       await wait(delayMs * (attempt + 1));
     }

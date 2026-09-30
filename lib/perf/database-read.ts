@@ -1,5 +1,3 @@
-import { resetDatabaseClient } from "@/db";
-
 import { withDatabaseReadRetry } from "./database-retry";
 
 export function withDatabaseReadTimeout<T>(
@@ -21,6 +19,5 @@ export function withDatabaseReadTimeout<T>(
     timeoutMs,
     attempts,
     delayMs,
-    resetClient: resetDatabaseClient,
   });
 }

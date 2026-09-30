@@ -46,11 +46,11 @@ async function AppChrome({
   supportLastSeenAt: Date | null | undefined;
 }) {
   const [businessProfile, userRow, supportHasUnseenActivity] = await Promise.all([
-    withDatabaseReadTimeout(() => getBusinessProfile(accountId), { operation: "shell-business-profile", timeoutMs: 5_000, attempts: 1 }).catch(() => {
+    withDatabaseReadTimeout(() => getBusinessProfile(accountId), { operation: "shell-business-profile", timeoutMs: 5_000 }).catch(() => {
       console.error("[app-shell] business profile unavailable");
       return EMPTY_BUSINESS_PROFILE;
     }),
-    withDatabaseReadTimeout(() => getUserById(accountId), { operation: "shell-account-user", timeoutMs: 5_000, attempts: 1 }).catch(() => {
+    withDatabaseReadTimeout(() => getUserById(accountId), { operation: "shell-account-user", timeoutMs: 5_000 }).catch(() => {
       console.error("[app-shell] account user unavailable");
       return undefined;
     }),
@@ -59,7 +59,7 @@ async function AppChrome({
       accountId,
       isOwner: sidebarBaseProps.isOwner,
       lastSeenAt: supportLastSeenAt,
-    }), { operation: "shell-support-activity", timeoutMs: 3_000, attempts: 1 }).catch(() => {
+    }), { operation: "shell-support-activity", timeoutMs: 3_000 }).catch(() => {
       console.error("[app-shell] support activity unavailable");
       return false;
     }),

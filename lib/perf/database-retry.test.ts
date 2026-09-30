@@ -19,8 +19,7 @@ describe("withDatabaseReadRetry", () => {
     expect(operation).toHaveBeenCalledTimes(2);
   });
 
-  it("recycles the client before retrying a broken connection", async () => {
-    const resetClient = vi.fn(async () => undefined);
+  it("retries a broken connection through the driver's reconnect path", async () => {
     let attempt = 0;
 
     await expect(
@@ -30,30 +29,22 @@ describe("withDatabaseReadRetry", () => {
           if (attempt === 1) throw Object.assign(new Error("socket reset"), { code: "ECONNRESET" });
           return "ok";
         },
-        { operation: "test-read", delayMs: 0, resetClient },
+        { operation: "test-read", delayMs: 0 },
       ),
     ).resolves.toBe("ok");
-    expect(resetClient).toHaveBeenCalledOnce();
   });
 
-  it("bounds a stuck read, recycles the client, and retries it", async () => {
-    const resetClient = vi.fn(async () => undefined);
-    let attempt = 0;
-    const operation = vi.fn(() => {
-      attempt += 1;
-      return attempt === 1 ? new Promise<string>(() => {}) : Promise.resolve("ok");
-    });
+  it("bounds a stuck read without starting a duplicate query", async () => {
+    const operation = vi.fn(() => new Promise<string>(() => {}));
 
     await expect(
       withDatabaseReadRetry(operation, {
         operation: "stuck-read",
         timeoutMs: 5,
         delayMs: 0,
-        resetClient,
       }),
-    ).resolves.toBe("ok");
-    expect(operation).toHaveBeenCalledTimes(2);
-    expect(resetClient).toHaveBeenCalledOnce();
+    ).rejects.toThrow("[timeout] db-stuck-read exceeded 5ms");
+    expect(operation).toHaveBeenCalledOnce();
   });
 
   it("does not retry a non-transient database error", async () => {

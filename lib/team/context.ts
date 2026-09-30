@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { db, ensureDatabaseConnection, resetDatabaseClient } from "@/db";
+import { db } from "@/db";
 import { teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
@@ -76,11 +76,10 @@ export async function getPostAuthDestination(userId: string): Promise<string> {
 // call sites — /settings/equipe, /settings/facturation — that check the
 // subscription directly rather than through this function).
 async function fetchAccountContext(userId: string): Promise<AccountContext | null> {
-  await ensureDatabaseConnection();
   const [[userRow], [membership]] = await Promise.all([
     withDatabaseReadRetry(
       () => db.select({ email: users.email, advancedModulesEnabled: users.advancedModulesEnabled, crmEnabled: users.crmEnabled }).from(users).where(eq(users.id, userId)).limit(1),
-      { operation: "account-context-user", timeoutMs: 8_000, resetClient: resetDatabaseClient },
+      { operation: "account-context-user", timeoutMs: 8_000 },
     ),
     withDatabaseReadRetry(
       () => db
@@ -89,7 +88,7 @@ async function fetchAccountContext(userId: string): Promise<AccountContext | nul
         .where(and(eq(teamMembers.memberUserId, userId), eq(teamMembers.status, "active")))
         .orderBy(desc(teamMembers.joinedAt))
         .limit(1),
-      { operation: "account-context-membership", timeoutMs: 8_000, resetClient: resetDatabaseClient },
+      { operation: "account-context-membership", timeoutMs: 8_000 },
     ),
   ]);
 
@@ -117,7 +116,7 @@ async function fetchAccountContext(userId: string): Promise<AccountContext | nul
         .innerJoin(teamRoles, eq(teamMemberRoles.roleId, teamRoles.id))
         .where(eq(teamMemberRoles.teamMemberId, membership.id)),
     ]),
-    { operation: "account-context-permissions", timeoutMs: 8_000, resetClient: resetDatabaseClient },
+    { operation: "account-context-permissions", timeoutMs: 8_000 },
   );
 
   const permissions = expandPermissionKeys(roles.flatMap((role) => role.permissions));
@@ -136,7 +135,7 @@ const inFlightAccountContexts = new Map<string, Promise<AccountContext | null>>(
 export const getAccountContext = cache(async (userId: string): Promise<AccountContext | null> => {
   return getInFlight(inFlightAccountContexts, userId, () => withDatabaseReadRetry(
     () => fetchAccountContext(userId),
-    { operation: "account-context", timeoutMs: 12_000, attempts: 1, resetClient: resetDatabaseClient },
+    { operation: "account-context", timeoutMs: 12_000, attempts: 1 },
   ));
 });
 

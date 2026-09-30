@@ -27,8 +27,6 @@ const poolMax = process.env.NODE_ENV === "production"
   : configuredPoolMaxIsValid
     ? configuredPoolMax
     : 1;
-const DATABASE_LIVENESS_TIMEOUT_MS = 2_500;
-
 // prepare: false — required with Supabase's Supavisor pooler in transaction
 // mode, which doesn't support prepared statements. Explicitly pin the schema
 // path as well: Drizzle emits public table names without a schema qualifier,
@@ -59,73 +57,11 @@ function createClient() {
   return client;
 }
 
-function createDatabase(client: ReturnType<typeof postgres>) {
-  return { client, db: drizzle(client, { schema }) };
-}
+const client = globalForDb.minalyPostgres ?? createClient();
+if (process.env.NODE_ENV === "development") globalForDb.minalyPostgres = client;
 
-const initialClient = globalForDb.minalyPostgres ?? createClient();
-let databaseState = createDatabase(initialClient);
-
-// This live ES module binding lets a retry use a fresh Drizzle session after a
-// stale socket is recycled, without changing every import site.
-export let db = databaseState.db;
-
-let resetInFlight: Promise<void> | undefined;
-
-type DatabaseClient = ReturnType<typeof postgres>;
-
-async function pingDatabase(client: DatabaseClient): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("Database liveness check timed out")), DATABASE_LIVENESS_TIMEOUT_MS);
-  });
-
-  try {
-    await Promise.race([client`select 1`, timeout]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
-let livenessCheckInFlight: Promise<void> | undefined;
-
-/**
- * Vercel can freeze a warm function while Supavisor or the NAT drops the TCP
- * socket. A fresh liveness query detects that stale connection before the
- * request starts queueing its real reads behind it.
- */
-export function ensureDatabaseConnection(): Promise<void> {
-  if (livenessCheckInFlight) return livenessCheckInFlight;
-
-  const check = (async () => {
-    try {
-      await pingDatabase(databaseState.client);
-    } catch {
-      await resetDatabaseClient();
-      await pingDatabase(databaseState.client);
-    }
-  })();
-  const trackedCheck = check.finally(() => {
-    if (livenessCheckInFlight === trackedCheck) livenessCheckInFlight = undefined;
-  });
-  livenessCheckInFlight = trackedCheck;
-  return trackedCheck;
-}
-
-export function resetDatabaseClient(): Promise<void> {
-  if (resetInFlight) return resetInFlight;
-
-  const previousClient = databaseState.client;
-  const nextClient = createClient();
-  databaseState = createDatabase(nextClient);
-  db = databaseState.db;
-
-  resetInFlight = previousClient
-    .end({ timeout: 1 })
-    .catch(() => undefined)
-    .finally(() => {
-      resetInFlight = undefined;
-    });
-
-  return resetInFlight;
-}
+// postgres.js already reconnects a closed connection when the next query is
+// scheduled. Keep one pool for the warm function and let a failed read retry
+// through that driver-managed recovery path. Replacing the shared client from
+// one request would terminate unrelated reads that are still in flight.
+export const db = drizzle(client, { schema });

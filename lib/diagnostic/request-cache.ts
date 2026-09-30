@@ -20,9 +20,9 @@ import { measureAsync } from "@/lib/perf/timing";
 const DIAGNOSTIC_CACHE_REVALIDATE_SECONDS = 30;
 
 // Each source has one loader and one cache identity, shared by the sidebar,
-// pages and background revalidation. Timed-out work must be released after the
-// database client is recycled; retaining a stale promise would poison every
-// later navigation in the warm Vercel function.
+// pages and background revalidation. Timed-out work must be released from the
+// in-flight map; retaining a stale promise would poison every later navigation
+// in the warm Vercel function.
 function diagnosticSource<T>(source: string, loader: (accountId: string) => Promise<T>) {
   const reads = new Map<string, Promise<T>>();
   const cacheReads = new Map<string, Promise<T>>();
