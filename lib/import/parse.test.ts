@@ -49,6 +49,14 @@ describe("detectHeaderRow", () => {
     expect(detectHeaderRow(rows)).toBe(4);
   });
 
+  it("finds a mixed CRM header when the next row contains names, a phone and an email", () => {
+    const rows = [
+      ["Rang", "Suivi", "Prénom", "Nom", "Téléphone", "Email / Contact", "Dernière MAJ"],
+      ["1", "Conversation en cours", "Alexandre", "Mepuis", "+33687880310", "alex@example.com", "2026-01-29"],
+    ];
+    expect(detectHeaderRow(rows)).toBe(0);
+  });
+
   it("returns null when nothing in the scan window looks like a header", () => {
     const rows = [
       ["KPI TRACKER"],

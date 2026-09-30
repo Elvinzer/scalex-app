@@ -53,6 +53,17 @@ describe("CRM import normalization", () => {
     expect(normalizeCrmDate("2026-02-30")).toBeNull();
     expect(normalizeCrmDate("")).toBeNull();
   });
+
+  it("normalizes statuses from a WhatsApp/iClosed CRM export", async () => {
+    const { normalizeCrmOutcome, normalizeCrmStage } = await import("./import");
+    expect(normalizeCrmStage("Vidéo envoyée")).toBe("value_content_sent");
+    expect(normalizeCrmStage("À vérifier")).toBe("conversation_in_progress");
+    expect(normalizeCrmStage("À contacter")).toBe("first_message_sent");
+    expect(normalizeCrmOutcome("Call annulé")).toBe("none");
+    expect(normalizeCrmOutcome("Call booké")).toBe("none");
+    expect(normalizeCrmOutcome("No Sale")).toBe("lost");
+    expect(normalizeCrmOutcome("Follow-up planifié")).toBe("none");
+  });
 });
 
 describe("CRM import row preparation", () => {

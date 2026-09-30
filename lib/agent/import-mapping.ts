@@ -307,6 +307,7 @@ function repairCrmMapping(result: ImportMappingResult, unit: MappableUnit, optio
   if (options?.targetTableHint !== "crm_leads" || unit.kind !== "sheet") return result;
 
   const shouldRecoverAsCrm = isLikelyCrmSheet(unit.sheet);
+  if (!shouldRecoverAsCrm) return result;
   const targetTable = result.targetTable === "crm_leads" || shouldRecoverAsCrm ? "crm_leads" : result.targetTable;
   if (targetTable !== "crm_leads") return result;
 
