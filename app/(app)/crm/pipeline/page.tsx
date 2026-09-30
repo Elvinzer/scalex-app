@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { getBusinessSalesOfferDetails } from "@/lib/business/queries";
 import { getActiveClosers } from "@/lib/closers/queries";
 import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
+import { CRM_PIPELINE_LEAD_LIMIT } from "@/lib/crm/lead-pagination";
 import { getCrmLeads, getCrmSetters } from "@/lib/crm/queries";
 import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 
@@ -17,7 +18,7 @@ export default async function CrmPipelinePage() {
   if (!access) return null;
   const [leads, setters, offers, closers] = await withDatabaseReadTimeout(
     () => Promise.all([
-      getCrmLeads(access.accountId),
+      getCrmLeads(access.accountId, {}, { limit: CRM_PIPELINE_LEAD_LIMIT }),
       getCrmSetters(access.accountId),
       getBusinessSalesOfferDetails(access.accountId),
       getActiveClosers(access.accountId),

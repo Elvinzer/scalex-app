@@ -91,6 +91,32 @@ describe("CRM import row preparation", () => {
     expect(sheetNeedsDefaultSource(prepared.sheet)).toBe(true);
   });
 
+  it("does not block a row when a mixed email/contact column contains a valid phone", () => {
+    const prepared = prepareCrmSheet(sheet({
+      defaultSource: "whatsapp",
+      mapping: {
+        sheetName: "Leads",
+        targetTable: "crm_leads",
+        ignoreReason: null,
+        mappings: [
+          { sourceColumn: "Prénom", targetField: "firstName", confidence: "high", granularity: "daily", sampleValues: ["Jane", "John"], columnValues: ["Jane", "John"] },
+          { sourceColumn: "Téléphone", targetField: "phone", confidence: "high", granularity: "daily", sampleValues: ["+33612345678", "+33612345679"], columnValues: ["+33612345678", "+33612345679"] },
+          { sourceColumn: "Email / Contact", targetField: "email", confidence: "high", granularity: "daily", sampleValues: ["jane@example.com", "+33 6 12 34 56 79"], columnValues: ["jane@example.com", "+33 6 12 34 56 79"] },
+          { sourceColumn: "Créé le", targetField: "leadCreatedAt", confidence: "high", granularity: "daily", sampleValues: ["2026-01-01", "2026-01-02"], columnValues: ["2026-01-01", "2026-01-02"] },
+        ],
+        dateColumnName: null,
+        dateColumnValues: null,
+        periodDetected: null,
+        unmappedColumns: [],
+        questions: [],
+      },
+    }), "fr");
+
+    expect(prepared.rows[0]?.values.email).toBe("jane@example.com");
+    expect(prepared.rows[1]?.values.email).toBeUndefined();
+    expect(prepared.rows[1]?.issues).not.toContain("invalid_email");
+  });
+
   it("groups duplicate rows by normalized phone and merges the chosen value", () => {
     const prepared = prepareCrmSheet(sheet({
       mapping: {

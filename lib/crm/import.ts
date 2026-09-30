@@ -185,7 +185,7 @@ function cleanString(raw: string | undefined, maxLength = 5000): string | null {
 function normalizeValue(field: CrmImportField, raw: string): CrmImportValue | null {
   const value = raw.trim();
   if (!value) return null;
-  if (field === "email") return value.toLowerCase();
+  if (field === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value.toLowerCase() : null;
   if (field === "potentialValueEur") {
     const number = parseLocaleNumber(value);
     return number !== null && number >= 0 ? Math.round(number) : null;
@@ -242,6 +242,7 @@ export function prepareCrmSheet(sheet: CrmImportSheet, locale: Locale): CrmPrepa
       const normalized = normalizeValue(mapping.targetField, raw);
       if (normalized === null) {
         if (mapping.targetField === "phone" && raw.trim()) issues.push("invalid_phone");
+        if (mapping.targetField === "email" && raw.trim() && !normalizeCrmPhone(raw, locale).normalized) issues.push("invalid_email");
         if (["leadCreatedAt", "messageOccurredAt", "responseAt", "valueContentAt", "callProposedAt", "callBookedAt"].includes(mapping.targetField)) {
           issues.push("invalid_date:" + mapping.targetField);
         }

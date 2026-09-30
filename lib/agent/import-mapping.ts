@@ -536,9 +536,12 @@ function buildSystemPrompt(options?: ImportMappingOptions): string {
       SYSTEM_PROMPT,
       "",
       'Contexte supplémentaire : cet import vient du CRM et doit reprendre un historique de leads, ligne par ligne. Choisis targetTable = "crm_leads" pour une feuille qui contient des prospects, ou "ignore" si elle ne contient pas de fiches de leads.',
+      "- Une feuille avec des téléphones et des noms/emails est une liste de leads même si le canal d'acquisition ou la date de création manquent : garde targetTable = \"crm_leads\" et laisse l'interface demander le canal manquant.",
       "- Utilise uniquement les champs crm_leads décrits ci-dessus. Ne mappe jamais une plateforme comme source d'acquisition : platform décrit le réseau du profil et source décrit l'origine marketing du lead.",
       "- Cherche en priorité une colonne de téléphone, une colonne de date de création du lead et une colonne de source d'acquisition. Si la source n'est pas identifiable, laisse les colonnes ambiguës sans targetField : l'interface demandera un canal par feuille.",
       "- leadCreatedAt est la date historique de création du lead, pas la date d'import dans Minaly. Ne déduis aucune date d'événement absente du fichier.",
+      "- Une colonne intitulée Dernière MAJ peut seulement être une proposition faible pour leadCreatedAt : ne la considère jamais comme certaine. Une colonne de texte comme Premier message WhatsApp ou Dernière interaction ne doit jamais être mappée vers un champ de date.",
+      "- Ne mappe qu'une seule colonne vers chaque champ CRM. Pour les colonnes de statut, utilise Suivi pour stage et Résultat/Segment pour outcome seulement si les valeurs correspondent aux statuts CRM ou à leurs traductions évidentes.",
       "- Les colonnes de taux, ratio ou agrégats ne sont pas des fiches de leads : laisse-les sans targetField et explique-le dans unmapped_columns.",
       "- Ne pré-agrège jamais, ne dédoublonne jamais et ne fusionne jamais les lignes : le code et la revue utilisateur s'en chargent avec le téléphone normalisé.",
     ].join("\n");

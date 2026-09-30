@@ -51,6 +51,7 @@ import type {
   CrmStageHistoryView,
 } from "./types";
 import { getCrmCallSuggestions } from "./call-match-suggestions";
+import { normalizeCrmLeadLimit } from "./lead-pagination";
 import { getNoShowFollowUpDueAt } from "./no-show";
 import { createNativeBookingForCrm, type NativeBookingError } from "@/lib/native-booking/booking";
 import { listBusyForConnection } from "@/lib/native-booking/calendar";
@@ -406,7 +407,7 @@ export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {
     conditions.push(or(ilike(leads.displayName, pattern), ilike(leads.firstName, pattern), ilike(leads.lastName, pattern), ilike(leads.normalizedHandle, pattern)) ?? eq(leads.id, "00000000-0000-0000-0000-000000000000"));
   }
 
-  const limit = Math.min(Math.max(pagination.limit ?? 100, 1), 100);
+  const limit = normalizeCrmLeadLimit(pagination.limit);
   const offset = Math.max(pagination.offset ?? 0, 0);
   const rows = await db
     .select({ lead: leads, setterName: setters.name })
