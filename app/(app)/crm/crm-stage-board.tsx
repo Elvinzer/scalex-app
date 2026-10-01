@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useState, useTransition, type DragEvent } from "react";
 import { useTranslations } from "next-intl";
 
+import { CrmSourceBadge } from "@/components/crm/crm-source-badge";
 import { Button } from "@/components/ui/button";
 import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
-import { CRM_LEAD_SOURCES, CRM_LEAD_STAGES, type CrmLeadListItem, type CrmLeadSource, type CrmLeadStage } from "@/lib/crm/types";
+import { CRM_LEAD_SOURCES, CRM_LEAD_STAGES, isCrmLeadVisibleInPipeline, type CrmLeadListItem, type CrmLeadSource, type CrmLeadStage } from "@/lib/crm/types";
 import { CRM_STAGE_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS } from "@/lib/crm/machine";
 
 import { changeStageAction } from "./crm-actions";
@@ -29,10 +30,17 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
   }, [initialLeads]);
 
   function sourceLabel(source: string): string {
-    return CRM_LEAD_SOURCES.includes(source as CrmLeadSource) ? t(`sources.${source}`) : t("sources.autre");
+    const normalizedSource = CRM_LEAD_SOURCES.find((candidate) => candidate === source);
+    return normalizedSource ? t(`sources.${normalizedSource}`) : t("sources.autre");
   }
 
-  const filteredLeads = selectedSource === "all" ? leads : leads.filter((lead) => lead.source === selectedSource);
+  const visibleLeads = leads.filter((lead) => isCrmLeadVisibleInPipeline(lead.outcome));
+  const filteredLeads = selectedSource === "all" ? visibleLeads : visibleLeads.filter((lead) => lead.source === selectedSource);
+
+  function removeFromPipeline(leadId: string) {
+    setLeads((items) => items.filter((lead) => lead.id !== leadId));
+    setDrawerLead((current) => (current?.id === leadId ? null : current));
+  }
 
   function move(leadId: string, stage: CrmLeadStage) {
     const previous = leads;
@@ -75,7 +83,8 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
             <p className="font-bold">{lead.displayName}</p>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               {lead.platform && lead.source !== lead.platform && <span>{t(`sources.${lead.platform}`)}</span>}
-              <span className="inline-flex max-w-full items-center whitespace-nowrap rounded-full border border-border bg-muted/40 px-2 py-0.5 font-bold text-foreground/80"><span className="sr-only">{t("leads.source")}: </span>{sourceLabel(lead.source)}</span>
+              <span className="sr-only">{t("leads.source")}: </span>
+              <CrmSourceBadge source={lead.source} label={sourceLabel(lead.source)} />
             </div>
             {lead.responsibleSetterName && <p className="mt-1 text-xs text-muted-foreground">{t("pipeline.responsible")}: {lead.responsibleSetterName}</p>}
             {lead.outcome !== "none" && <p className="mt-2 text-xs font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</p>}
@@ -113,7 +122,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
       <div className="hidden gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-5" tabIndex={0}>{CRM_LEAD_STAGES.map((stage) => stageColumn(stage, "desktop"))}</div>
       <p className="text-xs text-muted-foreground lg:block">{t("pipeline.dragHint")}</p>
       <Button asChild variant="outline" className="min-h-11 self-start"><Link href="/crm/leads">{t("pipeline.manageLeads")}</Link></Button>
-      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} onDeleted={(leadId) => setLeads((items) => items.filter((lead) => lead.id !== leadId))} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} />
+      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} onDeleted={removeFromPipeline} onLost={removeFromPipeline} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} />
     </div>
   );
 }

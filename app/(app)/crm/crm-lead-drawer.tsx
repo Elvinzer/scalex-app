@@ -24,6 +24,7 @@ export function CrmLeadDrawer({
   canAssign,
   canManagePipeline,
   onDeleted,
+  onLost,
 }: {
   lead: CrmLeadListItem | null;
   open: boolean;
@@ -34,6 +35,7 @@ export function CrmLeadDrawer({
   canAssign: boolean;
   canManagePipeline: boolean;
   onDeleted?: (leadId: string) => void;
+  onLost?: (leadId: string) => void;
 }) {
   const t = useTranslations("crm.detail");
   const [detail, setDetail] = useState<CrmLeadDetails | null>(null);
@@ -70,7 +72,7 @@ export function CrmLeadDrawer({
         </div>
         {isPending && <p className="py-8 text-center text-sm text-muted-foreground" role="status">{t("loading")}</p>}
         {!isPending && loadError && <p className="py-8 text-center text-sm font-bold text-state-critical" role="alert">{t("notFound")}</p>}
-        {!isPending && detail && <CrmLeadDetail initialLead={detail} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} inDrawer onDeleted={() => { onOpenChange(false); onDeleted?.(detail.id); }} />}
+        {!isPending && detail && <CrmLeadDetail initialLead={detail} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} inDrawer onDeleted={() => { onOpenChange(false); onDeleted?.(detail.id); }} onLost={() => onLost?.(detail.id)} />}
       </DrawerContent>
     </Drawer>
   );

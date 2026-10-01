@@ -6,7 +6,7 @@ import { LEAD_LOST_REASONS } from "@/lib/leads/types";
 
 import { defaultStageAfterReopen } from "./machine";
 import { crmLostReasonSchema, crmOutcomeSchema, crmStageSchema } from "./schemas";
-import { CRM_LEAD_STAGES, CRM_LOST_REASONS } from "./types";
+import { CRM_LEAD_STAGES, CRM_LOST_REASONS, isCrmLeadVisibleInPipeline } from "./types";
 
 const migration = readFileSync(new URL("../../db/migrations/0066_wooden_hydra.sql", import.meta.url), "utf8");
 
@@ -20,6 +20,9 @@ describe("CRM lost reasons", () => {
     expect(stageChangeSchema.safeParse({ toStage: "perdu", lostReason: "non_interesse" }).success).toBe(true);
     expect(stageChangeSchema.safeParse({ toStage: "non_interesse", lostReason: null }).success).toBe(false);
     expect(CRM_LEAD_STAGES).toHaveLength(5);
+    expect(isCrmLeadVisibleInPipeline("lost")).toBe(false);
+    expect(isCrmLeadVisibleInPipeline("none")).toBe(true);
+    expect(isCrmLeadVisibleInPipeline("sold")).toBe(true);
   });
 
   it("ships an additive database enum migration", () => {

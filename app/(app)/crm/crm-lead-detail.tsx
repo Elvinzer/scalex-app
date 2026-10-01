@@ -40,7 +40,7 @@ function DetailSectionHeader({ headingId, icon: Icon, title, description, traili
   );
 }
 
-export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, canManagePipeline = false, inDrawer = false, onDeleted }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; canManagePipeline?: boolean; inDrawer?: boolean; onDeleted?: () => void }) {
+export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, canManagePipeline = false, inDrawer = false, onDeleted, onLost }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; canManagePipeline?: boolean; inDrawer?: boolean; onDeleted?: () => void; onLost?: () => void }) {
   const t = useTranslations("crm");
   const callsT = useTranslations("crm.calls");
   const router = useRouter();
@@ -211,6 +211,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
 
   function handleLost(reason: CrmLostReason) {
     setLead((current) => ({ ...current, outcome: "lost", isNoShow: false, lostReason: reason }));
+    onLost?.();
   }
 
   function handleBooked(booking: { scheduledAt: string; timeZone: string; closerName: string }) {

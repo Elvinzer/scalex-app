@@ -194,6 +194,10 @@ export type CrmLeadListItem = {
   } | null;
 };
 
+export function isCrmLeadVisibleInPipeline(outcome: CrmLeadOutcome): boolean {
+  return outcome !== "lost";
+}
+
 export type CrmLeadEventView = {
   id: string;
   type: CrmEventType;

@@ -71,6 +71,7 @@ export type CrmLeadFilters = {
   platform?: "instagram" | "linkedin";
   stage?: CrmLeadStage;
   outcome?: CrmLeadOutcome;
+  excludeLost?: boolean;
   responsibleSetterId?: string;
   offerId?: string;
   source?: string;
@@ -381,6 +382,7 @@ export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {
   if (filters.platform) conditions.push(eq(leads.platform, filters.platform));
   if (filters.stage) conditions.push(eq(leads.crmStage, filters.stage));
   if (filters.outcome) conditions.push(eq(leads.crmOutcome, filters.outcome));
+  if (filters.excludeLost) conditions.push(ne(leads.crmOutcome, "lost"));
   if (filters.contactState) conditions.push(eq(leads.contactState, filters.contactState));
   if (filters.respondedOnly) conditions.push(sql`${leads.respondedAt} is not null`);
   if (filters.qualificationOnly) conditions.push(sql`${leads.qualificationNote} is not null and length(trim(${leads.qualificationNote})) > 0`);

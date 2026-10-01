@@ -18,7 +18,7 @@ export default async function CrmPipelinePage() {
   if (!access) return null;
   const [leads, setters, offers, closers] = await withDatabaseReadTimeout(
     () => Promise.all([
-      getCrmLeads(access.accountId, {}, { limit: CRM_PIPELINE_LEAD_LIMIT }),
+      getCrmLeads(access.accountId, { excludeLost: true }, { limit: CRM_PIPELINE_LEAD_LIMIT }),
       getCrmSetters(access.accountId),
       getBusinessSalesOfferDetails(access.accountId),
       getActiveClosers(access.accountId),
