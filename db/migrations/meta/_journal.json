@@ -470,6 +470,13 @@
       "when": 1790784938915,
       "tag": "0066_wooden_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1790855473167,
+      "tag": "0067_shallow_luminals",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,16 @@
 import type { CrmCapturedProfile, CrmPlatform } from "./types";
 
-const PLATFORM_HOSTS: Record<CrmPlatform, string> = {
+type ProfilePlatform = Extract<CrmPlatform, "instagram" | "tiktok" | "youtube" | "linkedin" | "x" | "facebook">;
+
+const PROFILE_PLATFORMS: readonly ProfilePlatform[] = ["instagram", "tiktok", "youtube", "linkedin", "x", "facebook"];
+
+const PLATFORM_HOSTS: Record<ProfilePlatform, string> = {
   instagram: "instagram.com",
+  tiktok: "tiktok.com",
+  youtube: "youtube.com",
   linkedin: "linkedin.com",
+  x: "x.com",
+  facebook: "facebook.com",
 };
 
 function cleanText(value: string | null | undefined): string {
@@ -15,11 +23,15 @@ function splitName(displayName: string): { firstName: string; lastName: string }
   return { firstName: parts[0] ?? displayName, lastName: parts.slice(1).join(" ") };
 }
 
-function hostnameFor(platform: CrmPlatform): string {
+function isProfilePlatform(platform: CrmPlatform): platform is ProfilePlatform {
+  return PROFILE_PLATFORMS.some((candidate) => candidate === platform);
+}
+
+function hostnameFor(platform: ProfilePlatform): string {
   return PLATFORM_HOSTS[platform];
 }
 
-function canonicalPath(platform: CrmPlatform, url: URL): string | null {
+function canonicalPath(platform: ProfilePlatform, url: URL): string | null {
   const parts = url.pathname.split("/").filter(Boolean).map((part) => part.trim());
   if (parts.length === 0) return null;
 
@@ -29,13 +41,17 @@ function canonicalPath(platform: CrmPlatform, url: URL): string | null {
     return `/${handle.toLowerCase()}`;
   }
 
-  const section = parts[0]?.toLowerCase();
-  const handle = parts[1];
-  if (!handle || !section || !["in", "company"].includes(section)) return null;
-  return `/${section}/${handle.toLowerCase()}`;
+  if (platform === "linkedin") {
+    const section = parts[0]?.toLowerCase();
+    const handle = parts[1];
+    if (!handle || !section || !["in", "company"].includes(section)) return null;
+    return `/${section}/${handle.toLowerCase()}`;
+  }
+
+  return `/${parts.join("/").toLowerCase()}`;
 }
 
-export function normalizeProfileUrl(platform: CrmPlatform, rawUrl: string): string | null {
+export function normalizeProfileUrl(platform: ProfilePlatform, rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl.trim());
     const expectedHost = hostnameFor(platform);
@@ -49,11 +65,22 @@ export function normalizeProfileUrl(platform: CrmPlatform, rawUrl: string): stri
   }
 }
 
+function normalizeGenericUrl(rawUrl: string): string | null {
+  try {
+    const url = new URL(rawUrl.trim());
+    if ((url.protocol !== "https:" && url.protocol !== "http:") || url.username || url.password || url.port) return null;
+    const path = url.pathname.replace(/\/{2,}/g, "/").replace(/\/$/, "");
+    return `${url.protocol}//${url.hostname.toLowerCase()}${path}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
 export function detectPlatform(rawUrl: string): CrmPlatform | null {
   try {
     const hostname = new URL(rawUrl.trim()).hostname.toLowerCase().replace(/^www\./, "");
-    if (hostname === PLATFORM_HOSTS.instagram) return "instagram";
-    if (hostname === PLATFORM_HOSTS.linkedin) return "linkedin";
+    const detected = PROFILE_PLATFORMS.find((platform) => PLATFORM_HOSTS[platform] === hostname);
+    if (detected) return detected;
     return null;
   } catch {
     return null;
@@ -79,17 +106,17 @@ export function normalizeCapturedProfile(input: {
   const rawProfileUrl = input.profileUrl?.trim() ?? "";
   const platform = input.platform ?? (rawProfileUrl ? detectPlatform(rawProfileUrl) : null);
   if (!platform) return null;
+  const inputHandle = normalizeHandle(platform, input.handle ?? rawProfileUrl);
+  if (!inputHandle) return null;
   const canonicalProfileUrl = rawProfileUrl
-    ? normalizeProfileUrl(platform, rawProfileUrl)
-    : (() => {
-        const normalized = normalizeHandle(platform, input.handle ?? "");
-        if (!normalized) return null;
-        return `https://${PLATFORM_HOSTS[platform]}/${platform === "linkedin" ? `in/${normalized}` : normalized}`;
-      })();
-  if (!canonicalProfileUrl) return null;
-  const pathParts = new URL(canonicalProfileUrl).pathname.split("/").filter(Boolean);
+    ? isProfilePlatform(platform) ? normalizeProfileUrl(platform, rawProfileUrl) : normalizeGenericUrl(rawProfileUrl)
+    : isProfilePlatform(platform)
+      ? `https://${hostnameFor(platform)}/${platform === "linkedin" ? `in/${inputHandle}` : platform === "tiktok" ? `@${inputHandle}` : inputHandle}`
+      : null;
+  if (isProfilePlatform(platform) && !canonicalProfileUrl) return null;
+  const pathParts = canonicalProfileUrl ? new URL(canonicalProfileUrl).pathname.split("/").filter(Boolean) : [];
   const urlHandle = platform === "linkedin" ? pathParts[1] : pathParts[0];
-  const normalizedHandle = normalizeHandle(platform, input.handle ?? urlHandle ?? "");
+  const normalizedHandle = normalizeHandle(platform, input.handle ?? urlHandle ?? inputHandle);
   if (!normalizedHandle) return null;
   const displayName = cleanText(input.displayName) || normalizedHandle;
   const split = splitName(displayName);

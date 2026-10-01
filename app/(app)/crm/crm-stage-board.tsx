@@ -82,9 +82,10 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
           <button type="button" onClick={() => setDrawerLead(lead)} className="inline-flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded text-left outline-none focus-visible:ring-3 focus-visible:ring-accent/20">
             <p className="font-bold">{lead.displayName}</p>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              {lead.platform && lead.source !== lead.platform && <span>{t(`sources.${lead.platform}`)}</span>}
-              <span className="sr-only">{t("leads.source")}: </span>
-              <CrmSourceBadge source={lead.source} label={sourceLabel(lead.source)} />
+              {lead.platform && lead.platform === lead.source ? <CrmSourceBadge source={lead.source} label={`${t("leads.channelAndSourceShort")}: ${sourceLabel(lead.source)}`} /> : <>
+                {lead.platform && <CrmSourceBadge source={lead.platform} label={`${t("leads.channelShort")}: ${sourceLabel(lead.platform)}`} />}
+                <CrmSourceBadge source={lead.source} label={`${t("leads.sourceShort")}: ${sourceLabel(lead.source)}`} />
+              </>}
             </div>
             {lead.responsibleSetterName && <p className="mt-1 text-xs text-muted-foreground">{t("pipeline.responsible")}: {lead.responsibleSetterName}</p>}
             {lead.outcome !== "none" && <p className="mt-2 text-xs font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</p>}
@@ -108,7 +109,7 @@ export function CrmStageBoard({ initialLeads, setters, offers, closers, canAssig
       {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <label className="flex w-full max-w-xs flex-col gap-1 text-xs font-bold text-muted-foreground">
-          <span>{t("leads.source")}</span>
+          <span>{t("leads.sourceFilter")}</span>
           <select value={selectedSource} onChange={(event) => setSelectedSource(CRM_LEAD_SOURCES.find((source) => source === event.target.value) ?? "all")} className="min-h-11 rounded border border-border bg-background px-2 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">
             <option value="all">{t("leads.allSources")}</option>
             {CRM_LEAD_SOURCES.map((source) => <option key={source} value={source}>{sourceLabel(source)}</option>)}

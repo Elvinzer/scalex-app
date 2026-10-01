@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import type { Offer } from "@/lib/business/types";
-import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
+import { CRM_CHANNELS, CRM_LEAD_SOURCES, type CrmChannel, type CrmLeadSource } from "@/lib/crm/types";
 
 const captureResponseSchema = z.discriminatedUnion("state", [
   z.object({ state: z.literal("saved"), error: z.null(), leadId: z.string().uuid().optional(), created: z.boolean().optional() }),
@@ -21,8 +21,8 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
   void setters;
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
-  const [platform, setPlatform] = useState<"instagram" | "linkedin">("instagram");
-  const [source, setSource] = useState("instagram");
+  const [platform, setPlatform] = useState<CrmChannel>("instagram");
+  const [source, setSource] = useState<CrmLeadSource>("instagram");
   const [sourceWasEdited, setSourceWasEdited] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
 
@@ -30,19 +30,21 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
     const saved = sessionStorage.getItem("minaly.crm.capture-draft");
     if (!saved) return;
     try {
-      const draft = JSON.parse(saved) as { identity?: string; displayName?: string; platform?: "instagram" | "linkedin"; source?: string; idempotencyKey?: string };
+      const draft = JSON.parse(saved) as { identity?: string; displayName?: string; platform?: string; source?: string; idempotencyKey?: string };
       const form = document.querySelector<HTMLFormElement>("[data-crm-capture-form]");
       if (!form) return;
       const identityInput = form.elements.namedItem("identity");
       const displayNameInput = form.elements.namedItem("displayName");
       if (identityInput instanceof HTMLInputElement && draft.identity) identityInput.value = draft.identity;
       if (displayNameInput instanceof HTMLInputElement && draft.displayName) displayNameInput.value = draft.displayName;
-      if (draft.platform) setPlatform(draft.platform);
-      if (draft.source) {
-        setSource(draft.source);
+      const draftPlatform = CRM_CHANNELS.find((candidate) => candidate === draft.platform);
+      const draftSource = CRM_LEAD_SOURCES.find((candidate) => candidate === draft.source);
+      if (draftPlatform) setPlatform(draftPlatform);
+      if (draftSource) {
+        setSource(draftSource);
         setSourceWasEdited(true);
-      } else if (draft.platform) {
-        setSource(draft.platform);
+      } else if (draftPlatform) {
+        setSource(draftPlatform);
       }
       if (draft.idempotencyKey) setIdempotencyKey(draft.idempotencyKey);
       sessionStorage.removeItem("minaly.crm.capture-draft");
@@ -108,14 +110,20 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
           {t("profileOrHandle")}
           <input name="identity" required inputMode="url" autoComplete="off" placeholder={t("profileUrlPlaceholder")} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm font-bold">{t("platform")}
-          <select name="platform" value={platform} onChange={(event) => { const nextPlatform = event.target.value as "instagram" | "linkedin"; setPlatform(nextPlatform); if (!sourceWasEdited) setSource(nextPlatform); }} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20"><option value="instagram">Instagram</option><option value="linkedin">LinkedIn</option></select>
+        <label className="flex flex-col gap-1.5 text-sm font-bold">
+          <span>{t("channel")}</span>
+          <select name="platform" value={platform} onChange={(event) => { const nextPlatform = CRM_CHANNELS.find((candidate) => candidate === event.target.value) ?? "instagram"; setPlatform(nextPlatform); if (!sourceWasEdited) setSource(nextPlatform); }} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">{CRM_CHANNELS.map((platformOption) => <option key={platformOption} value={platformOption}>{t(`sourceOptions.${platformOption}`)}</option>)}</select>
+          <span className="text-xs font-normal leading-5 text-muted-foreground">{t("channelHelp")}</span>
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-bold">
           {t("displayName")}
           <input name="displayName" type="text" className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm font-bold">{t("source")}<select name="source" value={source} onChange={(event) => { setSource(event.target.value); setSourceWasEdited(true); }} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">{CRM_LEAD_SOURCES.map((sourceOption) => <option key={sourceOption} value={sourceOption}>{t(`sourceOptions.${sourceOption}`)}</option>)}</select></label>
+        <label className="flex flex-col gap-1.5 text-sm font-bold">
+          <span>{t("source")}</span>
+          <select name="source" value={source} onChange={(event) => { const nextSource = CRM_LEAD_SOURCES.find((candidate) => candidate === event.target.value) ?? "instagram"; setSource(nextSource); setSourceWasEdited(true); }} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">{CRM_LEAD_SOURCES.map((sourceOption) => <option key={sourceOption} value={sourceOption}>{t(`sourceOptions.${sourceOption}`)}</option>)}</select>
+          <span className="text-xs font-normal leading-5 text-muted-foreground">{t("sourceHelp")}</span>
+        </label>
         <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-1">{t("newLeadHint")}</p>
         <Button type="submit" disabled={isPending} className="min-h-11 sm:col-span-2 lg:col-span-1">{isPending ? t("capturing") : t("capture")}</Button>
       </div>

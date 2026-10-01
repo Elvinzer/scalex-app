@@ -77,6 +77,11 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
   const [reopenIdempotencyKey, setReopenIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [responsibilityIdempotencyKey, setResponsibilityIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
 
+  function leadSourceLabel(value: string): string {
+    const key = CRM_LEAD_SOURCES.find((candidate) => candidate === value);
+    return key ? t(`sources.${key}`) : t("sources.autre");
+  }
+
   useEffect(() => {
     const raw = sessionStorage.getItem(`minaly.crm.lead-draft:${lead.id}`);
     if (!raw) return;
@@ -147,7 +152,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
 
   function reassign(setterId: string) {
     const setter = setters.find((item) => item.id === setterId);
-    mutate(() => reassignLeadAction({ leadId: lead.id, setterId: setterId || null, idempotencyKey: responsibilityIdempotencyKey }), (current) => ({ ...current, responsibleSetterId: setterId || null, responsibleSetterName: setter?.name ?? null }), () => setResponsibilityIdempotencyKey(globalThis.crypto.randomUUID()));
+    mutate(() => reassignLeadAction({ leadId: lead.id, setterId: setterId || null, idempotencyKey: responsibilityIdempotencyKey }), (current) => ({ ...current, responsibleSetterId: setterId || null, responsibleSetterName: setter?.name ?? (setterId === "self" ? t("detail.assignToMe") : null) }), () => setResponsibilityIdempotencyKey(globalThis.crypto.randomUUID()));
   }
 
   function reopen() {
@@ -261,7 +266,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
                 <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent-text">{t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span>
                 <span className="rounded-full border border-border bg-muted/20 px-2.5 py-1 text-xs font-bold">{t(CRM_STAGE_LABEL_KEYS[lead.stage])}</span>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">{lead.platform ? t(`sources.${lead.platform}`) : t("sources.autre")}{lead.normalizedHandle ? ` · @${lead.normalizedHandle}` : ""}</p>
+              <p className="mt-2 text-sm text-muted-foreground"><span className="font-bold text-foreground">{t("detail.channelShort")}:</span> {lead.platform ? leadSourceLabel(lead.platform) : t("detail.channelMissing")} <span aria-hidden="true">·</span> <span className="font-bold text-foreground">{t("detail.sourceShort")}:</span> {leadSourceLabel(lead.source)}{lead.normalizedHandle ? ` · @${lead.normalizedHandle}` : ""}</p>
             <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
               <span className="inline-flex shrink-0 items-center gap-1.5 font-bold text-muted-foreground"><UserRound className="size-3.5" aria-hidden="true" />{t("detail.profileUrl")}</span>
               {lead.canonicalProfileUrl ? <><span className="min-w-0 max-w-full break-all text-muted-foreground">{lead.canonicalProfileUrl}</span><CrmProfileLink href={lead.canonicalProfileUrl} label={t("detail.openProfile")} /></> : <span className="text-muted-foreground">{t("detail.profileUrlMissing")}</span>}
@@ -292,7 +297,8 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
           <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold">{t("detail.responsible")}
             {canAssign ? <select value={lead.responsibleSetterId ?? ""} disabled={isPending} onChange={(event) => reassign(event.target.value)} className={inputClassName}>
               <option value="">{t("detail.reassign")}</option>
-              {setters.filter((setter) => setter.active).map((setter) => <option key={setter.id} value={setter.id}>{setter.name}</option>)}
+              {setters.filter((setter) => setter.active || setter.id === lead.responsibleSetterId).map((setter) => <option key={setter.id} value={setter.id}>{setter.name}</option>)}
+              {setters.every((setter) => !setter.active) && <option value="self">{t("detail.assignToMe")}</option>}
             </select> : <span className={`${inputClassName} flex items-center bg-card`}>{lead.responsibleSetterName ?? t("detail.unassigned")}</span>}
           </label>
           <fieldset className="flex min-w-0 flex-col gap-1.5 text-sm font-bold sm:col-span-2"><legend>{t("detail.changeOutcome")}</legend><div className="flex flex-wrap gap-2">

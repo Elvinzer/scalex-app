@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL;
@@ -7,61 +7,46 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
 
-const poolConnection = new URL(connectionString);
-if (process.env.NODE_ENV === "development" && poolConnection.port === "6543") {
-  // The transaction pooler can retain an abandoned client query while the
-  // long-lived Next dev process keeps navigating. Session mode is stable for
-  // local development; Vercel keeps the transaction-pooler URL from env.
-  poolConnection.port = "5432";
-}
-
 const configuredPoolMax = Number.parseInt(process.env.DB_POOL_MAX ?? "2", 10);
 const configuredPoolMaxIsValid = Number.isInteger(configuredPoolMax) && configuredPoolMax >= 1 && configuredPoolMax <= 20;
-// App Router pages deliberately batch independent reads with Promise.all.
-// One postgres.js connection pipelines that batch through Supavisor's
-// transaction pooler and can leave the whole render waiting indefinitely.
-// Keep at least two connections in production so concurrent reads are split
-// across pooler leases; DB_POOL_MAX can still increase the pool when needed.
-const poolMax = process.env.NODE_ENV === "production"
-  ? Math.max(configuredPoolMaxIsValid ? configuredPoolMax : 2, 2)
-  : configuredPoolMaxIsValid
-    ? configuredPoolMax
-    : 1;
-// prepare: false — required with Supabase's Supavisor pooler in transaction
-// mode, which doesn't support prepared statements. Explicitly pin the schema
-// path as well: Drizzle emits public table names without a schema qualifier,
-// and a reused pooler backend must resolve them consistently on every request.
-// Turbopack re-evaluates modules during HMR. Reuse the client so each edit
-// does not leave another pool connected to the shared database.
-const globalForDb = globalThis as typeof globalThis & { minalyPostgres?: ReturnType<typeof postgres> };
+const poolMax = configuredPoolMaxIsValid ? configuredPoolMax : 2;
+
+// Supavisor transaction mode does not support query pipelining. postgres.js
+// pipelines even with prepare:false; increasing its pool only masks the hang.
+// pg queues work until ReadyForQuery and Drizzle reserves one client per
+// transaction. Use the same DATABASE_URL locally so dev exercises that path.
+// https://supabase.com/docs/guides/database/postgres-js
+const globalForDb = globalThis as typeof globalThis & { minalyPgPool?: Pool };
 
 function createClient() {
-  const client = postgres(poolConnection.toString(), {
-    prepare: false,
+  const client = new Pool({
+    connectionString,
+    pipeline: false,
     max: poolMax,
-    ssl: "require",
-    idle_timeout: 20,
-    connect_timeout: 10,
-    keep_alive: 30,
-    max_lifetime: 60 * 5,
-    connection: {
-      application_name: "minaly-web",
-      search_path: "public, extensions",
-      // The transaction pooler does not preserve all session parameters, so
-      // read retries remain the recovery path for cancelled or stale reads.
-      statement_timeout: 25_000,
-      idle_in_transaction_session_timeout: 15_000,
-    },
+    // Equivalent to the previous ssl:"require": always encrypt the socket.
+    ssl: { rejectUnauthorized: false },
+    idleTimeoutMillis: 20_000,
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 10_000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
+    maxLifetimeSeconds: 60 * 5,
+    application_name: "minaly-web",
+    options: "-c search_path=public,extensions",
+    // Server limits supplement the client deadline; the pooler may ignore
+    // startup parameters. Pool.query discards a client on a read timeout.
+    statement_timeout: 25_000,
+    idle_in_transaction_session_timeout: 15_000,
   });
-  if (process.env.NODE_ENV === "development") globalForDb.minalyPostgres = client;
+  // pg removes failed idle connections itself. Handle the event so a stale
+  // socket cannot crash the process; never log connection details or SQL.
+  client.on("error", () => console.warn("[db] idle connection closed"));
   return client;
 }
 
-const client = globalForDb.minalyPostgres ?? createClient();
-if (process.env.NODE_ENV === "development") globalForDb.minalyPostgres = client;
+const client = globalForDb.minalyPgPool ?? createClient();
+if (process.env.NODE_ENV === "development") globalForDb.minalyPgPool = client;
 
-// postgres.js already reconnects a closed connection when the next query is
-// scheduled. Keep one pool for the warm function and let a failed read retry
-// through that driver-managed recovery path. Replacing the shared client from
-// one request would terminate unrelated reads that are still in flight.
+// Reuse the pool across HMR and warm invocations. Never replace the whole
+// pool from a failing request, which would interrupt unrelated transactions.
 export const db = drizzle(client, { schema });

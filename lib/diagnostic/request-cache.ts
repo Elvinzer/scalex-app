@@ -13,16 +13,16 @@ import { getContentPosts } from "@/lib/content-posts/queries";
 import { getVideoAttributionTotals } from "@/lib/youtube/attribution";
 import { getInstagramPostInsightsMap } from "@/lib/instagram/queries";
 import { getYoutubeVideoInsightsMap } from "@/lib/youtube/queries";
-import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
+import { withDatabaseReadRetry } from "@/lib/perf/database-retry";
 import { getInFlight } from "@/lib/perf/in-flight";
 import { measureAsync } from "@/lib/perf/timing";
 
 const DIAGNOSTIC_CACHE_REVALIDATE_SECONDS = 30;
 
 // Each source has one loader and one cache identity, shared by the sidebar,
-// pages and background revalidation. Timed-out work must be released from the
-// in-flight map; retaining a stale promise would poison every later navigation
-// in the warm Vercel function.
+// pages and background revalidation. Keep sharing actual SQL work until it
+// settles, even when a render stops waiting. The driver bounds connection and
+// query waits; another navigation must not start a duplicate in the meantime.
 function diagnosticSource<T>(source: string, loader: (accountId: string) => Promise<T>) {
   const reads = new Map<string, Promise<T>>();
   const cacheReads = new Map<string, Promise<T>>();
@@ -31,11 +31,11 @@ function diagnosticSource<T>(source: string, loader: (accountId: string) => Prom
       () => getInFlight(
         reads,
         accountId,
-        () => withDatabaseReadTimeout(
+        () => withDatabaseReadRetry(
           () => measureAsync(`db.diagnostic.${source}`, () => loader(accountId)),
-          { operation: `diagnostic-${source}`, timeoutMs: 5_000 },
+          { operation: `diagnostic-${source}` },
         ),
-        { timeoutMs: 11_000, timeoutLabel: `diagnostic-${source}-read` },
+        { timeoutMs: 5_000, timeoutLabel: `diagnostic-${source}-read`, retainUntilSettled: true },
       ),
       ["diagnostic-source-v2", source, accountId],
       { revalidate: DIAGNOSTIC_CACHE_REVALIDATE_SECONDS, tags: [diagnosticDataCacheTag(accountId)] }

@@ -72,7 +72,7 @@ export async function withDatabaseReadRetry<T>(
     } catch (error) {
       lastError = error;
       const timedOut = error instanceof TimeoutError;
-      // A local timeout only stops waiting for the query; postgres.js keeps
+      // A local timeout only stops waiting for the query; the driver keeps
       // the underlying query in flight until the server resolves it. Starting
       // a second copy would amplify pool pressure, so only retry errors that
       // already tell us the database connection or statement was interrupted.

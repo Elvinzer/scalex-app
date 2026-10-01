@@ -86,7 +86,7 @@ export const outcomeSchema = z.object({ leadId: z.string().uuid(), outcome: crmO
   if (value.outcome === "lost" && !value.lostReason) context.addIssue({ code: z.ZodIssueCode.custom, path: ["lostReason"], message: "Une raison est requise." });
 });
 export const reopenSchema = z.object({ leadId: z.string().uuid(), stage: crmStageSchema, idempotencyKey: z.string().trim().min(8).max(240) });
-export const responsibilitySchema = z.object({ leadId: z.string().uuid(), setterId: z.string().uuid().nullable(), idempotencyKey: z.string().trim().min(8).max(240) });
+export const responsibilitySchema = z.object({ leadId: z.string().uuid(), setterId: z.union([z.string().uuid(), z.literal("self")]).nullable(), idempotencyKey: z.string().trim().min(8).max(240) });
 export const noteSchema = z.object({ leadId: z.string().uuid(), body: z.string().trim().min(1).max(5000), idempotencyKey: z.string().trim().min(8).max(240).optional() });
 export const qualificationSchema = z.object({ leadId: z.string().uuid(), body: z.string().max(10000), idempotencyKey: z.string().trim().min(8).max(240) });
 export const responseSchema = z.object({ leadId: z.string().uuid(), occurredAt: z.string().datetime({ offset: true }).optional(), idempotencyKey: z.string().trim().min(8).max(240) });

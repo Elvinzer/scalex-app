@@ -42,6 +42,7 @@ import type {
   CrmLeadDetails,
   CrmLeadEventView,
   CrmLeadListItem,
+  CrmPlatform,
   CrmLeadOutcome,
   CrmLostReason,
   CrmLeadSource,
@@ -68,7 +69,7 @@ const leadSetters = alias(setters, "crm_lead_setter");
 
 export type CrmLeadFilters = {
   search?: string;
-  platform?: "instagram" | "linkedin";
+  platform?: CrmPlatform;
   stage?: CrmLeadStage;
   outcome?: CrmLeadOutcome;
   excludeLost?: boolean;
@@ -461,13 +462,16 @@ export async function resolveCrmProfile(accountId: string, captured: CrmCaptured
   // Both predicates use dedicated account-scoped indexes. Running them in
   // parallel removes one database round trip from the extension's critical
   // path while preserving the exact-URL priority below.
+  const exactProfile = captured.canonicalProfileUrl
+    ? db
+        .select({ lead: leads, setterName: setters.name })
+        .from(leads)
+        .leftJoin(setters, eq(leads.setterId, setters.id))
+        .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.canonicalProfileUrl, captured.canonicalProfileUrl)))
+        .limit(1)
+    : Promise.resolve([] as Array<{ lead: typeof leads.$inferSelect; setterName: string | null }>);
   const [exactResult, candidatesResult] = await Promise.allSettled([
-    db
-      .select({ lead: leads, setterName: setters.name })
-      .from(leads)
-      .leftJoin(setters, eq(leads.setterId, setters.id))
-      .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.canonicalProfileUrl, captured.canonicalProfileUrl)))
-      .limit(1),
+    exactProfile,
     db
       .select({ lead: leads, setterName: setters.name })
       .from(leads)
@@ -523,14 +527,17 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       .where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.type, "lead_created"), eq(crmLeadEvents.sourceEventKey, captureKey)))
       .limit(1);
     if (idempotent) {
-      if (idempotent.lead.platform !== input.profile.platform || idempotent.lead.canonicalProfileUrl !== input.profile.canonicalProfileUrl) throw new Error("CRM_IDEMPOTENCY_CONFLICT");
+      if (idempotent.lead.platform !== input.profile.platform || idempotent.lead.canonicalProfileUrl !== input.profile.canonicalProfileUrl || idempotent.lead.normalizedHandle !== input.profile.normalizedHandle) throw new Error("CRM_IDEMPOTENCY_CONFLICT");
       return { lead: toLeadItem(idempotent.lead, setter?.name ?? null), created: false };
     }
 
+    const existingIdentity = input.profile.canonicalProfileUrl
+      ? and(eq(leads.platform, input.profile.platform), eq(leads.canonicalProfileUrl, input.profile.canonicalProfileUrl))
+      : and(eq(leads.platform, input.profile.platform), eq(leads.normalizedHandle, input.profile.normalizedHandle));
     const [existing] = await tx
       .select()
       .from(leads)
-      .where(and(eq(leads.accountId, accountId), eq(leads.platform, input.profile.platform), eq(leads.canonicalProfileUrl, input.profile.canonicalProfileUrl)))
+      .where(and(eq(leads.accountId, accountId), existingIdentity))
       .limit(1);
 
     if (existing) {
@@ -780,7 +787,10 @@ export async function confirmCrmProfileMatch(accountId: string, leadId: string, 
       const [existingEvent] = await tx.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "match_confirmed"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
       if (existingEvent) return toLeadItem(existing);
     }
-    const [conflict] = await tx.select({ id: leads.id }).from(leads).where(and(eq(leads.accountId, accountId), eq(leads.platform, profile.platform), eq(leads.canonicalProfileUrl, profile.canonicalProfileUrl))).limit(1);
+    const profileIdentity = profile.canonicalProfileUrl
+      ? and(eq(leads.platform, profile.platform), eq(leads.canonicalProfileUrl, profile.canonicalProfileUrl))
+      : and(eq(leads.platform, profile.platform), eq(leads.normalizedHandle, profile.normalizedHandle));
+    const [conflict] = await tx.select({ id: leads.id }).from(leads).where(and(eq(leads.accountId, accountId), profileIdentity)).limit(1);
     if (conflict && conflict.id !== leadId) throw new Error("Ce profil est déjà relié à un autre lead.");
     const [updated] = await tx.update(leads).set({ platform: profile.platform, canonicalProfileUrl: profile.canonicalProfileUrl, normalizedHandle: profile.normalizedHandle, displayName: profile.displayName, socialFirstName: profile.firstName, socialLastName: profile.lastName || null, messageOccurredAt: profile.messageOccurredAt ? new Date(profile.messageOccurredAt) : existing.messageOccurredAt, capturedAt: new Date(profile.capturedAt), updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "match_confirmed", source: "extension", sourceEventKey: eventKey, occurredAt: profile.messageOccurredAt ? new Date(profile.messageOccurredAt) : null, capturedAt: new Date(profile.capturedAt), metadata: { platform: profile.platform, handle: profile.normalizedHandle } })).onConflictDoNothing();
@@ -1295,19 +1305,22 @@ export async function reopenCrmLead(accountId: string, leadId: string, actorUser
 }
 
 export async function reassignCrmLead(accountId: string, leadId: string, nextSetterId: string | null, actorUserId: string, idempotencyKey: string): Promise<CrmLeadListItem | null> {
-  const nextSetter = await getSetterForAccount(accountId, nextSetterId);
+  const nextSetter = nextSetterId === "self"
+    ? await getOrCreateSetterForActor(accountId, actorUserId)
+    : await getSetterForAccount(accountId, nextSetterId);
   if (nextSetterId && !nextSetter) throw new Error("Le responsable n'appartient pas à ce compte.");
+  const resolvedNextSetterId = nextSetter?.id ?? null;
   return db.transaction(async (tx) => {
     const [current] = await tx.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).limit(1);
     if (!current) return null;
     const eventKey = `responsibility:${idempotencyKey}`;
     const [existingEvent] = await tx.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "responsibility_changed"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
     if (existingEvent) return toLeadItem(current);
-    if (current.setterId === nextSetterId) return toLeadItem(current, nextSetter?.name ?? null);
+    if (current.setterId === resolvedNextSetterId) return toLeadItem(current, nextSetter?.name ?? null);
     const changedAt = new Date();
-    const [updated] = await tx.update(leads).set({ setterId: nextSetterId, updatedAt: changedAt }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
-    await tx.insert(crmResponsibilityHistory).values({ accountId, leadId, previousSetterId: current.setterId, nextSetterId, actorUserId });
-    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "responsibility_changed", source: "app", sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { previousSetterId: current.setterId, nextSetterId } })).onConflictDoNothing();
+    const [updated] = await tx.update(leads).set({ setterId: resolvedNextSetterId, updatedAt: changedAt }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    await tx.insert(crmResponsibilityHistory).values({ accountId, leadId, previousSetterId: current.setterId, nextSetterId: resolvedNextSetterId, actorUserId });
+    await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "responsibility_changed", source: "app", sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { previousSetterId: current.setterId, nextSetterId: resolvedNextSetterId } })).onConflictDoNothing();
     const nextResponsibleUserId = nextSetter?.userId ?? null;
     await tx.update(crmActions).set({ responsibleUserId: nextResponsibleUserId, updatedAt: new Date() }).where(and(eq(crmActions.accountId, accountId), eq(crmActions.leadId, leadId), eq(crmActions.category, "prospecting"), eq(crmActions.status, "open")));
     return updated ? toLeadItem(updated, nextSetter?.name ?? null) : null;
@@ -1508,7 +1521,7 @@ export async function linkCrmCall(accountId: string, actorUserId: string, leadId
 
 export type CrmKpiFilters = {
   setterId?: string;
-  platform?: "instagram" | "linkedin";
+  platform?: CrmPlatform;
   offerId?: string;
   source?: string;
 };
@@ -1526,7 +1539,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
   ]);
   if (filters.setterId && !setter[0]) return { events: [], stageChanges: [], calls: [], sales: [] };
   const setterUserId = setter[0]?.userId;
-  const matchesLead = (lead: { platform: "instagram" | "linkedin" | null; offerId: string | null; source: string; setterId: string | null } | null, includeCurrentSetter = true) => {
+  const matchesLead = (lead: { platform: CrmPlatform | null; offerId: string | null; source: string; setterId: string | null } | null, includeCurrentSetter = true) => {
     if (!lead) return false;
     if (filters.platform && lead.platform !== filters.platform) return false;
     if (filters.offerId && lead.offerId !== filters.offerId) return false;

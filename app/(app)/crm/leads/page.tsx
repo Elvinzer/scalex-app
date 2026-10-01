@@ -10,7 +10,7 @@ import { getBusinessSalesOfferDetails } from "@/lib/business/queries";
 import { CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine";
 import { getCrmLeads, getCrmSetters } from "@/lib/crm/queries";
 import { crmEventTypeSchema, crmLeadSourceSchema, crmOutcomeSchema, crmStageSchema } from "@/lib/crm/schemas";
-import { CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES } from "@/lib/crm/types";
+import { CRM_CHANNELS, CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES } from "@/lib/crm/types";
 import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 
 import { CrmLeadCaptureForm } from "../crm-lead-capture-form";
@@ -31,7 +31,7 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
     ]),
     { operation: "crm-leads-metadata", timeoutMs: 15_000 },
   );
-  const platform = params.platform === "instagram" || params.platform === "linkedin" ? params.platform : undefined;
+  const platform = CRM_CHANNELS.find((candidate) => candidate === params.platform);
   const stage = crmStageSchema.safeParse(params.stage).success ? crmStageSchema.parse(params.stage) : undefined;
   const outcome = crmOutcomeSchema.safeParse(params.outcome).success ? crmOutcomeSchema.parse(params.outcome) : undefined;
   const responsibleSetterId = setters.some((setter) => setter.id === params.responsible) ? params.responsible : undefined;
@@ -77,7 +77,7 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
       </details>
       <form method="get" className="sticker-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.search")}<input name="search" defaultValue={params.search} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
-        <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.platform")}<select name="platform" defaultValue={platform ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allPlatforms")}</option><option value="instagram">Instagram</option><option value="linkedin">LinkedIn</option></select></label>
+        <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.channel")}<select name="platform" defaultValue={platform ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allChannels")}</option>{CRM_CHANNELS.map((channel) => <option key={channel} value={channel}>{t(`leads.sourceOptions.${channel}`)}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.allStages")}<select name="stage" defaultValue={stage ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allStages")}</option>{CRM_LEAD_STAGES.map((item) => <option key={item} value={item}>{t(CRM_STAGE_LABEL_KEYS[item])}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.allOutcomes")}<select name="outcome" defaultValue={outcome ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allOutcomes")}</option>{CRM_LEAD_OUTCOMES.map((item) => <option key={item} value={item}>{t(CRM_OUTCOME_LABEL_KEYS[item])}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.allResponsibles")}<select name="responsible" defaultValue={responsibleSetterId ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allResponsibles")}</option>{setters.map((setter) => <option key={setter.id} value={setter.id}>{setter.name}</option>)}</select></label>

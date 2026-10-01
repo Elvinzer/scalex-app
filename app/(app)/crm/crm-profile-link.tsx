@@ -4,7 +4,7 @@ function isAllowedProfileUrl(value: string): boolean {
   try {
     const url = new URL(value);
     const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
-    return (url.protocol === "https:" || url.protocol === "http:") && (hostname === "instagram.com" || hostname === "linkedin.com");
+    return (url.protocol === "https:" || url.protocol === "http:") && ["instagram.com", "tiktok.com", "youtube.com", "linkedin.com", "x.com", "facebook.com"].includes(hostname);
   } catch {
     return false;
   }

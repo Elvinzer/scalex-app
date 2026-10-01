@@ -1,6 +1,32 @@
 import type { NativeBookingQuestionRecord } from "@/lib/native-booking/questions";
 
-export const CRM_PLATFORMS = ["instagram", "linkedin"] as const;
+export const CRM_LEAD_SOURCES = [
+  "instagram",
+  "tiktok",
+  "youtube",
+  "linkedin",
+  "x",
+  "facebook",
+  "whatsapp",
+  "email_newsletter",
+  "ads",
+  "bouche_a_oreille",
+  "autre",
+] as const;
+export type CrmLeadSource = (typeof CRM_LEAD_SOURCES)[number];
+
+export const CRM_CHANNELS = [
+  "instagram",
+  "tiktok",
+  "youtube",
+  "linkedin",
+  "x",
+  "facebook",
+  "whatsapp",
+] as const satisfies readonly CrmLeadSource[];
+export type CrmChannel = (typeof CRM_CHANNELS)[number];
+
+export const CRM_PLATFORMS = CRM_LEAD_SOURCES;
 export type CrmPlatform = (typeof CRM_PLATFORMS)[number];
 
 export const CRM_LEAD_STAGES = [
@@ -20,21 +46,6 @@ export type CrmContactState = (typeof CRM_CONTACT_STATES)[number];
 
 export const CRM_LOST_REASONS = ["pas_le_budget", "pas_le_moment", "concurrent", "ghoste", "non_interesse", "autre"] as const;
 export type CrmLostReason = (typeof CRM_LOST_REASONS)[number];
-
-export const CRM_LEAD_SOURCES = [
-  "instagram",
-  "tiktok",
-  "youtube",
-  "linkedin",
-  "x",
-  "facebook",
-  "whatsapp",
-  "email_newsletter",
-  "ads",
-  "bouche_a_oreille",
-  "autre",
-] as const;
-export type CrmLeadSource = (typeof CRM_LEAD_SOURCES)[number];
 
 export const CRM_ACTION_CATEGORIES = ["prospecting", "sales", "appointment"] as const;
 export type CrmActionCategory = (typeof CRM_ACTION_CATEGORIES)[number];
@@ -313,7 +324,7 @@ export type CrmProfileResolution =
 
 export type CrmCapturedProfile = {
   platform: CrmPlatform;
-  canonicalProfileUrl: string;
+  canonicalProfileUrl: string | null;
   normalizedHandle: string;
   displayName: string;
   firstName: string;

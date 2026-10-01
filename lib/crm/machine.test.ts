@@ -28,4 +28,9 @@ describe("CRM state machine", () => {
     expect(responsibilitySchema.safeParse(input).success).toBe(true);
     expect(responsibilitySchema.safeParse({ ...input, idempotencyKey: undefined }).success).toBe(false);
   });
+
+  it("accepts assigning responsibility to the current user", () => {
+    const input = { leadId: "00000000-0000-4000-8000-000000000001", setterId: "self", idempotencyKey: "responsibility-0002" };
+    expect(responsibilitySchema.safeParse(input).success).toBe(true);
+  });
 });

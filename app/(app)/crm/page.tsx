@@ -10,7 +10,7 @@ import { getCrmActions, getCrmKpiSources, getCrmSetters } from "@/lib/crm/querie
 import { getCrmExtensionRelease } from "@/lib/crm/extension-release";
 import { crmPeriodDateValue, resolveCrmPeriod } from "@/lib/crm/period";
 import { crmLeadSourceSchema } from "@/lib/crm/schemas";
-import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
+import { CRM_CHANNELS, CRM_LEAD_SOURCES } from "@/lib/crm/types";
 
 import { CrmActionList } from "./crm-action-list";
 import { CrmExtensionSuggestion } from "./crm-extension-suggestion";
@@ -27,7 +27,7 @@ function leadKpiHref(key: (typeof KPI_KEYS)[number], params: { setter?: string; 
     query.set("eventTo", crmPeriodDateValue(period.to));
   }
   if (params.setter) query.set("responsible", params.setter);
-  if (params.platform === "instagram" || params.platform === "linkedin") query.set("platform", params.platform);
+  if (params.platform) query.set("platform", params.platform);
   if (params.offer) query.set("offer", params.offer);
   if (params.source) query.set("source", params.source);
   return `/crm/leads?${query.toString()}`;
@@ -62,7 +62,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
   const defaultPeriod = resolveCrmPeriod("current-month", undefined, undefined);
   const [setters, offers] = await Promise.all([getCrmSetters(access.accountId), getBusinessSalesOffers(access.accountId)]);
   const setterId = isTeamView && setters.some((setter) => setter.id === params.setter) ? params.setter : undefined;
-  const platform = params.platform === "instagram" || params.platform === "linkedin" ? params.platform : undefined;
+  const platform = CRM_CHANNELS.find((candidate) => candidate === params.platform);
   const offerId = offers.some((offer) => offer.id === params.offer) ? params.offer : undefined;
   const source = crmLeadSourceSchema.safeParse(params.source).success ? crmLeadSourceSchema.parse(params.source) : undefined;
   const [{ events, stageChanges, calls, sales: linkedSales }, actions] = await Promise.all([
@@ -106,7 +106,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
           {period.preset === "custom" && <><input type="hidden" name="from" value={crmPeriodDateValue(period.from)} /><input type="hidden" name="to" value={crmPeriodDateValue(period.to)} /></>}
         </div>
         {isTeamView && <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.setter")}<select name="setter" defaultValue={setterId ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allSetters")}</option>{setters.map((setter) => <option key={setter.id} value={setter.id}>{setter.name}</option>)}</select></label>}
-        <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.platform")}<select name="platform" defaultValue={platform ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allPlatforms")}</option><option value="instagram">Instagram</option><option value="linkedin">LinkedIn</option></select></label>
+        <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.channel")}<select name="platform" defaultValue={platform ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allChannels")}</option>{CRM_CHANNELS.map((channel) => <option key={channel} value={channel}>{t(`sources.${channel}`)}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.offer")}<select name="offer" defaultValue={offerId ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allOffers")}</option>{offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.source")}<select name="source" defaultValue={source ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allSources")}</option>{CRM_LEAD_SOURCES.map((item) => <option key={item} value={item}>{t(`sources.${item}`)}</option>)}</select></label>
         <Button type="submit" variant="outline" className="min-h-11 lg:col-span-1">{t("kpis.apply")}</Button>
