@@ -409,7 +409,7 @@ export function BottleneckFunnel({
           <p className="max-w-3xl text-base leading-6 font-semibold">
             {t("bottleneckFunnel.summaryTotal")}: <span className="text-bottleneck-highlight">{activeData.totalPotential === null ? "—" : gainLabel(t, activeData.totalPotential, locale)}</span>
           </p>
-          <Button type="button" size="lg" className="px-[18px] text-[13.5px]" data-testid="bottleneck-summary-button" onClick={() => setSummaryOpen(true)}>
+          <Button type="button" variant="outline" size="lg" className="px-[18px] text-[13.5px]" data-testid="bottleneck-summary-button" onClick={() => setSummaryOpen(true)}>
             {t("bottleneckFunnel.viewSummary")}
             <ArrowRight aria-hidden="true" />
           </Button>
