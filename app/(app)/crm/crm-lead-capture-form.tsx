@@ -105,7 +105,7 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
   return (
     <form onSubmit={submit} data-crm-capture-form className="sticker-card flex flex-col gap-4 p-4 sm:p-5" aria-labelledby="crm-capture-title">
       <h2 id="crm-capture-title" className="text-lg font-bold">{t("captureTitle")}</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] lg:items-end">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] lg:items-start">
         <label className="flex flex-col gap-1.5 text-sm font-bold">
           {t("profileOrHandle")}
           <input name="identity" required inputMode="url" autoComplete="off" placeholder={t("profileUrlPlaceholder")} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
@@ -124,8 +124,8 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
           <select name="source" value={source} onChange={(event) => { const nextSource = CRM_LEAD_SOURCES.find((candidate) => candidate === event.target.value) ?? "instagram"; setSource(nextSource); setSourceWasEdited(true); }} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">{CRM_LEAD_SOURCES.map((sourceOption) => <option key={sourceOption} value={sourceOption}>{t(`sourceOptions.${sourceOption}`)}</option>)}</select>
           <span className="text-xs font-normal leading-5 text-muted-foreground">{t("sourceHelp")}</span>
         </label>
-        <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-1">{t("newLeadHint")}</p>
-        <Button type="submit" disabled={isPending} className="min-h-11 sm:col-span-2 lg:col-span-1">{isPending ? t("capturing") : t("capture")}</Button>
+        <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-1 lg:mt-6">{t("newLeadHint")}</p>
+        <Button type="submit" disabled={isPending} className="min-h-11 sm:col-span-2 lg:col-span-1 lg:mt-6 lg:self-start">{isPending ? t("capturing") : t("capture")}</Button>
       </div>
       <p className="min-h-5 text-sm font-bold text-muted-foreground" aria-live="polite">{message}</p>
     </form>
