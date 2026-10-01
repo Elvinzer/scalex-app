@@ -33,6 +33,20 @@ function valueLabel(value: string | number | null, emptyLabel: string): string {
   return String(value);
 }
 
+function textValue(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+function leadLabel(row: CrmImportPreviewResponse["rows"][number], fallback: string): string {
+  const displayName = textValue(row.values.displayName);
+  if (displayName) return displayName;
+  const name = [textValue(row.values.firstName), textValue(row.values.lastName)].filter((value): value is string => Boolean(value)).join(" ");
+  if (name) return name;
+  return textValue(row.values.handle) ?? textValue(row.values.email) ?? fallback;
+}
+
 function issueLabel(t: ReturnType<typeof useTranslations<"crm">>, issue: string): string {
   if (issue === "missing_phone") return t("import.issues.missing_phone");
   if (issue === "invalid_phone") return t("import.issues.invalid_phone");
@@ -384,7 +398,7 @@ export function CrmLeadImport() {
             {preview.duplicateGroups.map((group) => {
               const groupRows = preview.rows.filter((row) => group.rowKeys.includes(row.rowKey));
               return <div key={group.id} className="flex flex-col gap-2 rounded border border-border p-3">
-                <p className="text-xs text-muted-foreground">{t("import.rows", { numbers: groupRows.map((row) => String(row.rowIndex + 1)).join(", ") })}</p>
+                <p className="text-xs text-muted-foreground">{t("import.rows", { names: groupRows.map((row) => leadLabel(row, t("import.row", { name: String(row.rowIndex + 1) }))).join(", ") })}</p>
                 <label className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <span className="font-mono">{group.phoneNormalized ?? t("import.missingPhone")}</span>
                   <select
@@ -434,7 +448,7 @@ export function CrmLeadImport() {
           <div className="mt-3 flex flex-col gap-3">
             {existingRows.map((row) => (
               <label key={row.rowKey} className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>{row.issues.includes("multiple_existing_phone_matches") ? t("import.multipleExistingRow", { number: row.rowIndex + 1 }) : row.issues.includes("profile_conflict") ? t("import.profileConflictRow", { number: row.rowIndex + 1 }) : t("import.row", { number: row.rowIndex + 1 })}</span>
+                <span>{row.issues.includes("multiple_existing_phone_matches") ? t("import.multipleExistingRow", { name: leadLabel(row, t("import.row", { name: String(row.rowIndex + 1) })) }) : row.issues.includes("profile_conflict") ? t("import.profileConflictRow", { name: leadLabel(row, t("import.row", { name: String(row.rowIndex + 1) })) }) : t("import.row", { name: leadLabel(row, String(row.rowIndex + 1)) })}</span>
                 <select
                   value={review.existingLeadDecisions[row.rowKey] ?? ""}
                   onChange={(event) => {
@@ -460,7 +474,7 @@ export function CrmLeadImport() {
           <div className="mt-3 flex flex-col gap-3">
             {preview.rows.filter((row) => row.action !== "merged" && !row.issues.includes("profile_conflict") && (row.issues.includes("missing_phone") || row.issues.includes("invalid_phone"))).map((row) => (
               <label key={row.rowKey} className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>{t("import.row", { number: row.rowIndex + 1 })}</span>
+                <span>{t("import.row", { name: leadLabel(row, String(row.rowIndex + 1)) })}</span>
                 <select
                   value={review.missingPhoneDecisions[row.rowKey] ?? ""}
                   onChange={(event) => {
@@ -486,7 +500,7 @@ export function CrmLeadImport() {
           <div className="mt-3 flex flex-col gap-3">
             {preview.rows.filter((row) => row.action !== "merged" && !row.issues.includes("profile_conflict") && row.issues.includes("missing_lead_created_at")).map((row) => (
               <label key={row.rowKey} className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>{t("import.row", { number: row.rowIndex + 1 })}</span>
+                <span>{t("import.row", { name: leadLabel(row, String(row.rowIndex + 1)) })}</span>
                 <select
                   value={review.missingDateDecisions[row.rowKey] ?? ""}
                   onChange={(event) => {
@@ -537,7 +551,7 @@ export function CrmLeadImport() {
           <p className="text-sm font-bold">{t("import.blocked")}</p>
           <ul className="mt-2 list-disc pl-5 text-sm">
             {reviewRows.slice(0, 12).map((row) => (
-              <li key={row.rowKey}>{t("import.row", { number: row.rowIndex + 1 })}: {row.issues.map((issue) => issueLabel(t, issue)).join(", ")}</li>
+              <li key={row.rowKey}>{t("import.row", { name: leadLabel(row, String(row.rowIndex + 1)) })}: {row.issues.map((issue) => issueLabel(t, issue)).join(", ")}</li>
             ))}
           </ul>
         </section>

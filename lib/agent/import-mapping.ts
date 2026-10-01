@@ -207,10 +207,11 @@ function hasValidColumnValues(values: string[], normalize: (value: string) => st
   return nonEmpty.length > 0 && nonEmpty.every((value) => normalize(value) !== null);
 }
 
-function crmColumnHint(header: string, values: string[]): CrmColumnHint | undefined {
+function crmColumnHint(header: string, values: string[], allHeaders: string[] = []): CrmColumnHint | undefined {
   const key = normalizedColumnLabel(header);
   const nonEmpty = nonEmptyValues(values);
   const dates = isDateColumn(values);
+  const hasSeparateFirstName = allHeaders.some((candidate) => /(^|_)(prenom|first_name|firstname)(_|$)/.test(normalizedColumnLabel(candidate)));
 
   if (!key) return undefined;
   if (/whatsapp|^wa$/.test(key)) {
@@ -227,6 +228,7 @@ function crmColumnHint(header: string, values: string[]): CrmColumnHint | undefi
   if (/derniere_interaction|last_interaction/.test(key)) {
     return dates ? { targetField: "responseAt", confidence: "low" } : { targetField: null, confidence: "high" };
   }
+  if (/^date$/.test(key)) return dates ? { targetField: "leadCreatedAt", confidence: "medium" } : { targetField: null, confidence: "high" };
   if (/premier_message|first_message/.test(key)) {
     return dates ? { targetField: "messageOccurredAt", confidence: "medium" } : { targetField: null, confidence: "high" };
   }
@@ -251,7 +253,9 @@ function crmColumnHint(header: string, values: string[]): CrmColumnHint | undefi
   }
   if (/nom_affiche|display_name|full_name|nom_complet/.test(key)) return { targetField: "displayName", confidence: "high" };
   if (/(^|_)(prenom|first_name|firstname)(_|$)/.test(key)) return { targetField: "firstName", confidence: "high" };
-  if (/(^|_)(nom|last_name|lastname)(_|$)/.test(key)) return { targetField: "lastName", confidence: "high" };
+  if (/(^|_)(nom|last_name|lastname)(_|$)/.test(key)) {
+    return key === "nom" && !hasSeparateFirstName ? { targetField: "displayName", confidence: "high" } : { targetField: "lastName", confidence: "high" };
+  }
   if (/pseudo|username|user_name|handle/.test(key)) return { targetField: "handle", confidence: "high" };
   if (/url.*profil|profil.*url|profile.*url|lien.*profil|profile_link/.test(key)) return { targetField: "profileUrl", confidence: "high" };
   if (/plateforme|platform|reseau|network/.test(key)) {
@@ -280,10 +284,12 @@ function isLikelyCrmSheet(sheet: RawSheet): boolean {
   const headers = sheet.headers.map(normalizedColumnLabel);
   const phoneIndex = headers.findIndex((header) => /(^|_)(telephone|tel|phone|mobile|gsm)(_|$)/.test(header));
   const emailIndex = headers.findIndex((header) => /(^|_)(email|e_mail|mail)(_|$)/.test(header));
+  const profileUrlIndex = headers.findIndex((header) => /url.*profil|profil.*url|profile.*url|lien.*profil|profile_link/.test(header));
   const identityIndex = headers.findIndex((header) => /(^|_)(nom|prenom|name|first_name|last_name|pseudo|username|contact)(_|$)/.test(header));
   const hasPhone = phoneIndex >= 0 && sheet.rows.some((row) => isPhoneLike(row[phoneIndex] ?? ""));
   const hasEmail = emailIndex >= 0 && sheet.rows.some((row) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((row[emailIndex] ?? "").trim()));
-  return (hasPhone || hasEmail) && identityIndex >= 0;
+  const hasProfileUrl = profileUrlIndex >= 0 && sheet.rows.some((row) => /^https?:\/\//i.test((row[profileUrlIndex] ?? "").trim()));
+  return (hasPhone || hasEmail || hasProfileUrl) && identityIndex >= 0;
 }
 
 function mappingValues(unit: MappableUnit, sourceColumn: string): string[] {
@@ -314,7 +320,7 @@ function repairCrmMapping(result: ImportMappingResult, unit: MappableUnit, optio
   const repaired = result.mappings.map((mapping) => {
     const values = mappingValues(unit, mapping.sourceColumn);
     const actualHeader = unit.sheet.headers.find((header) => header.trim().toLowerCase() === mapping.sourceColumn.trim().toLowerCase());
-    const hint = actualHeader ? crmColumnHint(actualHeader, values) : undefined;
+    const hint = actualHeader ? crmColumnHint(actualHeader, values, unit.sheet.headers) : undefined;
     if (hint) return { ...mapping, targetField: hint.targetField, confidence: hint.confidence };
 
     const targetField = mapping.targetField as CrmImportField | null;
@@ -328,7 +334,7 @@ function repairCrmMapping(result: ImportMappingResult, unit: MappableUnit, optio
   for (const [index, header] of unit.sheet.headers.entries()) {
     if (!header.trim() || mappedHeaders.has(header.trim().toLowerCase())) continue;
     const values = unit.sheet.rows.map((row) => row[index] ?? "");
-    const hint = crmColumnHint(header, values);
+    const hint = crmColumnHint(header, values, unit.sheet.headers);
     if (!hint?.targetField) continue;
     repaired.push({
       sourceColumn: header,
@@ -536,7 +542,7 @@ function buildSystemPrompt(options?: ImportMappingOptions): string {
       SYSTEM_PROMPT,
       "",
       'Contexte supplémentaire : cet import vient du CRM et doit reprendre un historique de leads, ligne par ligne. Choisis targetTable = "crm_leads" pour une feuille qui contient des prospects, ou "ignore" si elle ne contient pas de fiches de leads.',
-      "- Une feuille avec des téléphones et des noms/emails est une liste de leads même si le canal d'acquisition ou la date de création manquent : garde targetTable = \"crm_leads\" et laisse l'interface demander le canal manquant.",
+      "- Une feuille avec des téléphones, des emails ou des URLs de profil et des noms est une liste de leads même si le canal d'acquisition ou la date de création manquent : garde targetTable = \"crm_leads\" et laisse l'interface demander le canal manquant.",
       "- Utilise uniquement les champs crm_leads décrits ci-dessus. Ne mappe jamais une plateforme comme source d'acquisition : platform décrit le réseau du profil et source décrit l'origine marketing du lead.",
       "- Cherche en priorité une colonne de téléphone, une colonne de date de création du lead et une colonne de source d'acquisition. Si la source n'est pas identifiable, laisse les colonnes ambiguës sans targetField : l'interface demandera un canal par feuille.",
       "- leadCreatedAt est la date historique de création du lead, pas la date d'import dans Minaly. Ne déduis aucune date d'événement absente du fichier.",

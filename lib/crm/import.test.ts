@@ -5,6 +5,7 @@ import { parseImportFile } from "@/lib/import/parse";
 
 import {
   duplicateGroups,
+  inferCrmPlatformFromProfileUrl,
   mergePreparedRows,
   normalizeCrmDate,
   normalizeCrmPhone,
@@ -112,6 +113,25 @@ describe("CRM import row preparation", () => {
     expect(prepared.rows[0]?.values.source).toBeUndefined();
     expect(prepared.needsDefaultSource).toBe(true);
     expect(sheetNeedsDefaultSource(prepared.sheet)).toBe(true);
+  });
+
+  it("accepts a named profile lead without a phone and infers its platform", () => {
+    const prepared = prepareCrmSheet(sheet({
+      defaultSource: "instagram",
+      mapping: {
+        ...sheet().mapping,
+        mappings: [
+          { sourceColumn: "Nom", targetField: "displayName", confidence: "high", granularity: "daily", sampleValues: ["Jane Doe"], columnValues: ["Jane Doe"] },
+          { sourceColumn: "URL profil", targetField: "profileUrl", confidence: "high", granularity: "daily", sampleValues: ["https://www.instagram.com/jane/"], columnValues: ["https://www.instagram.com/jane/"] },
+          { sourceColumn: "Date", targetField: "leadCreatedAt", confidence: "high", granularity: "daily", sampleValues: ["01/10/2026"], columnValues: ["01/10/2026"] },
+        ],
+      },
+    }), "fr");
+
+    expect(prepared.rows[0]?.values.platform).toBe("instagram");
+    expect(prepared.rows[0]?.phoneNormalized).toBeNull();
+    expect(prepared.rows[0]?.issues).not.toContain("missing_phone");
+    expect(inferCrmPlatformFromProfileUrl("https://www.linkedin.com/in/jane")).toBe("linkedin");
   });
 
   it("does not block a row when a mixed email/contact column contains a valid phone", () => {

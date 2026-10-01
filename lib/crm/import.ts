@@ -115,6 +115,7 @@ export function normalizeCrmStage(raw: string | null | undefined): CrmLeadStage 
   return enumFromLabel(raw, CRM_LEAD_STAGES, {
     a_contacter: "first_message_sent",
     a_verifier: "conversation_in_progress",
+    "1er_message_envoye": "first_message_sent",
     first_message: "first_message_sent",
     message_sent: "first_message_sent",
     message_envoye: "first_message_sent",
@@ -122,6 +123,8 @@ export function normalizeCrmStage(raw: string | null | undefined): CrmLeadStage 
     premier_message_envoye: "first_message_sent",
     premier_msg_envoye: "first_message_sent",
     non_qualifie: "first_message_sent",
+    va_envoye: "value_content_sent",
+    va_envoyee: "value_content_sent",
     conversation: "conversation_in_progress",
     conversation_started: "conversation_in_progress",
     conversation_en_cours: "conversation_in_progress",
@@ -232,6 +235,25 @@ function deriveNames(values: CrmImportRowValues): void {
   if (!values.lastName) values.lastName = "";
 }
 
+function hasCrmLeadIdentity(values: CrmImportRowValues): boolean {
+  return ["profileUrl", "handle", "displayName", "firstName", "lastName", "email", "phone"].some(
+    (field) => values[field as CrmImportField] !== undefined,
+  );
+}
+
+export function inferCrmPlatformFromProfileUrl(profileUrl: string | null | undefined): CrmPlatform | null {
+  const value = profileUrl?.trim() ?? "";
+  if (!value) return null;
+  try {
+    const hostname = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+    if (hostname === "instagram.com" || hostname.endsWith(".instagram.com")) return "instagram";
+    if (hostname === "linkedin.com" || hostname.endsWith(".linkedin.com")) return "linkedin";
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function prepareCrmSheet(sheet: CrmImportSheet, locale: Locale): CrmPreparedSheet {
   const rowCount = rowCountForSheet(sheet);
   const rows: PreparedCrmImportRow[] = [];
@@ -262,7 +284,7 @@ export function prepareCrmSheet(sheet: CrmImportSheet, locale: Locale): CrmPrepa
       }
     }
 
-    const hasLeadIdentity = ["profileUrl", "handle", "displayName", "firstName", "lastName", "email", "phone"].some((field) => values[field as CrmImportField] !== undefined);
+    const hasLeadIdentity = hasCrmLeadIdentity(values);
     if (!hasLeadIdentity) issues.push("no_lead_identity");
     if (values.source === undefined && sheet.defaultSource) {
       values.source = sheet.defaultSource;
@@ -271,8 +293,12 @@ export function prepareCrmSheet(sheet: CrmImportSheet, locale: Locale): CrmPrepa
       if (invalidSourceIndex >= 0) issues.splice(invalidSourceIndex, 1);
     }
     deriveNames(values);
+    if (values.platform === undefined && !issues.includes("invalid_value:platform")) {
+      const inferredPlatform = inferCrmPlatformFromProfileUrl(typeof values.profileUrl === "string" ? values.profileUrl : null);
+      if (inferredPlatform) values.platform = inferredPlatform;
+    }
     const phone = normalizeCrmPhone(typeof values.phone === "string" ? values.phone : null, locale);
-    if (phone.reason === "missing") issues.push("missing_phone");
+    if (phone.reason === "missing" && !hasLeadIdentity) issues.push("missing_phone");
     if (phone.reason === "invalid" && !issues.includes("invalid_phone")) issues.push("invalid_phone");
     if (values.source === undefined) issues.push("missing_source");
     if (values.leadCreatedAt === undefined) issues.push("missing_lead_created_at");
@@ -402,8 +428,10 @@ export function lostReasonForRow(row: PreparedCrmImportRow): CrmLostReason | nul
 }
 
 export function platformForRow(row: PreparedCrmImportRow): CrmPlatform | null {
+  if (row.issues.includes("invalid_value:platform")) return null;
   const value = row.values.platform;
-  return typeof value === "string" && CRM_PLATFORMS.includes(value as CrmPlatform) ? value as CrmPlatform : null;
+  if (typeof value === "string" && CRM_PLATFORMS.includes(value as CrmPlatform)) return value as CrmPlatform;
+  return inferCrmPlatformFromProfileUrl(typeof row.values.profileUrl === "string" ? row.values.profileUrl : null);
 }
 
 export function eventDateForRow(row: PreparedCrmImportRow, field: CrmImportField): Date | null {

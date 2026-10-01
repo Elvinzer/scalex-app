@@ -167,4 +167,56 @@ describe("mapImportedFile with the Falco/Groq provider", () => {
     expect(targetFor("Téléphone")).toBe("phone");
     expect(targetFor("Email / Contact")).toBe("email");
   });
+
+  it("recovers a pasted CRM table with profile URLs when Falco says to ignore it", async () => {
+    mocks.requestFalcoJson.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  targetTable: "ignore",
+                  ignoreReason: "Pas de téléphone détecté",
+                  mappings: [],
+                  unmappedColumns: [],
+                  questions: [],
+                }),
+              },
+            },
+          ],
+          usage: { prompt_tokens: 10, completion_tokens: 6 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const mapped = await mapImportedFile(
+      {
+        kind: "sheet",
+        fileName: "tableau-colle.tsv",
+        sheet: {
+          name: "tableau-colle.tsv",
+          headers: ["Date", "Nom", "Url profil", "Statut", "Ressource envoyés", "Commentaire"],
+          rows: [
+            ["01/10/2026", "Laurent B", "https://www.instagram.com/laurentb/", "VA envoyé", "ETF", ""],
+            ["01/10/2026", "Stephen", "https://www.instagram.com/zorba1502/", "1er message envoyé", "ETF", ""],
+          ],
+          headerRowConfident: true,
+          previewRows: [],
+        },
+      },
+      "Business de test",
+      { kind: "groq", apiKey: "test-key-not-secret", baseURL: "https://example.test", model: "test-model" },
+      { targetTableHint: "crm_leads", crmIgnoreReason: "hors périmètre CRM" },
+    );
+
+    const targetFor = (sourceColumn: string) => mapped.result.mappings.find((entry) => entry.sourceColumn === sourceColumn)?.targetField;
+    expect(mapped.result.targetTable).toBe("crm_leads");
+    expect(targetFor("Date")).toBe("leadCreatedAt");
+    expect(targetFor("Nom")).toBe("displayName");
+    expect(targetFor("Url profil")).toBe("profileUrl");
+    expect(targetFor("Statut")).toBe("stage");
+    expect(targetFor("Ressource envoyés")).toBeUndefined();
+  });
 });
