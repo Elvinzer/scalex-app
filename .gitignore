@@ -10,8 +10,10 @@
 /build
 .turbo
 
-# Generated CRM extension release artifacts
-/public/downloads/
+# Generated CRM extension release artifacts. Keep the current pilot package
+# tracked so static deployments serve the installation URL.
+/public/downloads/*
+!/public/downloads/minaly-crm-latest.zip
 
 # testing / coverage
 /coverage
