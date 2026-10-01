@@ -388,10 +388,18 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, successLe
     close.className = "minaly-close";
     close.setAttribute("aria-label", "Fermer");
     close.append(minalyIcon("close"));
-    close.addEventListener("click", (event) => {
+    let closeHandled = false;
+    const handleClose = (event) => {
+        event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (closeHandled)
+            return;
+        closeHandled = true;
         onClose();
-    });
+    };
+    close.addEventListener("pointerdown", handleClose, { capture: true });
+    close.addEventListener("click", handleClose, { capture: true });
     header.append(brand, close);
     const body = document.createElement("div");
     body.className = "minaly-body";
@@ -718,6 +726,7 @@ function minalyMount() {
 :host(.minaly-floating) { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2147483647; margin-inline-start: 0; }
 * { box-sizing: border-box; }
 .minaly-panel { position: fixed; z-index: 2147483647; }
+.minaly-panel[hidden] { display: none; }
 .minaly-button, .minaly-panel, .minaly-panel button, .minaly-panel input, .minaly-panel select, .minaly-panel textarea { font-family: inherit; }
 .minaly-button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--minaly-accent); color: var(--minaly-accent-text); font-size: 13px; font-weight: 750; letter-spacing: -0.01em; box-shadow: 0 8px 20px var(--minaly-shadow); cursor: pointer; touch-action: manipulation; transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
 .minaly-button:hover { background: var(--minaly-accent-hover); box-shadow: 0 14px 32px var(--minaly-shadow); transform: translateY(-1px); }

@@ -32,7 +32,7 @@ describe("CRM extension package", () => {
       env: { ...process.env, CRM_EXTENSION_PREVIOUS_VERSION: "" },
       stdio: "pipe",
     });
-    const versioned = readFileSync(path.join(rootDir, "public", "downloads", "minaly-crm-v0.3.0.zip"));
+    const versioned = readFileSync(path.join(rootDir, "public", "downloads", "minaly-crm-v0.3.1.zip"));
     const latest = readFileSync(path.join(rootDir, "public", "downloads", "minaly-crm-latest.zip"));
     const expected = ["manifest.json", "auth-callback.html", "dist/background.js", "dist/content.js", "dist/auth-callback.js"];
     expect(zipNames(versioned)).toEqual(expected);
@@ -43,7 +43,7 @@ describe("CRM extension package", () => {
   it("rejects a package version that is not greater than the published version", () => {
     expect(() => execFileSync(process.execPath, ["scripts/package-extension.mjs"], {
       cwd: rootDir,
-      env: { ...process.env, CRM_EXTENSION_PREVIOUS_VERSION: "0.3.0" },
+      env: { ...process.env, CRM_EXTENSION_PREVIOUS_VERSION: "0.3.1" },
       stdio: "pipe",
     })).toThrow(/must be greater than previous release/);
   });

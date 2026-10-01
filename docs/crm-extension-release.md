@@ -20,6 +20,9 @@ recherche manuelle limitée au compte connecté et l’ouverture WhatsApp depuis
 fiche lead. Le contrat reste compatible avec les réponses précédentes et le
 package contient la version compilée du content script et du service worker.
 
+La release `0.3.1` corrige la fermeture du panneau depuis la croix, y compris
+sur les pages sociales qui capturent les événements de clic.
+
 ## Préparer une release
 
 1. Augmenter `version` dans `extension/manifest.json`.

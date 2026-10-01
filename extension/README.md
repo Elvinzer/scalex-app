@@ -19,6 +19,8 @@ visible, clique sur `Se connecter à Minaly`, puis reviens sur le profil. Le
 panneau confirme la connexion et permet d’ajouter ou de mettre à jour le lead.
 La version `0.3.0` peut aussi proposer une fiche existante sur un autre réseau
 ou lancer une recherche manuelle dans le compte connecté.
+La version `0.3.1` fiabilise la fermeture du panneau depuis la croix sur les
+pages Instagram et LinkedIn.
 
 ## Construire le package local
 
