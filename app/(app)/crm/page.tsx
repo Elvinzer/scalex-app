@@ -7,6 +7,7 @@ import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
 import { computeCrmKpis } from "@/lib/crm/kpis";
 import { getBusinessSalesOffers } from "@/lib/business/queries";
 import { getCrmActions, getCrmKpiSources, getCrmSetters } from "@/lib/crm/queries";
+import { getCrmExtensionRelease } from "@/lib/crm/extension-release";
 import { crmPeriodDateValue, resolveCrmPeriod } from "@/lib/crm/period";
 import { crmLeadSourceSchema } from "@/lib/crm/schemas";
 import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
@@ -49,6 +50,12 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
   const { userId } = await getCurrentUser();
   const access = await requireCrmAccess(userId);
   if (!access) return null;
+  const extensionRelease = getCrmExtensionRelease();
+  const extensionInstallLabel = extensionRelease.distribution === "web_store"
+    ? t("extension.onboarding.installAction")
+    : extensionRelease.distribution === "pilot_package"
+      ? t("extension.onboarding.downloadPilot")
+      : null;
   const params = await searchParams;
   const isTeamView = params.team === "1" && hasCrmPermission(access, "crm:view-team");
   const period = resolveCrmPeriod(params.range, params.from, params.to);
@@ -84,7 +91,11 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
         {actions.length > 0 ? <CrmActionList initialActions={actions} groupedByCategory groupByDueDate /> : <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{t("today.emptyHelp")}</p><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div>}
       </section>
 
-      <CrmExtensionSuggestion accountId={access.accountId} />
+      <CrmExtensionSuggestion
+        accountId={access.accountId}
+        installUrl={extensionRelease.updateUrl}
+        installLabel={extensionInstallLabel}
+      />
 
       <form method="get" className="sticker-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
         {isTeamView && <input type="hidden" name="team" value="1" />}

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Puzzle } from "lucide-react";
+import { ArrowUpRight, Download, Puzzle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -9,7 +9,15 @@ import { Button } from "@/components/ui/button";
 
 const dismissalKeyPrefix = "minaly.crm.extension-suggestion.dismissed";
 
-export function CrmExtensionSuggestion({ accountId }: { accountId: string }) {
+export function CrmExtensionSuggestion({
+  accountId,
+  installUrl,
+  installLabel,
+}: {
+  accountId: string;
+  installUrl: string | null;
+  installLabel: string | null;
+}) {
   const t = useTranslations("crm");
   const [dismissed, setDismissed] = useState(false);
   const dismissalKey = `${dismissalKeyPrefix}:${accountId}`;
@@ -46,7 +54,15 @@ export function CrmExtensionSuggestion({ accountId }: { accountId: string }) {
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-        <Button asChild className="min-h-11">
+        {installUrl && installLabel && (
+          <Button asChild className="min-h-11">
+            <a href={installUrl} target="_blank" rel="noopener noreferrer">
+              {installLabel}
+              <Download className="size-4" aria-hidden="true" />
+            </a>
+          </Button>
+        )}
+        <Button asChild variant={installUrl ? "outline" : "default"} className="min-h-11">
           <Link href="/crm/extension">
             {t("extension.onboarding.openGuide")}
             <ArrowUpRight className="size-4" aria-hidden="true" />
