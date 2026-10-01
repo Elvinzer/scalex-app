@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { crmImports, crmLeadEvents, crmLeadStageHistory, leads, setters } from "@/db/schema";
+import { crmImports, crmLeadEvents, crmLeadProfiles, crmLeadStageHistory, leads, setters } from "@/db/schema";
 import { getBusinessSalesOfferDetails } from "@/lib/business/queries";
 import type { Offer } from "@/lib/business/types";
 import type { Locale } from "@/lib/i18n/config";
@@ -34,6 +34,8 @@ import {
 } from "./import-schema";
 import { eventForOutcome, legacyStageForCrmStage } from "./machine";
 import type { CrmEventMetadata, CrmEventType, CrmLeadStage } from "./types";
+import { normalizeCapturedProfile } from "./normalization";
+import { normalizeEmail, normalizeSearchText } from "./contact";
 
 type LeadRow = typeof leads.$inferSelect;
 
@@ -510,6 +512,49 @@ function stringValue(values: CrmImportRowValues, field: keyof CrmImportRowValues
   return typeof value === "string" ? value : null;
 }
 
+type CrmImportTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function attachImportedProfile(tx: CrmImportTransaction, accountId: string, leadId: string, row: PreparedCrmImportRow, capturedAt: Date): Promise<void> {
+  const platform = platformForRow(row);
+  const profileUrl = stringValue(row.values, "profileUrl");
+  const handle = stringValue(row.values, "handle");
+  if (!platform || (!profileUrl && !handle)) return;
+  const profile = normalizeCapturedProfile({
+    profileUrl,
+    platform,
+    handle,
+    displayName: stringValue(row.values, "displayName"),
+    firstName: stringValue(row.values, "firstName"),
+    lastName: stringValue(row.values, "lastName"),
+    capturedAt: capturedAt.toISOString(),
+  });
+  if (!profile) return;
+  const [sameNetwork] = await tx.select().from(crmLeadProfiles).where(and(eq(crmLeadProfiles.accountId, accountId), eq(crmLeadProfiles.leadId, leadId), eq(crmLeadProfiles.platform, profile.platform))).limit(1);
+  if (sameNetwork) {
+    if (sameNetwork.canonicalProfileUrl !== profile.canonicalProfileUrl || sameNetwork.normalizedHandle !== profile.normalizedHandle) {
+      throw new CrmImportValidationError("REVIEW_REQUIRED", "Ce lead possède déjà un autre profil sur cette plateforme.");
+    }
+    return;
+  }
+  if (profile.canonicalProfileUrl) {
+    const [owner] = await tx.select({ leadId: crmLeadProfiles.leadId }).from(crmLeadProfiles).where(and(eq(crmLeadProfiles.accountId, accountId), eq(crmLeadProfiles.platform, profile.platform), eq(crmLeadProfiles.canonicalProfileUrl, profile.canonicalProfileUrl))).limit(1);
+    if (owner && owner.leadId !== leadId) throw new CrmImportValidationError("REVIEW_REQUIRED", "Un autre lead utilise déjà ce profil.");
+  }
+  await tx.insert(crmLeadProfiles).values({
+    accountId,
+    leadId,
+    platform: profile.platform,
+    canonicalProfileUrl: profile.canonicalProfileUrl,
+    normalizedHandle: profile.normalizedHandle,
+    displayName: profile.displayName,
+    searchNameNormalized: normalizeSearchText(profile.displayName || `${profile.firstName} ${profile.lastName}`),
+    firstName: profile.firstName,
+    lastName: profile.lastName || null,
+    capturedAt,
+    updatedAt: capturedAt,
+  });
+}
+
 async function writeNewLead(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   accountId: string,
@@ -534,6 +579,7 @@ async function writeNewLead(
     firstName: stringValue(row.values, "firstName") ?? "Lead",
     lastName: stringValue(row.values, "lastName") ?? "",
     email: stringValue(row.values, "email"),
+    emailNormalized: normalizeEmail(stringValue(row.values, "email")),
     phone: row.phoneNormalized ? stringValue(row.values, "phone") : null,
     phoneNormalized: row.phoneNormalized,
     source,
@@ -561,6 +607,7 @@ async function writeNewLead(
     updatedAt: importedAt,
   }).returning({ id: leads.id });
   if (!created) throw new Error("Le lead n'a pas pu être créé.");
+  await attachImportedProfile(tx, accountId, created.id, row, importedAt);
 
   const createdEventKey = importKey + ":" + row.rowKey + ":lead_created";
   await tx.insert(crmLeadEvents).values(eventRecord({
@@ -646,13 +693,18 @@ async function updateExistingLead(
       Object.assign(set, { [column]: imported });
     }
   };
-  setIfAllowed("profileUrl", "canonicalProfileUrl", row.values.profileUrl, lead.canonicalProfileUrl);
-  setIfAllowed("platform", "platform", row.values.platform, lead.platform);
-  setIfAllowed("handle", "normalizedHandle", row.values.handle, lead.normalizedHandle);
-  setIfAllowed("displayName", "displayName", row.values.displayName, lead.displayName);
-  setIfAllowed("firstName", "firstName", row.values.firstName, lead.firstName);
-  setIfAllowed("lastName", "lastName", row.values.lastName, lead.lastName);
+  const importedPlatform = platformForRow(row);
+  const hasDifferentLegacyProfile = Boolean(importedPlatform && lead.platform && (importedPlatform !== lead.platform || stringValue(row.values, "profileUrl") !== lead.canonicalProfileUrl || stringValue(row.values, "handle") !== lead.normalizedHandle));
+  if (!hasDifferentLegacyProfile) {
+    setIfAllowed("profileUrl", "canonicalProfileUrl", row.values.profileUrl, lead.canonicalProfileUrl);
+    setIfAllowed("platform", "platform", row.values.platform, lead.platform);
+    setIfAllowed("handle", "normalizedHandle", row.values.handle, lead.normalizedHandle);
+    setIfAllowed("displayName", "displayName", row.values.displayName, lead.displayName);
+    setIfAllowed("firstName", "firstName", row.values.firstName, lead.firstName);
+    setIfAllowed("lastName", "lastName", row.values.lastName, lead.lastName);
+  }
   setIfAllowed("email", "email", row.values.email, lead.email);
+  if (row.values.email !== undefined && row.values.email !== null) set.emailNormalized = normalizeEmail(stringValue(row.values, "email"));
   const writeRawPhone = shouldWriteField(row.values.phone, lead.phone, fieldChoice(payload, row.rowKey, "phone"));
   if (writeRawPhone) set.phone = stringValue(row.values, "phone");
   if (row.phoneNormalized && lead.phoneNormalized !== row.phoneNormalized) set.phoneNormalized = row.phoneNormalized;
@@ -696,6 +748,7 @@ async function updateExistingLead(
   }
   const [updated] = await tx.update(leads).set(set).where(and(eq(leads.id, lead.id), eq(leads.accountId, accountId))).returning({ id: leads.id });
   if (!updated) throw new Error("Le lead existant n'a pas pu être mis à jour.");
+  await attachImportedProfile(tx, accountId, lead.id, row, importedAt);
 
   const events: Array<ReturnType<typeof eventRecord>> = [];
   const eventDates: Array<[keyof CrmImportRowValues, CrmEventType]> = [
@@ -894,6 +947,7 @@ function rowToTemporaryLead(row: PreparedCrmImportRow, id: string, accountId: st
     firstName: stringValue(row.values, "firstName") ?? "Lead",
     lastName: stringValue(row.values, "lastName") ?? "",
     email: stringValue(row.values, "email"),
+    emailNormalized: normalizeEmail(stringValue(row.values, "email")),
     phone: row.phoneNormalized ? stringValue(row.values, "phone") : null,
     phoneNormalized: row.phoneNormalized,
     source: sourceForRow(row, "autre") ?? "autre",

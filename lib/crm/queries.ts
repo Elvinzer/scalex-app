@@ -6,6 +6,7 @@ import {
   crmActions,
   crmCallLinks,
   crmLeadEvents,
+  crmLeadProfiles,
   crmLeadStageHistory,
   crmResponsibilityHistory,
   leadComments,
@@ -40,6 +41,7 @@ import type {
   CrmEventSource,
   CrmEventType,
   CrmLeadDetails,
+  CrmLeadProfile,
   CrmLeadEventView,
   CrmLeadListItem,
   CrmPlatform,
@@ -63,6 +65,8 @@ import type { NativeBookingAnswerValue } from "@/lib/native-booking/questions";
 import type { PublicBookingRequest } from "@/lib/native-booking/validation";
 import { getOrCreateSetterForActor } from "@/lib/setters/queries";
 import { normalizeCrmPhone } from "./import";
+import { normalizeEmail, normalizePhoneForCountry, normalizeSearchText, whatsappHrefFromNormalizedPhone } from "./contact";
+import { rankCrmProfileCandidates } from "./profile-matching";
 
 const callSetters = alias(setters, "crm_call_setter");
 const leadSetters = alias(setters, "crm_lead_setter");
@@ -132,6 +136,7 @@ function toLeadItem(
   row: LeadDatabaseRow,
   responsibleSetterName: string | null = null,
   nextCall: CrmLeadListItem["nextCall"] = null,
+  profiles: CrmLeadProfile[] = [],
 ): CrmLeadListItem {
   return {
     id: row.id,
@@ -139,6 +144,8 @@ function toLeadItem(
     platform: row.platform,
     canonicalProfileUrl: row.canonicalProfileUrl,
     normalizedHandle: row.normalizedHandle,
+    profiles,
+    whatsappHref: whatsappHrefFromNormalizedPhone(row.phoneNormalized),
     displayName: leadDisplayName(row),
     firstName: row.firstName,
     lastName: row.lastName,
@@ -166,6 +173,96 @@ function toLeadItem(
     nextAction: null,
     nextCall,
   };
+}
+
+function toCrmLeadProfile(row: typeof crmLeadProfiles.$inferSelect): CrmLeadProfile {
+  return {
+    id: row.id,
+    platform: row.platform,
+    canonicalProfileUrl: row.canonicalProfileUrl,
+    normalizedHandle: row.normalizedHandle,
+    displayName: row.displayName,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    capturedAt: row.capturedAt?.toISOString() ?? null,
+  };
+}
+
+async function getCrmLeadProfiles(accountId: string, leadIds: string[]): Promise<Map<string, CrmLeadProfile[]>> {
+  if (leadIds.length === 0) return new Map();
+  const rows = await db
+    .select()
+    .from(crmLeadProfiles)
+    .where(and(eq(crmLeadProfiles.accountId, accountId), inArray(crmLeadProfiles.leadId, leadIds)))
+    .orderBy(asc(crmLeadProfiles.platform), asc(crmLeadProfiles.id));
+  const result = new Map<string, CrmLeadProfile[]>();
+  for (const row of rows) {
+    const profiles = result.get(row.leadId) ?? [];
+    profiles.push(toCrmLeadProfile(row));
+    result.set(row.leadId, profiles);
+  }
+  return result;
+}
+
+function addProfilesToLeadItem(item: CrmLeadListItem, profiles: Map<string, CrmLeadProfile[]>): CrmLeadListItem {
+  return { ...item, profiles: profiles.get(item.id) ?? [] };
+}
+
+function profileSearchName(profile: CrmCapturedProfile): string {
+  return normalizeSearchText(profile.displayName?.trim() || `${profile.firstName} ${profile.lastName}`.trim() || profile.normalizedHandle);
+}
+
+type CrmTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function attachCrmLeadProfile(tx: CrmTransaction, accountId: string, leadId: string, profile: CrmCapturedProfile): Promise<void> {
+  const [sameNetwork] = await tx
+    .select()
+    .from(crmLeadProfiles)
+    .where(and(eq(crmLeadProfiles.accountId, accountId), eq(crmLeadProfiles.leadId, leadId), eq(crmLeadProfiles.platform, profile.platform)))
+    .limit(1);
+
+  if (sameNetwork) {
+    const urlConflict = Boolean(sameNetwork.canonicalProfileUrl && profile.canonicalProfileUrl && sameNetwork.canonicalProfileUrl !== profile.canonicalProfileUrl);
+    const handleConflict = sameNetwork.normalizedHandle !== profile.normalizedHandle;
+    if (urlConflict || handleConflict) throw new Error("CRM_PROFILE_CONFLICT");
+    await tx.update(crmLeadProfiles).set({
+      canonicalProfileUrl: sameNetwork.canonicalProfileUrl ?? profile.canonicalProfileUrl,
+      displayName: profile.displayName || sameNetwork.displayName,
+      firstName: profile.firstName || sameNetwork.firstName,
+      lastName: profile.lastName || sameNetwork.lastName,
+      searchNameNormalized: profileSearchName(profile) || sameNetwork.searchNameNormalized,
+      capturedAt: new Date(profile.capturedAt),
+      updatedAt: new Date(),
+    }).where(and(eq(crmLeadProfiles.id, sameNetwork.id), eq(crmLeadProfiles.accountId, accountId)));
+    return;
+  }
+
+  if (profile.canonicalProfileUrl) {
+    const [urlOwner] = await tx
+      .select({ leadId: crmLeadProfiles.leadId })
+      .from(crmLeadProfiles)
+      .where(and(
+        eq(crmLeadProfiles.accountId, accountId),
+        eq(crmLeadProfiles.platform, profile.platform),
+        eq(crmLeadProfiles.canonicalProfileUrl, profile.canonicalProfileUrl),
+      ))
+      .limit(1);
+    if (urlOwner && urlOwner.leadId !== leadId) throw new Error("CRM_PROFILE_CONFLICT");
+  }
+
+  await tx.insert(crmLeadProfiles).values({
+    accountId,
+    leadId,
+    platform: profile.platform,
+    canonicalProfileUrl: profile.canonicalProfileUrl,
+    normalizedHandle: profile.normalizedHandle,
+    displayName: profile.displayName || null,
+    searchNameNormalized: profileSearchName(profile),
+    firstName: profile.firstName || null,
+    lastName: profile.lastName || null,
+    capturedAt: new Date(profile.capturedAt),
+    updatedAt: new Date(),
+  });
 }
 
 type NextAction = { id: string; title: string; dueAt: string; category: CrmActionCategory };
@@ -407,7 +504,20 @@ export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {
   }
   if (filters.search) {
     const pattern = `%${filters.search}%`;
-    conditions.push(or(ilike(leads.displayName, pattern), ilike(leads.firstName, pattern), ilike(leads.lastName, pattern), ilike(leads.normalizedHandle, pattern)) ?? eq(leads.id, "00000000-0000-0000-0000-000000000000"));
+    const normalizedSearch = normalizeSearchText(filters.search);
+    conditions.push(or(
+      ilike(leads.displayName, pattern),
+      ilike(leads.firstName, pattern),
+      ilike(leads.lastName, pattern),
+      ilike(leads.normalizedHandle, pattern),
+      ilike(leads.email, pattern),
+      ilike(leads.phone, pattern),
+      ...(normalizedSearch ? [exists(db.select({ id: crmLeadProfiles.id }).from(crmLeadProfiles).where(and(
+        eq(crmLeadProfiles.accountId, accountId),
+        eq(crmLeadProfiles.leadId, leads.id),
+        or(eq(crmLeadProfiles.searchNameNormalized, normalizedSearch), ilike(crmLeadProfiles.normalizedHandle, pattern)),
+      )))] : []),
+    ) ?? eq(leads.id, "00000000-0000-0000-0000-000000000000"));
   }
 
   const limit = normalizeCrmLeadLimit(pagination.limit);
@@ -422,7 +532,11 @@ export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {
     .offset(offset);
   const nextActions = await getNextActions(accountId, rows.map(({ lead }) => lead.id));
   const nextCalls = await getNextCalls(accountId, rows.map(({ lead }) => lead.id));
-  return rows.map(({ lead, setterName }) => ({ ...toLeadItem(lead, setterName, nextCalls.get(lead.id) ?? null), nextAction: nextActions.get(lead.id) ?? null }));
+  const profiles = await getCrmLeadProfiles(accountId, rows.map(({ lead }) => lead.id));
+  return rows.map(({ lead, setterName }) => ({
+    ...addProfilesToLeadItem(toLeadItem(lead, setterName, nextCalls.get(lead.id) ?? null), profiles),
+    nextAction: nextActions.get(lead.id) ?? null,
+  }));
 }
 
 export async function getCrmLead(accountId: string, leadId: string): Promise<CrmLeadDetails | null> {
@@ -434,20 +548,21 @@ export async function getCrmLead(accountId: string, leadId: string): Promise<Crm
     .limit(1);
   if (!row) return null;
 
-  const [comments, events, stageHistory, responsibilityHistory, actions, calls] = await Promise.all([
+  const [comments, events, stageHistory, responsibilityHistory, actions, calls, profiles] = await Promise.all([
     db.select({ comment: leadComments, author: { displayName: users.displayName, email: users.email } }).from(leadComments).innerJoin(leads, and(eq(leadComments.leadId, leads.id), eq(leads.accountId, accountId))).leftJoin(users, eq(leadComments.userId, users.id)).where(eq(leadComments.leadId, leadId)).orderBy(asc(leadComments.createdAt)),
     db.select({ event: crmLeadEvents, actor: { displayName: users.displayName, email: users.email } }).from(crmLeadEvents).leftJoin(users, eq(crmLeadEvents.actorUserId, users.id)).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId))).orderBy(asc(crmLeadEvents.createdAt)),
     db.select({ history: crmLeadStageHistory, actor: { displayName: users.displayName, email: users.email }, setterName: setters.name }).from(crmLeadStageHistory).leftJoin(users, eq(crmLeadStageHistory.actorUserId, users.id)).leftJoin(setters, eq(crmLeadStageHistory.responsibleSetterId, setters.id)).where(and(eq(crmLeadStageHistory.accountId, accountId), eq(crmLeadStageHistory.leadId, leadId))).orderBy(asc(crmLeadStageHistory.changedAt)),
     db.select().from(crmResponsibilityHistory).where(and(eq(crmResponsibilityHistory.accountId, accountId), eq(crmResponsibilityHistory.leadId, leadId))).orderBy(asc(crmResponsibilityHistory.changedAt)),
     getCrmActions(accountId, { status: undefined, responsibleUserId: undefined, leadId }),
     getCrmCalls(accountId, leadId),
+    getCrmLeadProfiles(accountId, [leadId]),
   ]);
 
   return {
     ...toLeadItem(row.lead, row.setterName, calls.find((call) => call.attendance !== "cancelled" && new Date(call.scheduledAt).getTime() >= Date.now()) ? (() => {
       const nextCall = calls.find((call) => call.attendance !== "cancelled" && new Date(call.scheduledAt).getTime() >= Date.now());
       return nextCall ? { id: nextCall.id, scheduledAt: nextCall.scheduledAt, timeZone: nextCall.eventTimeZone, closer: nextCall.closer, source: nextCall.source, attendance: nextCall.attendance, outcome: nextCall.outcome } : null;
-    })() : null),
+    })() : null, profiles.get(leadId) ?? []),
     nextAction: (await getNextActions(accountId, [leadId])).get(leadId) ?? null,
     comments: comments.map(({ comment, author }) => ({ id: comment.id, userId: comment.userId, body: comment.body, createdAt: comment.createdAt.toISOString(), authorName: author?.displayName || author?.email || null })),
     events: events.map(({ event, actor }) => toEventView(event, actor?.displayName || actor?.email || null)),
@@ -459,35 +574,216 @@ export async function getCrmLead(accountId: string, leadId: string): Promise<Crm
 }
 
 export async function resolveCrmProfile(accountId: string, captured: CrmCapturedProfile): Promise<CrmProfileResolution> {
-  // Both predicates use dedicated account-scoped indexes. Running them in
-  // parallel removes one database round trip from the extension's critical
-  // path while preserving the exact-URL priority below.
   const exactProfile = captured.canonicalProfileUrl
+    ? db
+        .select({ lead: leads, setterName: setters.name, profile: crmLeadProfiles })
+        .from(crmLeadProfiles)
+        .innerJoin(leads, and(eq(crmLeadProfiles.leadId, leads.id), eq(leads.accountId, accountId)))
+        .leftJoin(setters, eq(leads.setterId, setters.id))
+        .where(and(eq(crmLeadProfiles.accountId, accountId), eq(crmLeadProfiles.platform, captured.platform), eq(crmLeadProfiles.canonicalProfileUrl, captured.canonicalProfileUrl)))
+        .limit(1)
+    : Promise.resolve([] as Array<{ lead: typeof leads.$inferSelect; setterName: string | null; profile: typeof crmLeadProfiles.$inferSelect }>);
+  const legacyExact = captured.canonicalProfileUrl
     ? db
         .select({ lead: leads, setterName: setters.name })
         .from(leads)
         .leftJoin(setters, eq(leads.setterId, setters.id))
-        .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.canonicalProfileUrl, captured.canonicalProfileUrl)))
+        .where(and(
+          eq(leads.accountId, accountId),
+          eq(leads.canonicalProfileUrl, captured.canonicalProfileUrl),
+          captured.platform === "whatsapp"
+            ? or(eq(leads.platform, "whatsapp"), eq(leads.source, "whatsapp"))
+            : eq(leads.platform, captured.platform),
+        ))
         .limit(1)
     : Promise.resolve([] as Array<{ lead: typeof leads.$inferSelect; setterName: string | null }>);
-  const [exactResult, candidatesResult] = await Promise.allSettled([
-    exactProfile,
-    db
+  const [profileExactResult, legacyExactResult] = await Promise.all([exactProfile, legacyExact]);
+  const exactProfileRow = profileExactResult[0];
+  if (exactProfileRow) {
+    const profiles = await getCrmLeadProfiles(accountId, [exactProfileRow.lead.id]);
+    return { kind: "known", lead: addProfilesToLeadItem(toLeadItem(exactProfileRow.lead, exactProfileRow.setterName), profiles) };
+  }
+  const legacyExactRow = legacyExactResult[0];
+  if (legacyExactRow) {
+    const profiles = await getCrmLeadProfiles(accountId, [legacyExactRow.lead.id]);
+    return { kind: "known", lead: addProfilesToLeadItem(toLeadItem(legacyExactRow.lead, legacyExactRow.setterName), profiles) };
+  }
+
+  const normalizedName = normalizeSearchText(captured.displayName || `${captured.firstName} ${captured.lastName}`);
+  const normalizedHandle = normalizeSearchText(captured.normalizedHandle);
+  const normalizedPhone = captured.phone ? normalizePhoneForCountry(captured.phone).normalized : null;
+  const normalizedEmail = normalizeEmail(captured.email);
+  const contactCandidates = (normalizedPhone || normalizedEmail)
+    ? await db
       .select({ lead: leads, setterName: setters.name })
       .from(leads)
       .leftJoin(setters, eq(leads.setterId, setters.id))
-      .where(and(eq(leads.accountId, accountId), eq(leads.platform, captured.platform), eq(leads.normalizedHandle, captured.normalizedHandle)))
-      .orderBy(desc(leads.updatedAt), asc(leads.id)),
-  ]);
-  if (exactResult.status === "rejected") throw exactResult.reason;
-  const exact = exactResult.value[0];
-  if (exact) return { kind: "known", lead: toLeadItem(exact.lead, exact.setterName) };
+      .where(and(
+        eq(leads.accountId, accountId),
+        or(
+          ...(normalizedPhone ? [eq(leads.phoneNormalized, normalizedPhone)] : []),
+          ...(normalizedEmail ? [eq(leads.emailNormalized, normalizedEmail)] : []),
+        ),
+      ))
+      .orderBy(desc(leads.updatedAt), asc(leads.id))
+      .limit(20)
+    : [];
+  if (contactCandidates.length > 0) {
+    const profiles = await getCrmLeadProfiles(accountId, contactCandidates.map(({ lead }) => lead.id));
+    return {
+      kind: "ambiguous",
+      profile: captured,
+      candidates: contactCandidates.slice(0, 5).map(({ lead, setterName }) => ({
+        ...addProfilesToLeadItem(toLeadItem(lead, setterName), profiles),
+        matchSignals: [
+          ...(normalizedPhone && lead.phoneNormalized === normalizedPhone ? ["phone"] : []),
+          ...(normalizedEmail && lead.emailNormalized === normalizedEmail ? ["email"] : []),
+        ],
+        matchScore: 100,
+      })),
+    };
+  }
+  const profileCandidates = await db
+    .select({ lead: leads, setterName: setters.name, profile: crmLeadProfiles })
+    .from(crmLeadProfiles)
+    .innerJoin(leads, and(eq(crmLeadProfiles.leadId, leads.id), eq(leads.accountId, accountId)))
+    .leftJoin(setters, eq(leads.setterId, setters.id))
+    .where(and(
+      eq(crmLeadProfiles.accountId, accountId),
+      or(
+        ...(captured.normalizedHandle ? [eq(crmLeadProfiles.normalizedHandle, captured.normalizedHandle)] : []),
+        ...(normalizedName ? [eq(crmLeadProfiles.searchNameNormalized, normalizedName)] : []),
+      ),
+    ))
+    .orderBy(desc(crmLeadProfiles.updatedAt), asc(crmLeadProfiles.id))
+    .limit(20);
 
-  if (candidatesResult.status === "rejected") throw candidatesResult.reason;
-  const candidates = candidatesResult.value;
-  const candidateItems = candidates.map(({ lead, setterName }) => toLeadItem(lead, setterName));
-  if (candidateItems.length > 0) return { kind: "ambiguous", profile: captured, candidates: candidateItems };
-  return { kind: "unknown", profile: captured };
+  const legacyPattern = normalizedName ? `%${captured.displayName.trim()}%` : `%${captured.normalizedHandle}%`;
+  const legacyCandidates = await db
+    .select({ lead: leads, setterName: setters.name })
+    .from(leads)
+    .leftJoin(setters, eq(leads.setterId, setters.id))
+    .where(and(
+      eq(leads.accountId, accountId),
+      or(
+        eq(leads.normalizedHandle, captured.normalizedHandle),
+        ilike(leads.displayName, legacyPattern),
+        ilike(leads.firstName, legacyPattern),
+        ilike(leads.lastName, legacyPattern),
+      ),
+    ))
+    .orderBy(desc(leads.updatedAt), asc(leads.id))
+    .limit(20);
+
+  const candidateById = new Map<string, { lead: LeadDatabaseRow; setterName: string | null; signals: Set<string>; score: number }>();
+  for (const row of profileCandidates) {
+    const nameMatch = Boolean(normalizedName && row.profile.searchNameNormalized === normalizedName);
+    const handleMatch = row.profile.normalizedHandle === captured.normalizedHandle || normalizeSearchText(row.profile.normalizedHandle) === normalizedHandle;
+    const existing = candidateById.get(row.lead.id) ?? { lead: row.lead, setterName: row.setterName, signals: new Set<string>(), score: 0 };
+    if (handleMatch) { existing.signals.add("handle"); existing.score = Math.max(existing.score, 90); }
+    if (nameMatch) { existing.signals.add("name"); existing.score = Math.max(existing.score, 75); }
+    candidateById.set(row.lead.id, existing);
+  }
+  for (const row of legacyCandidates) {
+    const nameMatch = normalizedName && normalizeSearchText(leadDisplayName(row.lead)) === normalizedName;
+    const handleMatch = row.lead.normalizedHandle === captured.normalizedHandle || normalizeSearchText(row.lead.normalizedHandle) === normalizedHandle;
+    const existing = candidateById.get(row.lead.id) ?? { lead: row.lead, setterName: row.setterName, signals: new Set<string>(), score: 0 };
+    if (handleMatch) { existing.signals.add("handle"); existing.score = Math.max(existing.score, 90); }
+    if (nameMatch) { existing.signals.add("name"); existing.score = Math.max(existing.score, 75); }
+    if (!existing.score) existing.signals.add("display_name");
+    candidateById.set(row.lead.id, existing);
+  }
+
+  if (candidateById.size === 0 && normalizedName) {
+    const approximateRows = await db
+      .select({ lead: leads, setterName: setters.name, profile: crmLeadProfiles })
+      .from(crmLeadProfiles)
+      .innerJoin(leads, and(eq(crmLeadProfiles.leadId, leads.id), eq(leads.accountId, accountId)))
+      .leftJoin(setters, eq(leads.setterId, setters.id))
+      .where(and(eq(crmLeadProfiles.accountId, accountId), ilike(crmLeadProfiles.searchNameNormalized, `${normalizedName.slice(0, 32)}%`)))
+      .orderBy(desc(crmLeadProfiles.updatedAt), asc(crmLeadProfiles.id))
+      .limit(5);
+    for (const row of approximateRows) {
+      candidateById.set(row.lead.id, { lead: row.lead, setterName: row.setterName, signals: new Set(["approximate"]), score: 40 });
+    }
+  }
+  const boundedCandidateRows = [...candidateById.values()]
+    .sort((left, right) => right.score - left.score || right.lead.updatedAt.getTime() - left.lead.updatedAt.getTime() || left.lead.id.localeCompare(right.lead.id))
+    .slice(0, 5);
+  if (boundedCandidateRows.length === 0) return { kind: "unknown", profile: captured };
+  const profiles = await getCrmLeadProfiles(accountId, boundedCandidateRows.map((candidate) => candidate.lead.id));
+  const candidateItems = boundedCandidateRows.map(({ lead, setterName, signals, score }) => ({
+    ...addProfilesToLeadItem(toLeadItem(lead, setterName), profiles),
+    matchSignals: [...signals],
+    matchScore: score,
+  }));
+  return { kind: "ambiguous", profile: captured, candidates: candidateItems };
+}
+
+export async function searchCrmProfileCandidates(accountId: string, query: string): Promise<CrmLeadListItem[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+  const normalized = normalizeSearchText(trimmed);
+  const queryEmail = normalizeEmail(trimmed);
+  const pattern = `%${trimmed}%`;
+  const rows = await db
+    .select({ lead: leads, setterName: setters.name })
+    .from(leads)
+    .leftJoin(setters, eq(leads.setterId, setters.id))
+    .where(and(
+      eq(leads.accountId, accountId),
+      or(
+        ilike(leads.displayName, pattern),
+        ilike(leads.firstName, pattern),
+        ilike(leads.lastName, pattern),
+        ilike(leads.normalizedHandle, pattern),
+        ilike(leads.email, pattern),
+        ilike(leads.phone, pattern),
+        ...(queryEmail ? [eq(leads.emailNormalized, queryEmail)] : []),
+        ...(normalized ? [exists(db.select({ id: crmLeadProfiles.id }).from(crmLeadProfiles).where(and(
+          eq(crmLeadProfiles.accountId, accountId),
+          eq(crmLeadProfiles.leadId, leads.id),
+          or(eq(crmLeadProfiles.searchNameNormalized, normalized), ilike(crmLeadProfiles.normalizedHandle, pattern)),
+        )))] : []),
+      ),
+    ))
+    .orderBy(desc(leads.updatedAt), asc(leads.id))
+    .limit(20);
+  const profiles = await getCrmLeadProfiles(accountId, rows.map(({ lead }) => lead.id));
+  const ranked = rankCrmProfileCandidates({
+    platform: "autre",
+    canonicalProfileUrl: null,
+    normalizedHandle: normalized,
+    displayName: trimmed,
+    firstName: trimmed,
+    lastName: "",
+    messageOccurredAt: null,
+    capturedAt: new Date().toISOString(),
+    email: queryEmail,
+    phone: trimmed,
+  }, rows.map(({ lead }) => ({
+    id: lead.id,
+    displayName: leadDisplayName(lead),
+    normalizedHandle: lead.normalizedHandle,
+    emailNormalized: lead.emailNormalized,
+    phoneNormalized: lead.phoneNormalized,
+    updatedAt: lead.updatedAt,
+    profiles: (profiles.get(lead.id) ?? []).map((profile) => ({ normalizedHandle: profile.normalizedHandle, searchNameNormalized: profileSearchName({
+      platform: profile.platform,
+      canonicalProfileUrl: profile.canonicalProfileUrl,
+      normalizedHandle: profile.normalizedHandle,
+      displayName: profile.displayName ?? "",
+      firstName: profile.firstName ?? "",
+      lastName: profile.lastName ?? "",
+      messageOccurredAt: null,
+      capturedAt: profile.capturedAt ?? new Date().toISOString(),
+    }) })),
+  })));
+  const rowById = new Map(rows.map((row) => [row.lead.id, row]));
+  return ranked.flatMap((match) => {
+    const row = rowById.get(match.id);
+    return row ? [{ ...addProfilesToLeadItem(toLeadItem(row.lead, row.setterName), profiles), matchSignals: match.signals, matchScore: match.score }] : [];
+  });
 }
 
 export type CreateCrmLeadInput = {
@@ -516,7 +812,10 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
   const stage = input.stage ?? "first_message_sent";
   const createdMessageDate = messageDate ?? (stage === "first_message_sent" ? capturedAt : null);
   const contactState = createdMessageDate || stage !== "first_message_sent" ? "contacted" as const : "new" as const;
-  const phoneNormalized = input.phone ? normalizeCrmPhone(input.phone, "fr").normalized : null;
+  const phoneRaw = input.phone ?? input.profile.phone ?? null;
+  const emailRaw = input.email ?? input.profile.email ?? null;
+  const phoneNormalized = phoneRaw ? normalizeCrmPhone(phoneRaw, "fr").normalized : null;
+  const emailNormalized = normalizeEmail(emailRaw);
   const captureKey = input.idempotencyKey ?? input.sourceEventKey ?? `capture:${input.profile.platform}:${input.profile.canonicalProfileUrl}:${input.profile.capturedAt}`;
 
   return db.transaction(async (tx) => {
@@ -549,8 +848,8 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
           socialLastName: input.profile.lastName || null,
           normalizedHandle: input.profile.normalizedHandle,
           messageOccurredAt: messageDate ?? existing.messageOccurredAt,
-          ...(input.email !== undefined ? { email: input.email } : {}),
-          ...(input.phone !== undefined ? { phone: input.phone, phoneNormalized } : {}),
+          ...(emailRaw !== null ? { email: emailRaw, emailNormalized } : {}),
+          ...(phoneRaw !== null ? { phone: phoneRaw, phoneNormalized } : {}),
           ...(input.closerUserId !== undefined ? { closerUserId: input.closerUserId } : {}),
           ...(messageDate ? { contactState: "contacted" as const } : {}),
           capturedAt,
@@ -558,6 +857,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
         })
         .where(and(eq(leads.id, existing.id), eq(leads.accountId, accountId)))
         .returning();
+      await attachCrmLeadProfile(tx, accountId, existing.id, input.profile);
       await tx.insert(crmLeadEvents).values(eventValues({
         accountId,
         leadId: existing.id,
@@ -577,9 +877,10 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       accountId,
       firstName: input.profile.firstName || input.profile.normalizedHandle,
       lastName: input.profile.lastName,
-      email: input.email ?? null,
-      phone: input.phone ?? null,
+      email: emailRaw,
+      phone: phoneRaw,
       phoneNormalized,
+      emailNormalized,
       source: input.marketingSource ?? input.profile.platform,
       platform: input.profile.platform,
       canonicalProfileUrl: input.profile.canonicalProfileUrl,
@@ -598,6 +899,8 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       capturedAt,
       updatedAt: new Date(),
     }).returning();
+
+    await attachCrmLeadProfile(tx, accountId, created.id, input.profile);
 
     await tx.insert(crmLeadStageHistory).values({
       accountId,
@@ -750,7 +1053,7 @@ export async function updateCrmLeadFields(
       ...(fields.potentialValueEur !== undefined ? { potentialValueEur: fields.potentialValueEur } : {}),
       ...(fields.closer !== undefined ? { closer: fields.closer } : {}),
       ...(fields.closerUserId !== undefined ? { closerUserId: fields.closerUserId } : {}),
-      ...(fields.email !== undefined ? { email: fields.email } : {}),
+      ...(fields.email !== undefined ? { email: fields.email, emailNormalized: normalizeEmail(fields.email) } : {}),
       ...(fields.phone !== undefined ? { phone: fields.phone, phoneNormalized: fields.phone ? normalizeCrmPhone(fields.phone, "fr").normalized : null } : {}),
       updatedAt: new Date(),
     }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
@@ -787,12 +1090,21 @@ export async function confirmCrmProfileMatch(accountId: string, leadId: string, 
       const [existingEvent] = await tx.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(eq(crmLeadEvents.accountId, accountId), eq(crmLeadEvents.leadId, leadId), eq(crmLeadEvents.type, "match_confirmed"), eq(crmLeadEvents.sourceEventKey, eventKey))).limit(1);
       if (existingEvent) return toLeadItem(existing);
     }
-    const profileIdentity = profile.canonicalProfileUrl
-      ? and(eq(leads.platform, profile.platform), eq(leads.canonicalProfileUrl, profile.canonicalProfileUrl))
-      : and(eq(leads.platform, profile.platform), eq(leads.normalizedHandle, profile.normalizedHandle));
-    const [conflict] = await tx.select({ id: leads.id }).from(leads).where(and(eq(leads.accountId, accountId), profileIdentity)).limit(1);
-    if (conflict && conflict.id !== leadId) throw new Error("Ce profil est déjà relié à un autre lead.");
-    const [updated] = await tx.update(leads).set({ platform: profile.platform, canonicalProfileUrl: profile.canonicalProfileUrl, normalizedHandle: profile.normalizedHandle, displayName: profile.displayName, socialFirstName: profile.firstName, socialLastName: profile.lastName || null, messageOccurredAt: profile.messageOccurredAt ? new Date(profile.messageOccurredAt) : existing.messageOccurredAt, capturedAt: new Date(profile.capturedAt), updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    await attachCrmLeadProfile(tx, accountId, leadId, profile);
+    const shouldMirrorLegacy = !existing.platform && !existing.canonicalProfileUrl && !existing.normalizedHandle;
+    const [updated] = await tx.update(leads).set({
+      ...(shouldMirrorLegacy ? {
+        platform: profile.platform,
+        canonicalProfileUrl: profile.canonicalProfileUrl,
+        normalizedHandle: profile.normalizedHandle,
+        displayName: profile.displayName,
+        socialFirstName: profile.firstName,
+        socialLastName: profile.lastName || null,
+      } : {}),
+      messageOccurredAt: profile.messageOccurredAt ? new Date(profile.messageOccurredAt) : existing.messageOccurredAt,
+      capturedAt: new Date(profile.capturedAt),
+      updatedAt: new Date(),
+    }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "match_confirmed", source: "extension", sourceEventKey: eventKey, occurredAt: profile.messageOccurredAt ? new Date(profile.messageOccurredAt) : null, capturedAt: new Date(profile.capturedAt), metadata: { platform: profile.platform, handle: profile.normalizedHandle } })).onConflictDoNothing();
     return updated ? toLeadItem(updated) : null;
   });

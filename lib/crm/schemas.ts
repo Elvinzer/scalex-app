@@ -27,6 +27,8 @@ const captureProfileBaseSchema = z.object({
   displayName: z.string().trim().max(160).nullish(),
   firstName: z.string().trim().max(120).nullish(),
   lastName: z.string().trim().max(120).nullish(),
+  email: z.string().trim().email().max(254).nullish(),
+  phone: z.string().trim().max(40).nullish(),
   messageOccurredAt: z.string().datetime({ offset: true }).nullish(),
   capturedAt: z.string().datetime({ offset: true }).nullish(),
   sourceEventKey: z.string().trim().max(240).nullish(),
@@ -57,6 +59,10 @@ export const crmCaptureCommandSchema = z.object({
   separateFromCandidates: z.boolean().optional(),
   profile: captureProfileSchema,
   qualification: crmCaptureQualificationSchema.optional(),
+});
+
+export const crmExtensionSearchSchema = z.object({
+  query: z.string().trim().min(2).max(160),
 });
 
 export const crmLeadCaptureSchema = captureProfileBaseSchema.extend({

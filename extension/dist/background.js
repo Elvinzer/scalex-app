@@ -11,6 +11,7 @@ const minalyBackgroundReleaseCacheTtlMs = 5 * 60000;
 const minalyBackgroundPaths = new Set([
     "/api/crm/extension/session",
     "/api/crm/extension/resolve",
+    "/api/crm/extension/search",
     "/api/crm/extension/capture",
     "/api/crm/extension/update",
 ]);
@@ -233,7 +234,12 @@ async function minalyCompleteAuth(value, sender) {
         return { ok: false, error: callback.error ?? "auth_failed" };
     }
     const origin = await minalyBackgroundOrigin();
+    await chrome.storage.local.remove([minalyBackgroundTokenKey]);
     await chrome.storage.local.set({ [minalyBackgroundTokenKey]: callback.token, [minalyBackgroundOriginKey]: origin });
+    const tabs = await chrome.tabs.query({});
+    await Promise.all(tabs.flatMap((tab) => typeof tab.id === "number"
+        ? [chrome.tabs.sendMessage(tab.id, { type: "minaly-authenticated" }).catch(() => undefined)]
+        : []));
     if (typeof tabId === "number")
         void chrome.tabs.sendMessage(tabId, { type: "minaly-authenticated" }).catch(() => undefined);
     return { ok: true };

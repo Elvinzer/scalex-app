@@ -1,4 +1,5 @@
 import type { CrmCapturedProfile, CrmPlatform } from "./types";
+import { normalizeEmail, normalizedPhoneFromWhatsAppUrl } from "./contact";
 
 type ProfilePlatform = Extract<CrmPlatform, "instagram" | "tiktok" | "youtube" | "linkedin" | "x" | "facebook">;
 
@@ -100,6 +101,8 @@ export function normalizeCapturedProfile(input: {
   displayName?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  email?: string | null;
+  phone?: string | null;
   messageOccurredAt?: string | null;
   capturedAt?: string | null;
 }): CrmCapturedProfile | null {
@@ -125,5 +128,5 @@ export function normalizeCapturedProfile(input: {
   const capturedAt = input.capturedAt ?? new Date().toISOString();
   const validCapturedAt = Number.isNaN(Date.parse(capturedAt)) ? new Date().toISOString() : new Date(capturedAt).toISOString();
   const messageOccurredAt = input.messageOccurredAt && !Number.isNaN(Date.parse(input.messageOccurredAt)) ? new Date(input.messageOccurredAt).toISOString() : null;
-  return { platform, canonicalProfileUrl, normalizedHandle, displayName, firstName, lastName, messageOccurredAt, capturedAt: validCapturedAt };
+  return { platform, canonicalProfileUrl, normalizedHandle, displayName, firstName, lastName, messageOccurredAt, capturedAt: validCapturedAt, email: normalizeEmail(input.email), phone: cleanText(input.phone) || normalizedPhoneFromWhatsAppUrl(canonicalProfileUrl) || null };
 }

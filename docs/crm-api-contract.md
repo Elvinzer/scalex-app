@@ -141,6 +141,12 @@ Réponse `known` :
       "stage": "call_booked",
       "outcome": "none",
       "responsibleSetterName": "Nadia D.",
+      "profiles": [{
+        "platform": "instagram",
+        "canonicalProfileUrl": "https://www.instagram.com/marc.lefebvre",
+        "normalizedHandle": "marc.lefebvre"
+      }],
+      "whatsappHref": "https://wa.me/33612345678",
       "nextAction": { "title": "Préparer l'appel", "dueAt": "2026-09-02T12:00:00.000Z" }
     }
   }
@@ -168,7 +174,24 @@ Réponse `ambiguous` :
 La réponse `unavailable` est utilisée pour CRM désactivé, session non
 renouvelable ou capture insuffisante. Elle ne révèle pas si un lead existe.
 
-### 3.3 Confirmer une capture
+### 3.3 Rechercher dans le compte courant
+
+`POST /api/crm/extension/search`
+
+Authentification : le même token court que `/resolve`. Le serveur ne lit que
+les leads du compte associé à la session et borne la réponse à cinq candidats.
+
+Requête :
+
+```json
+{ "query": "marc.lefebvre" }
+```
+
+La recherche accepte un nom, un pseudo, un email ou un téléphone. Chaque
+candidat renvoie `matchSignals` et `matchScore` pour expliquer la suggestion ;
+aucune mutation n'est effectuée par cette route.
+
+### 3.4 Confirmer une capture
 
 `POST /api/crm/extension/capture`
 
@@ -207,7 +230,7 @@ première action sont validés ensemble. Un retry avec la même clé et le même
 contenu retourne le même résultat ; la même clé avec un contenu différent
 retourne `idempotency_conflict`.
 
-### 3.4 Mettre à jour un lead connu
+### 3.5 Mettre à jour un lead connu
 
 `POST /api/crm/extension/update`
 

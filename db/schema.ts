@@ -2595,6 +2595,7 @@ export const leads = pgTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     email: text("email"),
+    emailNormalized: text("email_normalized"),
     phone: text("phone"),
     phoneNormalized: text("phone_normalized"),
     source: leadSourceEnum("source").notNull(),
@@ -2646,6 +2647,7 @@ export const leads = pgTable(
     index("leads_account_contact_state_idx").on(table.accountId, table.contactState),
     index("leads_account_responded_idx").on(table.accountId, table.respondedAt),
     index("leads_account_phone_normalized_idx").on(table.accountId, table.phoneNormalized),
+    index("leads_account_email_normalized_idx").on(table.accountId, table.emailNormalized),
     index("leads_account_platform_handle_idx").on(table.accountId, table.platform, table.normalizedHandle),
     uniqueIndex("leads_account_profile_url_idx").on(table.accountId, table.platform, table.canonicalProfileUrl),
     pgPolicy("leads_account_access", {
@@ -2655,6 +2657,41 @@ export const leads = pgTable(
       withCheck: nativeBookingAccountAccess(table.accountId),
     }),
   ]
+).enableRLS();
+
+// A lead may be represented by several social profiles. The legacy profile
+// columns on `leads` remain the primary compatibility projection for older
+// clients; this table is the source for additional networks.
+export const crmLeadProfiles = pgTable(
+  "crm_lead_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    platform: crmLeadPlatformEnum("platform").notNull(),
+    canonicalProfileUrl: text("canonical_profile_url"),
+    normalizedHandle: text("normalized_handle").notNull(),
+    displayName: text("display_name"),
+    searchNameNormalized: text("search_name_normalized").notNull().default(""),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    capturedAt: timestamp("captured_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("crm_lead_profiles_account_lead_idx").on(table.accountId, table.leadId),
+    index("crm_lead_profiles_account_platform_handle_idx").on(table.accountId, table.platform, table.normalizedHandle),
+    index("crm_lead_profiles_account_search_name_idx").on(table.accountId, table.searchNameNormalized),
+    uniqueIndex("crm_lead_profiles_account_platform_url_idx").on(table.accountId, table.platform, table.canonicalProfileUrl),
+    uniqueIndex("crm_lead_profiles_account_lead_platform_idx").on(table.accountId, table.leadId, table.platform),
+    pgPolicy("crm_lead_profiles_account_access", {
+      for: "all",
+      to: "authenticated",
+      using: crmLeadAccountAccess(table.accountId, table.leadId),
+      withCheck: crmLeadAccountAccess(table.accountId, table.leadId),
+    }),
+  ],
 ).enableRLS();
 
 // Append-only stage-change log ("historique de progression horodaté") — a

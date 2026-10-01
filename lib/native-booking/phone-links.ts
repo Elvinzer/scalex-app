@@ -1,3 +1,5 @@
+import { normalizePhoneForCountry } from "@/lib/crm/contact";
+
 const DEFAULT_COUNTRY_CALLING_CODE = "33";
 
 /**
@@ -20,7 +22,8 @@ export function internationalPhoneForLink(value: string | null | undefined): str
         ? `${DEFAULT_COUNTRY_CALLING_CODE}${digits.slice(1)}`
         : digits;
 
-  return internationalDigits ? `+${internationalDigits}` : null;
+  if (!internationalDigits) return null;
+  return normalizePhoneForCountry(`+${internationalDigits}`, "FR").normalized;
 }
 
 export function phoneHref(value: string | null | undefined): string | null {
@@ -31,5 +34,5 @@ export function phoneHref(value: string | null | undefined): string | null {
 export function whatsappHref(value: string | null | undefined, message?: string): string | null {
   const phone = internationalPhoneForLink(value);
   if (!phone) return null;
-  return `https://wa.me/${phone}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
+  return `https://wa.me/${phone.slice(1)}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
 }

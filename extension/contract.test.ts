@@ -21,7 +21,7 @@ const extensionUpdateRouteSource = readFileSync(new URL("../app/api/crm/extensio
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.version).toBe("0.2.0");
+    expect(manifest.version).toBe("0.3.0");
     expect(manifest.permissions).toEqual(["storage", "tabs"]);
     expect(manifest.background.service_worker).toBe("dist/background.js");
     expect(manifest.host_permissions).toEqual(expect.arrayContaining(["https://www.minaly.io/*"]));
@@ -42,6 +42,7 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(backgroundSource).toContain("https://www.minaly.io");
     expect(backgroundSource).toContain("minalyCrmExtensionToken");
     expect(backgroundSource).toContain("minalyCrmExtensionAuthState");
+    expect(backgroundSource).toContain("/api/crm/extension/search");
     expect(backgroundSource).toContain("minaly-check-update");
     expect(backgroundSource).toContain("onUpdateAvailable");
     expect(backgroundSource).toContain("chrome.runtime.getURL(\"auth-callback.html\")");
@@ -50,6 +51,8 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(contentSource).toContain("defaultOfferId");
     expect(contentSource).toContain("canonicalProfileUrl: typeof value.canonicalProfileUrl");
     expect(contentSource).toContain("minaly-profile-link");
+    expect(contentSource).toContain("minalyResolutionCacheTtlMs");
+    expect(contentSource).toContain("minaly-authenticated");
     expect(contentSource).toContain("MISE À JOUR DISPONIBLE");
   });
 
@@ -61,11 +64,12 @@ describe("Minaly CRM Chrome extension contract", () => {
 
   it("keeps the extension responsive while requests are in flight", () => {
     expect(contentSource).toContain("const minalyResolutionCacheTtlMs = 30_000");
+    expect(contentSource).toContain("resolutionAccountId");
     expect(contentSource).toContain("event.stopPropagation()");
     expect(contentSource).toContain("operationId += 1");
     expect(contentSource).toContain("chrome.runtime.onMessage.removeListener(handleRuntimeMessage)");
     expect(contentSource).toContain("reference.insertAdjacentElement(\"afterend\", host)");
-    expect(crmQueriesSource).toContain("const [exactResult, candidatesResult] = await Promise.allSettled");
+    expect(crmQueriesSource).toContain("const [profileExactResult, legacyExactResult] = await Promise.all");
     expect(extensionResolveRouteSource).toContain("getBusinessSalesOffers");
   });
 });

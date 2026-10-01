@@ -1,4 +1,4 @@
-import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import type { CountryCode } from "libphonenumber-js";
 
 import { normalizeDateCellToIso } from "@/lib/import/date";
 import { parseLocaleNumber } from "@/lib/import/number";
@@ -19,6 +19,7 @@ import {
 } from "./types";
 import type { CrmImportReview, CrmImportSheet } from "./import-schema";
 import { normalizeCrmSource, sheetNeedsDefaultSource } from "./import-source";
+import { normalizePhoneForCountry, type CrmPhoneNormalization } from "./contact";
 
 export { normalizeCrmSource, sheetNeedsDefaultSource } from "./import-source";
 
@@ -56,21 +57,14 @@ export type CrmPreparedSheet = {
   needsDefaultSource: boolean;
 };
 
-export type PhoneNormalization = {
-  normalized: string | null;
-  reason: "missing" | "invalid" | null;
-};
+export type PhoneNormalization = CrmPhoneNormalization;
 
 export function defaultCountryForLocale(locale: Locale): CountryCode {
   return locale === "en" ? "US" : "FR";
 }
 
 export function normalizeCrmPhone(raw: string | null | undefined, locale: Locale): PhoneNormalization {
-  const value = raw?.trim() ?? "";
-  if (!value) return { normalized: null, reason: "missing" };
-  const parsed = parsePhoneNumberFromString(value, defaultCountryForLocale(locale));
-  if (!parsed?.isValid()) return { normalized: null, reason: "invalid" };
-  return { normalized: parsed.number, reason: null };
+  return normalizePhoneForCountry(raw, defaultCountryForLocale(locale));
 }
 
 export function normalizeCrmDate(raw: string | null | undefined): string | null {

@@ -46,4 +46,13 @@ describe("CRM social identity normalization", () => {
       normalizedHandle: "14 geraldo",
     });
   });
+
+  it("recovers the phone identity from a legacy WhatsApp URL", () => {
+    expect(normalizeCapturedProfile({ platform: "whatsapp", profileUrl: "https://wa.me/33687880310", displayName: "Alexandre Mepuis" })).toMatchObject({
+      platform: "whatsapp",
+      canonicalProfileUrl: "https://wa.me/33687880310",
+      normalizedHandle: "33687880310",
+      phone: "+33687880310",
+    });
+  });
 });

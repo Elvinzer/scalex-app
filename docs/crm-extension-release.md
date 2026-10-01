@@ -15,10 +15,15 @@ En développement, le lien pilote apparaît seulement si le package existe déj�
 En production, le build crée ce package avant de construire l’application, donc
 le lien pilote est disponible même sans variable d’environnement.
 
+La release `0.3.0` ajoute la résolution des profils sociaux par réseau, la
+recherche manuelle limitée au compte connecté et l’ouverture WhatsApp depuis la
+fiche lead. Le contrat reste compatible avec les réponses précédentes et le
+package contient la version compilée du content script et du service worker.
+
 ## Préparer une release
 
 1. Augmenter `version` dans `extension/manifest.json`.
-2. Lancer `CRM_EXTENSION_PREVIOUS_VERSION=0.1.0 npm run extension:package` avec la version réellement publiée précédente.
+2. Lancer `CRM_EXTENSION_PREVIOUS_VERSION=0.2.0 npm run extension:package` avec la version réellement publiée précédente.
 3. Vérifier `public/downloads/minaly-crm-vX.Y.Z.zip` et son contenu.
 4. Tester l’extension depuis le ZIP ou le dossier compilé.
 5. Publier le ZIP versionné dans le Chrome Web Store depuis le compte éditeur.

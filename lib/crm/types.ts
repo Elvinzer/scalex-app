@@ -163,12 +163,27 @@ export type CrmReportingPeriod = {
   label: string;
 };
 
+export type CrmLeadProfile = {
+  id: string;
+  platform: CrmPlatform;
+  canonicalProfileUrl: string | null;
+  normalizedHandle: string;
+  displayName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  capturedAt: string | null;
+};
+
 export type CrmLeadListItem = {
   id: string;
   accountId: string;
   platform: CrmPlatform | null;
   canonicalProfileUrl: string | null;
   normalizedHandle: string | null;
+  profiles: CrmLeadProfile[];
+  whatsappHref: string | null;
+  matchSignals?: string[];
+  matchScore?: number;
   displayName: string;
   firstName: string;
   lastName: string;
@@ -331,4 +346,6 @@ export type CrmCapturedProfile = {
   lastName: string;
   messageOccurredAt: string | null;
   capturedAt: string;
+  email?: string | null;
+  phone?: string | null;
 };

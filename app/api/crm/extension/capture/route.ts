@@ -45,8 +45,9 @@ export async function POST(request: NextRequest) {
     })();
     const result = await createCrmLead(access.accountId, { profile, actorUserId: access.userId, offerId, marketingSource: parsed.data.qualification?.source, stage: parsed.data.qualification?.stage, source: "extension", sourceEventKey: parsed.data.profile.sourceEventKey ?? null, idempotencyKey: parsed.data.idempotencyKey });
     return NextResponse.json({ data: { leadId: result.lead.id, profileUrl: result.lead.canonicalProfileUrl, created: result.created, crmUrl: new URL(request.url).origin }, leadId: result.lead.id, profileUrl: result.lead.canonicalProfileUrl, created: result.created, crmUrl: new URL(request.url).origin });
-  } catch (error) {
-    if (error instanceof Error && error.message === "CRM_IDEMPOTENCY_CONFLICT") return NextResponse.json({ error: "idempotency_conflict" }, { status: 409 });
-    return NextResponse.json({ error: "capture_failed" }, { status: 500 });
-  }
+    } catch (error) {
+      if (error instanceof Error && error.message === "CRM_IDEMPOTENCY_CONFLICT") return NextResponse.json({ error: "idempotency_conflict" }, { status: 409 });
+      if (error instanceof Error && error.message === "CRM_PROFILE_CONFLICT") return NextResponse.json({ error: "profile_conflict" }, { status: 409 });
+      return NextResponse.json({ error: "capture_failed" }, { status: 500 });
+    }
 }

@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   const profile = normalizeCapturedProfile(parsed.data);
   if (!profile) return NextResponse.json({ error: "invalid_profile" }, { status: 400 });
   const resolution = await resolveCrmProfile(access.accountId, profile);
-  if (resolution.kind !== "unknown") return NextResponse.json({ data: { state: resolution.kind, ...resolution }, resolution });
+  if (resolution.kind !== "unknown") return NextResponse.json({ data: { state: resolution.kind, accountId: access.accountId, ...resolution }, resolution, accountId: access.accountId });
   const [offers, responsible] = await Promise.all([
     getBusinessSalesOffers(access.accountId),
     getCrmSetterForActor(access.accountId, access.userId),
@@ -35,5 +35,5 @@ export async function POST(request: NextRequest) {
     stages: CRM_LEAD_STAGES,
     responsible,
   };
-  return NextResponse.json({ data: { state: resolution.kind, ...resolution, qualification }, resolution, qualification });
+  return NextResponse.json({ data: { state: resolution.kind, accountId: access.accountId, ...resolution, qualification }, resolution, qualification, accountId: access.accountId });
 }
