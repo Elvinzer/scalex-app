@@ -8,11 +8,12 @@ le contrôle de version associé.
 Configurer les variables suivantes côté serveur :
 
 - `CRM_EXTENSION_STORE_URL` : URL publique de la fiche Minaly dans le Chrome Web Store. Elle est prioritaire et constitue le parcours recommandé ;
-- `CRM_EXTENSION_PACKAGE_URL` : URL HTTPS d’un ZIP pilote public, ou chemin relatif comme `/downloads/minaly-crm-latest.zip` ;
+- `CRM_EXTENSION_PACKAGE_URL` : URL HTTPS d’un ZIP pilote public, ou chemin relatif comme `/downloads/minaly-crm-latest.zip`. Si elle reste vide, le build utilise automatiquement le package généré à `/downloads/minaly-crm-latest.zip` ;
 - `CRM_EXTENSION_PREVIOUS_VERSION` : dernière version publiée, à utiliser dans la CI ou avant une publication.
 
-Si aucune URL n’est disponible, Minaly affiche un état non configuré et ne
-présente aucun lien qui ne fonctionnerait pas.
+En développement, le lien pilote apparaît seulement si le package existe déjà.
+En production, le build crée ce package avant de construire l’application, donc
+le lien pilote est disponible même sans variable d’environnement.
 
 ## Préparer une release
 
@@ -21,7 +22,9 @@ présente aucun lien qui ne fonctionnerait pas.
 3. Vérifier `public/downloads/minaly-crm-vX.Y.Z.zip` et son contenu.
 4. Tester l’extension depuis le ZIP ou le dossier compilé.
 5. Publier le ZIP versionné dans le Chrome Web Store depuis le compte éditeur.
-6. Configurer `CRM_EXTENSION_STORE_URL` dans l’environnement de déploiement.
+6. Configurer `CRM_EXTENSION_STORE_URL` dans l’environnement de déploiement si la
+fiche Chrome Web Store est publiée. Sinon, le package pilote généré par le build
+reste le lien d’installation disponible.
 
 Le script produit aussi `minaly-crm-latest.zip`. Il est pratique pour un pilote
 ou un test local, mais une installation chargée manuellement ne bénéficie pas

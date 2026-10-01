@@ -45,6 +45,9 @@ Avant de dire qu'une tâche est terminée :
 - [ ] Preview Vercel qui build sans erreur
 - [ ] Migration Drizzle appliquée (`db:migrate`) si `db/schema.ts` a été touché
 
+## Préférence de collaboration
+- Toujours vérifier le comportement demandé dans l'application en runtime, ainsi que les contrôles pertinents, avant tout retour final de tâche. Ne pas annoncer que c'est terminé sur la seule base d'une lecture du code ou d'un build.
+
 ## Code style
 - ES modules uniquement, jamais de `require`
 - Server Components par défaut, `"use client"` seulement si interactivité réelle

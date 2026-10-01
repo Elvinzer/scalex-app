@@ -80,6 +80,10 @@ export function selectCrmExtensionDistribution(
 }
 
 function defaultPackageAvailable(): boolean {
+  // The build creates the package before Next bundles the production routes.
+  // Serverless runtimes may not expose generated `public/` files through the
+  // function filesystem, even though Next still serves them as static assets.
+  if (process.env.NODE_ENV === "production") return true;
   return existsSync(path.join(process.cwd(), "public", defaultPackagePath.slice(1)));
 }
 

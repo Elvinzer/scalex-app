@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   compareChromeExtensionVersions,
@@ -16,6 +16,7 @@ afterEach(() => {
   else process.env.CRM_EXTENSION_STORE_URL = originalStoreUrl;
   if (originalPackageUrl === undefined) delete process.env.CRM_EXTENSION_PACKAGE_URL;
   else process.env.CRM_EXTENSION_PACKAGE_URL = originalPackageUrl;
+  vi.unstubAllEnvs();
 });
 
 describe("CRM extension release metadata", () => {
@@ -53,5 +54,16 @@ describe("CRM extension release metadata", () => {
     expect(release.distribution).toBe("web_store");
     expect(release.updateUrl).toBe("https://chromewebstore.google.com/detail/minaly/abc");
     expect(release).not.toHaveProperty("CRM_EXTENSION_SESSION_SECRET");
+  });
+
+  it("keeps the generated pilot package available in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    delete process.env.CRM_EXTENSION_STORE_URL;
+    delete process.env.CRM_EXTENSION_PACKAGE_URL;
+
+    const release = getCrmExtensionRelease();
+
+    expect(release.distribution).toBe("pilot_package");
+    expect(release.updateUrl).toBe("/downloads/minaly-crm-latest.zip");
   });
 });
