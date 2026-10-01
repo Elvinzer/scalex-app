@@ -5,14 +5,14 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { CRM_ACTION_CATEGORIES, type CrmActionCategory, type CrmActionView } from "@/lib/crm/types";
+import type { CrmActionCategory, CrmActionView } from "@/lib/crm/types";
 
 import { completeActionAction, rescheduleActionAction } from "./crm-actions";
 
 type DueGroup = "overdue" | "today" | "upcoming";
 type QueueFilters = { category?: CrmActionCategory; relanceOnly?: boolean; overdueOnly?: boolean; dueTodayOnly?: boolean };
 
-export function CrmActionList({ initialActions, groupedByCategory = false, groupByDueDate = false, nextActionFilters }: { initialActions: CrmActionView[]; groupedByCategory?: boolean; groupByDueDate?: boolean; nextActionFilters?: QueueFilters }) {
+export function CrmActionList({ initialActions, groupByDueDate = false, featureFirstAction = false, featuredActionLabel, nextActionFilters }: { initialActions: CrmActionView[]; groupByDueDate?: boolean; featureFirstAction?: boolean; featuredActionLabel?: string; nextActionFilters?: QueueFilters }) {
   const t = useTranslations("crm.actions");
   const callsT = useTranslations("crm.calls");
   const locale = useLocale();
@@ -76,7 +76,9 @@ export function CrmActionList({ initialActions, groupedByCategory = false, group
           setError(result.error);
           return;
         }
-        setActions((items) => items.map((item) => item.id === actionId ? { ...item, dueAt: dueDate.toISOString() } : item).filter((item) => item.id !== actionId || matchesQueueFilters(item, dueDate)));
+        setActions((items) => items.map((item) => item.id === actionId ? { ...item, dueAt: dueDate.toISOString() } : item)
+          .filter((item) => item.id !== actionId || matchesQueueFilters(item, dueDate))
+          .sort((left, right) => new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime() || right.priority - left.priority || left.id.localeCompare(right.id)));
         setNextLeadId(result.nextLeadId ?? null);
       } catch {
         setError(t("requestFailed"));
@@ -108,11 +110,11 @@ export function CrmActionList({ initialActions, groupedByCategory = false, group
 
   if (actions.length === 0) return <>{nextLeadId && <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4" role="status"><p className="text-sm font-bold">{t("nextLeadReady")}</p><Button asChild variant="outline" className="min-h-11"><Link href={`/crm/leads/${nextLeadId}`}>{t("openNextLead")}</Link></Button></div>}<p className="sticker-card p-8 text-center text-muted-foreground">{t("empty")}</p></>;
 
-  function renderActions(items: CrmActionView[]) {
-    return items.map((action) => {
-      const overdue = action.status === "open" && new Date(action.dueAt).getTime() < Date.now();
-      return (
-        <article key={action.id} className="sticker-card flex flex-wrap items-center gap-3 p-4">
+  function renderAction(action: CrmActionView, featured = false) {
+    const overdue = action.status === "open" && new Date(action.dueAt).getTime() < Date.now();
+    return (
+        <article key={action.id} data-next-action={featured || undefined} className={`sticker-card flex flex-wrap items-center gap-3 p-4 ${featured ? "border-accent/40 bg-accent-soft/30" : ""}`}>
+          {featured && <p className="w-full text-xs font-bold tracking-[0.06em] text-accent-text uppercase">{featuredActionLabel}</p>}
           <div className="min-w-0 flex-1">
             <Link href={`/crm/leads/${action.leadId}`} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
             <p className="mt-1 font-bold">{action.title}</p>
@@ -126,7 +128,10 @@ export function CrmActionList({ initialActions, groupedByCategory = false, group
           </div>
         </article>
       );
-    });
+  }
+
+  function renderActions(items: CrmActionView[]) {
+    return items.map((action) => renderAction(action));
   }
 
   function dueGroup(action: CrmActionView): DueGroup {
@@ -145,18 +150,15 @@ export function CrmActionList({ initialActions, groupedByCategory = false, group
     return <div className="flex flex-col gap-4">{(["overdue", "today", "upcoming"] as const).map((group) => groups[group].length > 0 ? <section key={group} aria-labelledby={`crm-due-${group}`}><h4 id={`crm-due-${group}`} className="mb-2 text-sm font-bold text-muted-foreground">{t(`dueGroups.${group}`)} · {groups[group].length}</h4><div className="flex flex-col gap-2">{renderActions(groups[group])}</div></section> : null)}</div>;
   }
 
-  if (groupedByCategory) {
-      return <div className="flex flex-col gap-3">{error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}{nextLeadId && <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4" role="status"><p className="text-sm font-bold">{t("nextLeadReady")}</p><Button asChild variant="outline" className="min-h-11"><Link href={`/crm/leads/${nextLeadId}`}>{t("openNextLead")}</Link></Button></div>}<div className="grid gap-4 lg:grid-cols-3">{CRM_ACTION_CATEGORIES.map((category: CrmActionCategory) => {
-      const categoryActions = actions.filter((action) => action.category === category);
-      return <section key={category} className="flex min-w-0 flex-col gap-3" aria-labelledby={`crm-action-category-${category}`}><h3 id={`crm-action-category-${category}`} className="text-lg font-bold">{t(category)}</h3>{categoryActions.length > 0 ? (groupByDueDate ? renderDueGroups(categoryActions) : renderActions(categoryActions)) : <p className="rounded-[var(--radius-control)] border border-dashed border-border p-4 text-sm text-muted-foreground">{t("empty")}</p>}</section>;
-    })}</div></div>;
-  }
+  const featuredAction = featureFirstAction ? actions[0] : undefined;
+  const remainingActions = featuredAction ? actions.slice(1) : actions;
 
   return (
     <div className="flex flex-col gap-3">
       {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
       {nextLeadId && <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4" role="status"><p className="text-sm font-bold">{t("nextLeadReady")}</p><Button asChild variant="outline" className="min-h-11"><Link href={`/crm/leads/${nextLeadId}`}>{t("openNextLead")}</Link></Button></div>}
-      {renderActions(actions)}
+      {featuredAction && renderAction(featuredAction, true)}
+      {remainingActions.length > 0 && (groupByDueDate ? renderDueGroups(remainingActions) : renderActions(remainingActions))}
     </div>
   );
 }

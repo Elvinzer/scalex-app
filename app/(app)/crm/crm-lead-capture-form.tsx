@@ -14,7 +14,7 @@ const captureResponseSchema = z.discriminatedUnion("state", [
   z.object({ state: z.literal("error"), error: z.string().min(1) }),
 ]);
 
-export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Offer[]; setters?: Array<{ id: string; name: string; active: boolean }> }) {
+export function CrmLeadCaptureForm({ offers = [], setters = [], hideTitle = false }: { offers?: Offer[]; setters?: Array<{ id: string; name: string; active: boolean }>; hideTitle?: boolean }) {
   const t = useTranslations("crm.leads");
   const router = useRouter();
   void offers;
@@ -59,7 +59,7 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
     const form = new FormData(formElement);
     const identity = String(form.get("identity") ?? "").trim();
     const isUrl = /^https?:\/\//i.test(identity);
-    sessionStorage.setItem("minaly.crm.capture-draft", JSON.stringify({ identity, displayName: String(form.get("displayName") ?? ""), platform, source, idempotencyKey }));
+    saveDraft(formElement);
     setMessage(null);
     startTransition(async () => {
       try {
@@ -102,9 +102,20 @@ export function CrmLeadCaptureForm({ offers = [], setters = [] }: { offers?: Off
     });
   }
 
+  function saveDraft(formElement: HTMLFormElement): void {
+    const form = new FormData(formElement);
+    sessionStorage.setItem("minaly.crm.capture-draft", JSON.stringify({
+      identity: String(form.get("identity") ?? ""),
+      displayName: String(form.get("displayName") ?? ""),
+      platform: String(form.get("platform") ?? platform),
+      source: String(form.get("source") ?? source),
+      idempotencyKey,
+    }));
+  }
+
   return (
-    <form onSubmit={submit} data-crm-capture-form className="sticker-card flex flex-col gap-4 p-4 sm:p-5" aria-labelledby="crm-capture-title">
-      <h2 id="crm-capture-title" className="text-lg font-bold">{t("captureTitle")}</h2>
+    <form onSubmit={submit} onChange={(event) => saveDraft(event.currentTarget)} data-crm-capture-form className="sticker-card flex flex-col gap-4 p-4 sm:p-5" aria-labelledby="crm-capture-title">
+      {!hideTitle && <h2 id="crm-capture-title" className="text-lg font-bold">{t("captureTitle")}</h2>}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] lg:items-start">
         <label className="flex flex-col gap-1.5 text-sm font-bold">
           {t("profileOrHandle")}

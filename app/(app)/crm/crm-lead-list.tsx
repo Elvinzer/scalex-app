@@ -6,10 +6,14 @@ import { useLocale, useTranslations } from "next-intl";
 import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
 import type { CrmLeadListItem } from "@/lib/crm/types";
+import type { CrmLeadFilters } from "@/lib/crm/queries";
 import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
 import { ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { CRM_OUTCOME_LABEL_KEYS } from "@/lib/crm/machine";
+import { CRM_LEADS_PAGE_SIZE } from "@/lib/crm/lead-pagination";
+import { getCrmLeadsPageAction } from "./crm-actions";
 import { CrmLeadDrawer } from "./crm-lead-drawer";
 import { CrmProfileLink } from "./crm-profile-link";
 
@@ -24,11 +28,34 @@ function isNestedInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest("a, button, input, select, textarea") !== null;
 }
 
-export function CrmLeadList({ leads, setters, offers, closers, canAssign, canManagePipeline }: { leads: CrmLeadListItem[]; setters: CrmSetter[]; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean; canManagePipeline: boolean }) {
+export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount, filters, setters, offers, closers, canAssign, canManagePipeline }: { leads: CrmLeadListItem[]; totalCount: number; filters: CrmLeadFilters; setters: CrmSetter[]; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean; canManagePipeline: boolean }) {
   const t = useTranslations("crm");
   const locale = useLocale();
+  const [leads, setLeads] = useState(initialLeads);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [drawerLead, setDrawerLead] = useState<CrmLeadListItem | null>(null);
   const createdDateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" });
+
+  async function loadMore(): Promise<void> {
+    if (isLoading || leads.length >= totalCount) return;
+    setIsLoading(true);
+    setLoadError(false);
+    try {
+      const result = await getCrmLeadsPageAction({ filters, offset: leads.length });
+      if (result.state !== "ready") {
+        setLoadError(true);
+        return;
+      }
+      setLeads((current) => [...current, ...result.leads]);
+      setTotalCount(result.totalCount);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   function sourceLabel(source: string): string {
     const key = sourceKey(source);
@@ -49,15 +76,22 @@ export function CrmLeadList({ leads, setters, offers, closers, canAssign, canMan
 
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card p-0 md:block">
+      <p className="text-sm text-muted-foreground" aria-live="polite">{t("leads.pagination.showing", { displayed: leads.length, total: totalCount })}</p>
+      <div className="hidden overflow-x-auto rounded-[var(--radius-card)] border border-border bg-card p-0 lg:block">
         <table className="w-full min-w-[840px] text-sm">
           <thead><tr className="border-b border-border text-left text-xs font-bold text-muted-foreground"><th className="px-4 py-3">{t("leads.channel")}</th><th className="px-4 py-3">{t("leads.source")}</th><th className="px-4 py-3">{t("leads.title")}</th><th className="px-4 py-3">{t("pipeline.responsible")}</th><th className="px-4 py-3">{t("pipeline.outcome")}</th><th className="px-4 py-3">{t("leads.nextAction")}</th><th className="px-4 py-3">{t("leads.created")}</th><th className="w-10 px-4 py-3"><span className="sr-only">{t("leads.open")}</span></th></tr></thead>
           <tbody>{leads.map((lead) => <tr key={lead.id} role="link" tabIndex={0} aria-label={`${t("calls.openLead")}: ${lead.displayName}`} onClick={(event) => handleLeadClick(event, lead)} onKeyDown={(event) => handleLeadKeyDown(event, lead)} className="group cursor-pointer border-b border-border outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-[-2px] last:border-0"><td className="px-4 py-3 font-bold">{lead.platform ? sourceLabel(lead.platform) : t("leads.noChannel")}</td><td className="px-4 py-3 text-muted-foreground">{sourceLabel(lead.source)}</td><td className="px-4 py-3"><div className="flex min-w-0 items-center gap-1"><div className="min-w-0"><span className="block truncate font-bold">{lead.displayName}</span><span className="block truncate text-xs text-muted-foreground">{lead.normalizedHandle ? `@${lead.normalizedHandle}` : lead.canonicalProfileUrl}</span></div><CrmProfileLink href={lead.canonicalProfileUrl} label={t("leads.openProfile")} iconOnly /></div></td><td className="px-4 py-3 text-muted-foreground">{lead.responsibleSetterName ?? t("detail.unassigned")}</td><td className="px-4 py-3 font-bold">{lead.contactState === "new" ? t("detail.newLead") : lead.respondedAt ? t("detail.responded") : t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</td><td className="max-w-56 px-4 py-3 text-muted-foreground">{lead.nextAction?.title ?? t("leads.noNextAction")}</td><td className="px-4 py-3 text-muted-foreground">{createdDateFormatter.format(new Date(lead.createdAt))}</td><td className="px-4 py-3 text-right"><ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-accent-text" aria-hidden="true" /></td></tr>)}</tbody>
         </table>
       </div>
-      <div className="grid gap-2 md:hidden">
+      <div className="grid gap-2 lg:hidden">
         {leads.map((lead) => <article key={lead.id} role="link" tabIndex={0} aria-label={`${t("calls.openLead")}: ${lead.displayName}`} onClick={(event) => handleLeadClick(event, lead)} onKeyDown={(event) => handleLeadKeyDown(event, lead)} className="group cursor-pointer rounded-[var(--radius-card)] border border-border bg-card p-4 outline-none transition-colors hover:border-border-hover hover:bg-muted/40 focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20"><div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><span className="truncate font-bold">{lead.displayName}</span><span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{lead.contactState === "new" ? t("detail.newLead") : lead.respondedAt ? t("detail.responded") : t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span></div><p className="mt-1 truncate text-xs text-muted-foreground">{t("leads.channelShort")}: {lead.platform ? sourceLabel(lead.platform) : t("leads.noChannel")} · {t("leads.sourceShort")}: {sourceLabel(lead.source)} · {lead.responsibleSetterName ?? t("detail.unassigned")}</p></div><ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-accent-text" aria-hidden="true" /><CrmProfileLink href={lead.canonicalProfileUrl} label={t("leads.openProfile")} iconOnly /></div>{lead.nextAction && <p className="mt-2 text-xs font-bold text-accent-text">{lead.nextAction.title}</p>}{lead.nextCall && <p className="mt-1 text-xs text-muted-foreground">{t("detail.nextCall")}: {new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: lead.nextCall.timeZone ?? undefined }).format(new Date(lead.nextCall.scheduledAt))}</p>}</article>)}
       </div>
+      {leads.length < totalCount ? <div className="flex flex-col items-center gap-2 pt-2">
+        {loadError && <p className="text-sm text-destructive" role="alert">{t("leads.pagination.loadFailed")}</p>}
+        <Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" onClick={loadMore} disabled={isLoading} aria-busy={isLoading}>
+          {isLoading ? t("leads.pagination.loading") : loadError ? t("leads.pagination.retry") : t("leads.pagination.loadMore", { count: Math.min(CRM_LEADS_PAGE_SIZE, totalCount - leads.length) })}
+        </Button>
+      </div> : <p className="text-center text-sm text-muted-foreground" role="status">{t("leads.pagination.endOfResults")}</p>}
       <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} />
     </>
   );

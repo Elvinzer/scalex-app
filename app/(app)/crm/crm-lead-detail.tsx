@@ -51,7 +51,7 @@ function DetailSectionHeader({ headingId, icon: Icon, title, description, traili
   );
 }
 
-export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, canManagePipeline = false, inDrawer = false, onDeleted, onLost }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; canManagePipeline?: boolean; inDrawer?: boolean; onDeleted?: () => void; onLost?: () => void }) {
+export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, canManagePipeline = false, inDrawer = false, onDeleted, onLost, onStageChanged }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; canManagePipeline?: boolean; inDrawer?: boolean; onDeleted?: () => void; onLost?: () => void; onStageChanged?: (leadId: string, stage: CrmLeadStage) => void }) {
   const t = useTranslations("crm");
   const callsT = useTranslations("crm.calls");
   const locale = useLocale();
@@ -150,7 +150,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
   }
 
   function changeStage(stage: CrmLeadStage) {
-    mutate(() => changeStageAction({ leadId: lead.id, stage, idempotencyKey: stageIdempotencyKey }), (current) => ({ ...current, stage }), () => { setReopenStage(stage); setStageIdempotencyKey(globalThis.crypto.randomUUID()); });
+    mutate(() => changeStageAction({ leadId: lead.id, stage, idempotencyKey: stageIdempotencyKey }), (current) => ({ ...current, stage }), () => { setReopenStage(stage); setStageIdempotencyKey(globalThis.crypto.randomUUID()); onStageChanged?.(lead.id, stage); });
   }
 
   function changeOutcome(outcome: CrmLeadOutcome) {

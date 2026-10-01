@@ -24,12 +24,7 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase">{t("title")}</p>
-        <h1 className="mt-1 text-3xl font-bold">{t("title")}</h1>
-        <p className="mt-1 max-w-2xl text-muted-foreground">{t("subtitle")}</p>
-      </div>
-      <PillarTabs tabs={tabs} />
+      <PillarTabs tabs={tabs} singleRowBelowLg />
       {children}
     </div>
   );

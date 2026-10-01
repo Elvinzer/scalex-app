@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 
 export type PillarTab = { href: string; label: string };
@@ -12,10 +13,11 @@ export type PillarTab = { href: string; label: string };
 // the current pathname on every navigation/render rather than controlled via
 // onValueChange, so the underline always reflects the actual URL (works on
 // direct deep links too, not just in-app clicks).
-export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
+export function PillarTabs({ tabs, singleRowBelowLg = false }: { tabs: PillarTab[]; singleRowBelowLg?: boolean }) {
   const pathname = usePathname();
   const t = useTranslations("navigation");
-  if (tabs.length === 0) return null;
+  const navRef = useRef<HTMLElement>(null);
+  const activeTabRef = useRef<HTMLAnchorElement>(null);
 
   const labelKeyByHref: Record<string, string> = {
     "/acquisition/contenu": "content",
@@ -31,25 +33,45 @@ export function PillarTabs({ tabs }: { tabs: PillarTab[] }) {
     "/crm/leads": "leads",
     "/crm/actions": "actions",
     "/crm/appels": "calls",
+    "/crm/extension": "extension",
   };
 
-  const active = [...tabs]
+  const active = tabs.length === 0 ? null : [...tabs]
     .filter((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`))
     .sort((left, right) => right.href.length - left.href.length)[0]?.href ?? tabs[0].href;
+  useEffect(() => {
+    if (!active || !singleRowBelowLg) return;
+    function revealActiveTab() {
+      if (window.matchMedia("(min-width: 1024px)").matches) return;
+      const nav = navRef.current;
+      const activeTab = activeTabRef.current;
+      if (!nav || !activeTab) return;
+      const navBounds = nav.getBoundingClientRect();
+      const tabBounds = activeTab.getBoundingClientRect();
+      if (tabBounds.left < navBounds.left || tabBounds.right > navBounds.right) {
+        activeTab.scrollIntoView({ block: "nearest", inline: "start" });
+      }
+    }
+    revealActiveTab();
+    window.addEventListener("resize", revealActiveTab);
+    return () => window.removeEventListener("resize", revealActiveTab);
+  }, [active, pathname, singleRowBelowLg]);
+
+  if (tabs.length === 0) return null;
+
   return (
-    <nav aria-label={t("sectionNavigation")} className="w-full overflow-x-auto">
-      <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-1 border-b-2 border-border md:min-w-max md:justify-center" role="tablist">
+    <nav ref={navRef} aria-label={t("sectionNavigation")} className="w-full snap-x snap-mandatory overflow-x-auto">
+      <div className={singleRowBelowLg ? "flex w-max min-w-full flex-nowrap items-center justify-start gap-1 border-b-2 border-border" : "flex w-full min-w-0 flex-wrap items-center justify-start gap-1 border-b-2 border-border md:min-w-max md:justify-center"}>
         {tabs.map((tab) => {
           const isActive = tab.href === active;
           return (
             <Link
               key={tab.href}
               href={tab.href}
+              ref={isActive ? activeTabRef : undefined}
               prefetch={!tab.href.startsWith("/crm")}
-              role="tab"
-              aria-selected={isActive}
               aria-current={isActive ? "page" : undefined}
-              className={`-mb-0.5 min-h-11 shrink-0 border-b-2 border-transparent px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] md:px-4 ${isActive ? "border-accent text-foreground" : "text-foreground/70 hover:text-foreground"}`}
+              className={`-mb-0.5 min-h-11 shrink-0 snap-start border-b-2 border-transparent px-3 py-2.5 text-center text-sm font-bold whitespace-nowrap transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out)] md:px-4 ${isActive ? "border-accent text-foreground" : "text-foreground/70 hover:text-foreground"}`}
             >
               {labelKeyByHref[tab.href] ? t(labelKeyByHref[tab.href]) : tab.label}
             </Link>

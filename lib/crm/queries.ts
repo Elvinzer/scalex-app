@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, gte, ilike, inArray, isNull, lte, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNull, lte, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -53,8 +53,9 @@ import type {
   CrmResponsibilityHistoryView,
   CrmStageHistoryView,
 } from "./types";
+import { CRM_LEAD_STAGES } from "./types";
 import { getCrmCallSuggestions } from "./call-match-suggestions";
-import { normalizeCrmLeadLimit } from "./lead-pagination";
+import { CRM_PIPELINE_STAGE_PAGE_SIZE, normalizeCrmLeadLimit } from "./lead-pagination";
 import { getNoShowFollowUpDueAt } from "./no-show";
 import { createNativeBookingForCrm, type NativeBookingError } from "@/lib/native-booking/booking";
 import { listBusyForConnection } from "@/lib/native-booking/calendar";
@@ -475,8 +476,8 @@ export async function getCrmSetters(accountId: string): Promise<Array<{ id: stri
 
 export type CrmLeadPagination = { limit?: number; offset?: number };
 
-export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {}, pagination: CrmLeadPagination = {}): Promise<CrmLeadListItem[]> {
-  const conditions = [eq(leads.accountId, accountId)];
+function buildCrmLeadConditions(accountId: string, filters: CrmLeadFilters, now: Date): SQL[] {
+  const conditions: SQL[] = [eq(leads.accountId, accountId)];
   if (filters.platform) conditions.push(eq(leads.platform, filters.platform));
   if (filters.stage) conditions.push(eq(leads.crmStage, filters.stage));
   if (filters.outcome) conditions.push(eq(leads.crmOutcome, filters.outcome));
@@ -500,7 +501,7 @@ export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {
   if (filters.createdFrom) conditions.push(gte(leads.createdAt, new Date(`${filters.createdFrom}T00:00:00.000Z`)));
   if (filters.createdTo) conditions.push(lte(leads.createdAt, new Date(`${filters.createdTo}T23:59:59.999Z`)));
   if (filters.overdueActionOnly) {
-    conditions.push(exists(db.select({ id: crmActions.id }).from(crmActions).where(and(eq(crmActions.accountId, accountId), eq(crmActions.leadId, leads.id), eq(crmActions.status, "open"), lt(crmActions.dueAt, new Date())))));
+    conditions.push(exists(db.select({ id: crmActions.id }).from(crmActions).where(and(eq(crmActions.accountId, accountId), eq(crmActions.leadId, leads.id), eq(crmActions.status, "open"), lt(crmActions.dueAt, now)))));
   }
   if (filters.search) {
     const pattern = `%${filters.search}%`;
@@ -520,6 +521,10 @@ export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {
     ) ?? eq(leads.id, "00000000-0000-0000-0000-000000000000"));
   }
 
+  return conditions;
+}
+
+async function getCrmLeadItemsByConditions(accountId: string, conditions: SQL[], pagination: CrmLeadPagination): Promise<CrmLeadListItem[]> {
   const limit = normalizeCrmLeadLimit(pagination.limit);
   const offset = Math.max(pagination.offset ?? 0, 0);
   const rows = await db
@@ -530,13 +535,63 @@ export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {
     .orderBy(desc(leads.updatedAt), asc(leads.id))
     .limit(limit)
     .offset(offset);
-  const nextActions = await getNextActions(accountId, rows.map(({ lead }) => lead.id));
-  const nextCalls = await getNextCalls(accountId, rows.map(({ lead }) => lead.id));
-  const profiles = await getCrmLeadProfiles(accountId, rows.map(({ lead }) => lead.id));
+  return getCrmLeadItemsFromRows(accountId, rows);
+}
+
+type CrmLeadJoinedRow = { lead: LeadDatabaseRow; setterName: string | null };
+
+async function getCrmLeadItemsFromRows(accountId: string, rows: CrmLeadJoinedRow[]): Promise<CrmLeadListItem[]> {
+  if (rows.length === 0) return [];
+  const leadIds = rows.map(({ lead }) => lead.id);
+  const [nextActions, nextCalls, profiles] = await Promise.all([
+    getNextActions(accountId, leadIds),
+    getNextCalls(accountId, leadIds),
+    getCrmLeadProfiles(accountId, leadIds),
+  ]);
   return rows.map(({ lead, setterName }) => ({
     ...addProfilesToLeadItem(toLeadItem(lead, setterName, nextCalls.get(lead.id) ?? null), profiles),
     nextAction: nextActions.get(lead.id) ?? null,
   }));
+}
+
+export async function getCrmLeads(accountId: string, filters: CrmLeadFilters = {}, pagination: CrmLeadPagination = {}): Promise<CrmLeadListItem[]> {
+  const conditions = buildCrmLeadConditions(accountId, filters, new Date());
+  return getCrmLeadItemsByConditions(accountId, conditions, pagination);
+}
+
+export type CrmLeadPage = { leads: CrmLeadListItem[]; totalCount: number };
+
+export type CrmPipelineStagePages = Record<CrmLeadStage, CrmLeadPage>;
+
+export async function getCrmPipelineStagePages(accountId: string, filters: Pick<CrmLeadFilters, "search" | "source"> = {}, pagination: CrmLeadPagination = {}): Promise<CrmPipelineStagePages> {
+  const now = new Date();
+  const limit = normalizeCrmLeadLimit(pagination.limit ?? CRM_PIPELINE_STAGE_PAGE_SIZE);
+  const offset = Math.max(pagination.offset ?? 0, 0);
+  const stageRows = await Promise.all(CRM_LEAD_STAGES.map(async (stage) => {
+    const conditions = buildCrmLeadConditions(accountId, { ...filters, stage, excludeLost: true }, now);
+    const [countRows, rows] = await Promise.all([
+      db.select({ value: count() }).from(leads).where(and(...conditions)),
+      db.select({ lead: leads, setterName: setters.name }).from(leads).leftJoin(setters, eq(leads.setterId, setters.id)).where(and(...conditions)).orderBy(desc(leads.updatedAt), asc(leads.id)).limit(limit).offset(offset),
+    ]);
+    return { stage, rows, totalCount: Number(countRows[0]?.value ?? 0) };
+  }));
+  const allItems = await getCrmLeadItemsFromRows(accountId, stageRows.flatMap(({ rows }) => rows));
+  const itemById = new Map(allItems.map((lead) => [lead.id, lead]));
+  const pages = Object.fromEntries(stageRows.map(({ stage, rows, totalCount }) => [stage, {
+    leads: rows.flatMap(({ lead }) => {
+      const item = itemById.get(lead.id);
+      return item ? [item] : [];
+    }),
+    totalCount,
+  }]));
+  return pages as CrmPipelineStagePages;
+}
+
+export async function getCrmLeadsPage(accountId: string, filters: CrmLeadFilters = {}, pagination: CrmLeadPagination = {}): Promise<CrmLeadPage> {
+  const conditions = buildCrmLeadConditions(accountId, filters, new Date());
+  const [countRow] = await db.select({ value: count() }).from(leads).where(and(...conditions));
+  const pageLeads = await getCrmLeadItemsByConditions(accountId, conditions, pagination);
+  return { leads: pageLeads, totalCount: Number(countRow?.value ?? 0) };
 }
 
 export async function getCrmLead(accountId: string, leadId: string): Promise<CrmLeadDetails | null> {

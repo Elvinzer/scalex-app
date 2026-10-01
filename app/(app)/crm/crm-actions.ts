@@ -17,6 +17,9 @@ import {
   createCrmLead,
   deleteCrmLead,
   getCrmLead,
+  getCrmLeadsPage,
+  getCrmPipelineStagePages,
+  searchCrmProfileCandidates,
   getCrmBookingLink,
   getCrmInternalBookingSlots,
   linkCrmCall,
@@ -35,11 +38,14 @@ import {
 } from "@/lib/crm/queries";
 import { confirmCrmCallMatch, decideCrmCallMatchSuggestion, generateCrmCallMatchSuggestion, type CrmCallMatchDecisionResult } from "@/lib/crm/call-match-suggestions";
 import { normalizeCapturedProfile } from "@/lib/crm/normalization";
-import { actionCompletionSchema, actionRescheduleSchema, actionSchema, bookingLinkSchema, captureProfileSchema, changeStageSchema, contactStateSchema, crmLeadCaptureSchema, internalBookingSchema, internalBookingSlotsSchema, internalBookingStatusSchema, leadFieldsSchema, noteSchema, outcomeSchema, qualificationSchema, reopenSchema, responsibilitySchema, responseSchema } from "@/lib/crm/schemas";
-import type { CrmBookingAvailabilityView, CrmCallMatchStatus, CrmCapturedProfile, CrmMutationResult, CrmProfileResolution } from "@/lib/crm/types";
+import { actionCompletionSchema, actionRescheduleSchema, actionSchema, bookingLinkSchema, captureProfileSchema, changeStageSchema, contactStateSchema, crmCallLeadSearchSchema, crmLeadBrowseRequestSchema, crmLeadCaptureSchema, crmPipelineSearchRequestSchema, crmPipelineStagePageRequestSchema, internalBookingSchema, internalBookingSlotsSchema, internalBookingStatusSchema, leadFieldsSchema, noteSchema, outcomeSchema, qualificationSchema, reopenSchema, responsibilitySchema, responseSchema } from "@/lib/crm/schemas";
+import type { CrmBookingAvailabilityView, CrmCallMatchStatus, CrmCapturedProfile, CrmLeadListItem, CrmMutationResult, CrmProfileResolution } from "@/lib/crm/types";
+import type { CrmPipelineStagePages } from "@/lib/crm/queries";
+import { CRM_PIPELINE_STAGE_PAGE_SIZE } from "@/lib/crm/lead-pagination";
 import { scheduleNativeBookingSideEffects } from "@/lib/native-booking/booking";
 import { getNativeBookingSideEffectStatus } from "@/lib/native-booking/queries";
 import type { NativeBookingSideEffectStatus } from "@/lib/native-booking/status";
+import { CRM_LEADS_PAGE_SIZE } from "@/lib/crm/lead-pagination";
 
 type ErrorResult = { state: "error"; error: string };
 type CrmErrorKey = "access" | "invalidProfile" | "ambiguousMatch" | "invalidData" | "invalidStage" | "invalidOutcome" | "leadNotFound" | "invalidResponsibility" | "responsibleAccount" | "invalidNote" | "invalidAction" | "cannotCreateAction" | "actionNotFound" | "invalidAssociation" | "leadOrCallNotFound" | "captureFailed" | "callMatchInvalid" | "callMatchExpired" | "callMatchConflict" | "callMatchNotFound" | "callMatchQueueUnavailable" | "bookingUnavailable" | "bookingConflict" | "bookingInvalid";
@@ -67,6 +73,89 @@ export async function getCrmLeadDetailAction(leadId: string) {
   const access = await requireCrmAccess(userId);
   if (!access || !z.string().uuid().safeParse(leadId).success) return null;
   return getCrmLead(access.accountId, leadId);
+}
+
+export type CrmLeadPageActionResult =
+  | { state: "ready"; leads: CrmLeadListItem[]; totalCount: number }
+  | { state: "error" };
+
+export async function getCrmLeadsPageAction(input: unknown): Promise<CrmLeadPageActionResult> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return { state: "error" };
+  const access = await requireCrmAccess(userId);
+  if (!access) return { state: "error" };
+  const parsed = crmLeadBrowseRequestSchema.safeParse(input);
+  if (!parsed.success) return { state: "error" };
+
+  try {
+    const page = await getCrmLeadsPage(access.accountId, parsed.data.filters, {
+      limit: CRM_LEADS_PAGE_SIZE,
+      offset: parsed.data.offset,
+    });
+    return { state: "ready", ...page };
+  } catch {
+    return { state: "error" };
+  }
+}
+
+export type CrmPipelineStagePagesActionResult =
+  | { state: "ready"; pages: CrmPipelineStagePages }
+  | { state: "error" };
+
+export async function getCrmPipelineStagePagesAction(input: unknown): Promise<CrmPipelineStagePagesActionResult> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return { state: "error" };
+  const access = await requireCrmAccess(userId);
+  if (!access) return { state: "error" };
+  const parsed = crmPipelineSearchRequestSchema.safeParse(input);
+  if (!parsed.success) return { state: "error" };
+
+  try {
+    const pages = await getCrmPipelineStagePages(access.accountId, parsed.data, { limit: CRM_PIPELINE_STAGE_PAGE_SIZE, offset: 0 });
+    return { state: "ready", pages };
+  } catch {
+    return { state: "error" };
+  }
+}
+
+export async function getCrmPipelineStagePageAction(input: unknown): Promise<CrmLeadPageActionResult> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return { state: "error" };
+  const access = await requireCrmAccess(userId);
+  if (!access) return { state: "error" };
+  const parsed = crmPipelineStagePageRequestSchema.safeParse(input);
+  if (!parsed.success) return { state: "error" };
+
+  try {
+    const { stage, search, source, offset } = parsed.data;
+    const page = await getCrmLeadsPage(access.accountId, { stage, search, source, excludeLost: true }, {
+      limit: CRM_PIPELINE_STAGE_PAGE_SIZE,
+      offset,
+    });
+    return { state: "ready", ...page };
+  } catch {
+    return { state: "error" };
+  }
+}
+
+export type CrmCallLeadSearchActionResult =
+  | { state: "ready"; leads: CrmLeadListItem[] }
+  | { state: "error" };
+
+export async function searchCrmLeadsForCallAction(input: unknown): Promise<CrmCallLeadSearchActionResult> {
+  const userId = await currentUser();
+  if (typeof userId !== "string") return { state: "error" };
+  const access = await requireCrmPermission(userId, "crm:assign");
+  if (!access) return { state: "error" };
+  const parsed = crmCallLeadSearchSchema.safeParse(input);
+  if (!parsed.success) return { state: "error" };
+
+  try {
+    const leads = await searchCrmProfileCandidates(access.accountId, parsed.data.query);
+    return { state: "ready", leads: leads.slice(0, 8) };
+  } catch {
+    return { state: "error" };
+  }
 }
 
 async function crmError(key: CrmErrorKey = "access"): Promise<string> {

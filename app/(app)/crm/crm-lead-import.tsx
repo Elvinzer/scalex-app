@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Falco } from "@/components/falco/falco";
 import { FalcoPondering } from "@/components/falco/falco-pondering";
@@ -61,7 +61,7 @@ function issueLabel(t: ReturnType<typeof useTranslations<"crm">>, issue: string)
   return t("import.issues.generic");
 }
 
-export function CrmLeadImport() {
+export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) => void }) {
   const t = useTranslations("crm");
   const router = useRouter();
   const [step, setStep] = useState<Step>("dropzone");
@@ -72,6 +72,10 @@ export function CrmLeadImport() {
   const [error, setError] = useState<string | null>(null);
   const [doneCount, setDoneCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<CrmImportCommitResponse | null>(null);
+
+  useEffect(() => {
+    onStepChange?.(step);
+  }, [onStepChange, step]);
 
   async function analyze(files: File[], overrides: Record<string, number> = {}) {
     setStep("analyzing");
@@ -558,7 +562,10 @@ export function CrmLeadImport() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button variant="secondary" onClick={() => { setStep("mapping"); setPreview(null); }}>{t("import.back")}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={startOver}>{t("import.cancel")}</Button>
+          <Button variant="secondary" onClick={() => { setStep("mapping"); setPreview(null); }}>{t("import.back")}</Button>
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => requestPreview()}>{t("import.refreshPreview")}</Button>
           <Button variant="accent2" onClick={commit} disabled={!preview.canCommit}>{t("import.commit")}</Button>

@@ -20,6 +20,45 @@ export const crmActionCategorySchema = z.enum(CRM_ACTION_CATEGORIES);
 export const crmLostReasonSchema = z.enum(CRM_LOST_REASONS);
 export const crmEventTypeSchema = z.enum(CRM_EVENT_TYPES);
 
+const crmLeadBrowseFiltersSchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  platform: crmPlatformSchema.optional(),
+  stage: crmStageSchema.optional(),
+  outcome: crmOutcomeSchema.optional(),
+  responsibleSetterId: z.string().uuid().optional(),
+  offerId: z.string().uuid().optional(),
+  source: crmLeadSourceSchema.optional(),
+  createdFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  createdTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  eventType: crmEventTypeSchema.optional(),
+  eventFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  eventTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  overdueActionOnly: z.boolean().optional(),
+  respondedOnly: z.boolean().optional(),
+  qualificationOnly: z.boolean().optional(),
+});
+
+export const crmLeadBrowseRequestSchema = z.object({
+  filters: crmLeadBrowseFiltersSchema,
+  offset: z.number().int().min(0).max(100_000),
+});
+
+const crmPipelineFilterSchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  source: crmLeadSourceSchema.optional(),
+});
+
+export const crmPipelineSearchRequestSchema = crmPipelineFilterSchema;
+
+export const crmPipelineStagePageRequestSchema = crmPipelineFilterSchema.extend({
+  stage: crmStageSchema,
+  offset: z.number().int().min(0).max(100_000),
+});
+
+export const crmCallLeadSearchSchema = z.object({
+  query: z.string().trim().min(2).max(120),
+});
+
 const captureProfileBaseSchema = z.object({
   profileUrl: z.string().trim().max(500).optional().default(""),
   platform: crmPlatformSchema.nullish(),

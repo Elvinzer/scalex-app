@@ -1,10 +1,13 @@
 "use client";
 
+"use client";
+
 import { AlertTriangle, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useReturnFocus } from "@/components/ui/use-return-focus";
 
 type ConfirmationDialogProps = {
   open: boolean;
@@ -33,9 +36,12 @@ export function ConfirmationDialog({
   onCancel,
   onConfirm,
 }: ConfirmationDialogProps) {
+  const returnFocusProps = useReturnFocus();
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !pending) onCancel(); }}>
       <DialogContent
+        {...returnFocusProps}
         className="max-w-[480px] p-0"
         aria-describedby="confirmation-dialog-description"
       >

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
@@ -82,14 +83,16 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><h2 className="text-2xl font-bold">{t("today.title")}</h2><p className="mt-1 text-muted-foreground">{t("today.subtitle")}</p></div>
-        {hasCrmPermission(access, "crm:view-team") && <Button asChild variant="outline" className="min-h-11"><Link href={isTeamView ? "/crm" : "/crm?team=1"}>{isTeamView ? t("today.myView") : t("today.teamView")}</Link></Button>}
+        <div><h1 className="text-2xl font-bold">{t("tabs.today")}</h1><p className="mt-1 hidden text-muted-foreground sm:block">{t("today.subtitle")}</p></div>
+        {hasCrmPermission(access, "crm:view-team") && <Button asChild variant="outline" className="hidden min-h-11 sm:inline-flex"><Link href={isTeamView ? "/crm" : "/crm?team=1"}>{isTeamView ? t("today.myView") : t("today.teamView")}</Link></Button>}
       </div>
 
       <section className="flex flex-col gap-3" aria-labelledby="crm-work-queue-title">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="crm-work-queue-title" className="text-xl font-bold">{t("today.queueTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("today.queueSubtitle")}</p></div><div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="min-h-11"><Link href="/crm/actions?today=1">{t("today.openToday")}</Link></Button><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div></div>
-        {actions.length > 0 ? <CrmActionList initialActions={actions} groupedByCategory groupByDueDate /> : <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{t("today.emptyHelp")}</p><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div>}
+        <h2 id="crm-work-queue-title" className="sr-only">{t("today.queueTitle")}</h2>
+        {actions.length > 0 ? <CrmActionList initialActions={actions} groupByDueDate featureFirstAction featuredActionLabel={t("leads.nextAction")} /> : <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{t("today.emptyHelp")}</p><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div>}
       </section>
+
+      {hasCrmPermission(access, "crm:view-team") && <div className="sm:hidden"><Button asChild variant="outline" className="min-h-11"><Link href={isTeamView ? "/crm" : "/crm?team=1"}>{isTeamView ? t("today.myView") : t("today.teamView")}</Link></Button></div>}
 
       <CrmExtensionSuggestion
         accountId={access.accountId}
@@ -97,7 +100,13 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
         installLabel={extensionInstallLabel}
       />
 
-      <form method="get" className="sticker-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
+      <details className="sticker-card group overflow-hidden">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-accent/20 [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0"><span className="block text-sm font-bold">{t("kpis.analyticsTitle")}</span><span className="mt-0.5 block text-sm text-muted-foreground">{t("kpis.analyticsSubtitle")}</span></span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="flex flex-col gap-5 border-t border-border p-4">
+      <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
         {isTeamView && <input type="hidden" name="team" value="1" />}
         <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 lg:col-span-6">
           <span className="text-sm font-bold">{t("kpis.period")}</span>
@@ -119,6 +128,8 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
       </section>
       {kpis.incomplete && <p className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.incomplete")}</p>}
       <section className="sticker-card p-4" aria-labelledby="crm-kpi-rates-title"><h2 id="crm-kpi-rates-title" className="text-lg font-bold">{t("kpis.ratesTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("kpis.cohort", { count: kpis.cohortFirstMessages })}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(["response", "qualification", "valueContent", "callProposed", "callBooked", "attendance", "noShow", "closing"] as const).map((key) => <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.rate${key[0].toUpperCase()}${key.slice(1)}`)}</p><p className="mt-1 text-lg font-bold">{kpis.rates[key] === null ? t("kpis.notMeasured") : `${Math.round(kpis.rates[key] * 100)}%`}</p></div>)}</div></section>
+        </div>
+      </details>
 
       <div className="flex flex-wrap gap-3"><Button asChild variant="outline" className="min-h-11"><Link href="/crm/pipeline">{t("today.openPipeline")}</Link></Button><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("tabs.leads")}</Link></Button></div>
     </div>

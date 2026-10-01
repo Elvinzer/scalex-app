@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useReturnFocus } from "@/components/ui/use-return-focus";
 import type { CrmBookingAvailabilityView, CrmLeadDetails } from "@/lib/crm/types";
 import type { NativeBookingAnswerValue, NativeBookingQuestionRecord } from "@/lib/native-booking/questions";
 import { isValidPhoneNumber } from "@/lib/native-booking/validation";
@@ -128,6 +129,7 @@ async function copyToClipboard(value: string) {
 export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBooked: (booking: { scheduledAt: string; timeZone: string; closerName: string }) => void }) {
   const t = useTranslations("crm.detail");
   const locale = useLocale();
+  const returnFocusProps = useReturnFocus();
   const [isPending, startTransition] = useTransition();
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
   const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
@@ -420,7 +422,7 @@ export function CrmBookingActions({ lead, onBooked }: { lead: BookingLead; onBoo
       {bookingError && <p className="mt-2 text-sm font-bold text-state-critical" role="alert">{bookingError}</p>}
 
       <Dialog open={bookingOpen} onOpenChange={(open) => { if (!isPending) setBookingOpen(open); }}>
-        <DialogContent className="max-h-[min(86vh,720px)] overflow-y-auto">
+        <DialogContent {...returnFocusProps} className="max-h-[min(86vh,720px)] overflow-y-auto">
           <DialogTitle>{t("bookForProspectTitle", { name: lead.displayName })}</DialogTitle>
           <p className="mt-2 text-sm text-muted-foreground">{availability ? t("bookingAvailabilityHelp", { timeZone: availability.timeZone }) : t("bookingLoading")}</p>
           {availability && availability.slots.length === 0 && (
