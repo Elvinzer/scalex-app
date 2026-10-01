@@ -36,6 +36,11 @@
     "search": "Rechercher des leads",
     "searchPlaceholder": "Nom, pseudo ou coordonnées",
     "applyFilters": "Appliquer",
+    "applyBeforeLoadMore": "Applique tes changements de filtre avant de charger les résultats correspondants.",
+    "resultsUpdated": "Les résultats du pipeline ont été mis à jour.",
+    "moreLoaded": "{count, plural, =1 {1 lead supplémentaire chargé dans {stage}} other {# leads supplémentaires chargés dans {stage}}}",
+    "stageUpdated": "Lead déplacé vers {stage}.",
+    "refreshFailed": "L'étape a changé, mais la liste ne s'est pas actualisée. Recharge la page.",
     "searching": "Mise à jour du pipeline...",
     "searchFailed": "Impossible de mettre le pipeline à jour. Réessaie.",
     "emptyFiltered": "Aucun lead ne correspond à ces filtres.",
@@ -135,6 +140,13 @@
   },
   "import": {
     "toggle": "Importer l'historique CRM",
+    "progress": "Étapes de l'import",
+    "steps": {
+      "file": "Fichier",
+      "mapping": "Correspondance",
+      "preview": "Aperçu",
+      "done": "Terminé"
+    },
     "description": "Envoie un fichier Excel ou CSV. Falco propose la transco, puis tu la vérifies avant toute écriture.",
     "formats": "Excel, CSV ou TSV",
     "tableOnly": "Les imports CRM acceptent les fichiers Excel, CSV ou TSV.",
@@ -354,6 +366,7 @@
     "searchLeads": "Rechercher un lead",
     "searchLeadsPlaceholder": "Nom, identifiant, email ou téléphone",
     "searchingLeads": "Recherche...",
+    "leadsFoundCount": "{count, plural, =1 {1 lead trouvé} other {# leads trouvés}}",
     "searchForLead": "Rechercher",
     "searchLeadHint": "Saisis au moins 2 caractères.",
     "searchLeadsFailed": "La recherche a échoué. Réessaie.",

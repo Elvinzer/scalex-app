@@ -38,15 +38,21 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   const offerId = offers.some((offer) => offer.id === params.offer) ? params.offer : undefined;
   const source = crmLeadSourceSchema.safeParse(params.source).success ? crmLeadSourceSchema.parse(params.source) : undefined;
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-  const createdFrom = datePattern.test(params.from ?? "") ? params.from : undefined;
-  const createdTo = datePattern.test(params.to ?? "") ? params.to : undefined;
+  const validDate = (value: string | undefined): string | undefined => {
+    if (!value || !datePattern.test(value)) return undefined;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : undefined;
+  };
+  const createdFrom = validDate(params.from);
+  const createdTo = validDate(params.to);
   const eventType = crmEventTypeSchema.safeParse(params.event).success ? crmEventTypeSchema.parse(params.event) : undefined;
-  const eventFrom = datePattern.test(params.eventFrom ?? "") ? params.eventFrom : undefined;
-  const eventTo = datePattern.test(params.eventTo ?? "") ? params.eventTo : undefined;
+  const eventFrom = validDate(params.eventFrom);
+  const eventTo = validDate(params.eventTo);
   const overdueActionOnly = params.overdue === "1";
   const respondedOnly = params.responded === "1";
   const qualificationOnly = params.qualification === "1";
-  const filters = { search: params.search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, overdueActionOnly, respondedOnly, qualificationOnly };
+  const search = params.search?.trim().slice(0, 200) || undefined;
+  const filters = { search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, overdueActionOnly, respondedOnly, qualificationOnly };
   const { leads, totalCount } = await withDatabaseReadTimeout(
     () => getCrmLeadsPage(access.accountId, filters, { limit: CRM_LEADS_PAGE_SIZE, offset: 0 }),
     { operation: "crm-leads-data", timeoutMs: 15_000 },
@@ -56,9 +62,9 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">{t("leads.title")}</h1><p className="mt-1 text-muted-foreground">{t("leads.subtitle")}</p></div><CrmLeadManagementActions offers={offers} setters={setters} /></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">{t("leads.title")}</h1><p className="mt-1 text-muted-foreground">{t("leads.subtitle")}</p></div><CrmLeadManagementActions offers={offers} setters={setters} canImport={hasCrmPermission(access, "crm:manage-pipeline")} /></div>
       <form method="get" className="sticker-card grid gap-3 p-4 lg:grid-cols-4 lg:items-end">
-        <label className="flex flex-col gap-1 text-sm font-bold lg:col-span-4">{t("leads.search")}<input name="search" maxLength={200} defaultValue={params.search} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
+        <label className="flex flex-col gap-1 text-sm font-bold lg:col-span-4">{t("leads.search")}<input name="search" maxLength={200} defaultValue={search} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.channel")}<select name="platform" defaultValue={platform ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allChannels")}</option>{CRM_CHANNELS.map((channel) => <option key={channel} value={channel}>{t(`leads.sourceOptions.${channel}`)}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.allStages")}<select name="stage" defaultValue={stage ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allStages")}</option>{CRM_LEAD_STAGES.map((item) => <option key={item} value={item}>{t(CRM_STAGE_LABEL_KEYS[item])}</option>)}</select></label>
         <details className="group lg:col-span-4">
@@ -83,7 +89,7 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
         </details>
         <div className="flex flex-wrap items-center gap-3 lg:col-span-4"><Button type="submit" variant="outline" className="min-h-11">{t("leads.apply")}</Button><Link href="/crm/leads" className="inline-flex min-h-11 items-center text-sm font-bold underline underline-offset-4 hover:text-foreground">{t("leads.reset")}</Link><span className="text-sm text-muted-foreground" aria-live="polite">{t("leads.resultCount", { count: totalCount })}</span></div>
       </form>
-      {leads.length === 0 ? <p className="sticker-card p-8 text-center text-muted-foreground">{t("leads.empty")}</p> : <><p className="text-sm text-muted-foreground">{t("leads.rowHint")}</p><CrmLeadList key={leadListKey} leads={leads} totalCount={totalCount} filters={filters} setters={setters} offers={offers} closers={closers} canAssign={hasCrmPermission(access, "crm:assign")} canManagePipeline={hasCrmPermission(access, "crm:manage-pipeline")} /></>}
+      {leads.length === 0 ? <><p className="text-sm text-muted-foreground" aria-live="polite">{t("leads.pagination.showing", { displayed: 0, total: totalCount })}</p><p className="sticker-card p-8 text-center text-muted-foreground">{t("leads.empty")}</p></> : <><p className="text-sm text-muted-foreground">{t("leads.rowHint")}</p><CrmLeadList key={leadListKey} leads={leads} totalCount={totalCount} filters={filters} setters={setters} offers={offers} closers={closers} canAssign={hasCrmPermission(access, "crm:assign")} canManagePipeline={hasCrmPermission(access, "crm:manage-pipeline")} canValidateSale={hasCrmPermission(access, "crm:validate-sale")} /></>}
     </div>
   );
 }

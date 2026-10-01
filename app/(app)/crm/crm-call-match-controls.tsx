@@ -28,7 +28,7 @@ function isRetryable(status: CrmCallMatchStatus): boolean {
   return status === "failed" || status === "unavailable" || status === "expired" || status === "no_match";
 }
 
-export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { call: CrmCallView; canLink: boolean; idPrefix?: string }) {
+export function CrmCallMatchControls({ call, canLink, idPrefix = "call", returnTo = "/crm/appels" }: { call: CrmCallView; canLink: boolean; idPrefix?: string; returnTo?: string }) {
   const t = useTranslations("crm.calls");
   const locale = useLocale();
   const router = useRouter();
@@ -37,6 +37,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { cal
   const [isPending, startTransition] = useTransition();
   const suggestion = call.suggestion;
   const status = localStatus ?? suggestion?.status ?? null;
+  const leadHref = (leadId: string) => `/crm/leads/${leadId}?${new URLSearchParams({ returnTo }).toString()}`;
 
   if (call.leadId) return <p className="text-xs font-bold text-state-healthy">{t("linked")}</p>;
 
@@ -99,7 +100,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { cal
           {candidates.map((candidate, index) => <div key={candidate.id} className="rounded border border-border bg-card p-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <Link href={`/crm/leads/${candidate.leadId}`} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{candidate.leadName}</Link>
+                <Link href={leadHref(candidate.leadId)} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{candidate.leadName}</Link>
                 {candidate.leadHandle && <p className="truncate text-xs text-muted-foreground">@{candidate.leadHandle}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-1"><span className="text-xs font-bold text-muted-foreground">{t(`match.${candidate.confidence}`)}</span><CrmProfileLink href={candidate.leadProfileUrl} label={t("match.openProfile")} iconOnly /></div>
@@ -111,7 +112,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call" }: { cal
             {candidate.missingEvidence.length > 0 && <p className="mt-1 text-[0.68rem] text-muted-foreground">{t("match.missing")}: {candidate.missingEvidence.slice(0, 2).join(", ")}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {canLink ? <Button type="button" variant="outline" size="xs" className="min-h-11" onClick={() => confirm(candidate.leadId)} disabled={isPending}>{index === 0 ? t("match.confirm") : t("match.alternative")}</Button> : <span className="text-[0.68rem] font-bold text-muted-foreground">{t("linkRestricted")}</span>}
-              <Button asChild type="button" variant="link" size="xs" className="min-h-11"><Link href={`/crm/leads/${candidate.leadId}`}>{t("match.viewLead")}</Link></Button>
+              <Button asChild type="button" variant="link" size="xs" className="min-h-11"><Link href={leadHref(candidate.leadId)}>{t("match.viewLead")}</Link></Button>
             </div>
           </div>)}
         </div>}

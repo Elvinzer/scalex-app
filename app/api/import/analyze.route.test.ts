@@ -55,7 +55,7 @@ describe("CRM import analysis guard", () => {
     const response = await POST(new Request("http://localhost/api/import/analyze", { method: "POST", body: formData }));
 
     expect(response.status).toBe(403);
-    expect(mocks.requireCrmAccess).toHaveBeenCalledWith("user-id");
+    expect(mocks.requireCrmAccess).toHaveBeenCalledWith("user-id", "crm:manage-pipeline");
     expect(mocks.mapImportedFile).not.toHaveBeenCalled();
     expect(mocks.resolveFalcoProvider).not.toHaveBeenCalled();
   });
@@ -108,6 +108,7 @@ describe("CRM import analysis provider", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mocks.requireCrmAccess).toHaveBeenCalledWith("user-id", "crm:manage-pipeline");
     expect(body.keySource).toBe("shared");
     expect(body.tokens).toEqual({ inputTokens: 12, outputTokens: 8 });
     expect(mocks.resolveFalcoProvider).toHaveBeenCalledWith(accountRow);

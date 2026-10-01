@@ -22,7 +22,7 @@ function isCallResult(value: string): value is Exclude<CallResult, "pending"> {
   return value === "showed" || value === "no_show" || value === "awaiting_decision" || value === "not_closed";
 }
 
-export function CrmCallResultControl({ call, idPrefix = "desktop" }: { call: CrmCallView; idPrefix?: string }) {
+export function CrmCallResultControl({ call, idPrefix = "desktop", returnTo = "/crm/appels" }: { call: CrmCallView; idPrefix?: string; returnTo?: string }) {
   const t = useTranslations("crm.calls");
   const [result, setResult] = useState<CallResult>(initialResult(call));
   const [message, setMessage] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function CrmCallResultControl({ call, idPrefix = "desktop" }: { call: Crm
         <option value="awaiting_decision">{t("awaitingDecision")}</option>
         <option value="not_closed">{t("notClosed")}</option>
       </select>
-      {call.leadId && <Button type="button" asChild variant="outline" size="sm" className="min-h-11"><a href={`/crm/leads/${call.leadId}`}>{t("openLead")}</a></Button>}
+      {call.leadId && <Button type="button" asChild variant="outline" size="sm" className="min-h-11"><a href={`/crm/leads/${call.leadId}?${new URLSearchParams({ returnTo }).toString()}`}>{t("openLead")}</a></Button>}
       {message && <span className="text-xs text-muted-foreground" role="status">{message}</span>}
     </div>
   );

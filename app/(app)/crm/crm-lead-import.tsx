@@ -27,6 +27,7 @@ import { sheetNeedsDefaultSource } from "@/lib/crm/import-source";
 import { ImportDropzone } from "@/components/import/import-dropzone";
 
 type Step = "dropzone" | "analyzing" | "mapping" | "preview" | "committing" | "done" | "error";
+type RetryOperation = "analyze" | "preview" | "commit" | null;
 
 function valueLabel(value: string | number | null, emptyLabel: string): string {
   if (value === null || value === "") return emptyLabel;
@@ -70,6 +71,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
   const [review, setReview] = useState<CrmImportReview | null>(null);
   const [preview, setPreview] = useState<CrmImportPreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryOperation, setRetryOperation] = useState<RetryOperation>(null);
   const [doneCount, setDoneCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<CrmImportCommitResponse | null>(null);
 
@@ -77,7 +79,18 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
     onStepChange?.(step);
   }, [onStepChange, step]);
 
+  function progressPanel(currentStep: 1 | 2 | 3 | 4) {
+    const steps = [
+      t("import.steps.file"),
+      t("import.steps.mapping"),
+      t("import.steps.preview"),
+      t("import.steps.done"),
+    ];
+    return <ol className="flex flex-wrap gap-2" aria-label={t("import.progress")}>{steps.map((label, index) => <li key={label} aria-current={index + 1 === currentStep ? "step" : undefined} className="rounded-full border border-border bg-card px-3 py-2 text-xs font-bold text-muted-foreground aria-[current=step]:border-accent aria-[current=step]:bg-accent-soft aria-[current=step]:text-accent-text">{index + 1}. {label}</li>)}</ol>;
+  }
+
   async function analyze(files: File[], overrides: Record<string, number> = {}) {
+    setRetryOperation("analyze");
     setStep("analyzing");
     setError(null);
     const formData = new FormData();
@@ -105,6 +118,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
       });
       setReview(nextReview);
       setPreview(null);
+      setRetryOperation(null);
       setStep("mapping");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("import.error"));
@@ -115,6 +129,8 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
   async function handleFilesSelected(files: File[]) {
     setPendingFiles(files);
     setHeaderOverrides({});
+    setReview(null);
+    setPreview(null);
     await analyze(files, {});
   }
 
@@ -172,6 +188,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
 
   async function requestPreview(nextReview = review) {
     if (!nextReview) return;
+    setRetryOperation("preview");
     setStep("analyzing");
     setError(null);
     try {
@@ -188,6 +205,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
       const parsed = crmImportPreviewResponseSchema.safeParse(body);
       if (!parsed.success) throw new Error(t("import.error"));
       setPreview(parsed.data);
+      setRetryOperation(null);
       setStep("preview");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("import.error"));
@@ -197,6 +215,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
 
   async function commit() {
     if (!review || !preview?.canCommit) return;
+    setRetryOperation("commit");
     setStep("committing");
     setError(null);
     try {
@@ -214,6 +233,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
       if (!parsed.success) throw new Error(t("import.error"));
       setDoneCount(parsed.data.create + parsed.data.update);
       setDoneSummary(parsed.data);
+      setRetryOperation(null);
       setStep("done");
       router.refresh();
     } catch (caught) {
@@ -254,12 +274,30 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
     setReview(null);
     setPreview(null);
     setError(null);
+    setRetryOperation(null);
     setDoneSummary(null);
+  }
+
+  function retry() {
+    if (retryOperation === "analyze" && pendingFiles.length > 0) {
+      void analyze(pendingFiles, headerOverrides);
+      return;
+    }
+    if (retryOperation === "preview" && review) {
+      void requestPreview(review);
+      return;
+    }
+    if (retryOperation === "commit") {
+      void commit();
+      return;
+    }
+    startOver();
   }
 
   if (step === "dropzone") {
     return (
       <div className="flex flex-col gap-3">
+        {progressPanel(1)}
         <p className="text-sm text-muted-foreground">{t("import.description")}</p>
         <ImportDropzone onFilesSelected={handleFilesSelected} allowPaste accept=".csv,.tsv,.xlsx,.xls" formatLabel={t("import.formats")} />
       </div>
@@ -269,6 +307,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
   if (step === "analyzing" || step === "committing") {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
+        {progressPanel(step === "committing" || preview ? 3 : review ? 2 : 1)}
         <FalcoPondering isLoading pose="thinking" size="md" label={step === "analyzing" ? t("import.analyzing") : t("import.committing")} className="flex-col" />
       </div>
     );
@@ -277,9 +316,10 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
   if (step === "error") {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
+        {progressPanel(preview ? 3 : review ? 2 : 1)}
         <Falco pose="sleeping" size="md" animate="enter" />
         <p className="text-sm text-state-critical">{error ?? t("import.error")}</p>
-        <Button variant="secondary" onClick={startOver}>{t("import.retry")}</Button>
+        <Button variant="secondary" className="min-h-11" onClick={retry}>{t("import.retry")}</Button>
       </div>
     );
   }
@@ -287,6 +327,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
   if (step === "done") {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
+        {progressPanel(4)}
         <Falco pose="happy" size="md" animate="enter" />
         <p className="text-sm font-bold">{doneSummary?.status === "already_committed" ? t("import.alreadyDone") : t("import.done", { count: doneCount })}</p>
         {doneSummary && <p className="max-w-xl text-sm text-muted-foreground">{t("import.doneSummary", {
@@ -296,7 +337,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
           skipped: doneSummary.skipped,
           duplicates: doneSummary.duplicates,
         })}</p>}
-        <Button variant="secondary" onClick={startOver}>{t("import.toggle")}</Button>
+        <Button variant="secondary" className="min-h-11" onClick={startOver}>{t("import.toggle")}</Button>
       </div>
     );
   }
@@ -306,6 +347,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
   if (step === "mapping") {
     return (
       <div className="flex flex-col gap-5">
+        {progressPanel(2)}
         <div>
           <h3 className="text-lg font-bold">{t("import.mappingTitle")}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{t("import.mappingHelp")}</p>
@@ -323,8 +365,8 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
           />
         ))}
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="secondary" onClick={startOver}>{t("import.cancel")}</Button>
-          <Button variant="accent2" onClick={() => requestPreview()}>{t("import.continue")}</Button>
+          <Button variant="secondary" className="min-h-11" onClick={startOver}>{t("import.cancel")}</Button>
+          <Button variant="accent2" className="min-h-11" onClick={() => requestPreview()}>{t("import.continue")}</Button>
         </div>
       </div>
     );
@@ -333,8 +375,9 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
   if (!preview) {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
+        {progressPanel(2)}
         <p className="text-sm text-muted-foreground">{t("import.previewHelp")}</p>
-        <Button variant="accent2" onClick={() => requestPreview()}>{t("import.refreshPreview")}</Button>
+        <Button variant="accent2" className="min-h-11" onClick={() => requestPreview()}>{t("import.refreshPreview")}</Button>
       </div>
     );
   }
@@ -342,6 +385,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
   const existingRows = preview.rows.filter((row) => row.existingLeadId || row.issues.includes("multiple_existing_phone_matches") || row.issues.includes("profile_conflict"));
   return (
     <div className="flex flex-col gap-5">
+      {progressPanel(3)}
       <div>
         <h3 className="text-lg font-bold">{t("import.previewTitle")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{t("import.previewHelp")}</p>
@@ -411,7 +455,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
                       const value = event.target.value;
                       if (value === "merge" || value === "skip") setDuplicateDecision(group.id, value);
                     }}
-                    className="min-h-10 rounded border border-border bg-background px-2"
+                    className="min-h-11 rounded border border-border bg-background px-2"
                   >
                     <option value="">{t("import.chooseDecision")}</option>
                     <option value="merge">{t("import.merge")}</option>
@@ -429,7 +473,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
                           const value = event.target.value;
                           if (value === "keep" || value === "replace") setConflictChoice(conflictId, value);
                         }}
-                        className="min-h-9 rounded border border-border bg-background px-2 text-foreground"
+                        className="min-h-11 rounded border border-border bg-background px-2 text-foreground"
                       >
                         <option value="">{t("import.chooseDecision")}</option>
                         <option value="keep">{t("import.keep")}</option>
@@ -459,7 +503,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
                     const value = event.target.value;
                     if (value === "update" || value === "skip") setExistingDecision(row.rowKey, value);
                   }}
-                  className="min-h-10 rounded border border-border bg-background px-2"
+                  className="min-h-11 rounded border border-border bg-background px-2"
                   >
                     <option value="">{t("import.chooseDecision")}</option>
                   {!row.issues.some((issue) => issue === "multiple_existing_phone_matches" || issue === "profile_conflict") && <option value="update">{t("import.update")}</option>}
@@ -485,7 +529,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
                     const value = event.target.value;
                     if (value === "import" || value === "skip") setMissingPhoneDecision(row.rowKey, value);
                   }}
-                  className="min-h-10 rounded border border-border bg-background px-2"
+                  className="min-h-11 rounded border border-border bg-background px-2"
                 >
                   <option value="">{t("import.chooseDecision")}</option>
                   <option value="import">{t("import.importWithoutPhone")}</option>
@@ -511,7 +555,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
                     const value = event.target.value;
                     if (value === "use_import_time" || value === "skip") setMissingDateDecision(row.rowKey, value);
                   }}
-                  className="min-h-10 rounded border border-border bg-background px-2"
+                  className="min-h-11 rounded border border-border bg-background px-2"
                 >
                   <option value="">{t("import.chooseDecision")}</option>
                   <option value="use_import_time">{t("import.useImportTime")}</option>
@@ -538,7 +582,7 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
                     const value = event.target.value;
                     if (value === "keep" || value === "replace") setConflictChoice(conflict.id, value);
                   }}
-                  className="min-h-10 rounded border border-border bg-background px-2"
+                  className="min-h-11 rounded border border-border bg-background px-2"
                 >
                   <option value="">{t("import.chooseDecision")}</option>
                   <option value="keep">{t("import.keep")}</option>
@@ -563,12 +607,12 @@ export function CrmLeadImport({ onStepChange }: { onStepChange?: (step: Step) =>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={startOver}>{t("import.cancel")}</Button>
-          <Button variant="secondary" onClick={() => { setStep("mapping"); setPreview(null); }}>{t("import.back")}</Button>
+          <Button variant="secondary" className="min-h-11" onClick={startOver}>{t("import.cancel")}</Button>
+          <Button variant="secondary" className="min-h-11" onClick={() => { setStep("mapping"); setPreview(null); }}>{t("import.back")}</Button>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => requestPreview()}>{t("import.refreshPreview")}</Button>
-          <Button variant="accent2" onClick={commit} disabled={!preview.canCommit}>{t("import.commit")}</Button>
+          <Button variant="outline" className="min-h-11" onClick={() => requestPreview()}>{t("import.refreshPreview")}</Button>
+          <Button variant="default" className="min-h-11" onClick={commit} disabled={!preview.canCommit}>{t("import.commit")}</Button>
         </div>
       </div>
     </div>
@@ -604,7 +648,7 @@ function MappingSheet({
           <select
             value={sheet.mapping.targetTable}
             onChange={(event) => onTargetTableChange(sheetIndex, event.target.value)}
-            className="min-h-9 rounded border border-border bg-background px-2 font-normal"
+            className="min-h-11 rounded border border-border bg-background px-2 font-normal"
           >
             <option value="crm_leads">{t("import.crmLeads")}</option>
             <option value="ignore">{t("import.ignoreSheet")}</option>
@@ -629,7 +673,7 @@ function MappingSheet({
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {sheet.previewRows.map((_, rowIndex) => (
-              <Button key={rowIndex} variant="secondary" onClick={() => onHeaderRowChosen(sheet.sheetName, rowIndex)}>
+              <Button key={rowIndex} variant="secondary" className="min-h-11" onClick={() => onHeaderRowChosen(sheet.sheetName, rowIndex)}>
                 {t("import.headerRow", { number: rowIndex + 1 })}
               </Button>
             ))}
@@ -675,7 +719,7 @@ function MappingSheet({
                   <select
                     value={mapping.targetField ?? ""}
                     onChange={(event) => onTargetChange(sheetIndex, mapping.sourceColumn, event.target.value)}
-                    className="min-h-10 max-w-56 rounded border border-border bg-background px-2"
+                    className="min-h-11 max-w-56 rounded border border-border bg-background px-2"
                   >
                     <option value="">{t("import.ignore")}</option>
                     {CRM_IMPORT_FIELDS.map((field) => <option key={field} value={field}>{t("import.fields." + field)}</option>)}

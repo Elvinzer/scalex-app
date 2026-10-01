@@ -36,6 +36,11 @@
     "search": "Search leads",
     "searchPlaceholder": "Search names, handles, or contact details",
     "applyFilters": "Apply",
+    "applyBeforeLoadMore": "Apply your filter changes before loading matching leads.",
+    "resultsUpdated": "Pipeline results updated.",
+    "moreLoaded": "{count, plural, =1 {1 more lead loaded in {stage}} other {# more leads loaded in {stage}}}",
+    "stageUpdated": "Lead moved to {stage}.",
+    "refreshFailed": "The stage changed, but the list did not refresh. Reload the page.",
     "searching": "Updating the pipeline...",
     "searchFailed": "Could not update the pipeline. Try again.",
     "emptyFiltered": "No leads match these filters.",
@@ -135,6 +140,13 @@
   },
   "import": {
     "toggle": "Import CRM history",
+    "progress": "Import steps",
+    "steps": {
+      "file": "File",
+      "mapping": "Map columns",
+      "preview": "Review",
+      "done": "Complete"
+    },
     "description": "Upload an Excel or CSV file. Falco suggests the mapping, then you review it before anything is written.",
     "formats": "Excel, CSV or TSV",
     "tableOnly": "CRM imports accept Excel, CSV or TSV files.",
@@ -354,6 +366,7 @@
     "searchLeads": "Find a lead",
     "searchLeadsPlaceholder": "Name, handle, email or phone",
     "searchingLeads": "Searching...",
+    "leadsFoundCount": "{count, plural, =1 {1 lead found} other {# leads found}}",
     "searchForLead": "Search",
     "searchLeadHint": "Enter at least 2 characters.",
     "searchLeadsFailed": "Could not search leads. Try again.",

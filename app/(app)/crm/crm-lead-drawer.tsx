@@ -24,6 +24,7 @@ export function CrmLeadDrawer({
   closers,
   canAssign,
   canManagePipeline,
+  canValidateSale,
   onDeleted,
   onLost,
   onStageChanged,
@@ -36,6 +37,7 @@ export function CrmLeadDrawer({
   closers: ActiveCloser[];
   canAssign: boolean;
   canManagePipeline: boolean;
+  canValidateSale: boolean;
   onDeleted?: (leadId: string) => void;
   onLost?: (leadId: string) => void;
   onStageChanged?: (leadId: string, stage: CrmLeadStage) => void;
@@ -54,12 +56,18 @@ export function CrmLeadDrawer({
     }
     setDetail(null);
     setLoadError(false);
-    startTransition(() => {
-      void getCrmLeadDetailAction(lead.id).then((result) => {
+    let active = true;
+    startTransition(async () => {
+      try {
+        const result = await getCrmLeadDetailAction(lead.id);
+        if (!active) return;
         if (result) setDetail(result);
         else setLoadError(true);
-      });
+      } catch {
+        if (active) setLoadError(true);
+      }
     });
+    return () => { active = false; };
   }, [lead, open, startTransition]);
 
   return (
@@ -76,7 +84,7 @@ export function CrmLeadDrawer({
         </div>
         {isPending && <p className="py-8 text-center text-sm text-muted-foreground" role="status">{t("loading")}</p>}
         {!isPending && loadError && <p className="py-8 text-center text-sm font-bold text-state-critical" role="alert">{t("notFound")}</p>}
-        {!isPending && detail && <CrmLeadDetail initialLead={detail} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} inDrawer onDeleted={() => { onOpenChange(false); onDeleted?.(detail.id); }} onLost={() => onLost?.(detail.id)} onStageChanged={onStageChanged} />}
+        {!isPending && detail && <CrmLeadDetail initialLead={detail} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} canValidateSale={canValidateSale} inDrawer onDeleted={() => { onOpenChange(false); onDeleted?.(detail.id); }} onLost={() => onLost?.(detail.id)} onStageChanged={onStageChanged} />}
       </DrawerContent>
     </Drawer>
   );

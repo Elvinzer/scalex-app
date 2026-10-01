@@ -39,9 +39,8 @@ function moveLeadInPages(pages: PipelinePagesState, leadId: string, nextStage: C
 
   const movedLead = { ...lead, stage: nextStage };
   const currentLeads = currentPage.leads.filter((item) => item.id !== leadId);
-  const nextLeads = [movedLead, ...nextPage.leads.filter((item) => item.id !== leadId)]
-    .slice(0, Math.max(nextPage.leads.length, 1));
-  const addedToLoadedPage = nextLeads.length > nextPage.leads.length;
+  const nextLeads = [movedLead, ...nextPage.leads.filter((item) => item.id !== leadId)];
+  const addedToLoadedPage = nextPage.leads.length < CRM_PIPELINE_STAGE_PAGE_SIZE;
 
   return {
     ...pages,
@@ -60,18 +59,21 @@ function moveLeadInPages(pages: PipelinePagesState, leadId: string, nextStage: C
   };
 }
 
-export function CrmStageBoard({ initialPages, setters, offers, closers, canAssign, canManagePipeline }: { initialPages: CrmPipelineStagePages; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean; canManagePipeline: boolean }) {
+export function CrmStageBoard({ initialPages, setters, offers, closers, canAssign, canManagePipeline, canValidateSale }: { initialPages: CrmPipelineStagePages; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean; canManagePipeline: boolean; canValidateSale: boolean }) {
   const t = useTranslations("crm");
   const [pages, setPages] = useState(() => toPipelinePagesState(initialPages));
   const [selectedStage, setSelectedStage] = useState<CrmLeadStage>(CRM_LEAD_STAGES[0]);
   const [selectedSource, setSelectedSource] = useState<PipelineSourceFilter>("all");
+  const [appliedSource, setAppliedSource] = useState<PipelineSourceFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [searchError, setSearchError] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadingStages, setLoadingStages] = useState<Set<CrmLeadStage>>(() => new Set());
   const [stageLoadErrors, setStageLoadErrors] = useState<Set<CrmLeadStage>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const [isPending, startTransition] = useTransition();
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [drawerLead, setDrawerLead] = useState<CrmLeadListItem | null>(null);
@@ -81,11 +83,12 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
     return normalizedSource ? t(`sources.${normalizedSource}`) : t("sources.autre");
   }
 
-  const hasAppliedFilters = Boolean(appliedSearch) || selectedSource !== "all";
+  const filtersDirty = searchTerm.trim() !== appliedSearch || selectedSource !== appliedSource;
+  const hasAppliedFilters = Boolean(appliedSearch) || appliedSource !== "all";
 
   async function applyFilters(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (isSearching || isPending || loadingStages.size > 0) return;
+    if (isSearching || isRefreshing || isPending || loadingStages.size > 0) return;
     const nextSearch = searchTerm.trim();
     setSearchError(false);
     setIsSearching(true);
@@ -100,7 +103,9 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
       }
       setPages(toPipelinePagesState(result.pages));
       setAppliedSearch(nextSearch);
+      setAppliedSource(selectedSource);
       setStageLoadErrors(new Set());
+      setAnnouncement(t("pipeline.resultsUpdated"));
     } catch {
       setSearchError(true);
     } finally {
@@ -110,7 +115,7 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
 
   async function loadMore(stage: CrmLeadStage): Promise<void> {
     const page = pages[stage];
-    if (loadingStages.has(stage) || page.leads.length >= page.totalCount || isSearching || isPending) return;
+    if (loadingStages.has(stage) || page.leads.length >= page.totalCount || isSearching || isRefreshing || isPending || filtersDirty) return;
 
     setLoadingStages((current) => new Set(current).add(stage));
     setStageLoadErrors((current) => {
@@ -122,7 +127,7 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
       const result = await getCrmPipelineStagePageAction({
         stage,
         search: appliedSearch || undefined,
-        source: selectedSource === "all" ? undefined : selectedSource,
+        source: appliedSource === "all" ? undefined : appliedSource,
         offset: page.nextOffset,
       });
       if (result.state !== "ready") {
@@ -142,6 +147,7 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
           },
         };
       });
+      setAnnouncement(t("pipeline.moreLoaded", { count: result.leads.length, stage: t(CRM_STAGE_LABEL_KEYS[stage]) }));
     } catch {
       setStageLoadErrors((current) => new Set(current).add(stage));
     } finally {
@@ -154,8 +160,46 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
   }
 
   function applyDrawerStageChange(leadId: string, stage: CrmLeadStage): void {
+    const previousStage = CRM_LEAD_STAGES.find((candidate) => pages[candidate].leads.some((lead) => lead.id === leadId));
     setPages((current) => moveLeadInPages(current, leadId, stage));
     setDrawerLead((current) => current ? { ...current, stage } : null);
+    setSelectedStage(stage);
+    setAnnouncement(t("pipeline.stageUpdated", { stage: t(CRM_STAGE_LABEL_KEYS[stage]) }));
+    if (!previousStage || previousStage === stage) return;
+    void refreshStages([previousStage, stage]);
+  }
+
+  async function refreshStages(stages: CrmLeadStage[]): Promise<void> {
+    const uniqueStages = [...new Set(stages)];
+    setError(null);
+    setIsRefreshing(true);
+    try {
+      const results = await Promise.all(uniqueStages.map(async (stage) => ({
+        stage,
+        result: await getCrmPipelineStagePageAction({
+          stage,
+          search: appliedSearch || undefined,
+          source: appliedSource === "all" ? undefined : appliedSource,
+          offset: 0,
+        }),
+      })));
+      if (results.some(({ result }) => result.state !== "ready")) {
+        setError(t("pipeline.refreshFailed"));
+        return;
+      }
+      setPages((current) => {
+        const next = { ...current };
+        for (const { stage, result } of results) {
+          if (result.state !== "ready") continue;
+          next[stage] = { ...result, nextOffset: result.leads.length };
+        }
+        return next;
+      });
+    } catch {
+      setError(t("pipeline.refreshFailed"));
+    } finally {
+      setIsRefreshing(false);
+    }
   }
 
   function removeFromPipeline(leadId: string): void {
@@ -178,9 +222,12 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
   }
 
   function move(leadId: string, stage: CrmLeadStage): void {
-    if (isSearching || isPending || loadingStages.size > 0) return;
+    if (isSearching || isRefreshing || isPending || loadingStages.size > 0 || filtersDirty) return;
+    const previousStage = CRM_LEAD_STAGES.find((candidate) => pages[candidate].leads.some((lead) => lead.id === leadId));
+    if (!previousStage || previousStage === stage) return;
     const previousPages = pages;
     setError(null);
+    setSelectedStage(stage);
     setPages((current) => moveLeadInPages(current, leadId, stage));
     startTransition(async () => {
       try {
@@ -191,6 +238,8 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
           return;
         }
         setDrawerLead((current) => current?.id === leadId ? { ...current, stage } : current);
+        await refreshStages([previousStage, stage]);
+        setAnnouncement(t("pipeline.stageUpdated", { stage: t(CRM_STAGE_LABEL_KEYS[stage]) }));
       } catch {
         setPages(previousPages);
         setError(t("errors.requestFailed"));
@@ -239,7 +288,7 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
           </div>
           <label className="mt-3 flex flex-col gap-1 text-xs font-bold text-muted-foreground">
             {t("pipeline.move")}
-            <select aria-label={`${t("pipeline.move")}: ${lead.displayName}`} value={lead.stage} disabled={isPending || isSearching || loadingStages.size > 0} onChange={(event) => {
+            <select aria-label={`${t("pipeline.move")}: ${lead.displayName}`} value={lead.stage} disabled={isPending || isSearching || isRefreshing || loadingStages.size > 0 || filtersDirty} onChange={(event) => {
               const nextStage = CRM_LEAD_STAGES.find((candidate) => candidate === event.target.value);
               if (nextStage) move(lead.id, nextStage);
             }} className="min-h-11 rounded border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:border-accent">
@@ -251,7 +300,7 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
       </div>
       {page.leads.length < page.totalCount && <div className="mt-3 flex flex-col items-center gap-2">
         {hasStageError && <p className="text-center text-xs text-destructive" role="alert">{t("pipeline.loadFailed")}</p>}
-        <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => void loadMore(stage)} disabled={isStageLoading || isSearching || isPending} aria-busy={isStageLoading}>
+        <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => void loadMore(stage)} disabled={isStageLoading || isSearching || isRefreshing || isPending || filtersDirty} aria-busy={isStageLoading}>
           {isStageLoading ? t("pipeline.loading") : hasStageError ? t("pipeline.retry") : t("pipeline.loadMore", { count: Math.min(CRM_PIPELINE_STAGE_PAGE_SIZE, page.totalCount - page.leads.length) })}
         </Button>
       </div>}
@@ -261,23 +310,25 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
   return (
     <div className="flex flex-col gap-4">
       {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
+      <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
       <form onSubmit={(event) => void applyFilters(event)} className="grid gap-3 rounded-[var(--radius-card)] border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.45fr)] sm:items-end">
         <label className="flex min-w-0 flex-col gap-1 text-xs font-bold text-muted-foreground">
           <span>{t("pipeline.search")}</span>
-          <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} disabled={isSearching || isPending || loadingStages.size > 0} placeholder={t("pipeline.searchPlaceholder")} className="min-h-11 rounded border border-border bg-background px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
+          <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} disabled={isSearching || isRefreshing || isPending || loadingStages.size > 0} placeholder={t("pipeline.searchPlaceholder")} className="min-h-11 rounded border border-border bg-background px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-xs font-bold text-muted-foreground">
           <span>{t("leads.sourceFilter")}</span>
-          <select value={selectedSource} disabled={isSearching || isPending || loadingStages.size > 0} onChange={(event) => setSelectedSource(CRM_LEAD_SOURCES.find((source) => source === event.target.value) ?? "all")} className="min-h-11 rounded border border-border bg-background px-2 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">
+          <select value={selectedSource} disabled={isSearching || isRefreshing || isPending || loadingStages.size > 0} onChange={(event) => setSelectedSource(CRM_LEAD_SOURCES.find((source) => source === event.target.value) ?? "all")} className="min-h-11 rounded border border-border bg-background px-2 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20">
             <option value="all">{t("leads.allSources")}</option>
             {CRM_LEAD_SOURCES.map((source) => <option key={source} value={source}>{sourceLabel(source)}</option>)}
           </select>
         </label>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-          <Button type="submit" variant="outline" className="min-h-11" disabled={isSearching || isPending || loadingStages.size > 0} aria-busy={isSearching}>{isSearching ? t("pipeline.searching") : t("pipeline.applyFilters")}</Button>
+          <Button type="submit" variant="outline" className="min-h-11" disabled={isSearching || isRefreshing || isPending || loadingStages.size > 0} aria-busy={isSearching}>{isSearching ? t("pipeline.searching") : t("pipeline.applyFilters")}</Button>
         </div>
         {searchError && <p className="text-sm text-destructive sm:col-span-2" role="alert">{t("pipeline.searchFailed")}</p>}
       </form>
+      {filtersDirty && <p className="text-sm text-muted-foreground" role="status">{t("pipeline.applyBeforeLoadMore")}</p>}
       <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-2 lg:hidden" role="group" aria-label={t("pipeline.stageSelector")}>
         {CRM_LEAD_STAGES.map((stage) => <Button key={stage} type="button" variant="outline" className="min-h-11 gap-2 aria-pressed:border-accent aria-pressed:bg-accent-soft aria-pressed:text-accent-text" aria-pressed={selectedStage === stage} onClick={() => setSelectedStage(stage)}>
           <span>{t(CRM_STAGE_LABEL_KEYS[stage])}</span><span className="text-xs text-muted-foreground">{pages[stage].totalCount}</span>
@@ -289,7 +340,7 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
       </div>
       <p className="hidden text-xs text-muted-foreground lg:block">{t("pipeline.dragHint")}</p>
       <Button asChild variant="outline" className="min-h-11 self-start"><Link href="/crm/leads">{t("pipeline.manageLeads")}</Link></Button>
-      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} onDeleted={removeFromPipeline} onLost={removeFromPipeline} onStageChanged={applyDrawerStageChange} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} />
+      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} onDeleted={removeFromPipeline} onLost={removeFromPipeline} onStageChanged={applyDrawerStageChange} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} canValidateSale={canValidateSale} />
     </div>
   );
 }

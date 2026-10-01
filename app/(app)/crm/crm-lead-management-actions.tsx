@@ -11,7 +11,7 @@ import type { Offer } from "@/lib/business/types";
 import { CrmLeadCaptureForm } from "./crm-lead-capture-form";
 import { CrmLeadImport } from "./crm-lead-import";
 
-export function CrmLeadManagementActions({ offers, setters }: { offers: Offer[]; setters: Array<{ id: string; name: string; active: boolean }> }) {
+export function CrmLeadManagementActions({ offers, setters, canImport }: { offers: Offer[]; setters: Array<{ id: string; name: string; active: boolean }>; canImport: boolean }) {
   const t = useTranslations("crm");
   const [captureOpen, setCaptureOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -41,7 +41,7 @@ export function CrmLeadManagementActions({ offers, setters }: { offers: Offer[];
         </DialogContent>
       </Dialog>
 
-      <Dialog open={importOpen} onOpenChange={handleImportOpenChange}>
+      {canImport && <Dialog open={importOpen} onOpenChange={handleImportOpenChange}>
         <DialogTrigger asChild>
           <Button type="button" variant="outline" className="min-h-11">{t("import.toggle")}</Button>
         </DialogTrigger>
@@ -52,7 +52,7 @@ export function CrmLeadManagementActions({ offers, setters }: { offers: Offer[];
           </div>
           <CrmLeadImport onStepChange={handleImportStepChange} />
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </div>
   );
 }

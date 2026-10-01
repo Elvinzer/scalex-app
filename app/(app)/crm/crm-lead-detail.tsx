@@ -51,7 +51,7 @@ function DetailSectionHeader({ headingId, icon: Icon, title, description, traili
   );
 }
 
-export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign = true, canManagePipeline = false, inDrawer = false, onDeleted, onLost, onStageChanged }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; canAssign?: boolean; canManagePipeline?: boolean; inDrawer?: boolean; onDeleted?: () => void; onLost?: () => void; onStageChanged?: (leadId: string, stage: CrmLeadStage) => void }) {
+export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref = "/crm/leads", canAssign = true, canManagePipeline = false, canValidateSale = false, inDrawer = false, onDeleted, onLost, onStageChanged }: { initialLead: CrmLeadDetails; setters: Array<{ id: string; name: string; active: boolean }>; offers: Offer[]; closers: ActiveCloser[]; backHref?: string; canAssign?: boolean; canManagePipeline?: boolean; canValidateSale?: boolean; inDrawer?: boolean; onDeleted?: () => void; onLost?: () => void; onStageChanged?: (leadId: string, stage: CrmLeadStage) => void }) {
   const t = useTranslations("crm");
   const callsT = useTranslations("crm.calls");
   const locale = useLocale();
@@ -84,6 +84,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
     phone: initialLead.phone ?? "",
   });
   const [fieldsMessage, setFieldsMessage] = useState<string | null>(null);
+  const [fieldsError, setFieldsError] = useState<string | null>(null);
   const [noteIdempotencyKey, setNoteIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [qualificationIdempotencyKey, setQualificationIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [fieldsIdempotencyKey, setFieldsIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
@@ -176,6 +177,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
 
   function saveFields() {
     setFieldsMessage(null);
+    setFieldsError(null);
     startTransition(async () => {
       try {
         const result = await updateLeadFieldsAction({
@@ -193,14 +195,14 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
           phone: fields.phone || null,
         });
         if (result.error) {
-          setFieldsMessage(result.error);
+          setFieldsError(result.error);
           return;
         }
         setLead((current) => ({ ...current, ...fields, offerId: fields.offerId || null, potentialValueEur: Number(fields.potentialValueEur) || 0, closer: fields.closer || null, closerUserId: fields.closerUserId || null, email: fields.email || null, phone: fields.phone || null }));
         setFieldsMessage(t("detail.fieldsSaved"));
         setFieldsIdempotencyKey(globalThis.crypto.randomUUID());
       } catch {
-        setFieldsMessage(t("errors.requestFailed"));
+        setFieldsError(t("errors.requestFailed"));
       }
     });
   }
@@ -263,7 +265,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
         router.refresh();
         onDeleted();
       } else {
-        router.replace("/crm/leads");
+        router.replace(backHref);
       }
     });
   }
@@ -274,7 +276,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
       <section className="sticker-card flex flex-col gap-5 overflow-hidden p-4 sm:p-6 lg:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            {!inDrawer && <Link href="/crm/leads" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"><ArrowLeft className="size-4" aria-hidden="true" />{t("detail.back")}</Link>}
+            {!inDrawer && <Link href={backHref} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"><ArrowLeft className="size-4" aria-hidden="true" />{t("detail.back")}</Link>}
             <div className={inDrawer ? "" : "mt-4"}>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className={inDrawer ? "sr-only" : "text-2xl font-bold tracking-[-0.02em] sm:text-3xl"}>{lead.displayName}</h1>
@@ -329,7 +331,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
             </select> : <span className={`${inputClassName} flex items-center bg-card`}>{lead.responsibleSetterName ?? t("detail.unassigned")}</span>}
           </label>
           <fieldset className="flex min-w-0 flex-col gap-1.5 text-sm font-bold sm:col-span-2"><legend>{t("detail.changeOutcome")}</legend><div className="flex flex-wrap gap-2">
-            {CRM_LEAD_OUTCOMES.filter((outcome) => outcome !== "none").map((outcome) => <Button key={outcome} type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={() => changeOutcome(outcome)}>{t(CRM_OUTCOME_LABEL_KEYS[outcome])}</Button>)}
+            {CRM_LEAD_OUTCOMES.filter((outcome) => outcome !== "none" && (outcome !== "sold" || canValidateSale)).map((outcome) => <Button key={outcome} type="button" variant="outline" className="min-h-11" disabled={isPending} onClick={() => changeOutcome(outcome)}>{t(CRM_OUTCOME_LABEL_KEYS[outcome])}</Button>)}
             {(lead.outcome === "lost" || lead.outcome === "no_show") && <div className="flex basis-full flex-wrap items-end gap-2 border-t border-border pt-3">
               <label className="flex min-w-48 flex-1 flex-col gap-1.5">{t("detail.reopenStage")}
                 <select value={reopenStage} disabled={isPending} onChange={(event) => setReopenStage(event.target.value as CrmLeadStage)} className={inputClassName}>
@@ -346,7 +348,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, canAssign
       <div className={inDrawer ? "flex flex-col gap-5" : "grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.32fr)_minmax(18rem,0.88fr)] lg:items-start"}>
         <div className="flex min-w-0 flex-col gap-5">
       <section id="lead-details" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-lead-details-title">
-        <DetailSectionHeader headingId="crm-lead-details-title" icon={UserRound} title={t("detail.leadDetails")} trailing={fieldsMessage && <p className="text-sm font-bold text-state-healthy" role="status">{fieldsMessage}</p>} />
+        <DetailSectionHeader headingId="crm-lead-details-title" icon={UserRound} title={t("detail.leadDetails")} trailing={(fieldsMessage || fieldsError) ? <div className="flex flex-col gap-1">{fieldsMessage && <p className="text-sm font-bold text-state-healthy" role="status">{fieldsMessage}</p>}{fieldsError && <p className="text-sm font-bold text-state-critical" role="alert">{fieldsError}</p>}</div> : undefined} />
         <fieldset className="mt-5 grid gap-3 sm:grid-cols-2">
           <legend className="sr-only">{t("detail.leadDetails")}</legend>
           <label className="flex min-w-0 flex-col gap-1.5 text-sm font-bold sm:col-span-2">{t("detail.displayName")}<input value={fields.displayName} disabled={isPending} onChange={(event) => setFields((current) => ({ ...current, displayName: event.target.value }))} className={inputClassName} /></label>

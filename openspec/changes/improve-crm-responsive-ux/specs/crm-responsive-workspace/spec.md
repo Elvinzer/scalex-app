@@ -87,6 +87,12 @@ The Pipeline SHALL use the canonical five CRM stages and their localized labels.
 - **THEN** the existing accessible stage-change action SHALL remain available without requiring drag-and-drop
 - **AND** the card and stage counts SHALL update to reflect the canonical stage change
 
+#### Scenario: User changes a Pipeline filter before applying it
+
+- **WHEN** a user edits the source or search filter without applying it
+- **THEN** loading more leads SHALL stay disabled until the edited filters are applied
+- **AND** every page SHALL use the same applied filters and result order
+
 ### Requirement: Action lists make due state and completion clear
 
 CRM Actions SHALL distinguish overdue, due-today, and upcoming actions using the existing action data and lifecycle. Each action card SHALL make the lead, action, due information, and available completion or rescheduling actions easy to scan at every supported width. Repeated actions in a list SHALL not create a wall of primary-color buttons.
@@ -122,6 +128,12 @@ The Calls page SHALL retain its existing call sources, call results, permissions
 - **AND** it SHALL show a bounded list of matching leads with clear loading, no-match, and error states
 - **AND** selecting a result SHALL use the existing manual call-link operation
 
+#### Scenario: User paginates a Falco suggestion filter
+
+- **WHEN** a user filters calls by Falco suggestion status and more matching calls exist than fit on one page
+- **THEN** the suggestion status SHALL be applied before limit and offset pagination
+- **AND** each page SHALL contain matching calls without hiding later matches
+
 #### Scenario: User lacks permission to associate a call
 
 - **WHEN** a user cannot manage CRM call associations
@@ -155,6 +167,12 @@ Lead capture and import SHALL retain their existing validation and mutation beha
 - **WHEN** a user advances through file selection, column mapping, preview, and completion
 - **THEN** each step SHALL display the corresponding content and status
 - **AND** the existing duplicate handling and explicit review-before-commit behavior SHALL remain intact
+
+#### Scenario: An import step fails
+
+- **WHEN** file analysis, preview, or commit fails
+- **THEN** retry SHALL repeat the failed step
+- **AND** the selected file, mapping, duplicate choices, and review decisions SHALL remain available
 
 ### Requirement: CRM responsive surfaces meet navigation and accessibility needs
 

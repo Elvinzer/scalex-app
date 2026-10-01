@@ -16,7 +16,7 @@ export async function POST(request: Request): Promise<Response> {
   const userId = data.claims.sub;
   if (typeof userId !== "string" || !userId) return NextResponse.json({ error: t("errors.invalidSession") }, { status: 401 });
   if (isRateLimited("crm-import-preview:" + userId, 30)) return NextResponse.json({ error: t("errors.importRateLimit") }, { status: 429 });
-  const access = await requireCrmAccess(userId, "crm:view");
+  const access = await requireCrmAccess(userId, "crm:manage-pipeline");
   if (!access) return NextResponse.json({ error: t("errors.access") }, { status: 403 });
 
   let body: unknown;

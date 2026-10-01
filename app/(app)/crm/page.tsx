@@ -79,6 +79,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
     period.from.getTime() !== defaultPeriod.from.getTime() || period.to.getTime() !== defaultPeriod.to.getTime(),
   ].filter(Boolean).length;
   const resetHref = isTeamView ? "/crm?team=1" : "/crm";
+  const actionListKey = `${isTeamView}:${actions.map((action) => `${action.id}:${action.dueAt}:${action.status}`).join(",")}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,7 +90,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
 
       <section className="flex flex-col gap-3" aria-labelledby="crm-work-queue-title">
         <h2 id="crm-work-queue-title" className="sr-only">{t("today.queueTitle")}</h2>
-        {actions.length > 0 ? <CrmActionList initialActions={actions} groupByDueDate featureFirstAction featuredActionLabel={t("leads.nextAction")} /> : <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{t("today.emptyHelp")}</p><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div>}
+        {actions.length > 0 ? <CrmActionList key={actionListKey} initialActions={actions} returnTo={resetHref} groupByDueDate featureFirstAction featuredActionLabel={t("leads.nextAction")} /> : <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{t("today.emptyHelp")}</p><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div>}
       </section>
 
       {hasCrmPermission(access, "crm:view-team") && <div className="sm:hidden"><Button asChild variant="outline" className="min-h-11"><Link href={isTeamView ? "/crm" : "/crm?team=1"}>{isTeamView ? t("today.myView") : t("today.teamView")}</Link></Button></div>}

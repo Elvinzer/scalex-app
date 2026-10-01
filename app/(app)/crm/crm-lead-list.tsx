@@ -28,7 +28,7 @@ function isNestedInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest("a, button, input, select, textarea") !== null;
 }
 
-export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount, filters, setters, offers, closers, canAssign, canManagePipeline }: { leads: CrmLeadListItem[]; totalCount: number; filters: CrmLeadFilters; setters: CrmSetter[]; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean; canManagePipeline: boolean }) {
+export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount, filters, setters, offers, closers, canAssign, canManagePipeline, canValidateSale }: { leads: CrmLeadListItem[]; totalCount: number; filters: CrmLeadFilters; setters: CrmSetter[]; offers: Offer[]; closers: ActiveCloser[]; canAssign: boolean; canManagePipeline: boolean; canValidateSale: boolean }) {
   const t = useTranslations("crm");
   const locale = useLocale();
   const [leads, setLeads] = useState(initialLeads);
@@ -92,7 +92,7 @@ export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount
           {isLoading ? t("leads.pagination.loading") : loadError ? t("leads.pagination.retry") : t("leads.pagination.loadMore", { count: Math.min(CRM_LEADS_PAGE_SIZE, totalCount - leads.length) })}
         </Button>
       </div> : <p className="text-center text-sm text-muted-foreground" role="status">{t("leads.pagination.endOfResults")}</p>}
-      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} />
+      <CrmLeadDrawer lead={drawerLead} open={drawerLead !== null} onOpenChange={(open) => !open && setDrawerLead(null)} setters={setters} offers={offers} closers={closers} canAssign={canAssign} canManagePipeline={canManagePipeline} canValidateSale={canValidateSale} />
     </>
   );
 }

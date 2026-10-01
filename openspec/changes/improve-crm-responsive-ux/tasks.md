@@ -47,4 +47,17 @@
 - [x] 7.3 Review the affected screens at 320, 360, 390, 768, and 1440 CSS pixels, including search results, empty states, open filters, lead-link sheets, and import steps.
 - [x] 7.4 Record any remaining query-performance concern for exact counts or per-stage totals and add an index only if measurement shows it is needed.
 
+## 8. Close gaps found during the acceptance audit
+
+- [x] 8.1 Apply Falco suggestion-status filtering before SQL limit and offset, and verify the final page indicator.
+- [x] 8.2 Keep Pipeline load-more requests tied to the last applied search and source filters.
+- [x] 8.3 Refresh moved Pipeline stages after success without evicting an already loaded lead.
+- [x] 8.4 Use one due-time rule for overdue classification, include the highlighted action in group counts, and expose overdue text without relying on color.
+- [x] 8.5 Reset action lists when their filters or server-provided rows change; show selected quick filters and announce action updates.
+- [x] 8.6 Show import step progress, retain work on errors, retry the failed operation, and keep import controls at least 44 px high.
+- [x] 8.7 Show import and sale-validation controls only to users with the server-required permission.
+- [x] 8.8 Preserve the originating CRM list and its filters when opening and leaving a lead detail.
+- [x] 8.9 Announce call-link search results and return lead detail to the Calls filters.
+- [x] 8.10 Bound and validate Leads query parameters, announce empty result counts, and recover cleanly from lead-drawer load failures.
+
 Implementation note: no query-performance issue appeared during the runtime review. Lead results are paginated in batches of 25 and each pipeline stage in batches of 15; no new index was added. Revisit exact-count latency if production telemetry shows it becoming significant as CRM volume grows.

@@ -12,20 +12,26 @@ import { completeActionAction, rescheduleActionAction } from "./crm-actions";
 type DueGroup = "overdue" | "today" | "upcoming";
 type QueueFilters = { category?: CrmActionCategory; relanceOnly?: boolean; overdueOnly?: boolean; dueTodayOnly?: boolean };
 
-export function CrmActionList({ initialActions, groupByDueDate = false, featureFirstAction = false, featuredActionLabel, nextActionFilters }: { initialActions: CrmActionView[]; groupByDueDate?: boolean; featureFirstAction?: boolean; featuredActionLabel?: string; nextActionFilters?: QueueFilters }) {
+export function CrmActionList({ initialActions, groupByDueDate = false, featureFirstAction = false, featuredActionLabel, nextActionFilters, returnTo = "/crm/leads" }: { initialActions: CrmActionView[]; groupByDueDate?: boolean; featureFirstAction?: boolean; featuredActionLabel?: string; nextActionFilters?: QueueFilters; returnTo?: string }) {
   const t = useTranslations("crm.actions");
   const callsT = useTranslations("crm.calls");
   const locale = useLocale();
   const [actions, setActions] = useState(initialActions);
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const [nextLeadId, setNextLeadId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function matchesQueueFilters(action: CrmActionView, dueAt = new Date(action.dueAt)): boolean {
+  function leadHref(leadId: string): string {
+    const query = new URLSearchParams({ returnTo });
+    return `/crm/leads/${leadId}?${query.toString()}`;
+  }
+
+  function matchesQueueFilters(action: CrmActionView, dueAt = new Date(action.dueAt), now = new Date()): boolean {
     if (!nextActionFilters) return true;
     if (nextActionFilters.category && action.category !== nextActionFilters.category) return false;
     if (nextActionFilters.relanceOnly && action.type !== "follow_up" && action.type !== "no_show_follow_up") return false;
-    if (nextActionFilters.overdueOnly && !(action.status === "open" && dueAt.getTime() < Date.now())) return false;
+    if (nextActionFilters.overdueOnly && !(action.status === "open" && dueAt.getTime() < now.getTime())) return false;
     if (nextActionFilters.dueTodayOnly) {
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -46,13 +52,18 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
   }
 
   function update(actionId: string, status: "completed" | "cancelled") {
+    const action = actions.find((item) => item.id === actionId);
+    if (!action) return;
     setError(null);
+    setAnnouncement(t("saving"));
     startTransition(async () => {
       try {
         const result = await completeActionAction({ actionId, status, idempotencyKey: `crm-action:${actionId}:${status}`, nextFilters: nextActionFilters });
-        applyResult(actionId, result);
+        if (applyResult(actionId, result)) setAnnouncement(`${action.title}: ${t(status)}`);
+        else setAnnouncement("");
       } catch {
         setError(t("requestFailed"));
+        setAnnouncement("");
       }
     });
   }
@@ -68,20 +79,26 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
       setError(t("invalidDue"));
       return;
     }
+    const action = actions.find((item) => item.id === actionId);
+    if (!action) return;
     setError(null);
+    setAnnouncement(t("saving"));
     startTransition(async () => {
       try {
         const result = await rescheduleActionAction({ actionId, dueAt: dueDate.toISOString(), idempotencyKey: `crm-reschedule:${actionId}:${dueDate.toISOString()}`, nextFilters: nextActionFilters });
         if (result.error) {
           setError(result.error);
+          setAnnouncement("");
           return;
         }
         setActions((items) => items.map((item) => item.id === actionId ? { ...item, dueAt: dueDate.toISOString() } : item)
           .filter((item) => item.id !== actionId || matchesQueueFilters(item, dueDate))
           .sort((left, right) => new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime() || right.priority - left.priority || left.id.localeCompare(right.id)));
         setNextLeadId(result.nextLeadId ?? null);
+        setAnnouncement(`${action.title}: ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(dueDate)}`);
       } catch {
         setError(t("requestFailed"));
+        setAnnouncement("");
       }
     });
   }
@@ -108,18 +125,19 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
     if (typeof dueAt === "string") reschedule(actionId, dueAt);
   }
 
-  if (actions.length === 0) return <>{nextLeadId && <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4" role="status"><p className="text-sm font-bold">{t("nextLeadReady")}</p><Button asChild variant="outline" className="min-h-11"><Link href={`/crm/leads/${nextLeadId}`}>{t("openNextLead")}</Link></Button></div>}<p className="sticker-card p-8 text-center text-muted-foreground">{t("empty")}</p></>;
+  if (actions.length === 0) return <><p className="sr-only" role="status" aria-live="polite">{announcement}</p>{nextLeadId && <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4" role="status"><p className="text-sm font-bold">{t("nextLeadReady")}</p><Button asChild variant="outline" className="min-h-11"><Link href={leadHref(nextLeadId)}>{t("openNextLead")}</Link></Button></div>}<p className="sticker-card p-8 text-center text-muted-foreground">{t("empty")}</p></>;
 
+  const now = new Date();
   function renderAction(action: CrmActionView, featured = false) {
-    const overdue = action.status === "open" && new Date(action.dueAt).getTime() < Date.now();
+    const overdue = action.status === "open" && new Date(action.dueAt).getTime() < now.getTime();
     return (
         <article key={action.id} data-next-action={featured || undefined} className={`sticker-card flex flex-wrap items-center gap-3 p-4 ${featured ? "border-accent/40 bg-accent-soft/30" : ""}`}>
           {featured && <p className="w-full text-xs font-bold tracking-[0.06em] text-accent-text uppercase">{featuredActionLabel}</p>}
           <div className="min-w-0 flex-1">
-            <Link href={`/crm/leads/${action.leadId}`} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
+            <Link href={leadHref(action.leadId)} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
             <p className="mt-1 font-bold">{action.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t(action.category)}{action.responsibleName ? ` · ${action.responsibleName}` : ""}</p>
-            <p className={overdue ? "mt-1 text-sm font-bold text-state-critical" : "mt-1 text-sm text-muted-foreground"}>{t("due")}: {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(action.dueAt))}</p>
+            <p className={overdue ? "mt-1 text-sm font-bold text-state-critical" : "mt-1 text-sm text-muted-foreground"}>{overdue && <>{t("overdue")} · </>}{t("due")}: {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(action.dueAt))}</p>
             {action.nextCall && <p className="mt-1 text-xs text-muted-foreground">{t("nextCall", { date: new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: action.nextCall.timeZone ?? undefined }).format(new Date(action.nextCall.scheduledAt)), closer: action.nextCall.closer ?? t("noCloser"), outcome: callOutcomeLabel(action.nextCall.outcome) })}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -134,31 +152,33 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
     return items.map((action) => renderAction(action));
   }
 
-  function dueGroup(action: CrmActionView): DueGroup {
+  function dueGroup(action: CrmActionView, currentTime: Date): DueGroup {
     const dueAt = new Date(action.dueAt);
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    if (dueAt < startOfToday) return "overdue";
+    if (action.status === "open" && dueAt < currentTime) return "overdue";
+    const startOfTomorrow = new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate() + 1);
     if (dueAt < startOfTomorrow) return "today";
     return "upcoming";
   }
 
-  function renderDueGroups(items: CrmActionView[]) {
+  function renderDueGroups(items: CrmActionView[], featuredId?: string) {
     const groups: Record<DueGroup, CrmActionView[]> = { overdue: [], today: [], upcoming: [] };
-    for (const action of items) groups[dueGroup(action)].push(action);
-    return <div className="flex flex-col gap-4">{(["overdue", "today", "upcoming"] as const).map((group) => groups[group].length > 0 ? <section key={group} aria-labelledby={`crm-due-${group}`}><h4 id={`crm-due-${group}`} className="mb-2 text-sm font-bold text-muted-foreground">{t(`dueGroups.${group}`)} · {groups[group].length}</h4><div className="flex flex-col gap-2">{renderActions(groups[group])}</div></section> : null)}</div>;
+    for (const action of items) groups[dueGroup(action, now)].push(action);
+    return <div className="flex flex-col gap-4">{(["overdue", "today", "upcoming"] as const).map((group) => {
+      const groupItems = groups[group].filter((action) => action.id !== featuredId);
+      return groups[group].length > 0 ? <section key={group} aria-labelledby={`crm-due-${group}`}><h4 id={`crm-due-${group}`} className="mb-2 text-sm font-bold text-muted-foreground">{t(`dueGroups.${group}`)} · {groups[group].length}</h4><div className="flex flex-col gap-2">{renderActions(groupItems)}</div></section> : null;
+    })}</div>;
   }
 
   const featuredAction = featureFirstAction ? actions[0] : undefined;
-  const remainingActions = featuredAction ? actions.slice(1) : actions;
+  const remainingActions = actions;
 
   return (
     <div className="flex flex-col gap-3">
       {error && <p className="text-sm font-bold text-state-critical" role="alert">{error}</p>}
-      {nextLeadId && <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4" role="status"><p className="text-sm font-bold">{t("nextLeadReady")}</p><Button asChild variant="outline" className="min-h-11"><Link href={`/crm/leads/${nextLeadId}`}>{t("openNextLead")}</Link></Button></div>}
+      <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
+      {nextLeadId && <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4" role="status"><p className="text-sm font-bold">{t("nextLeadReady")}</p><Button asChild variant="outline" className="min-h-11"><Link href={leadHref(nextLeadId)}>{t("openNextLead")}</Link></Button></div>}
       {featuredAction && renderAction(featuredAction, true)}
-      {remainingActions.length > 0 && (groupByDueDate ? renderDueGroups(remainingActions) : renderActions(remainingActions))}
+      {remainingActions.length > 0 && (groupByDueDate ? renderDueGroups(remainingActions, featuredAction?.id) : renderActions(remainingActions))}
     </div>
   );
 }

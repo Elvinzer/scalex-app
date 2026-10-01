@@ -96,7 +96,7 @@ export async function POST(request: Request): Promise<Response> {
   const formData = await request.formData();
   const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
   const targetTableHint = z.enum(["monthly_metrics", "crm_leads"]).safeParse(formData.get("targetTableHint")).data;
-  const access = targetTableHint === "crm_leads" ? await requireCrmAccess(userId) : await requirePermission(userId, "datas");
+  const access = targetTableHint === "crm_leads" ? await requireCrmAccess(userId, "crm:manage-pipeline") : await requirePermission(userId, "datas");
   if (!access) {
     return NextResponse.json({ error: "Tu n'as pas accès à cette section." }, { status: 403 });
   }

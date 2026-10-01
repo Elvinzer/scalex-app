@@ -52,6 +52,18 @@ describe("CRM import route guards", () => {
     expect(mockedPreview).not.toHaveBeenCalled();
   });
 
+  it("requires CRM write permission before building an import preview", async () => {
+    mockedRequireCrmAccess.mockResolvedValueOnce(null);
+    const response = await previewPost(new Request("http://localhost/api/crm/import/preview", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    }));
+    expect(response.status).toBe(403);
+    expect(mockedRequireCrmAccess).toHaveBeenCalledWith("user-id", "crm:manage-pipeline");
+    expect(mockedPreview).not.toHaveBeenCalled();
+  });
+
   it("requires CRM write permission for commit", async () => {
     mockedRequireCrmAccess.mockResolvedValueOnce(null);
     const response = await commitPost(new Request("http://localhost/api/crm/import/commit", { method: "POST", body: "{}" }));

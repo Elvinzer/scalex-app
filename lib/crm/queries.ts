@@ -1844,6 +1844,28 @@ export async function getCrmCalls(accountId: string, leadId?: string, filters: C
       ilike(leads.normalizedHandle, pattern),
     ) ?? eq(salesCalls.id, "00000000-0000-0000-0000-000000000000"));
   }
+  const now = new Date();
+  if (filters.suggestionStatus) {
+    const statusCondition = filters.suggestionStatus === "expired"
+      ? sql`current_suggestion.status IN ('ready', 'ambiguous') AND current_suggestion.expires_at IS NOT NULL AND current_suggestion.expires_at <= ${now}`
+      : sql`current_suggestion.status = ${filters.suggestionStatus} AND (current_suggestion.status NOT IN ('ready', 'ambiguous') OR current_suggestion.expires_at IS NULL OR current_suggestion.expires_at > ${now})`;
+    conditions.push(isNull(crmCallLinks.leadId));
+    conditions.push(sql`EXISTS (
+      SELECT 1
+      FROM crm_call_match_suggestions AS current_suggestion
+      WHERE current_suggestion.account_id = ${accountId}
+        AND current_suggestion.sales_call_id = ${salesCalls.id}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM crm_call_match_suggestions AS newer_suggestion
+          WHERE newer_suggestion.account_id = current_suggestion.account_id
+            AND newer_suggestion.sales_call_id = current_suggestion.sales_call_id
+            AND (newer_suggestion.updated_at > current_suggestion.updated_at
+              OR (newer_suggestion.updated_at = current_suggestion.updated_at AND newer_suggestion.id > current_suggestion.id))
+        )
+        AND ${statusCondition}
+    )`);
+  }
   const query = db
     .select({ call: salesCalls, link: crmCallLinks, lead: leads, callSetterName: callSetters.name, leadSetterName: leadSetters.name })
     .from(salesCalls)
@@ -1854,9 +1876,9 @@ export async function getCrmCalls(accountId: string, leadId?: string, filters: C
     .where(and(...conditions))
     .orderBy(desc(salesCalls.scheduledAt), asc(salesCalls.id));
   const rows = pagination ? await query.limit(pagination.limit).offset(pagination.offset) : await query;
-  const suggestions = await getCrmCallSuggestions(accountId, rows.filter(({ link }) => !link?.leadId).map(({ call }) => call.id));
+  const suggestions = await getCrmCallSuggestions(accountId, rows.filter(({ link }) => !link?.leadId).map(({ call }) => call.id), now);
   const views = rows.map((row) => toCallView({ ...row, setterName: row.callSetterName ?? row.leadSetterName, suggestion: row.link?.leadId ? null : suggestions.get(row.call.id) ?? null }));
-  return filters.suggestionStatus ? views.filter((call) => call.suggestion?.status === filters.suggestionStatus) : views;
+  return views;
 }
 
 export async function linkCrmCall(accountId: string, actorUserId: string, leadId: string, salesCallId: string, confidence: string): Promise<CrmCallView | null> {

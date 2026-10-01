@@ -51,7 +51,7 @@ export default async function CrmPipelinePage() {
         </summary>
         <div className="border-t border-border p-4"><CrmLeadCaptureForm offers={offers} setters={setters} /></div>
       </details>
-      <CrmStageBoard initialPages={pages} setters={setters} offers={offers} closers={closers} canAssign={hasCrmPermission(access, "crm:assign")} canManagePipeline={hasCrmPermission(access, "crm:manage-pipeline")} />
+      <CrmStageBoard initialPages={pages} setters={setters} offers={offers} closers={closers} canAssign={hasCrmPermission(access, "crm:assign")} canManagePipeline={hasCrmPermission(access, "crm:manage-pipeline")} canValidateSale={hasCrmPermission(access, "crm:validate-sale")} />
     </div>
   );
 }

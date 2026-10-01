@@ -66,13 +66,13 @@ function toSuggestionView(suggestion: SuggestionRow, candidateRows: CandidateRow
   };
 }
 
-export async function getCrmCallSuggestions(accountId: string, callIds: string[]): Promise<Map<string, CrmCallMatchSuggestionView>> {
+export async function getCrmCallSuggestions(accountId: string, callIds: string[], now = new Date()): Promise<Map<string, CrmCallMatchSuggestionView>> {
   if (callIds.length === 0) return new Map();
   const suggestionRows = await db
     .select()
     .from(crmCallMatchSuggestions)
     .where(and(eq(crmCallMatchSuggestions.accountId, accountId), inArray(crmCallMatchSuggestions.salesCallId, callIds)))
-    .orderBy(desc(crmCallMatchSuggestions.updatedAt));
+    .orderBy(desc(crmCallMatchSuggestions.updatedAt), desc(crmCallMatchSuggestions.id));
 
   const latestByCall = new Map<string, SuggestionRow>();
   for (const suggestion of suggestionRows) {
@@ -104,7 +104,7 @@ export async function getCrmCallSuggestions(accountId: string, callIds: string[]
     rowsBySuggestion.set(row.candidate.suggestionId, rows);
   }
 
-  return new Map(latest.map((suggestion) => [suggestion.salesCallId, toSuggestionView(suggestion, rowsBySuggestion.get(suggestion.id) ?? [])]));
+  return new Map(latest.map((suggestion) => [suggestion.salesCallId, toSuggestionView(suggestion, rowsBySuggestion.get(suggestion.id) ?? [], now)]));
 }
 
 export async function getCrmCallSuggestion(accountId: string, callId: string): Promise<CrmCallMatchSuggestionView | null> {
