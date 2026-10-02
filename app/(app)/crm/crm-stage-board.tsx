@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, type DragEvent, type FormEvent } from "react";
+import { useRef, useState, useTransition, type DragEvent, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 
 import { CrmSourceBadge } from "@/components/crm/crm-source-badge";
@@ -10,6 +10,7 @@ import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
 import { CRM_LEAD_SOURCES, CRM_LEAD_STAGES, type CrmLeadListItem, type CrmLeadSource, type CrmLeadStage } from "@/lib/crm/types";
 import type { CrmPipelineStagePages } from "@/lib/crm/queries";
+import { resolveCrmStageOperation, type PendingCrmStageOperation } from "@/lib/crm/stage-operations";
 import { CRM_STAGE_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS } from "@/lib/crm/machine";
 import { CRM_PIPELINE_STAGE_PAGE_SIZE } from "@/lib/crm/lead-pagination";
 
@@ -77,6 +78,8 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
   const [isPending, startTransition] = useTransition();
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [drawerLead, setDrawerLead] = useState<CrmLeadListItem | null>(null);
+  const pendingStageOperations = useRef(new Map<string, PendingCrmStageOperation>());
+  const inFlightStageMoves = useRef(new Set<string>());
 
   function sourceLabel(source: string): string {
     const normalizedSource = CRM_LEAD_SOURCES.find((candidate) => candidate === source);
@@ -222,27 +225,41 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
   }
 
   function move(leadId: string, stage: CrmLeadStage): void {
-    if (isSearching || isRefreshing || isPending || loadingStages.size > 0 || filtersDirty) return;
+    if (isSearching || isRefreshing || isPending || loadingStages.size > 0 || filtersDirty || inFlightStageMoves.current.has(leadId)) return;
     const previousStage = CRM_LEAD_STAGES.find((candidate) => pages[candidate].leads.some((lead) => lead.id === leadId));
     if (!previousStage || previousStage === stage) return;
+    const operation = resolveCrmStageOperation(
+      pendingStageOperations.current,
+      leadId,
+      stage,
+      () => globalThis.crypto.randomUUID(),
+    );
+    if (operation.state === "conflict") {
+      setError(t("errors.requestFailed"));
+      return;
+    }
+    inFlightStageMoves.current.add(leadId);
     const previousPages = pages;
     setError(null);
     setSelectedStage(stage);
     setPages((current) => moveLeadInPages(current, leadId, stage));
     startTransition(async () => {
       try {
-        const result = await changeStageAction({ leadId, stage });
+        const result = await changeStageAction({ leadId, stage, idempotencyKey: operation.idempotencyKey });
         if (result.error) {
           setPages(previousPages);
           setError(result.error);
           return;
         }
+        pendingStageOperations.current.delete(leadId);
         setDrawerLead((current) => current?.id === leadId ? { ...current, stage } : current);
         await refreshStages([previousStage, stage]);
         setAnnouncement(t("pipeline.stageUpdated", { stage: t(CRM_STAGE_LABEL_KEYS[stage]) }));
       } catch {
         setPages(previousPages);
         setError(t("errors.requestFailed"));
+      } finally {
+        inFlightStageMoves.current.delete(leadId);
       }
     });
   }
@@ -335,7 +352,7 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
         </Button>)}
       </div>
       <div className="lg:hidden">{stageColumn(selectedStage, "mobile")}</div>
-      <div className="hidden gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-5" tabIndex={0} aria-label={t("pipeline.title")}>
+      <div className="hidden gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-5" role="region" tabIndex={0} aria-label={t("pipeline.title")}>
         {CRM_LEAD_STAGES.map((stage) => stageColumn(stage, "desktop"))}
       </div>
       <p className="hidden text-xs text-muted-foreground lg:block">{t("pipeline.dragHint")}</p>

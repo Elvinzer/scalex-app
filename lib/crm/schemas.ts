@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isValidTimeZone } from "@/lib/native-booking/time";
 import { publicBookingRequestSchema } from "@/lib/native-booking/validation";
 
 import {
@@ -16,9 +17,11 @@ export const crmPlatformSchema = z.enum(CRM_PLATFORMS);
 export const crmStageSchema = z.enum(CRM_LEAD_STAGES);
 export const crmOutcomeSchema = z.enum(CRM_LEAD_OUTCOMES);
 export const crmLeadSourceSchema = z.enum(CRM_LEAD_SOURCES);
+export const crmTimeZoneSchema = z.string().trim().min(1).max(64).refine(isValidTimeZone, "Fuseau horaire invalide.");
 export const crmActionCategorySchema = z.enum(CRM_ACTION_CATEGORIES);
 export const crmLostReasonSchema = z.enum(CRM_LOST_REASONS);
 export const crmEventTypeSchema = z.enum(CRM_EVENT_TYPES);
+const crmIdempotencyKeySchema = z.string().trim().min(8).max(240);
 
 const crmLeadBrowseFiltersSchema = z.object({
   search: z.string().trim().max(200).optional(),
@@ -93,7 +96,7 @@ export const crmCaptureQualificationSchema = z.object({
 
 export const crmCaptureCommandSchema = z.object({
   decision: z.enum(["create_new", "confirm_match"]).default("create_new"),
-  idempotencyKey: z.string().trim().min(8).max(240),
+  idempotencyKey: crmIdempotencyKeySchema,
   candidateLeadId: z.string().uuid().optional(),
   separateFromCandidates: z.boolean().optional(),
   profile: captureProfileSchema,
@@ -108,12 +111,12 @@ export const crmLeadCaptureSchema = captureProfileBaseSchema.extend({
   offerId: z.string().trim().max(160).nullable().optional(),
   source: crmLeadSourceSchema.optional(),
   stage: crmStageSchema.optional(),
-  idempotencyKey: z.string().trim().min(8).max(240).optional(),
+  idempotencyKey: crmIdempotencyKeySchema,
 }).superRefine(validateProfileIdentity);
 
 export const leadFieldsSchema = z.object({
   leadId: z.string().uuid(),
-  idempotencyKey: z.string().trim().min(8).max(240).optional(),
+  idempotencyKey: crmIdempotencyKeySchema,
   displayName: z.string().trim().min(1).max(160).optional(),
   firstName: z.string().trim().max(120).optional(),
   lastName: z.string().trim().max(120).optional(),
@@ -126,17 +129,17 @@ export const leadFieldsSchema = z.object({
   phone: z.string().trim().max(40).nullable().optional(),
 });
 
-export const changeStageSchema = z.object({ leadId: z.string().uuid(), stage: crmStageSchema, idempotencyKey: z.string().trim().min(8).max(240).optional() });
-export const outcomeSchema = z.object({ leadId: z.string().uuid(), outcome: crmOutcomeSchema.exclude(["sold"]), lostReason: crmLostReasonSchema.nullable().optional(), note: z.string().trim().max(5000).optional(), idempotencyKey: z.string().trim().min(8).max(240).optional() }).superRefine((value, context) => {
+export const changeStageSchema = z.object({ leadId: z.string().uuid(), stage: crmStageSchema, idempotencyKey: crmIdempotencyKeySchema });
+export const outcomeSchema = z.object({ leadId: z.string().uuid(), outcome: crmOutcomeSchema.exclude(["sold"]), lostReason: crmLostReasonSchema.nullable().optional(), note: z.string().trim().max(5000).optional(), idempotencyKey: crmIdempotencyKeySchema }).superRefine((value, context) => {
   if (value.outcome === "lost" && !value.lostReason) context.addIssue({ code: z.ZodIssueCode.custom, path: ["lostReason"], message: "Une raison est requise." });
 });
-export const reopenSchema = z.object({ leadId: z.string().uuid(), stage: crmStageSchema, idempotencyKey: z.string().trim().min(8).max(240) });
-export const responsibilitySchema = z.object({ leadId: z.string().uuid(), setterId: z.union([z.string().uuid(), z.literal("self")]).nullable(), idempotencyKey: z.string().trim().min(8).max(240) });
-export const noteSchema = z.object({ leadId: z.string().uuid(), body: z.string().trim().min(1).max(5000), idempotencyKey: z.string().trim().min(8).max(240).optional() });
-export const qualificationSchema = z.object({ leadId: z.string().uuid(), body: z.string().max(10000), idempotencyKey: z.string().trim().min(8).max(240) });
-export const responseSchema = z.object({ leadId: z.string().uuid(), occurredAt: z.string().datetime({ offset: true }).optional(), idempotencyKey: z.string().trim().min(8).max(240) });
-export const contactStateSchema = z.object({ leadId: z.string().uuid(), occurredAt: z.string().datetime({ offset: true }).optional(), idempotencyKey: z.string().trim().min(8).max(240) });
-export const bookingLinkSchema = z.object({ leadId: z.string().uuid(), idempotencyKey: z.string().trim().min(8).max(240) });
+export const reopenSchema = z.object({ leadId: z.string().uuid(), stage: crmStageSchema, idempotencyKey: crmIdempotencyKeySchema });
+export const responsibilitySchema = z.object({ leadId: z.string().uuid(), setterId: z.union([z.string().uuid(), z.literal("self")]).nullable(), idempotencyKey: crmIdempotencyKeySchema });
+export const noteSchema = z.object({ leadId: z.string().uuid(), body: z.string().trim().min(1).max(5000), idempotencyKey: crmIdempotencyKeySchema });
+export const qualificationSchema = z.object({ leadId: z.string().uuid(), body: z.string().max(10000), idempotencyKey: crmIdempotencyKeySchema });
+export const responseSchema = z.object({ leadId: z.string().uuid(), occurredAt: z.string().datetime({ offset: true }).optional(), idempotencyKey: crmIdempotencyKeySchema });
+export const contactStateSchema = z.object({ leadId: z.string().uuid(), occurredAt: z.string().datetime({ offset: true }).optional(), idempotencyKey: crmIdempotencyKeySchema });
+export const bookingLinkSchema = z.object({ leadId: z.string().uuid(), idempotencyKey: crmIdempotencyKeySchema });
 export const internalBookingSlotsSchema = z.object({ leadId: z.string().uuid() });
 export const internalBookingStatusSchema = z.object({ bookingId: z.string().uuid() });
 export const internalBookingSchema = publicBookingRequestSchema
@@ -151,16 +154,16 @@ export const actionSchema = z.object({
   dueAt: z.string().datetime({ offset: true }),
   priority: z.number().int().min(0).max(100).default(0),
   responsibleUserId: z.string().uuid().nullable().optional(),
-  idempotencyKey: z.string().trim().max(240).nullable().optional(),
+  idempotencyKey: crmIdempotencyKeySchema,
 });
 
-const actionQueueFilterSchema = z.object({ category: crmActionCategorySchema.optional(), relanceOnly: z.boolean().optional(), overdueOnly: z.boolean().optional(), dueTodayOnly: z.boolean().optional() });
-export const actionCompletionSchema = z.object({ actionId: z.string().uuid(), status: z.enum(["completed", "cancelled"]), idempotencyKey: z.string().trim().min(8).max(240).optional(), nextFilters: actionQueueFilterSchema.optional() });
-export const actionRescheduleSchema = z.object({ actionId: z.string().uuid(), dueAt: z.string().datetime({ offset: true }), idempotencyKey: z.string().trim().min(8).max(240), nextFilters: actionQueueFilterSchema.optional() });
+const actionQueueFilterSchema = z.object({ category: crmActionCategorySchema.optional(), relanceOnly: z.boolean().optional(), overdueOnly: z.boolean().optional(), dueTodayOnly: z.boolean().optional(), timeZone: crmTimeZoneSchema.optional() });
+export const actionCompletionSchema = z.object({ actionId: z.string().uuid(), status: z.enum(["completed", "cancelled"]), idempotencyKey: crmIdempotencyKeySchema, nextFilters: actionQueueFilterSchema.optional() });
+export const actionRescheduleSchema = z.object({ actionId: z.string().uuid(), dueAt: z.string().datetime({ offset: true }), idempotencyKey: crmIdempotencyKeySchema, nextFilters: actionQueueFilterSchema.optional() });
 
 export const crmExtensionUpdateSchema = z.object({
   leadId: z.string().uuid(),
-  idempotencyKey: z.string().trim().min(8).max(240),
+  idempotencyKey: crmIdempotencyKeySchema,
   responseOccurredAt: z.string().datetime({ offset: true }).optional(),
   stage: crmStageSchema.optional(),
   displayName: z.string().trim().min(1).max(160).optional(),

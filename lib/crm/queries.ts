@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNull, lte, lt
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
+import { getCrmLocalDayBounds } from "@/lib/crm/due-date";
 import {
   crmActions,
   crmCallLinks,
@@ -99,6 +100,7 @@ export type CrmActionFilters = {
   responsibleUserId?: string;
   status?: CrmActionStatus;
   dueTodayOnly?: boolean;
+  timeZone?: string;
 };
 
 export type CrmActionPagination = { limit?: number; offset?: number };
@@ -1729,9 +1731,7 @@ export async function getCrmActions(accountId: string, filters: CrmActionFilters
   if (filters.responsibleUserId) conditions.push(eq(crmActions.responsibleUserId, filters.responsibleUserId));
   if (filters.overdueOnly) conditions.push(lt(crmActions.dueAt, new Date()), eq(crmActions.status, "open"));
   if (filters.dueTodayOnly) {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const { start, end } = getCrmLocalDayBounds(filters.timeZone ?? "UTC");
     conditions.push(gte(crmActions.dueAt, start), lt(crmActions.dueAt, end), eq(crmActions.status, "open"));
   }
   conditions.push(eq(leads.accountId, accountId));
@@ -1814,7 +1814,7 @@ export async function rescheduleCrmAction(accountId: string, actionId: string, a
   });
 }
 
-export async function getNextCrmAction(accountId: string, responsibleUserId: string | null, excludedActionId: string, filters: Pick<CrmActionFilters, "category" | "relanceOnly" | "overdueOnly" | "dueTodayOnly"> = {}): Promise<CrmActionView | null> {
+export async function getNextCrmAction(accountId: string, responsibleUserId: string | null, excludedActionId: string, filters: Pick<CrmActionFilters, "category" | "relanceOnly" | "overdueOnly" | "dueTodayOnly" | "timeZone"> = {}): Promise<CrmActionView | null> {
   const actions = await getCrmActions(accountId, { status: "open", responsibleUserId: responsibleUserId ?? undefined, ...filters }, { limit: 100 });
   return actions.find((action) => action.id !== excludedActionId) ?? null;
 }

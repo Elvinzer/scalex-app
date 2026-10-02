@@ -10,12 +10,13 @@ import { getBusinessSalesOffers } from "@/lib/business/queries";
 import { getCrmActions, getCrmKpiSources, getCrmSetters } from "@/lib/crm/queries";
 import { getCrmExtensionRelease } from "@/lib/crm/extension-release";
 import { crmPeriodDateValue, resolveCrmPeriod } from "@/lib/crm/period";
-import { crmLeadSourceSchema } from "@/lib/crm/schemas";
+import { crmLeadSourceSchema, crmTimeZoneSchema } from "@/lib/crm/schemas";
 import { CRM_CHANNELS, CRM_LEAD_SOURCES } from "@/lib/crm/types";
 
 import { CrmActionList } from "./crm-action-list";
 import { CrmExtensionSuggestion } from "./crm-extension-suggestion";
 import { CrmPeriodFilter } from "./crm-period-filter";
+import { CrmTimeZoneSync } from "./crm-time-zone-sync";
 
 const KPI_KEYS = ["messages", "responses", "qualificationNotes", "conversations", "valueContent", "callsProposed", "callsBooked", "callsAttended", "noShows", "sales", "revenue"] as const;
 
@@ -46,7 +47,7 @@ const KPI_LEAD_EVENTS: Partial<Record<(typeof KPI_KEYS)[number], string>> = {
   revenue: "sale_validated",
 };
 
-export default async function CrmTodayPage({ searchParams }: { searchParams: Promise<{ team?: string; range?: string; from?: string; to?: string; setter?: string; platform?: string; offer?: string; source?: string }> }) {
+export default async function CrmTodayPage({ searchParams }: { searchParams: Promise<{ team?: string; range?: string; from?: string; to?: string; setter?: string; platform?: string; offer?: string; source?: string; tz?: string }> }) {
   const t = await getTranslations("crm");
   const { userId } = await getCurrentUser();
   const access = await requireCrmAccess(userId);
@@ -58,6 +59,8 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
       ? t("extension.onboarding.downloadPilot")
       : null;
   const params = await searchParams;
+  const timeZoneResult = crmTimeZoneSchema.safeParse(params.tz);
+  const timeZone = timeZoneResult.success ? timeZoneResult.data : "UTC";
   const isTeamView = params.team === "1" && hasCrmPermission(access, "crm:view-team");
   const period = resolveCrmPeriod(params.range, params.from, params.to);
   const defaultPeriod = resolveCrmPeriod("current-month", undefined, undefined);
@@ -78,11 +81,16 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
     Boolean(setterId),
     period.from.getTime() !== defaultPeriod.from.getTime() || period.to.getTime() !== defaultPeriod.to.getTime(),
   ].filter(Boolean).length;
-  const resetHref = isTeamView ? "/crm?team=1" : "/crm";
-  const actionListKey = `${isTeamView}:${actions.map((action) => `${action.id}:${action.dueAt}:${action.status}`).join(",")}`;
+  const resetQuery = new URLSearchParams();
+  if (isTeamView) resetQuery.set("team", "1");
+  if (timeZoneResult.success) resetQuery.set("tz", timeZone);
+  const resetQueryString = resetQuery.toString();
+  const resetHref = resetQueryString ? `/crm?${resetQueryString}` : "/crm";
+  const actionListKey = `${isTeamView}:${timeZone}:${actions.map((action) => `${action.id}:${action.dueAt}:${action.status}`).join(",")}`;
 
   return (
     <div className="flex flex-col gap-6">
+      <CrmTimeZoneSync timeZone={timeZone} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div><h1 className="text-2xl font-bold">{t("tabs.today")}</h1><p className="mt-1 hidden text-muted-foreground sm:block">{t("today.subtitle")}</p></div>
         {hasCrmPermission(access, "crm:view-team") && <Button asChild variant="outline" className="hidden min-h-11 sm:inline-flex"><Link href={isTeamView ? "/crm" : "/crm?team=1"}>{isTeamView ? t("today.myView") : t("today.teamView")}</Link></Button>}
@@ -90,7 +98,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
 
       <section className="flex flex-col gap-3" aria-labelledby="crm-work-queue-title">
         <h2 id="crm-work-queue-title" className="sr-only">{t("today.queueTitle")}</h2>
-        {actions.length > 0 ? <CrmActionList key={actionListKey} initialActions={actions} returnTo={resetHref} groupByDueDate featureFirstAction featuredActionLabel={t("leads.nextAction")} /> : <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{t("today.emptyHelp")}</p><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div>}
+        {actions.length > 0 ? <CrmActionList key={actionListKey} initialActions={actions} returnTo={resetHref} timeZone={timeZone} groupByDueDate featureFirstAction featuredActionLabel={t("leads.nextAction")} /> : <div className="sticker-card flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-muted-foreground">{t("today.emptyHelp")}</p><Button asChild variant="outline" className="min-h-11"><Link href="/crm/leads">{t("today.openLeads")}</Link></Button></div>}
       </section>
 
       {hasCrmPermission(access, "crm:view-team") && <div className="sm:hidden"><Button asChild variant="outline" className="min-h-11"><Link href={isTeamView ? "/crm" : "/crm?team=1"}>{isTeamView ? t("today.myView") : t("today.teamView")}</Link></Button></div>}

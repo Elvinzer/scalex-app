@@ -104,3 +104,21 @@ deployment are green. A real five-day pilot remains necessary to measure
 elapsed time per lead, actual scroll count and retry frequency with a setter
 account. The new workflow is ready for that controlled pilot, not for an
 unobserved general rollout.
+
+## Local timezone regression — 2026-10-02
+
+- CRM queue grouping, due-date display and rescheduling now use the same
+  validated browser timezone. Direct visits with a missing or stale timezone
+  synchronize it after hydration, so server and browser render the initial
+  view consistently.
+- Date conversion tests cover Paris local time, a nonexistent spring-forward
+  time and postponing across a daylight-saving boundary.
+- Full local checks: typecheck, lint and 653 tests passed. The Next.js dev
+  server reported no compile, session or browser errors.
+- `/crm` was checked at 320 × 568, and `/crm/actions` at 320 × 568 and
+  1280 × 900. Document width matched the viewport, sampled local date inputs
+  matched visible due dates, and axe reported zero violations. Axe left color
+  contrast as an incomplete manual review item.
+- These follow-up changes have not yet been deployed. The full route/action/KPI
+  matrix, wider network fault automation and controlled setter pilot remain
+  open under tasks 9.3, 9.4, 10.2 and 10.3.

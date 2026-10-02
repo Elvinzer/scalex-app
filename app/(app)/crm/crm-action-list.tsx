@@ -5,17 +5,19 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { formatCrmDateTimeInput, getCrmLocalDayBounds, getCrmTomorrowAtSameLocalTime, parseCrmDateTimeInput } from "@/lib/crm/due-date";
 import type { CrmActionCategory, CrmActionView } from "@/lib/crm/types";
 
 import { completeActionAction, rescheduleActionAction } from "./crm-actions";
 
 type DueGroup = "overdue" | "today" | "upcoming";
-type QueueFilters = { category?: CrmActionCategory; relanceOnly?: boolean; overdueOnly?: boolean; dueTodayOnly?: boolean };
+type QueueFilters = { category?: CrmActionCategory; relanceOnly?: boolean; overdueOnly?: boolean; dueTodayOnly?: boolean; timeZone?: string };
 
-export function CrmActionList({ initialActions, groupByDueDate = false, featureFirstAction = false, featuredActionLabel, nextActionFilters, returnTo = "/crm/leads" }: { initialActions: CrmActionView[]; groupByDueDate?: boolean; featureFirstAction?: boolean; featuredActionLabel?: string; nextActionFilters?: QueueFilters; returnTo?: string }) {
+export function CrmActionList({ initialActions, groupByDueDate = false, featureFirstAction = false, featuredActionLabel, nextActionFilters, returnTo = "/crm/leads", timeZone: providedTimeZone }: { initialActions: CrmActionView[]; groupByDueDate?: boolean; featureFirstAction?: boolean; featuredActionLabel?: string; nextActionFilters?: QueueFilters; returnTo?: string; timeZone?: string }) {
   const t = useTranslations("crm.actions");
   const callsT = useTranslations("crm.calls");
   const locale = useLocale();
+  const timeZone = providedTimeZone ?? nextActionFilters?.timeZone ?? "UTC";
   const [actions, setActions] = useState(initialActions);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -33,10 +35,8 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
     if (nextActionFilters.relanceOnly && action.type !== "follow_up" && action.type !== "no_show_follow_up") return false;
     if (nextActionFilters.overdueOnly && !(action.status === "open" && dueAt.getTime() < now.getTime())) return false;
     if (nextActionFilters.dueTodayOnly) {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
-      if (!(action.status === "open" && dueAt.getTime() >= start && dueAt.getTime() < end)) return false;
+      const { start, end } = getCrmLocalDayBounds(nextActionFilters.timeZone ?? timeZone);
+      if (!(action.status === "open" && dueAt.getTime() >= start.getTime() && dueAt.getTime() < end.getTime())) return false;
     }
     return true;
   }
@@ -68,14 +68,9 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
     });
   }
 
-  function localDateTimeValue(value: Date): string {
-    const local = new Date(value.getTime() - value.getTimezoneOffset() * 60_000);
-    return local.toISOString().slice(0, 16);
-  }
-
   function reschedule(actionId: string, dueAt: string) {
-    const dueDate = new Date(dueAt);
-    if (Number.isNaN(dueDate.getTime())) {
+    const dueDate = parseCrmDateTimeInput(dueAt, timeZone);
+    if (!dueDate) {
       setError(t("invalidDue"));
       return;
     }
@@ -95,7 +90,7 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
           .filter((item) => item.id !== actionId || matchesQueueFilters(item, dueDate))
           .sort((left, right) => new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime() || right.priority - left.priority || left.id.localeCompare(right.id)));
         setNextLeadId(result.nextLeadId ?? null);
-        setAnnouncement(`${action.title}: ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(dueDate)}`);
+        setAnnouncement(`${action.title}: ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(dueDate)}`);
       } catch {
         setError(t("requestFailed"));
         setAnnouncement("");
@@ -104,11 +99,8 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
   }
 
   function postpone(action: CrmActionView) {
-    const originalDueAt = new Date(action.dueAt);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(originalDueAt.getHours(), originalDueAt.getMinutes(), 0, 0);
-    reschedule(action.id, tomorrow.toISOString());
+    const tomorrow = getCrmTomorrowAtSameLocalTime(new Date(), timeZone, new Date(action.dueAt));
+    reschedule(action.id, formatCrmDateTimeInput(tomorrow, timeZone));
   }
 
   function callOutcomeLabel(outcome: NonNullable<CrmActionView["nextCall"]>["outcome"]): string {
@@ -137,12 +129,12 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
             <Link href={leadHref(action.leadId)} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
             <p className="mt-1 font-bold">{action.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t(action.category)}{action.responsibleName ? ` · ${action.responsibleName}` : ""}</p>
-            <p className={overdue ? "mt-1 text-sm font-bold text-state-critical" : "mt-1 text-sm text-muted-foreground"}>{overdue && <>{t("overdue")} · </>}{t("due")}: {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(action.dueAt))}</p>
-            {action.nextCall && <p className="mt-1 text-xs text-muted-foreground">{t("nextCall", { date: new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: action.nextCall.timeZone ?? undefined }).format(new Date(action.nextCall.scheduledAt)), closer: action.nextCall.closer ?? t("noCloser"), outcome: callOutcomeLabel(action.nextCall.outcome) })}</p>}
+            <p className={overdue ? "mt-1 text-sm font-bold text-state-critical" : "mt-1 text-sm text-muted-foreground"}>{overdue && <>{t("overdue")} · </>}{t("due")}: {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(action.dueAt))}</p>
+            {action.nextCall && <p className="mt-1 text-xs text-muted-foreground">{t("nextCall", { date: new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: action.nextCall.timeZone ?? timeZone }).format(new Date(action.nextCall.scheduledAt)), closer: action.nextCall.closer ?? t("noCloser"), outcome: callOutcomeLabel(action.nextCall.outcome) })}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {action.status === "open" ? <><Button type="button" variant="outline" size="sm" className="min-h-11" disabled={isPending} onClick={() => update(action.id, "completed")}>{t("complete")}</Button><Button type="button" variant="ghost" size="sm" className="min-h-11" disabled={isPending} onClick={() => postpone(action)}>{t("postpone")}</Button></> : <span className={action.status === "completed" ? "text-sm font-bold text-state-healthy" : "text-sm font-bold text-muted-foreground"}>{t(action.status)}</span>}
-            {action.status === "open" && <><details className="relative"><summary className="flex min-h-11 cursor-pointer list-none items-center rounded px-2 text-sm font-bold underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("reschedule")}</summary><form onSubmit={(event) => submitReschedule(event, action.id)} className="absolute right-0 z-10 mt-1 grid min-w-64 gap-2 rounded-[var(--radius-control)] border border-border bg-card p-3 shadow-lg"><label className="flex flex-col gap-1 text-xs font-bold">{t("due")}<input name="dueAt" type="datetime-local" defaultValue={localDateTimeValue(new Date(action.dueAt))} className="min-h-11 rounded border border-border bg-background px-2 text-sm font-normal outline-none focus-visible:border-accent" /></label><Button type="submit" variant="outline" className="min-h-11" disabled={isPending}>{t("rescheduleSubmit")}</Button></form></details><Button type="button" variant="ghost" size="sm" className="min-h-11" disabled={isPending} onClick={() => update(action.id, "cancelled")}>{t("cancel")}</Button></>}
+            {action.status === "open" && <><details className="relative"><summary className="flex min-h-11 cursor-pointer list-none items-center rounded px-2 text-sm font-bold underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("reschedule")}</summary><form onSubmit={(event) => submitReschedule(event, action.id)} className="absolute right-0 z-10 mt-1 grid min-w-64 gap-2 rounded-[var(--radius-control)] border border-border bg-card p-3 shadow-lg"><label className="flex flex-col gap-1 text-xs font-bold">{t("due")}<input name="dueAt" type="datetime-local" defaultValue={formatCrmDateTimeInput(new Date(action.dueAt), timeZone)} className="min-h-11 rounded border border-border bg-background px-2 text-sm font-normal outline-none focus-visible:border-accent" /></label><Button type="submit" variant="outline" className="min-h-11" disabled={isPending}>{t("rescheduleSubmit")}</Button></form></details><Button type="button" variant="ghost" size="sm" className="min-h-11" disabled={isPending} onClick={() => update(action.id, "cancelled")}>{t("cancel")}</Button></>}
           </div>
         </article>
       );
@@ -152,20 +144,21 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
     return items.map((action) => renderAction(action));
   }
 
-  function dueGroup(action: CrmActionView, currentTime: Date): DueGroup {
+  function dueGroup(action: CrmActionView, currentTime: Date, localDayBounds: { start: Date; end: Date }): DueGroup {
     const dueAt = new Date(action.dueAt);
     if (action.status === "open" && dueAt < currentTime) return "overdue";
-    const startOfTomorrow = new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate() + 1);
-    if (dueAt < startOfTomorrow) return "today";
+    const { start, end } = localDayBounds;
+    if (dueAt >= start && dueAt < end) return "today";
     return "upcoming";
   }
 
   function renderDueGroups(items: CrmActionView[], featuredId?: string) {
     const groups: Record<DueGroup, CrmActionView[]> = { overdue: [], today: [], upcoming: [] };
-    for (const action of items) groups[dueGroup(action, now)].push(action);
+    const localDayBounds = getCrmLocalDayBounds(timeZone, now);
+    for (const action of items) groups[dueGroup(action, now, localDayBounds)].push(action);
     return <div className="flex flex-col gap-4">{(["overdue", "today", "upcoming"] as const).map((group) => {
       const groupItems = groups[group].filter((action) => action.id !== featuredId);
-      return groups[group].length > 0 ? <section key={group} aria-labelledby={`crm-due-${group}`}><h4 id={`crm-due-${group}`} className="mb-2 text-sm font-bold text-muted-foreground">{t(`dueGroups.${group}`)} · {groups[group].length}</h4><div className="flex flex-col gap-2">{renderActions(groupItems)}</div></section> : null;
+      return groups[group].length > 0 ? <section key={group} aria-labelledby={`crm-due-${group}`}><h3 id={`crm-due-${group}`} className="mb-2 text-sm font-bold text-muted-foreground">{t(`dueGroups.${group}`)} · {groups[group].length}</h3><div className="flex flex-col gap-2">{renderActions(groupItems)}</div></section> : null;
     })}</div>;
   }
 
