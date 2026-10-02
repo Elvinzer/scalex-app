@@ -163,6 +163,9 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   cards rendered, and the document width was 305 px. Each card link retained
   the 2026-09-01 to 2026-09-30 cohort plus acquisition source `instagram` and
   contact platform `linkedin`.
+- With the KPI panel open, 390 × 844, 768 × 900, 1280 × 900 and 1440 × 900
+  production viewports also rendered all six cards without horizontal
+  overflow (document widths: 375, 753, 1265 and 1425 px respectively).
 - Opening the response-rate card loaded `/crm/leads` with the expected metric,
   cohort dates and both filters. The browser reported no errors. This was a
   read-only production check; no CRM or booking mutation was submitted.
