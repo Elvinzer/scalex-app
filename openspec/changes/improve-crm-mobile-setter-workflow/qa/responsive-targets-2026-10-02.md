@@ -427,3 +427,15 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   lint and the full suite passed (167 files, 732 tests); `npm run build` also
   completed successfully. A forced local dark-theme check measured the
   placeholder token at 8.75:1 against the dark input surface.
+
+## Placeholder contrast production smoke — 2026-10-02
+
+- Vercel completed the deployment for commit `b1a2c33` successfully.
+- Production `/sign-in` returned 200. Unauthenticated `/crm` and `/crm/leads`
+  returned 307 to `/sign-in`; CSP, HSTS, frame, MIME-sniffing and referrer
+  headers remained configured.
+- The production CRM stylesheet referenced by the protected route contains
+  `.placeholder\:text-muted-foreground::placeholder` with
+  `color:var(--muted-foreground)`, confirming that the contrast utility shipped.
+  This unauthenticated smoke could not visually inspect the rendered CRM form
+  on the deployed site. It made no additional CRM data changes.
