@@ -5,7 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/current-user";
 import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
-import { computeCrmKpis } from "@/lib/crm/kpis";
+import { computeCrmKpis, CRM_PRIMARY_KPI_METRICS, type CrmPrimaryKpiMetric } from "@/lib/crm/kpis";
 import { getBusinessSalesOffers } from "@/lib/business/queries";
 import { getCrmActions, getCrmKpiSources, getCrmSetters } from "@/lib/crm/queries";
 import { getCrmExtensionRelease } from "@/lib/crm/extension-release";
@@ -18,34 +18,19 @@ import { CrmExtensionSuggestion } from "./crm-extension-suggestion";
 import { CrmPeriodFilter } from "./crm-period-filter";
 import { CrmTimeZoneSync } from "./crm-time-zone-sync";
 
-const KPI_KEYS = ["messages", "responses", "qualificationNotes", "conversations", "valueContent", "callsProposed", "callsBooked", "callsAttended", "noShows", "sales", "revenue"] as const;
+const SECONDARY_KPI_KEYS = ["responses", "qualificationNotes", "callsProposed", "callsBooked", "callsAttended", "noShows", "sales", "revenue"] as const;
 
-function leadKpiHref(key: (typeof KPI_KEYS)[number], params: { setter?: string; platform?: string; offer?: string; source?: string }, period: { from: Date; to: Date }): string {
+function leadKpiHref(key: CrmPrimaryKpiMetric, params: { setter?: string; platform?: string; offer?: string; source?: string }, period: { from: Date; to: Date }): string {
   const query = new URLSearchParams();
-  const eventType = KPI_LEAD_EVENTS[key];
-  if (eventType) {
-    query.set("event", eventType);
-    query.set("eventFrom", crmPeriodDateValue(period.from));
-    query.set("eventTo", crmPeriodDateValue(period.to));
-  }
+  query.set("metric", key);
+  query.set("firstMessageFrom", crmPeriodDateValue(period.from));
+  query.set("firstMessageTo", crmPeriodDateValue(period.to));
   if (params.setter) query.set("responsible", params.setter);
   if (params.platform) query.set("platform", params.platform);
   if (params.offer) query.set("offer", params.offer);
   if (params.source) query.set("source", params.source);
   return `/crm/leads?${query.toString()}`;
 }
-
-const KPI_LEAD_EVENTS: Partial<Record<(typeof KPI_KEYS)[number], string>> = {
-  messages: "first_message_sent",
-  responses: "response_received",
-  qualificationNotes: "qualification_updated",
-  conversations: "conversation_started",
-  valueContent: "value_content_sent",
-  callsProposed: "call_proposed",
-  callsBooked: "call_booked",
-  sales: "sale_validated",
-  revenue: "sale_validated",
-};
 
 export default async function CrmTodayPage({ searchParams }: { searchParams: Promise<{ team?: string; range?: string; from?: string; to?: string; setter?: string; platform?: string; offer?: string; source?: string; tz?: string }> }) {
   const t = await getTranslations("crm");
@@ -69,11 +54,12 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
   const platform = CRM_CHANNELS.find((candidate) => candidate === params.platform);
   const offerId = offers.some((offer) => offer.id === params.offer) ? params.offer : undefined;
   const source = crmLeadSourceSchema.safeParse(params.source).success ? crmLeadSourceSchema.parse(params.source) : undefined;
+  const asOf = new Date();
   const [{ events, stageChanges, calls, sales: linkedSales }, actions] = await Promise.all([
-    getCrmKpiSources(access.accountId, period.from, period.to, { setterId, platform, offerId, source }),
+    getCrmKpiSources(access.accountId, period.from, period.to, { setterId, platform, offerId, source }, asOf),
     getCrmActions(access.accountId, { status: "open", responsibleUserId: isTeamView ? undefined : userId }),
   ]);
-  const kpis = computeCrmKpis({ events, stageChanges, calls, sales: linkedSales, period });
+  const kpis = computeCrmKpis({ events, stageChanges, calls, sales: linkedSales, period, asOf });
   const activeFilterCount = [
     params.platform === "instagram" || params.platform === "linkedin",
     Boolean(offerId),
@@ -132,11 +118,30 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
       {activeFilterCount > 0 && <div className="flex flex-wrap items-center gap-3 text-sm font-bold text-muted-foreground"><span>{t("today.filtersApplied", { count: activeFilterCount })}</span><Link href={resetHref} className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground">{t("kpis.reset")}</Link></div>}
       <p className="text-sm font-bold text-muted-foreground">{t("kpis.scope", { from: crmPeriodDateValue(period.from), to: crmPeriodDateValue(period.to), view: isTeamView ? t("kpis.team") : t("kpis.personal") })}</p>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={t("kpis.period")}>
-        {KPI_KEYS.map((key) => { const destination = key === "callsAttended" || key === "noShows" ? `/crm/appels?from=${crmPeriodDateValue(period.from)}&to=${crmPeriodDateValue(period.to)}${key === "noShows" ? "&attendance=no_show" : "&attendance=showed"}` : leadKpiHref(key, { setter: setterId, platform, offer: offerId, source }, period); return <Link key={key} href={destination} className="sticker-card p-4 transition hover:-translate-y-0.5"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.${key}`)}</p><p className="mt-2 text-2xl font-bold">{key === "revenue" ? `${kpis[key]} €` : kpis[key]}</p></Link>; })}
+      <section className="grid gap-3 min-[360px]:grid-cols-2 lg:grid-cols-3" aria-label={t("kpis.primaryTitle")}>
+        {CRM_PRIMARY_KPI_METRICS.map((key) => {
+          const value = key === "messages" || key === "conversations" || key === "valueContent"
+            ? kpis[key]
+            : kpis.rates[key === "responses" ? "response" : key === "callsProposed" ? "callProposed" : "callBooked"];
+          const displayValue = typeof value === "number" ? `${Math.round(value * (key === "messages" || key === "conversations" || key === "valueContent" ? 1 : 100))}${key === "messages" || key === "conversations" || key === "valueContent" ? "" : "%"}` : t("kpis.notMeasured");
+          const destination = leadKpiHref(key, { setter: setterId, platform, offer: offerId, source }, period);
+          return <Link key={key} href={destination} className="sticker-card p-4 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/30"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p className="mt-2 text-2xl font-bold">{displayValue}</p></Link>;
+        })}
       </section>
+      <p className="text-sm text-muted-foreground">{t("kpis.rateBasis")}</p>
       {kpis.incomplete && <p className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.incomplete")}</p>}
-      <section className="sticker-card p-4" aria-labelledby="crm-kpi-rates-title"><h2 id="crm-kpi-rates-title" className="text-lg font-bold">{t("kpis.ratesTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("kpis.cohort", { count: kpis.cohortFirstMessages })}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(["response", "qualification", "valueContent", "callProposed", "callBooked", "attendance", "noShow", "closing"] as const).map((key) => <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.rate${key[0].toUpperCase()}${key.slice(1)}`)}</p><p className="mt-1 text-lg font-bold">{kpis.rates[key] === null ? t("kpis.notMeasured") : `${Math.round(kpis.rates[key] * 100)}%`}</p></div>)}</div></section>
+      <details className="rounded-[var(--radius-control)] border border-border">
+        <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("kpis.secondaryTitle")}</summary>
+        <div className="grid gap-3 border-t border-border p-3 sm:grid-cols-2 lg:grid-cols-4">
+          {SECONDARY_KPI_KEYS.map((key) => {
+            const destination = key === "callsAttended" || key === "noShows"
+              ? `/crm/appels?from=${crmPeriodDateValue(period.from)}&to=${crmPeriodDateValue(period.to)}${key === "noShows" ? "&attendance=no_show" : "&attendance=showed"}`
+              : null;
+            return <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.${key}`)}</p><p className="mt-1 text-lg font-bold">{key === "revenue" ? `${kpis[key]} €` : kpis[key]}</p>{destination && <Link href={destination} className="mt-2 inline-flex min-h-11 items-center text-sm font-bold underline underline-offset-4">{t("kpis.viewCalls")}</Link>}</div>;
+          })}
+          <section className="sm:col-span-2 lg:col-span-4"><h2 className="text-sm font-bold">{t("kpis.ratesTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("kpis.cohort", { count: kpis.cohortFirstMessages })}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(["qualification", "valueContent", "attendance", "noShow", "closing"] as const).map((key) => <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.rate${key[0].toUpperCase()}${key.slice(1)}`)}</p><p className="mt-1 text-lg font-bold">{kpis.rates[key] === null ? t("kpis.notMeasured") : `${Math.round(kpis.rates[key] * 100)}%`}</p></div>)}</div></section>
+        </div>
+      </details>
         </div>
       </details>
 

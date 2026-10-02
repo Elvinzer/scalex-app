@@ -15,17 +15,38 @@ export default async function CrmExtensionPage() {
   if (!access) redirect("/dashboard");
 
   const release = getCrmExtensionRelease();
+  const webStoreUrl = release.webStoreUrl;
+  const inlineLinkClassName = "text-accent-text underline underline-offset-2 hover:no-underline";
+  const installStepDescription = release.distribution === "pilot_package"
+    ? t.rich("extension.onboarding.steps.install.pilot", {
+        extensions: (chunks) => (
+          <a
+            href="chrome://extensions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={inlineLinkClassName}
+          >
+            {chunks}
+          </a>
+        ),
+      })
+    : release.distribution === "web_store" && webStoreUrl
+      ? t.rich("extension.onboarding.steps.install.store", {
+          store: (chunks) => (
+            <a
+              href={webStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={inlineLinkClassName}
+            >
+              {chunks}
+            </a>
+          ),
+        })
+      : t("extension.onboarding.notConfiguredDescription");
   const stepDefinitions = [
     { key: "browser", icon: Monitor, description: t("extension.onboarding.steps.browser.description") },
-    {
-      key: "install",
-      icon: Download,
-      description: release.distribution === "pilot_package"
-        ? t("extension.onboarding.steps.install.pilot")
-        : release.distribution === "web_store"
-          ? t("extension.onboarding.steps.install.store")
-          : t("extension.onboarding.notConfiguredDescription"),
-    },
+    { key: "install", icon: Download, description: installStepDescription },
     { key: "connect", icon: UserRound, description: t("extension.onboarding.steps.connect.description") },
     { key: "verify", icon: CheckCircle2, description: t("extension.onboarding.steps.verify.description") },
   ] as const;

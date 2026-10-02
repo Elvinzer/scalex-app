@@ -8,6 +8,7 @@ import { getActiveClosers } from "@/lib/closers/queries";
 import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
 import { getBusinessSalesOfferDetails } from "@/lib/business/queries";
 import { CRM_EVENT_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine";
+import { CRM_PRIMARY_KPI_METRICS } from "@/lib/crm/kpis";
 import { getCrmLeadsPage, getCrmSetters } from "@/lib/crm/queries";
 import { CRM_LEADS_PAGE_SIZE } from "@/lib/crm/lead-pagination";
 import { crmEventTypeSchema, crmLeadSourceSchema, crmOutcomeSchema, crmStageSchema } from "@/lib/crm/schemas";
@@ -17,7 +18,7 @@ import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 import { CrmLeadManagementActions } from "../crm-lead-management-actions";
 import { CrmLeadList } from "../crm-lead-list";
 
-export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; offer?: string; source?: string; from?: string; to?: string; event?: string; eventFrom?: string; eventTo?: string; overdue?: string; responded?: string; qualification?: string }> }) {
+export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; offer?: string; source?: string; from?: string; to?: string; event?: string; eventFrom?: string; eventTo?: string; firstMessageFrom?: string; firstMessageTo?: string; metric?: string; overdue?: string; responded?: string; qualification?: string }> }) {
   const t = await getTranslations("crm");
   const { userId } = await getCurrentUser();
   const access = await requireCrmAccess(userId);
@@ -48,22 +49,27 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   const eventType = crmEventTypeSchema.safeParse(params.event).success ? crmEventTypeSchema.parse(params.event) : undefined;
   const eventFrom = validDate(params.eventFrom);
   const eventTo = validDate(params.eventTo);
+  const firstMessageFrom = validDate(params.firstMessageFrom);
+  const firstMessageTo = validDate(params.firstMessageTo);
+  const kpiMetric = CRM_PRIMARY_KPI_METRICS.find((metric) => metric === params.metric);
   const overdueActionOnly = params.overdue === "1";
   const respondedOnly = params.responded === "1";
   const qualificationOnly = params.qualification === "1";
   const search = params.search?.trim().slice(0, 200) || undefined;
-  const filters = { search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, overdueActionOnly, respondedOnly, qualificationOnly };
+  const filters = { search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, firstMessageFrom, firstMessageTo, kpiMetric, overdueActionOnly, respondedOnly, qualificationOnly };
   const { leads, totalCount } = await withDatabaseReadTimeout(
     () => getCrmLeadsPage(access.accountId, filters, { limit: CRM_LEADS_PAGE_SIZE, offset: 0 }),
     { operation: "crm-leads-data", timeoutMs: 15_000 },
   );
   const leadListKey = `${JSON.stringify(filters)}:${totalCount}:${leads.map(({ id, updatedAt }) => `${id}:${updatedAt}`).join("|")}`;
-  const advancedFilterCount = [outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, overdueActionOnly, respondedOnly, qualificationOnly, eventType, eventFrom, eventTo].filter(Boolean).length;
+  const advancedFilterCount = [outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, overdueActionOnly, respondedOnly, qualificationOnly, eventType, eventFrom, eventTo, firstMessageFrom, firstMessageTo, kpiMetric].filter(Boolean).length;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">{t("leads.title")}</h1><p className="mt-1 text-muted-foreground">{t("leads.subtitle")}</p></div><CrmLeadManagementActions offers={offers} setters={setters} canImport={hasCrmPermission(access, "crm:manage-pipeline")} /></div>
+      {kpiMetric && <p className="rounded-[var(--radius-control)] border border-border bg-muted/30 px-4 py-3 text-sm font-bold">{t("leads.kpiScope", { metric: t(`kpis.primary.${kpiMetric}`), from: firstMessageFrom ?? t("kpis.from"), to: firstMessageTo ?? t("kpis.to") })}</p>}
       <form method="get" className="sticker-card grid gap-3 p-4 lg:grid-cols-4 lg:items-end">
+        {kpiMetric && <input type="hidden" name="metric" value={kpiMetric} />}
         <label className="flex flex-col gap-1 text-sm font-bold lg:col-span-4">{t("leads.search")}<input name="search" maxLength={200} defaultValue={search} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.channel")}<select name="platform" defaultValue={platform ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allChannels")}</option>{CRM_CHANNELS.map((channel) => <option key={channel} value={channel}>{t(`leads.sourceOptions.${channel}`)}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.allStages")}<select name="stage" defaultValue={stage ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allStages")}</option>{CRM_LEAD_STAGES.map((item) => <option key={item} value={item}>{t(CRM_STAGE_LABEL_KEYS[item])}</option>)}</select></label>
@@ -82,6 +88,10 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
             <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.eventType")}<select name="event" defaultValue={eventType ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allEvents")}</option>{CRM_EVENT_TYPES.map((item) => <option key={item} value={item}>{t(CRM_EVENT_LABEL_KEYS[item])}</option>)}</select></label>
             <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.eventFrom")}<input name="eventFrom" type="date" defaultValue={eventFrom} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
             <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.eventTo")}<input name="eventTo" type="date" defaultValue={eventTo} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
+            {kpiMetric && <>
+              <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.firstMessageFrom")}<input name="firstMessageFrom" type="date" defaultValue={firstMessageFrom} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
+              <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.firstMessageTo")}<input name="firstMessageTo" type="date" defaultValue={firstMessageTo} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
+            </>}
             <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input name="overdue" value="1" type="checkbox" defaultChecked={overdueActionOnly} className="size-5 accent-accent" />{t("leads.overdueAction")}</label>
             <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input name="responded" value="1" type="checkbox" defaultChecked={respondedOnly} className="size-5 accent-accent" />{t("leads.respondedOnly")}</label>
             <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input name="qualification" value="1" type="checkbox" defaultChecked={qualificationOnly} className="size-5 accent-accent" />{t("leads.qualificationOnly")}</label>

@@ -1,129 +1,211 @@
 import { describe, expect, it } from "vitest";
 
-import { computeCrmKpis, currentCrmPeriod } from "./kpis";
+import { computeCrmKpis, currentCrmPeriod, isReliableFirstMessageEvent, matchesCrmKpiAttribution, type CrmKpiEvent } from "./kpis";
+import type { CrmEventMetadata, CrmEventType, CrmLeadStage } from "./types";
 
 const period = { from: new Date("2026-09-01T00:00:00.000Z"), to: new Date("2026-09-30T23:59:59.999Z") };
+const asOf = new Date("2026-10-10T23:59:59.999Z");
+
+function event(input: {
+  leadId: string;
+  type: CrmEventType;
+  occurredAt: string | null;
+  capturedAt?: string | null;
+  createdAt?: string;
+  metadata?: CrmEventMetadata;
+}): CrmKpiEvent {
+  return {
+    leadId: input.leadId,
+    type: input.type,
+    occurredAt: input.occurredAt ? new Date(input.occurredAt) : null,
+    capturedAt: input.capturedAt ? new Date(input.capturedAt) : null,
+    createdAt: new Date(input.createdAt ?? input.occurredAt ?? input.capturedAt ?? "2026-09-01T00:00:00Z"),
+    metadata: input.metadata ?? {},
+  };
+}
+
+function firstMessage(leadId: string, occurredAt: string): CrmKpiEvent {
+  return event({ leadId, type: "first_message_sent", occurredAt, metadata: { confirmedFrom: "crm" } });
+}
+
+function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_show" | "lost" | "sold" = "none") {
+  return {
+    leadId,
+    fromStage: null,
+    toStage: stage,
+    occurredAt: asOf,
+    currentSnapshot: true,
+    currentOutcome: outcome,
+  } as const;
+}
 
 describe("CRM KPI projection", () => {
-  it("counts one lead once despite repeated captures and repeated stage events", () => {
+  it("counts unique confirmed first messages and flags legacy unverified records", () => {
+    const repeated = firstMessage("lead-1", "2026-09-01T09:00:00Z");
     const counts = computeCrmKpis({
       period,
+      asOf,
       events: [
-        { leadId: "lead-1", type: "first_message_sent", occurredAt: new Date("2026-09-01T09:00:00Z"), capturedAt: null, createdAt: new Date("2026-09-01T10:00:00Z") },
-        { leadId: "lead-1", type: "first_message_sent", occurredAt: new Date("2026-09-01T09:00:00Z"), capturedAt: null, createdAt: new Date("2026-09-02T10:00:00Z") },
-        { leadId: "lead-1", type: "conversation_started", occurredAt: new Date("2026-09-02T10:00:00Z"), capturedAt: null, createdAt: new Date("2026-09-02T10:00:00Z") },
+        repeated,
+        { ...repeated, createdAt: new Date("2026-09-02T10:00:00Z") },
+        event({ leadId: "lead-1", type: "conversation_started", occurredAt: "2026-09-03T10:00:00Z" }),
+        event({ leadId: "lead-2", type: "first_message_sent", occurredAt: "2026-09-04T10:00:00Z", metadata: { selectedAtCapture: true } }),
+        event({ leadId: "lead-3", type: "profile_captured", occurredAt: null, capturedAt: "2026-09-04T10:00:00Z" }),
       ],
       calls: [],
       sales: [],
     });
+
     expect(counts.messages).toBe(1);
     expect(counts.conversations).toBe(1);
     expect(counts.cohortFirstMessages).toBe(1);
-    expect(counts.cohortConverted).toBe(1);
+    expect(counts.incomplete).toBe(true);
+    expect(isReliableFirstMessageEvent(repeated)).toBe(true);
   });
 
-  it("uses canonical calls and sales without duplicating a lead", () => {
+  it("counts current open cohort stages and excludes lost or sold leads", () => {
+    const leads = ["conversation", "value-content", "proposed", "lost", "sold"];
     const counts = computeCrmKpis({
       period,
-      events: [{ leadId: "lead-1", type: "sale_validated", occurredAt: new Date("2026-09-04T10:00:00Z"), capturedAt: null, createdAt: new Date("2026-09-04T10:00:00Z") }],
+      asOf,
+      events: leads.map((leadId, index) => firstMessage(leadId, `2026-09-0${index + 1}T09:00:00Z`)),
+      stageChanges: [
+        snapshot("conversation", "conversation_in_progress"),
+        snapshot("value-content", "value_content_sent"),
+        snapshot("proposed", "call_proposed"),
+        snapshot("lost", "conversation_in_progress", "lost"),
+        snapshot("sold", "value_content_sent", "sold"),
+        snapshot("outside-cohort", "conversation_in_progress"),
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(5);
+    expect(counts.conversations).toBe(1);
+    expect(counts.valueContent).toBe(1);
+  });
+
+  it("uses the first-message cohort for all three rates and counts later conversions through today", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [
+        firstMessage("lead-1", "2026-09-28T09:00:00Z"),
+        firstMessage("lead-1", "2026-09-28T09:00:00Z"),
+        firstMessage("lead-2", "2026-09-30T11:00:00Z"),
+        firstMessage("older-lead", "2026-08-31T11:00:00Z"),
+        event({ leadId: "lead-1", type: "response_received", occurredAt: "2026-10-02T09:00:00Z" }),
+        event({ leadId: "lead-1", type: "call_proposed", occurredAt: "2026-10-03T09:00:00Z" }),
+        event({
+          leadId: "lead-1",
+          type: "call_booked",
+          occurredAt: "2026-10-20T09:00:00Z",
+          capturedAt: "2026-10-04T09:00:00Z",
+          metadata: { bookingMode: "native_crm" },
+        }),
+      ],
+      calls: [{ leadId: "lead-2", scheduledAt: new Date("2026-10-22T09:00:00Z"), bookedAt: new Date("2026-10-05T09:00:00Z"), attendance: "booked" }],
+      sales: [],
+    });
+
+    expect(counts.cohortFirstMessages).toBe(2);
+    expect(counts.cohortConversations).toBe(1);
+    expect(counts.cohortCallsProposed).toBe(1);
+    expect(counts.cohortCallsBooked).toBe(2);
+    expect(counts.rates.response).toBe(0.5);
+    expect(counts.rates.callProposed).toBe(0.5);
+    expect(counts.rates.callBooked).toBe(1);
+  });
+
+  it("uses stage history for replies and respects a reopened lead's current stage", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [firstMessage("lead-1", "2026-09-02T09:00:00Z")],
+      stageChanges: [
+        { leadId: "lead-1", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-09-03T09:00:00Z") },
+        { leadId: "lead-1", fromStage: "conversation_in_progress", toStage: "value_content_sent", occurredAt: new Date("2026-09-04T09:00:00Z") },
+        { leadId: "lead-1", fromStage: "value_content_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-10-02T09:00:00Z") },
+        snapshot("lead-1", "conversation_in_progress"),
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.cohortConversations).toBe(1);
+    expect(counts.conversations).toBe(1);
+    expect(counts.valueContent).toBe(0);
+    expect(counts.rates.response).toBe(1);
+  });
+
+  it("deduplicates repeated proposals, bookings, and canonical call records by lead", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [
+        firstMessage("lead-1", "2026-09-01T09:00:00Z"),
+        event({ leadId: "lead-1", type: "call_proposed", occurredAt: "2026-09-03T09:00:00Z" }),
+        event({ leadId: "lead-1", type: "call_proposed", occurredAt: "2026-09-04T09:00:00Z" }),
+        event({ leadId: "lead-1", type: "call_booked", occurredAt: "2026-09-05T09:00:00Z" }),
+      ],
+      calls: [
+        { leadId: "lead-1", scheduledAt: new Date("2026-09-06T09:00:00Z"), bookedAt: new Date("2026-09-06T09:00:00Z"), attendance: "booked" },
+        { leadId: "lead-1", scheduledAt: new Date("2026-09-07T09:00:00Z"), bookedAt: new Date("2026-09-07T09:00:00Z"), attendance: "booked" },
+      ],
+      sales: [],
+    });
+
+    expect(counts.cohortCallsProposed).toBe(1);
+    expect(counts.cohortCallsBooked).toBe(1);
+    expect(counts.callsProposed).toBe(1);
+    expect(counts.callsBooked).toBe(1);
+    expect(counts.rates.callProposed).toBe(1);
+    expect(counts.rates.callBooked).toBe(1);
+  });
+
+  it("keeps selected-period commercial totals bounded to the selected period", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [
+        event({ leadId: "old", type: "sale_validated", occurredAt: "2026-08-31T10:00:00Z" }),
+        event({ leadId: "new", type: "sale_validated", occurredAt: "2026-09-04T10:00:00Z" }),
+      ],
       calls: [
         { leadId: "lead-1", scheduledAt: new Date("2026-09-03T10:00:00Z"), attendance: "showed" },
         { leadId: "lead-1", scheduledAt: new Date("2026-09-03T11:00:00Z"), attendance: "no_show" },
+        { leadId: "lead-2", scheduledAt: new Date("2026-10-03T11:00:00Z"), attendance: "showed" },
       ],
-      sales: [{ leadId: "lead-1", saleDate: "2026-09-04" }],
+      sales: [
+        { leadId: "new", saleDate: "2026-09-04", totalPrice: 350 },
+        { leadId: "old", saleDate: "2026-08-31", totalPrice: 500 },
+      ],
     });
+
+    expect(counts.sales).toBe(1);
+    expect(counts.revenue).toBe(350);
     expect(counts.callsAttended).toBe(1);
     expect(counts.noShows).toBe(1);
-    expect(counts.sales).toBe(1);
   });
 
-  it("does not carry historical sale events into the selected period", () => {
-    const counts = computeCrmKpis({
-      period,
-      events: [
-        { leadId: "old", type: "sale_validated", occurredAt: new Date("2026-08-31T10:00:00Z"), capturedAt: null, createdAt: new Date("2026-08-31T10:00:00Z") },
-        { leadId: "new", type: "sale_validated", occurredAt: new Date("2026-09-04T10:00:00Z"), capturedAt: null, createdAt: new Date("2026-09-04T10:00:00Z") },
-      ],
-      calls: [],
-      sales: [],
-    });
-
-    expect(counts.sales).toBe(1);
-    expect(counts.incomplete).toBe(false);
-  });
-
-  it("does not start a first-message cohort from a profile capture alone", () => {
-    const counts = computeCrmKpis({
-      period,
-      events: [
-        { leadId: "lead-profile-only", type: "profile_captured", occurredAt: null, capturedAt: new Date("2026-09-02T10:00:00Z"), createdAt: new Date("2026-09-02T10:00:00Z") },
-      ],
-      calls: [],
-      sales: [],
-    });
+  it("returns null for rates with no first-message denominator", () => {
+    const counts = computeCrmKpis({ period, asOf, events: [], calls: [], sales: [] });
 
     expect(counts.cohortFirstMessages).toBe(0);
     expect(counts.rates.response).toBeNull();
+    expect(counts.rates.callProposed).toBeNull();
+    expect(counts.rates.callBooked).toBeNull();
   });
 
-  it("counts cohort milestones that happen later in the selected period", () => {
-    const counts = computeCrmKpis({
-      period,
-      events: [
-        { leadId: "lead-1", type: "first_message_sent", occurredAt: new Date("2026-09-01T09:00:00Z"), capturedAt: null, createdAt: new Date("2026-09-01T09:00:00Z") },
-        { leadId: "lead-1", type: "conversation_started", occurredAt: new Date("2026-09-20T09:00:00Z"), capturedAt: null, createdAt: new Date("2026-09-20T09:00:00Z") },
-        { leadId: "lead-1", type: "value_content_sent", occurredAt: new Date("2026-09-21T09:00:00Z"), capturedAt: null, createdAt: new Date("2026-09-21T09:00:00Z") },
-      ],
-      calls: [],
-      sales: [],
-    });
+  it("filters acquisition source independently from contact platform", () => {
+    const instagramLead = { platform: "instagram" as const, offerId: "offer-1", source: "linkedin", setterId: "setter-1" };
+    const linkedinLead = { ...instagramLead, platform: "linkedin" as const, source: "instagram" };
 
-    expect(counts.cohortFirstMessages).toBe(1);
-    expect(counts.cohortConversations).toBe(1);
-    expect(counts.cohortValueContent).toBe(1);
-    expect(counts.rates.response).toBe(1);
-    expect(counts.rates.valueContent).toBe(1);
-  });
-
-  it("uses first-column creation, first-message replies and the current pipeline state", () => {
-    const counts = computeCrmKpis({
-      period,
-      stageChanges: [
-        { leadId: "lead-1", fromStage: null, toStage: "first_message_sent", occurredAt: new Date("2026-09-01T09:00:00Z") },
-        { leadId: "lead-1", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-09-05T09:00:00Z") },
-        { leadId: "lead-2", fromStage: null, toStage: "first_message_sent", occurredAt: new Date("2026-09-02T09:00:00Z") },
-        { leadId: "lead-2", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-09-06T09:00:00Z") },
-        { leadId: "lead-2", fromStage: "conversation_in_progress", toStage: "first_message_sent", occurredAt: new Date("2026-09-07T09:00:00Z") },
-        { leadId: "lead-3", fromStage: null, toStage: "first_message_sent", occurredAt: new Date("2026-08-20T09:00:00Z") },
-        { leadId: "lead-3", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-08-21T09:00:00Z") },
-        { leadId: "lead-3", fromStage: "conversation_in_progress", toStage: "value_content_sent", occurredAt: new Date("2026-09-10T09:00:00Z") },
-      ],
-      events: [],
-      calls: [],
-      sales: [],
-    });
-
-    expect(counts.messages).toBe(2);
-    expect(counts.responses).toBe(2);
-    expect(counts.conversations).toBe(1);
-    expect(counts.valueContent).toBe(1);
-    expect(counts.cohortFirstMessages).toBe(2);
-    expect(counts.cohortConversations).toBe(2);
-  });
-
-  it("returns null for rates with no denominator", () => {
-    const counts = computeCrmKpis({ period, events: [], calls: [], sales: [] });
-
-    expect(counts.rates).toEqual({
-      response: null,
-      qualification: null,
-      valueContent: null,
-      callProposed: null,
-      callBooked: null,
-      attendance: null,
-      noShow: null,
-      closing: null,
-    });
+    expect(matchesCrmKpiAttribution(instagramLead, { source: "linkedin" })).toBe(true);
+    expect(matchesCrmKpiAttribution(instagramLead, { platform: "linkedin" })).toBe(false);
+    expect(matchesCrmKpiAttribution(linkedinLead, { source: "linkedin" })).toBe(false);
+    expect(matchesCrmKpiAttribution(linkedinLead, { source: "instagram", platform: "linkedin" })).toBe(true);
   });
 
   it("builds a UTC calendar-month period", () => {
