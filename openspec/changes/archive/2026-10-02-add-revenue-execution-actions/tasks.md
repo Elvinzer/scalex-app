@@ -33,7 +33,7 @@
 - [x] 5.2 Vérifier les états focus, les noms accessibles, les annonces d’erreur et les zones interactives d’au moins 44 px
 - [x] 5.3 Prévoir une présentation empilée à 375 px et supprimer tout scroll horizontal essentiel sur la file d’actions
 - [x] 5.4 Respecter la préférence de réduction des animations et limiter les transitions à des feedbacks utiles
-- [ ] 5.5 Parcourir le Dashboard, Pipeline, Appels et Rendez-vous avec `agent-browser` aux largeurs 375, 768, 1024 et 1440 px
+- [x] 5.5 Parcourir le Dashboard, Pipeline, Appels et Rendez-vous avec `agent-browser` aux largeurs 375, 768, 1024 et 1440 px. Production : les 16 combinaisons ont été ouvertes après chargement du contenu ; aucun débordement horizontal et un seul `h1` par route.
 
 ## 6. Validation and rollout
 
@@ -41,4 +41,4 @@
 - [x] 6.2 Vérifier qu’aucune PII ou action d’un autre compte n’est exposée dans la projection ou les URLs
 - [x] 6.3 Lancer `npm run typecheck` et `npm run lint`
 - [x] 6.4 Vérifier qu’aucune migration n’est nécessaire et ne pas lancer `db:push` pour cette tranche
-- [ ] 6.5 Effectuer une revue visuelle finale avec `agent-browser` et comparer la présence/absence des blocs revenue et technique
+- [x] 6.5 Effectuer une revue visuelle finale avec `agent-browser` et comparer la présence/absence des blocs revenue et technique. En production, le bloc revenu apparaît avec des actions, le bloc technique reste absent quand aucune alerte n’existe, et le Dashboard conserve un seul CTA corail.
