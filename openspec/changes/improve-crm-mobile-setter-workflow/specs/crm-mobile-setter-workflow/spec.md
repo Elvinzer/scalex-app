@@ -306,6 +306,11 @@ value content currently sent, first-message response rate, call-proposal rate
 and call-booked rate. It SHALL provide a date-period filter and an
 acquisition-origin filter that apply consistently to all six metrics;
 acquisition origin SHALL remain distinct from the contact platform.
+The six primary metrics SHALL be available on `/crm` in desktop and mobile
+layouts, with the analysis section expanded by default. The period and
+acquisition-origin controls SHALL remain available with the metric cards; the
+mobile layout SHALL keep all six labels, values and controls readable without
+horizontal page scrolling.
 In personal view, these metrics SHALL use the authenticated setter’s attribution;
 in team view, they SHALL use all setters or the selected setter. If personal
 setter attribution cannot be resolved, the metrics SHALL be unavailable rather
@@ -346,7 +351,8 @@ analysis surfaces. They SHALL NOT displace or obscure the six primary metrics.
 #### Scenario: Setter opens the primary CRM analysis
 
 - **WHEN** the setter opens the CRM analysis section
-- **THEN** the six primary metrics SHALL be visible with their selected period and acquisition-origin filter
+- **THEN** the six primary metrics SHALL be visible on `/crm` with their selected period and acquisition-origin filter
+- **AND** the analysis section SHALL be expanded by default on desktop and mobile
 - **AND** each count SHALL count a lead at most once
 - **AND** additional commercial measures SHALL remain secondary to these six metrics
 

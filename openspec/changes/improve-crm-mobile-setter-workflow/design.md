@@ -145,6 +145,18 @@ en cours, taux de réponse au premier message, taux d’appel proposé et taux
 d’appel réservé. Les autres mesures commerciales existantes ne sont pas
 supprimées par ce changement ; elles restent hors de cette grille principale.
 
+Sur `/crm`, cette grille reste déployée par défaut sur desktop comme sur mobile.
+Le sélecteur de période et le filtre « Canal d’acquisition » restent disponibles
+avec les cartes. Sur téléphone, les six libellés, valeurs et filtres doivent
+rester lisibles et utilisables sans défilement horizontal de la page. Le filtre
+d’acquisition porte sur l’origine du lead ; il reste distinct du filtre de
+plateforme de contact.
+
+Les six exemples présents dans `CRM-Redesign.dc.html` (Messages, Réponses, RDV
+posés, RDV honorés, Ventes, CA) ne définissent pas la grille primaire et ne
+doivent pas remplacer les six mesures métier ci-dessus. Les autres mesures
+commerciales peuvent rester accessibles dans une zone secondaire.
+
 Le filtre de période définit une cohorte par date du premier message. Le filtre
 d’acquisition utilise l’origine du lead, distincte de la plateforme de contact.
 Les compteurs de conversations et de contenus de valeur comptent les leads
