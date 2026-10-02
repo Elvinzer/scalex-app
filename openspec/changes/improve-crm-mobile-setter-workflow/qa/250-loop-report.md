@@ -84,9 +84,12 @@ backfill.
   within the viewport (`scrollWidth === innerWidth`). The focused identity field
   remained visible at the reduced height; this approximates keyboard pressure
   but does not replace an iOS or Android virtual-keyboard check.
+- At 320 × 812, `/crm`, `/crm/leads`, `/crm/pipeline`, `/crm/actions`,
+  `/crm/appels` and `/crm/extension` showed the expected active section state
+  without horizontal overflow.
 - A synthetic capture draft survived an offline submission, closing and
-  reopening the dialog. The error remained visible and the draft was cleared
-  after the check.
+  reopening the dialog, and browser back/forward navigation. The error remained
+  visible and the draft was cleared after the check.
 - With the browser fetch call stubbed to reject after a delay, the submit button
   disabled while pending, a second tap did not start another request, and a
   retry kept the same idempotency key and draft. The stub prevented the request
