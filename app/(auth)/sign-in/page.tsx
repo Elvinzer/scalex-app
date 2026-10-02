@@ -37,14 +37,22 @@ export default async function SignInPage({
   if (data?.claims) {
     const userId = data.claims.sub as string;
     const email = data.claims.email;
+    const ensureUserRowPromise =
+      typeof email === "string" ? ensureUserRow(userId, email) : Promise.resolve();
     if (typeof email === "string") {
-      await ensureUserRow(userId, email);
+      if (intent === "trial" || extensionCompletionPath) {
+        await ensureUserRowPromise;
+      }
     }
     if (intent === "trial") {
       redirect(`/api/billing/checkout?plan=${trialPlan}&trial=7&billing=${billing}`);
     }
     if (extensionCompletionPath) redirect(extensionCompletionPath);
-    redirect(await getPostAuthDestination(userId));
+    const [destination] = await Promise.all([
+      getPostAuthDestination(userId),
+      ensureUserRowPromise,
+    ]);
+    redirect(destination);
   }
 
   const locale = await getRequestLocale();
