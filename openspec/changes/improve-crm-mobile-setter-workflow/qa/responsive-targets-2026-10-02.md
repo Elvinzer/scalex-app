@@ -76,6 +76,13 @@ Date: 2026-10-02
   stable performance result. Repeat with controlled device/network conditions
   before treating it as a trend; these checks do not establish field-user
   performance.
+- After commit `9738ffe`, two more cache-cleared authenticated navigations
+  still landed on `/dashboard` without browser errors. They measured FCP
+  2.78–3.14 s, LCP 3.76–3.78 s, CLS 0.00–0.03, and CDP redirect processing
+  1.89–1.98 s. This conflicts with the prior single sample and does not show a
+  reproducible gain. The cold auth redirect remains unresolved; repeat several
+  times under controlled device/network conditions before making a performance
+  claim.
 
 ## Remaining limit
 
