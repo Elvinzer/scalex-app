@@ -17,11 +17,11 @@ export default async function CrmExtensionPage() {
   const release = getCrmExtensionRelease();
   const webStoreUrl = release.webStoreUrl;
   const inlineLinkClassName = "text-accent-text underline underline-offset-2 hover:no-underline";
-  const installStepDescription = release.distribution === "pilot_package"
-    ? t.rich("extension.onboarding.steps.install.pilot", {
-        extensions: (chunks) => (
+  const installStepDescription = release.distribution === "web_store" && webStoreUrl
+    ? t.rich("extension.onboarding.steps.install.store", {
+        store: (chunks) => (
           <a
-            href="chrome://extensions"
+            href={webStoreUrl}
             target="_blank"
             rel="noopener noreferrer"
             className={inlineLinkClassName}
@@ -30,19 +30,8 @@ export default async function CrmExtensionPage() {
           </a>
         ),
       })
-    : release.distribution === "web_store" && webStoreUrl
-      ? t.rich("extension.onboarding.steps.install.store", {
-          store: (chunks) => (
-            <a
-              href={webStoreUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={inlineLinkClassName}
-            >
-              {chunks}
-            </a>
-          ),
-        })
+    : release.distribution === "pilot_package"
+      ? t("extension.onboarding.steps.install.pilot")
       : t("extension.onboarding.notConfiguredDescription");
   const stepDefinitions = [
     { key: "browser", icon: Monitor, description: t("extension.onboarding.steps.browser.description") },

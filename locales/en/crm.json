@@ -788,7 +788,7 @@
         "install": {
           "title": "Install the extension",
           "store": "Open the <store>Chrome Web Store</store> and add Minaly CRM.",
-          "pilot": "Download the ZIP, unzip it, open <extensions>chrome://extensions</extensions>, turn on Developer mode, then choose Load unpacked."
+          "pilot": "Download the ZIP, unzip it, open chrome://extensions, turn on Developer mode, then choose Load unpacked."
         },
         "connect": {
           "title": "Connect your Minaly account",
