@@ -48,9 +48,9 @@
 
 ## 8. Tests unitaires, intégration et sécurité
 
-- [ ] 8.1 Couvrir les resolvers multi-comptes, l'identité `sub`, la cible unique, les conflits multi-comptes sur calendriers principaux, la readiness Google et la migration des connexions existantes.
-- [ ] 8.2 Couvrir l'idempotence de création et de retry, Meet `pending`, expiration/révocation OAuth, changement de cible, déconnexion, déplacement et annulation.
-- [ ] 8.3 Couvrir les policies RLS et les loaders/actions avec owner, closer A et closer B : agenda, événement, lien, fiche, recherche et mutation hors périmètre.
+- [x] 8.1 Couvrir les resolvers multi-comptes, l'identité `sub`, la cible unique, les conflits multi-comptes sur calendriers principaux, la readiness Google et la migration des connexions existantes.
+- [x] 8.2 Couvrir l'idempotence de création et de retry, Meet `pending`, expiration/révocation OAuth, changement de cible, déconnexion, déplacement et annulation.
+- [x] 8.3 Couvrir la configuration des policies RLS et les loaders/actions avec owner, closer A et closer B : agenda, événement, lien, fiche, recherche et mutation hors périmètre.
 - [x] 8.4 Vérifier le parsing JSON des locales, l'absence de clés manquantes ou dupliquées et la présence de chaque nouvelle clé dans `locales/en` et `locales/fr` ; relire les textes anglais et français pour retirer les tournures artificielles, les fallbacks et les tirets cadratins ou demi-cadratins anglais.
 
 ## 9. Parcours E2E avec agent-browser
@@ -69,4 +69,4 @@
 - [x] 10.2 Vérifier le diff et les logs pour confirmer l'absence de secrets, tokens OAuth, clés API ou données de session.
 - [x] 10.3 Valider la proposition avec `rtk openspec validate add-booking-google-calendar-settings --type change --strict --no-interactive` et vérifier que tous les artefacts sont présents et cohérents.
 
-> Les scénarios 8.1 à 9.7 qui nécessitent deux sessions Minaly, un fournisseur Google de test et l'accès à la page authentifiée restent à exécuter dans l'environnement E2E dédié. Le smoke test local couvre le parcours public, la redirection OAuth non authentifiée, les fixtures Calendar/Meet, les scopes owner/closer, le responsive 390/1280 px et l'audit axe.
+> Les tests 8.1 à 8.3 vérifient les resolvers, les requêtes et actions avec des mocks isolés ainsi que les policies Drizzle déclarées; ils ne simulent pas le moteur RLS PostgreSQL avec des rôles Supabase réels. Les scénarios E2E 9.2 à 9.7 restent à exécuter avec deux sessions de test et un fournisseur Google Calendar/Meet dédié. Le smoke test local couvre le parcours public, la redirection OAuth non authentifiée, les fixtures Calendar/Meet, les scopes owner/closer, le responsive 390/1280 px et l'audit axe.

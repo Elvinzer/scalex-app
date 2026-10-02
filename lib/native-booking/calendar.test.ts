@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/db", () => ({ db: {} }));
+const dbMocks = vi.hoisted(() => ({ update: vi.fn(), set: vi.fn(), where: vi.fn() }));
+
+vi.mock("@/db", () => ({ db: { update: dbMocks.update } }));
 
 import {
   createExternalCalendarEvent,
+  cancelExternalCalendarEvent,
+  getCalendarAccountIdentity,
   getPrimaryCalendarOption,
   listBusyForConnection,
   listCalendarsForConnection,
@@ -29,14 +33,33 @@ const baseConnection = {
   updatedAt: new Date(0),
 } satisfies CalendarConnection;
 
+const originalEnvironment = {
+  calendarTestMode: process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE,
+  googleClientId: process.env.GOOGLE_CALENDAR_CLIENT_ID,
+  googleClientSecret: process.env.GOOGLE_CALENDAR_CLIENT_SECRET,
+  encryptionKey: process.env.ENCRYPTION_KEY,
+};
+
+function restoreEnvironmentValue(key: string, value: string | undefined) {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+}
+
 describe("native booking calendar adapter", () => {
   beforeEach(() => {
     process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "1";
+    dbMocks.update.mockReset().mockReturnValue({ set: dbMocks.set });
+    dbMocks.set.mockReset().mockReturnValue({ where: dbMocks.where });
+    dbMocks.where.mockReset().mockResolvedValue([]);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "1";
+    vi.useRealTimers();
+    restoreEnvironmentValue("NATIVE_BOOKING_CALENDAR_TEST_MODE", originalEnvironment.calendarTestMode);
+    restoreEnvironmentValue("GOOGLE_CALENDAR_CLIENT_ID", originalEnvironment.googleClientId);
+    restoreEnvironmentValue("GOOGLE_CALENDAR_CLIENT_SECRET", originalEnvironment.googleClientSecret);
+    restoreEnvironmentValue("ENCRYPTION_KEY", originalEnvironment.encryptionKey);
   });
 
   it("exposes writable calendars for the settings resolver", async () => {
@@ -133,5 +156,185 @@ describe("native booking calendar adapter", () => {
       requestId: "meet-booking456",
       conferenceSolutionKey: { type: "hangoutsMeet" },
     });
+  });
+
+  it("uses Google's stable subject as the account identity", async () => {
+    process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "0";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ sub: "google-sub-123", email: "closer@example.test" }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getCalendarAccountIdentity("fixture-access-token", "google")).resolves.toEqual({
+      subject: "google-sub-123",
+      email: "closer@example.test",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      expect.objectContaining({ headers: { Authorization: "Bearer fixture-access-token" } })
+    );
+  });
+
+  it("recovers the same Google event after a duplicate create and returns its existing Meet URL", async () => {
+    process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "0";
+    process.env.GOOGLE_CALENDAR_CLIENT_ID = "fixture-client";
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET = "fixture-secret";
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32).toString("base64");
+    const connection = {
+      ...baseConnection,
+      accessTokenEncrypted: encrypt("fixture-access-token"),
+      tokenExpiresAt: new Date(Date.now() + 10 * 60_000),
+    };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "duplicate" }), { status: 409 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "bookingrepeat",
+        htmlLink: "https://calendar.google.com/event/bookingrepeat",
+        conferenceData: { entryPoints: [{ entryPointType: "video", uri: "https://meet.google.com/existing-room" }] },
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createExternalCalendarEvent({
+      connection,
+      calendarId: "target-calendar",
+      idempotencyKey: "booking-repeat",
+      title: "Fixture booking",
+      description: "Fixture description",
+      startAt: new Date("2026-08-20T09:00:00.000Z"),
+      endAt: new Date("2026-08-20T10:00:00.000Z"),
+      guestName: "Test guest",
+      guestEmail: null,
+      meetingUrl: null,
+    });
+
+    expect(result).toEqual({
+      id: "bookingrepeat",
+      url: "https://calendar.google.com/event/bookingrepeat",
+      meetingUrl: "https://meet.google.com/existing-room",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/events/bookingrepeat");
+  });
+
+  it("returns a pending Meet result when Google has not generated a conference within the bounded poll", async () => {
+    process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "0";
+    process.env.GOOGLE_CALENDAR_CLIENT_ID = "fixture-client";
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET = "fixture-secret";
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32).toString("base64");
+    vi.useFakeTimers();
+    const connection = {
+      ...baseConnection,
+      accessTokenEncrypted: encrypt("fixture-access-token"),
+      tokenExpiresAt: new Date(Date.now() + 10 * 60_000),
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ id: "google-event-pending", htmlLink: "https://calendar.google.com/event/pending", conferenceData: { entryPoints: [] } }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = createExternalCalendarEvent({
+      connection,
+      calendarId: "target-calendar",
+      idempotencyKey: "booking-pending",
+      title: "Fixture booking",
+      description: "Fixture description",
+      startAt: new Date("2026-08-20T09:00:00.000Z"),
+      endAt: new Date("2026-08-20T10:00:00.000Z"),
+      guestName: "Test guest",
+      guestEmail: null,
+      meetingUrl: null,
+    });
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+
+    expect(result.meetingUrl).toBeNull();
+    expect(result.id).toBe("google-event-pending");
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("marks a connection for reconnection when its expired token has no refresh token", async () => {
+    process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "0";
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32).toString("base64");
+    const connection = {
+      ...baseConnection,
+      accessTokenEncrypted: encrypt("expired-access-token"),
+      refreshTokenEncrypted: null,
+      tokenExpiresAt: new Date(Date.now() - 60_000),
+    };
+
+    await expect(listCalendarsForConnection(connection)).rejects.toThrow("Calendar connection needs to be reconnected");
+    expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: "reconnect_required" }));
+    expect(dbMocks.where).toHaveBeenCalledOnce();
+  });
+
+  it("marks a revoked provider refresh token as reconnect-required", async () => {
+    process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "0";
+    process.env.GOOGLE_CALENDAR_CLIENT_ID = "fixture-client";
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET = "fixture-secret";
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32).toString("base64");
+    const connection = {
+      ...baseConnection,
+      accessTokenEncrypted: encrypt("expired-access-token"),
+      refreshTokenEncrypted: encrypt("revoked-refresh-token"),
+      tokenExpiresAt: new Date(Date.now() - 60_000),
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listCalendarsForConnection(connection)).rejects.toThrow("Calendar token refresh failed (400)");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: "reconnect_required" }));
+  });
+
+  it("moves and cancels the same Google event in its configured calendar", async () => {
+    process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "0";
+    process.env.GOOGLE_CALENDAR_CLIENT_ID = "fixture-client";
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET = "fixture-secret";
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32).toString("base64");
+    const connection = {
+      ...baseConnection,
+      accessTokenEncrypted: encrypt("fixture-access-token"),
+      tokenExpiresAt: new Date(Date.now() + 10 * 60_000),
+    };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "google-event-to-move",
+        htmlLink: "https://calendar.google.com/event/moved",
+        conferenceData: { entryPoints: [{ entryPointType: "video", uri: "https://meet.google.com/stable-room" }] },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const moved = await updateExternalCalendarEvent({
+      connection,
+      calendarId: "target-calendar",
+      externalEventId: "google-event-to-move",
+      title: "Moved fixture booking",
+      description: "Updated description",
+      startAt: new Date("2026-08-20T11:00:00.000Z"),
+      endAt: new Date("2026-08-20T12:00:00.000Z"),
+      guestName: "Test guest",
+      guestEmail: "guest@example.test",
+      meetingUrl: "https://meet.google.com/stable-room",
+    });
+
+    expect(moved).toEqual({
+      id: "google-event-to-move",
+      url: "https://calendar.google.com/event/moved",
+      meetingUrl: "https://meet.google.com/stable-room",
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://www.googleapis.com/calendar/v3/calendars/target-calendar/events/google-event-to-move");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "PATCH" });
+    const patchBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as { start?: { dateTime?: string }; end?: { dateTime?: string } };
+    expect(patchBody).toMatchObject({
+      start: { dateTime: "2026-08-20T11:00:00.000Z" },
+      end: { dateTime: "2026-08-20T12:00:00.000Z" },
+    });
+
+    await cancelExternalCalendarEvent(connection, moved.id, "target-calendar");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://www.googleapis.com/calendar/v3/calendars/target-calendar/events/google-event-to-move");
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
   });
 });

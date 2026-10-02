@@ -42,10 +42,10 @@ export type CalendarSettingsView = {
   reason: CalendarConfigurationState["reason"];
 };
 
-type CalendarSettingsRow = typeof nativeBookingCalendarSettings.$inferSelect;
-type CalendarConflictRow = typeof nativeBookingCalendarConflicts.$inferSelect;
+export type CalendarSettingsRow = typeof nativeBookingCalendarSettings.$inferSelect;
+export type CalendarConflictRow = typeof nativeBookingCalendarConflicts.$inferSelect;
 
-type CalendarLookup = {
+export type CalendarLookup = {
   connection: CalendarConnection;
   primaryCalendar: CalendarOption | null;
   loadError: boolean;
@@ -106,7 +106,7 @@ async function loadGoogleSettingsRows(accountId: string, closerUserIds: string[]
   return { connections, settings, conflicts };
 }
 
-function resolveCalendarState({
+export function resolveCalendarState({
   closerUserId,
   closerConnections,
   configuration,
