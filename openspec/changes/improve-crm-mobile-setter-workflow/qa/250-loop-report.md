@@ -119,8 +119,8 @@ unobserved general rollout.
   1280 × 900. Document width matched the viewport, sampled local date inputs
   matched visible due dates, and axe reported zero violations. Axe left color
   contrast as an incomplete manual review item.
-- The full route/action/KPI matrix, wider network fault automation and
-  controlled setter pilot remain open under tasks 9.3, 9.4, 10.2 and 10.3.
+- The full route/action/KPI matrix and controlled setter pilot remain open
+  under tasks 9.3, 10.2 and 10.3.
 
 ## Production smoke — 2026-10-02
 
@@ -140,9 +140,8 @@ unobserved general rollout.
   returned HTTP 200. CRM pages were inspected in an existing authenticated
   session. No CRM mutation was submitted.
 - The production deployment is verified for these read-only checks. Field
-  timing, the full route/action/KPI acceptance matrix, broader network-failure
-  automation and the controlled setter pilot remain open under tasks 9.3, 9.4,
-  10.2 and 10.3.
+  timing, the full route/action/KPI acceptance matrix and the controlled setter
+  pilot remain open under tasks 9.3, 10.2 and 10.3.
 
 ## Local route matrix — 2026-10-02
 
@@ -162,3 +161,18 @@ unobserved general rollout.
   The fetch wrapper rejected before the original network call; no server
   mutation was submitted. The browser was returned online and the wrapper
   removed afterward.
+
+## Capture retry fault injection — 2026-10-02
+
+- At 320 × 568, a synthetic `@qa-network-20261002` capture was tested with a
+  delayed fetch rejection. A browser route abort was installed as a fallback;
+  the fetch wrapper recorded the payload, waited 1.2 seconds and rejected
+  before calling the original fetch.
+- A rapid double tap produced one intercepted request. The error stayed
+  visible, the lead identity and display name remained in the form, and a
+  retry produced a second intercepted request with the same idempotency key.
+- After closing the dialog and using browser back/forward, reopening capture
+  restored the draft. The synthetic draft was then cleared, the fetch wrapper
+  and route abort were removed, and the form was reopened empty with the
+  browser online. No request reached `/api/crm/leads/capture`; no CRM record
+  was written.
