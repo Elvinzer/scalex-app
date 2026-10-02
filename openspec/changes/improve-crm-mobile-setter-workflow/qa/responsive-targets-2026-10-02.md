@@ -345,3 +345,21 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   drawer's timezone inputs and reset links retained `Europe/Paris`. Axe found
   zero violations and one incomplete mobile-navigation contrast check; that
   check did not confirm a failure.
+
+## CRM date-format hydration regression — 2026-10-02
+
+- Safari on the iPhone 17 Pro simulator exposed a French date/time punctuation
+  mismatch between WebKit and Node on the CRM action list. The shared CRM
+  formatter now assembles localized date and time parts separately for the
+  supported French and English locales, with explicit time-zone handling.
+- Regression tests cover French and English medium/short dates, time-zone
+  conversion, and the rendered date/time separator. All 167 test files and 732
+  tests passed; typecheck, lint, `git diff --check`, and strict validation of
+  all 31 OpenSpec items passed.
+- With the local Next.js server running in UTC, Safari loaded `/crm` and
+  `/crm/appels` in the iPhone simulator. The dates rendered in the page, no
+  hydration overlay appeared, and Next.js MCP reported zero compilation issues
+  and zero runtime errors. No CRM or booking mutation was submitted.
+- This is local simulator evidence. The formatter patch has not yet been
+  deployed to Production. Task 9.3 remains open for the keyboard/action matrix;
+  setter tasks 10.2–10.3 still require a real five-day pilot.

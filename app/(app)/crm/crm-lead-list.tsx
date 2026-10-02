@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 
 import { CRM_OUTCOME_LABEL_KEYS } from "@/lib/crm/machine";
 import { CRM_LEADS_PAGE_SIZE } from "@/lib/crm/lead-pagination";
+import { formatCrmDate, formatCrmDateTime } from "@/lib/crm/format";
 import { getCrmLeadsPageAction } from "./crm-actions";
 import { CrmLeadDrawer } from "./crm-lead-drawer";
 import { CrmProfileLink } from "./crm-profile-link";
@@ -36,7 +37,6 @@ export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [drawerLead, setDrawerLead] = useState<CrmLeadListItem | null>(null);
-  const createdDateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" });
 
   async function loadMore(): Promise<void> {
     if (isLoading || leads.length >= totalCount) return;
@@ -89,7 +89,7 @@ export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount
               <td className="px-4 py-3 text-muted-foreground">{lead.responsibleSetterName ?? t("detail.unassigned")}</td>
               <td className="px-4 py-3 font-bold">{lead.contactState === "new" ? t("detail.newLead") : lead.respondedAt || crmStageImpliesResponse(lead.stage) ? t("detail.responded") : t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</td>
               <td className="max-w-56 px-4 py-3 text-muted-foreground">{lead.nextAction?.title ?? t("leads.noNextAction")}</td>
-              <td className="px-4 py-3 text-muted-foreground">{createdDateFormatter.format(new Date(lead.createdAt))}</td>
+              <td className="px-4 py-3 text-muted-foreground">{formatCrmDate(new Date(lead.createdAt), locale, "UTC")}</td>
               <td className="px-4 py-3 text-right"><ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-accent-text" aria-hidden="true" /></td>
             </tr>)}
           </tbody>
@@ -106,7 +106,7 @@ export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount
               </div>
               <p className="mt-1 truncate text-xs text-muted-foreground">{t("leads.channelShort")}: {lead.platform ? sourceLabel(lead.platform) : t("leads.noChannel")} · {t("leads.sourceShort")}: {sourceLabel(lead.source)} · {lead.responsibleSetterName ?? t("detail.unassigned")}</p>
               {lead.nextAction && <p className="mt-2 text-xs font-bold text-accent-text">{lead.nextAction.title}</p>}
-              {lead.nextCall && <p className="mt-1 text-xs text-muted-foreground">{t("detail.nextCall")}: {new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: lead.nextCall.timeZone ?? undefined }).format(new Date(lead.nextCall.scheduledAt))}</p>}
+              {lead.nextCall && <p className="mt-1 text-xs text-muted-foreground">{t("detail.nextCall")}: {formatCrmDateTime(new Date(lead.nextCall.scheduledAt), locale, lead.nextCall.timeZone ?? "UTC", "short")}</p>}
             </div>
             <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-accent-text" aria-hidden="true" />
             <span className="pointer-events-auto relative z-20"><CrmProfileLink href={lead.canonicalProfileUrl} label={t("leads.openProfile")} iconOnly /></span>

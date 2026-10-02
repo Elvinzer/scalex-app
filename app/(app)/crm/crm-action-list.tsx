@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { formatCrmDateTimeInput, getCrmLocalDayBounds, getCrmTomorrowAtSameLocalTime, parseCrmDateTimeInput } from "@/lib/crm/due-date";
+import { formatCrmDateTime } from "@/lib/crm/format";
 import type { CrmActionCategory, CrmActionView } from "@/lib/crm/types";
 
 import { completeActionAction, rescheduleActionAction } from "./crm-actions";
@@ -90,7 +91,7 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
           .filter((item) => item.id !== actionId || matchesQueueFilters(item, dueDate))
           .sort((left, right) => new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime() || right.priority - left.priority || left.id.localeCompare(right.id)));
         setNextLeadId(result.nextLeadId ?? null);
-        setAnnouncement(`${action.title}: ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(dueDate)}`);
+        setAnnouncement(`${action.title}: ${formatCrmDateTime(dueDate, locale, timeZone)}`);
       } catch {
         setError(t("requestFailed"));
         setAnnouncement("");
@@ -129,8 +130,8 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
             <Link href={leadHref(action.leadId)} className="inline-flex min-h-11 min-w-11 items-center font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
             <p className="mt-1 font-bold">{action.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t(action.category)}{action.responsibleName ? ` · ${action.responsibleName}` : ""}</p>
-            <p className={overdue ? "mt-1 text-sm font-bold text-state-critical" : "mt-1 text-sm text-muted-foreground"}>{overdue && <>{t("overdue")} · </>}{t("due")}: {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(action.dueAt))}</p>
-            {action.nextCall && <p className="mt-1 text-xs text-muted-foreground">{t("nextCall", { date: new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: action.nextCall.timeZone ?? timeZone }).format(new Date(action.nextCall.scheduledAt)), closer: action.nextCall.closer ?? t("noCloser"), outcome: callOutcomeLabel(action.nextCall.outcome) })}</p>}
+            <p className={overdue ? "mt-1 text-sm font-bold text-state-critical" : "mt-1 text-sm text-muted-foreground"}>{overdue && <>{t("overdue")} · </>}{t("due")}: {formatCrmDateTime(new Date(action.dueAt), locale, timeZone)}</p>
+            {action.nextCall && <p className="mt-1 text-xs text-muted-foreground">{t("nextCall", { date: formatCrmDateTime(new Date(action.nextCall.scheduledAt), locale, action.nextCall.timeZone ?? timeZone, "short"), closer: action.nextCall.closer ?? t("noCloser"), outcome: callOutcomeLabel(action.nextCall.outcome) })}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {action.status === "open" ? <><Button type="button" variant="outline" size="sm" className="min-h-11" disabled={isPending} onClick={() => update(action.id, "completed")}>{t("complete")}</Button><Button type="button" variant="ghost" size="sm" className="min-h-11" disabled={isPending} onClick={() => postpone(action)}>{t("postpone")}</Button></> : <span className={action.status === "completed" ? "text-sm font-bold text-state-healthy" : "text-sm font-bold text-muted-foreground"}>{t(action.status)}</span>}

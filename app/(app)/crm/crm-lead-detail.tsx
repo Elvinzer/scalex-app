@@ -10,6 +10,7 @@ import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES, crmStageImpliesResponse, type CrmLeadDetails, type CrmLeadOutcome, type CrmLeadSource, type CrmLeadStage, type CrmLostReason } from "@/lib/crm/types";
 import { CRM_EVENT_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine";
+import { formatCrmDateTime } from "@/lib/crm/format";
 import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
 
@@ -55,7 +56,6 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
   const t = useTranslations("crm");
   const callsT = useTranslations("crm.calls");
   const locale = useLocale();
-  const dateTimeFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
   const legacySocialProfileUrl = lead.canonicalProfileUrl && !isWhatsAppProfileUrl(lead.canonicalProfileUrl) ? lead.canonicalProfileUrl : null;
@@ -317,7 +317,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
         <div className="grid gap-px overflow-hidden rounded-[var(--radius-control)] border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.contactState")}</p><p className="mt-1 break-words font-bold">{lead.contactState === "new" ? t("detail.newLead") : t("detail.contacted")}</p>{lead.contactState === "new" && lead.stage === "first_message_sent" && <div className="mt-3"><Button type="button" variant="outline" className="min-h-11 w-full" disabled={isPending} onClick={confirmFirstMessageSent}>{t("detail.confirmFirstMessageSent")}</Button><p className="mt-2 text-xs font-normal leading-5 text-muted-foreground">{t("detail.confirmFirstMessageSentHelp")}</p></div>}</div>
           {!crmStageImpliesResponse(lead.stage) && <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.responseState")}</p><p className="mt-1 break-words font-bold">{lead.respondedAt ? t("detail.responded") : t("detail.noResponse")}</p></div>}
-          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextCall")}</p>{lead.nextCall ? <><p className="mt-1 break-words font-bold">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: lead.nextCall.timeZone ?? "UTC" }).format(new Date(lead.nextCall.scheduledAt))}</p><p className="mt-1 break-words text-xs text-muted-foreground">{lead.nextCall.timeZone ?? t("detail.localTime")} · {lead.nextCall.closer ?? t("detail.unassigned")} · {callOutcomeLabel(lead.nextCall.outcome)}</p></> : <p className="mt-1 break-words font-bold">{t("detail.noNextCall")}</p>}</div>
+          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextCall")}</p>{lead.nextCall ? <><p className="mt-1 break-words font-bold">{formatCrmDateTime(new Date(lead.nextCall.scheduledAt), locale, lead.nextCall.timeZone ?? "UTC")}</p><p className="mt-1 break-words text-xs text-muted-foreground">{lead.nextCall.timeZone ?? t("detail.localTime")} · {lead.nextCall.closer ?? t("detail.unassigned")} · {callOutcomeLabel(lead.nextCall.outcome)}</p></> : <p className="mt-1 break-words font-bold">{t("detail.noNextCall")}</p>}</div>
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextAction")}</p><p className="mt-1 break-words font-bold">{lead.nextAction?.title ?? t("leads.noNextAction")}</p></div>
         </div>
 
@@ -383,7 +383,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
       <section id="team-notes" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-quick-note-title">
         <DetailSectionHeader headingId="crm-quick-note-title" icon={NotebookPen} title={t("detail.notes")} />
         <div className="mt-5 flex flex-col gap-4">
-          {lead.comments.length > 0 && <ul className="divide-y divide-border rounded-[var(--radius-control)] border border-border bg-muted/20 px-3">{lead.comments.slice(-3).map((comment) => <li key={comment.id} className="py-3 first:pt-0 last:pb-0"><p className="text-sm leading-6">{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorName ?? t("detail.unknownAuthor")} · {dateTimeFormatter.format(new Date(comment.createdAt))}</p></li>)}</ul>}
+          {lead.comments.length > 0 && <ul className="divide-y divide-border rounded-[var(--radius-control)] border border-border bg-muted/20 px-3">{lead.comments.slice(-3).map((comment) => <li key={comment.id} className="py-3 first:pt-0 last:pb-0"><p className="text-sm leading-6">{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorName ?? t("detail.unknownAuthor")} · {formatCrmDateTime(new Date(comment.createdAt), locale, "UTC")}</p></li>)}</ul>}
           <label htmlFor="crm-team-note" className="flex flex-col gap-1.5 text-sm font-bold"><span>{t("detail.addNote")}</span><textarea id="crm-team-note" value={note} onChange={(event) => setNote(event.target.value)} onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); addNote(); } }} placeholder={t("detail.notePlaceholder")} rows={3} className={`${textareaClassName} font-normal`} /></label>
           <Button type="button" variant="outline" className="min-h-11 self-start" disabled={isPending || !note.trim()} onClick={addNote}>{t("detail.saveNote")}</Button>
         </div>
@@ -392,21 +392,21 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
         </div>
         <div className="flex min-w-0 flex-col gap-5">
       <section id="next-action" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-quick-action-title">
-        <DetailSectionHeader headingId="crm-quick-action-title" icon={CalendarClock} title={t("detail.nextAction")} description={t("detail.nextActionHelp")} trailing={<span className="shrink-0 text-right text-xs text-muted-foreground">{lead.nextAction ? dateTimeFormatter.format(new Date(lead.nextAction.dueAt)) : t("leads.noNextAction")}</span>} />
+        <DetailSectionHeader headingId="crm-quick-action-title" icon={CalendarClock} title={t("detail.nextAction")} description={t("detail.nextActionHelp")} trailing={<span className="shrink-0 text-right text-xs text-muted-foreground">{lead.nextAction ? formatCrmDateTime(new Date(lead.nextAction.dueAt), locale, "UTC") : t("leads.noNextAction")}</span>} />
         <div className="mt-5"><CrmActionForm leadId={lead.id} /></div>
       </section>
 
       <section id="history" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-history-title">
         <DetailSectionHeader headingId="crm-history-title" icon={History} title={t("detail.history")} />
         {lead.stageHistory.length === 0 && lead.events.length === 0 ? <p className="mt-4 text-sm leading-6 text-muted-foreground">{t("detail.noHistory")}</p> : <ul className="mt-4 flex flex-col gap-3 text-sm">
-          {lead.stageHistory.map((item) => <li key={item.id} className="border-l-2 border-accent pl-3"><span className="font-bold">{t(CRM_STAGE_LABEL_KEYS[item.toStage])}</span><span className="ml-2 text-muted-foreground">{dateTimeFormatter.format(new Date(item.changedAt))}</span>{item.actorName && <span className="ml-2 text-muted-foreground">· {item.actorName}</span>}</li>)}
-          {lead.events.filter((event) => !["first_message_sent", "conversation_started"].includes(event.type)).map((event) => <li key={event.id} className="border-l-2 border-border pl-3"><span className="font-bold">{t(CRM_EVENT_LABEL_KEYS[event.type])}</span><span className="ml-2 text-muted-foreground">{dateTimeFormatter.format(new Date(event.occurredAt ?? event.createdAt))}</span>{event.actorName && <span className="ml-2 text-muted-foreground">· {event.actorName}</span>}</li>)}
+          {lead.stageHistory.map((item) => <li key={item.id} className="border-l-2 border-accent pl-3"><span className="font-bold">{t(CRM_STAGE_LABEL_KEYS[item.toStage])}</span><span className="ml-2 text-muted-foreground">{formatCrmDateTime(new Date(item.changedAt), locale, "UTC")}</span>{item.actorName && <span className="ml-2 text-muted-foreground">· {item.actorName}</span>}</li>)}
+          {lead.events.filter((event) => !["first_message_sent", "conversation_started"].includes(event.type)).map((event) => <li key={event.id} className="border-l-2 border-border pl-3"><span className="font-bold">{t(CRM_EVENT_LABEL_KEYS[event.type])}</span><span className="ml-2 text-muted-foreground">{formatCrmDateTime(new Date(event.occurredAt ?? event.createdAt), locale, "UTC")}</span>{event.actorName && <span className="ml-2 text-muted-foreground">· {event.actorName}</span>}</li>)}
         </ul>}
       </section>
 
       <section id="calls" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-calls-title">
         <DetailSectionHeader headingId="crm-calls-title" icon={PhoneCall} title={t("tabs.calls")} />
-        {lead.calls.length === 0 ? <p className="mt-4 text-sm leading-6 text-muted-foreground">{t("detail.noCalls")}</p> : <ul className="mt-4 flex flex-col gap-3 text-sm">{lead.calls.map((call) => <li key={call.id} className="flex items-start gap-2"><PhoneCall className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><div className="min-w-0"><p className="font-bold">{call.inviteeName || callsT("unnamed")}</p><p className="mt-1 text-muted-foreground">{dateTimeFormatter.format(new Date(call.scheduledAt))}</p></div></li>)}</ul>}
+        {lead.calls.length === 0 ? <p className="mt-4 text-sm leading-6 text-muted-foreground">{t("detail.noCalls")}</p> : <ul className="mt-4 flex flex-col gap-3 text-sm">{lead.calls.map((call) => <li key={call.id} className="flex items-start gap-2"><PhoneCall className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><div className="min-w-0"><p className="font-bold">{call.inviteeName || callsT("unnamed")}</p><p className="mt-1 text-muted-foreground">{formatCrmDateTime(new Date(call.scheduledAt), locale, "UTC")}</p></div></li>)}</ul>}
       </section>
         </div>
       </div>
