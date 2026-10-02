@@ -103,6 +103,11 @@ Date: 2026-10-02
 - An axe scan found no violations. One color-contrast check remained incomplete
   because the scanner could not determine backgrounds for partially obscured
   navigation links and a gradient button.
+- The local `/crm/leads` capture dialog stayed within the same 320 px width. Its
+  create button measured 44 px high, and keyboard Tab moved focus from Close to
+  the identity field. The lead detail drawer opened without saving; its
+  qualification save button also measured 44 px high and the document remained
+  305 px wide at a 320 px viewport.
 - This focused check did not submit capture, response, qualification, booking,
   no-show, loss, or sale mutations. It also did not verify keyboard-open
   behavior, setter tasks over multiple days, or the full KPI/filter matrix.
