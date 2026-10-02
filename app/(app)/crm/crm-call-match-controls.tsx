@@ -28,7 +28,7 @@ function isRetryable(status: CrmCallMatchStatus): boolean {
   return status === "failed" || status === "unavailable" || status === "expired" || status === "no_match";
 }
 
-export function CrmCallMatchControls({ call, canLink, idPrefix = "call", returnTo = "/crm/appels" }: { call: CrmCallView; canLink: boolean; idPrefix?: string; returnTo?: string }) {
+export function CrmCallMatchControls({ call, canLink, idPrefix = "call", returnTo = "/crm/appels", timeZone }: { call: CrmCallView; canLink: boolean; idPrefix?: string; returnTo?: string; timeZone: string }) {
   const t = useTranslations("crm.calls");
   const locale = useLocale();
   const router = useRouter();
@@ -120,7 +120,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call", returnT
           <Button type="button" variant="outline" size="xs" className="min-h-11" onClick={() => decide("rejected")} disabled={isPending}>{t("match.reject")}</Button>
           <Button type="button" variant="link" size="xs" className="min-h-11" onClick={() => decide("dismissed")} disabled={isPending}>{t("match.dismiss")}</Button>
         </div>}
-        {suggestion.generatedAt && <p className="text-[0.68rem] text-muted-foreground">{t("match.generatedAt", { at: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(suggestion.generatedAt)) })}</p>}
+        {suggestion.generatedAt && <p className="text-[0.68rem] text-muted-foreground">{t("match.generatedAt", { at: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(suggestion.generatedAt)) })}</p>}
         {message && <p className="text-xs font-bold text-muted-foreground" role="status">{message}</p>}
       </div>
     );
@@ -131,7 +131,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call", returnT
       <p className="text-xs font-bold text-muted-foreground">{t(`match.${statusTranslationKey(status)}`)}</p>
       {suggestion.failureCode && <p className="text-xs text-muted-foreground">{t("match.retry")}</p>}
       {(isRetryable(status) || status === "accepted" || status === "rejected" || status === "dismissed") && <Button type="button" variant="outline" size="xs" className="min-h-11" onClick={() => request(true)} disabled={isPending}>{t("match.retry")}</Button>}
-      {suggestion.generatedAt && <p className="text-[0.68rem] text-muted-foreground">{t("match.generatedAt", { at: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(suggestion.generatedAt)) })}</p>}
+      {suggestion.generatedAt && <p className="text-[0.68rem] text-muted-foreground">{t("match.generatedAt", { at: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(suggestion.generatedAt)) })}</p>}
       {message && <p className="text-xs font-bold text-muted-foreground" role="status">{message}</p>}
     </div>
   );

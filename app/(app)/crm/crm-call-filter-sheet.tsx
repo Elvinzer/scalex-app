@@ -22,10 +22,11 @@ type CrmCallFilterSheetProps = {
   suggestion?: string;
   from?: string;
   to?: string;
+  timeZone: string;
   activeFilterCount: number;
 };
 
-export function CrmCallFilterSheet({ search, source, unlinked = false, attendance, outcome, suggestion, from, to, activeFilterCount }: CrmCallFilterSheetProps) {
+export function CrmCallFilterSheet({ search, source, unlinked = false, attendance, outcome, suggestion, from, to, timeZone, activeFilterCount }: CrmCallFilterSheetProps) {
   const t = useTranslations("crm");
   const [open, setOpen] = useState(false);
   const returnFocusProps = useReturnFocus();
@@ -63,6 +64,7 @@ export function CrmCallFilterSheet({ search, source, unlinked = false, attendanc
         </div>
         <form method="get" className="grid gap-3">
           <input type="hidden" name="q" value={search ?? ""} />
+          <input type="hidden" name="tz" value={timeZone} />
           <label className="flex flex-col gap-1 text-sm font-bold">{t("calls.allSources")}<select name="source" defaultValue={source ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal"><option value="">{t("calls.allSources")}</option>{CALL_SOURCES.map((value) => <option key={value} value={value}>{t(`sources.${value}`)}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-sm font-bold">{t("calls.unlinkedFilter")}<select name="unlinked" defaultValue={unlinked ? "1" : ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal"><option value="">{t("calls.allCalls")}</option><option value="1">{t("calls.unlinkedFilter")}</option></select></label>
           <label className="flex flex-col gap-1 text-sm font-bold">{t("calls.attendanceFilter")}<select name="attendance" defaultValue={attendance ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal"><option value="">{t("calls.attendanceFilter")}</option>{CALL_ATTENDANCES.map((value) => <option key={value} value={value}>{t(`calls.${attendanceKey(value)}`)}</option>)}</select></label>
@@ -72,7 +74,7 @@ export function CrmCallFilterSheet({ search, source, unlinked = false, attendanc
           <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.to")}<input type="date" name="to" defaultValue={to ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal" /></label>
           <div className="flex flex-wrap gap-2 pt-2">
             <Button type="submit" variant="outline" className="min-h-11">{t("calls.applyFilters")}</Button>
-            <Button asChild variant="ghost" className="min-h-11"><Link href="/crm/appels">{t("calls.resetFilters")}</Link></Button>
+            <Button asChild variant="ghost" className="min-h-11"><Link href={`/crm/appels?${new URLSearchParams({ tz: timeZone })}`}>{t("calls.resetFilters")}</Link></Button>
           </div>
         </form>
       </DrawerContent>

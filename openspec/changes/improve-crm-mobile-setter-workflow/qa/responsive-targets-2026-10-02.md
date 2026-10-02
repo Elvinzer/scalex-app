@@ -306,10 +306,10 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   proposal and call-booked rates stayed unavailable because that cohort had no
   reliable first-message denominator. These local-account values are not a
   claim about another user's production data.
-- Vercel reported a successful Production deployment for commit `ec9f452`.
-  An unauthenticated request to production `/crm` redirects to `/sign-in`; this
-  session did not have an authenticated production CRM view, so the deployed
-  KPI cards and production pilot have not been verified on a real account.
+- After the successful Production deployment for `a13ed44`, an authenticated
+  owner session confirmed that the three count metrics display `0`. The three
+  rates remain “Non mesuré” because the selected period has no reliably
+  confirmed first-message denominator. No production CRM data was changed.
 - A follow-up regression test now covers the presentation boundary: a partial
   period keeps the three known numeric counts, while rates with a zero
   denominator remain unavailable. The local server-rendered `/crm` response
@@ -322,3 +322,21 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   still needs a real mobile browser or device.
 - Typecheck, lint, all 166 test files (730 tests), both strict OpenSpec
   validations, Turbopack compilation and Next.js/browser error checks passed.
+
+## Appels timezone hydration regression — 2026-10-02
+
+- A fresh authenticated production browser session reproduced React hydration
+  error `#418` on `/crm/appels`. The detailed local reproduction showed the
+  server rendering the generated-suggestion time in UTC (`17:45`) while the
+  browser rendered it in Europe/Paris (`19:45`).
+- `/crm/appels` now validates the `tz` query parameter with the shared CRM
+  timezone schema, synchronizes it from the browser, and uses the same explicit
+  timezone for scheduled-call and suggestion timestamps. Search, filters,
+  reset links, pagination and mutation return links preserve the timezone.
+- With the local Next.js server running in UTC, a fresh authenticated browser
+  load without `tz` synchronized to `Europe/Paris` and showed no browser errors.
+  At 320 × 568, the call page document width matched the 320 px viewport; both
+  visible timestamps read `19:45`, and filter/reset state retained the timezone.
+- Next.js MCP reported no compilation issues or runtime errors. Typecheck,
+  lint and the full Vitest suite passed (166 files, 730 tests). The fix is local
+  and has not yet been deployed; production still needs a post-deployment check.

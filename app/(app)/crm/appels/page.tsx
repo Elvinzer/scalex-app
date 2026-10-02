@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/current-user";
 import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
 import { getCrmCalls, type CrmCallFilters } from "@/lib/crm/queries";
+import { crmTimeZoneSchema } from "@/lib/crm/schemas";
 import { CRM_CALL_MATCH_STATUSES } from "@/lib/crm/types";
 
 import { CrmCallLinkForm } from "../crm-call-link-form";
@@ -13,6 +14,7 @@ import { CrmCallMatchBatchControl } from "../crm-call-match-batch-control";
 import { CrmCallMatchControls } from "../crm-call-match-controls";
 import { CrmCallReference } from "../crm-call-reference";
 import { CrmCallResultControl } from "../crm-call-result-control";
+import { CrmTimeZoneSync } from "../crm-time-zone-sync";
 
 const CALL_SOURCES = ["iclosed", "calendly", "native", "manual"] as const;
 const CALL_ATTENDANCES = ["booked", "showed", "no_show", "cancelled"] as const;
@@ -28,6 +30,7 @@ type CallsSearchParams = {
   from?: string | string[];
   to?: string | string[];
   page?: string | string[];
+  tz?: string | string[];
 };
 
 const CALLS_PER_PAGE = 40;
@@ -99,6 +102,8 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
   const suggestionStatus = oneOf(CRM_CALL_MATCH_STATUSES, firstParam(params.suggestion));
   const from = validDate(firstParam(params.from));
   const to = validDate(firstParam(params.to));
+  const timeZoneResult = crmTimeZoneSchema.safeParse(firstParam(params.tz));
+  const timeZone = timeZoneResult.success ? timeZoneResult.data : "UTC";
   const parsedPage = Number.parseInt(firstParam(params.page) ?? "1", 10);
   const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const filters: CrmCallFilters = { search, source, attendance, outcome, suggestionStatus, from, to, unlinkedOnly: firstParam(params.unlinked) === "1" };
@@ -107,7 +112,7 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
   const visibleCalls = calls.slice(0, CALLS_PER_PAGE);
   const canLink = hasCrmPermission(access, "crm:assign");
   const activeFilterCount = [source, filters.unlinkedOnly, attendance, outcome, suggestionStatus, from, to].filter(Boolean).length;
-  const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
+  const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone });
   const sourceLabel = (value: string): string => {
     if (value === "iclosed" || value === "calendly" || value === "native" || value === "manual") return t(`sources.${value}`);
     return t("sources.unknown");
@@ -122,6 +127,7 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
     if (suggestionStatus) query.set("suggestion", suggestionStatus);
     if (from) query.set("from", from);
     if (to) query.set("to", to);
+    query.set("tz", timeZone);
     query.set("page", String(targetPage));
     return `/crm/appels?${query.toString()}`;
   }
@@ -129,6 +135,7 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="flex flex-col gap-6">
+      <CrmTimeZoneSync timeZone={timeZone} />
       <div>
         <h1 className="text-2xl font-bold">{t("calls.title")}</h1>
         <p className="mt-1 text-muted-foreground">{t("calls.subtitle")}</p>
@@ -143,12 +150,14 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
           {suggestionStatus && <input type="hidden" name="suggestion" value={suggestionStatus} />}
           {from && <input type="hidden" name="from" value={from} />}
           {to && <input type="hidden" name="to" value={to} />}
+          <input type="hidden" name="tz" value={timeZone} />
           <label className="block min-w-0"><span className="sr-only">{t("calls.search")}</span><input name="q" maxLength={120} defaultValue={search ?? ""} placeholder={t("calls.search")} className="min-h-11 w-full rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
         </form>
-        <CrmCallFilterSheet search={search} source={source} unlinked={filters.unlinkedOnly} attendance={attendance} outcome={outcome} suggestion={suggestionStatus} from={from} to={to} activeFilterCount={activeFilterCount} />
+        <CrmCallFilterSheet search={search} source={source} unlinked={filters.unlinkedOnly} attendance={attendance} outcome={outcome} suggestion={suggestionStatus} from={from} to={to} timeZone={timeZone} activeFilterCount={activeFilterCount} />
       </div>
 
       <form method="get" className="sticker-card hidden gap-3 p-4 lg:grid lg:grid-cols-4 lg:items-end">
+        <input type="hidden" name="tz" value={timeZone} />
         <label className="flex flex-col gap-1 text-sm font-bold lg:col-span-4">{t("calls.search")}<input name="q" maxLength={120} defaultValue={search ?? ""} placeholder={t("calls.search")} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
         <details className="group lg:col-span-4">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-accent/20 [&::-webkit-details-marker]:hidden">
@@ -165,7 +174,7 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
             <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.to")}<input type="date" name="to" defaultValue={to ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal" /></label>
           </div>
         </details>
-        <div className="flex flex-wrap gap-2 lg:col-span-4"><Button type="submit" variant="outline" className="min-h-11">{t("calls.applyFilters")}</Button><Button asChild type="button" variant="link" className="min-h-11"><Link href="/crm/appels">{t("calls.resetFilters")}</Link></Button></div>
+        <div className="flex flex-wrap gap-2 lg:col-span-4"><Button type="submit" variant="outline" className="min-h-11">{t("calls.applyFilters")}</Button><Button asChild type="button" variant="link" className="min-h-11"><Link href={`/crm/appels?${new URLSearchParams({ tz: timeZone })}`}>{t("calls.resetFilters")}</Link></Button></div>
       </form>
 
       {canLink && <CrmCallMatchBatchControl />}
@@ -174,11 +183,11 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
         <div className="sticker-card hidden overflow-x-auto p-0 lg:block">
           <table className="w-full min-w-[1220px] text-sm">
             <thead><tr className="border-b border-border text-left text-xs font-bold text-muted-foreground"><th className="px-4 py-3">{t("calls.identity")}</th><th className="px-4 py-3">{t("leads.title")}</th><th className="px-4 py-3">{t("calls.source")}</th><th className="px-4 py-3">{t("calls.dateTime")}</th><th className="px-4 py-3">{t("calls.booked")}</th><th className="px-4 py-3">{t("calls.pending")}</th><th className="px-4 py-3">{t("calls.result")}</th><th className="px-4 py-3">{t("calls.match.label")}</th></tr></thead>
-            <tbody>{visibleCalls.map((call) => <tr key={call.id} className="border-b border-border align-top last:border-0"><td className="px-4 py-3"><CallIdentity call={call} sourceLabel={sourceLabel(call.source)} t={t} /></td><td className="px-4 py-3 font-bold">{call.leadId ? <CrmCallLinkForm callId={call.id} initialLeadId={call.leadId} initialLeadName={call.leadName} initialLeadProfileUrl={call.leadProfileUrl} idPrefix="desktop-lead" returnTo={callReturnTo} /> : canLink ? <CrmCallLinkForm callId={call.id} initialLeadId={null} initialLeadName={null} initialLeadProfileUrl={null} idPrefix="desktop-link" returnTo={callReturnTo} /> : <span className="text-muted-foreground">{t("calls.linkRestricted")}</span>}</td><td className="px-4 py-3 text-muted-foreground">{sourceLabel(call.source)}</td><td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{dateFormatter.format(new Date(call.scheduledAt))}</td><td className="px-4 py-3">{t(`calls.${attendanceKey(call.attendance)}`)}</td><td className="px-4 py-3">{t(`calls.${outcomeKey(call.outcome)}`)}</td><td className="px-4 py-3">{call.attendance === "cancelled" ? <span className="text-xs text-muted-foreground">{t("calls.cancelled")}</span> : <CrmCallResultControl call={call} idPrefix="desktop-result" returnTo={callReturnTo} />}</td><td className="px-4 py-3"><div className="flex min-w-[330px] flex-col gap-2"><CrmCallMatchControls call={call} canLink={canLink} idPrefix="desktop" returnTo={callReturnTo} /></div></td></tr>)}</tbody>
+            <tbody>{visibleCalls.map((call) => <tr key={call.id} className="border-b border-border align-top last:border-0"><td className="px-4 py-3"><CallIdentity call={call} sourceLabel={sourceLabel(call.source)} t={t} /></td><td className="px-4 py-3 font-bold">{call.leadId ? <CrmCallLinkForm callId={call.id} initialLeadId={call.leadId} initialLeadName={call.leadName} initialLeadProfileUrl={call.leadProfileUrl} idPrefix="desktop-lead" returnTo={callReturnTo} /> : canLink ? <CrmCallLinkForm callId={call.id} initialLeadId={null} initialLeadName={null} initialLeadProfileUrl={null} idPrefix="desktop-link" returnTo={callReturnTo} /> : <span className="text-muted-foreground">{t("calls.linkRestricted")}</span>}</td><td className="px-4 py-3 text-muted-foreground">{sourceLabel(call.source)}</td><td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{dateFormatter.format(new Date(call.scheduledAt))}</td><td className="px-4 py-3">{t(`calls.${attendanceKey(call.attendance)}`)}</td><td className="px-4 py-3">{t(`calls.${outcomeKey(call.outcome)}`)}</td><td className="px-4 py-3">{call.attendance === "cancelled" ? <span className="text-xs text-muted-foreground">{t("calls.cancelled")}</span> : <CrmCallResultControl call={call} idPrefix="desktop-result" returnTo={callReturnTo} />}</td><td className="px-4 py-3"><div className="flex min-w-[330px] flex-col gap-2"><CrmCallMatchControls call={call} canLink={canLink} idPrefix="desktop" returnTo={callReturnTo} timeZone={timeZone} /></div></td></tr>)}</tbody>
           </table>
         </div>
 
-        <div className="grid gap-3 lg:hidden">{visibleCalls.map((call) => <article key={call.id} className="sticker-card flex flex-col gap-3 p-4"><div className="flex items-start justify-between gap-3"><CallIdentity call={call} sourceLabel={sourceLabel(call.source)} t={t} /><span className="shrink-0 text-xs font-bold text-muted-foreground">{t(`calls.${attendanceKey(call.attendance)}`)}</span></div><div className="grid grid-cols-2 gap-2 text-sm"><div><p className="text-xs text-muted-foreground">{t("calls.dateTime")}</p><p className="font-bold">{dateFormatter.format(new Date(call.scheduledAt))}</p></div><div><p className="text-xs text-muted-foreground">{t("calls.pending")}</p><p className="font-bold">{t(`calls.${outcomeKey(call.outcome)}`)}</p></div></div><div><p className="text-xs text-muted-foreground">{t("leads.title")}</p>{call.leadId ? <CrmCallLinkForm callId={call.id} initialLeadId={call.leadId} initialLeadName={call.leadName} initialLeadProfileUrl={call.leadProfileUrl} idPrefix="mobile-lead" returnTo={callReturnTo} /> : canLink ? <CrmCallLinkForm callId={call.id} initialLeadId={null} initialLeadName={null} initialLeadProfileUrl={null} idPrefix="mobile-link" returnTo={callReturnTo} /> : <p className="font-bold text-muted-foreground">{t("calls.linkRestricted")}</p>}</div>{call.attendance !== "cancelled" && <CrmCallResultControl call={call} idPrefix="mobile-result" returnTo={callReturnTo} />}<div><p className="mb-1 text-xs font-bold text-muted-foreground">{t("calls.match.label")}</p><CrmCallMatchControls call={call} canLink={canLink} idPrefix="mobile" returnTo={callReturnTo} /></div></article>)}</div>
+        <div className="grid gap-3 lg:hidden">{visibleCalls.map((call) => <article key={call.id} className="sticker-card flex flex-col gap-3 p-4"><div className="flex items-start justify-between gap-3"><CallIdentity call={call} sourceLabel={sourceLabel(call.source)} t={t} /><span className="shrink-0 text-xs font-bold text-muted-foreground">{t(`calls.${attendanceKey(call.attendance)}`)}</span></div><div className="grid grid-cols-2 gap-2 text-sm"><div><p className="text-xs text-muted-foreground">{t("calls.dateTime")}</p><p className="font-bold">{dateFormatter.format(new Date(call.scheduledAt))}</p></div><div><p className="text-xs text-muted-foreground">{t("calls.pending")}</p><p className="font-bold">{t(`calls.${outcomeKey(call.outcome)}`)}</p></div></div><div><p className="text-xs text-muted-foreground">{t("leads.title")}</p>{call.leadId ? <CrmCallLinkForm callId={call.id} initialLeadId={call.leadId} initialLeadName={call.leadName} initialLeadProfileUrl={call.leadProfileUrl} idPrefix="mobile-lead" returnTo={callReturnTo} /> : canLink ? <CrmCallLinkForm callId={call.id} initialLeadId={null} initialLeadName={null} initialLeadProfileUrl={null} idPrefix="mobile-link" returnTo={callReturnTo} /> : <p className="font-bold text-muted-foreground">{t("calls.linkRestricted")}</p>}</div>{call.attendance !== "cancelled" && <CrmCallResultControl call={call} idPrefix="mobile-result" returnTo={callReturnTo} />}<div><p className="mb-1 text-xs font-bold text-muted-foreground">{t("calls.match.label")}</p><CrmCallMatchControls call={call} canLink={canLink} idPrefix="mobile" returnTo={callReturnTo} timeZone={timeZone} /></div></article>)}</div>
         <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4" aria-label={t("calls.pagination")}>
           <span className="text-sm font-bold text-muted-foreground">{t("calls.pageLabel", { page })}</span>
           <div className="flex gap-2">{page > 1 && <Button asChild variant="outline" size="sm" className="min-h-11"><Link href={pageHref(page - 1)}>{t("calls.previousPage")}</Link></Button>}{hasNextPage && <Button asChild variant="outline" size="sm" className="min-h-11"><Link href={pageHref(page + 1)}>{t("calls.nextPage")}</Link></Button>}</div>
