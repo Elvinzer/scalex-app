@@ -301,7 +301,24 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   submitted during QA.
 - The local authenticated 320 × 568 check showed the confirmation control with
   a 320 px document width and no browser or Next.js errors. The CRM period
-  view showed the recorded count; rates stayed unavailable because the cohort
-  had no reliable first-message denominator.
-- Typecheck, lint, all 166 test files (729 tests), both strict OpenSpec
+  view showed 0 first messages, 0 current conversations and 0 current value-
+  content leads for the selected personal October cohort. The response, call-
+  proposal and call-booked rates stayed unavailable because that cohort had no
+  reliable first-message denominator. These local-account values are not a
+  claim about another user's production data.
+- Vercel reported a successful Production deployment for commit `ec9f452`.
+  An unauthenticated request to production `/crm` redirects to `/sign-in`; this
+  session did not have an authenticated production CRM view, so the deployed
+  KPI cards and production pilot have not been verified on a real account.
+- A follow-up regression test now covers the presentation boundary: a partial
+  period keeps the three known numeric counts, while rates with a zero
+  denominator remain unavailable. The local server-rendered `/crm` response
+  returned HTTP 200 with counts `0`, `0`, `0`, three unavailable rates, the
+  partial-data notice and three valid `aria-describedby` references. This
+  checks server output and is not a substitute for the open keyboard/device
+  matrix.
+- The shared app header, mobile navigation, drawer and CRM capture/import
+  dialogs use the platform safe-area insets. The native keyboard interaction
+  still needs a real mobile browser or device.
+- Typecheck, lint, all 166 test files (730 tests), both strict OpenSpec
   validations, Turbopack compilation and Next.js/browser error checks passed.

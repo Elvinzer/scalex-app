@@ -5,7 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/current-user";
 import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
-import { computeCrmKpis, CRM_PRIMARY_KPI_METRICS, resolveCrmKpiSetterId, type CrmPrimaryKpiMetric } from "@/lib/crm/kpis";
+import { computeCrmKpis, CRM_PRIMARY_KPI_METRICS, getCrmPrimaryKpiPresentation, resolveCrmKpiSetterId, type CrmPrimaryKpiMetric } from "@/lib/crm/kpis";
 import { getBusinessSalesOffers } from "@/lib/business/queries";
 import { getCrmActions, getCrmKpiSources, getCrmSetterForActor, getCrmSetters } from "@/lib/crm/queries";
 import { getCrmExtensionRelease } from "@/lib/crm/extension-release";
@@ -128,15 +128,9 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
 
       <section className="grid gap-3 min-[360px]:grid-cols-2 lg:grid-cols-3" aria-label={t("kpis.primaryTitle")}>
         {CRM_PRIMARY_KPI_METRICS.map((key) => {
-          const value = key === "messages" || key === "conversations" || key === "valueContent"
-            ? kpis[key]
-            : kpis.rates[key === "responses" ? "response" : key === "callsProposed" ? "callProposed" : "callBooked"];
-          const valueIsMeasured = !personalKpiScopeUnavailable && typeof value === "number";
-          const displayValue = valueIsMeasured
-            ? `${Math.round(value * (key === "messages" || key === "conversations" || key === "valueContent" ? 1 : 100))}${key === "messages" || key === "conversations" || key === "valueContent" ? "" : "%"}`
-            : t("kpis.notMeasured");
+          const presentation = getCrmPrimaryKpiPresentation(kpis, key, personalKpiScopeUnavailable, t("kpis.notMeasured"));
           const destination = personalKpiScopeUnavailable ? null : leadKpiHref(key, { setter: setterId ?? undefined, platform, offer: offerId, source }, period);
-          const cardContent = <><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p className={`mt-2 font-bold ${valueIsMeasured ? "text-2xl" : "text-lg"}`}>{displayValue}</p></>;
+          const cardContent = <><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p aria-describedby={presentation.isPartial ? "crm-kpi-incomplete" : undefined} className={`mt-2 font-bold ${presentation.isMeasured ? "text-2xl" : "text-lg"}`}>{presentation.displayValue}</p></>;
           return destination
             ? <Link key={key} href={destination} className="sticker-card p-4 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/30">{cardContent}</Link>
             : <div key={key} className="sticker-card p-4" aria-disabled="true">{cardContent}</div>;
@@ -145,7 +139,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
       <p className="text-sm text-muted-foreground">{t("kpis.rateBasis")}</p>
       {personalKpiScopeUnavailable
         ? <p className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.personalScopeUnavailable")}</p>
-        : kpis.incomplete && <p className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.incomplete")}</p>}
+        : kpis.incomplete && <p id="crm-kpi-incomplete" className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.incomplete")}</p>}
       <details className="rounded-[var(--radius-control)] border border-border">
         <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("kpis.secondaryTitle")}</summary>
         <div className="grid gap-3 border-t border-border p-3 sm:grid-cols-2 lg:grid-cols-4">

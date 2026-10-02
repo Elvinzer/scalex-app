@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeCrmKpis, currentCrmPeriod, isCrmKpiEventAttributedToSetter, isReliableFirstMessageEvent, matchesCrmKpiAttribution, resolveCrmKpiSetterId, type CrmKpiEvent } from "./kpis";
+import { computeCrmKpis, currentCrmPeriod, getCrmPrimaryKpiPresentation, isCrmKpiEventAttributedToSetter, isReliableFirstMessageEvent, matchesCrmKpiAttribution, resolveCrmKpiSetterId, type CrmKpiEvent } from "./kpis";
 import type { CrmEventMetadata, CrmEventType, CrmLeadStage } from "./types";
 
 const period = { from: new Date("2026-09-01T00:00:00.000Z"), to: new Date("2026-09-30T23:59:59.999Z") };
@@ -211,6 +211,26 @@ describe("CRM KPI projection", () => {
     expect(counts.messages).toBe(1);
     expect(counts.conversations).toBe(1);
     expect(counts.incomplete).toBe(true);
+  });
+
+  it("renders known zero counts while an incomplete period keeps rates unavailable", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [event({ leadId: "unverified", type: "first_message_sent", occurredAt: "2026-09-06T09:00:00Z", metadata: { selectedAtCapture: true } })],
+      stageChanges: [snapshot("unverified", "first_message_sent")],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.incomplete).toBe(true);
+    for (const key of ["messages", "conversations", "valueContent"] as const) {
+      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: "0", isMeasured: true, isPartial: true });
+    }
+    for (const key of ["responses", "callsProposed", "callsBooked"] as const) {
+      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: "Non mesuré", isMeasured: false, isPartial: false });
+    }
+    expect(getCrmPrimaryKpiPresentation(counts, "messages", true, "Non mesuré")).toMatchObject({ displayValue: "Non mesuré", isMeasured: false });
   });
 
   it("does not mark a reliably dated message outside the selected cohort as incomplete", () => {

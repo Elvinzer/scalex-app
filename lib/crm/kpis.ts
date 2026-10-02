@@ -110,6 +110,25 @@ export const CRM_PRIMARY_KPI_METRICS = [
 
 export type CrmPrimaryKpiMetric = (typeof CRM_PRIMARY_KPI_METRICS)[number];
 
+export function getCrmPrimaryKpiPresentation(
+  kpis: CrmKpiCounts,
+  key: CrmPrimaryKpiMetric,
+  personalScopeUnavailable: boolean,
+  notMeasuredLabel: string,
+): { displayValue: string; isMeasured: boolean; isPartial: boolean } {
+  const isCount = key === "messages" || key === "conversations" || key === "valueContent";
+  const value = isCount
+    ? kpis[key]
+    : kpis.rates[key === "responses" ? "response" : key === "callsProposed" ? "callProposed" : "callBooked"];
+  const isMeasured = !personalScopeUnavailable && typeof value === "number";
+
+  return {
+    displayValue: isMeasured ? `${Math.round(value * (isCount ? 1 : 100))}${isCount ? "" : "%"}` : notMeasuredLabel,
+    isMeasured,
+    isPartial: isMeasured && kpis.incomplete,
+  };
+}
+
 export function resolveCrmKpiSetterId(input: {
   teamView: boolean;
   selectedSetterId?: string | null;
