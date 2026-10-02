@@ -143,3 +143,15 @@ unobserved general rollout.
   timing, the full route/action/KPI acceptance matrix, broader network-failure
   automation and the controlled setter pilot remain open under tasks 9.3, 9.4,
   10.2 and 10.3.
+
+## Local route matrix — 2026-10-02
+
+- Read-only browser checks covered `/crm`, `/crm/leads`, `/crm/pipeline`,
+  `/crm/actions`, `/crm/appels` and `/crm/extension` at 320, 360, 375, 390,
+  393, 414 and 430 CSS px. Every route showed its expected heading, and
+  `documentElement.scrollWidth` matched the viewport width.
+- At 320 × 568, the same six routes had no horizontal overflow, and the
+  section navigation exposed exactly one `aria-current="page"` link matching
+  the current route.
+- These checks were read-only. They confirm route reachability and layout; they
+  do not close the remaining form/action/KPI interaction matrix or pilot tasks.
