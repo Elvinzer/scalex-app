@@ -300,9 +300,29 @@ timestamp, actor, responsible setter at the time and source when known. A
 free-form qualification note SHALL NOT be treated as proof of a qualified lead
 and SHALL NOT be used alone to calculate a qualification rate. KPI calculations
 SHALL use unique leads for conversion rates, canonical calls for attendance and
-canonical sales for revenue. The UI SHALL show the selected period and filters,
-provide metric-specific drill-downs, and state explicitly when a metric is
-unavailable or incomplete.
+canonical sales for revenue. The primary CRM analysis SHALL present six
+metrics: unique first messages sent, conversations currently in progress,
+value content currently sent, first-message response rate, call-proposal rate
+and call-booked rate. It SHALL provide a date-period filter and an
+acquisition-origin filter that apply consistently to all six metrics;
+acquisition origin SHALL remain distinct from the contact platform.
+
+The selected period SHALL define a cohort by the date of each lead’s first
+message. The first-message count SHALL include each lead once. Conversation and
+value-content counts SHALL include unique leads from that cohort whose current
+stage is respectively `conversation_in_progress` or `value_content_sent`. The
+response-rate numerator SHALL count unique cohort leads with a response after
+their first message. The call-proposal and call-booked numerators SHALL count
+unique cohort leads that reach the respective milestone after their first
+message. All three rates SHALL use the number of unique first messages in the
+selected cohort as their denominator; later milestones MAY occur after the end
+of the selected period. If the denominator is zero, the rates SHALL be shown as
+unavailable. The UI SHALL provide a metric-specific drill-down that preserves
+the selected period and acquisition origin.
+
+Other commercial measures, including qualification activity, attendance,
+no-show and canonical sales or revenue, MAY remain available in separate
+analysis surfaces. They SHALL NOT displace or obscure the six primary metrics.
 
 #### Scenario: Setter activity is reassigned later
 
@@ -310,18 +330,45 @@ unavailable or incomplete.
 - **THEN** the original actor and occurrence time SHALL remain attached to the event
 - **AND** the KPI view SHALL keep activity attribution distinct from the current responsible setter
 
-#### Scenario: Setter opens a KPI card
+#### Scenario: Setter opens the primary CRM analysis
 
-- **WHEN** the setter taps a KPI for responses, qualification, bookings, show rate or sales
-- **THEN** the destination SHALL show the leads or calls that contribute to that specific metric
-- **AND** it SHALL not send every KPI to the same generic lead date range
-- **AND** revenue totals, setter breakdowns and source breakdowns SHALL use the same visible period and filters
+- **WHEN** the setter opens the CRM analysis section
+- **THEN** the six primary metrics SHALL be visible with their selected period and acquisition-origin filter
+- **AND** each count SHALL count a lead at most once
+- **AND** additional commercial measures SHALL remain secondary to these six metrics
+
+#### Scenario: Setter filters the first-message cohort
+
+- **WHEN** the setter selects a date period and an acquisition origin
+- **THEN** the first-message count SHALL include only leads whose first message falls within that period and whose acquisition origin matches the filter
+- **AND** conversation and value-content counts SHALL show the current stages of those same cohort leads
+- **AND** every rate SHALL use that same cohort as its denominator
+
+#### Scenario: Setter reviews first-message conversion rates
+
+- **WHEN** the setter reviews response, call-proposal or call-booked rate for a cohort
+- **THEN** each numerator SHALL count unique cohort leads that reached the corresponding milestone after their first message
+- **AND** each denominator SHALL be the unique first-message count for that cohort
+- **AND** milestones reached after the selected period SHALL still count for that cohort
+- **AND** a zero denominator SHALL produce an unavailable state rather than 0%
+
+#### Scenario: Setter opens a KPI drill-down
+
+- **WHEN** the setter taps one of the six primary metrics
+- **THEN** the destination SHALL show only the leads contributing to that metric
+- **AND** it SHALL preserve the selected period and acquisition-origin filter
 
 #### Scenario: Source data is incomplete
 
 - **WHEN** the system cannot calculate a rate or attribution reliably
 - **THEN** the KPI SHALL be labelled unavailable or incomplete
 - **AND** the interface SHALL not substitute a plausible-looking zero or fabricated amount
+
+#### Scenario: Acquisition origin differs from contact platform
+
+- **WHEN** a lead was acquired through one source and contacted on another platform
+- **THEN** the acquisition-origin filter SHALL use the lead’s acquisition source
+- **AND** it SHALL not silently substitute the contact platform
 
 #### Scenario: Qualification is recorded only as free text
 

@@ -34,9 +34,15 @@ en contrat de comportement avant toute implémentation.
 - Rendre chaque mutation sûre face au double-tap, au réseau instable et au
   retour arrière : état en attente, conservation du brouillon, retry sûr et
   idempotence de bout en bout.
+- Recentrer l’analyse CRM sur six KPI principaux : premiers messages envoyés,
+  conversations en cours, contenus de valeur envoyés en cours, taux de réponse
+  au premier message, taux d’appel proposé et taux d’appel réservé. Les six
+  doivent respecter le filtre de période et le filtre d’origine d’acquisition ;
+  les taux prennent le nombre de premiers messages de la cohorte comme
+  dénominateur.
 - Aligner les événements issus du mobile avec les KPI et leurs drill-downs,
-  notamment réponse, qualification, booking, show rate, CA par setter et CA
-  par source.
+  tout en conservant les autres analyses commerciales en dehors de cette grille
+  principale lorsqu’elles restent utiles.
 - Ajouter une vérification automatisée des viewports mobiles et un scénario de
   répétition de 250 boucles de setter, réparties sur cinq jours.
 

@@ -96,9 +96,38 @@ Date: 2026-10-02
   cards. The “Appels honorés” card navigated to
   `/crm/appels?from=2026-10-01&to=2026-10-31&attendance=showed`; the destination
   remained 320 px wide with no horizontal overflow.
+- This smoke check covered the previous 11-card implementation only. The later
+  KPI contract in tasks 8.1–8.3 now requires six different primary metrics and
+  has not yet been implemented or verified in the browser.
 - This focused check did not submit capture, response, qualification, booking,
   no-show, loss, or sale mutations. It also did not verify keyboard-open
   behavior, setter tasks over multiple days, or the full KPI/filter matrix.
+
+## Authenticated production mobile smoke
+
+- On 2026-10-02, after the Vercel deployment for `90b7d75` succeeded, the
+  restored owner session was checked at 320 × 568. `/dashboard`,
+  `/diagnostic-app`, `/roadmap`, `/crm`, `/crm/leads`, `/crm/pipeline`,
+  `/crm/actions`, `/crm/appels`, `/crm/extension`, `/settings/calendars` and
+  `/settings/equipe` all loaded at 320 CSS pixels with no horizontal overflow.
+- The browser console remained empty after clearing it before navigation. The
+  lead drawer opened from a visible mobile lead row and stayed within the
+  viewport; no lead data was changed.
+- A visible-target scan found no actionable target below 44 px on `/crm`,
+  `/crm/leads`, `/crm/pipeline`, `/crm/actions`, `/crm/appels`,
+  `/crm/extension` or `/settings/calendars`.
+- One unthrottled mobile-viewport vitals sample per route measured:
+  `/dashboard` TTFB 22 ms / FCP 532 ms / LCP 832 ms / CLS 0;
+  `/diagnostic-app` 23 / 712 / 1,544 ms / 0;
+  `/crm` 54 / 592 / 628 ms / 0;
+  `/crm/leads` 23 / 436 / 1,048 ms / 0;
+  `/crm/pipeline` 22 / 460 / 1,112 ms / 0;
+  `/crm/actions` 21 / 480 / 780 ms / 0;
+  `/crm/appels` 22 / 480 / 1,156 ms / 0;
+  `/settings/calendars` 21 / 784 / 1,088 ms / 0. These are individual samples,
+  not field percentiles.
+- The production smoke did not submit CRM or calendar mutations. Keyboard-open
+  behavior, the complete action/KPI matrix and the setter pilot remain open.
 
 ## Remaining limit
 

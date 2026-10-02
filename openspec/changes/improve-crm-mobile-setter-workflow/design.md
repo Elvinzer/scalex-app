@@ -139,16 +139,32 @@ le setter retape sur le bouton.
 
 ### 7. KPI déterministes et drill-downs spécifiques
 
-Les KPI restent calculés en code à partir des événements CRM, des appels et des
-ventes canoniques. La nouvelle qualification ajoute un dénominateur explicite
-et les cards mobiles pointent vers une requête correspondant à la métrique
-cliquée. Les conversions comptent des leads uniques ; les événements gardent
-l’acteur et le responsable au moment du fait. Une donnée insuffisante produit
-un état incomplet, jamais un zéro de convenance.
+La grille principale de l’analyse CRM présente les six KPI métier demandés :
+premiers messages envoyés, conversations en cours, contenus de valeur envoyés
+en cours, taux de réponse au premier message, taux d’appel proposé et taux
+d’appel réservé. Les autres mesures commerciales existantes ne sont pas
+supprimées par ce changement ; elles restent hors de cette grille principale.
 
-Alternative écartée : déduire réponse ou qualification de l’étape courante du
-lead. Une étape ne conserve ni la date exacte ni l’acteur, et elle change après
-réassignation ou réouverture.
+Le filtre de période définit une cohorte par date du premier message. Le filtre
+d’acquisition utilise l’origine du lead, distincte de la plateforme de contact.
+Les compteurs de conversations et de contenus de valeur comptent les leads
+uniques de cette cohorte dont l’étape actuelle est respectivement
+`conversation_in_progress` ou `value_content_sent`. Le taux de réponse divise
+les leads uniques de la cohorte ayant répondu par les premiers messages de la
+cohorte. Les taux d’appel proposé et réservé utilisent le même dénominateur ;
+leurs numérateurs comptent les leads uniques ayant atteint l’étape concernée
+après leur premier message, même si cette étape est atteinte après la fin de la
+période sélectionnée. Une cohorte sans premier message donne un taux indisponible,
+jamais un zéro de convenance.
+
+Chaque carte ouvre un drill-down limité aux leads qui contribuent à cette
+métrique et conserve la période et l’origine sélectionnées. La source de vérité
+reste constituée des événements CRM et des appels canoniques ; les événements
+gardent l’acteur, la date du fait et le responsable au moment du fait.
+
+Alternative écartée : calculer les conversions d’appel à partir du contenu de
+valeur ou des appels proposés. Ces dénominateurs ne correspondent pas au besoin
+de comparer chaque taux au volume de premiers messages.
 
 ### 8. QA par paliers, avec une boucle de répétition explicite
 
