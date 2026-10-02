@@ -100,7 +100,7 @@ export function CrmCallMatchControls({ call, canLink, idPrefix = "call", returnT
           {candidates.map((candidate, index) => <div key={candidate.id} className="rounded border border-border bg-card p-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <Link href={leadHref(candidate.leadId)} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{candidate.leadName}</Link>
+                <Link href={leadHref(candidate.leadId)} className="inline-flex min-h-11 min-w-11 items-center font-bold underline-offset-2 hover:underline">{candidate.leadName}</Link>
                 {candidate.leadHandle && <p className="truncate text-xs text-muted-foreground">@{candidate.leadHandle}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-1"><span className="text-xs font-bold text-muted-foreground">{t(`match.${candidate.confidence}`)}</span><CrmProfileLink href={candidate.leadProfileUrl} label={t("match.openProfile")} iconOnly /></div>

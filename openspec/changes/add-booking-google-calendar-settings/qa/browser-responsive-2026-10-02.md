@@ -35,6 +35,7 @@ Checked settings and agenda at 320×568, 390×844, 768×900, 1280×900, and 1440
 - Corrected the disconnected invitation-account recovery message.
 - Added visible keyboard focus to agenda filter controls and raised week appointment targets to 44 px.
 - Added development-only fixtures for empty, error, disconnected, success, and agenda view states.
+- Raised booking management event actions to 44 px; the mobile action/contrast follow-up is recorded in the CRM responsive QA report.
 
 ## Validation
 

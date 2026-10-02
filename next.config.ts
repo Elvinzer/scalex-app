@@ -111,6 +111,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/ventes/appels",
+        destination: "/crm/appels",
+        permanent: false,
+      },
+      {
         source: "/acquisition/pipeline",
         destination: "/ventes/pipeline",
         permanent: false,

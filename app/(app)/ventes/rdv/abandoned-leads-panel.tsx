@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { phoneHref, whatsappHref } from "@/lib/native-booking/phone-links";
+import { Button } from "@/components/ui/button";
 
 import { updateNativeBookingLeadStatusAction } from "./actions";
 
@@ -132,8 +133,13 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
-          {visibleLeads.map((lead) => (
-            <article
+          {visibleLeads.map((lead) => {
+            const callLink = lead.phone ? phoneHref(lead.phone) : null;
+            const whatsappLink = lead.phone
+              ? whatsappHref(lead.phone, t("message", { firstName: lead.firstName ? ` ${lead.firstName}` : "", event: lead.eventName }))
+              : null;
+
+            return <article
               key={lead.id}
               id={`native-booking-lead-${lead.id}`}
               tabIndex={-1}
@@ -154,11 +160,18 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
               <div className="grid gap-2 text-sm">
                 {lead.phone ? (
                   <div className="flex flex-wrap gap-2">
-                    <a href={phoneHref(lead.phone) ?? undefined} aria-label={t("callProspect", { name: [lead.firstName, lead.lastName].filter(Boolean).join(" ") || t("thisProspect") })} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted/60 px-3 font-bold hover:bg-muted">
-                    <Phone className="size-4 shrink-0 text-accent" />
-                    <span className="truncate">{lead.phone}</span>
-                    </a>
-                    {whatsappHref(lead.phone, t("message", { firstName: lead.firstName ? ` ${lead.firstName}` : "", event: lead.eventName })) && <a href={whatsappHref(lead.phone, t("message", { firstName: lead.firstName ? ` ${lead.firstName}` : "", event: lead.eventName })) ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-state-healthy-bg px-3 text-sm font-bold text-state-healthy hover:underline">
+                    {callLink ? (
+                      <a href={callLink} aria-label={t("callProspect", { name: [lead.firstName, lead.lastName].filter(Boolean).join(" ") || t("thisProspect") })} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted/60 px-3 font-bold hover:bg-muted">
+                        <Phone className="size-4 shrink-0 text-accent" />
+                        <span className="truncate">{lead.phone}</span>
+                      </a>
+                    ) : (
+                      <span className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-control)] bg-muted/60 px-3 font-bold">
+                        <Phone className="size-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{lead.phone}</span>
+                      </span>
+                    )}
+                    {whatsappLink && <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-state-healthy-bg px-3 text-sm font-bold text-state-healthy hover:underline">
                       <MessageCircle className="size-4" /> WhatsApp
                     </a>}
                   </div>
@@ -188,20 +201,20 @@ export function AbandonedLeadsPanel({ leads, targetLeadId }: { leads: LeadView[]
 
               <div className="flex flex-wrap gap-2 border-t border-border pt-4">
                 {lead.status === "open" ? (
-                  <button type="button" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "contacted")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] bg-accent px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50">
+                  <Button type="button" variant="outline" className="min-h-11 gap-1.5 px-3 py-2" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "contacted")}>
                     <CheckCheck className="size-4" /> {t("markContacted")}
-                  </button>
+                  </Button>
                 ) : (
-                  <button type="button" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "open")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-3 py-2 text-sm font-bold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+                  <Button type="button" variant="outline" className="min-h-11 gap-1.5 px-3 py-2" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "open")}>
                     <RotateCcw className="size-4" /> {t("reopen")}
-                  </button>
+                  </Button>
                 )}
-                <button type="button" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "dismissed")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-3 py-2 text-sm font-bold text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+                <Button type="button" variant="outline" className="min-h-11 gap-1.5 px-3 py-2 text-muted-foreground" disabled={pendingLeadIds.has(lead.id)} onClick={() => updateLead(lead.id, "dismissed")}>
                   <ArchiveX className="size-4" /> {t("dismiss")}
-                </button>
+                </Button>
               </div>
-            </article>
-          ))}
+            </article>;
+          })}
         </div>
       )}
     </section>

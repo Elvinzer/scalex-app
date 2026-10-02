@@ -551,7 +551,7 @@ export function AppSidebar({
               <Link
                 href={adminEntry.href}
                 prefetch={false}
-                className="flex min-h-10 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/70 uppercase transition-colors hover:bg-mist/10 hover:text-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+                className="flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 text-[10.5px] font-bold tracking-[0.06em] text-mist/70 uppercase transition-colors hover:bg-mist/10 hover:text-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
               >
                 <ShieldCheck className="size-3.5" />
                 <span className="min-w-0 whitespace-normal break-words">{t(adminEntry.labelKey)}</span>

@@ -160,7 +160,7 @@ export default async function NativeBookingEventsPage({
             {entitlements.maxEvents === null ? t("eventCount", { count: usage, plural: usage > 1 ? "s" : "" }) : t("eventLimit", { count: usage, max: entitlements.maxEvents, plural: entitlements.maxEvents > 1 ? "s" : "" })}
           </div>
           {viewer.isAccountWide && (
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="min-h-11">
               <Link href="/settings/reservation">
                 <Palette className="size-3.5" />
                 {t("customizeBookingPage")}
@@ -187,7 +187,7 @@ export default async function NativeBookingEventsPage({
             <p className="font-bold text-state-caution">{t("calendarSetupWarning.title")}</p>
             <p className="mt-1 max-w-2xl text-sm text-foreground/80">{viewer.isAccountWide ? t("calendarSetupWarning.description") : t("calendarSetupWarning.personalDescription")}</p>
           </div>
-          <Button asChild size="sm" variant="outline"><Link href="/settings/calendars">{t("calendarSetupWarning.openSettings")}</Link></Button>
+          <Button asChild size="sm" variant="outline" className="min-h-11"><Link href="/settings/calendars">{t("calendarSetupWarning.openSettings")}</Link></Button>
         </div>
       )}
 
@@ -265,12 +265,12 @@ export default async function NativeBookingEventsPage({
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                      {viewer.isAccountWide && <Button asChild size="sm">
+                      {viewer.isAccountWide && <Button asChild size="sm" className="min-h-11">
                         <Link href={`/ventes/rdv/${event.id}`}>
                           {t("configure")} <ExternalLink className="size-3.5" />
                         </Link>
                       </Button>}
-                      <Button asChild size="sm" variant="outline">
+                      <Button asChild size="sm" variant="outline" className="min-h-11">
                         <a href={`/book/${publicHandle}/${event.slug}`} target="_blank" rel="noreferrer">
                           {t("viewPage")} <ExternalLink className="size-3.5" />
                         </a>

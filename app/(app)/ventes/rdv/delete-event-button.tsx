@@ -30,7 +30,7 @@ export function DeleteEventButton({ eventId, eventName }: { eventId: string; eve
 
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Button type="button" size="sm" variant="destructive" disabled={isPending} onClick={removeEvent}>
+      <Button type="button" size="sm" variant="destructive" className="min-h-11" disabled={isPending} onClick={removeEvent}>
         <Trash2 className="size-3.5" />
         {isPending ? t("deletingEvent") : t("deleteEvent")}
       </Button>

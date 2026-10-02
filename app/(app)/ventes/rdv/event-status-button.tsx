@@ -36,6 +36,7 @@ export function EventStatusButton({ eventId, status }: { eventId: string; status
           type="button"
           variant="outline"
           size="sm"
+          className="min-h-11"
           disabled={isPending}
           aria-pressed={status === "active"}
           onClick={() => {

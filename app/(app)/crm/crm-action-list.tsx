@@ -126,7 +126,7 @@ export function CrmActionList({ initialActions, groupByDueDate = false, featureF
         <article key={action.id} data-next-action={featured || undefined} className={`sticker-card flex flex-wrap items-center gap-3 p-4 ${featured ? "border-accent/40 bg-accent-soft/30" : ""}`}>
           {featured && <p className="w-full text-xs font-bold tracking-[0.06em] text-accent-text uppercase">{featuredActionLabel}</p>}
           <div className="min-w-0 flex-1">
-            <Link href={leadHref(action.leadId)} className="inline-flex min-h-11 items-center font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
+            <Link href={leadHref(action.leadId)} className="inline-flex min-h-11 min-w-11 items-center font-bold underline-offset-2 hover:underline">{action.leadName}</Link>
             <p className="mt-1 font-bold">{action.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t(action.category)}{action.responsibleName ? ` · ${action.responsibleName}` : ""}</p>
             <p className={overdue ? "mt-1 text-sm font-bold text-state-critical" : "mt-1 text-sm text-muted-foreground"}>{overdue && <>{t("overdue")} · </>}{t("due")}: {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(action.dueAt))}</p>
