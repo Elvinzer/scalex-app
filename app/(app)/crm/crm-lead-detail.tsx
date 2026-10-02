@@ -13,7 +13,7 @@ import { CRM_EVENT_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } fr
 import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
 
-import { addNoteAction, changeStageAction, deleteLeadAction, reopenLeadAction, reassignLeadAction, saveQualificationAction, setOutcomeAction, updateLeadFieldsAction } from "./crm-actions";
+import { addNoteAction, changeStageAction, deleteLeadAction, markContactedAction, reopenLeadAction, reassignLeadAction, saveQualificationAction, setOutcomeAction, updateLeadFieldsAction } from "./crm-actions";
 import { CrmActionForm } from "./crm-action-form";
 import { CrmBookingActions } from "./crm-booking-actions";
 import { CrmLossDialog } from "./crm-loss-dialog";
@@ -89,6 +89,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
   const [qualificationIdempotencyKey, setQualificationIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [fieldsIdempotencyKey, setFieldsIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [stageIdempotencyKey, setStageIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
+  const [contactedIdempotencyKey, setContactedIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [outcomeIdempotencyKey, setOutcomeIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [reopenIdempotencyKey, setReopenIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
   const [responsibilityIdempotencyKey, setResponsibilityIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
@@ -152,6 +153,14 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
 
   function changeStage(stage: CrmLeadStage) {
     mutate(() => changeStageAction({ leadId: lead.id, stage, idempotencyKey: stageIdempotencyKey }), (current) => ({ ...current, stage }), () => { setReopenStage(stage); setStageIdempotencyKey(globalThis.crypto.randomUUID()); onStageChanged?.(lead.id, stage); });
+  }
+
+  function confirmFirstMessageSent() {
+    mutate(
+      () => markContactedAction({ leadId: lead.id, idempotencyKey: contactedIdempotencyKey }),
+      (current) => ({ ...current, contactState: "contacted" }),
+      () => setContactedIdempotencyKey(globalThis.crypto.randomUUID()),
+    );
   }
 
   function changeOutcome(outcome: CrmLeadOutcome) {
@@ -306,7 +315,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
         </div>
 
         <div className="grid gap-px overflow-hidden rounded-[var(--radius-control)] border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.contactState")}</p><p className="mt-1 break-words font-bold">{lead.contactState === "new" ? t("detail.newLead") : t("detail.contacted")}</p></div>
+          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.contactState")}</p><p className="mt-1 break-words font-bold">{lead.contactState === "new" ? t("detail.newLead") : t("detail.contacted")}</p>{lead.contactState === "new" && lead.stage === "first_message_sent" && <div className="mt-3"><Button type="button" variant="outline" className="min-h-11 w-full" disabled={isPending} onClick={confirmFirstMessageSent}>{t("detail.confirmFirstMessageSent")}</Button><p className="mt-2 text-xs font-normal leading-5 text-muted-foreground">{t("detail.confirmFirstMessageSentHelp")}</p></div>}</div>
           {!crmStageImpliesResponse(lead.stage) && <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.responseState")}</p><p className="mt-1 break-words font-bold">{lead.respondedAt ? t("detail.responded") : t("detail.noResponse")}</p></div>}
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextCall")}</p>{lead.nextCall ? <><p className="mt-1 break-words font-bold">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: lead.nextCall.timeZone ?? "UTC" }).format(new Date(lead.nextCall.scheduledAt))}</p><p className="mt-1 break-words text-xs text-muted-foreground">{lead.nextCall.timeZone ?? t("detail.localTime")} · {lead.nextCall.closer ?? t("detail.unassigned")} · {callOutcomeLabel(lead.nextCall.outcome)}</p></> : <p className="mt-1 break-words font-bold">{t("detail.noNextCall")}</p>}</div>
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextAction")}</p><p className="mt-1 break-words font-bold">{lead.nextAction?.title ?? t("leads.noNextAction")}</p></div>

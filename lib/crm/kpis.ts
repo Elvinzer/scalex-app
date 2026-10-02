@@ -23,6 +23,7 @@ export type CrmKpiStageChange = {
   currentSnapshot?: boolean;
   currentOutcome?: CrmLeadOutcome;
   currentContactState?: "new" | "contacted";
+  leadCreatedAt?: Date | null;
   includeInCurrentCounts?: boolean;
 };
 
@@ -180,7 +181,8 @@ export function computeCrmKpis(input: {
   const callsBookedAfterFirstMessage = new Set<string>();
   const soldLeadIds = new Set<string>();
   const noShowEventLeadIds = new Set<string>();
-  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; contactState?: "new" | "contacted"; changedAt: Date; includeInCurrentCounts?: boolean }>();
+  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; contactState?: "new" | "contacted"; changedAt: Date; leadCreatedAt?: Date | null; includeInCurrentCounts?: boolean }>();
+  const periodActivityWithoutFirstMessage = new Set<string>();
   const stageChanges = (input.stageChanges ?? [])
     .filter((change) => change.occurredAt <= asOf)
     .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
@@ -190,6 +192,17 @@ export function computeCrmKpis(input: {
     const date = conversionDate(event);
     if (date > asOf) continue;
     const selectedPeriod = inPeriod(eventDate(event), input.period);
+
+    if (selectedPeriod && [
+      "conversation_started",
+      "response_received",
+      "value_content_sent",
+      "call_proposed",
+      "call_booked",
+      "booking_link_sent",
+    ].includes(event.type)) {
+      periodActivityWithoutFirstMessage.add(event.leadId);
+    }
 
     if (event.type === "first_message_sent") {
       if (isReliableFirstMessageEvent(event)) {
@@ -218,6 +231,7 @@ export function computeCrmKpis(input: {
         outcome: change.currentOutcome,
         contactState: change.currentContactState,
         changedAt: change.occurredAt,
+        leadCreatedAt: change.leadCreatedAt,
         includeInCurrentCounts: change.includeInCurrentCounts,
       });
       continue;
@@ -232,6 +246,14 @@ export function computeCrmKpis(input: {
       && inPeriod(change.occurredAt, input.period)
     ) {
       periodResponseLeadIds.add(change.leadId);
+    }
+    if (inPeriod(change.occurredAt, input.period) && (
+      change.toStage === "conversation_in_progress"
+      || change.toStage === "value_content_sent"
+      || change.toStage === "call_proposed"
+      || change.toStage === "call_booked"
+    )) {
+      periodActivityWithoutFirstMessage.add(change.leadId);
     }
     if (change.toStage === "call_proposed" && inPeriod(change.occurredAt, input.period)) periodCallProposedLeadIds.add(change.leadId);
     if (change.toStage === "call_booked" && inPeriod(change.occurredAt, input.period)) periodCallBookedLeadIds.add(change.leadId);
@@ -329,6 +351,10 @@ export function computeCrmKpis(input: {
   ]);
   const missingCurrentFirstMessageEvidence = [...currentStages].some(([leadId, current]) => (
     !datedFirstMessageLeadIds.has(leadId)
+    && (periodActivityWithoutFirstMessage.has(leadId)
+      || (current.leadCreatedAt !== null
+        && current.leadCreatedAt !== undefined
+        && inPeriod(current.leadCreatedAt, input.period)))
     && current.includeInCurrentCounts !== false
     && (current.contactState === "contacted" || advancedStagesWithoutCohort.has(current.stage))
   ));

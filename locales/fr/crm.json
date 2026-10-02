@@ -519,10 +519,12 @@
     "deleteDescription": "Cette action supprime définitivement le lead et les données enregistrées sur sa fiche CRM. Les ventes et appels liés restent dans ton compte.",
     "deleteConfirm": "Supprimer définitivement",
     "deleteCancel": "Garder le lead",
-    "deleting": "Suppression..."
-    ,"contactState": "Contact",
+    "deleting": "Suppression...",
+    "contactState": "Contact",
     "newLead": "Nouveau lead",
     "contacted": "Message envoyé",
+    "confirmFirstMessageSent": "Confirmer l’envoi du premier message",
+    "confirmFirstMessageSentHelp": "Après l’envoi sur ton canal de contact, confirme-le ici. Cette date sert aux KPIs.",
     "responseState": "Réponse",
     "responded": "A répondu",
     "noResponse": "Pas encore répondu",
@@ -647,7 +649,7 @@
       "callsProposed": "Taux de proposition d'appel",
       "callsBooked": "Taux d'appel booké"
     },
-    "incomplete": "Données incomplètes pour cette période",
+    "incomplete": "Données partielles : les leads sans date fiable de premier message sont exclus des chiffres affichés.",
     "personalScopeUnavailable": "Les KPI personnels sont indisponibles car votre profil de responsable n’est pas rattaché à ce compte.",
     "from": "Du",
     "to": "Au",

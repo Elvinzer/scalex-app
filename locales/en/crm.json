@@ -519,10 +519,12 @@
     "deleteDescription": "This permanently removes the lead and the data stored on its CRM page. Linked sales and calls stay in your account.",
     "deleteConfirm": "Delete permanently",
     "deleteCancel": "Keep lead",
-    "deleting": "Deleting..."
-    ,"contactState": "Contact",
+    "deleting": "Deleting...",
+    "contactState": "Contact",
     "newLead": "New lead",
     "contacted": "Message sent",
+    "confirmFirstMessageSent": "Confirm first message sent",
+    "confirmFirstMessageSentHelp": "After sending the message on your contact channel, confirm it here. This date is used for your KPIs.",
     "responseState": "Response",
     "responded": "Responded",
     "noResponse": "No response yet",
@@ -647,7 +649,7 @@
       "callsProposed": "Call proposal rate",
       "callsBooked": "Call booking rate"
     },
-    "incomplete": "Data is incomplete for this period",
+    "incomplete": "Partial data: leads without a reliable first-message date are excluded from these figures.",
     "personalScopeUnavailable": "Personal KPIs are unavailable because your setter profile is not linked to this account.",
     "from": "From",
     "to": "To",

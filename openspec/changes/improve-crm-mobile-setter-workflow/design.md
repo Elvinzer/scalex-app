@@ -178,6 +178,13 @@ message. Une réponse ou une réservation ultérieure compte dans cette cohorte,
 même si le lead a été réassigné et que l’événement a été saisi par un autre
 setter ; le responsable actuel ne remplace pas l’attribution historique.
 
+Une lacune de source ne masque pas toute la grille. Les valeurs calculables à
+partir des événements datés restent visibles, avec un avertissement qui précise
+que les leads sans date fiable de premier message sont exclus. Un KPI reste
+indisponible seulement si ses propres données nécessaires manquent, par exemple
+un taux dont le dénominateur est nul. Une lacune d’un lead hors de la période et
+des filtres actifs ne rend pas la période entière incomplète.
+
 Alternative écartée : calculer les conversions d’appel à partir du contenu de
 valeur ou des appels proposés. Ces dénominateurs ne correspondent pas au besoin
 de comparer chaque taux au volume de premiers messages.

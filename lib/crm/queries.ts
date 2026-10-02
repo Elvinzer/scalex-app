@@ -2157,6 +2157,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
       currentSnapshot: true,
       currentOutcome: lead.crmOutcome,
       currentContactState: lead.contactState,
+      leadCreatedAt: lead.createdAt,
       includeInCurrentCounts: !filters.setterId || lead.setterId === filters.setterId || setterCohortLeadIds.has(lead.id),
     });
   }

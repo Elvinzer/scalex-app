@@ -19,8 +19,17 @@ events, canonical call records, and canonical sale records.
 #### Scenario: KPI source is unavailable
 
 - **WHEN** a source does not provide sufficient data for a KPI
-- **THEN** the system SHALL show an explicit unavailable or incomplete state
+- **THEN** only that KPI SHALL show an explicit unavailable or incomplete state
+- **AND** other KPIs with sufficient source data SHALL remain visible
+- **AND** the interface SHALL explain when visible values exclude records with missing first-message dates
 - **AND** it SHALL not fabricate a value
+
+#### Scenario: Setter confirms the first message was sent
+
+- **WHEN** a setter confirms on the lead record that they sent the first message
+- **THEN** the system SHALL record a dated `first_message_sent` event as CRM-confirmed
+- **AND** the lead SHALL count once in the first-message cohort
+- **AND** profile capture alone SHALL NOT count as a sent message
 
 ### Requirement: Operational KPI counts
 
@@ -59,7 +68,8 @@ reach the target milestone, without counting a lead more than once in a stage.
 #### Scenario: Call-proposal and booking rates
 
 - **WHEN** the user requests call-proposal or booking conversion
-- **THEN** the system SHALL calculate Appel proposé divided by Contenu de valeur envoyé and Appel booké divided by Appel proposé respectively
+- **THEN** the system SHALL calculate unique leads reaching Appel proposé divided by unique first-message leads
+- **AND** it SHALL calculate unique leads reaching Appel booké divided by unique first-message leads
 - **AND** the system SHALL use unique leads for stage conversions
 
 #### Scenario: Attendance, no-show, and closing rates

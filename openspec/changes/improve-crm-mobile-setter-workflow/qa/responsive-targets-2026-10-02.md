@@ -199,11 +199,12 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   lead or a lead beyond the first-message stage without reliable cohort evidence
   marks the analysis incomplete. It does not infer a send date from lead
   creation or stage-history migration time.
-- While the selected period includes records with incomplete source data, all
-  six primary cards show “Non mesuré” and the page shows its incomplete-data
-  notice instead of presenting a numeric zero as complete. The 320 × 568 check
-  measured a 305 px document width; widths 360, 390, 768 and 1280 px measured
-  345, 375, 753 and 1265 px with no horizontal overflow.
+- In this initial check, the selected period included records with incomplete
+  source data, and a global flag masked all six cards as “Non mesuré”. This was
+  a reproduced UI defect, corrected in the later “KPI completeness and
+  first-message tracking” section below. The original viewport widths were
+  320 × 568, 360, 390, 768 and 1280 CSS px, with document widths 305, 345, 375,
+  753 and 1265 px respectively.
 - Next.js 16.3.5 with Turbopack compiled `/crm` without issues. Browser errors
   were empty. Axe found zero violations and one incomplete color-contrast check
   involving partially obscured mobile navigation and a gradient control. No
@@ -280,3 +281,27 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   Chromium’s extension team states that branded Chrome builds stopped accepting
   `--load-extension` in Chrome 137; Chrome for Testing continues to support it
   ([Chromium extension team](https://groups.google.com/a/chromium.org/g/chromium-extensions/c/1-g8EFx2BBY)).
+
+## KPI completeness and first-message tracking — 2026-10-02
+
+- The authenticated CRM reproduced the report: one incomplete-data flag caused
+  all six primary KPI cards to display “Non mesuré”, including values that the
+  page could calculate. The page now keeps numeric values visible and reserves
+  “Non mesuré” for a missing denominator or unavailable personal attribution.
+  The warning explains that records without a reliable first-message date are
+  excluded.
+- A read-only aggregate check of the shared account found no reliably confirmed
+  first-message events. Existing events marked profile selection at capture;
+  they do not prove that a message was sent and remain excluded from KPI
+  counts. No date was inferred and no database record was changed.
+- The server action for confirming a sent first message had no UI caller. The
+  lead detail now shows an explicit confirmation for a new lead at the
+  first-message stage. It calls the existing idempotent action, records the
+  confirmation timestamp and updates the contact state. The action was not
+  submitted during QA.
+- The local authenticated 320 × 568 check showed the confirmation control with
+  a 320 px document width and no browser or Next.js errors. The CRM period
+  view showed the recorded count; rates stayed unavailable because the cohort
+  had no reliable first-message denominator.
+- Typecheck, lint, all 166 test files (729 tests), both strict OpenSpec
+  validations, Turbopack compilation and Next.js/browser error checks passed.

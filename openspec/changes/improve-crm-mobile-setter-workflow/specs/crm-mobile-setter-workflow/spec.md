@@ -333,10 +333,13 @@ Historical migration events SHALL qualify as first-message evidence only when
 they carry the migration-generated first-message key for that lead and a stored
 occurrence timestamp. A contacted lead or a lead in a stage beyond the
 first-message stage without a reliable first-message date SHALL mark the
-analysis incomplete; its missing date SHALL NOT be inferred from lead creation,
-stage-history migration time or the current date.
-Reliably dated messages outside the selected cohort SHALL NOT make that
-period's analysis incomplete.
+analysis partial only when the record has activity or a recorded creation date
+in the selected period; its missing date SHALL NOT be inferred from lead
+creation, stage-history migration time or the current date. Reliable values
+SHALL remain visible when their required source data is available. An
+incomplete record SHALL NOT replace every primary KPI value with an unavailable
+state. The UI SHALL explain which records are excluded. Reliably dated records
+outside the selected cohort SHALL NOT make that period's analysis partial.
 
 Other commercial measures, including qualification activity, attendance,
 no-show and canonical sales or revenue, MAY remain available in separate
@@ -363,6 +366,14 @@ analysis surfaces. They SHALL NOT displace or obscure the six primary metrics.
 - **AND** conversation and value-content counts SHALL show the current stages of those same cohort leads
 - **AND** every rate SHALL use that same cohort as its denominator
 
+#### Scenario: Setter confirms a first message was sent
+
+- **WHEN** a setter confirms from a new lead's record that the first message was sent on its contact channel
+- **THEN** the CRM SHALL record one reliable `first_message_sent` event with the confirmation timestamp
+- **AND** the lead contact state SHALL change to `contacted`
+- **AND** capturing or selecting a profile alone SHALL NOT count as a sent message
+- **AND** retrying the confirmation SHALL NOT create duplicate events
+
 #### Scenario: Setter reviews first-message conversion rates
 
 - **WHEN** the setter reviews response, call-proposal or call-booked rate for a cohort
@@ -387,9 +398,10 @@ analysis surfaces. They SHALL NOT displace or obscure the six primary metrics.
 #### Scenario: Source data is incomplete
 
 - **WHEN** the system cannot calculate a rate or attribution reliably
-- **THEN** the KPI SHALL be labelled unavailable or incomplete
+- **THEN** only the KPI that lacks its required denominator, attribution or source data SHALL be labelled unavailable
+- **AND** other primary KPIs with available source data SHALL keep their calculated values visible
+- **AND** the interface SHALL explain which records are excluded from the figures
 - **AND** the interface SHALL not substitute a plausible-looking zero or fabricated amount
-- **AND** primary KPI cards affected by incomplete source data SHALL show an unavailable value instead of a numeric count or rate
 
 #### Scenario: Acquisition origin differs from contact platform
 

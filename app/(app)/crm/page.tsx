@@ -68,7 +68,6 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
     getCrmActions(access.accountId, { status: "open", responsibleUserId: isTeamView ? undefined : userId }),
   ]);
   const kpis = computeCrmKpis({ events, stageChanges, calls, sales: linkedSales, period, asOf });
-  const kpiDataIncomplete = kpis.incomplete || personalKpiScopeUnavailable;
   const activeFilterCount = [
     params.platform === "instagram" || params.platform === "linkedin",
     Boolean(offerId),
@@ -132,10 +131,12 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
           const value = key === "messages" || key === "conversations" || key === "valueContent"
             ? kpis[key]
             : kpis.rates[key === "responses" ? "response" : key === "callsProposed" ? "callProposed" : "callBooked"];
-          const measuredValue = typeof value === "number" ? `${Math.round(value * (key === "messages" || key === "conversations" || key === "valueContent" ? 1 : 100))}${key === "messages" || key === "conversations" || key === "valueContent" ? "" : "%"}` : t("kpis.notMeasured");
-          const displayValue = kpiDataIncomplete ? t("kpis.notMeasured") : measuredValue;
+          const valueIsMeasured = !personalKpiScopeUnavailable && typeof value === "number";
+          const displayValue = valueIsMeasured
+            ? `${Math.round(value * (key === "messages" || key === "conversations" || key === "valueContent" ? 1 : 100))}${key === "messages" || key === "conversations" || key === "valueContent" ? "" : "%"}`
+            : t("kpis.notMeasured");
           const destination = personalKpiScopeUnavailable ? null : leadKpiHref(key, { setter: setterId ?? undefined, platform, offer: offerId, source }, period);
-          const cardContent = <><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p className={`mt-2 font-bold ${kpiDataIncomplete ? "text-lg" : "text-2xl"}`}>{displayValue}</p></>;
+          const cardContent = <><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p className={`mt-2 font-bold ${valueIsMeasured ? "text-2xl" : "text-lg"}`}>{displayValue}</p></>;
           return destination
             ? <Link key={key} href={destination} className="sticker-card p-4 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/30">{cardContent}</Link>
             : <div key={key} className="sticker-card p-4" aria-disabled="true">{cardContent}</div>;

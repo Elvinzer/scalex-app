@@ -28,7 +28,7 @@ function firstMessage(leadId: string, occurredAt: string): CrmKpiEvent {
   return event({ leadId, type: "first_message_sent", occurredAt, metadata: { confirmedFrom: "crm" } });
 }
 
-function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_show" | "lost" | "sold" = "none", contactState?: "new" | "contacted") {
+function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_show" | "lost" | "sold" = "none", contactState?: "new" | "contacted", leadCreatedAt = new Date("2026-09-10T12:00:00Z")) {
   return {
     leadId,
     fromStage: null,
@@ -37,6 +37,7 @@ function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_sho
     currentSnapshot: true,
     currentOutcome: outcome,
     currentContactState: contactState,
+    leadCreatedAt,
   } as const;
 }
 
@@ -164,6 +165,51 @@ describe("CRM KPI projection", () => {
 
     expect(counts.messages).toBe(0);
     expect(counts.conversations).toBe(0);
+    expect(counts.incomplete).toBe(true);
+  });
+
+  it("does not let an older unmeasured lead make the selected period incomplete", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [],
+      stageChanges: [snapshot("old-legacy-lead", "conversation_in_progress", "none", "contacted", new Date("2026-08-31T23:59:59Z"))],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.conversations).toBe(0);
+    expect(counts.incomplete).toBe(false);
+  });
+
+  it("marks missing first-message evidence when a legacy lead has activity in the selected period", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [event({ leadId: "active-legacy-lead", type: "response_received", occurredAt: "2026-09-12T09:00:00Z" })],
+      stageChanges: [snapshot("active-legacy-lead", "conversation_in_progress", "none", "contacted", new Date("2026-08-01T12:00:00Z"))],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.incomplete).toBe(true);
+  });
+
+  it("keeps known values calculable while warning about incomplete source data", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [
+        firstMessage("measured", "2026-09-05T09:00:00Z"),
+        event({ leadId: "unverified", type: "first_message_sent", occurredAt: "2026-09-06T09:00:00Z", metadata: { selectedAtCapture: true } }),
+      ],
+      stageChanges: [snapshot("measured", "conversation_in_progress"), snapshot("unverified", "value_content_sent")],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(1);
+    expect(counts.conversations).toBe(1);
     expect(counts.incomplete).toBe(true);
   });
 

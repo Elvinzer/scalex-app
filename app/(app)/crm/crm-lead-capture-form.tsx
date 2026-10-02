@@ -113,7 +113,7 @@ export function CrmLeadCaptureForm({ offers = [], setters = [], hideTitle = fals
   }
 
   return (
-    <form onSubmit={submit} onChange={(event) => saveDraft(event.currentTarget)} data-crm-capture-form className="sticker-card flex flex-col gap-4 p-4 sm:p-5" aria-labelledby="crm-capture-title">
+    <form onSubmit={submit} onChange={(event) => saveDraft(event.currentTarget)} data-crm-capture-form className="sticker-card flex flex-col gap-4 p-4 sm:p-5" aria-labelledby={hideTitle ? undefined : "crm-capture-title"}>
       {!hideTitle && <h2 id="crm-capture-title" className="text-lg font-bold">{t("captureTitle")}</h2>}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] lg:items-start">
         <label className="flex flex-col gap-1.5 text-sm font-bold">

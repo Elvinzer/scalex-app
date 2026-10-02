@@ -34,7 +34,7 @@ export function CrmLeadManagementActions({ offers, setters, canImport }: { offer
         </DialogTrigger>
         <DialogContent {...captureReturnFocus} className="max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] p-4 sm:p-6">
           <div className="mb-4 flex items-start justify-between gap-3 border-b border-border pb-3">
-            <DialogTitle id="crm-capture-title" className="pt-2 text-lg font-bold">{t("leads.captureTitle")}</DialogTitle>
+            <DialogTitle className="pt-2 text-lg font-bold">{t("leads.captureTitle")}</DialogTitle>
             <DialogClose asChild><Button type="button" variant="outline" className="min-h-11">{t("detail.close")}</Button></DialogClose>
           </div>
           <CrmLeadCaptureForm offers={offers} setters={setters} hideTitle />
