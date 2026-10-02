@@ -339,4 +339,9 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   visible timestamps read `19:45`, and filter/reset state retained the timezone.
 - Next.js MCP reported no compilation issues or runtime errors. Typecheck,
   lint and the full Vitest suite passed (166 files, 730 tests). The fix is local
-  and has not yet been deployed; production still needs a post-deployment check.
+  in commit `b00be8c`, pushed to `main` and deployed to Production. A fresh
+  authenticated production session showed no browser errors. At 320 × 568 the
+  page width remained 320 px, generated timestamps read `19:45`, and the filter
+  drawer's timezone inputs and reset links retained `Europe/Paris`. Axe found
+  zero violations and one incomplete mobile-navigation contrast check; that
+  check did not confirm a failure.
