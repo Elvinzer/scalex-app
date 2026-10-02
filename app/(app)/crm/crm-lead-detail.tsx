@@ -8,7 +8,7 @@ import { ArrowLeft, CalendarClock, FileText, History, MessageCircle, NotebookPen
 
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Button } from "@/components/ui/button";
-import { CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES, type CrmLeadDetails, type CrmLeadOutcome, type CrmLeadSource, type CrmLeadStage, type CrmLostReason } from "@/lib/crm/types";
+import { CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES, crmStageImpliesResponse, type CrmLeadDetails, type CrmLeadOutcome, type CrmLeadSource, type CrmLeadStage, type CrmLostReason } from "@/lib/crm/types";
 import { CRM_EVENT_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine";
 import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
@@ -307,7 +307,7 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
 
         <div className="grid gap-px overflow-hidden rounded-[var(--radius-control)] border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.contactState")}</p><p className="mt-1 break-words font-bold">{lead.contactState === "new" ? t("detail.newLead") : t("detail.contacted")}</p></div>
-          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.responseState")}</p><p className="mt-1 break-words font-bold">{lead.respondedAt ? t("detail.responded") : t("detail.noResponse")}</p></div>
+          {!crmStageImpliesResponse(lead.stage) && <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.responseState")}</p><p className="mt-1 break-words font-bold">{lead.respondedAt ? t("detail.responded") : t("detail.noResponse")}</p></div>}
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextCall")}</p>{lead.nextCall ? <><p className="mt-1 break-words font-bold">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: lead.nextCall.timeZone ?? "UTC" }).format(new Date(lead.nextCall.scheduledAt))}</p><p className="mt-1 break-words text-xs text-muted-foreground">{lead.nextCall.timeZone ?? t("detail.localTime")} · {lead.nextCall.closer ?? t("detail.unassigned")} · {callOutcomeLabel(lead.nextCall.outcome)}</p></> : <p className="mt-1 break-words font-bold">{t("detail.noNextCall")}</p>}</div>
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextAction")}</p><p className="mt-1 break-words font-bold">{lead.nextAction?.title ?? t("leads.noNextAction")}</p></div>
         </div>

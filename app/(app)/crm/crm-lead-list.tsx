@@ -7,7 +7,7 @@ import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
 import type { CrmLeadListItem } from "@/lib/crm/types";
 import type { CrmLeadFilters } from "@/lib/crm/queries";
-import { CRM_LEAD_SOURCES } from "@/lib/crm/types";
+import { CRM_LEAD_SOURCES, crmStageImpliesResponse } from "@/lib/crm/types";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -87,7 +87,7 @@ export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount
                 </div>
               </td>
               <td className="px-4 py-3 text-muted-foreground">{lead.responsibleSetterName ?? t("detail.unassigned")}</td>
-              <td className="px-4 py-3 font-bold">{lead.contactState === "new" ? t("detail.newLead") : lead.respondedAt ? t("detail.responded") : t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</td>
+              <td className="px-4 py-3 font-bold">{lead.contactState === "new" ? t("detail.newLead") : lead.respondedAt || crmStageImpliesResponse(lead.stage) ? t("detail.responded") : t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</td>
               <td className="max-w-56 px-4 py-3 text-muted-foreground">{lead.nextAction?.title ?? t("leads.noNextAction")}</td>
               <td className="px-4 py-3 text-muted-foreground">{createdDateFormatter.format(new Date(lead.createdAt))}</td>
               <td className="px-4 py-3 text-right"><ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-accent-text" aria-hidden="true" /></td>
@@ -102,7 +102,7 @@ export function CrmLeadList({ leads: initialLeads, totalCount: initialTotalCount
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-3">
                 <span className="truncate font-bold">{lead.displayName}</span>
-                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{lead.contactState === "new" ? t("detail.newLead") : lead.respondedAt ? t("detail.responded") : t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span>
+                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{lead.contactState === "new" ? t("detail.newLead") : lead.respondedAt || crmStageImpliesResponse(lead.stage) ? t("detail.responded") : t(CRM_OUTCOME_LABEL_KEYS[lead.outcome])}</span>
               </div>
               <p className="mt-1 truncate text-xs text-muted-foreground">{t("leads.channelShort")}: {lead.platform ? sourceLabel(lead.platform) : t("leads.noChannel")} · {t("leads.sourceShort")}: {sourceLabel(lead.source)} · {lead.responsibleSetterName ?? t("detail.unassigned")}</p>
               {lead.nextAction && <p className="mt-2 text-xs font-bold text-accent-text">{lead.nextAction.title}</p>}

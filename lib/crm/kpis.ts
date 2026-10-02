@@ -20,6 +20,7 @@ export type CrmKpiStageChange = {
   occurredAt: Date;
   currentSnapshot?: boolean;
   currentOutcome?: CrmLeadOutcome;
+  includeInCurrentCounts?: boolean;
 };
 
 export type CrmKpiCall = {
@@ -153,7 +154,7 @@ export function computeCrmKpis(input: {
   const callsBookedAfterFirstMessage = new Set<string>();
   const soldLeadIds = new Set<string>();
   const noShowEventLeadIds = new Set<string>();
-  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; changedAt: Date }>();
+  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; changedAt: Date; includeInCurrentCounts?: boolean }>();
   const stageChanges = (input.stageChanges ?? [])
     .filter((change) => change.occurredAt <= asOf)
     .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
@@ -185,7 +186,12 @@ export function computeCrmKpis(input: {
 
   for (const change of stageChanges) {
     if (change.currentSnapshot) {
-      currentStages.set(change.leadId, { stage: change.toStage, outcome: change.currentOutcome, changedAt: change.occurredAt });
+      currentStages.set(change.leadId, {
+        stage: change.toStage,
+        outcome: change.currentOutcome,
+        changedAt: change.occurredAt,
+        includeInCurrentCounts: change.includeInCurrentCounts,
+      });
       continue;
     }
     const previous = currentStages.get(change.leadId);
@@ -275,7 +281,7 @@ export function computeCrmKpis(input: {
   const currentValueContentIds = new Set<string>();
   for (const leadId of firstMessageDates.keys()) {
     const current = currentStages.get(leadId);
-    if (!current || current.outcome === "lost" || current.outcome === "sold") continue;
+    if (!current || current.includeInCurrentCounts === false || current.outcome === "lost" || current.outcome === "sold") continue;
     if (current.stage === "conversation_in_progress") currentConversationIds.add(leadId);
     if (current.stage === "value_content_sent") currentValueContentIds.add(leadId);
   }

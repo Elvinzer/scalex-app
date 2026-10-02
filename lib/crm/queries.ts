@@ -54,7 +54,7 @@ import type {
   CrmResponsibilityHistoryView,
   CrmStageHistoryView,
 } from "./types";
-import { CRM_LEAD_STAGES } from "./types";
+import { CRM_LEAD_STAGES, crmStageImpliesResponse } from "./types";
 import { getCrmCallSuggestions } from "./call-match-suggestions";
 import { CRM_PIPELINE_STAGE_PAGE_SIZE, normalizeCrmLeadLimit } from "./lead-pagination";
 import { getNoShowFollowUpDueAt } from "./no-show";
@@ -488,7 +488,7 @@ function buildCrmLeadConditions(accountId: string, filters: CrmLeadFilters, now:
   if (filters.outcome) conditions.push(eq(leads.crmOutcome, filters.outcome));
   if (filters.excludeLost) conditions.push(ne(leads.crmOutcome, "lost"));
   if (filters.contactState) conditions.push(eq(leads.contactState, filters.contactState));
-  if (filters.respondedOnly) conditions.push(sql`${leads.respondedAt} is not null`);
+  if (filters.respondedOnly) conditions.push(or(sql`${leads.respondedAt} is not null`, inArray(leads.crmStage, CRM_LEAD_STAGES.filter(crmStageImpliesResponse))) ?? sql`false`);
   if (filters.qualificationOnly) conditions.push(sql`${leads.qualificationNote} is not null and length(trim(${leads.qualificationNote})) > 0`);
   if (filters.eventType) {
     const eventConditions = [
@@ -1031,6 +1031,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       crmStage: stage,
       contactState,
       crmOutcome: "none",
+      respondedAt: crmStageImpliesResponse(stage) ? capturedAt : null,
       messageOccurredAt: createdMessageDate,
       capturedAt,
       updatedAt: new Date(),
@@ -1271,7 +1272,12 @@ export async function changeCrmStage(accountId: string, leadId: string, stage: C
     }
     if (current.crmStage === stage) return toLeadItem(current);
     const changedAt = new Date();
-    const [updated] = await tx.update(leads).set({ crmStage: stage, stage: legacyStageForCrmStage(stage), updatedAt: new Date() }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    const [updated] = await tx.update(leads).set({
+      crmStage: stage,
+      stage: legacyStageForCrmStage(stage),
+      respondedAt: current.respondedAt ?? (crmStageImpliesResponse(stage) ? changedAt : null),
+      updatedAt: changedAt,
+    }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
     await tx.insert(crmLeadStageHistory).values({ accountId, leadId, fromStage: current.crmStage, toStage: stage, actorUserId, responsibleSetterId: current.setterId, source, changedAt });
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: "stage_changed", source, sourceEventKey: eventKey, occurredAt: changedAt, capturedAt: changedAt, metadata: { fromStage: current.crmStage, toStage: stage, responsibleSetterId: current.setterId } })).onConflictDoNothing();
     await tx.insert(crmLeadEvents).values(eventValues({ accountId, leadId, actorUserId, type: eventForStage(stage), source, sourceEventKey: eventKey ? `${eventKey}:milestone` : null, occurredAt: changedAt, capturedAt: changedAt, metadata: { source: "manual_stage_change", responsibleSetterId: current.setterId } })).onConflictDoNothing();
@@ -1750,7 +1756,14 @@ export async function reopenCrmLead(accountId: string, leadId: string, actorUser
     const nextStage = requestedStage ?? defaultStageAfterReopen(current.crmStage);
     const changedAt = new Date();
     const stageChanged = current.crmStage !== nextStage;
-    const [updated] = await tx.update(leads).set({ crmOutcome: "none", isNoShow: false, crmStage: nextStage, stage: legacyStageForCrmStage(nextStage), updatedAt: changedAt }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
+    const [updated] = await tx.update(leads).set({
+      crmOutcome: "none",
+      isNoShow: false,
+      crmStage: nextStage,
+      stage: legacyStageForCrmStage(nextStage),
+      respondedAt: current.respondedAt ?? (crmStageImpliesResponse(nextStage) ? changedAt : null),
+      updatedAt: changedAt,
+    }).where(and(eq(leads.id, leadId), eq(leads.accountId, accountId))).returning();
     if (!updated) return null;
     const stageEventKey = eventKey ? `${eventKey}:stage` : null;
     if (stageChanged) {
@@ -2012,7 +2025,6 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
   const fromDate = from.toISOString().slice(0, 10);
   const toDate = to.toISOString().slice(0, 10);
   const fromIso = from.toISOString();
-  const toIso = to.toISOString();
   const asOfIso = asOf.toISOString();
   const eventOccurredAt = sql`coalesce(${crmLeadEvents.occurredAt}, ${crmLeadEvents.createdAt})`;
   const eventCapturedAt = sql`coalesce(${crmLeadEvents.capturedAt}, ${crmLeadEvents.createdAt})`;
@@ -2025,13 +2037,14 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
         and(gte(eventCapturedAt, fromIso), lte(eventCapturedAt, asOfIso)),
       ),
     )),
-    db.select({ history: crmLeadStageHistory, lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, createdAt: leads.createdAt } }).from(crmLeadStageHistory).innerJoin(leads, and(eq(crmLeadStageHistory.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(crmLeadStageHistory.accountId, accountId), lte(crmLeadStageHistory.changedAt, asOf))),
+    db.select({ history: crmLeadStageHistory, lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, createdAt: leads.createdAt } }).from(crmLeadStageHistory).innerJoin(leads, and(eq(crmLeadStageHistory.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(crmLeadStageHistory.accountId, accountId), gte(crmLeadStageHistory.changedAt, from), lte(crmLeadStageHistory.changedAt, asOf))),
     db.select({ lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, createdAt: leads.createdAt } }).from(leads).where(eq(leads.accountId, accountId)),
     db.select({ call: salesCalls, link: crmCallLinks, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(salesCalls).leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId))).leftJoin(leads, and(eq(crmCallLinks.leadId, leads.id), eq(leads.accountId, accountId))).where(and(
       eq(salesCalls.userId, accountId),
       or(
         and(gte(salesCalls.scheduledAt, from), lte(salesCalls.scheduledAt, to)),
         and(gte(salesCalls.createdAt, from), lte(salesCalls.createdAt, asOf)),
+        and(gte(crmCallLinks.linkedAt, from), lte(crmCallLinks.linkedAt, asOf)),
       ),
     )),
     db.select({ sale: sales, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(sales).leftJoin(leads, and(eq(sales.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(sales.userId, accountId), gte(sales.saleDate, fromDate), lte(sales.saleDate, toDate))),
@@ -2058,7 +2071,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
     })
     .map(({ history }) => ({ leadId: history.leadId, fromStage: history.fromStage, toStage: history.toStage, actorUserId: history.actorUserId, responsibleSetterId: history.responsibleSetterId, occurredAt: history.changedAt }));
   for (const { lead } of leadRows) {
-    if (!matchesLead(lead) || (filters.setterId && lead.setterId !== filters.setterId)) continue;
+    if (!matchesLead(lead, false)) continue;
     stageChanges.push({
       leadId: lead.id,
       fromStage: null,
@@ -2068,6 +2081,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
       occurredAt: asOf,
       currentSnapshot: true,
       currentOutcome: lead.crmOutcome,
+      includeInCurrentCounts: !filters.setterId || lead.setterId === filters.setterId,
     });
   }
   const calls = callRows.filter(({ link, lead }) => Boolean(link?.leadId) && matchesLead(lead)).map(({ link, call }) => ({ leadId: link?.leadId ?? null, scheduledAt: call.scheduledAt, bookedAt: link?.linkedAt ?? call.createdAt, attendance: call.attendance }));

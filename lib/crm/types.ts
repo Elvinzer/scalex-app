@@ -38,6 +38,10 @@ export const CRM_LEAD_STAGES = [
 ] as const;
 export type CrmLeadStage = (typeof CRM_LEAD_STAGES)[number];
 
+export function crmStageImpliesResponse(stage: CrmLeadStage): boolean {
+  return stage !== "first_message_sent";
+}
+
 export const CRM_LEAD_OUTCOMES = ["none", "no_show", "lost", "sold"] as const;
 export type CrmLeadOutcome = (typeof CRM_LEAD_OUTCOMES)[number];
 

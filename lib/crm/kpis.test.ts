@@ -86,6 +86,23 @@ describe("CRM KPI projection", () => {
     expect(counts.valueContent).toBe(1);
   });
 
+  it("keeps reassigned cohort leads out of a former setter's current-stage count", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [firstMessage("reassigned", "2026-09-03T09:00:00Z"), firstMessage("still-owned", "2026-09-04T09:00:00Z")],
+      stageChanges: [
+        { ...snapshot("reassigned", "conversation_in_progress"), includeInCurrentCounts: false },
+        { ...snapshot("still-owned", "conversation_in_progress"), includeInCurrentCounts: true },
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(2);
+    expect(counts.conversations).toBe(1);
+  });
+
   it("uses the first-message cohort for all three rates and counts later conversions through today", () => {
     const counts = computeCrmKpis({
       period,
