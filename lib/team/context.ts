@@ -38,12 +38,17 @@ export function getDefaultAppRoute(context: AccountContext | null): string {
   return MEMBER_LANDING_ROUTES.find(({ permission }) => context.permissions.has(permission))?.href ?? "/roadmap";
 }
 
+export function resolvePostAuthRoute(context: AccountContext | null, onboardingCompleted: boolean): string {
+  if (context && !context.isOwner) return getDefaultAppRoute(context);
+  return onboardingCompleted ? "/dashboard" : "/onboarding";
+}
+
 // Resolve the first page a person can actually open after authentication.
 // Owners still follow the onboarding flow. Team members skip it and land on
 // their first granted page, or on /roadmap when their role has no permissions.
 export async function getPostAuthDestination(userId: string): Promise<string> {
   const context = await getAccountContext(userId);
-  if (context && !context.isOwner) return getDefaultAppRoute(context);
+  if (context && !context.isOwner) return resolvePostAuthRoute(context, false);
 
   const accountId = context?.accountId ?? userId;
   const [user] = await db
@@ -52,7 +57,7 @@ export async function getPostAuthDestination(userId: string): Promise<string> {
     .where(eq(users.id, accountId))
     .limit(1);
 
-  return user?.onboardingCompleted ? "/dashboard" : "/onboarding";
+  return resolvePostAuthRoute(context, user?.onboardingCompleted === true);
 }
 
 // Resolves which account a Supabase Auth user id acts on behalf of, and

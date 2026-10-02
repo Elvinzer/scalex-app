@@ -178,6 +178,7 @@ export function buildFunnelBlockBottleneck({
         label: step.label,
         unit: step.unit,
         sourceHref: sourceHrefForMetric(step.metricKey, entry.blockKey),
+        sourcePageLabel: entry.label,
       });
       previousVolume = volume;
     }

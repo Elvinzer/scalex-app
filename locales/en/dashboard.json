@@ -116,6 +116,23 @@
     "attendedCallsUnit": "calls attended",
     "salesClosedUnit": "sales",
     "startingPoint": "Starting point of the funnel",
+    "acquisitionJourney": "Acquisition journey",
+    "sourceLabel": "Source: {page}",
+    "sourceLinkAccessible": "Source: {page}. {label}",
+    "sourceUnknown": "Acquisition",
+    "sourceAcquisitionPipeline": "Acquisition funnel",
+    "sourceFunnels": {
+      "lead_magnet": "Lead magnet",
+      "vsl": "VSL",
+      "quiz": "Quiz",
+      "appel_direct": "Direct booking",
+      "setting_dm": "DM setting",
+      "webinaire": "Webinar",
+      "challenge": "Challenge",
+      "newsletter": "Newsletter",
+      "vente_directe": "Direct sales",
+      "communaute": "Community"
+    },
     "principal": "Main bottleneck",
     "you": "You",
     "benchmark": "Benchmark",
@@ -142,8 +159,7 @@
     "summaryDescription": "Each improvement is carried through to final sales using the funnel’s observed downstream rates.",
     "summaryTotal": "Conservative potential based on measured sales",
     "summaryTotalLabel": "Measured ceiling",
-    "summaryNote": "The projection follows observed rates and never exceeds the value of measured sales when direct attribution is missing.",
-    "viewSummary": "View details"
+    "summaryNote": "The projection follows observed rates and never exceeds the value of measured sales when direct attribution is missing."
   },
   "metrics": {
     "revenue": "Cash collected",

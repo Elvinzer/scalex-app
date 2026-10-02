@@ -116,6 +116,23 @@
     "attendedCallsUnit": "appels tenus",
     "salesClosedUnit": "ventes",
     "startingPoint": "Point de départ du tunnel",
+    "acquisitionJourney": "Parcours d’acquisition",
+    "sourceLabel": "Source : {page}",
+    "sourceLinkAccessible": "Source : {page}. {label}",
+    "sourceUnknown": "Acquisition",
+    "sourceAcquisitionPipeline": "Pipeline d’acquisition",
+    "sourceFunnels": {
+      "lead_magnet": "Lead magnet",
+      "vsl": "VSL",
+      "quiz": "Quiz",
+      "appel_direct": "Appel direct",
+      "setting_dm": "Setting DM",
+      "webinaire": "Webinaire",
+      "challenge": "Challenge",
+      "newsletter": "Newsletter",
+      "vente_directe": "Vente directe",
+      "communaute": "Communauté"
+    },
     "principal": "Goulot principal",
     "you": "Toi",
     "benchmark": "Benchmark",
@@ -142,8 +159,7 @@
     "summaryDescription": "Chaque amélioration est propagée jusqu’aux ventes finales avec les taux réels des étapes suivantes.",
     "summaryTotal": "Potentiel prudent basé sur les ventes mesurées",
     "summaryTotalLabel": "Plafond mesuré",
-    "summaryNote": "La projection suit les taux observés et ne dépasse pas la valeur des ventes mesurées lorsqu’une attribution directe manque.",
-    "viewSummary": "Voir le détail"
+    "summaryNote": "La projection suit les taux observés et ne dépasse pas la valeur des ventes mesurées lorsqu’une attribution directe manque."
   },
   "metrics": {
     "revenue": "CA encaissé",

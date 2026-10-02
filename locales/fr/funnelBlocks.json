@@ -71,7 +71,7 @@
     "sourceBreakdown": "Ventiler par source",
     "sourceBreakdownHelp": "Compare tes chiffres sans inventer de répartition.",
     "sourceUnavailable": "Ventile tes chiffres par source pour comparer.",
-    "sourceLink": "Saisir une ventilation",
+    "sourceLink": "Saisir les données",
     "sourceFiltered": "Filtré sur {source}",
     "benchmark": "Benchmark",
     "you": "Toi",

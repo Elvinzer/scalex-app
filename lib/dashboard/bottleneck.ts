@@ -43,6 +43,7 @@ export type BottleneckStage = {
   label?: string;
   unit?: string;
   sourceHref?: string;
+  sourcePageLabel?: string;
 };
 
 export type BottleneckFunnelVariant = {
