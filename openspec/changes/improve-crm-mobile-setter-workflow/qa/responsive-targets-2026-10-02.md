@@ -92,13 +92,17 @@ Date: 2026-10-02
   sale form displayed its validation fields and was dismissed before
   confirmation. The booking panel reported that the closer calendar was
   unavailable and kept confirmation disabled. No CRM or booking record changed.
-- The `/crm` “Performance commerciale” section opened and displayed all 11 KPI
-  cards. The “Appels honorés” card navigated to
-  `/crm/appels?from=2026-10-01&to=2026-10-31&attendance=showed`; the destination
-  remained 320 px wide with no horizontal overflow.
-- This smoke check covered the previous 11-card implementation only. The later
-  KPI contract in tasks 8.1–8.3 now requires six different primary metrics and
-  has not yet been implemented or verified in the browser.
+- On 2026-10-02, `/crm` displayed the six primary KPI cards at 320 × 568. The
+  acquisition-source filter appeared separately from the contact-platform
+  filter. The document width measured 305 CSS px inside a 320 px viewport.
+- A response-rate card click preserved the selected September cohort, the
+  Instagram acquisition source and LinkedIn contact platform in its
+  `/crm/leads` URL. Direct read-only navigation also exercised all six metric
+  drill-downs; each page rendered its metric scope without a Next.js or browser
+  error. The leads page measured 305 px of document width at 320 px.
+- An axe scan found no violations. One color-contrast check remained incomplete
+  because the scanner could not determine backgrounds for partially obscured
+  navigation links and a gradient button.
 - This focused check did not submit capture, response, qualification, booking,
   no-show, loss, or sale mutations. It also did not verify keyboard-open
   behavior, setter tasks over multiple days, or the full KPI/filter matrix.
@@ -131,6 +135,5 @@ Date: 2026-10-02
 
 ## Remaining limit
 
-Task 9.3 remains open. This route and touch-target pass does not exercise the
-full CRM action/KPI matrix or replace the controlled setter pilot in tasks
-10.2–10.3.
+Task 9.3 remains open. This route and KPI pass does not exercise the full CRM
+keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10.3.

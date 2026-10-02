@@ -634,7 +634,7 @@
     "revenue": "Revenue generated",
     "period": "Period",
     "analyticsTitle": "Sales performance",
-    "analyticsSubtitle": "Six metrics for the selected period, filtered by acquisition source.",
+    "analyticsSubtitle": "Six CRM metrics. Choose a date range and acquisition source.",
     "primaryTitle": "Primary KPIs",
     "secondaryTitle": "Other commercial metrics",
     "rateBasis": "Each rate divides converted leads by unique first messages in this period. Conversions count through today.",

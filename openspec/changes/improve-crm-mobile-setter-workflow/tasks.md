@@ -48,9 +48,9 @@
 
 ## 8. KPI and attribution
 
-- [ ] 8.1 Implement the six primary KPI definitions: unique first messages, current conversations in progress, current value-content stage, first-message response rate, call-proposal rate and call-booked rate. Apply the selected first-message cohort period and acquisition-origin filter consistently; use unique first-message leads as the denominator for all three rates.
-- [ ] 8.2 Add metric-specific drill-downs for all six primary metrics, preserving the cohort period and acquisition-origin filter and showing only contributing leads.
-- [ ] 8.3 Add regression tests for current-stage cohort counts, first-message cohort rates, milestones reached after the cohort period, unique-lead counting, zero denominators, attribution filters, reassignment, reopening, repeated capture and incomplete source data.
+- [x] 8.1 Implement the six primary KPI definitions: unique first messages, current conversations in progress, current value-content stage, first-message response rate, call-proposal rate and call-booked rate. Apply the selected first-message cohort period and acquisition-origin filter consistently; use unique first-message leads as the denominator for all three rates.
+- [x] 8.2 Add metric-specific drill-downs for all six primary metrics, preserving the cohort period and acquisition-origin filter and showing only contributing leads.
+- [x] 8.3 Add regression tests for current-stage cohort counts, first-message cohort rates, milestones reached after the cohort period, unique-lead counting, zero denominators, attribution filters, reassignment, reopening, repeated capture and incomplete source data.
 
 ## 9. Mobile QA and intensive-use validation
 
