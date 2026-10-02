@@ -119,6 +119,27 @@ unobserved general rollout.
   1280 × 900. Document width matched the viewport, sampled local date inputs
   matched visible due dates, and axe reported zero violations. Axe left color
   contrast as an incomplete manual review item.
-- These follow-up changes have not yet been deployed. The full route/action/KPI
-  matrix, wider network fault automation and controlled setter pilot remain
-  open under tasks 9.3, 9.4, 10.2 and 10.3.
+- The full route/action/KPI matrix, wider network fault automation and
+  controlled setter pilot remain open under tasks 9.3, 9.4, 10.2 and 10.3.
+
+## Production smoke — 2026-10-02
+
+- Commit `a109d4f235817c0704fbaf0ce83fc4854a54a312` deployed to Vercel
+  Production with a successful deployment status.
+- On `www.minaly.io`, authenticated read-only checks covered `/crm`,
+  `/crm/leads`, `/crm/pipeline`, `/crm/actions`, `/crm/appels` and
+  `/crm/extension` at 320 × 568 and 1280 × 900. Each route displayed its
+  expected heading and `scrollWidth` matched the viewport. The due-today filter
+  had no matching actions in the account used for the check and showed its
+  empty state.
+- The timezone query synchronized from UTC to the browser's `Europe/Paris`
+  zone. Fresh-session browser checks reported zero JavaScript errors on `/crm`
+  and `/crm/actions`; axe reported zero violations on both, with color contrast
+  left for manual review.
+- The unauthenticated `/crm` request redirected to `/sign-in`; `/sign-in`
+  returned HTTP 200. CRM pages were inspected in an existing authenticated
+  session. No CRM mutation was submitted.
+- The production deployment is verified for these read-only checks. Field
+  timing, the full route/action/KPI acceptance matrix, broader network-failure
+  automation and the controlled setter pilot remain open under tasks 9.3, 9.4,
+  10.2 and 10.3.
