@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeCrmKpis, currentCrmPeriod, isReliableFirstMessageEvent, matchesCrmKpiAttribution, type CrmKpiEvent } from "./kpis";
+import { computeCrmKpis, currentCrmPeriod, isReliableFirstMessageEvent, matchesCrmKpiAttribution, resolveCrmKpiSetterId, type CrmKpiEvent } from "./kpis";
 import type { CrmEventMetadata, CrmEventType, CrmLeadStage } from "./types";
 
 const period = { from: new Date("2026-09-01T00:00:00.000Z"), to: new Date("2026-09-30T23:59:59.999Z") };
@@ -41,6 +41,13 @@ function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_sho
 }
 
 describe("CRM KPI projection", () => {
+  it("keeps personal KPIs scoped to the current setter and team KPIs scoped to the selection", () => {
+    expect(resolveCrmKpiSetterId({ teamView: false, personalSetterId: "current-setter" })).toBe("current-setter");
+    expect(resolveCrmKpiSetterId({ teamView: false })).toBeNull();
+    expect(resolveCrmKpiSetterId({ teamView: true })).toBeUndefined();
+    expect(resolveCrmKpiSetterId({ teamView: true, selectedSetterId: "selected-setter" })).toBe("selected-setter");
+  });
+
   it("counts unique confirmed first messages and flags legacy unverified records", () => {
     const repeated = firstMessage("lead-1", "2026-09-01T09:00:00Z");
     const counts = computeCrmKpis({

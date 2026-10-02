@@ -100,6 +100,15 @@ export const CRM_PRIMARY_KPI_METRICS = [
 
 export type CrmPrimaryKpiMetric = (typeof CRM_PRIMARY_KPI_METRICS)[number];
 
+export function resolveCrmKpiSetterId(input: {
+  teamView: boolean;
+  selectedSetterId?: string | null;
+  personalSetterId?: string | null;
+}): string | null | undefined {
+  if (input.teamView) return input.selectedSetterId || undefined;
+  return input.personalSetterId ?? null;
+}
+
 const EVENT_STAGE: Partial<Record<CrmEventType, CrmLeadStage>> = {
   first_message_sent: "first_message_sent",
   conversation_started: "conversation_in_progress",

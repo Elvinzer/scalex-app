@@ -648,6 +648,7 @@
       "callsBooked": "Taux d'appel booké"
     },
     "incomplete": "Données incomplètes pour cette période",
+    "personalScopeUnavailable": "Les KPI personnels sont indisponibles car votre profil de responsable n’est pas rattaché à ce compte.",
     "from": "Du",
     "to": "Au",
     "setter": "Setter",

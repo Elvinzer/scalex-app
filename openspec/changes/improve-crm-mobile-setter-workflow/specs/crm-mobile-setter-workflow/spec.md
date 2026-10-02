@@ -306,6 +306,10 @@ value content currently sent, first-message response rate, call-proposal rate
 and call-booked rate. It SHALL provide a date-period filter and an
 acquisition-origin filter that apply consistently to all six metrics;
 acquisition origin SHALL remain distinct from the contact platform.
+In personal view, these metrics SHALL use the authenticated setter’s attribution;
+in team view, they SHALL use all setters or the selected setter. If personal
+setter attribution cannot be resolved, the metrics SHALL be unavailable rather
+than silently showing account-wide totals.
 
 The selected period SHALL define a cohort by the date of each lead’s first
 message. The first-message count SHALL include each lead once. Conversation and
