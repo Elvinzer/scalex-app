@@ -155,6 +155,23 @@ Date: 2026-10-02
 Task 9.3 remains open. This route and KPI pass does not exercise the full CRM
 keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10.3.
 
+## Extension profile identity DOM check
+
+- On 2026-10-02, public profile pages were inspected without signing in or
+  changing CRM data. Instagram's visible profile identity was exposed as an
+  `h2` inside `main header`; when it contained only the handle, the safe fallback
+  was the normalized handle. LinkedIn's public company name was exposed as the
+  `h1.top-card-layout__title` inside `main`.
+- LinkedIn also rendered a sign-in modal heading outside `main` whose text
+  included the company name. The previous document-wide `h1, h2` search could
+  select that modal heading before the profile identity. The extractor now
+  searches only the platform's profile identity region and rejects generic
+  labels such as “Voir Profil” and “View Profile”.
+- Regression fixtures cover Instagram and LinkedIn profile headings, both
+  messaging routes, generic action labels, and normalized-handle fallback.
+  Authenticated Instagram and LinkedIn conversation headers remain unverified;
+  task 8.14 remains open until those visible surfaces can be checked.
+
 ## Production KPI visibility check
 
 - After the production deployment for `99a32fa` reached Ready, the authenticated
@@ -242,3 +259,24 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   Turbopack compilation and Next.js/browser error checks passed. Axe reported
   zero violations and one incomplete color-contrast check for shared navigation
   and gradient elements; those nodes need a manual visual review.
+
+## Extension runtime smoke on public profiles
+
+- `agent-browser` 0.33.2 with Chrome for Testing 154.0.8037.92 loaded the
+  built Minaly CRM extension 0.3.4 in an isolated browser profile. The
+  `chrome://extensions-internals` page listed it as enabled from the command
+  line.
+- On the public LinkedIn Microsoft company page, the content-script host was
+  injected next to the profile identity. The profile name is `Microsoft` in
+  `main h1`; the separate sign-in dialog also contains a heading mentioning
+  Microsoft, outside `main`.
+- On the public Instagram `natgeo` profile, the content-script host was
+  injected and the identity heading inside `main header` was `natgeo`.
+- No social account was signed in, no extension capture action was submitted,
+  no request to `minaly.io` was captured, and no CRM record was changed. Browser
+  errors were empty. Authenticated Instagram and LinkedIn conversation headers
+  remain unverified; task 8.14 remains open.
+- The initial attempt with branded Chrome 153 did not load the extension.
+  Chromium’s extension team states that branded Chrome builds stopped accepting
+  `--load-extension` in Chrome 137; Chrome for Testing continues to support it
+  ([Chromium extension team](https://groups.google.com/a/chromium.org/g/chromium-extensions/c/1-g8EFx2BBY)).

@@ -140,26 +140,75 @@ function minalyProfileUrl() {
     }
     return null;
 }
-function minalyVisibleNameHeading(handle, preferredElement) {
-    if (preferredElement?.isConnected)
+function minalyNormalizeProfileLabel(value) {
+    return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}@]+/gu, " ").trim();
+}
+const minalyGenericProfileActionLabels = new Set([
+    "voir profil",
+    "voir le profil",
+    "view profile",
+    "view the profile",
+    "view this profile",
+    "show profile",
+    "open profile",
+    "ver perfil",
+    "ver el perfil",
+    "ver o perfil",
+    "profil ansehen",
+    "profil anzeigen",
+    "visualizza profilo",
+    "visualizza il profilo",
+    "visualizar perfil",
+    "profiel bekijken",
+    "profiel weergeven",
+    "message",
+    "send message",
+    "envoyer message",
+    "envoyer un message",
+    "follow",
+    "suivre",
+    "connect",
+    "se connecter",
+    "more",
+    "plus",
+    "options",
+    "profile actions",
+    "actions du profil",
+]);
+function minalyIsGenericProfileActionLabel(value) {
+    const label = minalyNormalizeProfileLabel(value);
+    return minalyGenericProfileActionLabels.has(label)
+        || /^(?:view|see|open|visit|show|voir|afficher|ouvrir|consulter|acceder|ver|mostrar|abrir|visualizza|visualizar)(?: (?:the|this|el|o|le|la|les|un|une|il))? (?:profile|profil|perfil)(?: .+)?$/.test(label)
+        || /^(?:profil|profile|perfil)(?: ansehen| anzeigen| bekijken| weergeven)$/.test(label)
+        || /^(?:profile|profil)(?: (?:of|for|de|du|des) .+)?$/.test(label);
+}
+function minalyIsReliableProfileNameElement(element) {
+    if (!element.isConnected || !minalyIsVisibleElement(element))
+        return false;
+    const text = element.textContent?.trim().replace(/\s+/g, " ") ?? "";
+    return Boolean(text && !minalyIsGenericProfileActionLabel(text));
+}
+function minalyVisibleNameHeading(preferredElement) {
+    if (preferredElement && minalyIsReliableProfileNameElement(preferredElement))
         return preferredElement;
     const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
     const platform = hostname === "linkedin.com" ? "linkedin" : "instagram";
-    const conversation = minalyVisibleConversationProfile(platform);
-    if (conversation)
-        return conversation.handle === handle.trim().replace(/^@+/, "").toLowerCase() ? conversation.element : null;
     if (minalyIsConversationSurface(platform))
         return null;
-    const headings = Array.from(document.querySelectorAll("h1, h2"));
-    const normalizedHandle = handle.trim().replace(/^@+/, "").toLowerCase();
-    const matchingHeading = headings.find((node) => {
-        const text = node.textContent?.trim().toLowerCase() ?? "";
-        return normalizedHandle.length > 0 && text.includes(normalizedHandle);
-    });
-    return matchingHeading ?? headings.find((node) => Boolean(node.textContent?.trim())) ?? null;
+    const identitySelector = platform === "linkedin"
+        ? 'main [data-view-name="profile-top-card"] h1, main .top-card-layout__title, main h1, [role="main"] h1'
+        : "main header h1, main header h2, [role=main] header h1, [role=main] header h2";
+    return Array.from(document.querySelectorAll(identitySelector)).find(minalyIsReliableProfileNameElement) ?? null;
 }
 function minalyVisibleName(handle, preferredElement) {
-    return minalyVisibleNameHeading(handle, preferredElement)?.textContent?.trim() || handle;
+    const normalizedHandle = handle.trim().replace(/^@+/, "").toLowerCase();
+    const text = minalyVisibleNameHeading(preferredElement)?.textContent?.trim().replace(/\s+/g, " ");
+    if (!text)
+        return normalizedHandle;
+    const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
+    return hostname === "instagram.com" && minalyNormalizeProfileLabel(text) === minalyNormalizeProfileLabel(normalizedHandle)
+        ? normalizedHandle
+        : text;
 }
 function minalyVisibleMessageTime() {
     for (const node of Array.from(document.querySelectorAll("[data-timestamp]"))) {
@@ -768,8 +817,14 @@ function minalyElement(tag, text) {
         element.textContent = text;
     return element;
 }
+function minalyConversationPositionElement(handle) {
+    const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
+    const platform = hostname === "linkedin.com" ? "linkedin" : "instagram";
+    const conversation = minalyVisibleConversationProfile(platform);
+    return conversation?.handle === handle.trim().replace(/^@+/, "").toLowerCase() ? conversation.element : null;
+}
 function minalyPositionHost(host, handle) {
-    const heading = minalyVisibleNameHeading(handle);
+    const heading = minalyVisibleNameHeading() ?? minalyConversationPositionElement(handle);
     if (!heading) {
         host.classList.add("minaly-floating");
         if (host.parentElement !== document.documentElement) {

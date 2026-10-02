@@ -39,6 +39,33 @@ not use Meta or LinkedIn APIs for CRM capture.
 - **WHEN** a user opens or saves an extension card
 - **THEN** the extension SHALL not send, edit, or schedule a social message
 
+### Requirement: Reliable profile display-name extraction
+
+The extension SHALL distinguish a profile's visible identity from surrounding
+interface text. It SHALL NOT save a button label, link label, or generic action
+such as "Voir Profil" as the lead's display name. When the platform exposes a
+profile name, the extension SHALL read it from the profile identity area. When
+no reliable profile name is visible, it SHALL use the normalized handle or
+leave the display name unavailable; it SHALL NOT substitute interface text.
+
+#### Scenario: Profile name and action label are both visible
+
+- **WHEN** a supported profile page shows a real profile name and a control labeled "Voir Profil" or an equivalent generic action
+- **THEN** the extension SHALL use the profile name from the profile identity area
+- **AND** it SHALL NOT use the control label as the lead's display name
+
+#### Scenario: No reliable profile name is visible
+
+- **WHEN** the supported page does not expose a reliable profile name
+- **THEN** the extension SHALL use the normalized handle or leave the display name unavailable
+- **AND** it SHALL not save a generic interface label as the lead's display name
+
+#### Scenario: Name extraction regression is investigated
+
+- **WHEN** the extension's display-name extraction is changed to address an incorrect value
+- **THEN** the supported Instagram and LinkedIn profile and conversation page shapes SHALL be checked to identify which visible DOM element supplied the incorrect value
+- **AND** regression coverage SHALL verify that profile identity text is selected instead of nearby controls or generic interface labels
+
 ### Requirement: Unknown-profile creation
 
 The extension SHALL support a confirmed creation flow for a profile that does

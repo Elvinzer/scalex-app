@@ -87,6 +87,8 @@ et ne doit pas être simulée sur la base partagée sans compte pilote validé.
 - [x] 8.10 Implémenter messageOccurredAt, capturedAt et createdAt sans afficher un createdAt effectif avant la création confirmée.
 - [x] 8.11 Bloquer l’envoi, la modification et la programmation de messages sociaux depuis tous les états de l’extension.
 - [x] 8.12 Tester retry réseau, double clic, session expirée, CRM désactivé, DOM partiel, absence de message et réponse serveur lente.
+- [x] 8.13 Séparer l’identité visible des libellés d’action génériques pour Instagram et LinkedIn, avec fallback vers le handle normalisé et des tests de profil et de conversation.
+- [ ] 8.14 Vérifier sur une session sociale authentifiée les en-têtes de profil et de conversation Instagram et LinkedIn qui fournissent le nom affiché.
 
 ## 9. Migration et déploiement progressif
 
