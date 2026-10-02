@@ -24,5 +24,6 @@
 - [x] 5.1 Ajouter ou mettre à jour les tests ciblés du composant et des catalogues FR/EN.
 - [ ] 5.2 Vérifier le rendu authentifié du Dashboard, les liens source, le changement de parcours et l’ouverture Falco avec `agent-browser`.
   - Le compte de test actif n’a qu’un parcours, donc le sélecteur ne s’affiche pas. Le test du composant couvre deux parcours; il reste à vérifier le changement interactif dans le navigateur avec un compte qui en possède plusieurs.
+  - Recontrôle local en lecture seule le 2 octobre 2026 : le Dashboard authentifié rend le funnel; ses trois liens source pointent vers `/crm/appels` et `/ventes/suivi`, et le dialogue de détail Falco s’ouvre puis se ferme. Le compte ne fournit toujours qu’un parcours. Le CTA qui lance la conversation Falco n’a pas été déclenché : il écrit un événement et lance une requête IA.
 - [x] 5.3 Exécuter `npm run typecheck`, `npm run lint` et `npm run test`.
 - [x] 5.4 Vérifier le diff final, les clés FR/EN et l’absence de secrets ou de migration non prévue.
