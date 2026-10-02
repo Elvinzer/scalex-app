@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import type { Offer } from "@/lib/business/types";
+import { crmCaptureDraftSchema, restoreCrmDraft } from "@/lib/crm/drafts";
 import { CRM_CHANNELS, CRM_LEAD_SOURCES, type CrmChannel, type CrmLeadSource } from "@/lib/crm/types";
 
 const captureResponseSchema = z.discriminatedUnion("state", [
@@ -27,10 +28,9 @@ export function CrmLeadCaptureForm({ offers = [], setters = [], hideTitle = fals
   const [idempotencyKey, setIdempotencyKey] = useState(() => globalThis.crypto.randomUUID());
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("minaly.crm.capture-draft");
-    if (!saved) return;
+    const draft = restoreCrmDraft(sessionStorage, "minaly.crm.capture-draft", crmCaptureDraftSchema);
+    if (!draft) return;
     try {
-      const draft = JSON.parse(saved) as { identity?: string; displayName?: string; platform?: string; source?: string; idempotencyKey?: string };
       const form = document.querySelector<HTMLFormElement>("[data-crm-capture-form]");
       if (!form) return;
       const identityInput = form.elements.namedItem("identity");
@@ -47,7 +47,6 @@ export function CrmLeadCaptureForm({ offers = [], setters = [], hideTitle = fals
         setSource(draftPlatform);
       }
       if (draft.idempotencyKey) setIdempotencyKey(draft.idempotencyKey);
-      sessionStorage.removeItem("minaly.crm.capture-draft");
     } catch {
       sessionStorage.removeItem("minaly.crm.capture-draft");
     }

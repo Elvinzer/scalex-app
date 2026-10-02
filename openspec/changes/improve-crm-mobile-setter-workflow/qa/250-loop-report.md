@@ -78,6 +78,22 @@ backfill.
 - The Falco portrait fallback no longer emits a repeated Next Image sizing
   warning when the chat bubble is opened.
 
+## Follow-up local browser regression — 2026-10-02
+
+- At 320 × 568 and a reduced 320 × 360 viewport, the capture dialog stayed
+  within the viewport (`scrollWidth === innerWidth`). The focused identity field
+  remained visible at the reduced height; this approximates keyboard pressure
+  but does not replace an iOS or Android virtual-keyboard check.
+- A synthetic capture draft survived an offline submission, closing and
+  reopening the dialog. The error remained visible and the draft was cleared
+  after the check.
+- With the browser fetch call stubbed to reject after a delay, the submit button
+  disabled while pending, a second tap did not start another request, and a
+  retry kept the same idempotency key and draft. The stub prevented the request
+  from reaching the app server, so no CRM record was created.
+- The draft was removed from session storage and the browser session was closed
+  after the check. No database mutation was made.
+
 ## Pilot gate
 
 The deterministic pass, representative browser checkpoints and production
