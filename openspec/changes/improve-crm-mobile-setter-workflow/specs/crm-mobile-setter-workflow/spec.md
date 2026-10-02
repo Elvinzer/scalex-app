@@ -326,6 +326,8 @@ occurrence timestamp. A contacted lead or a lead in a stage beyond the
 first-message stage without a reliable first-message date SHALL mark the
 analysis incomplete; its missing date SHALL NOT be inferred from lead creation,
 stage-history migration time or the current date.
+Reliably dated messages outside the selected cohort SHALL NOT make that
+period's analysis incomplete.
 
 Other commercial measures, including qualification activity, attendance,
 no-show and canonical sales or revenue, MAY remain available in separate

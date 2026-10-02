@@ -115,6 +115,27 @@ describe("CRM KPI projection", () => {
     expect(counts.incomplete).toBe(true);
   });
 
+  it("does not mark a reliably dated message outside the selected cohort as incomplete", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [
+        firstMessage("selected-cohort", "2026-09-12T09:00:00Z"),
+        firstMessage("older-cohort", "2026-08-31T09:00:00Z"),
+      ],
+      stageChanges: [
+        snapshot("selected-cohort", "first_message_sent", "none", "contacted"),
+        snapshot("older-cohort", "conversation_in_progress", "none", "contacted"),
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(1);
+    expect(counts.conversations).toBe(0);
+    expect(counts.incomplete).toBe(false);
+  });
+
   it("counts current open cohort stages and excludes lost or sold leads", () => {
     const leads = ["conversation", "value-content", "proposed", "lost", "sold"];
     const counts = computeCrmKpis({

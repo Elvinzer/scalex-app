@@ -191,3 +191,10 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   were empty. Axe found zero violations and one incomplete color-contrast check
   involving partially obscured mobile navigation and a gradient control. No
   production data was changed.
+- A follow-up regression distinguishes a reliable first-message date outside
+  the selected cohort from a missing date. Its test keeps a measured period
+  usable when older leads are excluded. The local 320 × 568 previous-month
+  check retained the LinkedIn contact-platform and Instagram acquisition-source
+  filters in all six drill-down links; this filtered cohort had no matching
+  leads, so counts were 0 and rates were unavailable without an incomplete-data
+  warning.

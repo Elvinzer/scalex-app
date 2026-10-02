@@ -2033,6 +2033,10 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
     db.select({ event: crmLeadEvents, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(crmLeadEvents).innerJoin(leads, and(eq(crmLeadEvents.leadId, leads.id), eq(leads.accountId, accountId))).where(and(
       eq(crmLeadEvents.accountId, accountId),
       or(
+        and(
+          eq(crmLeadEvents.type, "first_message_sent"),
+          or(lte(eventOccurredAt, asOfIso), lte(eventCapturedAt, asOfIso)),
+        ),
         and(gte(eventOccurredAt, fromIso), lte(eventOccurredAt, asOfIso)),
         and(gte(eventCapturedAt, fromIso), lte(eventCapturedAt, asOfIso)),
       ),

@@ -154,6 +154,7 @@ export function computeCrmKpis(input: {
   const periodCallBookedLeadIds = new Set<string>();
   const qualificationLeadIds = new Set<string>();
   const firstMessageDates = new Map<string, Date>();
+  const datedFirstMessageLeadIds = new Set<string>();
   const unverifiedFirstMessages = new Set<string>();
   const responsesAfterFirstMessage = new Set<string>();
   const valueContentAfterFirstMessage = new Set<string>();
@@ -174,6 +175,7 @@ export function computeCrmKpis(input: {
 
     if (event.type === "first_message_sent") {
       if (isReliableFirstMessageEvent(event)) {
+        datedFirstMessageLeadIds.add(event.leadId);
         if (selectedPeriod) {
           const previous = firstMessageDates.get(event.leadId);
           if (!previous || date < previous) firstMessageDates.set(event.leadId, date);
@@ -308,7 +310,7 @@ export function computeCrmKpis(input: {
     "call_booked",
   ]);
   const missingCurrentFirstMessageEvidence = [...currentStages].some(([leadId, current]) => (
-    !firstMessageDates.has(leadId)
+    !datedFirstMessageLeadIds.has(leadId)
     && current.includeInCurrentCounts !== false
     && (current.contactState === "contacted" || advancedStagesWithoutCohort.has(current.stage))
   ));
