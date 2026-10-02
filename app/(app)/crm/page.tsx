@@ -95,7 +95,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
         installLabel={extensionInstallLabel}
       />
 
-      <details className="sticker-card group overflow-hidden">
+      <details className="sticker-card group overflow-hidden" open>
         <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-accent/20 [&::-webkit-details-marker]:hidden">
           <span className="min-w-0"><span className="block text-sm font-bold">{t("kpis.analyticsTitle")}</span><span className="mt-0.5 block text-sm text-muted-foreground">{t("kpis.analyticsSubtitle")}</span></span>
           <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] group-open:rotate-180" aria-hidden="true" />

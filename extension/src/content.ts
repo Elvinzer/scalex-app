@@ -321,10 +321,26 @@ function minalyReadLead(value: unknown): MinalyExtensionLead | null {
   return { id: value.id, displayName: value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, profiles, whatsappHref: typeof value.whatsappHref === "string" ? value.whatsappHref : null, matchSignals, matchScore: typeof value.matchScore === "number" ? value.matchScore : null, stage: value.stage, outcome: value.outcome, respondedAt: typeof value.respondedAt === "string" ? value.respondedAt : null, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
 }
 
-function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResolution; qualification: MinalyQualification | null; accountId: string | null } | null {
+function minalyReadCrmUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    const isMinalyHost = hostname === "minaly.io" || hostname.endsWith(".minaly.io");
+    const isPreviewHost = hostname.endsWith(".vercel.app");
+    const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+    const isAllowedProtocol = url.protocol === "https:" || (url.protocol === "http:" && isLocalHost);
+    return isAllowedProtocol && (isMinalyHost || isPreviewHost || isLocalHost) && !url.username && !url.password ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResolution; qualification: MinalyQualification | null; accountId: string | null; crmUrl: string | null } | null {
   if (!minalyIsRecord(body)) return null;
   const data = minalyIsRecord(body.data) ? body.data : body;
   const raw = minalyIsRecord(body.resolution) ? body.resolution : data;
+  const crmUrl = minalyReadCrmUrl(data.crmUrl ?? body.crmUrl);
   const kind = raw.kind ?? raw.state;
   if (kind === "unknown" && minalyIsRecord(raw.profile)) {
     const profile = raw.profile;
@@ -340,11 +356,11 @@ function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResol
       sourceEventKey: typeof profile.sourceEventKey === "string" ? profile.sourceEventKey : "",
     };
     const qualification = minalyReadQualification(data.qualification);
-    return { resolution: { kind: "unknown", profile: parsedProfile, qualification }, qualification, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null };
+    return { resolution: { kind: "unknown", profile: parsedProfile, qualification }, qualification, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl };
   }
   if (kind === "known") {
     const lead = minalyReadLead(raw.lead);
-    return lead ? { resolution: { kind: "known", lead }, qualification: null, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null } : null;
+    return lead ? { resolution: { kind: "known", lead }, qualification: null, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl } : null;
   }
   if (kind === "ambiguous" && minalyIsRecord(raw.profile) && Array.isArray(raw.candidates)) {
     const candidates = raw.candidates.flatMap((candidate) => {
@@ -352,13 +368,17 @@ function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResol
       return lead ? [lead] : [];
     });
     const profile = minalyProfile();
-    return profile ? { resolution: { kind: "ambiguous", profile, candidates }, qualification: null, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null } : null;
+    return profile ? { resolution: { kind: "ambiguous", profile, candidates }, qualification: null, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl } : null;
   }
   return null;
 }
 
 function minalyStageLabel(stage: string): string {
   return ({ first_message_sent: "1er message envoyé", conversation_in_progress: "Conversation en cours", value_content_sent: "Contenu de valeur envoyé", call_proposed: "Appel proposé", call_booked: "Appel booké" } as Record<string, string>)[stage] ?? stage;
+}
+
+function minalyStageImpliesResponse(stage: string): boolean {
+  return minalyDefaultStages.indexOf(stage) > minalyDefaultStages.indexOf("first_message_sent");
 }
 
 function minalyOutcomeLabel(outcome: string): string {
@@ -497,6 +517,18 @@ function minalyLeadProfiles(lead: MinalyExtensionLead): HTMLDivElement | null {
   return wrapper.childElementCount > 0 ? wrapper : null;
 }
 
+function minalyLeadLink(leadId: string, crmUrl: string | null): HTMLAnchorElement | null {
+  const origin = minalyReadCrmUrl(crmUrl);
+  if (!origin) return null;
+  const link = document.createElement("a");
+  link.href = new URL("/crm/leads/" + encodeURIComponent(leadId), origin).toString();
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.className = "minaly-secondary minaly-link";
+  link.append(minalyElement("span", "Ouvrir la fiche lead"), minalyIcon("external"));
+  return link;
+}
+
 function minalyCallout(eyebrow: string, text: string, className: string): HTMLDivElement {
   const callout = document.createElement("div");
   callout.className = `minaly-callout ${className}`;
@@ -526,6 +558,7 @@ function minalyBuildPanel(
   profile: MinalyExtensionProfile | null,
   message: string | null,
   successLeadUrl: string | null,
+  crmUrl: string | null,
   extensionUpdate: MinalyExtensionUpdate | null,
   manualSearchCandidates: MinalyExtensionLead[] | null,
   onClose: () => void,
@@ -656,6 +689,8 @@ function minalyBuildPanel(
       choose.append(candidateIdentity, candidateMeta);
       choose.addEventListener("click", () => onCapture({ leadId: candidate.id }));
       candidateCard.append(choose);
+      const leadLink = minalyLeadLink(candidate.id, crmUrl);
+      if (leadLink) candidateCard.append(leadLink);
       const profileLinks = minalyLeadProfiles(candidate);
       if (profileLinks) candidateCard.append(profileLinks);
       cards.append(candidateCard);
@@ -764,12 +799,17 @@ function minalyBuildPanel(
     const knownProfiles = minalyLeadProfiles(resolution.lead);
     if (knownProfiles) body.append(knownProfiles);
     body.append(minalyCallout("DÉJÀ DANS LE CRM", "Tu peux mettre à jour les informations et la prochaine action depuis cette fiche.", "minaly-callout-known"));
+    const leadLink = minalyLeadLink(resolution.lead.id, crmUrl);
+    if (leadLink) body.append(leadLink);
     const details = document.createElement("div");
     details.className = "minaly-details-grid";
-    details.append(minalyDetail("Responsable", resolution.lead.responsibleSetterName ?? "Non assigné"), minalyDetail("Étape actuelle", minalyStageLabel(resolution.lead.stage)), minalyDetail("Réponse", resolution.lead.respondedAt ? minalyFormatDate(resolution.lead.respondedAt) : "Pas encore"));
+    details.append(minalyDetail("Responsable", resolution.lead.responsibleSetterName ?? "Non assigné"), minalyDetail("Étape actuelle", minalyStageLabel(resolution.lead.stage)));
+    if (!minalyStageImpliesResponse(resolution.lead.stage)) {
+      details.append(minalyDetail("Réponse", resolution.lead.respondedAt ? minalyFormatDate(resolution.lead.respondedAt) : "Pas encore"));
+    }
     body.append(details);
 
-    if (!resolution.lead.respondedAt) {
+    if (!minalyStageImpliesResponse(resolution.lead.stage) && !resolution.lead.respondedAt) {
       const response = minalyButton("A répondu", "minaly-secondary");
       response.addEventListener("click", () => onUpdate({ leadId: resolution.lead.id, responseOccurredAt: new Date().toISOString() }));
       body.append(response);
@@ -1018,6 +1058,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
 
   let state: MinalyExtensionState = "closed";
   let resolution: MinalyExtensionResolution | null = null;
+  let resolutionCrmUrl: string | null = null;
   let resolutionAccountId: string | null = null;
   let manualSearchCandidates: MinalyExtensionLead[] | null = null;
   let resolvedAt = 0;
@@ -1040,15 +1081,15 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
   const draw = () => {
     panel.hidden = state === "closed";
     button.setAttribute("aria-expanded", String(state !== "closed"));
-    minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, extensionUpdate, manualSearchCandidates, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input), (query) => void search(query), applyUpdate);
+    minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, resolutionCrmUrl, extensionUpdate, manualSearchCandidates, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input), (query) => void search(query), applyUpdate);
   };
   const resolve = async (requestId: number): Promise<boolean> => {
     const result = await minalyRequest("/api/crm/extension/resolve", minalyApiProfile(profile));
     if (requestId !== operationId) return false;
-    if (result.status === 401) { resolvedAt = 0; state = "session"; return true; }
-    if (result.status === 403) { resolvedAt = 0; state = "unavailable"; return true; }
-    if (result.status === 503) { resolvedAt = 0; state = "error"; message = minalyApiErrorMessage(result.body); return true; }
-    if (result.status < 200 || result.status >= 300) { resolvedAt = 0; state = "error"; message = "Impossible de lire ce profil."; return true; }
+    if (result.status === 401) { resolutionCrmUrl = null; resolvedAt = 0; state = "session"; return true; }
+    if (result.status === 403) { resolutionCrmUrl = null; resolvedAt = 0; state = "unavailable"; return true; }
+    if (result.status === 503) { resolutionCrmUrl = null; resolvedAt = 0; state = "error"; message = minalyApiErrorMessage(result.body); return true; }
+    if (result.status < 200 || result.status >= 300) { resolutionCrmUrl = null; resolvedAt = 0; state = "error"; message = "Impossible de lire ce profil."; return true; }
     const parsed = minalyReadResolution(result.body);
     if (!parsed) { resolvedAt = 0; state = "error"; message = "Réponse CRM invalide."; return true; }
     if (resolutionAccountId && parsed.accountId && resolutionAccountId !== parsed.accountId) {
@@ -1056,6 +1097,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
       manualSearchCandidates = null;
     }
     resolutionAccountId = parsed.accountId;
+    resolutionCrmUrl = parsed.crmUrl;
     resolution = parsed.resolution;
     manualSearchCandidates = null;
     resolvedAt = Date.now();
@@ -1097,7 +1139,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     const data = minalyIsRecord(result.body.data) ? result.body.data : result.body;
     const leadId = typeof data.leadId === "string" ? data.leadId : null;
     if (!leadId) { message = "Réponse CRM invalide."; state = "error"; draw(); return; }
-    const origin = typeof data.crmUrl === "string" ? data.crmUrl : "https://www.minaly.io";
+    const origin = minalyReadCrmUrl(data.crmUrl) ?? "https://www.minaly.io";
     successLeadUrl = `${origin}/crm/leads/${leadId}`;
     state = "success";
     message = "Le lead est maintenant dans ton CRM.";
@@ -1145,6 +1187,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     if (messageValue.type === "minaly-authenticated") {
       operationId += 1;
       resolution = null;
+      resolutionCrmUrl = null;
       resolutionAccountId = null;
       manualSearchCandidates = null;
       resolvedAt = 0;

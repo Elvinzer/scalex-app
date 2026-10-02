@@ -23,6 +23,8 @@ La version `0.3.1` fiabilise la fermeture du panneau depuis la croix sur les
 pages Instagram et LinkedIn. La version `0.3.2` place le bouton à côté du
 contact actif dans les conversations globales et réduites, sans le confondre
 avec le compte Instagram connecté.
+La version `0.3.3` ouvre la fiche lead Minaly depuis le panneau et retire le
+suivi de réponse dès que l’étape atteint « Conversation en cours ».
 
 ## Construire le package local
 
