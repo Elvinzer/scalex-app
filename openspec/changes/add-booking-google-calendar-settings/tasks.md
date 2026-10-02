@@ -61,7 +61,7 @@
 - [ ] 9.4 Vérifier avec `agent-browser` que le closer A ne voit que ses appels à venir et les liens des événements qui lui sont rattachés, que les événements du closer B sont absents et qu'une URL directe non rattachée est refusée.
 - [ ] 9.5 Réserver un créneau public rattaché au closer A et vérifier l'événement Google cible, l'unicité du lien Meet, la confirmation, l'email et l'ICS ; rejouer la confirmation pour vérifier l'absence de doublon.
 - [ ] 9.6 Vérifier les scénarios Meet `pending`, retry, déplacement, annulation et déconnexion du compte cible ; confirmer que le lien existant reste attaché au bon rendez-vous.
-- [ ] 9.7 Contrôler la page paramètres et l'agenda à 390, 768, 1280 et 1440 px, au clavier et avec les états loading/error/empty, en vérifiant focus visible, labels et annonces d'erreur.
+- [x] 9.7 Contrôler la page paramètres et l'agenda à 390, 768, 1280 et 1440 px, au clavier et avec les états loading/error/empty, en vérifiant focus visible, labels et annonces d'erreur. Matrice reproductible dans `qa/browser-responsive-2026-10-02.md`.
 
 ## 10. Validation finale
 
@@ -69,4 +69,4 @@
 - [x] 10.2 Vérifier le diff et les logs pour confirmer l'absence de secrets, tokens OAuth, clés API ou données de session.
 - [x] 10.3 Valider la proposition avec `rtk openspec validate add-booking-google-calendar-settings --type change --strict --no-interactive` et vérifier que tous les artefacts sont présents et cohérents.
 
-> Les tests 8.1 à 8.3 vérifient les resolvers, les requêtes et actions avec des mocks isolés ainsi que les policies Drizzle déclarées; ils ne simulent pas le moteur RLS PostgreSQL avec des rôles Supabase réels. Les scénarios E2E 9.2 à 9.7 restent à exécuter avec deux sessions de test et un fournisseur Google Calendar/Meet dédié. Le smoke test local couvre le parcours public, la redirection OAuth non authentifiée, les fixtures Calendar/Meet, les scopes owner/closer, le responsive 390/1280 px et l'audit axe.
+> Les tests 8.1 à 8.3 vérifient les resolvers, les requêtes et actions avec des mocks isolés ainsi que les policies Drizzle déclarées; ils ne simulent pas le moteur RLS PostgreSQL avec des rôles Supabase réels. Les parcours multi-utilisateurs 9.2 à 9.6 nécessitent deux sessions de test et un fournisseur Google Calendar/Meet dédié. Le scénario 9.7 est couvert par des fixtures locales isolées : il ne valide pas l'OAuth réel ni les échanges Google en production.

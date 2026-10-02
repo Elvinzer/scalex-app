@@ -132,7 +132,7 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
           <h1 className="mt-1 text-3xl font-bold">{t("title")}</h1>
           <p className="mt-2 max-w-3xl text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="min-h-11">
           <Link href="/settings/reservation">{t("backToBooking")}</Link>
         </Button>
       </div>
@@ -148,6 +148,7 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
           {error ?? message}
         </div>
       )}
+      {isPending && <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{t("saving")}</span>}
 
       <section className="sticker-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5 sm:p-6">
@@ -155,7 +156,7 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
             <h2 className="text-xl font-bold">{t("connectedCalendars")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t("connectAnotherHelp")}</p>
           </div>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="min-h-11">
             <a href="/api/native-calendar/google/connect?returnTo=/settings/calendars">
               <Plus className="size-4" /> {t("addCalendar")}
             </a>
@@ -195,13 +196,13 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {connection.status !== "connected" && (
-                    <Button asChild size="sm" variant="outline">
+                      <Button asChild size="sm" variant="outline" className="min-h-11">
                       <a href="/api/native-calendar/google/connect?returnTo=/settings/calendars">
                         <RefreshCw className="size-3.5" /> {t("reconnect")}
                       </a>
                     </Button>
                   )}
-                  <Button type="button" size="sm" variant="outline" disabled={isPending} onClick={() => disconnect(connection.id)}>
+                  <Button type="button" size="sm" variant="outline" className="min-h-11" disabled={isPending} onClick={() => disconnect(connection.id)}>
                     <Unplug className="size-3.5" /> {t("disconnect")}
                   </Button>
                 </div>
@@ -214,7 +215,7 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
       <section className="sticker-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5 sm:p-6">
           <h2 className="text-xl font-bold">{t("invitationTitle")}</h2>
-          <Button type="button" variant="outline" disabled={isPending || !canStartInvitationEdit} onClick={startInvitationEdit}>
+          <Button type="button" variant="outline" className="min-h-11" disabled={isPending || !canStartInvitationEdit} onClick={startInvitationEdit}>
             <Pencil className="size-4" /> {t("edit")}
           </Button>
         </div>
@@ -253,8 +254,8 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
                 </fieldset>
               )}
               <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-                <Button type="button" variant="ghost" disabled={isPending} onClick={cancelEdit}>{t("cancel")}</Button>
-                <Button type="button" disabled={isPending} onClick={saveInvitation}>{isPending ? t("saving") : t("save")}</Button>
+                <Button type="button" variant="ghost" className="min-h-11" disabled={isPending} onClick={cancelEdit}>{t("cancel")}</Button>
+                <Button type="button" className="min-h-11" disabled={isPending} onClick={saveInvitation}>{isPending ? t("saving") : t("save")}</Button>
               </div>
             </div>
           ) : selectedInvitationConnection ? (
@@ -271,7 +272,11 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
 
           {selectedInvitationConnection && !targetReady && (
             <p className="mt-3 text-sm font-bold text-state-caution">
-              {selectedInvitationConnection.loadError ? t("calendarLoadError") : t("noWritablePrimaryCalendar")}
+              {selectedInvitationConnection.status !== "connected"
+                ? t("reconnectRequired")
+                : selectedInvitationConnection.loadError
+                  ? t("calendarLoadError")
+                  : t("noWritablePrimaryCalendar")}
             </p>
           )}
         </div>
@@ -280,7 +285,7 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
       <section className="sticker-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5 sm:p-6">
           <h2 className="text-xl font-bold">{t("conflictsTitle")}</h2>
-          <Button type="button" variant="outline" disabled={isPending || !canStartConflictEdit} onClick={startConflictEdit}>
+          <Button type="button" variant="outline" className="min-h-11" disabled={isPending || !canStartConflictEdit} onClick={startConflictEdit}>
             <Pencil className="size-4" /> {t("edit")}
           </Button>
         </div>
@@ -312,8 +317,8 @@ export function CalendarSettings({ initial, notice }: { initial: CalendarSetting
                 </div>
               )}
               <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-                <Button type="button" variant="ghost" disabled={isPending} onClick={cancelEdit}>{t("cancel")}</Button>
-                <Button type="button" disabled={isPending} onClick={saveConflicts}>{isPending ? t("saving") : t("save")}</Button>
+                <Button type="button" variant="ghost" className="min-h-11" disabled={isPending} onClick={cancelEdit}>{t("cancel")}</Button>
+                <Button type="button" className="min-h-11" disabled={isPending} onClick={saveConflicts}>{isPending ? t("saving") : t("save")}</Button>
               </div>
             </div>
           ) : selectedConflictConnections.length > 0 ? (

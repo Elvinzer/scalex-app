@@ -20,6 +20,22 @@ const initial: CalendarSettingsView = {
   ready: false,
   reason: "missing_target",
 };
+const disconnected: CalendarSettingsView = {
+  connections: [
+    {
+      id: "11111111-1111-4111-8111-111111111111",
+      provider: "google",
+      email: "closer@example.test",
+      status: "revoked",
+      primaryCalendar: null,
+      loadError: false,
+    },
+  ],
+  invitationConnectionId: "11111111-1111-4111-8111-111111111111",
+  conflicts: ["11111111-1111-4111-8111-111111111111"],
+  ready: false,
+  reason: "missing_target",
+};
 
 describe("CalendarSettings translations", () => {
   it.each([
@@ -36,5 +52,20 @@ describe("CalendarSettings translations", () => {
     expect(html).not.toContain("providerName");
     expect(html).toContain(locale === "fr" ? "Google Agenda" : "Google Calendar");
     expect(html).toContain(locale === "fr" ? "Tes calendriers" : "Your calendars");
+  });
+
+  it.each([
+    ["fr", frAppMessages],
+    ["en", enAppMessages],
+  ] as const)("explains how to recover a disconnected invitation account in %s", (locale, appMessages) => {
+    const html = renderToStaticMarkup(
+      <NextIntlClientProvider locale={locale} messages={{ app: appMessages }}>
+        <CalendarSettings initial={disconnected} notice={null} />
+      </NextIntlClientProvider>
+    );
+
+    expect(html).toContain(appMessages.booking.calendarSettings.reconnectRequired);
+    expect(html).not.toContain(appMessages.booking.calendarSettings.noWritablePrimaryCalendar);
+    expect(html).toContain(appMessages.booking.calendarSettings.reconnect);
   });
 });
