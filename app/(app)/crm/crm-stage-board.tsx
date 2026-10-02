@@ -331,7 +331,7 @@ export function CrmStageBoard({ initialPages, setters, offers, closers, canAssig
       <form onSubmit={(event) => void applyFilters(event)} className="grid gap-3 rounded-[var(--radius-card)] border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.45fr)] sm:items-end">
         <label className="flex min-w-0 flex-col gap-1 text-xs font-bold text-muted-foreground">
           <span>{t("pipeline.search")}</span>
-          <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} disabled={isSearching || isRefreshing || isPending || loadingStages.size > 0} placeholder={t("pipeline.searchPlaceholder")} className="min-h-11 rounded border border-border bg-background px-3 text-sm font-normal text-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
+          <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} disabled={isSearching || isRefreshing || isPending || loadingStages.size > 0} placeholder={t("pipeline.searchPlaceholder")} className="min-h-11 rounded border border-border bg-background px-3 text-sm font-normal text-foreground placeholder:text-muted-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
         </label>
         <label className="flex min-w-0 flex-col gap-1 text-xs font-bold text-muted-foreground">
           <span>{t("leads.sourceFilter")}</span>

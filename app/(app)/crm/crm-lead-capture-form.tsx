@@ -118,7 +118,7 @@ export function CrmLeadCaptureForm({ offers = [], setters = [], hideTitle = fals
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] lg:items-start">
         <label className="flex flex-col gap-1.5 text-sm font-bold">
           {t("profileOrHandle")}
-          <input name="identity" required inputMode="url" autoComplete="off" placeholder={t("profileUrlPlaceholder")} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
+          <input name="identity" required inputMode="url" autoComplete="off" placeholder={t("profileUrlPlaceholder")} className="min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal placeholder:text-muted-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" />
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-bold">
           <span>{t("channel")}</span>

@@ -86,7 +86,7 @@ export function CrmCallLinkForm({ callId, initialLeadId, initialLeadName, initia
             <DrawerClose asChild><Button type="button" variant="outline" className="min-h-11">{crmT("detail.close")}</Button></DrawerClose>
           </div>
           <form onSubmit={(event) => void searchLeads(event)} className="flex flex-col gap-3 sm:flex-row">
-            <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-bold">{t("searchLeads")}<input id={`${idPrefix}-${callId}-lead-search`} type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder={t("searchLeadsPlaceholder")} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" /></label>
+            <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-bold">{t("searchLeads")}<input id={`${idPrefix}-${callId}-lead-search`} type="search" value={query} onChange={(event) => setQuery(event.target.value)} maxLength={120} placeholder={t("searchLeadsPlaceholder")} className="min-h-11 rounded border border-border bg-background px-3 font-normal placeholder:text-muted-foreground outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20" /></label>
             <Button type="submit" variant="outline" className="min-h-11 self-end" disabled={isSearching} aria-busy={isSearching}>{isSearching ? t("searchingLeads") : t("searchForLead")}</Button>
           </form>
           <p className="sr-only" role="status" aria-live="polite">{isSearching ? t("searchingLeads") : hasSearched ? candidates.length === 0 ? t("noLeadResults") : t("leadsFoundCount", { count: candidates.length }) : ""}</p>

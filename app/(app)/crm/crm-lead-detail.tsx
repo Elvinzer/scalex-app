@@ -22,7 +22,7 @@ import { CrmSaleValidationDialog } from "./crm-sale-validation-dialog";
 import { CrmProfileLink } from "./crm-profile-link";
 
 const inputClassName = "min-h-11 rounded-[var(--radius-control)] border border-border bg-background px-3 font-normal outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20";
-const textareaClassName = "w-full rounded-[var(--radius-control)] border border-border bg-background p-3 text-sm leading-6 outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20";
+const textareaClassName = "w-full rounded-[var(--radius-control)] border border-border bg-background p-3 text-sm leading-6 placeholder:text-muted-foreground outline-none transition-colors focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-accent/20";
 
 function isWhatsAppProfileUrl(value: string): boolean {
   try {

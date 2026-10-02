@@ -151,14 +151,14 @@ export default async function CrmCallsPage({ searchParams }: { searchParams: Pro
           {from && <input type="hidden" name="from" value={from} />}
           {to && <input type="hidden" name="to" value={to} />}
           <input type="hidden" name="tz" value={timeZone} />
-          <label className="block min-w-0"><span className="sr-only">{t("calls.search")}</span><input name="q" maxLength={120} defaultValue={search ?? ""} placeholder={t("calls.search")} className="min-h-11 w-full rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
+          <label className="block min-w-0"><span className="sr-only">{t("calls.search")}</span><input name="q" maxLength={120} defaultValue={search ?? ""} placeholder={t("calls.search")} className="min-h-11 w-full rounded border border-border bg-background px-3 font-normal placeholder:text-muted-foreground outline-none focus-visible:border-accent" /></label>
         </form>
         <CrmCallFilterSheet search={search} source={source} unlinked={filters.unlinkedOnly} attendance={attendance} outcome={outcome} suggestion={suggestionStatus} from={from} to={to} timeZone={timeZone} activeFilterCount={activeFilterCount} />
       </div>
 
       <form method="get" className="sticker-card hidden gap-3 p-4 lg:grid lg:grid-cols-4 lg:items-end">
         <input type="hidden" name="tz" value={timeZone} />
-        <label className="flex flex-col gap-1 text-sm font-bold lg:col-span-4">{t("calls.search")}<input name="q" maxLength={120} defaultValue={search ?? ""} placeholder={t("calls.search")} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
+        <label className="flex flex-col gap-1 text-sm font-bold lg:col-span-4">{t("calls.search")}<input name="q" maxLength={120} defaultValue={search ?? ""} placeholder={t("calls.search")} className="min-h-11 rounded border border-border bg-background px-3 font-normal placeholder:text-muted-foreground outline-none focus-visible:border-accent" /></label>
         <details className="group lg:col-span-4">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-[var(--radius-control)] border border-border px-3 text-sm font-bold outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-accent/20 [&::-webkit-details-marker]:hidden">
             <span className="flex items-center gap-2"><span>{t("calls.filters")}</span>{activeFilterCount > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{activeFilterCount}</span>}</span>

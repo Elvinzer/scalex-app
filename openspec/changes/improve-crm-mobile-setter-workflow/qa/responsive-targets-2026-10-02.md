@@ -385,3 +385,45 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
 - Next.js MCP reported zero compilation issues and zero runtime errors while
   the keyboard-open view was active. The full keyboard/action matrix remains
   open.
+
+## Production QA data incident — 2026-10-02
+
+- During production CRM inspection, I accidentally activated the explicit
+  “Confirmer l’envoi du premier message” control for lead `edd93470`. The
+  confirmation control disappeared, and a later read-only KPI drill-down
+  resolved to that same lead. This indicates that the CRM confirmation was
+  recorded; it does not establish whether a social message was actually sent.
+- The action records `contactState = contacted`, fills `messageOccurredAt` only
+  when it was empty, and writes a `first_message_sent` CRM event. It does not
+  send a social message. This may affect the first-message KPI for the selected
+  cohort.
+- No further production actions were submitted after this was noticed. The
+  record has not been altered again while awaiting the owner’s confirmation of
+  whether the message was genuinely sent. If it was not sent, correct only this
+  confirmation and its event; otherwise leave the CRM record as-is.
+- The local 320 × 568 read-only check confirmed the KPI card opens the lead
+  list with the selected cohort dates and acquisition-origin filter preserved,
+  with no browser errors or horizontal overflow. The check did not submit any
+  mutation.
+
+## CRM placeholder contrast and short dialog viewport — 2026-10-02
+
+- A manual contrast calculation found that Tailwind’s default 50% placeholder
+  opacity produced 3.42:1 contrast for the lead-capture profile field against
+  the CRM input surface. CRM capture, pipeline search, call search, call-link
+  search and lead-detail textareas now use the existing `muted-foreground`
+  token at full opacity. The rendered capture placeholder is `rgb(109, 106,
+  97)` on `rgb(250, 249, 246)`, measuring 5.13:1.
+- At 320 × 320 CSS px, used as a short-viewport keyboard-height simulation, the
+  capture dialog stayed within the 320 px document width. The focused display-
+  name field remained visible; scrolling the dialog brought the 44 px create
+  button fully into the viewport. Seven successive Tab presses stayed inside
+  the dialog and cycled through its controls. The form remained empty and was
+  not submitted. This simulation supplements, but does not replace, the native
+  iPhone keyboard check above.
+- Axe 4.12.1 reported zero violations. Its two incomplete checks were reviewed:
+  keyboard focus remained trapped in the dialog, and the dialog title measured
+  18.29:1 against its white surface. No browser errors were reported. Typecheck,
+  lint and the full suite passed (167 files, 732 tests); `npm run build` also
+  completed successfully. A forced local dark-theme check measured the
+  placeholder token at 8.75:1 against the dark input surface.
