@@ -84,6 +84,22 @@ Date: 2026-10-02
   times under controlled device/network conditions before making a performance
   claim.
 
+## Focused CRM workflow check
+
+- On 2026-10-02, an authenticated local browser check at 320 × 568 opened the
+  lead-capture dialog and existing lead detail drawer without submitting data.
+- The loss dialog displayed its required reason choices and was cancelled. The
+  sale form displayed its validation fields and was dismissed before
+  confirmation. The booking panel reported that the closer calendar was
+  unavailable and kept confirmation disabled. No CRM or booking record changed.
+- The `/crm` “Performance commerciale” section opened and displayed all 11 KPI
+  cards. The “Appels honorés” card navigated to
+  `/crm/appels?from=2026-10-01&to=2026-10-31&attendance=showed`; the destination
+  remained 320 px wide with no horizontal overflow.
+- This focused check did not submit capture, response, qualification, booking,
+  no-show, loss, or sale mutations. It also did not verify keyboard-open
+  behavior, setter tasks over multiple days, or the full KPI/filter matrix.
+
 ## Remaining limit
 
 Task 9.3 remains open. This route and touch-target pass does not exercise the
