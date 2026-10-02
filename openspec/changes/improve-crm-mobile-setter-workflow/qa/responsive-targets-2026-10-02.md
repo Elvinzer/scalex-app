@@ -371,3 +371,17 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   both routes produced no errors.
 - Task 9.3 remains open for the keyboard/action matrix; setter tasks 10.2–10.3
   still require a real five-day pilot.
+
+## Native keyboard smoke — 2026-10-02
+
+- Safari on the iPhone 17 Pro simulator (iOS 26.5) opened the French AZERTY
+  keyboard for the `/crm/leads` search field and the profile field in the add-
+  lead dialog. The focused field and caret remained visible when the keyboard
+  opened.
+- In the capture dialog, later fields and the create button sit below the
+  keyboard. The dialog uses a bounded, vertically scrollable content area, but
+  this pass did not verify scrolling to and activating the final button, and
+  did not submit or change a lead.
+- Next.js MCP reported zero compilation issues and zero runtime errors while
+  the keyboard-open view was active. The full keyboard/action matrix remains
+  open.
