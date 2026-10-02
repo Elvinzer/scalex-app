@@ -154,3 +154,15 @@ Date: 2026-10-02
 
 Task 9.3 remains open. This route and KPI pass does not exercise the full CRM
 keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10.3.
+
+## Production KPI visibility check
+
+- After the production deployment for `99a32fa` reached Ready, the authenticated
+  owner route `/crm?team=1&range=previous-month&platform=linkedin&source=instagram`
+  was checked at 320 × 568. The primary KPI panel opened by default, all six
+  cards rendered, and the document width was 305 px. Each card link retained
+  the 2026-09-01 to 2026-09-30 cohort plus acquisition source `instagram` and
+  contact platform `linkedin`.
+- Opening the response-rate card loaded `/crm/leads` with the expected metric,
+  cohort dates and both filters. The browser reported no errors. This was a
+  read-only production check; no CRM or booking mutation was submitted.
