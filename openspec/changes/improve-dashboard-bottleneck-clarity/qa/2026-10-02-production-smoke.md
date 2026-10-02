@@ -47,3 +47,15 @@ Commit: `bda1fef2ee4946c240e4fdcc68e0f66aea60288f`
   has only one acquisition journey, so it does not render the journey selector.
 - Task 5.2 remains open until an authenticated test account with multiple
   acquisition journeys is available for an interactive browser check.
+
+## Follow-up production verification
+
+- Commit `1218813` (intrinsic Falco image dimensions) received a successful
+  Vercel deployment status:
+  [deployment](https://vercel.com/cedrics-projects-87cca661/scalex-app/JBC2CsXEUQb2TNg4otr3dVqBnPnK).
+- After deployment, `/sign-in` returned HTTP 200; `/crm` and
+  `/settings/calendars` returned HTTP 307 to `/sign-in`; the development-only
+  `/e2e/calendar-agenda` fixture returned HTTP 404.
+- The production sign-in response includes CSP, HSTS, `X-Frame-Options: DENY`,
+  and `Referrer-Policy: strict-origin-when-cross-origin`.
+- These checks did not authenticate to production or mutate CRM/account data.
