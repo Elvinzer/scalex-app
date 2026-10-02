@@ -439,3 +439,15 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   `color:var(--muted-foreground)`, confirming that the contrast utility shipped.
   This unauthenticated smoke could not visually inspect the rendered CRM form
   on the deployed site. It made no additional CRM data changes.
+
+## Mobile call association empty-state check — 2026-10-02
+
+- An authenticated local browser at 320 × 568 opened the association drawer for
+  an unlinked call. Searching with a unique non-matching query returned zero
+  candidates, displayed the empty state, and kept “Relier à un lead” disabled.
+  The association action was not submitted; the document stayed 320 px wide.
+- The search field remained 254 px wide, and all four visible drawer buttons
+  measured 44 px high. Six successive Tab presses stayed within the drawer.
+  Axe reported zero violations and two incomplete checks; manual review
+  confirmed the focus trap and the drawer title’s 18.29:1 contrast. Browser
+  errors were empty, and no call or lead record was changed.
