@@ -67,9 +67,15 @@ Date: 2026-10-02
 - At 390 × 844, Dashboard measured FCP 1.01 s, LCP 1.96 s, CLS 0.00.
 - `/crm/leads` measured FCP 1.07 s, LCP 1.69 s, CLS 0.00 at 1280 × 720;
   at 390 × 844 it measured FCP 0.57 s, LCP 1.17 s, CLS 0.00.
-- The initial Dashboard navigation exceeded four seconds LCP; a repeat cold
-  load under controlled device/network conditions remains necessary. The warm
-  CRM measurements do not establish field-user performance.
+- After commit `38cd37d`, a cache-cleared authenticated `/sign-in` navigation
+  landed on `/dashboard`: TTFB 21 ms, FCP 1.97 s, LCP 3.06 s, CLS 0.00. A CDP
+  navigation-timing sample counted one redirect and about 1.09 s of redirect
+  processing. The previous cache-cleared sample on the same path measured
+  FCP 2.27 s, LCP 3.28 s, and about 1.20 s of redirect processing. These are
+  individual spot checks, so the roughly 0.1 s redirect reduction is not a
+  stable performance result. Repeat with controlled device/network conditions
+  before treating it as a trend; these checks do not establish field-user
+  performance.
 
 ## Remaining limit
 
