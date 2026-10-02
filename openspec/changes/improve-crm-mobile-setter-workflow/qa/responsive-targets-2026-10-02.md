@@ -44,6 +44,19 @@ Date: 2026-10-02
 - `openspec validate --all --strict --no-interactive`: 31 items passed.
 - `git diff --check`: passed.
 
+## Production smoke
+
+- Vercel deployment for commit `12e7c6c` completed successfully.
+- Read-only `HEAD` checks on `www.minaly.io`: `/sign-in` returned 200;
+  `/crm` and `/settings/calendars` returned 307 to `/sign-in`; the test-only
+  `/e2e/calendar-agenda` route returned 404.
+- `/ventes/appels?period=month&from=dashboard` returned 307 to
+  `/crm/appels?period=month&from=dashboard`, confirming the legacy alias keeps
+  its query parameters in production.
+- Responses included the configured CSP, HSTS, `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff`, and `Referrer-Policy` headers.
+- These requests were read-only; no CRM or booking records were changed.
+
 ## Remaining limit
 
 Task 9.3 remains open. This route and touch-target pass does not exercise the
