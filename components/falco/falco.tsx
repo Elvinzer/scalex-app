@@ -139,8 +139,7 @@ export function Falco({
   const resolvedVariant: FalcoVariant = pose ? POSE_TO_VARIANT[pose] : (variant ?? "bust");
   const asset = FALCO_ASSETS[resolvedVariant];
   const isBust = resolvedVariant === "bust";
-  const imageWidth = isBust ? BUST_SIZE_PX[size] : SIZE_PX[size];
-  const imageHeight = Math.round((imageWidth * FALCO_DIMENSIONS[resolvedVariant].height) / FALCO_DIMENSIONS[resolvedVariant].width);
+  const imageSizePx = isBust ? BUST_SIZE_PX[size] : SIZE_PX[size];
   const animationsEnabled = useFalcoAnimationsEnabled();
   // Pose-aware entrance — replaces the generic `animate="enter"` fade with a
   // morph matching the pose whenever one is known (see lib/falco-motion.ts;
@@ -165,10 +164,10 @@ export function Falco({
     <Image
       src={asset.src}
       alt={alt ?? asset.alt}
-      width={imageWidth}
-      height={imageHeight}
+      width={FALCO_DIMENSIONS[resolvedVariant].width}
+      height={FALCO_DIMENSIONS[resolvedVariant].height}
       priority={priority}
-      sizes={`${isBust ? BUST_SIZE_PX[size] : SIZE_PX[size]}px`}
+      sizes={`${imageSizePx}px`}
       className={cn(
         falcoVariants({ size, animate }),
         morphClass,

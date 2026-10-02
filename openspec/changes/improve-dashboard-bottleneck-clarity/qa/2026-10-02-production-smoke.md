@@ -36,6 +36,12 @@ Commit: `bda1fef2ee4946c240e4fdcc68e0f66aea60288f`
   `/dashboard` confirmed the bottleneck source links resolve to `/crm/appels`
   and `/ventes/suivi`; the Falco stage button opens its dialog and Escape closes
   it. This was read-only and did not change account data.
+- A Next.js image-dimension warning in that dialog was reproducible. Falco now
+  passes the source PNG's intrinsic dimensions to `next/image` while retaining
+  the same CSS display size. The six dimension entries match the checked PNG
+  files. After the change, the dialog was rechecked at 1280 × 720 and 320 × 568:
+  no console warning or runtime error appeared, and neither viewport overflowed
+  horizontally.
 - The authenticated production Dashboard was not checked because production
   sign-in requires an email link. The local authenticated account currently
   has only one acquisition journey, so it does not render the journey selector.
