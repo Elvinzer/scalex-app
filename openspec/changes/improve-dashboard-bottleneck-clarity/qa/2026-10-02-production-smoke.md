@@ -32,6 +32,10 @@ Commit: `bda1fef2ee4946c240e4fdcc68e0f66aea60288f`
 
 ## Remaining verification
 
+- Follow-up on 2026-10-02 at 1280 × 720 against the authenticated local
+  `/dashboard` confirmed the bottleneck source links resolve to `/crm/appels`
+  and `/ventes/suivi`; the Falco stage button opens its dialog and Escape closes
+  it. This was read-only and did not change account data.
 - The authenticated production Dashboard was not checked because production
   sign-in requires an email link. The local authenticated account currently
   has only one acquisition journey, so it does not render the journey selector.

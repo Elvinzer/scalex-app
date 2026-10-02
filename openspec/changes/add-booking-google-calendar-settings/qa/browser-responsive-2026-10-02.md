@@ -46,6 +46,19 @@ Checked settings and agenda at 320×568, 390×844, 768×900, 1280×900, and 1440
 - `openspec validate add-booking-google-calendar-settings --type change --strict --no-interactive`: valid.
 - `git diff --check`: passed.
 
+## Deployment and production smoke
+
+- Commit `26b0e60` was pushed to `main`. GitHub reports the Vercel commit status as
+  `success` (`Deployment has completed`):
+  [deployment](https://vercel.com/cedrics-projects-87cca661/scalex-app/9H2pe5AgGJMwDjeTpRatFEqVcQbs).
+- `https://www.minaly.io/sign-in` returned HTTP 200.
+- Unauthenticated requests to `/crm` and `/settings/calendars` returned HTTP 307
+  to `/sign-in`.
+- `/e2e/calendar-agenda` returned HTTP 404 in production, as expected for the
+  development-only fixture.
+- These checks did not authenticate to production, connect Google, or mutate
+  CRM/booking records.
+
 ## Remaining limits
 
 This browser matrix uses synthetic data. It does not verify real Google OAuth, Google Calendar/Meet provider behavior, or authenticated owner/two-closer access. Those flows remain in tasks 9.2–9.6 and require dedicated test identities/provider configuration.
