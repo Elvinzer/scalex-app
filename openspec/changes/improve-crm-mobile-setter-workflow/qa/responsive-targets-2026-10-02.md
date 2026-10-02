@@ -198,3 +198,21 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   filters in all six drill-down links; this filtered cohort had no matching
   leads, so counts were 0 and rates were unavailable without an incomplete-data
   warning.
+
+## KPI personal setter attribution, commit `800c4b6`
+
+- `npm run typecheck`, `npm run lint`, `npm test -- --run` (165 files, 719
+  tests) and `openspec validate improve-crm-mobile-setter-workflow --strict`
+  passed.
+- The local authenticated CRM rendered all six KPI cards at 320 × 844 and
+  1440 × 900 without horizontal overflow. The custom September range, LinkedIn
+  contact platform and Instagram acquisition source remained in all six
+  drill-down URLs in both personal and selected-setter team views.
+- A personal setter profile that is not in the team selector remained selected
+  in the lead-list drill-down. Browser errors were empty; the filtered local
+  cohort had no matching leads, so its counts were 0 and its rates were
+  unavailable.
+- Vercel reported a successful production deployment for `800c4b6`. An
+  unauthenticated production request to `/crm` redirected to `/sign-in`. This
+  browser session did not have a production CRM login, so authenticated cards
+  were not rechecked on the deployed site. No production data was changed.
