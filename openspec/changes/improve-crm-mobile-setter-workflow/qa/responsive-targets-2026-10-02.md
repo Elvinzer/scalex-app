@@ -112,6 +112,18 @@ Date: 2026-10-02
   no-show, loss, or sale mutations. It also did not verify keyboard-open
   behavior, setter tasks over multiple days, or the full KPI/filter matrix.
 
+- After the KPI requirement was clarified, the « Performance commerciale »
+  panel was changed to open by default. At 320 × 568, the open panel stayed
+  within the 305 px document width. Selecting « Dernier mois » retained
+  acquisition source `instagram` and contact platform `linkedin` in all six
+  KPI drill-down links; opening the response-rate link kept the 2026-09-01 to
+  2026-09-30 first-message cohort and both filters in the leads route. That
+  filtered cohort had no matching leads. These were read-only checks; the
+  period picker also opened with keyboard focus and Enter. Axe found zero
+  violations and one incomplete color-contrast check on mobile navigation and
+  a gradient control; the scanner did not confirm a contrast failure. The
+  full setter action and keyboard matrix remains open.
+
 ## Authenticated production mobile smoke
 
 - On 2026-10-02, after the Vercel deployment for `90b7d75` succeeded, the
