@@ -57,6 +57,20 @@ Date: 2026-10-02
   `X-Content-Type-Options: nosniff`, and `Referrer-Policy` headers.
 - These requests were read-only; no CRM or booking records were changed.
 
+## Production vitals spot check
+
+- `agent-browser vitals` on 2026-10-02, in the restored signed-in Chrome session,
+  without network or CPU throttling. These are spot checks, not field p75 data.
+- The first navigation through `/sign-in` landed on `/dashboard` and measured
+  TTFB 22 ms, FCP 3.79 s, LCP 4.70 s. Two subsequent desktop Dashboard runs
+  measured FCP 0.68–1.21 s and LCP 0.99–2.34 s; CLS was 0.00–0.03.
+- At 390 × 844, Dashboard measured FCP 1.01 s, LCP 1.96 s, CLS 0.00.
+- `/crm/leads` measured FCP 1.07 s, LCP 1.69 s, CLS 0.00 at 1280 × 720;
+  at 390 × 844 it measured FCP 0.57 s, LCP 1.17 s, CLS 0.00.
+- The initial Dashboard navigation exceeded four seconds LCP; a repeat cold
+  load under controlled device/network conditions remains necessary. The warm
+  CRM measurements do not establish field-user performance.
+
 ## Remaining limit
 
 Task 9.3 remains open. This route and touch-target pass does not exercise the
