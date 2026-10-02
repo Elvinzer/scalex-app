@@ -3,6 +3,7 @@ const minalyReservedInstagramPaths = new Set(["accounts", "explore", "direct", "
 const minalyDefaultStages = ["first_message_sent", "conversation_in_progress", "value_content_sent", "call_proposed", "call_booked"];
 const minalyDefaultSources = ["instagram", "linkedin", "tiktok", "youtube", "x", "facebook", "email_newsletter", "ads", "bouche_a_oreille", "autre"];
 const minalyResolutionCacheTtlMs = 30000;
+const minalyMessagePlaceholderPattern = /message|mensaje|mensaj|nachricht|messagg|mensagem|メッセージ|訊息|消息|сообщен/i;
 function minalyIsRecord(value) {
     return typeof value === "object" && value !== null;
 }
@@ -24,40 +25,131 @@ function minalyProfilePath(platform, rawPath) {
         return null;
     return { path: `/${section}/${handle}`, handle };
 }
+function minalyProfileAnchorPath(anchor, hostname, platform) {
+    const href = anchor.getAttribute("href");
+    if (!href || (!anchor.textContent?.trim() && !anchor.getAttribute("aria-label")))
+        return null;
+    try {
+        const url = new URL(href, window.location.origin);
+        const anchorHost = url.hostname.toLowerCase().replace(/^www\./, "");
+        if (anchorHost !== hostname)
+            return null;
+        return minalyProfilePath(platform, url.pathname);
+    }
+    catch {
+        return null;
+    }
+}
 function minalyVisibleProfileHref(hostname, platform) {
     const selector = platform === "linkedin" ? 'a[href*="/in/"], a[href*="/company/"]' : 'a[href^="/"], a[href*="instagram.com/"]';
     for (const anchor of Array.from(document.querySelectorAll(selector))) {
-        const href = anchor.getAttribute("href");
-        if (!href)
-            continue;
-        try {
-            const url = new URL(href, window.location.origin);
-            const anchorHost = url.hostname.toLowerCase().replace(/^www\./, "");
-            if (anchorHost !== hostname)
-                continue;
-            const result = minalyProfilePath(platform, url.pathname);
-            if (result && (anchor.textContent?.trim() || anchor.getAttribute("aria-label")))
-                return result;
-        }
-        catch {
-            continue;
-        }
+        const result = minalyProfileAnchorPath(anchor, hostname, platform);
+        if (result)
+            return result;
     }
     return null;
+}
+function minalyIsMessagingRoute(platform) {
+    const pathname = window.location.pathname.toLowerCase();
+    return platform === "instagram" ? /^\/direct(?:\/|$)/.test(pathname) : /^\/messaging(?:\/|$)/.test(pathname);
+}
+function minalyIsVisibleElement(element) {
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+}
+function minalyHasVisibleMessageComposer() {
+    return Array.from(document.querySelectorAll('textarea, [contenteditable="true"], [role="textbox"]')).some((composer) => {
+        if (!minalyIsVisibleElement(composer))
+            return false;
+        const label = [composer.getAttribute("aria-label"), composer.getAttribute("placeholder"), composer.getAttribute("data-placeholder")].filter(Boolean).join(" ");
+        return minalyMessagePlaceholderPattern.test(label);
+    });
+}
+function minalyIsConversationSurface(platform) {
+    return minalyIsMessagingRoute(platform) || minalyHasVisibleMessageComposer();
+}
+function minalyVisibleConversationProfile(platform) {
+    const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
+    const selector = platform === "linkedin" ? 'a[href*="/in/"], a[href*="/company/"]' : 'a[href^="/"], a[href*="instagram.com/"]';
+    const anchors = Array.from(document.querySelectorAll(selector));
+    const composers = Array.from(document.querySelectorAll('textarea, [contenteditable="true"], [role="textbox"]'))
+        .filter((composer) => {
+        if (!minalyIsVisibleElement(composer))
+            return false;
+        const label = [composer.getAttribute("aria-label"), composer.getAttribute("placeholder"), composer.getAttribute("data-placeholder")].filter(Boolean).join(" ");
+        return minalyIsMessagingRoute(platform) || minalyMessagePlaceholderPattern.test(label);
+    });
+    let best = null;
+    for (const composer of composers) {
+        const composerRect = composer.getBoundingClientRect();
+        if (composerRect.width < 80 || composerRect.bottom < window.innerHeight * 0.4)
+            continue;
+        let scope = composer.parentElement;
+        let depth = 0;
+        while (scope && scope !== document.body && depth < 24) {
+            const scopedCandidates = [];
+            for (const anchor of anchors) {
+                if (!scope.contains(anchor) || !minalyIsVisibleElement(anchor))
+                    continue;
+                const profile = minalyProfileAnchorPath(anchor, hostname, platform);
+                if (!profile)
+                    continue;
+                const anchorRect = anchor.getBoundingClientRect();
+                if (anchorRect.bottom > composerRect.top + 24)
+                    continue;
+                const horizontalGap = Math.max(anchorRect.left - composerRect.right, composerRect.left - anchorRect.right, 0);
+                const allowedGap = Math.max(16, Math.min(72, composerRect.width * 0.08));
+                if (horizontalGap > allowedGap)
+                    continue;
+                // Prefer the closest shared panel, then its highest profile link in the composer column.
+                scopedCandidates.push({ ...profile, element: anchor, score: depth * 500 + anchorRect.top + horizontalGap * 4 });
+            }
+            if (scopedCandidates.length > 0) {
+                scopedCandidates.sort((left, right) => left.score - right.score);
+                const candidate = scopedCandidates[0];
+                if (candidate && (!best || candidate.score < best.score))
+                    best = candidate;
+                break;
+            }
+            scope = scope.parentElement;
+            depth += 1;
+        }
+    }
+    return best ? { path: best.path, handle: best.handle, element: best.element } : null;
 }
 function minalyProfileUrl() {
     const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
     if (hostname === "instagram.com") {
+        const conversation = minalyVisibleConversationProfile("instagram");
+        if (conversation)
+            return { platform: "instagram", url: `https://instagram.com${conversation.path}`, handle: conversation.handle, nameElement: conversation.element };
+        if (minalyIsConversationSurface("instagram"))
+            return null;
         const result = minalyProfilePath("instagram", window.location.pathname) ?? minalyVisibleProfileHref(hostname, "instagram");
         return result ? { platform: "instagram", url: `https://instagram.com${result.path}`, handle: result.handle } : null;
     }
     if (hostname === "linkedin.com") {
+        const conversation = minalyVisibleConversationProfile("linkedin");
+        if (conversation)
+            return { platform: "linkedin", url: `https://linkedin.com${conversation.path}`, handle: conversation.handle, nameElement: conversation.element };
+        if (minalyIsConversationSurface("linkedin"))
+            return null;
         const result = minalyProfilePath("linkedin", window.location.pathname) ?? minalyVisibleProfileHref(hostname, "linkedin");
         return result ? { platform: "linkedin", url: `https://linkedin.com${result.path}`, handle: result.handle } : null;
     }
     return null;
 }
-function minalyVisibleNameHeading(handle) {
+function minalyVisibleNameHeading(handle, preferredElement) {
+    if (preferredElement?.isConnected)
+        return preferredElement;
+    const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
+    const platform = hostname === "linkedin.com" ? "linkedin" : "instagram";
+    const conversation = minalyVisibleConversationProfile(platform);
+    if (conversation)
+        return conversation.handle === handle.trim().replace(/^@+/, "").toLowerCase() ? conversation.element : null;
+    if (minalyIsConversationSurface(platform))
+        return null;
     const headings = Array.from(document.querySelectorAll("h1, h2"));
     const normalizedHandle = handle.trim().replace(/^@+/, "").toLowerCase();
     const matchingHeading = headings.find((node) => {
@@ -66,8 +158,8 @@ function minalyVisibleNameHeading(handle) {
     });
     return matchingHeading ?? headings.find((node) => Boolean(node.textContent?.trim())) ?? null;
 }
-function minalyVisibleName(handle) {
-    return minalyVisibleNameHeading(handle)?.textContent?.trim() || handle;
+function minalyVisibleName(handle, preferredElement) {
+    return minalyVisibleNameHeading(handle, preferredElement)?.textContent?.trim() || handle;
 }
 function minalyVisibleMessageTime() {
     for (const node of Array.from(document.querySelectorAll("[data-timestamp]"))) {
@@ -91,11 +183,10 @@ function minalyVisibleMessageTime() {
     }
     return null;
 }
-function minalyProfile() {
-    const detected = minalyProfileUrl();
+function minalyProfile(detected = minalyProfileUrl()) {
     if (!detected)
         return null;
-    const displayName = minalyVisibleName(detected.handle);
+    const displayName = minalyVisibleName(detected.handle, detected.nameElement);
     const names = minalySplitName(displayName);
     const messageOccurredAt = minalyVisibleMessageTime();
     const capturedAt = new Date().toISOString();
@@ -689,7 +780,8 @@ let minalyUnmount = null;
 function minalyMount() {
     if (document.getElementById("minaly-crm-extension"))
         return;
-    const profile = minalyProfile();
+    const detected = minalyProfileUrl();
+    const profile = minalyProfile(detected);
     if (!profile)
         return;
     const host = document.createElement("div");
@@ -1092,10 +1184,26 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
 }
 minalyMount();
 let minalyLastUrl = window.location.href;
+const minalyLastDetectedProfile = minalyProfileUrl();
+let minalyLastProfileKey = minalyLastDetectedProfile?.url ?? null;
+const minalyLastHostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
+let minalyLastConversationSurface = minalyIsConversationSurface(minalyLastHostname === "linkedin.com" ? "linkedin" : "instagram");
 window.setInterval(() => {
-    if (window.location.href === minalyLastUrl)
+    const currentUrl = window.location.href;
+    const urlChanged = currentUrl !== minalyLastUrl;
+    const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
+    const platform = hostname === "linkedin.com" ? "linkedin" : "instagram";
+    const conversationSurfaceVisible = minalyIsConversationSurface(platform);
+    if (!urlChanged && !minalyLastConversationSurface && !conversationSurfaceVisible)
         return;
-    minalyLastUrl = window.location.href;
+    const detected = minalyProfileUrl();
+    const profileKey = detected?.url ?? null;
+    const conversationSurface = minalyIsConversationSurface(platform);
+    if (!urlChanged && profileKey === minalyLastProfileKey && conversationSurface === minalyLastConversationSurface)
+        return;
+    minalyLastUrl = currentUrl;
+    minalyLastProfileKey = profileKey;
+    minalyLastConversationSurface = conversationSurface;
     minalyUnmount?.();
     minalyMount();
 }, 1000);
