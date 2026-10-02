@@ -360,6 +360,14 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   `/crm/appels` in the iPhone simulator. The dates rendered in the page, no
   hydration overlay appeared, and Next.js MCP reported zero compilation issues
   and zero runtime errors. No CRM or booking mutation was submitted.
-- This is local simulator evidence. The formatter patch has not yet been
-  deployed to Production. Task 9.3 remains open for the keyboard/action matrix;
-  setter tasks 10.2–10.3 still require a real five-day pilot.
+- This is now verified in Production after commit `3d5c68a` was pushed to
+  `main`. An authenticated session rechecked `/crm` and `/crm/appels` at 320 ×
+  568: both measured 305 px wide, action deadlines rendered with `à`, generated
+  call timestamps retained `Europe/Paris`, and a fresh browser process reported
+  zero errors. No CRM or booking mutation was submitted.
+- The first Production error sample came from a reused Chrome process that
+  retained errors from earlier navigations. Closing and relaunching the browser
+  with its saved login state cleared that stale sample; fresh navigations to
+  both routes produced no errors.
+- Task 9.3 remains open for the keyboard/action matrix; setter tasks 10.2–10.3
+  still require a real five-day pilot.
