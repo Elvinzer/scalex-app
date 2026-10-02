@@ -112,6 +112,7 @@
   --text-secondary: #6d6a61;
   --text-on-dark: #ffffff;
   --text-on-dark-muted: #9b998f;
+  --text-on-accent-fill: #080706;
 
   /* Accent 1 — corail, chaleur/action */
   --accent: #e8663c;
@@ -145,7 +146,7 @@
   /* Dégradés — CTA et surfaces sombres gagnent en profondeur au lieu
      d'aplats plats. */
   --gradient-accent: linear-gradient(135deg, #ef7a52 0%, var(--accent) 55%, #d94f27 100%);
-  --gradient-accent-2: linear-gradient(135deg, #8b7bfa 0%, var(--accent-2) 55%, #5a48e0 100%);
+  --gradient-accent-2: linear-gradient(135deg, #8b7bfa 0%, #8276e4 55%, #756bdc 100%);
   --gradient-dark: linear-gradient(160deg, #201e29 0%, var(--surface-dark) 55%, #0f0e0a 100%);
   --gradient-mesh: radial-gradient(circle at 15% 20%, rgba(232, 102, 60, 0.16), transparent 45%),
     radial-gradient(circle at 85% 0%, rgba(109, 92, 246, 0.14), transparent 40%);
@@ -279,7 +280,7 @@
   --accent-2-glow: rgba(167, 161, 219, 0.28);
 
   --gradient-accent: linear-gradient(135deg, #ff8d61 0%, var(--accent) 55%, #d9552c 100%);
-  --gradient-accent-2: linear-gradient(135deg, #c1bbff 0%, var(--accent-2) 55%, #7972a9 100%);
+  --gradient-accent-2: linear-gradient(135deg, #c1bbff 0%, var(--accent-2) 55%, #7f78af 100%);
   --gradient-dark: linear-gradient(160deg, #25283b 0%, var(--surface-dark) 58%, #0d0e15 100%);
   --gradient-mesh: radial-gradient(circle at 15% 20%, rgba(238, 108, 55, 0.18), transparent 45%),
     radial-gradient(circle at 85% 0%, rgba(167, 161, 219, 0.14), transparent 40%);

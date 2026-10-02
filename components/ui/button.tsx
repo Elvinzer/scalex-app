@@ -13,11 +13,11 @@ const buttonVariants = cva(
         // gradient fill + colored glow that deepens on hover, instead of a
         // flat coral aplat.
         default:
-          "border-transparent text-white shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--accent-border),0_6px_16px_var(--accent-glow)] [background:var(--gradient-accent)] hover:brightness-105 hover:shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--accent-border),0_10px_28px_var(--accent-glow)] hover:-translate-y-px",
+          "border-transparent text-[var(--text-on-accent-fill)] shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--accent-border),0_6px_16px_var(--accent-glow)] [background:var(--gradient-accent)] hover:brightness-105 hover:shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--accent-border),0_10px_28px_var(--accent-glow)] hover:-translate-y-px",
         // Second brand accent — violet gradient, same treatment, for
         // analytics/IA-flavored actions.
         accent2:
-          "border-transparent text-white shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--accent-2-border),0_6px_16px_var(--accent-2-glow)] [background:var(--gradient-accent-2)] hover:brightness-105 hover:shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--accent-2-border),0_10px_28px_var(--accent-2-glow)] hover:-translate-y-px",
+          "border-transparent text-[var(--text-on-accent-fill)] shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--accent-2-border),0_6px_16px_var(--accent-2-glow)] [background:var(--gradient-accent-2)] hover:brightness-105 hover:shadow-[0_1px_2px_rgba(0,0,0,0.08),0_0_0_1px_var(--accent-2-border),0_10px_28px_var(--accent-2-glow)] hover:-translate-y-px",
         outline:
           "border-border bg-card text-foreground hover:border-border-hover hover:shadow-sm hover:-translate-y-px aria-expanded:bg-muted",
         secondary:
