@@ -155,3 +155,10 @@ unobserved general rollout.
   the current route.
 - These checks were read-only. They confirm route reachability and layout; they
   do not close the remaining form/action/KPI interaction matrix or pilot tasks.
+- A local `/crm/actions` fault-injection pass ran with the browser offline and
+  a 1.2 s delayed rejection for mutation POSTs. A double tap on “Terminer”
+  produced one intercepted request, disabled the second tap while pending,
+  kept the action visible after failure and displayed the retryable error.
+  The fetch wrapper rejected before the original network call; no server
+  mutation was submitted. The browser was returned online and the wrapper
+  removed afterward.
