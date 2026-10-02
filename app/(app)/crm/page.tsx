@@ -123,9 +123,10 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
           const value = key === "messages" || key === "conversations" || key === "valueContent"
             ? kpis[key]
             : kpis.rates[key === "responses" ? "response" : key === "callsProposed" ? "callProposed" : "callBooked"];
-          const displayValue = typeof value === "number" ? `${Math.round(value * (key === "messages" || key === "conversations" || key === "valueContent" ? 1 : 100))}${key === "messages" || key === "conversations" || key === "valueContent" ? "" : "%"}` : t("kpis.notMeasured");
+          const measuredValue = typeof value === "number" ? `${Math.round(value * (key === "messages" || key === "conversations" || key === "valueContent" ? 1 : 100))}${key === "messages" || key === "conversations" || key === "valueContent" ? "" : "%"}` : t("kpis.notMeasured");
+          const displayValue = kpis.incomplete ? t("kpis.notMeasured") : measuredValue;
           const destination = leadKpiHref(key, { setter: setterId, platform, offer: offerId, source }, period);
-          return <Link key={key} href={destination} className="sticker-card p-4 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/30"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p className="mt-2 text-2xl font-bold">{displayValue}</p></Link>;
+          return <Link key={key} href={destination} className="sticker-card p-4 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/30"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p className={`mt-2 font-bold ${kpis.incomplete ? "text-lg" : "text-2xl"}`}>{displayValue}</p></Link>;
         })}
       </section>
       <p className="text-sm text-muted-foreground">{t("kpis.rateBasis")}</p>

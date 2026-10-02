@@ -2038,7 +2038,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
       ),
     )),
     db.select({ history: crmLeadStageHistory, lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, createdAt: leads.createdAt } }).from(crmLeadStageHistory).innerJoin(leads, and(eq(crmLeadStageHistory.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(crmLeadStageHistory.accountId, accountId), gte(crmLeadStageHistory.changedAt, from), lte(crmLeadStageHistory.changedAt, asOf))),
-    db.select({ lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, createdAt: leads.createdAt } }).from(leads).where(eq(leads.accountId, accountId)),
+    db.select({ lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, contactState: leads.contactState, createdAt: leads.createdAt } }).from(leads).where(eq(leads.accountId, accountId)),
     db.select({ call: salesCalls, link: crmCallLinks, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(salesCalls).leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId))).leftJoin(leads, and(eq(crmCallLinks.leadId, leads.id), eq(leads.accountId, accountId))).where(and(
       eq(salesCalls.userId, accountId),
       or(
@@ -2062,7 +2062,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
     if (!filters.setterId) return true;
     const responsibleSetterId = event.metadata.responsibleSetterId;
     return event.actorUserId === setterUserId || responsibleSetterId === filters.setterId;
-  }).map(({ event }) => ({ leadId: event.leadId, type: event.type, actorUserId: event.actorUserId, source: event.source, occurredAt: event.occurredAt, capturedAt: event.capturedAt, createdAt: event.createdAt, metadata: event.metadata }));
+  }).map(({ event }) => ({ leadId: event.leadId, type: event.type, actorUserId: event.actorUserId, source: event.source, sourceEventKey: event.sourceEventKey, occurredAt: event.occurredAt, capturedAt: event.capturedAt, createdAt: event.createdAt, metadata: event.metadata }));
   const stageChanges: CrmKpiStageChange[] = stageRows
     .filter(({ history, lead }) => {
       if (!matchesLead(lead, false)) return false;
@@ -2081,6 +2081,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
       occurredAt: asOf,
       currentSnapshot: true,
       currentOutcome: lead.crmOutcome,
+      currentContactState: lead.contactState,
       includeInCurrentCounts: !filters.setterId || lead.setterId === filters.setterId,
     });
   }

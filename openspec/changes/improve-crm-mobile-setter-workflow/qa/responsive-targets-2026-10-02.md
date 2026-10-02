@@ -169,3 +169,25 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
 - Opening the response-rate card loaded `/crm/leads` with the expected metric,
   cohort dates and both filters. The browser reported no errors. This was a
   read-only production check; no CRM or booking mutation was submitted.
+
+## KPI historical source-data validation
+
+- On 2026-10-02, an authenticated local `/crm?team=1&range=all` check showed
+  345 active pipeline leads: 325 at the first-message stage, 14 in conversation
+  and 6 at value content. The available first-message events do not provide a
+  reliable dated cohort for those advanced-stage records, so their historic
+  KPI totals cannot be recovered from the current source data.
+- The KPI projection now accepts a historical message only when it carries the
+  exact migration-generated event key and an occurrence timestamp. A contacted
+  lead or a lead beyond the first-message stage without reliable cohort evidence
+  marks the analysis incomplete. It does not infer a send date from lead
+  creation or stage-history migration time.
+- While the selected period includes records with incomplete source data, all
+  six primary cards show “Non mesuré” and the page shows its incomplete-data
+  notice instead of presenting a numeric zero as complete. The 320 × 568 check
+  measured a 305 px document width; widths 360, 390, 768 and 1280 px measured
+  345, 375, 753 and 1265 px with no horizontal overflow.
+- Next.js 16.3.5 with Turbopack compiled `/crm` without issues. Browser errors
+  were empty. Axe found zero violations and one incomplete color-contrast check
+  involving partially obscured mobile navigation and a gradient control. No
+  production data was changed.

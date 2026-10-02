@@ -5,6 +5,7 @@ export type CrmKpiEvent = {
   type: CrmEventType;
   actorUserId?: string | null;
   source?: CrmEventSource;
+  sourceEventKey?: string | null;
   occurredAt: Date | null;
   capturedAt: Date | null;
   createdAt: Date;
@@ -20,6 +21,7 @@ export type CrmKpiStageChange = {
   occurredAt: Date;
   currentSnapshot?: boolean;
   currentOutcome?: CrmLeadOutcome;
+  currentContactState?: "new" | "contacted";
   includeInCurrentCounts?: boolean;
 };
 
@@ -130,6 +132,11 @@ export function isReliableFirstMessageEvent(event: CrmKpiEvent): boolean {
     event.metadata?.confirmedFrom === "crm"
     || event.metadata?.confirmedFrom === "capture"
     || event.metadata?.source === "crm_import"
+    || (
+      event.source === "migration"
+      && event.occurredAt !== null
+      && event.sourceEventKey === `migration:first-message:${event.leadId}`
+    )
   );
 }
 
@@ -154,7 +161,7 @@ export function computeCrmKpis(input: {
   const callsBookedAfterFirstMessage = new Set<string>();
   const soldLeadIds = new Set<string>();
   const noShowEventLeadIds = new Set<string>();
-  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; changedAt: Date; includeInCurrentCounts?: boolean }>();
+  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; contactState?: "new" | "contacted"; changedAt: Date; includeInCurrentCounts?: boolean }>();
   const stageChanges = (input.stageChanges ?? [])
     .filter((change) => change.occurredAt <= asOf)
     .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
@@ -189,6 +196,7 @@ export function computeCrmKpis(input: {
       currentStages.set(change.leadId, {
         stage: change.toStage,
         outcome: change.currentOutcome,
+        contactState: change.currentContactState,
         changedAt: change.occurredAt,
         includeInCurrentCounts: change.includeInCurrentCounts,
       });
@@ -293,6 +301,17 @@ export function computeCrmKpis(input: {
     ...callsBookedAfterFirstMessage,
   ]);
   for (const leadId of soldLeadIds) if (firstMessageDates.has(leadId)) cohortConverted.add(leadId);
+  const advancedStagesWithoutCohort = new Set<CrmLeadStage>([
+    "conversation_in_progress",
+    "value_content_sent",
+    "call_proposed",
+    "call_booked",
+  ]);
+  const missingCurrentFirstMessageEvidence = [...currentStages].some(([leadId, current]) => (
+    !firstMessageDates.has(leadId)
+    && current.includeInCurrentCounts !== false
+    && (current.contactState === "contacted" || advancedStagesWithoutCohort.has(current.stage))
+  ));
 
   return {
     messages: cohortFirstMessages,
@@ -322,7 +341,7 @@ export function computeCrmKpis(input: {
       noShow: ratio(noShows, periodCallBookedLeadIds.size),
       closing: ratio(soldLeadIds.size, callsAttended),
     },
-    incomplete: unverifiedFirstMessages.size > 0,
+    incomplete: unverifiedFirstMessages.size > 0 || missingCurrentFirstMessageEvidence,
   };
 }
 

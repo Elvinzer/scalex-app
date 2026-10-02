@@ -28,7 +28,7 @@ function firstMessage(leadId: string, occurredAt: string): CrmKpiEvent {
   return event({ leadId, type: "first_message_sent", occurredAt, metadata: { confirmedFrom: "crm" } });
 }
 
-function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_show" | "lost" | "sold" = "none") {
+function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_show" | "lost" | "sold" = "none", contactState?: "new" | "contacted") {
   return {
     leadId,
     fromStage: null,
@@ -36,6 +36,7 @@ function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_sho
     occurredAt: asOf,
     currentSnapshot: true,
     currentOutcome: outcome,
+    currentContactState: contactState,
   } as const;
 }
 
@@ -61,6 +62,57 @@ describe("CRM KPI projection", () => {
     expect(counts.cohortFirstMessages).toBe(1);
     expect(counts.incomplete).toBe(true);
     expect(isReliableFirstMessageEvent(repeated)).toBe(true);
+  });
+
+  it("counts only timestamped first-message events created by the legacy migration and flags legacy stages without dates", () => {
+    const migrated = event({
+      leadId: "migrated-contact",
+      type: "first_message_sent",
+      occurredAt: "2026-09-05T09:00:00Z",
+    });
+    migrated.source = "migration";
+    migrated.sourceEventKey = "migration:first-message:migrated-contact";
+    const unverifiedMigration = event({
+      leadId: "unverified-contact",
+      type: "first_message_sent",
+      occurredAt: "2026-09-06T09:00:00Z",
+    });
+    unverifiedMigration.source = "migration";
+    unverifiedMigration.sourceEventKey = "migration:other:unverified-contact";
+
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [migrated, unverifiedMigration],
+      stageChanges: [
+        snapshot("migrated-contact", "conversation_in_progress", "none", "contacted"),
+        snapshot("legacy-stage-without-date", "value_content_sent"),
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(isReliableFirstMessageEvent(migrated)).toBe(true);
+    expect(isReliableFirstMessageEvent(unverifiedMigration)).toBe(false);
+    expect(counts.messages).toBe(1);
+    expect(counts.conversations).toBe(1);
+    expect(counts.valueContent).toBe(0);
+    expect(counts.incomplete).toBe(true);
+  });
+
+  it("marks a current advanced-stage lead without a first-message date as incomplete", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [],
+      stageChanges: [snapshot("legacy-stage-without-date", "conversation_in_progress")],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(0);
+    expect(counts.conversations).toBe(0);
+    expect(counts.incomplete).toBe(true);
   });
 
   it("counts current open cohort stages and excludes lost or sold leads", () => {

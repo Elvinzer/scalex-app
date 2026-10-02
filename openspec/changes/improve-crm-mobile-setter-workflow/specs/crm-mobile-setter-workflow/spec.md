@@ -320,6 +320,13 @@ of the selected period. If the denominator is zero, the rates SHALL be shown as
 unavailable. The UI SHALL provide a metric-specific drill-down that preserves
 the selected period and acquisition origin.
 
+Historical migration events SHALL qualify as first-message evidence only when
+they carry the migration-generated first-message key for that lead and a stored
+occurrence timestamp. A contacted lead or a lead in a stage beyond the
+first-message stage without a reliable first-message date SHALL mark the
+analysis incomplete; its missing date SHALL NOT be inferred from lead creation,
+stage-history migration time or the current date.
+
 Other commercial measures, including qualification activity, attendance,
 no-show and canonical sales or revenue, MAY remain available in separate
 analysis surfaces. They SHALL NOT displace or obscure the six primary metrics.
@@ -363,6 +370,7 @@ analysis surfaces. They SHALL NOT displace or obscure the six primary metrics.
 - **WHEN** the system cannot calculate a rate or attribution reliably
 - **THEN** the KPI SHALL be labelled unavailable or incomplete
 - **AND** the interface SHALL not substitute a plausible-looking zero or fabricated amount
+- **AND** primary KPI cards affected by incomplete source data SHALL show an unavailable value instead of a numeric count or rate
 
 #### Scenario: Acquisition origin differs from contact platform
 
