@@ -11,7 +11,7 @@ import { getInFlight } from "@/lib/perf/in-flight";
 import { expandPermissionKeys, type PermissionKey } from "@/lib/team/permissions";
 
 export type AccountContext =
-  | { isOwner: true; accountId: string; permissions: "all"; advancedModulesEnabled: boolean; crmEnabled: boolean }
+  | { isOwner: true; accountId: string; permissions: "all"; advancedModulesEnabled: boolean; crmEnabled: boolean; onboardingCompleted?: boolean }
   | { isOwner: false; accountId: string; permissions: Set<string>; advancedModulesEnabled: boolean; crmEnabled: boolean };
 
 const MEMBER_LANDING_ROUTES: readonly { permission: PermissionKey; href: string }[] = [
@@ -49,6 +49,9 @@ export function resolvePostAuthRoute(context: AccountContext | null, onboardingC
 export async function getPostAuthDestination(userId: string): Promise<string> {
   const context = await getAccountContext(userId);
   if (context && !context.isOwner) return resolvePostAuthRoute(context, false);
+  if (context?.onboardingCompleted !== undefined) {
+    return resolvePostAuthRoute(context, context.onboardingCompleted);
+  }
 
   const accountId = context?.accountId ?? userId;
   const [user] = await db
@@ -83,7 +86,16 @@ export async function getPostAuthDestination(userId: string): Promise<string> {
 async function fetchAccountContext(userId: string): Promise<AccountContext | null> {
   const [[userRow], [membership]] = await Promise.all([
     withDatabaseReadRetry(
-      () => db.select({ email: users.email, advancedModulesEnabled: users.advancedModulesEnabled, crmEnabled: users.crmEnabled }).from(users).where(eq(users.id, userId)).limit(1),
+      () => db
+        .select({
+          email: users.email,
+          advancedModulesEnabled: users.advancedModulesEnabled,
+          crmEnabled: users.crmEnabled,
+          onboardingCompleted: users.onboardingCompleted,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1),
       { operation: "account-context-user", timeoutMs: 8_000 },
     ),
     withDatabaseReadRetry(
@@ -98,11 +110,25 @@ async function fetchAccountContext(userId: string): Promise<AccountContext | nul
   ]);
 
   if (userRow && isAdminEmail(userRow.email)) {
-    return { isOwner: true, accountId: userId, permissions: "all", advancedModulesEnabled: userRow.advancedModulesEnabled, crmEnabled: userRow.crmEnabled };
+    return {
+      isOwner: true,
+      accountId: userId,
+      permissions: "all",
+      advancedModulesEnabled: userRow.advancedModulesEnabled,
+      crmEnabled: userRow.crmEnabled,
+      onboardingCompleted: userRow.onboardingCompleted,
+    };
   }
 
   if (!membership) {
-    return { isOwner: true, accountId: userId, permissions: "all", advancedModulesEnabled: userRow?.advancedModulesEnabled ?? false, crmEnabled: userRow?.crmEnabled ?? false };
+    return {
+      isOwner: true,
+      accountId: userId,
+      permissions: "all",
+      advancedModulesEnabled: userRow?.advancedModulesEnabled ?? false,
+      crmEnabled: userRow?.crmEnabled ?? false,
+      onboardingCompleted: userRow?.onboardingCompleted ?? false,
+    };
   }
 
   const subscriptionActive = await hasActiveTeamSubscription(membership.accountId);
