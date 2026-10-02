@@ -216,3 +216,29 @@ keyboard/action matrix or replace the controlled setter pilot in tasks 10.2–10
   unauthenticated production request to `/crm` redirected to `/sign-in`. This
   browser session did not have a production CRM login, so authenticated cards
   were not rechecked on the deployed site. No production data was changed.
+
+## KPI cohort attribution after reassignment
+
+- A regression fixture assigns a first message to setter A and the later
+  response, call proposal and booking to setter B. Setter A’s cohort retains
+  all three milestones, while a first-message event attributed to B is excluded
+  from A’s count. The fixture also verifies unique-lead counts and setter
+  actor-ID fallback attribution.
+- The local authenticated personal view at 320 × 568 rendered all six cards
+  without horizontal overflow. A filtered previous-month selection preserved
+  contact platform `instagram`, acquisition origin `ads`, and setter attribution
+  in every KPI drill-down link.
+- The selected-setter team view also retained the setter ID and both channel
+  filters in all six links; opening its response-rate card showed the selected
+  setter name and the same cohort dates in the lead-list scope. The dashboard
+  matched viewport width at 320 × 568, 390 × 844, 768 × 900, 1280 × 900 and
+  1440 × 900; the selected-setter response list did so at 320 × 568, 390 × 844
+  and 1440 × 900.
+- Opening the response-rate card showed its cohort date and setter label; the
+  platform and acquisition-origin selects remained selected. The filtered
+  sample had no matching leads. No lead, action, call, booking or account data
+  was changed.
+- Typecheck, lint, all 165 test files (720 tests), strict OpenSpec validation,
+  Turbopack compilation and Next.js/browser error checks passed. Axe reported
+  zero violations and one incomplete color-contrast check for shared navigation
+  and gradient elements; those nodes need a manual visual review.

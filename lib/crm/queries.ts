@@ -26,7 +26,7 @@ import {
 } from "@/db/schema";
 
 import { defaultStageAfterReopen, eventForOutcome, eventForStage, legacyStageForCrmStage } from "./machine";
-import { matchesCrmKpiAttribution, type CrmKpiStageChange, type CrmPrimaryKpiMetric } from "./kpis";
+import { isCrmKpiEventAttributedToSetter, matchesCrmKpiAttribution, type CrmKpiStageChange, type CrmPrimaryKpiMetric } from "./kpis";
 import type { CrmSaleValidationInput } from "@/lib/sales/schema";
 import type {
   CrmActionCategory,
@@ -94,6 +94,8 @@ export type CrmLeadFilters = {
   firstMessageFrom?: string;
   firstMessageTo?: string;
   kpiMetric?: CrmPrimaryKpiMetric;
+  kpiSetterId?: string;
+  kpiSetterActorUserId?: string | null;
 };
 
 export type CrmActionFilters = {
@@ -525,8 +527,21 @@ function buildCrmLeadConditions(accountId: string, filters: CrmLeadFilters, now:
       eq(cohortMessage.accountId, accountId),
       eq(cohortMessage.leadId, leads.id),
       eq(cohortMessage.type, "first_message_sent"),
-      sql`(${cohortMessage.metadata}->>'confirmedFrom' in ('crm', 'capture') or ${cohortMessage.metadata}->>'source' = 'crm_import')`,
+      sql`(
+        ${cohortMessage.metadata}->>'confirmedFrom' in ('crm', 'capture')
+        or ${cohortMessage.metadata}->>'source' = 'crm_import'
+        or (
+          ${cohortMessage.source} = 'migration'
+          and ${cohortMessage.sourceEventKey} = ('migration:first-message:' || ${leads.id}::text)
+          and ${cohortMessage.occurredAt} is not null
+        )
+      )`,
     ];
+    if (filters.kpiSetterId) {
+      const setterAttributionConditions: SQL[] = [sql`${cohortMessage.metadata}->>'responsibleSetterId' = ${filters.kpiSetterId}`];
+      if (filters.kpiSetterActorUserId) setterAttributionConditions.push(eq(cohortMessage.actorUserId, filters.kpiSetterActorUserId));
+      cohortConditions.push(or(...setterAttributionConditions) ?? sql`false`);
+    }
     if (filters.firstMessageFrom && !Number.isNaN(Date.parse(filters.firstMessageFrom))) {
       cohortConditions.push(gte(firstMessageAt, new Date(`${filters.firstMessageFrom}T00:00:00.000Z`).toISOString()));
     }
@@ -2039,6 +2054,25 @@ export type CrmKpiFilters = {
   source?: string;
 };
 
+export type CrmKpiSetterAttribution = { id: string; actorUserId: string | null };
+
+export async function getCrmKpiSetterAttribution(accountId: string, setterId: string): Promise<CrmKpiSetterAttribution | null> {
+  const [setter] = await db.select({
+    id: setters.id,
+    actorUserId: sql<string | null>`coalesce(${teamMembers.memberUserId}, ${users.id})`,
+  }).from(setters)
+    .leftJoin(users, sql`lower(trim(${setters.email})) = lower(trim(${users.email}))`)
+    .leftJoin(teamMembers, and(
+      eq(teamMembers.accountId, accountId),
+      ne(teamMembers.status, "removed"),
+      sql`lower(trim(${teamMembers.email})) = lower(trim(${setters.email}))`,
+    ))
+    .where(and(eq(setters.id, setterId), eq(setters.userId, accountId)))
+    .orderBy(asc(setters.id))
+    .limit(1);
+  return setter ?? null;
+}
+
 export async function getCrmKpiSources(accountId: string, from: Date, to: Date, filters: CrmKpiFilters = {}, asOf = new Date()) {
   const fromDate = from.toISOString().slice(0, 10);
   const toDate = to.toISOString().slice(0, 10);
@@ -2047,19 +2081,9 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
   const eventOccurredAt = sql`coalesce(${crmLeadEvents.occurredAt}, ${crmLeadEvents.createdAt})`;
   const eventCapturedAt = sql`coalesce(${crmLeadEvents.capturedAt}, ${crmLeadEvents.createdAt})`;
   const [setter, eventRows, stageRows, leadRows, callRows, saleRows] = await Promise.all([
-    filters.setterId ? db.select({
-      id: setters.id,
-      actorUserId: sql<string | null>`coalesce(${teamMembers.memberUserId}, ${users.id})`,
-    }).from(setters)
-      .leftJoin(users, sql`lower(trim(${setters.email})) = lower(trim(${users.email}))`)
-      .leftJoin(teamMembers, and(
-        eq(teamMembers.accountId, accountId),
-        ne(teamMembers.status, "removed"),
-        sql`lower(trim(${teamMembers.email})) = lower(trim(${setters.email}))`,
-      ))
-      .where(and(eq(setters.id, filters.setterId), eq(setters.userId, accountId)))
-      .orderBy(asc(setters.id))
-      .limit(1) : Promise.resolve([] as Array<{ id: string; actorUserId: string | null }>),
+    filters.setterId
+      ? getCrmKpiSetterAttribution(accountId, filters.setterId).then((row) => row ? [row] : [])
+      : Promise.resolve([] as CrmKpiSetterAttribution[]),
     db.select({ event: crmLeadEvents, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(crmLeadEvents).innerJoin(leads, and(eq(crmLeadEvents.leadId, leads.id), eq(leads.accountId, accountId))).where(and(
       eq(crmLeadEvents.accountId, accountId),
       or(
@@ -2085,27 +2109,44 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
   ]);
   if (filters.setterId && !setter[0]) return { events: [], stageChanges: [], calls: [], sales: [] };
   const setterActorUserId = setter[0]?.actorUserId;
-  const matchesLead = (lead: { platform: CrmPlatform | null; offerId: string | null; source: string; setterId: string | null } | null, includeCurrentSetter = true) => {
+  const matchesLead = (lead: { platform: CrmPlatform | null; offerId: string | null; source: string; setterId: string | null } | null) => {
     if (!lead) return false;
-    if (!matchesCrmKpiAttribution(lead, filters)) return false;
-    if (includeCurrentSetter && filters.setterId && lead.setterId !== filters.setterId) return false;
-    return true;
+    return matchesCrmKpiAttribution(lead, filters);
   };
+  const setterCohortLeadIds = new Set(eventRows
+    .filter(({ event, lead }) => (
+      event.type === "first_message_sent"
+      && matchesLead(lead)
+      && (!filters.setterId || isCrmKpiEventAttributedToSetter(event, filters.setterId, setterActorUserId))
+    ))
+    .map(({ event }) => event.leadId));
   const events = eventRows.filter(({ event, lead }) => {
-    if (!matchesLead(lead, !filters.setterId)) return false;
+    if (!matchesLead(lead)) return false;
     if (!filters.setterId) return true;
-    const responsibleSetterId = event.metadata.responsibleSetterId;
-    return event.actorUserId === setterActorUserId || responsibleSetterId === filters.setterId;
-  }).map(({ event }) => ({ leadId: event.leadId, type: event.type, actorUserId: event.actorUserId, source: event.source, sourceEventKey: event.sourceEventKey, occurredAt: event.occurredAt, capturedAt: event.capturedAt, createdAt: event.createdAt, metadata: event.metadata }));
+    if (event.type === "first_message_sent") return true;
+    return setterCohortLeadIds.has(event.leadId);
+  }).map(({ event }) => ({
+    leadId: event.leadId,
+    type: event.type,
+    actorUserId: event.actorUserId,
+    source: event.source,
+    sourceEventKey: event.sourceEventKey,
+    occurredAt: event.occurredAt,
+    capturedAt: event.capturedAt,
+    createdAt: event.createdAt,
+    metadata: event.metadata,
+    ...(filters.setterId && event.type === "first_message_sent"
+      ? { includeInCohort: isCrmKpiEventAttributedToSetter(event, filters.setterId, setterActorUserId) }
+      : {}),
+  }));
   const stageChanges: CrmKpiStageChange[] = stageRows
     .filter(({ history, lead }) => {
-      if (!matchesLead(lead, false)) return false;
-      if (!filters.setterId) return true;
-      return lead.setterId === filters.setterId || history.actorUserId === setterActorUserId || history.responsibleSetterId === filters.setterId;
+      if (!matchesLead(lead)) return false;
+      return !filters.setterId || setterCohortLeadIds.has(history.leadId);
     })
     .map(({ history }) => ({ leadId: history.leadId, fromStage: history.fromStage, toStage: history.toStage, actorUserId: history.actorUserId, responsibleSetterId: history.responsibleSetterId, occurredAt: history.changedAt }));
   for (const { lead } of leadRows) {
-    if (!matchesLead(lead, false)) continue;
+    if (!matchesLead(lead)) continue;
     stageChanges.push({
       leadId: lead.id,
       fromStage: null,
@@ -2116,10 +2157,16 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
       currentSnapshot: true,
       currentOutcome: lead.crmOutcome,
       currentContactState: lead.contactState,
-      includeInCurrentCounts: !filters.setterId || lead.setterId === filters.setterId,
+      includeInCurrentCounts: !filters.setterId || lead.setterId === filters.setterId || setterCohortLeadIds.has(lead.id),
     });
   }
-  const calls = callRows.filter(({ link, lead }) => Boolean(link?.leadId) && matchesLead(lead)).map(({ link, call }) => ({ leadId: link?.leadId ?? null, scheduledAt: call.scheduledAt, bookedAt: link?.linkedAt ?? call.createdAt, attendance: call.attendance }));
-  const linkedSales = saleRows.filter(({ sale, lead }) => Boolean(sale.leadId) && matchesLead(lead)).map(({ sale }) => ({ leadId: sale.leadId, saleDate: sale.saleDate, totalPrice: sale.totalPrice }));
+  const calls = callRows.filter(({ link, lead }) => Boolean(link?.leadId)
+    && matchesLead(lead)
+    && (!filters.setterId || Boolean(link?.leadId && setterCohortLeadIds.has(link.leadId)) || lead?.setterId === filters.setterId))
+    .map(({ link, call }) => ({ leadId: link?.leadId ?? null, scheduledAt: call.scheduledAt, bookedAt: link?.linkedAt ?? call.createdAt, attendance: call.attendance }));
+  const linkedSales = saleRows.filter(({ sale, lead }) => Boolean(sale.leadId)
+    && matchesLead(lead)
+    && (!filters.setterId || setterCohortLeadIds.has(sale.leadId ?? "") || lead?.setterId === filters.setterId))
+    .map(({ sale }) => ({ leadId: sale.leadId, saleDate: sale.saleDate, totalPrice: sale.totalPrice }));
   return { events, stageChanges, calls, sales: linkedSales };
 }

@@ -10,6 +10,7 @@ export type CrmKpiEvent = {
   capturedAt: Date | null;
   createdAt: Date;
   metadata?: CrmEventMetadata;
+  includeInCohort?: boolean;
 };
 
 export type CrmKpiStageChange = {
@@ -87,6 +88,14 @@ export function matchesCrmKpiAttribution(lead: CrmKpiAttribution, filters: CrmKp
   if (filters.offerId && lead.offerId !== filters.offerId) return false;
   if (filters.source && lead.source !== filters.source) return false;
   return true;
+}
+
+export function isCrmKpiEventAttributedToSetter(
+  event: { actorUserId?: string | null; metadata?: CrmEventMetadata },
+  setterId: string,
+  setterActorUserId?: string | null,
+): boolean {
+  return event.metadata?.responsibleSetterId === setterId || Boolean(setterActorUserId && event.actorUserId === setterActorUserId);
 }
 
 export const CRM_PRIMARY_KPI_METRICS = [
@@ -185,11 +194,11 @@ export function computeCrmKpis(input: {
     if (event.type === "first_message_sent") {
       if (isReliableFirstMessageEvent(event)) {
         datedFirstMessageLeadIds.add(event.leadId);
-        if (selectedPeriod) {
+        if (selectedPeriod && event.includeInCohort !== false) {
           const previous = firstMessageDates.get(event.leadId);
           if (!previous || date < previous) firstMessageDates.set(event.leadId, date);
         }
-      } else if (selectedPeriod) {
+      } else if (selectedPeriod && event.includeInCohort !== false) {
         unverifiedFirstMessages.add(event.leadId);
       }
     }

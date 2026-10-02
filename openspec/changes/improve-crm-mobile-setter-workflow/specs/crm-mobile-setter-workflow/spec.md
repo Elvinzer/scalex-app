@@ -365,6 +365,13 @@ analysis surfaces. They SHALL NOT displace or obscure the six primary metrics.
 - **AND** milestones reached after the selected period SHALL still count for that cohort
 - **AND** a zero denominator SHALL produce an unavailable state rather than 0%
 
+#### Scenario: Setter cohort remains stable after reassignment
+
+- **WHEN** the selected setter sent a lead’s first message and another setter later records the response, call proposal or booking after reassignment
+- **THEN** the lead SHALL remain in the original setter’s first-message cohort
+- **AND** each later unique milestone SHALL count toward that cohort regardless of the current responsible setter or event actor
+- **AND** the KPI drill-down SHALL preserve the first-message setter attribution
+
 #### Scenario: Setter opens a KPI drill-down
 
 - **WHEN** the setter taps one of the six primary metrics

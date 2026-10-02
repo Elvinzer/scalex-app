@@ -160,7 +160,11 @@ jamais un zéro de convenance.
 Chaque carte ouvre un drill-down limité aux leads qui contribuent à cette
 métrique et conserve la période et l’origine sélectionnées. La source de vérité
 reste constituée des événements CRM et des appels canoniques ; les événements
-gardent l’acteur, la date du fait et le responsable au moment du fait.
+gardent l’acteur, la date du fait et le responsable au moment du fait. En vue
+setter, l’attribution de cohorte est fixée au setter responsable du premier
+message. Une réponse ou une réservation ultérieure compte dans cette cohorte,
+même si le lead a été réassigné et que l’événement a été saisi par un autre
+setter ; le responsable actuel ne remplace pas l’attribution historique.
 
 Alternative écartée : calculer les conversions d’appel à partir du contenu de
 valeur ou des appels proposés. Ces dénominateurs ne correspondent pas au besoin

@@ -9,7 +9,7 @@ import { hasCrmPermission, requireCrmAccess } from "@/lib/crm/access";
 import { getBusinessSalesOfferDetails } from "@/lib/business/queries";
 import { CRM_EVENT_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine";
 import { CRM_PRIMARY_KPI_METRICS } from "@/lib/crm/kpis";
-import { getCrmLeadsPage, getCrmSetterForActor, getCrmSetters } from "@/lib/crm/queries";
+import { getCrmKpiSetterAttribution, getCrmLeadsPage, getCrmSetterForActor, getCrmSetters } from "@/lib/crm/queries";
 import { CRM_LEADS_PAGE_SIZE } from "@/lib/crm/lead-pagination";
 import { crmEventTypeSchema, crmLeadSourceSchema, crmOutcomeSchema, crmStageSchema } from "@/lib/crm/schemas";
 import { CRM_CHANNELS, CRM_EVENT_TYPES, CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES } from "@/lib/crm/types";
@@ -18,7 +18,7 @@ import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 import { CrmLeadManagementActions } from "../crm-lead-management-actions";
 import { CrmLeadList } from "../crm-lead-list";
 
-export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; offer?: string; source?: string; from?: string; to?: string; event?: string; eventFrom?: string; eventTo?: string; firstMessageFrom?: string; firstMessageTo?: string; metric?: string; overdue?: string; responded?: string; qualification?: string }> }) {
+export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; kpiSetter?: string; offer?: string; source?: string; from?: string; to?: string; event?: string; eventFrom?: string; eventTo?: string; firstMessageFrom?: string; firstMessageTo?: string; metric?: string; overdue?: string; responded?: string; qualification?: string }> }) {
   const t = await getTranslations("crm");
   const { userId } = await getCurrentUser();
   const access = await requireCrmAccess(userId);
@@ -53,24 +53,36 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   const firstMessageFrom = validDate(params.firstMessageFrom);
   const firstMessageTo = validDate(params.firstMessageTo);
   const kpiMetric = CRM_PRIMARY_KPI_METRICS.find((metric) => metric === params.metric);
+  const requestedKpiSetterId = setters.some((setter) => setter.id === params.kpiSetter) || personalSetter?.id === params.kpiSetter ? params.kpiSetter : undefined;
+  const kpiSetterAttribution = requestedKpiSetterId
+    ? await withDatabaseReadTimeout(
+      () => getCrmKpiSetterAttribution(access.accountId, requestedKpiSetterId),
+      { operation: "crm-leads-kpi-setter", timeoutMs: 15_000 },
+    )
+    : null;
+  const kpiSetterId = kpiSetterAttribution?.id;
+  const kpiSetterName = kpiSetterId
+    ? setters.find((setter) => setter.id === kpiSetterId)?.name ?? (personalSetter?.id === kpiSetterId ? personalSetter.name : null)
+    : null;
   const overdueActionOnly = params.overdue === "1";
   const respondedOnly = params.responded === "1";
   const qualificationOnly = params.qualification === "1";
   const search = params.search?.trim().slice(0, 200) || undefined;
-  const filters = { search, platform, stage, outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, firstMessageFrom, firstMessageTo, kpiMetric, overdueActionOnly, respondedOnly, qualificationOnly };
+  const filters = { search, platform, stage, outcome, responsibleSetterId, kpiSetterId, kpiSetterActorUserId: kpiSetterAttribution?.actorUserId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, firstMessageFrom, firstMessageTo, kpiMetric, overdueActionOnly, respondedOnly, qualificationOnly };
   const { leads, totalCount } = await withDatabaseReadTimeout(
     () => getCrmLeadsPage(access.accountId, filters, { limit: CRM_LEADS_PAGE_SIZE, offset: 0 }),
     { operation: "crm-leads-data", timeoutMs: 15_000 },
   );
   const leadListKey = `${JSON.stringify(filters)}:${totalCount}:${leads.map(({ id, updatedAt }) => `${id}:${updatedAt}`).join("|")}`;
-  const advancedFilterCount = [outcome, responsibleSetterId, offerId, source, createdFrom, createdTo, overdueActionOnly, respondedOnly, qualificationOnly, eventType, eventFrom, eventTo, firstMessageFrom, firstMessageTo, kpiMetric].filter(Boolean).length;
+  const advancedFilterCount = [outcome, responsibleSetterId, kpiSetterId, offerId, source, createdFrom, createdTo, overdueActionOnly, respondedOnly, qualificationOnly, eventType, eventFrom, eventTo, firstMessageFrom, firstMessageTo, kpiMetric].filter(Boolean).length;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">{t("leads.title")}</h1><p className="mt-1 text-muted-foreground">{t("leads.subtitle")}</p></div><CrmLeadManagementActions offers={offers} setters={setters} canImport={hasCrmPermission(access, "crm:manage-pipeline")} /></div>
-      {kpiMetric && <p className="rounded-[var(--radius-control)] border border-border bg-muted/30 px-4 py-3 text-sm font-bold">{t("leads.kpiScope", { metric: t(`kpis.primary.${kpiMetric}`), from: firstMessageFrom ?? t("kpis.from"), to: firstMessageTo ?? t("kpis.to") })}</p>}
+      {kpiMetric && <p className="rounded-[var(--radius-control)] border border-border bg-muted/30 px-4 py-3 text-sm font-bold">{t("leads.kpiScope", { metric: t(`kpis.primary.${kpiMetric}`), from: firstMessageFrom ?? t("kpis.from"), to: firstMessageTo ?? t("kpis.to") })}{kpiSetterName ? ` · ${t("kpis.setter")}: ${kpiSetterName}` : ""}</p>}
       <form method="get" className="sticker-card grid gap-3 p-4 lg:grid-cols-4 lg:items-end">
         {kpiMetric && <input type="hidden" name="metric" value={kpiMetric} />}
+        {kpiSetterId && <input type="hidden" name="kpiSetter" value={kpiSetterId} />}
         <label className="flex flex-col gap-1 text-sm font-bold lg:col-span-4">{t("leads.search")}<input name="search" maxLength={200} defaultValue={search} className="min-h-11 rounded border border-border bg-background px-3 font-normal outline-none focus-visible:border-accent" /></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.channel")}<select name="platform" defaultValue={platform ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allChannels")}</option>{CRM_CHANNELS.map((channel) => <option key={channel} value={channel}>{t(`leads.sourceOptions.${channel}`)}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.allStages")}<select name="stage" defaultValue={stage ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("leads.allStages")}</option>{CRM_LEAD_STAGES.map((item) => <option key={item} value={item}>{t(CRM_STAGE_LABEL_KEYS[item])}</option>)}</select></label>

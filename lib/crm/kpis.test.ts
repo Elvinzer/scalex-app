@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeCrmKpis, currentCrmPeriod, isReliableFirstMessageEvent, matchesCrmKpiAttribution, resolveCrmKpiSetterId, type CrmKpiEvent } from "./kpis";
+import { computeCrmKpis, currentCrmPeriod, isCrmKpiEventAttributedToSetter, isReliableFirstMessageEvent, matchesCrmKpiAttribution, resolveCrmKpiSetterId, type CrmKpiEvent } from "./kpis";
 import type { CrmEventMetadata, CrmEventType, CrmLeadStage } from "./types";
 
 const period = { from: new Date("2026-09-01T00:00:00.000Z"), to: new Date("2026-09-30T23:59:59.999Z") };
@@ -46,6 +46,51 @@ describe("CRM KPI projection", () => {
     expect(resolveCrmKpiSetterId({ teamView: false })).toBeNull();
     expect(resolveCrmKpiSetterId({ teamView: true })).toBeUndefined();
     expect(resolveCrmKpiSetterId({ teamView: true, selectedSetterId: "selected-setter" })).toBe("selected-setter");
+  });
+
+  it("attributes a KPI cohort at the first message and counts later conversions after reassignment", () => {
+    const firstMessageBySetter = { ...firstMessage("lead-1", "2026-09-10T09:00:00Z"), metadata: { responsibleSetterId: "setter-a", confirmedFrom: "crm" } };
+    const responseByOtherSetter = {
+      ...event({ leadId: "lead-1", type: "response_received", occurredAt: "2026-09-11T09:00:00Z" }),
+      actorUserId: "setter-b-user",
+      metadata: { responsibleSetterId: "setter-b" },
+    };
+    const proposalByOtherSetter = {
+      ...event({ leadId: "lead-1", type: "call_proposed", occurredAt: "2026-09-12T09:00:00Z" }),
+      actorUserId: "setter-b-user",
+      metadata: { responsibleSetterId: "setter-b" },
+    };
+    const bookingByOtherSetter = {
+      ...event({ leadId: "lead-1", type: "call_booked", occurredAt: "2026-09-13T09:00:00Z" }),
+      actorUserId: "setter-b-user",
+      metadata: { responsibleSetterId: "setter-b" },
+    };
+    const anotherSetterMessage = {
+      ...firstMessage("lead-2", "2026-09-14T09:00:00Z"),
+      metadata: { responsibleSetterId: "setter-b", confirmedFrom: "crm" },
+      includeInCohort: false,
+    };
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [firstMessageBySetter, responseByOtherSetter, proposalByOtherSetter, bookingByOtherSetter, anotherSetterMessage],
+      stageChanges: [
+        snapshot("lead-1", "conversation_in_progress"),
+        { ...snapshot("lead-2", "conversation_in_progress"), includeInCurrentCounts: false },
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(isCrmKpiEventAttributedToSetter(firstMessageBySetter, "setter-a")).toBe(true);
+    expect(isCrmKpiEventAttributedToSetter({ actorUserId: "setter-a-user" }, "setter-a", "setter-a-user")).toBe(true);
+    expect(isCrmKpiEventAttributedToSetter({ actorUserId: "setter-b-user" }, "setter-a", "setter-a-user")).toBe(false);
+    expect(counts.messages).toBe(1);
+    expect(counts.conversations).toBe(1);
+    expect(counts.rates.response).toBe(1);
+    expect(counts.rates.callProposed).toBe(1);
+    expect(counts.rates.callBooked).toBe(1);
+    expect(counts.incomplete).toBe(false);
   });
 
   it("counts unique confirmed first messages and flags legacy unverified records", () => {
