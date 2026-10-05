@@ -25,6 +25,7 @@ export type CrmKpiStageChange = {
   currentContactState?: "new" | "contacted";
   leadCreatedAt?: Date | null;
   includeInCurrentCounts?: boolean;
+  includeInCohort?: boolean;
 };
 
 export type CrmKpiCall = {
@@ -169,6 +170,7 @@ export function isReliableFirstMessageEvent(event: CrmKpiEvent): boolean {
   return event.type === "first_message_sent" && (
     event.metadata?.confirmedFrom === "crm"
     || event.metadata?.confirmedFrom === "capture"
+    || event.metadata?.selectedAtCapture === true
     || event.metadata?.source === "crm_import"
     || (
       event.source === "migration"
@@ -176,6 +178,10 @@ export function isReliableFirstMessageEvent(event: CrmKpiEvent): boolean {
       && event.sourceEventKey === `migration:first-message:${event.leadId}`
     )
   );
+}
+
+export function isLegacyCaptureFirstMessageEvent(event: Pick<CrmKpiEvent, "type" | "metadata">): boolean {
+  return event.type === "first_message_sent" && event.metadata?.selectedAtCapture === true;
 }
 
 export function computeCrmKpis(input: {
@@ -207,6 +213,15 @@ export function computeCrmKpis(input: {
     .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
   let revenue = 0;
 
+  for (const change of stageChanges) {
+    if (change.currentSnapshot || change.fromStage !== null || change.toStage !== "first_message_sent" || change.includeInCohort === false) continue;
+    datedFirstMessageLeadIds.add(change.leadId);
+    if (inPeriod(change.occurredAt, input.period)) {
+      const previous = firstMessageDates.get(change.leadId);
+      if (!previous || change.occurredAt < previous) firstMessageDates.set(change.leadId, change.occurredAt);
+    }
+  }
+
   for (const event of input.events) {
     const date = conversionDate(event);
     if (date > asOf) continue;
@@ -230,7 +245,7 @@ export function computeCrmKpis(input: {
           const previous = firstMessageDates.get(event.leadId);
           if (!previous || date < previous) firstMessageDates.set(event.leadId, date);
         }
-      } else if (selectedPeriod && event.includeInCohort !== false) {
+      } else if (selectedPeriod && event.includeInCohort !== false && !datedFirstMessageLeadIds.has(event.leadId)) {
         unverifiedFirstMessages.add(event.leadId);
       }
     }

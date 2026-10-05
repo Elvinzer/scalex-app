@@ -523,6 +523,8 @@
     "contactState": "Contact",
     "newLead": "Nouveau lead",
     "contacted": "Message envoyé",
+    "firstMessageMarkedSentAtCreation": "Le premier message est compté comme envoyé à la date de création du lead",
+    "firstMessageMarkedSentAtCapture": "Le premier message est compté comme envoyé à la date de capture du profil",
     "confirmFirstMessageSent": "Confirmer l’envoi du premier message",
     "confirmFirstMessageSentHelp": "Après l’envoi sur ton canal de contact, confirme-le ici. Cette date sert aux KPIs.",
     "responseState": "Réponse",

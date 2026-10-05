@@ -8,8 +8,9 @@ import { ArrowLeft, CalendarClock, FileText, History, MessageCircle, NotebookPen
 
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { Button } from "@/components/ui/button";
-import { CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES, crmStageImpliesResponse, type CrmLeadDetails, type CrmLeadOutcome, type CrmLeadSource, type CrmLeadStage, type CrmLostReason } from "@/lib/crm/types";
+import { CRM_LEAD_OUTCOMES, CRM_LEAD_SOURCES, CRM_LEAD_STAGES, crmStageImpliesResponse, type CrmLeadDetails, type CrmLeadEventView, type CrmLeadOutcome, type CrmLeadSource, type CrmLeadStage, type CrmLostReason } from "@/lib/crm/types";
 import { CRM_EVENT_LABEL_KEYS, CRM_OUTCOME_LABEL_KEYS, CRM_STAGE_LABEL_KEYS } from "@/lib/crm/machine";
+import { isLegacyCaptureFirstMessageEvent } from "@/lib/crm/kpis";
 import { formatCrmDateTime } from "@/lib/crm/format";
 import type { ActiveCloser } from "@/lib/closers/types";
 import type { Offer } from "@/lib/business/types";
@@ -33,6 +34,14 @@ function isWhatsAppProfileUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function firstMessageHistoryLabel(event: CrmLeadEventView): string | null {
+  if (event.type !== "first_message_sent") return null;
+  if (isLegacyCaptureFirstMessageEvent(event)) return "detail.firstMessageMarkedSentAtCapture";
+  if (event.metadata.derivedFromInitialStage === true || event.metadata.derivedFromCurrentStage === true) return "detail.firstMessageMarkedSentAtCreation";
+  if (event.metadata.confirmedFrom === "capture" && event.occurredAt === event.capturedAt) return "detail.firstMessageMarkedSentAtCreation";
+  return null;
 }
 
 function DetailSectionHeader({ headingId, icon: Icon, title, description, trailing }: { headingId: string; icon: LucideIcon; title: string; description?: string; trailing?: ReactNode }) {
@@ -155,10 +164,28 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
     mutate(() => changeStageAction({ leadId: lead.id, stage, idempotencyKey: stageIdempotencyKey }), (current) => ({ ...current, stage }), () => { setReopenStage(stage); setStageIdempotencyKey(globalThis.crypto.randomUUID()); onStageChanged?.(lead.id, stage); });
   }
 
-  function confirmFirstMessageSent() {
+  function confirmFirstMessageSent(occurredAt?: string) {
+    const messageSentAt = occurredAt ?? new Date().toISOString();
+    const capturedAt = new Date().toISOString();
     mutate(
-      () => markContactedAction({ leadId: lead.id, idempotencyKey: contactedIdempotencyKey }),
-      (current) => ({ ...current, contactState: "contacted" }),
+      () => markContactedAction({ leadId: lead.id, ...(occurredAt ? { occurredAt } : {}), idempotencyKey: contactedIdempotencyKey }),
+      (current) => ({
+        ...current,
+        contactState: "contacted",
+        messageOccurredAt: messageSentAt,
+        events: [...current.events, {
+          id: `local-first-message:${contactedIdempotencyKey}`,
+          type: "first_message_sent",
+          source: "app",
+          actorUserId: null,
+          occurredAt: messageSentAt,
+          capturedAt,
+          createdAt: capturedAt,
+          metadata: { responsibleSetterId: current.responsibleSetterId, confirmedFrom: "crm" },
+          isReliableFirstMessage: true,
+          actorName: null,
+        }],
+      }),
       () => setContactedIdempotencyKey(globalThis.crypto.randomUUID()),
     );
   }
@@ -315,7 +342,11 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
         </div>
 
         <div className="grid gap-px overflow-hidden rounded-[var(--radius-control)] border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-          <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.contactState")}</p><p className="mt-1 break-words font-bold">{lead.contactState === "new" ? t("detail.newLead") : t("detail.contacted")}</p>{lead.contactState === "new" && lead.stage === "first_message_sent" && <div className="mt-3"><Button type="button" variant="outline" className="min-h-11 w-full" disabled={isPending} onClick={confirmFirstMessageSent}>{t("detail.confirmFirstMessageSent")}</Button><p className="mt-2 text-xs font-normal leading-5 text-muted-foreground">{t("detail.confirmFirstMessageSentHelp")}</p></div>}</div>
+          <div className="min-w-0 bg-card p-3.5">
+            <p className="text-xs font-bold text-muted-foreground">{t("detail.contactState")}</p>
+            <p className="mt-1 break-words font-bold">{lead.contactState === "new" ? t("detail.newLead") : t("detail.contacted")}</p>
+            {lead.contactState === "new" && lead.stage === "first_message_sent" && <div className="mt-3"><Button type="button" variant="outline" className="min-h-11 w-full" disabled={isPending} onClick={() => confirmFirstMessageSent()}>{t("detail.confirmFirstMessageSent")}</Button><p className="mt-2 text-xs font-normal leading-5 text-muted-foreground">{t("detail.confirmFirstMessageSentHelp")}</p></div>}
+          </div>
           {!crmStageImpliesResponse(lead.stage) && <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.responseState")}</p><p className="mt-1 break-words font-bold">{lead.respondedAt ? t("detail.responded") : t("detail.noResponse")}</p></div>}
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextCall")}</p>{lead.nextCall ? <><p className="mt-1 break-words font-bold">{formatCrmDateTime(new Date(lead.nextCall.scheduledAt), locale, lead.nextCall.timeZone ?? "UTC")}</p><p className="mt-1 break-words text-xs text-muted-foreground">{lead.nextCall.timeZone ?? t("detail.localTime")} · {lead.nextCall.closer ?? t("detail.unassigned")} · {callOutcomeLabel(lead.nextCall.outcome)}</p></> : <p className="mt-1 break-words font-bold">{t("detail.noNextCall")}</p>}</div>
           <div className="min-w-0 bg-card p-3.5"><p className="text-xs font-bold text-muted-foreground">{t("detail.nextAction")}</p><p className="mt-1 break-words font-bold">{lead.nextAction?.title ?? t("leads.noNextAction")}</p></div>
@@ -399,8 +430,13 @@ export function CrmLeadDetail({ initialLead, setters, offers, closers, backHref 
       <section id="history" className="sticker-card scroll-mt-6 p-4 sm:p-6" aria-labelledby="crm-history-title">
         <DetailSectionHeader headingId="crm-history-title" icon={History} title={t("detail.history")} />
         {lead.stageHistory.length === 0 && lead.events.length === 0 ? <p className="mt-4 text-sm leading-6 text-muted-foreground">{t("detail.noHistory")}</p> : <ul className="mt-4 flex flex-col gap-3 text-sm">
-          {lead.stageHistory.map((item) => <li key={item.id} className="border-l-2 border-accent pl-3"><span className="font-bold">{t(CRM_STAGE_LABEL_KEYS[item.toStage])}</span><span className="ml-2 text-muted-foreground">{formatCrmDateTime(new Date(item.changedAt), locale, "UTC")}</span>{item.actorName && <span className="ml-2 text-muted-foreground">· {item.actorName}</span>}</li>)}
-          {lead.events.filter((event) => !["first_message_sent", "conversation_started"].includes(event.type)).map((event) => <li key={event.id} className="border-l-2 border-border pl-3"><span className="font-bold">{t(CRM_EVENT_LABEL_KEYS[event.type])}</span><span className="ml-2 text-muted-foreground">{formatCrmDateTime(new Date(event.occurredAt ?? event.createdAt), locale, "UTC")}</span>{event.actorName && <span className="ml-2 text-muted-foreground">· {event.actorName}</span>}</li>)}
+          {lead.stageHistory.map((item) => {
+            const isInitialFirstMessage = item.fromStage === null && item.toStage === "first_message_sent";
+            return <li key={item.id} className="border-l-2 border-accent pl-3"><span className="font-bold">{isInitialFirstMessage ? t("detail.firstMessageMarkedSentAtCreation") : t(CRM_STAGE_LABEL_KEYS[item.toStage])}</span><span className="ml-2 text-muted-foreground">{formatCrmDateTime(new Date(item.changedAt), locale, "UTC")}</span>{item.actorName && <span className="ml-2 text-muted-foreground">· {item.actorName}</span>}</li>;
+          })}
+          {lead.events.filter((event) => event.type === "first_message_sent"
+            ? event.isReliableFirstMessage === true && !lead.stageHistory.some((item) => item.fromStage === null && item.toStage === "first_message_sent" && item.changedAt === (event.occurredAt ?? event.createdAt))
+            : event.type !== "conversation_started").map((event) => <li key={event.id} className="border-l-2 border-border pl-3"><span className="font-bold">{t(firstMessageHistoryLabel(event) ?? CRM_EVENT_LABEL_KEYS[event.type])}</span><span className="ml-2 text-muted-foreground">{formatCrmDateTime(new Date(event.occurredAt ?? event.createdAt), locale, "UTC")}</span>{event.actorName && <span className="ml-2 text-muted-foreground">· {event.actorName}</span>}</li>)}
         </ul>}
       </section>
 

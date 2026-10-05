@@ -237,6 +237,7 @@ export type CrmLeadEventView = {
   capturedAt: string | null;
   createdAt: string;
   metadata: CrmEventMetadata;
+  isReliableFirstMessage?: boolean;
   actorName?: string | null;
 };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeCrmKpis, currentCrmPeriod, getCrmPrimaryKpiPresentation, isCrmKpiEventAttributedToSetter, isReliableFirstMessageEvent, matchesCrmKpiAttribution, resolveCrmKpiSetterId, type CrmKpiEvent } from "./kpis";
+import { computeCrmKpis, currentCrmPeriod, getCrmPrimaryKpiPresentation, isCrmKpiEventAttributedToSetter, isLegacyCaptureFirstMessageEvent, isReliableFirstMessageEvent, matchesCrmKpiAttribution, resolveCrmKpiSetterId, type CrmKpiEvent } from "./kpis";
 import type { CrmEventMetadata, CrmEventType, CrmLeadStage } from "./types";
 
 const period = { from: new Date("2026-09-01T00:00:00.000Z"), to: new Date("2026-09-30T23:59:59.999Z") };
@@ -94,7 +94,7 @@ describe("CRM KPI projection", () => {
     expect(counts.incomplete).toBe(false);
   });
 
-  it("counts unique confirmed first messages and flags legacy unverified records", () => {
+  it("counts unique first messages, including messages recorded at profile capture", () => {
     const repeated = firstMessage("lead-1", "2026-09-01T09:00:00Z");
     const counts = computeCrmKpis({
       period,
@@ -110,10 +110,10 @@ describe("CRM KPI projection", () => {
       sales: [],
     });
 
-    expect(counts.messages).toBe(1);
+    expect(counts.messages).toBe(2);
     expect(counts.conversations).toBe(1);
-    expect(counts.cohortFirstMessages).toBe(1);
-    expect(counts.incomplete).toBe(true);
+    expect(counts.cohortFirstMessages).toBe(2);
+    expect(counts.incomplete).toBe(false);
     expect(isReliableFirstMessageEvent(repeated)).toBe(true);
   });
 
@@ -151,6 +151,49 @@ describe("CRM KPI projection", () => {
     expect(counts.conversations).toBe(1);
     expect(counts.valueContent).toBe(0);
     expect(counts.incomplete).toBe(true);
+  });
+
+  it("counts legacy profile-capture messages on their capture timestamp", () => {
+    const capturedFirstMessage = event({
+      leadId: "captured-lead",
+      type: "first_message_sent",
+      occurredAt: "2026-09-05T09:00:00Z",
+      metadata: { selectedAtCapture: true, responsibleSetterId: "setter-1" },
+    });
+    capturedFirstMessage.source = "app";
+    capturedFirstMessage.sourceEventKey = "capture:profile:stage";
+
+    const counts = computeCrmKpis({
+      events: [capturedFirstMessage],
+      stageChanges: [snapshot("captured-lead", "first_message_sent", "none", "contacted")],
+      calls: [],
+      sales: [],
+      period,
+      asOf,
+    });
+
+    expect(isLegacyCaptureFirstMessageEvent(capturedFirstMessage)).toBe(true);
+    expect(isReliableFirstMessageEvent(capturedFirstMessage)).toBe(true);
+    expect(counts.messages).toBe(1);
+    expect(counts.incomplete).toBe(false);
+  });
+
+  it("uses the initial first-message stage date when the event row is missing", () => {
+    const sentAtCreation = new Date("2026-09-08T12:15:00Z");
+    const counts = computeCrmKpis({
+      events: [],
+      stageChanges: [
+        { leadId: "sent-at-creation", fromStage: null, toStage: "first_message_sent", occurredAt: sentAtCreation },
+        snapshot("sent-at-creation", "first_message_sent", "none", "contacted", sentAtCreation),
+      ],
+      calls: [],
+      sales: [],
+      period,
+      asOf,
+    });
+
+    expect(counts.messages).toBe(1);
+    expect(counts.incomplete).toBe(false);
   });
 
   it("marks a current advanced-stage lead without a first-message date as incomplete", () => {
@@ -195,7 +238,7 @@ describe("CRM KPI projection", () => {
     expect(counts.incomplete).toBe(true);
   });
 
-  it("keeps known values calculable while warning about incomplete source data", () => {
+  it("counts capture-time messages with their current stages", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -208,12 +251,13 @@ describe("CRM KPI projection", () => {
       sales: [],
     });
 
-    expect(counts.messages).toBe(1);
+    expect(counts.messages).toBe(2);
     expect(counts.conversations).toBe(1);
-    expect(counts.incomplete).toBe(true);
+    expect(counts.valueContent).toBe(1);
+    expect(counts.incomplete).toBe(false);
   });
 
-  it("renders known zero counts while an incomplete period keeps rates unavailable", () => {
+  it("renders measurable capture-time counts and rates", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -223,12 +267,12 @@ describe("CRM KPI projection", () => {
       sales: [],
     });
 
-    expect(counts.incomplete).toBe(true);
+    expect(counts.incomplete).toBe(false);
     for (const key of ["messages", "conversations", "valueContent"] as const) {
-      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: "0", isMeasured: true, isPartial: true });
+      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: key === "messages" ? "1" : "0", isMeasured: true, isPartial: false });
     }
     for (const key of ["responses", "callsProposed", "callsBooked"] as const) {
-      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: "Non mesuré", isMeasured: false, isPartial: false });
+      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: "0%", isMeasured: true, isPartial: false });
     }
     expect(getCrmPrimaryKpiPresentation(counts, "messages", true, "Non mesuré")).toMatchObject({ displayValue: "Non mesuré", isMeasured: false });
   });

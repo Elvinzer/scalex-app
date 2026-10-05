@@ -263,7 +263,9 @@ export async function markContactedAction(input: unknown): Promise<CrmMutationRe
   if (!access) return mutationError(await crmError());
   const parsed = contactStateSchema.safeParse(input);
   if (!parsed.success) return mutationError(await crmError("invalidData"));
-  const lead = await markCrmContacted(access.accountId, parsed.data.leadId, userId, "app", parsed.data.idempotencyKey, parsed.data.occurredAt ? new Date(parsed.data.occurredAt) : new Date());
+  const occurredAt = parsed.data.occurredAt ? new Date(parsed.data.occurredAt) : new Date();
+  if (occurredAt.getTime() > Date.now()) return mutationError(await crmError("invalidData"));
+  const lead = await markCrmContacted(access.accountId, parsed.data.leadId, userId, "app", parsed.data.idempotencyKey, occurredAt);
   if (!lead) return mutationError(await crmError("leadNotFound"));
   refreshCrm();
   return mutationSaved();
