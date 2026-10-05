@@ -67,7 +67,6 @@ export type CrmKpiCounts = {
   cohortCallsBooked: number;
   cohortConverted: number;
   rates: CrmKpiRates;
-  incomplete: boolean;
 };
 
 export type CrmKpiPeriod = { from: Date; to: Date };
@@ -116,7 +115,7 @@ export function getCrmPrimaryKpiPresentation(
   key: CrmPrimaryKpiMetric,
   personalScopeUnavailable: boolean,
   notMeasuredLabel: string,
-): { displayValue: string; isMeasured: boolean; isPartial: boolean } {
+): { displayValue: string; isMeasured: boolean } {
   const isCount = key === "messages" || key === "conversations" || key === "valueContent";
   const value = isCount
     ? kpis[key]
@@ -126,7 +125,6 @@ export function getCrmPrimaryKpiPresentation(
   return {
     displayValue: isMeasured ? `${Math.round(value * (isCount ? 1 : 100))}${isCount ? "" : "%"}` : notMeasuredLabel,
     isMeasured,
-    isPartial: isMeasured && kpis.incomplete,
   };
 }
 
@@ -199,7 +197,6 @@ export function computeCrmKpis(input: {
   const qualificationLeadIds = new Set<string>();
   const firstMessageDates = new Map<string, Date>();
   const datedFirstMessageLeadIds = new Set<string>();
-  const unverifiedFirstMessages = new Set<string>();
   const responsesAfterFirstMessage = new Set<string>();
   const valueContentAfterFirstMessage = new Set<string>();
   const callsProposedAfterFirstMessage = new Set<string>();
@@ -207,16 +204,15 @@ export function computeCrmKpis(input: {
   const soldLeadIds = new Set<string>();
   const noShowEventLeadIds = new Set<string>();
   const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; contactState?: "new" | "contacted"; changedAt: Date; leadCreatedAt?: Date | null; includeInCurrentCounts?: boolean }>();
-  const periodActivityWithoutFirstMessage = new Set<string>();
   const stageChanges = (input.stageChanges ?? [])
     .filter((change) => change.occurredAt <= asOf)
     .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
   let revenue = 0;
 
   for (const change of stageChanges) {
-    if (change.currentSnapshot || change.fromStage !== null || change.toStage !== "first_message_sent" || change.includeInCohort === false) continue;
+    if (change.currentSnapshot || change.fromStage !== null || change.toStage !== "first_message_sent") continue;
     datedFirstMessageLeadIds.add(change.leadId);
-    if (inPeriod(change.occurredAt, input.period)) {
+    if (change.includeInCohort !== false && inPeriod(change.occurredAt, input.period)) {
       const previous = firstMessageDates.get(change.leadId);
       if (!previous || change.occurredAt < previous) firstMessageDates.set(change.leadId, change.occurredAt);
     }
@@ -227,17 +223,6 @@ export function computeCrmKpis(input: {
     if (date > asOf) continue;
     const selectedPeriod = inPeriod(eventDate(event), input.period);
 
-    if (selectedPeriod && [
-      "conversation_started",
-      "response_received",
-      "value_content_sent",
-      "call_proposed",
-      "call_booked",
-      "booking_link_sent",
-    ].includes(event.type)) {
-      periodActivityWithoutFirstMessage.add(event.leadId);
-    }
-
     if (event.type === "first_message_sent") {
       if (isReliableFirstMessageEvent(event)) {
         datedFirstMessageLeadIds.add(event.leadId);
@@ -245,8 +230,6 @@ export function computeCrmKpis(input: {
           const previous = firstMessageDates.get(event.leadId);
           if (!previous || date < previous) firstMessageDates.set(event.leadId, date);
         }
-      } else if (selectedPeriod && event.includeInCohort !== false && !datedFirstMessageLeadIds.has(event.leadId)) {
-        unverifiedFirstMessages.add(event.leadId);
       }
     }
 
@@ -281,16 +264,22 @@ export function computeCrmKpis(input: {
     ) {
       periodResponseLeadIds.add(change.leadId);
     }
-    if (inPeriod(change.occurredAt, input.period) && (
-      change.toStage === "conversation_in_progress"
-      || change.toStage === "value_content_sent"
-      || change.toStage === "call_proposed"
-      || change.toStage === "call_booked"
-    )) {
-      periodActivityWithoutFirstMessage.add(change.leadId);
-    }
     if (change.toStage === "call_proposed" && inPeriod(change.occurredAt, input.period)) periodCallProposedLeadIds.add(change.leadId);
     if (change.toStage === "call_booked" && inPeriod(change.occurredAt, input.period)) periodCallBookedLeadIds.add(change.leadId);
+  }
+
+  const advancedStagesWithoutCohort = new Set<CrmLeadStage>([
+    "conversation_in_progress",
+    "value_content_sent",
+    "call_proposed",
+    "call_booked",
+  ]);
+  for (const [leadId, current] of currentStages) {
+    if (datedFirstMessageLeadIds.has(leadId) || current.includeInCurrentCounts === false) continue;
+    if (current.contactState !== "contacted" && !advancedStagesWithoutCohort.has(current.stage)) continue;
+    const leadCreatedAt = current.leadCreatedAt;
+    if (!leadCreatedAt || leadCreatedAt > asOf || !inPeriod(leadCreatedAt, input.period)) continue;
+    firstMessageDates.set(leadId, leadCreatedAt);
   }
 
   for (const event of input.events) {
@@ -377,22 +366,6 @@ export function computeCrmKpis(input: {
     ...callsBookedAfterFirstMessage,
   ]);
   for (const leadId of soldLeadIds) if (firstMessageDates.has(leadId)) cohortConverted.add(leadId);
-  const advancedStagesWithoutCohort = new Set<CrmLeadStage>([
-    "conversation_in_progress",
-    "value_content_sent",
-    "call_proposed",
-    "call_booked",
-  ]);
-  const missingCurrentFirstMessageEvidence = [...currentStages].some(([leadId, current]) => (
-    !datedFirstMessageLeadIds.has(leadId)
-    && (periodActivityWithoutFirstMessage.has(leadId)
-      || (current.leadCreatedAt !== null
-        && current.leadCreatedAt !== undefined
-        && inPeriod(current.leadCreatedAt, input.period)))
-    && current.includeInCurrentCounts !== false
-    && (current.contactState === "contacted" || advancedStagesWithoutCohort.has(current.stage))
-  ));
-
   return {
     messages: cohortFirstMessages,
     responses: periodResponseLeadIds.size,
@@ -421,7 +394,6 @@ export function computeCrmKpis(input: {
       noShow: ratio(noShows, periodCallBookedLeadIds.size),
       closing: ratio(soldLeadIds.size, callsAttended),
     },
-    incomplete: unverifiedFirstMessages.size > 0 || missingCurrentFirstMessageEvidence,
   };
 }
 

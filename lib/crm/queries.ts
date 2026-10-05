@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNull, lte, lt, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNull, lte, lt, ne, not, or, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -532,13 +532,15 @@ function buildCrmLeadConditions(accountId: string, filters: CrmLeadFilters, now:
   }
   if (filters.firstMessageFrom || filters.firstMessageTo || filters.kpiMetric) {
     const cohortMessage = alias(crmLeadEvents, "crm_kpi_cohort_message");
-    const firstMessageAt = sql`coalesce(${cohortMessage.occurredAt}, ${cohortMessage.createdAt})`;
+    const firstMessageAt = sql`coalesce(${cohortMessage.occurredAt}, ${cohortMessage.capturedAt}, ${cohortMessage.createdAt})`;
     const cohortConditions: SQL[] = [
       eq(cohortMessage.accountId, accountId),
       eq(cohortMessage.leadId, leads.id),
       eq(cohortMessage.type, "first_message_sent"),
+      lte(firstMessageAt, now),
       sql`(
         ${cohortMessage.metadata}->>'confirmedFrom' in ('crm', 'capture')
+        or ${cohortMessage.metadata}->>'selectedAtCapture' = 'true'
         or ${cohortMessage.metadata}->>'source' = 'crm_import'
         or (
           ${cohortMessage.source} = 'migration'
@@ -559,26 +561,39 @@ function buildCrmLeadConditions(accountId: string, filters: CrmLeadFilters, now:
       cohortConditions.push(lte(firstMessageAt, new Date(`${filters.firstMessageTo}T23:59:59.999Z`).toISOString()));
     }
 
-    const eventAfterFirstMessage = (eventType: CrmEventType, tableAlias: string, useBookingCaptureTime = false) => {
+    const eventAfterFirstMessage = (eventType: CrmEventType, tableAlias: string, anchorAt: SQLWrapper, useBookingCaptureTime = false) => {
       const event = alias(crmLeadEvents, tableAlias);
       const eventAt = useBookingCaptureTime
-        ? sql`case when ${event.metadata}->>'bookingMode' = 'native_crm' then coalesce(${event.capturedAt}, ${event.createdAt}) else coalesce(${event.occurredAt}, ${event.createdAt}) end`
-        : sql`coalesce(${event.occurredAt}, ${event.createdAt})`;
+        ? sql`case when ${event.metadata}->>'bookingMode' = 'native_crm' then coalesce(${event.capturedAt}, ${event.createdAt}) else coalesce(${event.occurredAt}, ${event.capturedAt}, ${event.createdAt}) end`
+        : sql`coalesce(${event.occurredAt}, ${event.capturedAt}, ${event.createdAt})`;
       return exists(db.select({ id: event.id }).from(event).where(and(
         eq(event.accountId, accountId),
         eq(event.leadId, leads.id),
         eq(event.type, eventType),
-        gte(eventAt, firstMessageAt),
+        gte(eventAt, anchorAt),
       )));
     };
-    const stageAfterFirstMessage = (toStage: CrmLeadStage, tableAlias: string, fromStage?: CrmLeadStage) => {
+    const stageAfterFirstMessage = (toStage: CrmLeadStage, tableAlias: string, anchorAt: SQLWrapper, fromStage?: CrmLeadStage) => {
       const history = alias(crmLeadStageHistory, tableAlias);
       return exists(db.select({ id: history.id }).from(history).where(and(
         eq(history.accountId, accountId),
         eq(history.leadId, leads.id),
         eq(history.toStage, toStage),
         ...(fromStage ? [eq(history.fromStage, fromStage)] : []),
-        gte(history.changedAt, firstMessageAt),
+        gte(history.changedAt, anchorAt),
+      )));
+    };
+
+    const canonicalCallAfterFirstMessage = (anchorAt: SQLWrapper, callAlias: string, linkAlias: string) => {
+      const linkedCall = alias(salesCalls, callAlias);
+      const callLink = alias(crmCallLinks, linkAlias);
+      return exists(db.select({ id: linkedCall.id }).from(linkedCall).innerJoin(callLink, and(
+        eq(callLink.salesCallId, linkedCall.id),
+        eq(callLink.accountId, accountId),
+      )).where(and(
+        eq(linkedCall.userId, accountId),
+        eq(callLink.leadId, leads.id),
+        gte(sql`coalesce(${callLink.linkedAt}, ${linkedCall.createdAt})`, anchorAt),
       )));
     };
 
@@ -590,34 +605,85 @@ function buildCrmLeadConditions(accountId: string, filters: CrmLeadFilters, now:
     }
     if (filters.kpiMetric === "responses") {
       cohortConditions.push(or(
-        eventAfterFirstMessage("response_received", "crm_kpi_response_event"),
-        stageAfterFirstMessage("conversation_in_progress", "crm_kpi_response_stage", "first_message_sent"),
+        eventAfterFirstMessage("response_received", "crm_kpi_response_event", firstMessageAt),
+        stageAfterFirstMessage("conversation_in_progress", "crm_kpi_response_stage", firstMessageAt, "first_message_sent"),
       ) ?? sql`false`);
     }
     if (filters.kpiMetric === "callsProposed") {
       cohortConditions.push(or(
-        eventAfterFirstMessage("call_proposed", "crm_kpi_proposed_event"),
-        stageAfterFirstMessage("call_proposed", "crm_kpi_proposed_stage"),
+        eventAfterFirstMessage("call_proposed", "crm_kpi_proposed_event", firstMessageAt),
+        stageAfterFirstMessage("call_proposed", "crm_kpi_proposed_stage", firstMessageAt),
       ) ?? sql`false`);
     }
     if (filters.kpiMetric === "callsBooked") {
-      const linkedCall = alias(salesCalls, "crm_kpi_linked_call");
-      const callLink = alias(crmCallLinks, "crm_kpi_call_link");
-      const canonicalCallExists = exists(db.select({ id: linkedCall.id }).from(linkedCall).innerJoin(callLink, and(
-        eq(callLink.salesCallId, linkedCall.id),
-        eq(callLink.accountId, accountId),
-      )).where(and(
-        eq(linkedCall.userId, accountId),
-        eq(callLink.leadId, leads.id),
-        gte(sql`coalesce(${callLink.linkedAt}, ${linkedCall.createdAt})`, firstMessageAt),
-      )));
       cohortConditions.push(or(
-        eventAfterFirstMessage("call_booked", "crm_kpi_booked_event", true),
-        stageAfterFirstMessage("call_booked", "crm_kpi_booked_stage"),
-        canonicalCallExists,
+        eventAfterFirstMessage("call_booked", "crm_kpi_booked_event", firstMessageAt, true),
+        stageAfterFirstMessage("call_booked", "crm_kpi_booked_stage", firstMessageAt),
+        canonicalCallAfterFirstMessage(firstMessageAt, "crm_kpi_linked_call", "crm_kpi_call_link"),
       ) ?? sql`false`);
     }
-    conditions.push(exists(db.select({ id: cohortMessage.id }).from(cohortMessage).where(and(...cohortConditions))));
+
+    const reliableFirstMessage = alias(crmLeadEvents, "crm_kpi_fallback_reliable_message");
+    const hasReliableFirstMessage = exists(db.select({ id: reliableFirstMessage.id }).from(reliableFirstMessage).where(and(
+      eq(reliableFirstMessage.accountId, accountId),
+      eq(reliableFirstMessage.leadId, leads.id),
+      eq(reliableFirstMessage.type, "first_message_sent"),
+      lte(sql`coalesce(${reliableFirstMessage.occurredAt}, ${reliableFirstMessage.capturedAt}, ${reliableFirstMessage.createdAt})`, now),
+      sql`(
+        ${reliableFirstMessage.metadata}->>'confirmedFrom' in ('crm', 'capture')
+        or ${reliableFirstMessage.metadata}->>'selectedAtCapture' = 'true'
+        or ${reliableFirstMessage.metadata}->>'source' = 'crm_import'
+        or (
+          ${reliableFirstMessage.source} = 'migration'
+          and ${reliableFirstMessage.sourceEventKey} = ('migration:first-message:' || ${leads.id}::text)
+          and ${reliableFirstMessage.occurredAt} is not null
+        )
+      )`,
+    )));
+    const initialMessageStage = alias(crmLeadStageHistory, "crm_kpi_fallback_initial_message_stage");
+    const hasInitialMessageStage = exists(db.select({ id: initialMessageStage.id }).from(initialMessageStage).where(and(
+      eq(initialMessageStage.accountId, accountId),
+      eq(initialMessageStage.leadId, leads.id),
+      isNull(initialMessageStage.fromStage),
+      eq(initialMessageStage.toStage, "first_message_sent"),
+      lte(initialMessageStage.changedAt, now),
+    )));
+    const fallbackConditions: SQL[] = [
+      not(hasReliableFirstMessage),
+      not(hasInitialMessageStage),
+      lte(leads.createdAt, now),
+      sql`(${leads.contactState} = 'contacted' or ${leads.crmStage} in ('conversation_in_progress', 'value_content_sent', 'call_proposed', 'call_booked'))`,
+    ];
+    if (filters.kpiSetterId) fallbackConditions.push(eq(leads.setterId, filters.kpiSetterId));
+    if (filters.firstMessageFrom && !Number.isNaN(Date.parse(filters.firstMessageFrom))) {
+      fallbackConditions.push(gte(leads.createdAt, new Date(`${filters.firstMessageFrom}T00:00:00.000Z`)));
+    }
+    if (filters.firstMessageTo && !Number.isNaN(Date.parse(filters.firstMessageTo))) {
+      fallbackConditions.push(lte(leads.createdAt, new Date(`${filters.firstMessageTo}T23:59:59.999Z`)));
+    }
+    if (filters.kpiMetric === "responses") {
+      fallbackConditions.push(or(
+        eventAfterFirstMessage("response_received", "crm_kpi_fallback_response_event", leads.createdAt),
+        stageAfterFirstMessage("conversation_in_progress", "crm_kpi_fallback_response_stage", leads.createdAt, "first_message_sent"),
+      ) ?? sql`false`);
+    }
+    if (filters.kpiMetric === "callsProposed") {
+      fallbackConditions.push(or(
+        eventAfterFirstMessage("call_proposed", "crm_kpi_fallback_proposed_event", leads.createdAt),
+        stageAfterFirstMessage("call_proposed", "crm_kpi_fallback_proposed_stage", leads.createdAt),
+      ) ?? sql`false`);
+    }
+    if (filters.kpiMetric === "callsBooked") {
+      fallbackConditions.push(or(
+        eventAfterFirstMessage("call_booked", "crm_kpi_fallback_booked_event", leads.createdAt, true),
+        stageAfterFirstMessage("call_booked", "crm_kpi_fallback_booked_stage", leads.createdAt),
+        canonicalCallAfterFirstMessage(leads.createdAt, "crm_kpi_fallback_linked_call", "crm_kpi_fallback_call_link"),
+      ) ?? sql`false`);
+    }
+    conditions.push(or(
+      exists(db.select({ id: cohortMessage.id }).from(cohortMessage).where(and(...cohortConditions))),
+      and(...fallbackConditions),
+    ) ?? sql`false`);
   }
   if (filters.responsibleSetterId) conditions.push(eq(leads.setterId, filters.responsibleSetterId));
   if (filters.offerId) conditions.push(eq(leads.offerId, filters.offerId));
@@ -2120,7 +2186,14 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
         and(gte(eventCapturedAt, fromIso), lte(eventCapturedAt, asOfIso)),
       ),
     )),
-    db.select({ history: crmLeadStageHistory, lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, createdAt: leads.createdAt } }).from(crmLeadStageHistory).innerJoin(leads, and(eq(crmLeadStageHistory.leadId, leads.id), eq(leads.accountId, accountId))).where(and(eq(crmLeadStageHistory.accountId, accountId), gte(crmLeadStageHistory.changedAt, from), lte(crmLeadStageHistory.changedAt, asOf))),
+    db.select({ history: crmLeadStageHistory, lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, createdAt: leads.createdAt } }).from(crmLeadStageHistory).innerJoin(leads, and(eq(crmLeadStageHistory.leadId, leads.id), eq(leads.accountId, accountId))).where(and(
+      eq(crmLeadStageHistory.accountId, accountId),
+      lte(crmLeadStageHistory.changedAt, asOf),
+      or(
+        gte(crmLeadStageHistory.changedAt, from),
+        and(isNull(crmLeadStageHistory.fromStage), eq(crmLeadStageHistory.toStage, "first_message_sent")),
+      ),
+    )),
     db.select({ lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, contactState: leads.contactState, createdAt: leads.createdAt } }).from(leads).where(eq(leads.accountId, accountId)),
     db.select({ call: salesCalls, link: crmCallLinks, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(salesCalls).leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId))).leftJoin(leads, and(eq(crmCallLinks.leadId, leads.id), eq(leads.accountId, accountId))).where(and(
       eq(salesCalls.userId, accountId),
@@ -2179,7 +2252,9 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
   const stageChanges: CrmKpiStageChange[] = stageRows
     .filter(({ history, lead }) => {
       if (!matchesLead(lead)) return false;
-      return !filters.setterId || setterCohortLeadIds.has(history.leadId);
+      return !filters.setterId
+        || setterCohortLeadIds.has(history.leadId)
+        || (history.fromStage === null && history.toStage === "first_message_sent");
     })
     .map(({ history }) => ({
       leadId: history.leadId,

@@ -130,16 +130,14 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
         {CRM_PRIMARY_KPI_METRICS.map((key) => {
           const presentation = getCrmPrimaryKpiPresentation(kpis, key, personalKpiScopeUnavailable, t("kpis.notMeasured"));
           const destination = personalKpiScopeUnavailable ? null : leadKpiHref(key, { setter: setterId ?? undefined, platform, offer: offerId, source }, period);
-          const cardContent = <><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p aria-describedby={presentation.isPartial ? "crm-kpi-incomplete" : undefined} className={`mt-2 font-bold ${presentation.isMeasured ? "text-2xl" : "text-lg"}`}>{presentation.displayValue}</p></>;
+          const cardContent = <><p className="text-xs font-bold text-muted-foreground">{t(`kpis.primary.${key}`)}</p><p className={`mt-2 font-bold ${presentation.isMeasured ? "text-2xl" : "text-lg"}`}>{presentation.displayValue}</p></>;
           return destination
             ? <Link key={key} href={destination} className="sticker-card p-4 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent/30">{cardContent}</Link>
             : <div key={key} className="sticker-card p-4" aria-disabled="true">{cardContent}</div>;
         })}
       </section>
       <p className="text-sm text-muted-foreground">{t("kpis.rateBasis")}</p>
-      {personalKpiScopeUnavailable
-        ? <p className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.personalScopeUnavailable")}</p>
-        : kpis.incomplete && <p id="crm-kpi-incomplete" className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.incomplete")}</p>}
+      {personalKpiScopeUnavailable && <p className="rounded-[var(--radius-control)] bg-state-caution/10 px-4 py-3 text-sm font-bold text-state-caution">{t("kpis.personalScopeUnavailable")}</p>}
       <details className="rounded-[var(--radius-control)] border border-border">
         <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-accent/20">{t("kpis.secondaryTitle")}</summary>
         <div className="grid gap-3 border-t border-border p-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -651,7 +651,6 @@
       "callsProposed": "Taux de proposition d'appel",
       "callsBooked": "Taux d'appel booké"
     },
-    "incomplete": "Données partielles : les leads sans date fiable de premier message sont exclus des chiffres affichés.",
     "personalScopeUnavailable": "Les KPI personnels sont indisponibles car votre profil de responsable n’est pas rattaché à ce compte.",
     "from": "Du",
     "to": "Au",

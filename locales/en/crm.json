@@ -651,7 +651,6 @@
       "callsProposed": "Call proposal rate",
       "callsBooked": "Call booking rate"
     },
-    "incomplete": "Partial data: leads without a reliable first-message date are excluded from these figures.",
     "personalScopeUnavailable": "Personal KPIs are unavailable because your setter profile is not linked to this account.",
     "from": "From",
     "to": "To",

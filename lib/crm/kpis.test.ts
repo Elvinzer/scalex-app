@@ -91,7 +91,6 @@ describe("CRM KPI projection", () => {
     expect(counts.rates.response).toBe(1);
     expect(counts.rates.callProposed).toBe(1);
     expect(counts.rates.callBooked).toBe(1);
-    expect(counts.incomplete).toBe(false);
   });
 
   it("counts unique first messages, including messages recorded at profile capture", () => {
@@ -113,11 +112,10 @@ describe("CRM KPI projection", () => {
     expect(counts.messages).toBe(2);
     expect(counts.conversations).toBe(1);
     expect(counts.cohortFirstMessages).toBe(2);
-    expect(counts.incomplete).toBe(false);
     expect(isReliableFirstMessageEvent(repeated)).toBe(true);
   });
 
-  it("counts only timestamped first-message events created by the legacy migration and flags legacy stages without dates", () => {
+  it("uses the lead creation date for an advanced legacy lead without a first-message date", () => {
     const migrated = event({
       leadId: "migrated-contact",
       type: "first_message_sent",
@@ -136,9 +134,16 @@ describe("CRM KPI projection", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
-      events: [migrated, unverifiedMigration],
+      events: [
+        migrated,
+        unverifiedMigration,
+        event({ leadId: "legacy-stage-without-date", type: "first_message_sent", occurredAt: "2026-09-06T09:00:00Z" }),
+        event({ leadId: "legacy-stage-without-date", type: "response_received", occurredAt: "2026-09-08T09:00:00Z" }),
+      ],
       stageChanges: [
         snapshot("migrated-contact", "conversation_in_progress", "none", "contacted"),
+        { leadId: "legacy-stage-without-date", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-09-11T09:00:00Z") },
+        { leadId: "legacy-stage-without-date", fromStage: "conversation_in_progress", toStage: "value_content_sent", occurredAt: new Date("2026-09-12T09:00:00Z") },
         snapshot("legacy-stage-without-date", "value_content_sent"),
       ],
       calls: [],
@@ -147,10 +152,10 @@ describe("CRM KPI projection", () => {
 
     expect(isReliableFirstMessageEvent(migrated)).toBe(true);
     expect(isReliableFirstMessageEvent(unverifiedMigration)).toBe(false);
-    expect(counts.messages).toBe(1);
+    expect(counts.messages).toBe(2);
     expect(counts.conversations).toBe(1);
-    expect(counts.valueContent).toBe(0);
-    expect(counts.incomplete).toBe(true);
+    expect(counts.valueContent).toBe(1);
+    expect(counts.cohortConversations).toBe(1);
   });
 
   it("counts legacy profile-capture messages on their capture timestamp", () => {
@@ -175,7 +180,6 @@ describe("CRM KPI projection", () => {
     expect(isLegacyCaptureFirstMessageEvent(capturedFirstMessage)).toBe(true);
     expect(isReliableFirstMessageEvent(capturedFirstMessage)).toBe(true);
     expect(counts.messages).toBe(1);
-    expect(counts.incomplete).toBe(false);
   });
 
   it("uses the initial first-message stage date when the event row is missing", () => {
@@ -193,10 +197,9 @@ describe("CRM KPI projection", () => {
     });
 
     expect(counts.messages).toBe(1);
-    expect(counts.incomplete).toBe(false);
   });
 
-  it("marks a current advanced-stage lead without a first-message date as incomplete", () => {
+  it("uses the lead creation date for a current advanced-stage lead without a first-message date", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -206,12 +209,11 @@ describe("CRM KPI projection", () => {
       sales: [],
     });
 
-    expect(counts.messages).toBe(0);
-    expect(counts.conversations).toBe(0);
-    expect(counts.incomplete).toBe(true);
+    expect(counts.messages).toBe(1);
+    expect(counts.conversations).toBe(1);
   });
 
-  it("does not let an older unmeasured lead make the selected period incomplete", () => {
+  it("does not include a contacted lead in a period before its creation date", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -222,10 +224,9 @@ describe("CRM KPI projection", () => {
     });
 
     expect(counts.conversations).toBe(0);
-    expect(counts.incomplete).toBe(false);
   });
 
-  it("marks missing first-message evidence when a legacy lead has activity in the selected period", () => {
+  it("does not use a contacted lead's creation date when it falls outside the selected period", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -235,7 +236,7 @@ describe("CRM KPI projection", () => {
       sales: [],
     });
 
-    expect(counts.incomplete).toBe(true);
+    expect(counts.messages).toBe(0);
   });
 
   it("counts capture-time messages with their current stages", () => {
@@ -254,7 +255,6 @@ describe("CRM KPI projection", () => {
     expect(counts.messages).toBe(2);
     expect(counts.conversations).toBe(1);
     expect(counts.valueContent).toBe(1);
-    expect(counts.incomplete).toBe(false);
   });
 
   it("renders measurable capture-time counts and rates", () => {
@@ -267,17 +267,16 @@ describe("CRM KPI projection", () => {
       sales: [],
     });
 
-    expect(counts.incomplete).toBe(false);
     for (const key of ["messages", "conversations", "valueContent"] as const) {
-      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: key === "messages" ? "1" : "0", isMeasured: true, isPartial: false });
+      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: key === "messages" ? "1" : "0", isMeasured: true });
     }
     for (const key of ["responses", "callsProposed", "callsBooked"] as const) {
-      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: "0%", isMeasured: true, isPartial: false });
+      expect(getCrmPrimaryKpiPresentation(counts, key, false, "Non mesuré")).toMatchObject({ displayValue: "0%", isMeasured: true });
     }
     expect(getCrmPrimaryKpiPresentation(counts, "messages", true, "Non mesuré")).toMatchObject({ displayValue: "Non mesuré", isMeasured: false });
   });
 
-  it("does not mark a reliably dated message outside the selected cohort as incomplete", () => {
+  it("does not include a reliably dated message outside the selected cohort", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -295,7 +294,6 @@ describe("CRM KPI projection", () => {
 
     expect(counts.messages).toBe(1);
     expect(counts.conversations).toBe(0);
-    expect(counts.incomplete).toBe(false);
   });
 
   it("counts current open cohort stages and excludes lost or sold leads", () => {
@@ -310,7 +308,7 @@ describe("CRM KPI projection", () => {
         snapshot("proposed", "call_proposed"),
         snapshot("lost", "conversation_in_progress", "lost"),
         snapshot("sold", "value_content_sent", "sold"),
-        snapshot("outside-cohort", "conversation_in_progress"),
+        snapshot("outside-cohort", "conversation_in_progress", "none", undefined, new Date("2026-08-31T23:59:59Z")),
       ],
       calls: [],
       sales: [],
@@ -388,6 +386,35 @@ describe("CRM KPI projection", () => {
     expect(counts.cohortConversations).toBe(1);
     expect(counts.conversations).toBe(1);
     expect(counts.valueContent).toBe(0);
+    expect(counts.rates.response).toBe(1);
+  });
+
+  it("counts a November reply in the October first-message cohort rate", () => {
+    const october = {
+      from: new Date("2026-10-01T00:00:00.000Z"),
+      to: new Date("2026-10-31T23:59:59.999Z"),
+    };
+    const novemberAsOf = new Date("2026-11-02T23:59:59.999Z");
+    const sentAt = new Date("2026-10-31T09:00:00.000Z");
+    const counts = computeCrmKpis({
+      period: october,
+      asOf: novemberAsOf,
+      events: [firstMessage("month-boundary-lead", sentAt.toISOString())],
+      stageChanges: [
+        { leadId: "month-boundary-lead", fromStage: null, toStage: "first_message_sent", occurredAt: sentAt },
+        {
+          leadId: "month-boundary-lead",
+          fromStage: "first_message_sent",
+          toStage: "conversation_in_progress",
+          occurredAt: new Date("2026-11-01T09:00:00.000Z"),
+        },
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(1);
+    expect(counts.cohortConversations).toBe(1);
     expect(counts.rates.response).toBe(1);
   });
 
