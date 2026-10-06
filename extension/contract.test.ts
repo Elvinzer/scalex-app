@@ -17,11 +17,12 @@ const callbackPage = readFileSync(new URL("./auth-callback.html", import.meta.ur
 const crmQueriesSource = readFileSync(new URL("../lib/crm/queries.ts", import.meta.url), "utf8");
 const extensionResolveRouteSource = readFileSync(new URL("../app/api/crm/extension/resolve/route.ts", import.meta.url), "utf8");
 const extensionUpdateRouteSource = readFileSync(new URL("../app/api/crm/extension/update/route.ts", import.meta.url), "utf8");
+const extensionMessageTestConfirmationRouteSource = readFileSync(new URL("../app/api/crm/extension/message-tests/confirm-send/route.ts", import.meta.url), "utf8");
 
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.version).toBe("0.3.4");
+    expect(manifest.version).toBe("0.3.5");
     expect(manifest.permissions).toEqual(["storage", "tabs"]);
     expect(manifest.background.service_worker).toBe("dist/background.js");
     expect(manifest.host_permissions).toEqual(expect.arrayContaining(["https://www.minaly.io/*"]));
@@ -43,6 +44,7 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(backgroundSource).toContain("minalyCrmExtensionToken");
     expect(backgroundSource).toContain("minalyCrmExtensionAuthState");
     expect(backgroundSource).toContain("/api/crm/extension/search");
+    expect(backgroundSource).toContain("/api/crm/extension/message-tests/confirm-send");
     expect(backgroundSource).toContain("minaly-check-update");
     expect(backgroundSource).toContain("onUpdateAvailable");
     expect(backgroundSource).toContain("chrome.runtime.getURL(\"auth-callback.html\")");
@@ -64,6 +66,26 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(contentSource).toContain('responseOccurredAt: new Date().toISOString()');
     expect(extensionUpdateRouteSource).toContain("markCrmResponse");
     expect(extensionUpdateRouteSource).toContain('"extension"');
+    expect(extensionMessageTestConfirmationRouteSource).toContain("confirmCrmMessageAbTestSend");
+  });
+
+  it("keeps message copying separate from the explicit send confirmation request", () => {
+    const copyStart = contentSource.indexOf("const copyMessage = async");
+    const confirmStart = contentSource.indexOf("const confirmMessageSent = async");
+    const drawStart = contentSource.indexOf("const draw = () =>", confirmStart);
+    const copyHandler = contentSource.slice(copyStart, confirmStart);
+    const confirmHandler = contentSource.slice(confirmStart, drawStart);
+
+    expect(copyHandler).toContain("navigator.clipboard.writeText(text)");
+    expect(copyHandler).toContain("messageCopied = true");
+    expect(copyHandler).not.toContain("minalyRequest(");
+    expect(confirmHandler).toContain('"/api/crm/extension/message-tests/confirm-send"');
+    expect(confirmHandler).toContain("{ assignmentId }");
+  });
+
+  it("does not offer an assigned test message after a lead was contacted outside the test", () => {
+    expect(contentSource).toContain('lead.contactState === "contacted" || lead.messageOccurredAt');
+    expect(contentSource).toContain("Cette variante ne peut pas être copiée ni comptabilisée.");
   });
 
   it("keeps the extension responsive while requests are in flight", () => {

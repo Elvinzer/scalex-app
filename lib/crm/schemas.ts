@@ -107,6 +107,22 @@ export const crmExtensionSearchSchema = z.object({
   query: z.string().trim().min(2).max(160),
 });
 
+export const crmMessageAbTestChannelSchema = z.enum(["instagram", "linkedin"]);
+export const crmMessageAbTestCreateSchema = z.object({
+  idempotencyKey: crmIdempotencyKeySchema,
+  name: z.string().trim().min(1).max(120),
+  channel: crmMessageAbTestChannelSchema,
+  variantAMessage: z.string().trim().min(1).max(5000),
+  variantBMessage: z.string().trim().min(1).max(5000),
+});
+export const crmMessageAbTestActionSchema = z.object({
+  action: z.enum(["pause", "resume", "end"]),
+});
+export const crmMessageAbTestStatusCommandSchema = crmMessageAbTestActionSchema.extend({ testId: z.string().uuid() });
+export const crmMessageAbTestSendConfirmationSchema = z.object({
+  assignmentId: z.string().uuid(),
+});
+
 export const crmLeadCaptureSchema = captureProfileBaseSchema.extend({
   offerId: z.string().trim().max(160).nullable().optional(),
   source: crmLeadSourceSchema.optional(),

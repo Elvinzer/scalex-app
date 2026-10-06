@@ -18,6 +18,26 @@ function cleanText(value: string | null | undefined): string {
   return (value ?? "").trim().replace(/\s+/g, " ");
 }
 
+const GENERIC_PROFILE_ACTION_LABELS = new Set([
+  "voir profil", "voir le profil", "view profile", "view the profile", "view this profile", "show profile",
+  "open profile", "ver perfil", "ver el perfil", "ver o perfil", "profil ansehen", "profil anzeigen",
+  "visualizza profilo", "visualizza il profilo", "visualizar perfil", "profiel bekijken", "profiel weergeven",
+  "message", "send message", "envoyer message", "envoyer un message", "follow", "suivre", "connect",
+  "se connecter", "more", "plus", "options", "profile actions", "actions du profil",
+]);
+
+function isGenericProfileActionLabel(value: string): boolean {
+  const label = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}@]+/gu, " ").trim();
+  return GENERIC_PROFILE_ACTION_LABELS.has(label)
+    || /^(?:view|see|open|visit|show|voir|afficher|ouvrir|consulter|acceder|ver|mostrar|abrir|visualizza|visualizar)(?: (?:the|this|el|o|le|la|les|un|une|il))? (?:profile|profil|perfil)(?: .+)?$/.test(label)
+    || /^(?:profil|profile|perfil)(?: ansehen| anzeigen| bekijken| weergeven)$/.test(label)
+    || /^(?:profile|profil)(?: (?:of|for|de|du|des) .+)?$/.test(label);
+}
+
+function isReliableProfileName(value: string): boolean {
+  return Boolean(value && !isGenericProfileActionLabel(value));
+}
+
 function splitName(displayName: string): { firstName: string; lastName: string } {
   const parts = displayName.split(" ").filter(Boolean);
   if (parts.length <= 1) return { firstName: displayName, lastName: "" };
@@ -121,10 +141,19 @@ export function normalizeCapturedProfile(input: {
   const urlHandle = platform === "linkedin" ? pathParts[1] : pathParts[0];
   const normalizedHandle = normalizeHandle(platform, input.handle ?? urlHandle ?? inputHandle);
   if (!normalizedHandle) return null;
-  const displayName = cleanText(input.displayName) || normalizedHandle;
+  const rawDisplayName = cleanText(input.displayName);
+  const rawFirstName = cleanText(input.firstName);
+  const rawLastName = cleanText(input.lastName);
+  const nameFromParts = [rawFirstName, rawLastName].filter(Boolean).join(" ");
+  const displayName = isReliableProfileName(rawDisplayName)
+    ? rawDisplayName
+    : isReliableProfileName(nameFromParts)
+      ? nameFromParts
+      : normalizedHandle;
   const split = splitName(displayName);
-  const firstName = cleanText(input.firstName) || split.firstName;
-  const lastName = cleanText(input.lastName) || split.lastName;
+  const legacyPartsAreGeneric = isGenericProfileActionLabel(nameFromParts);
+  const firstName = legacyPartsAreGeneric || !isReliableProfileName(rawFirstName) ? split.firstName : rawFirstName;
+  const lastName = legacyPartsAreGeneric || !isReliableProfileName(rawLastName) ? split.lastName : rawLastName;
   const capturedAt = input.capturedAt ?? new Date().toISOString();
   const validCapturedAt = Number.isNaN(Date.parse(capturedAt)) ? new Date().toISOString() : new Date(capturedAt).toISOString();
   const messageOccurredAt = input.messageOccurredAt && !Number.isNaN(Date.parse(input.messageOccurredAt)) ? new Date(input.messageOccurredAt).toISOString() : null;

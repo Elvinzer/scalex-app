@@ -33,6 +33,7 @@ export function PillarTabs({ tabs, singleRowBelowLg = false }: { tabs: PillarTab
     "/crm/leads": "leads",
     "/crm/actions": "actions",
     "/crm/appels": "calls",
+    "/crm/tests": "messageTests",
     "/crm/extension": "extension",
   };
 

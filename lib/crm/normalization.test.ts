@@ -39,6 +39,32 @@ describe("CRM social identity normalization", () => {
     });
   });
 
+  it("rejects generic profile actions and falls back to the normalized handle", () => {
+    expect(normalizeCapturedProfile({
+      profileUrl: "https://instagram.com/claire.handle",
+      displayName: "Voir Profil",
+      firstName: "Voir",
+      lastName: "Profil",
+    })).toMatchObject({
+      displayName: "claire.handle",
+      firstName: "claire.handle",
+      lastName: "",
+    });
+  });
+
+  it("keeps a corrected display name as the canonical profile identity", () => {
+    expect(normalizeCapturedProfile({
+      profileUrl: "https://linkedin.com/in/claire-martin",
+      displayName: "Claire Martin",
+      firstName: "Claire",
+      lastName: "Martin",
+    })).toMatchObject({
+      displayName: "Claire Martin",
+      firstName: "Claire",
+      lastName: "Martin",
+    });
+  });
+
   it("keeps non-profile channels usable without inventing a profile URL", () => {
     expect(normalizeCapturedProfile({ platform: "whatsapp", handle: "14 Geraldo", displayName: "14 Geraldo" })).toMatchObject({
       platform: "whatsapp",

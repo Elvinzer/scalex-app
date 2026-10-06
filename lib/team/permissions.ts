@@ -16,6 +16,7 @@ export const PERMISSION_KEYS = [
   "crm:view-team",
   "crm:assign",
   "crm:manage-pipeline",
+  "crm:manage-message-tests",
   "crm:validate-sale",
   // Legacy — Setting was folded into Pipeline (its content now lives at
   // /ventes/pipeline/funnel, gated by "acquisition:pipeline"). Kept
@@ -60,7 +61,7 @@ export const PERMISSION_GROUPS = [
   },
   {
     key: "crm",
-    permissions: ["crm:view", "crm:view-team", "crm:assign", "crm:manage-pipeline", "crm:validate-sale"],
+    permissions: ["crm:view", "crm:view-team", "crm:assign", "crm:manage-pipeline", "crm:manage-message-tests", "crm:validate-sale"],
   },
   {
     key: "sales",
@@ -115,6 +116,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   "crm:view-team": "CRM — Vue équipe",
   "crm:assign": "CRM — Réassigner les leads",
   "crm:manage-pipeline": "CRM — Gérer le pipeline",
+  "crm:manage-message-tests": "CRM — Gérer les tests de premiers messages",
   "crm:validate-sale": "CRM — Valider une vente",
   "acquisition:contenu": "Acquisition — Contenu",
   "acquisition:setting": "Acquisition — Setting",
@@ -141,6 +143,6 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
 export const DEFAULT_ROLES: { key: string; name: string; permissions: PermissionKey[] }[] = [
   { key: "setting", name: "Setting", permissions: ["acquisition:pipeline", "acquisition:setters", "crm:view"] },
   { key: "closing", name: "Closing", permissions: ["ventes:closing", "ventes:appels", "ventes:rdv", "delivrabilite:suivi-client", "delivrabilite:temoignages", "crm:view", "crm:validate-sale"] },
-  { key: "manager", name: "Manager", permissions: ["crm:view", "crm:view-team", "crm:assign", "crm:manage-pipeline", "crm:validate-sale"] },
+  { key: "manager", name: "Manager", permissions: ["crm:view", "crm:view-team", "crm:assign", "crm:manage-pipeline", "crm:manage-message-tests", "crm:validate-sale"] },
   { key: "financier", name: "Financier", permissions: ["ventes:suivi", "datas", "dashboard"] },
 ];

@@ -13,6 +13,7 @@ const minalyBackgroundPaths = new Set([
   "/api/crm/extension/search",
   "/api/crm/extension/capture",
   "/api/crm/extension/update",
+  "/api/crm/extension/message-tests/confirm-send",
 ]);
 
 type MinalyBackgroundRequest = { type: "minaly-api-request"; path: string; payload?: unknown };

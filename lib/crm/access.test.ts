@@ -25,6 +25,10 @@ describe("CRM access guard", () => {
     mockedGetAccountContext.mockResolvedValue({ isOwner: false, accountId: "account-id", permissions: new Set(["crm:view"]), advancedModulesEnabled: false, crmEnabled: true });
     expect(await requireCrmAccess("member-id")).toMatchObject({ userId: "member-id", isOwner: false });
     expect(await requireCrmAccess("member-id", "crm:view-team")).toBeNull();
+    expect(await requireCrmAccess("member-id", "crm:manage-message-tests")).toBeNull();
+
+    mockedGetAccountContext.mockResolvedValue({ isOwner: false, accountId: "account-id", permissions: new Set(["crm:view", "crm:manage-message-tests"]), advancedModulesEnabled: false, crmEnabled: true });
+    expect(await requireCrmAccess("member-id", "crm:manage-message-tests")).toMatchObject({ userId: "member-id", isOwner: false });
   });
 
   it("treats owner and all-permission contexts as authorized", () => {

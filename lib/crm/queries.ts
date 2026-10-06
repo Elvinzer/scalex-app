@@ -9,6 +9,8 @@ import {
   crmLeadEvents,
   crmLeadProfiles,
   crmLeadStageHistory,
+  crmMessageAbTestAssignments,
+  crmMessageAbTests,
   crmResponsibilityHistory,
   leadComments,
   leads,
@@ -58,6 +60,7 @@ import { CRM_LEAD_STAGES, crmStageImpliesResponse } from "./types";
 import { getCrmCallSuggestions } from "./call-match-suggestions";
 import { CRM_PIPELINE_STAGE_PAGE_SIZE, normalizeCrmLeadLimit } from "./lead-pagination";
 import { getNoShowFollowUpDueAt } from "./no-show";
+import { getCrmMessageAbTestAssignmentByLead, isCrmMessageAbTestEligibleCapture, isCrmMessageAbTestUniqueViolation, pickCrmMessageAbTestVariant, renderCrmMessageAbTestMessage, type CrmMessageAbTestAssignmentView } from "./message-ab-tests";
 import { createNativeBookingForCrm, type NativeBookingError } from "@/lib/native-booking/booking";
 import { listBusyForConnection } from "@/lib/native-booking/calendar";
 import { isCalendarTemporarilyUnavailable } from "@/lib/native-booking/calendar-readiness";
@@ -1046,16 +1049,18 @@ export type CreateCrmLeadInput = {
   idempotencyKey?: string | null;
 };
 
-export async function createCrmLead(accountId: string, input: CreateCrmLeadInput): Promise<{ lead: CrmLeadListItem; created: boolean }> {
+export async function createCrmLead(accountId: string, input: CreateCrmLeadInput): Promise<{ lead: CrmLeadListItem; created: boolean; messageTestAssignment: CrmMessageAbTestAssignmentView | null }> {
   const setter = input.responsibleSetterId
     ? await getSetterForAccount(accountId, input.responsibleSetterId)
     : await getOrCreateSetterForActor(accountId, input.actorUserId);
   if (input.responsibleSetterId && !setter) throw new Error("Le responsable n'appartient pas à ce compte.");
   const setterId = setter?.id ?? null;
   const capturedAt = new Date(input.profile.capturedAt);
-  const messageDate = input.profile.messageOccurredAt ? new Date(input.profile.messageOccurredAt) : null;
+  const isExtensionCapture = input.source === "extension";
+  const messageDate = !isExtensionCapture && input.profile.messageOccurredAt ? new Date(input.profile.messageOccurredAt) : null;
   const stage = input.stage ?? "first_message_sent";
-  const createdMessageDate = messageDate ?? (stage === "first_message_sent" ? capturedAt : null);
+  const unconfirmedExtensionCapture = isExtensionCapture && stage === "first_message_sent";
+  const createdMessageDate = unconfirmedExtensionCapture ? null : messageDate ?? (stage === "first_message_sent" ? capturedAt : null);
   const contactState = createdMessageDate || stage !== "first_message_sent" ? "contacted" as const : "new" as const;
   const phoneRaw = input.phone ?? input.profile.phone ?? null;
   const emailRaw = input.email ?? input.profile.email ?? null;
@@ -1063,7 +1068,9 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
   const emailNormalized = normalizeEmail(emailRaw);
   const captureKey = input.idempotencyKey ?? input.sourceEventKey ?? `capture:${input.profile.platform}:${input.profile.canonicalProfileUrl}:${input.profile.capturedAt}`;
 
-  return db.transaction(async (tx) => {
+  let result: { lead: CrmLeadListItem; created: boolean };
+  try {
+    result = await db.transaction(async (tx) => {
     const [idempotent] = await tx
       .select({ event: crmLeadEvents, lead: leads })
       .from(crmLeadEvents)
@@ -1092,7 +1099,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
           socialFirstName: input.profile.firstName,
           socialLastName: input.profile.lastName || null,
           normalizedHandle: input.profile.normalizedHandle,
-          messageOccurredAt: messageDate ?? existing.messageOccurredAt,
+          ...(messageDate ? { messageOccurredAt: messageDate } : {}),
           ...(emailRaw !== null ? { email: emailRaw, emailNormalized } : {}),
           ...(phoneRaw !== null ? { phone: phoneRaw, phoneNormalized } : {}),
           ...(input.closerUserId !== undefined ? { closerUserId: input.closerUserId } : {}),
@@ -1148,20 +1155,22 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
 
     await attachCrmLeadProfile(tx, accountId, created.id, input.profile);
 
-    await tx.insert(crmLeadStageHistory).values({
-      accountId,
-      leadId: created.id,
-      fromStage: null,
-      toStage: stage,
-      actorUserId: input.actorUserId,
-      responsibleSetterId: setterId,
-      source: input.source,
-      changedAt: createdMessageDate ?? capturedAt,
-    });
+    if (!unconfirmedExtensionCapture) {
+      await tx.insert(crmLeadStageHistory).values({
+        accountId,
+        leadId: created.id,
+        fromStage: null,
+        toStage: stage,
+        actorUserId: input.actorUserId,
+        responsibleSetterId: setterId,
+        source: input.source,
+        changedAt: createdMessageDate ?? capturedAt,
+      });
+    }
     const createdEvents = [
       eventValues({ accountId, leadId: created.id, actorUserId: input.actorUserId, type: "lead_created", source: input.source, sourceEventKey: captureKey, capturedAt, metadata: { platform: input.profile.platform } }),
       eventValues({ accountId, leadId: created.id, actorUserId: input.actorUserId, type: "profile_captured", source: input.source, sourceEventKey: `${captureKey}:profile`, occurredAt: messageDate, capturedAt, metadata: { platform: input.profile.platform, handle: input.profile.normalizedHandle, mode: "unknown" } }),
-      ...(stage !== "first_message_sent" || createdMessageDate ? [eventValues({
+      ...(!unconfirmedExtensionCapture && (stage !== "first_message_sent" || createdMessageDate) ? [eventValues({
         accountId,
         leadId: created.id,
         actorUserId: input.actorUserId,
@@ -1177,8 +1186,40 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
       })] : []),
     ];
     await tx.insert(crmLeadEvents).values(createdEvents).onConflictDoNothing();
+
+    const captureEligibility = { source: input.source, contactState, channel: input.profile.platform };
+    if (isCrmMessageAbTestEligibleCapture(captureEligibility)) {
+      const [activeTest] = await tx.select().from(crmMessageAbTests).where(and(
+        eq(crmMessageAbTests.accountId, accountId),
+        eq(crmMessageAbTests.channel, captureEligibility.channel),
+        eq(crmMessageAbTests.status, "active"),
+      )).for("update").limit(1);
+      if (activeTest) {
+        const variant = pickCrmMessageAbTestVariant();
+        const messageTemplate = variant === "A" ? activeTest.variantAMessage : activeTest.variantBMessage;
+        const messageSnapshot = renderCrmMessageAbTestMessage(messageTemplate, input.profile.firstName || input.profile.normalizedHandle);
+        await tx.insert(crmMessageAbTestAssignments).values({
+          accountId,
+          testId: activeTest.id,
+          leadId: created.id,
+          variant,
+          messageSnapshot,
+          assignedAt: new Date(),
+        }).onConflictDoNothing();
+      }
+    }
     return { lead: toLeadItem(created, setter?.name ?? null), created: true };
-  });
+    });
+  } catch (error) {
+    if (!isCrmMessageAbTestUniqueViolation(error)) throw error;
+    const resolution = await resolveCrmProfile(accountId, input.profile);
+    if (resolution.kind !== "known") throw error;
+    result = { lead: resolution.lead, created: false };
+  }
+  return {
+    ...result,
+    messageTestAssignment: await getCrmMessageAbTestAssignmentByLead(accountId, result.lead.id),
+  };
 }
 
 export async function validateCrmSale(

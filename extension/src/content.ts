@@ -1,5 +1,16 @@
 type MinalyExtensionPlatform = "instagram" | "linkedin";
 type MinalyExtensionState = "closed" | "loading" | "session" | "unknown" | "known" | "ambiguous" | "success" | "unavailable" | "error";
+type MinalyMessageTestStatus = "active" | "paused" | null;
+type MinalyMessageTestAssignment = {
+  id: string;
+  testId: string;
+  channel: "instagram" | "linkedin";
+  variant: "A" | "B";
+  messageSnapshot: string;
+  status: "active" | "paused" | "ended";
+  assignedAt: string;
+  sentAt: string | null;
+};
 
 type MinalyExtensionProfile = {
   platform: MinalyExtensionPlatform;
@@ -31,6 +42,9 @@ type MinalyExtensionLead = {
   matchScore: number | null;
   stage: string;
   outcome: string;
+  contactState: "new" | "contacted";
+  messageOccurredAt: string | null;
+  messageTestAssignment: MinalyMessageTestAssignment | null;
   respondedAt: string | null;
   responsibleSetterName: string | null;
   nextAction: { title: string; dueAt: string } | null;
@@ -44,6 +58,7 @@ type MinalyExtensionResolution =
 type MinalyCaptureSelection = {
   leadId?: string;
   separateFromCandidates?: boolean;
+  displayName?: string;
   firstName?: string;
   lastName?: string;
   offerId?: string | null;
@@ -318,6 +333,13 @@ function minalyApiProfile(profile: MinalyExtensionProfile): Record<string, unkno
   return { ...profile, profileUrl: profile.canonicalProfileUrl, handle: profile.normalizedHandle };
 }
 
+function minalyProfileWithDisplayName(profile: MinalyExtensionProfile, rawDisplayName: string): MinalyExtensionProfile {
+  const candidate = rawDisplayName.trim().replace(/\s+/g, " ");
+  const displayName = candidate && !minalyIsGenericProfileActionLabel(candidate) ? candidate : profile.normalizedHandle;
+  const names = minalySplitName(displayName);
+  return { ...profile, displayName, firstName: names.firstName, lastName: names.lastName };
+}
+
 async function minalyRequest(path: string, payload: unknown): Promise<{ status: number; body: unknown }> {
   try {
     const result: unknown = await chrome.runtime.sendMessage({ type: "minaly-api-request", path, payload });
@@ -365,12 +387,33 @@ function minalyReadQualification(value: unknown): MinalyQualification | null {
   return { offers, defaultOfferId, sources, stages, responsible };
 }
 
+function minalyReadMessageTestAssignment(value: unknown): MinalyMessageTestAssignment | null {
+  if (!minalyIsRecord(value)
+    || typeof value.id !== "string"
+    || typeof value.testId !== "string"
+    || (value.channel !== "instagram" && value.channel !== "linkedin")
+    || (value.variant !== "A" && value.variant !== "B")
+    || typeof value.messageSnapshot !== "string"
+    || (value.status !== "active" && value.status !== "paused" && value.status !== "ended")
+    || typeof value.assignedAt !== "string") return null;
+  return {
+    id: value.id,
+    testId: value.testId,
+    channel: value.channel,
+    variant: value.variant,
+    messageSnapshot: value.messageSnapshot,
+    status: value.status,
+    assignedAt: value.assignedAt,
+    sentAt: typeof value.sentAt === "string" ? value.sentAt : null,
+  };
+}
+
 function minalyReadLead(value: unknown): MinalyExtensionLead | null {
   if (!minalyIsRecord(value) || typeof value.id !== "string" || typeof value.displayName !== "string" || typeof value.stage !== "string" || typeof value.outcome !== "string") return null;
   const nextAction = minalyIsRecord(value.nextAction) && typeof value.nextAction.title === "string" && typeof value.nextAction.dueAt === "string" ? { title: value.nextAction.title, dueAt: value.nextAction.dueAt } : null;
   const profiles = Array.isArray(value.profiles) ? value.profiles.flatMap((item) => minalyIsRecord(item) && typeof item.platform === "string" && typeof item.normalizedHandle === "string" ? [{ platform: item.platform, canonicalProfileUrl: typeof item.canonicalProfileUrl === "string" ? item.canonicalProfileUrl : null, normalizedHandle: item.normalizedHandle, displayName: typeof item.displayName === "string" ? item.displayName : null }] : []) : [];
   const matchSignals = Array.isArray(value.matchSignals) ? value.matchSignals.filter((item): item is string => typeof item === "string") : [];
-  return { id: value.id, displayName: value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, profiles, whatsappHref: typeof value.whatsappHref === "string" ? value.whatsappHref : null, matchSignals, matchScore: typeof value.matchScore === "number" ? value.matchScore : null, stage: value.stage, outcome: value.outcome, respondedAt: typeof value.respondedAt === "string" ? value.respondedAt : null, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
+  return { id: value.id, displayName: value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, profiles, whatsappHref: typeof value.whatsappHref === "string" ? value.whatsappHref : null, matchSignals, matchScore: typeof value.matchScore === "number" ? value.matchScore : null, stage: value.stage, outcome: value.outcome, contactState: value.contactState === "contacted" ? "contacted" : "new", messageOccurredAt: typeof value.messageOccurredAt === "string" ? value.messageOccurredAt : null, messageTestAssignment: minalyReadMessageTestAssignment(value.messageTestAssignment), respondedAt: typeof value.respondedAt === "string" ? value.respondedAt : null, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
 }
 
 function minalyReadCrmUrl(value: unknown): string | null {
@@ -388,11 +431,12 @@ function minalyReadCrmUrl(value: unknown): string | null {
   }
 }
 
-function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResolution; qualification: MinalyQualification | null; accountId: string | null; crmUrl: string | null } | null {
+function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResolution; qualification: MinalyQualification | null; accountId: string | null; crmUrl: string | null; messageTestStatus: MinalyMessageTestStatus } | null {
   if (!minalyIsRecord(body)) return null;
   const data = minalyIsRecord(body.data) ? body.data : body;
   const raw = minalyIsRecord(body.resolution) ? body.resolution : data;
   const crmUrl = minalyReadCrmUrl(data.crmUrl ?? body.crmUrl);
+  const messageTestStatus = data.messageTestStatus === "active" || data.messageTestStatus === "paused" ? data.messageTestStatus : null;
   const kind = raw.kind ?? raw.state;
   if (kind === "unknown" && minalyIsRecord(raw.profile)) {
     const profile = raw.profile;
@@ -408,11 +452,11 @@ function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResol
       sourceEventKey: typeof profile.sourceEventKey === "string" ? profile.sourceEventKey : "",
     };
     const qualification = minalyReadQualification(data.qualification);
-    return { resolution: { kind: "unknown", profile: parsedProfile, qualification }, qualification, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl };
+    return { resolution: { kind: "unknown", profile: parsedProfile, qualification }, qualification, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl, messageTestStatus };
   }
   if (kind === "known") {
     const lead = minalyReadLead(raw.lead);
-    return lead ? { resolution: { kind: "known", lead }, qualification: null, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl } : null;
+    return lead ? { resolution: { kind: "known", lead }, qualification: null, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl, messageTestStatus } : null;
   }
   if (kind === "ambiguous" && minalyIsRecord(raw.profile) && Array.isArray(raw.candidates)) {
     const candidates = raw.candidates.flatMap((candidate) => {
@@ -420,7 +464,7 @@ function minalyReadResolution(body: unknown): { resolution: MinalyExtensionResol
       return lead ? [lead] : [];
     });
     const profile = minalyProfile();
-    return profile ? { resolution: { kind: "ambiguous", profile, candidates }, qualification: null, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl } : null;
+    return profile ? { resolution: { kind: "ambiguous", profile, candidates }, qualification: null, accountId: typeof data.accountId === "string" ? data.accountId : typeof body.accountId === "string" ? body.accountId : null, crmUrl, messageTestStatus } : null;
   }
   return null;
 }
@@ -609,6 +653,8 @@ function minalyBuildPanel(
   resolution: MinalyExtensionResolution | null,
   profile: MinalyExtensionProfile | null,
   message: string | null,
+  messageTestStatus: MinalyMessageTestStatus,
+  messageCopied: boolean,
   successLeadUrl: string | null,
   crmUrl: string | null,
   extensionUpdate: MinalyExtensionUpdate | null,
@@ -620,6 +666,8 @@ function minalyBuildPanel(
   onUpdate: (input: MinalyUpdateInput) => void,
   onSearch: (query: string) => void,
   onApplyUpdate: () => void,
+  onCopyMessage: (text: string) => void,
+  onConfirmMessageSent: (assignmentId: string) => void,
 ): void {
   const panel = shadow.querySelector(".minaly-panel");
   if (!(panel instanceof HTMLElement)) return;
@@ -705,6 +753,50 @@ function minalyBuildPanel(
     return;
   }
 
+  if (state === "known" && resolution?.kind === "known" && resolution.lead.messageTestAssignment) {
+    const lead = resolution.lead;
+    const assignment = lead.messageTestAssignment;
+    if (!assignment) return;
+    body.append(minalyProfileCard(lead.displayName, `@${lead.profiles.find((item) => item.platform === assignment.channel)?.normalizedHandle ?? profile?.normalizedHandle ?? ""} · ${minalyPlatformLabel(assignment.channel)}`, lead.canonicalProfileUrl));
+    if (message) body.append(minalyCallout("ACTION REQUISE", message, "minaly-callout-warning"));
+    body.append(minalyCallout("VARIANTE ATTRIBUÉE", `Variante ${assignment.variant}`, "minaly-callout-known"));
+    if (assignment.sentAt) {
+      body.append(minalyStatusBlock("ENVOI CONFIRMÉ", "Envoi enregistré", `${minalyFormatDate(assignment.sentAt)} · Variante ${assignment.variant}`, "minaly-status-success"));
+      body.append(minalyElement("p", "Les réponses seront suivies pendant 7 jours."));
+    } else if (assignment.status === "ended") {
+      body.append(minalyStatusBlock("HISTORIQUE", "Test terminé", "Cette variante reste dans l’historique. Le message n’a pas été confirmé et ne peut plus être copié.", "minaly-status-session"));
+      const preview = minalyElement("div", assignment.messageSnapshot);
+      preview.className = "minaly-context";
+      body.append(preview);
+    } else if (lead.contactState === "contacted" || lead.messageOccurredAt) {
+      body.append(minalyStatusBlock("DÉJÀ CONTACTÉ", "Envoi non disponible", "Un premier message a déjà été enregistré hors de ce test. Cette variante ne peut pas être copiée ni comptabilisée.", "minaly-status-session"));
+      const preview = minalyElement("div", assignment.messageSnapshot);
+      preview.className = "minaly-context";
+      body.append(preview);
+    } else {
+      body.append(minalyElement("h2", `Message — Variante ${assignment.variant}`));
+      const preview = minalyElement("div", assignment.messageSnapshot);
+      preview.className = "minaly-context";
+      body.append(preview, minalyElement("p", `${assignment.messageSnapshot.length} caractères`));
+      if (assignment.status === "paused") {
+        body.append(minalyCallout("TEST EN PAUSE", "Cette variante reste disponible pour les leads déjà attribués.", "minaly-callout-warning"));
+      }
+      if (messageCopied) {
+        body.append(minalyStatusBlock("MESSAGE COPIÉ", "Message copié", "La copie ne compte pas comme un envoi. Envoie le message dans la conversation, puis confirme.", "minaly-status-success"));
+        const confirmSent = minalyButton("Je l’ai envoyé", "minaly-primary");
+        confirmSent.addEventListener("click", () => onConfirmMessageSent(assignment.id));
+        body.append(confirmSent);
+      } else {
+        const copy = minalyButton("Copier le message", "minaly-primary");
+        copy.addEventListener("click", () => onCopyMessage(assignment.messageSnapshot));
+        body.append(copy);
+      }
+    }
+    const leadLink = minalyLeadLink(lead.id, crmUrl);
+    if (leadLink) body.append(leadLink);
+    return;
+  }
+
   if (state === "success") {
     const status = minalyStatusBlock("CAPTURE TERMINÉE", "Lead enregistré", message ?? "Le lead est maintenant dans ton CRM.", "minaly-status-success");
     status.prepend(minalyIcon("check"));
@@ -771,23 +863,18 @@ function minalyBuildPanel(
   if (resolution.kind === "unknown") {
     body.append(minalyProfileCard(profile.displayName, `@${profile.normalizedHandle} · ${minalyPlatformLabel(profile.platform)}`, profile.canonicalProfileUrl));
     body.append(minalyCallout("NOUVEAU LEAD", "Ce profil n’existe pas encore dans ton CRM.", "minaly-callout-neutral"));
+    if (messageTestStatus === "paused") body.append(minalyCallout("TEST EN PAUSE", "Aucune variante ne sera attribuée aux nouveaux leads sur ce canal.", "minaly-callout-warning"));
+    if (messageTestStatus === null) body.append(minalyCallout("AUCUN TEST ACTIF", "Crée un test depuis le CRM pour comparer les premiers messages sur ce canal.", "minaly-callout-neutral"));
     body.append(manualSearch);
 
     const sectionTitle = minalyElement("h2", "Informations du lead");
     sectionTitle.className = "minaly-section-title";
     body.append(sectionTitle);
-    const firstName = document.createElement("input");
-    firstName.className = "minaly-field";
-    firstName.value = profile.firstName;
-    firstName.autocomplete = "given-name";
-    const lastName = document.createElement("input");
-    lastName.className = "minaly-field";
-    lastName.value = profile.lastName;
-    lastName.autocomplete = "family-name";
-    const nameGrid = document.createElement("div");
-    nameGrid.className = "minaly-field-grid";
-    nameGrid.append(minalyLabeledField(firstName, "Prénom"), minalyLabeledField(lastName, "Nom"));
-    body.append(nameGrid);
+    const displayName = document.createElement("input");
+    displayName.className = "minaly-field";
+    displayName.value = profile.displayName || profile.normalizedHandle;
+    displayName.autocomplete = "name";
+    body.append(minalyLabeledField(displayName, "Nom affiché"));
 
     const qualification = resolution.qualification;
     const offer = document.createElement("select");
@@ -841,13 +928,30 @@ function minalyBuildPanel(
     body.append(context);
 
     const add = minalyButton("Ajouter le lead", "minaly-primary");
-    add.addEventListener("click", () => onCapture({ firstName: firstName.value.trim() || undefined, lastName: lastName.value.trim() || undefined, offerId: offer.value || null, source: source.value, stage: stage.value }));
+    const syncDisplayNameValidity = () => {
+      const value = displayName.value.trim();
+      const invalid = !value || minalyIsGenericProfileActionLabel(value);
+      displayName.setAttribute("aria-invalid", String(invalid));
+      add.disabled = invalid;
+    };
+    displayName.addEventListener("input", syncDisplayNameValidity);
+    syncDisplayNameValidity();
+    add.addEventListener("click", () => onCapture({ displayName: displayName.value.trim(), offerId: offer.value || null, source: source.value, stage: stage.value }));
     body.append(add);
     return;
   }
 
   if (resolution.kind === "known") {
     body.append(minalyProfileCard(resolution.lead.displayName, `Lead existant · ${minalyOutcomeLabel(resolution.lead.outcome)}`, resolution.lead.canonicalProfileUrl));
+    if (resolution.lead.contactState === "new" && !resolution.lead.messageTestAssignment && messageTestStatus === "paused") {
+      body.append(minalyCallout("TEST EN PAUSE", "Aucune variante ne sera attribuée aux nouveaux leads sur ce canal.", "minaly-callout-warning"));
+    }
+    if (resolution.lead.contactState === "new" && !resolution.lead.messageTestAssignment && messageTestStatus === null) {
+      body.append(minalyCallout("AUCUN TEST ACTIF", "Crée un test depuis le CRM pour comparer les premiers messages sur ce canal.", "minaly-callout-neutral"));
+    }
+    if (resolution.lead.contactState === "contacted" && !resolution.lead.messageTestAssignment) {
+      body.append(minalyCallout("LEAD DÉJÀ CONTACTÉ", `Un premier message a déjà été confirmé${resolution.lead.messageOccurredAt ? ` le ${minalyFormatDate(resolution.lead.messageOccurredAt)}` : ""}.`, "minaly-callout-known"));
+    }
     const knownProfiles = minalyLeadProfiles(resolution.lead);
     if (knownProfiles) body.append(knownProfiles);
     body.append(minalyCallout("DÉJÀ DANS LE CRM", "Tu peux mettre à jour les informations et la prochaine action depuis cette fiche.", "minaly-callout-known"));
@@ -1122,6 +1226,8 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
   let manualSearchCandidates: MinalyExtensionLead[] | null = null;
   let resolvedAt = 0;
   let message: string | null = null;
+  let messageTestStatus: MinalyMessageTestStatus = null;
+  let messageCopied = false;
   let successLeadUrl: string | null = null;
   let extensionUpdate: MinalyExtensionUpdate | null = null;
   let operationId = 0;
@@ -1137,10 +1243,54 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     if (state === "loading") return;
     void chrome.runtime.sendMessage({ type: "minaly-apply-update" }).catch(() => undefined);
   };
+  const copyMessage = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      messageCopied = true;
+      message = null;
+    } catch {
+      messageCopied = false;
+      message = "Impossible de copier le message. Réessaie depuis le panneau.";
+    }
+    draw();
+  };
+  const confirmMessageSent = async (assignmentId: string) => {
+    const requestId = ++operationId;
+    state = "loading";
+    message = null;
+    draw();
+    const result = await minalyRequest("/api/crm/extension/message-tests/confirm-send", { assignmentId });
+    if (requestId !== operationId) return;
+    if (result.status === 401) { state = "session"; draw(); return; }
+    if (result.status === 403) { state = "unavailable"; draw(); return; }
+    if (result.status === 503) { state = "error"; message = minalyApiErrorMessage(result.body); draw(); return; }
+    if (result.status === 409) {
+      const errorCode = minalyIsRecord(result.body) && typeof result.body.error === "string" ? result.body.error : "";
+      message = errorCode === "test_ended" ? "Le test est terminé. Cet envoi ne peut plus être confirmé." : "Ce lead a déjà été marqué comme contacté.";
+      state = "error";
+      draw();
+      return;
+    }
+    const data = minalyIsRecord(result.body) && minalyIsRecord(result.body.assignment) ? result.body.assignment : null;
+    const assignment = minalyReadMessageTestAssignment(data);
+    if (result.status < 200 || result.status >= 300 || !assignment || resolution?.kind !== "known") {
+      state = "error";
+      message = "Impossible d’enregistrer la confirmation d’envoi.";
+      draw();
+      return;
+    }
+    resolution = {
+      kind: "known",
+      lead: { ...resolution.lead, contactState: "contacted", messageOccurredAt: assignment.sentAt, messageTestAssignment: assignment },
+    };
+    messageCopied = false;
+    state = "known";
+    draw();
+  };
   const draw = () => {
     panel.hidden = state === "closed";
     button.setAttribute("aria-expanded", String(state !== "closed"));
-    minalyBuildPanel(shadow, state, resolution, profile, message, successLeadUrl, resolutionCrmUrl, extensionUpdate, manualSearchCandidates, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input), (query) => void search(query), applyUpdate);
+    minalyBuildPanel(shadow, state, resolution, profile, message, messageTestStatus, messageCopied, successLeadUrl, resolutionCrmUrl, extensionUpdate, manualSearchCandidates, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input), (query) => void search(query), applyUpdate, (text) => void copyMessage(text), (assignmentId) => void confirmMessageSent(assignmentId));
   };
   const resolve = async (requestId: number): Promise<boolean> => {
     const result = await minalyRequest("/api/crm/extension/resolve", minalyApiProfile(profile));
@@ -1158,6 +1308,8 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     resolutionAccountId = parsed.accountId;
     resolutionCrmUrl = parsed.crmUrl;
     resolution = parsed.resolution;
+    messageTestStatus = parsed.messageTestStatus;
+    messageCopied = false;
     manualSearchCandidates = null;
     resolvedAt = Date.now();
     state = parsed.resolution.kind;
@@ -1187,7 +1339,8 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     state = "loading";
     message = null;
     draw();
-    const result = await minalyRequest("/api/crm/extension/capture", { decision: selection.leadId ? "confirm_match" : "create_new", candidateLeadId: selection.leadId, separateFromCandidates: selection.separateFromCandidates, idempotencyKey: profile.sourceEventKey, profile: { ...minalyApiProfile(profile), firstName: selection.firstName ?? profile.firstName, lastName: selection.lastName ?? profile.lastName }, qualification: { offerId: selection.offerId ?? null, source: selection.source ?? profile.platform, stage: selection.stage ?? "first_message_sent" } });
+    const selectedProfile = selection.displayName === undefined ? profile : minalyProfileWithDisplayName(profile, selection.displayName);
+    const result = await minalyRequest("/api/crm/extension/capture", { decision: selection.leadId ? "confirm_match" : "create_new", candidateLeadId: selection.leadId, separateFromCandidates: selection.separateFromCandidates, idempotencyKey: profile.sourceEventKey, profile: minalyApiProfile(selectedProfile), qualification: { offerId: selection.offerId ?? null, source: selection.source ?? profile.platform, stage: selection.stage ?? "first_message_sent" } });
     if (requestId !== operationId) return;
     if (result.status === 401) { state = "session"; draw(); return; }
     if (result.status === 403) { state = "unavailable"; draw(); return; }
@@ -1200,8 +1353,11 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     if (!leadId) { message = "Réponse CRM invalide."; state = "error"; draw(); return; }
     const origin = minalyReadCrmUrl(data.crmUrl) ?? "https://www.minaly.io";
     successLeadUrl = `${origin}/crm/leads/${leadId}`;
-    state = "success";
-    message = "Le lead est maintenant dans ton CRM.";
+    const savedLead = minalyReadLead(data.lead);
+    if (savedLead) resolution = { kind: "known", lead: savedLead };
+    messageCopied = false;
+    state = savedLead ? "known" : "success";
+    message = savedLead?.messageTestAssignment ? null : "Le lead est maintenant dans ton CRM.";
     draw();
   };
   const search = async (query: string) => {

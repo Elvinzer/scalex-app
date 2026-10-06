@@ -8,6 +8,7 @@ import { getCrmSetterForActor, resolveCrmProfile } from "@/lib/crm/queries";
 import { captureProfileSchema } from "@/lib/crm/schemas";
 import { normalizeCapturedProfile } from "@/lib/crm/normalization";
 import { CRM_LEAD_SOURCES, CRM_LEAD_STAGES } from "@/lib/crm/types";
+import { getCrmMessageAbTestAssignmentByLead, getCrmMessageAbTestChannelStatus } from "@/lib/crm/message-ab-tests";
 
 export const runtime = "nodejs";
 
@@ -22,9 +23,21 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "invalid_profile" }, { status: 400 });
   const profile = normalizeCapturedProfile(parsed.data);
   if (!profile) return NextResponse.json({ error: "invalid_profile" }, { status: 400 });
-  const resolution = await resolveCrmProfile(access.accountId, profile);
+  const originalResolution = await resolveCrmProfile(access.accountId, profile);
+  const messageTestStatus = profile.platform === "instagram" || profile.platform === "linkedin"
+    ? await getCrmMessageAbTestChannelStatus(access.accountId, profile.platform)
+    : null;
+  const resolution = originalResolution.kind === "known"
+    ? {
+        ...originalResolution,
+        lead: {
+          ...originalResolution.lead,
+          messageTestAssignment: await getCrmMessageAbTestAssignmentByLead(access.accountId, originalResolution.lead.id),
+        },
+      }
+    : originalResolution;
   const crmUrl = new URL(request.url).origin;
-  if (resolution.kind !== "unknown") return NextResponse.json({ data: { state: resolution.kind, accountId: access.accountId, crmUrl, ...resolution }, resolution, accountId: access.accountId });
+  if (resolution.kind !== "unknown") return NextResponse.json({ data: { state: resolution.kind, accountId: access.accountId, crmUrl, messageTestStatus, ...resolution }, resolution, messageTestStatus, accountId: access.accountId });
   const [offers, responsible] = await Promise.all([
     getBusinessSalesOffers(access.accountId),
     getCrmSetterForActor(access.accountId, access.userId),
@@ -36,5 +49,5 @@ export async function POST(request: NextRequest) {
     stages: CRM_LEAD_STAGES,
     responsible,
   };
-  return NextResponse.json({ data: { state: resolution.kind, accountId: access.accountId, crmUrl, ...resolution, qualification }, resolution, qualification, accountId: access.accountId });
+  return NextResponse.json({ data: { state: resolution.kind, accountId: access.accountId, crmUrl, messageTestStatus, ...resolution, qualification }, resolution, messageTestStatus, qualification, accountId: access.accountId });
 }

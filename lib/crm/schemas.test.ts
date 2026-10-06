@@ -9,6 +9,9 @@ import {
   crmCaptureCommandSchema,
   crmExtensionUpdateSchema,
   crmLeadCaptureSchema,
+  crmMessageAbTestCreateSchema,
+  crmMessageAbTestSendConfirmationSchema,
+  crmMessageAbTestStatusCommandSchema,
   contactStateSchema,
   crmTimeZoneSchema,
   leadFieldsSchema,
@@ -47,6 +50,22 @@ describe("CRM mutation idempotency contracts", () => {
   it.each(appMutationInputs)("requires an idempotency key for %s", (_name, schema, input) => {
     expect(schema.safeParse(input).success).toBe(false);
     expect(schema.safeParse({ ...input, idempotencyKey }).success).toBe(true);
+  });
+
+  it("validates A/B test content, supported channels, lifecycle actions and send assignment ids", () => {
+    const createInput = {
+      idempotencyKey,
+      name: "Question ouverte",
+      channel: "instagram",
+      variantAMessage: "Bonjour {prénom}",
+      variantBMessage: "Bonjour, j'ai vu votre profil",
+    };
+    expect(crmMessageAbTestCreateSchema.safeParse(createInput).success).toBe(true);
+    expect(crmMessageAbTestCreateSchema.safeParse({ ...createInput, channel: "whatsapp" }).success).toBe(false);
+    expect(crmMessageAbTestCreateSchema.safeParse({ ...createInput, variantBMessage: "   " }).success).toBe(false);
+    expect(crmMessageAbTestStatusCommandSchema.safeParse({ testId: leadId, action: "pause" }).success).toBe(true);
+    expect(crmMessageAbTestStatusCommandSchema.safeParse({ testId: "bad", action: "pause" }).success).toBe(false);
+    expect(crmMessageAbTestSendConfirmationSchema.safeParse({ assignmentId: actionId }).success).toBe(true);
   });
 
   it("validates the timezone used by the due-today action filter", () => {

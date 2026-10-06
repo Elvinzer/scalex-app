@@ -155,6 +155,7 @@ const subpageLabelKeys: Record<string, string> = {
   "/crm/leads": "leads",
   "/crm/actions": "actions",
   "/crm/appels": "calls",
+  "/crm/tests": "messageTests",
   "/crm/extension": "extension",
   "/delivrabilite/suivi-client": "clientTracking",
   "/delivrabilite/temoignages": "testimonials",

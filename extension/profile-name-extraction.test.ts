@@ -63,6 +63,26 @@ function extractVisibleName(input: {
   };
 }
 
+function correctProfileName(input: { handle: string; displayName: string }): Record<string, unknown> {
+  const mountCode = contentSource.lastIndexOf("\nminalyMount();");
+  if (mountCode < 0) throw new Error("The extension content script has no mount entry point.");
+  const context = createContext({});
+  runInContext(contentSource.slice(0, mountCode), context);
+  context.testProfile = {
+    platform: "instagram",
+    canonicalProfileUrl: `https://instagram.com/${input.handle}`,
+    normalizedHandle: input.handle,
+    displayName: "Voir Profil",
+    firstName: "Voir",
+    lastName: "Profil",
+    messageOccurredAt: null,
+    capturedAt: "2026-10-06T10:00:00.000Z",
+    sourceEventKey: "fixture",
+  };
+  context.correctedName = input.displayName;
+  return runInContext("minalyProfileWithDisplayName(testProfile, correctedName)", context) as Record<string, unknown>;
+}
+
 describe("CRM extension profile name extraction", () => {
   it("uses the Instagram profile identity heading when it shows a display name", () => {
     const result = extractVisibleName({
@@ -101,6 +121,17 @@ describe("CRM extension profile name extraction", () => {
     expect(result.name).toBe("Jane Doe");
   });
 
+  it("skips an Instagram profile action next to the visible profile identity", () => {
+    const result = extractVisibleName({
+      platform: "instagram",
+      handle: "natgeo",
+      pathname: "/natgeo/",
+      identityHeadings: [fixtureNode("Voir Profil"), fixtureNode("National Geographic")],
+    });
+
+    expect(result.name).toBe("National Geographic");
+  });
+
   it("falls back to the normalized handle when an Instagram conversation link is a generic action", () => {
     const result = extractVisibleName({
       platform: "instagram",
@@ -122,6 +153,33 @@ describe("CRM extension profile name extraction", () => {
     });
 
     expect(result.name).toBe("Jane Doe");
+  });
+
+  it("falls back to the LinkedIn handle when a conversation has no reliable identity name", () => {
+    const result = extractVisibleName({
+      platform: "linkedin",
+      handle: "jane-doe",
+      pathname: "/messaging/thread/123/",
+      identityHeadings: [fixtureNode("Voir Profil")],
+    });
+
+    expect(result.name).toBe("jane-doe");
+  });
+
+  it("sends a manually corrected display name and matching first and last names", () => {
+    expect(correctProfileName({ handle: "claire-handle", displayName: "Claire Martin" })).toMatchObject({
+      displayName: "Claire Martin",
+      firstName: "Claire",
+      lastName: "Martin",
+    });
+  });
+
+  it("uses the handle if the manually entered name is still a generic action label", () => {
+    expect(correctProfileName({ handle: "claire-handle", displayName: "Voir Profil" })).toMatchObject({
+      displayName: "claire-handle",
+      firstName: "claire-handle",
+      lastName: "",
+    });
   });
 
   it("normalizes the platform handle when it is the only visible Instagram identity", () => {

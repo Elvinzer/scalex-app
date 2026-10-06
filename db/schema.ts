@@ -81,6 +81,12 @@ const nativeBookingAccountAccess = (accountId: AnyPgColumn) =>
 const crmLeadAccountAccess = (accountId: AnyPgColumn, leadId: AnyPgColumn) =>
   sql`public.native_booking_account_member(${accountId}) and exists (select 1 from public.leads as l where l.id = ${leadId} and l.account_id = ${accountId})`;
 
+const crmMessageAbTestAccountAccess = (accountId: AnyPgColumn) =>
+  sql`public.native_booking_account_member(${accountId})`;
+
+const crmMessageAbAssignmentAccountAccess = (accountId: AnyPgColumn, testId: AnyPgColumn, leadId: AnyPgColumn) =>
+  sql`public.native_booking_account_member(${accountId}) and exists (select 1 from public.crm_message_ab_tests as t where t.id = ${testId} and t.account_id = ${accountId}) and exists (select 1 from public.leads as l where l.id = ${leadId} and l.account_id = ${accountId})`;
+
 const crmCallAccountAccess = (accountId: AnyPgColumn, leadId: AnyPgColumn, salesCallId: AnyPgColumn) =>
   sql`public.native_booking_account_member(${accountId}) and exists (select 1 from public.leads as l where l.id = ${leadId} and l.account_id = ${accountId}) and exists (select 1 from public.sales_calls as c where c.id = ${salesCallId} and c.user_id = ${accountId})`;
 
@@ -2571,6 +2577,9 @@ export const crmLeadPlatformEnum = pgEnum("crm_lead_platform", CRM_PLATFORMS);
 export const crmLeadStageEnum = pgEnum("crm_lead_stage", CRM_LEAD_STAGES);
 export const crmLeadOutcomeEnum = pgEnum("crm_lead_outcome", CRM_LEAD_OUTCOMES);
 export const crmLeadContactStateEnum = pgEnum("crm_lead_contact_state", CRM_CONTACT_STATES);
+export const crmMessageAbTestChannelEnum = pgEnum("crm_message_ab_test_channel", ["instagram", "linkedin"]);
+export const crmMessageAbTestStatusEnum = pgEnum("crm_message_ab_test_status", ["active", "paused", "ended"]);
+export const crmMessageAbTestVariantEnum = pgEnum("crm_message_ab_test_variant", ["A", "B"]);
 export const crmActionCategoryEnum = pgEnum("crm_action_category", CRM_ACTION_CATEGORIES);
 export const crmActionStatusEnum = pgEnum("crm_action_status", CRM_ACTION_STATUSES);
 export const crmEventSourceEnum = pgEnum("crm_event_source", CRM_EVENT_SOURCES);
@@ -2794,6 +2803,68 @@ export const crmLeadStageHistory = pgTable(
       withCheck: crmLeadAccountAccess(table.accountId, table.leadId),
     }),
   ]
+).enableRLS();
+
+export const crmMessageAbTests = pgTable(
+  "crm_message_ab_tests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createIdempotencyKey: text("create_idempotency_key").notNull(),
+    channel: crmMessageAbTestChannelEnum("channel").notNull(),
+    status: crmMessageAbTestStatusEnum("status").notNull().default("active"),
+    variantAMessage: text("variant_a_message").notNull(),
+    variantBMessage: text("variant_b_message").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("crm_message_ab_tests_name_not_blank", sql`length(trim(${table.name})) > 0`),
+    check("crm_message_ab_tests_variant_a_not_blank", sql`length(trim(${table.variantAMessage})) > 0`),
+    check("crm_message_ab_tests_variant_b_not_blank", sql`length(trim(${table.variantBMessage})) > 0`),
+    index("crm_message_ab_tests_account_status_idx").on(table.accountId, table.status, table.createdAt),
+    uniqueIndex("crm_message_ab_tests_account_idempotency_idx").on(table.accountId, table.createIdempotencyKey),
+    uniqueIndex("crm_message_ab_tests_one_active_per_channel_idx")
+      .on(table.accountId, table.channel)
+      .where(sql`${table.status} = 'active'`),
+    pgPolicy("crm_message_ab_tests_account_access", {
+      for: "select",
+      to: "authenticated",
+      using: crmMessageAbTestAccountAccess(table.accountId),
+    }),
+  ],
+).enableRLS();
+
+export const crmMessageAbTestAssignments = pgTable(
+  "crm_message_ab_test_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    testId: uuid("test_id").notNull().references(() => crmMessageAbTests.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    variant: crmMessageAbTestVariantEnum("variant").notNull(),
+    messageSnapshot: text("message_snapshot").notNull(),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    sentByUserId: uuid("sent_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("crm_message_ab_test_assignments_message_not_blank", sql`length(trim(${table.messageSnapshot})) > 0`),
+    uniqueIndex("crm_message_ab_test_assignments_account_lead_idx").on(table.accountId, table.leadId),
+    index("crm_message_ab_test_assignments_account_test_variant_idx").on(table.accountId, table.testId, table.variant, table.assignedAt),
+    index("crm_message_ab_test_assignments_account_lead_test_idx").on(table.accountId, table.leadId, table.testId),
+    pgPolicy("crm_message_ab_test_assignments_account_access", {
+      for: "select",
+      to: "authenticated",
+      using: crmMessageAbAssignmentAccountAccess(table.accountId, table.testId, table.leadId),
+    }),
+  ],
 ).enableRLS();
 
 export const crmResponsibilityHistory = pgTable(

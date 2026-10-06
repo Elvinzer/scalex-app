@@ -25,6 +25,7 @@ export const PILLAR_SUBPAGES: Record<string, PillarSubpage[]> = {
     { href: "/crm/leads", label: "Leads", permission: "crm:view" },
     { href: "/crm/actions", label: "Actions", permission: "crm:view" },
     { href: "/crm/appels", label: "Appels", permission: "crm:view" },
+    { href: "/crm/tests", label: "Tests", permission: "crm:view" },
     { href: "/crm/extension", label: "Extension", permission: "crm:view" },
   ],
   "/delivrabilite": [
