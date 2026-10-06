@@ -86,6 +86,13 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(confirmHandler).toContain("{ assignmentId }");
   });
 
+  it("shows where to create a lead and copy its assigned A/B message", () => {
+    expect(contentSource).toContain('messageTestStatus === "active"');
+    expect(contentSource).toContain("Créer le lead et afficher le message");
+    expect(contentSource).toContain("Tu pourras copier le message ici avant de l’envoyer.");
+    expect(contentSource).toContain("minalyReadLead(data.lead, data.messageTestAssignment)");
+  });
+
   it("does not offer an assigned test message after a lead was contacted outside the test", () => {
     expect(contentSource).toContain('lead.contactState === "contacted" || lead.messageOccurredAt');
     expect(contentSource).toContain("Cette variante ne peut pas être copiée ni comptabilisée.");

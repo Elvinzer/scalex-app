@@ -335,13 +335,14 @@ function minalyReadMessageTestAssignment(value) {
         sentAt: typeof value.sentAt === "string" ? value.sentAt : null,
     };
 }
-function minalyReadLead(value) {
+function minalyReadLead(value, fallbackMessageTestAssignment) {
     if (!minalyIsRecord(value) || typeof value.id !== "string" || typeof value.displayName !== "string" || typeof value.stage !== "string" || typeof value.outcome !== "string")
         return null;
     const nextAction = minalyIsRecord(value.nextAction) && typeof value.nextAction.title === "string" && typeof value.nextAction.dueAt === "string" ? { title: value.nextAction.title, dueAt: value.nextAction.dueAt } : null;
     const profiles = Array.isArray(value.profiles) ? value.profiles.flatMap((item) => minalyIsRecord(item) && typeof item.platform === "string" && typeof item.normalizedHandle === "string" ? [{ platform: item.platform, canonicalProfileUrl: typeof item.canonicalProfileUrl === "string" ? item.canonicalProfileUrl : null, normalizedHandle: item.normalizedHandle, displayName: typeof item.displayName === "string" ? item.displayName : null }] : []) : [];
     const matchSignals = Array.isArray(value.matchSignals) ? value.matchSignals.filter((item) => typeof item === "string") : [];
-    return { id: value.id, displayName: value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, profiles, whatsappHref: typeof value.whatsappHref === "string" ? value.whatsappHref : null, matchSignals, matchScore: typeof value.matchScore === "number" ? value.matchScore : null, stage: value.stage, outcome: value.outcome, contactState: value.contactState === "contacted" ? "contacted" : "new", messageOccurredAt: typeof value.messageOccurredAt === "string" ? value.messageOccurredAt : null, messageTestAssignment: minalyReadMessageTestAssignment(value.messageTestAssignment), respondedAt: typeof value.respondedAt === "string" ? value.respondedAt : null, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
+    const messageTestAssignment = minalyReadMessageTestAssignment(value.messageTestAssignment) ?? minalyReadMessageTestAssignment(fallbackMessageTestAssignment);
+    return { id: value.id, displayName: value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, profiles, whatsappHref: typeof value.whatsappHref === "string" ? value.whatsappHref : null, matchSignals, matchScore: typeof value.matchScore === "number" ? value.matchScore : null, stage: value.stage, outcome: value.outcome, contactState: value.contactState === "contacted" ? "contacted" : "new", messageOccurredAt: typeof value.messageOccurredAt === "string" ? value.messageOccurredAt : null, messageTestAssignment, respondedAt: typeof value.respondedAt === "string" ? value.respondedAt : null, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
 }
 function minalyReadCrmUrl(value) {
     if (typeof value !== "string")
@@ -768,6 +769,8 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, messageTe
     if (resolution.kind === "unknown") {
         body.append(minalyProfileCard(profile.displayName, `@${profile.normalizedHandle} · ${minalyPlatformLabel(profile.platform)}`, profile.canonicalProfileUrl));
         body.append(minalyCallout("NOUVEAU LEAD", "Ce profil n’existe pas encore dans ton CRM.", "minaly-callout-neutral"));
+        if (messageTestStatus === "active")
+            body.append(minalyCallout("TEST A/B ACTIF", "Une variante sera attribuée à la création du lead. Tu pourras copier le message ici avant de l’envoyer.", "minaly-callout-known"));
         if (messageTestStatus === "paused")
             body.append(minalyCallout("TEST EN PAUSE", "Aucune variante ne sera attribuée aux nouveaux leads sur ce canal.", "minaly-callout-warning"));
         if (messageTestStatus === null)
@@ -827,7 +830,7 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, messageTe
         context.className = "minaly-context";
         context.append(minalyElement("span", `Message détecté : ${profile.messageOccurredAt ? minalyFormatDate(profile.messageOccurredAt) : "non détecté"}`), minalyElement("span", `Capturé : ${minalyFormatDate(profile.capturedAt)}`));
         body.append(context);
-        const add = minalyButton("Ajouter le lead", "minaly-primary");
+        const add = minalyButton(messageTestStatus === "active" ? "Créer le lead et afficher le message" : "Ajouter le lead", "minaly-primary");
         const syncDisplayNameValidity = () => {
             const value = displayName.value.trim();
             const invalid = !value || minalyIsGenericProfileActionLabel(value);
@@ -842,6 +845,9 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, messageTe
     }
     if (resolution.kind === "known") {
         body.append(minalyProfileCard(resolution.lead.displayName, `Lead existant · ${minalyOutcomeLabel(resolution.lead.outcome)}`, resolution.lead.canonicalProfileUrl));
+        if (resolution.lead.contactState === "new" && !resolution.lead.messageTestAssignment && messageTestStatus === "active") {
+            body.append(minalyCallout("AUCUN MESSAGE ATTRIBUÉ", "Les variantes sont attribuées à la création d’un lead pendant un test actif. Cette fiche n’a pas de message à copier.", "minaly-callout-warning"));
+        }
         if (resolution.lead.contactState === "new" && !resolution.lead.messageTestAssignment && messageTestStatus === "paused") {
             body.append(minalyCallout("TEST EN PAUSE", "Aucune variante ne sera attribuée aux nouveaux leads sur ce canal.", "minaly-callout-warning"));
         }
@@ -1319,9 +1325,14 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
         }
         const origin = minalyReadCrmUrl(data.crmUrl) ?? "https://www.minaly.io";
         successLeadUrl = `${origin}/crm/leads/${leadId}`;
-        const savedLead = minalyReadLead(data.lead);
+        const savedLead = minalyReadLead(data.lead, data.messageTestAssignment);
         if (savedLead)
             resolution = { kind: "known", lead: savedLead };
+        if (messageTestStatus === "active" && !savedLead?.messageTestAssignment) {
+            if (await resolve(requestId) && requestId === operationId)
+                draw();
+            return;
+        }
         messageCopied = false;
         state = savedLead ? "known" : "success";
         message = savedLead?.messageTestAssignment ? null : "Le lead est maintenant dans ton CRM.";
