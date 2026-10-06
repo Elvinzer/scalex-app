@@ -123,7 +123,16 @@ async function minalyBackgroundRequest(message) {
         body: JSON.stringify(message.payload ?? {}),
     });
     origin = await minalyBackgroundOrigin();
-    let response = await request(origin, token);
+    let response;
+    try {
+        response = await request(origin, token);
+    }
+    catch {
+        await chrome.storage.local.remove([minalyBackgroundTokenKey, minalyBackgroundOriginKey]);
+        token = await minalyBackgroundSession();
+        origin = await minalyBackgroundOrigin();
+        response = await request(origin, token);
+    }
     if (response.status === 401) {
         await chrome.storage.local.remove([minalyBackgroundTokenKey]);
         token = await minalyBackgroundSession();

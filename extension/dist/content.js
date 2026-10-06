@@ -296,10 +296,13 @@ function minalyApiErrorMessage(body) {
     if (code === "extension_not_configured")
         return "L’extension n’est pas encore configurée côté serveur.";
     if (code === "network_error")
-        return "Minaly ne répond pas. Vérifie ta connexion puis réessaie.";
+        return "Minaly n’a pas pu contacter le CRM. Vérifie ta connexion puis réessaie.";
     if (code === "rate_limited")
         return "Trop de tentatives rapprochées. Attends quelques secondes puis réessaie.";
     return "Impossible de joindre le CRM pour le moment.";
+}
+function minalyIsConnectionError(status, body) {
+    return status === 503 && (!minalyIsRecord(body) || body.error === "network_error");
 }
 function minalyReadQualification(value) {
     if (!minalyIsRecord(value))
@@ -628,6 +631,14 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, messageTe
     }
     if (state === "unavailable") {
         body.append(minalyStatusBlock("CRM INDISPONIBLE", "Le CRM n’est pas accessible", "Vérifie que le module CRM est activé pour ce compte Minaly.", "minaly-status-error"));
+        const retry = minalyButton("Réessayer", "minaly-secondary");
+        retry.prepend(minalyIcon("refresh"));
+        retry.addEventListener("click", onRetry);
+        body.append(retry);
+        return;
+    }
+    if (state === "connection-error") {
+        body.append(minalyStatusBlock("ERREUR DE CONNEXION", "Connexion impossible", message ?? "Minaly n’a pas pu contacter le CRM.", "minaly-status-error"));
         const retry = minalyButton("Réessayer", "minaly-secondary");
         retry.prepend(minalyIcon("refresh"));
         retry.addEventListener("click", onRetry);
@@ -1155,7 +1166,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
             return;
         }
         if (result.status === 503) {
-            state = "error";
+            state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error";
             message = minalyApiErrorMessage(result.body);
             draw();
             return;
@@ -1207,7 +1218,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
         if (result.status === 503) {
             resolutionCrmUrl = null;
             resolvedAt = 0;
-            state = "error";
+            state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error";
             message = minalyApiErrorMessage(result.body);
             return true;
         }
@@ -1279,7 +1290,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
             return;
         }
         if (result.status === 503) {
-            state = "error";
+            state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error";
             message = minalyApiErrorMessage(result.body);
             draw();
             return;
@@ -1366,7 +1377,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
             return;
         }
         if (result.status === 503) {
-            state = "error";
+            state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error";
             message = minalyApiErrorMessage(result.body);
             draw();
             return;

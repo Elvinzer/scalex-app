@@ -22,7 +22,7 @@ const extensionMessageTestConfirmationRouteSource = readFileSync(new URL("../app
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.version).toBe("0.3.6");
+    expect(manifest.version).toBe("0.3.7");
     expect(manifest.permissions).toEqual(["storage", "tabs"]);
     expect(manifest.background.service_worker).toBe("dist/background.js");
     expect(manifest.host_permissions).toEqual(expect.arrayContaining(["https://www.minaly.io/*"]));
@@ -56,6 +56,9 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(contentSource).toContain("minalyResolutionCacheTtlMs");
     expect(contentSource).toContain("minaly-authenticated");
     expect(contentSource).toContain("MISE À JOUR DISPONIBLE");
+    expect(contentSource).toContain('"connection-error"');
+    expect(contentSource).toContain('"Connexion impossible"');
+    expect(contentSource).toContain("minalyIsConnectionError");
     expect(contentSource).toContain("minalyStageImpliesResponse(resolution.lead.stage)");
     expect(contentSource).toContain("minalyLeadLink(resolution.lead.id, crmUrl)");
     expect(contentSource).toContain("minalyLeadLink(candidate.id, crmUrl)");

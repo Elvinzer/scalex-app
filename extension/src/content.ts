@@ -1,5 +1,5 @@
 type MinalyExtensionPlatform = "instagram" | "linkedin";
-type MinalyExtensionState = "closed" | "loading" | "session" | "unknown" | "known" | "ambiguous" | "success" | "unavailable" | "error";
+type MinalyExtensionState = "closed" | "loading" | "session" | "unknown" | "known" | "ambiguous" | "success" | "unavailable" | "connection-error" | "error";
 type MinalyMessageTestStatus = "active" | "paused" | null;
 type MinalyMessageTestAssignment = {
   id: string;
@@ -372,9 +372,13 @@ async function minalyCheckUpdate(): Promise<MinalyExtensionUpdate | null> {
 function minalyApiErrorMessage(body: unknown): string {
   const code = minalyIsRecord(body) && typeof body.error === "string" ? body.error : null;
   if (code === "extension_not_configured") return "L’extension n’est pas encore configurée côté serveur.";
-  if (code === "network_error") return "Minaly ne répond pas. Vérifie ta connexion puis réessaie.";
+  if (code === "network_error") return "Minaly n’a pas pu contacter le CRM. Vérifie ta connexion puis réessaie.";
   if (code === "rate_limited") return "Trop de tentatives rapprochées. Attends quelques secondes puis réessaie.";
   return "Impossible de joindre le CRM pour le moment.";
+}
+
+function minalyIsConnectionError(status: number, body: unknown): boolean {
+  return status === 503 && (!minalyIsRecord(body) || body.error === "network_error");
 }
 
 function minalyReadQualification(value: unknown): MinalyQualification | null {
@@ -737,6 +741,15 @@ function minalyBuildPanel(
 
   if (state === "unavailable") {
     body.append(minalyStatusBlock("CRM INDISPONIBLE", "Le CRM n’est pas accessible", "Vérifie que le module CRM est activé pour ce compte Minaly.", "minaly-status-error"));
+    const retry = minalyButton("Réessayer", "minaly-secondary");
+    retry.prepend(minalyIcon("refresh"));
+    retry.addEventListener("click", onRetry);
+    body.append(retry);
+    return;
+  }
+
+  if (state === "connection-error") {
+    body.append(minalyStatusBlock("ERREUR DE CONNEXION", "Connexion impossible", message ?? "Minaly n’a pas pu contacter le CRM.", "minaly-status-error"));
     const retry = minalyButton("Réessayer", "minaly-secondary");
     retry.prepend(minalyIcon("refresh"));
     retry.addEventListener("click", onRetry);
@@ -1263,7 +1276,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     if (requestId !== operationId) return;
     if (result.status === 401) { state = "session"; draw(); return; }
     if (result.status === 403) { state = "unavailable"; draw(); return; }
-    if (result.status === 503) { state = "error"; message = minalyApiErrorMessage(result.body); draw(); return; }
+    if (result.status === 503) { state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error"; message = minalyApiErrorMessage(result.body); draw(); return; }
     if (result.status === 409) {
       const errorCode = minalyIsRecord(result.body) && typeof result.body.error === "string" ? result.body.error : "";
       message = errorCode === "test_ended" ? "Le test est terminé. Cet envoi ne peut plus être confirmé." : "Ce lead a déjà été marqué comme contacté.";
@@ -1297,7 +1310,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     if (requestId !== operationId) return false;
     if (result.status === 401) { resolutionCrmUrl = null; resolvedAt = 0; state = "session"; return true; }
     if (result.status === 403) { resolutionCrmUrl = null; resolvedAt = 0; state = "unavailable"; return true; }
-    if (result.status === 503) { resolutionCrmUrl = null; resolvedAt = 0; state = "error"; message = minalyApiErrorMessage(result.body); return true; }
+    if (result.status === 503) { resolutionCrmUrl = null; resolvedAt = 0; state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error"; message = minalyApiErrorMessage(result.body); return true; }
     if (result.status < 200 || result.status >= 300) { resolutionCrmUrl = null; resolvedAt = 0; state = "error"; message = "Impossible de lire ce profil."; return true; }
     const parsed = minalyReadResolution(result.body);
     if (!parsed) { resolvedAt = 0; state = "error"; message = "Réponse CRM invalide."; return true; }
@@ -1344,7 +1357,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     if (requestId !== operationId) return;
     if (result.status === 401) { state = "session"; draw(); return; }
     if (result.status === 403) { state = "unavailable"; draw(); return; }
-    if (result.status === 503) { state = "error"; message = minalyApiErrorMessage(result.body); draw(); return; }
+    if (result.status === 503) { state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error"; message = minalyApiErrorMessage(result.body); draw(); return; }
     if (result.status === 409) { state = "ambiguous"; message = "Une décision explicite est nécessaire."; draw(); return; }
     if (requestId !== operationId) return;
     if (result.status < 200 || result.status >= 300 || !minalyIsRecord(result.body)) { message = "Impossible d’enregistrer ce profil."; state = "error"; draw(); return; }
@@ -1383,7 +1396,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     if (requestId !== operationId) return;
     if (result.status === 401) { state = "session"; draw(); return; }
     if (result.status === 403) { state = "unavailable"; draw(); return; }
-    if (result.status === 503) { state = "error"; message = minalyApiErrorMessage(result.body); draw(); return; }
+    if (result.status === 503) { state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error"; message = minalyApiErrorMessage(result.body); draw(); return; }
     if (result.status < 200 || result.status >= 300) { message = "Impossible d’enregistrer la modification."; state = "error"; draw(); return; }
     if (!(await resolve(requestId)) || requestId !== operationId) return;
     message = "Modification enregistrée.";

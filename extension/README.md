@@ -29,6 +29,8 @@ La version `0.3.5` lit le nom depuis la zone d’identité du profil et utilise 
 handle normalisé lorsqu’aucun nom fiable n’est visible.
 La version `0.3.6` limite la détection des messages aux pages de conversation
 et exclut des tests les leads dont une conversation existait avant la capture.
+La version `0.3.7` récupère la session après une erreur réseau et affiche un
+état de connexion distinct d’un problème de profil.
 
 ## Construire le package local
 
