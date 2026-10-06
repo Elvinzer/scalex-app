@@ -59,9 +59,11 @@ export function isCrmMessageAbTestEligibleCapture(input: {
   source: string;
   contactState: string;
   channel: string;
-}): input is { source: "extension"; contactState: "new"; channel: CrmMessageAbTestChannel } {
+  messageOccurredAt?: string | null;
+}): input is { source: "extension"; contactState: "new"; channel: CrmMessageAbTestChannel; messageOccurredAt?: null } {
   return input.source === "extension"
     && input.contactState === "new"
+    && !input.messageOccurredAt
     && (input.channel === "instagram" || input.channel === "linkedin");
 }
 

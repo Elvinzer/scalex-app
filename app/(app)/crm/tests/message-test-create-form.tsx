@@ -123,12 +123,12 @@ export function CrmMessageTestCreateForm() {
       {error && <p role="alert" className="rounded-[var(--radius-control)] bg-state-danger/10 px-3 py-2 text-sm font-bold text-state-danger">{error}</p>}
       {!canStart && !error && <p className="text-sm text-muted-foreground">{t("form.required")}</p>}
       <div className="flex flex-wrap gap-3">
-        <Button type="submit" disabled={!canStart} className="min-h-11">{t("form.start")}</Button>
+        <Button id="message-test-start-button" type="submit" disabled={!canStart} className="min-h-11">{t("form.start")}</Button>
         <Button asChild type="button" variant="outline" className="min-h-11"><Link href="/crm/tests">{t("form.cancel")}</Link></Button>
       </div>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent aria-describedby="message-test-start-description">
+        <DialogContent aria-describedby="message-test-start-description" onCloseAutoFocus={(event) => { event.preventDefault(); document.getElementById("message-test-start-button")?.focus(); }}>
           <DialogTitle className="text-lg font-bold">{t("form.confirmTitle")}</DialogTitle>
           <p id="message-test-start-description" className="mt-2 text-sm text-muted-foreground">{t("form.confirmBody")}</p>
           <div className="mt-5 flex flex-wrap justify-end gap-3">

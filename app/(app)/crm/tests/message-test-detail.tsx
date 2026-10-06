@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -26,6 +26,8 @@ export function CrmMessageTestDetail({ test, canManage, locale }: Props) {
   const [dialogAction, setDialogAction] = useState<"pause" | "end" | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogReturnFocusIdRef = useRef<string | null>(null);
+  const allTestsLinkRef = useRef<HTMLAnchorElement | null>(null);
   const ended = test.status === "ended";
   const status = test.status === "active" ? t("status.active") : test.status === "paused" ? t("status.paused") : t("status.ended");
 
@@ -66,7 +68,7 @@ export function CrmMessageTestDetail({ test, canManage, locale }: Props) {
   return (
     <div className="flex flex-col gap-5">
       <nav aria-label={t("detail.testNavigation")} className="flex gap-2 overflow-x-auto">
-        <Button asChild variant="outline" className="min-h-11"><Link href="/crm/tests">{t("detail.allTests")}</Link></Button>
+        <Button asChild variant="outline" className="min-h-11"><Link ref={allTestsLinkRef} href="/crm/tests">{t("detail.allTests")}</Link></Button>
         <span className="inline-flex min-h-11 items-center rounded-full border border-accent bg-accent/5 px-4 text-sm font-bold">{test.name}</span>
       </nav>
 
@@ -85,11 +87,11 @@ export function CrmMessageTestDetail({ test, canManage, locale }: Props) {
         {canManage && !ended && (
           <div className="flex flex-wrap gap-3">
             {test.status === "active" ? (
-              <Button type="button" variant="outline" className="min-h-11" onClick={() => setDialogAction("pause")}>{t("actions.pause")}</Button>
+              <Button id="message-test-pause-button" type="button" variant="outline" className="min-h-11" onClick={(event) => { dialogReturnFocusIdRef.current = event.currentTarget.id; setDialogAction("pause"); }}>{t("actions.pause")}</Button>
             ) : (
               <Button type="button" className="min-h-11" onClick={() => void changeStatus("resume")}>{t("actions.resume")}</Button>
             )}
-            <Button type="button" variant="destructive" className="min-h-11" onClick={() => setDialogAction("end")}>{t("actions.end")}</Button>
+            <Button id="message-test-end-button" type="button" variant="destructive" className="min-h-11" onClick={(event) => { dialogReturnFocusIdRef.current = event.currentTarget.id; setDialogAction("end"); }}>{t("actions.end")}</Button>
           </div>
         )}
       </div>
@@ -108,7 +110,7 @@ export function CrmMessageTestDetail({ test, canManage, locale }: Props) {
         {variants.map(({ variant, message, metrics }) => (
           <section key={variant} className="sticker-card flex min-w-0 flex-col gap-4 p-4" aria-labelledby={`message-test-variant-${variant}`}>
             <div className="flex items-start justify-between gap-3">
-              <h2 id={`message-test-variant-${variant}`} className="rounded-full bg-accent-2/10 px-3 py-1 text-sm font-bold text-accent-2">{t("detail.variant", { variant })}</h2>
+              <h2 id={`message-test-variant-${variant}`} className="rounded-full bg-accent-2/10 px-3 py-1 text-sm font-bold text-foreground">{t("detail.variant", { variant })}</h2>
               <p className="text-3xl font-bold text-accent-2">{formatRate(metrics.responseRate, locale, t("detail.notMeasured"))}</p>
             </div>
             <p className="text-sm text-muted-foreground">{t("detail.responseCount", { responses: metrics.responses, completed: metrics.completedWindows })}</p>
@@ -130,7 +132,7 @@ export function CrmMessageTestDetail({ test, canManage, locale }: Props) {
       <p className="text-sm text-muted-foreground">{t("detail.noWinner")}</p>
 
       <Dialog open={dialogAction !== null} onOpenChange={(open) => { if (!open && !saving) setDialogAction(null); }}>
-        <DialogContent aria-describedby="message-test-action-description">
+        <DialogContent aria-describedby="message-test-action-description" onCloseAutoFocus={(event) => { event.preventDefault(); const target = dialogReturnFocusIdRef.current ? document.getElementById(dialogReturnFocusIdRef.current) : null; if (target instanceof HTMLElement && target.isConnected) target.focus(); else allTestsLinkRef.current?.focus(); }}>
           <DialogTitle className="text-lg font-bold">{dialogAction === "pause" ? t("actions.pauseTitle") : t("actions.endTitle")}</DialogTitle>
           <p id="message-test-action-description" className="mt-2 text-sm text-muted-foreground">{dialogAction === "pause" ? t("actions.pauseBody") : t("actions.endBody")}</p>
           <div className="mt-5 flex flex-wrap justify-end gap-3">

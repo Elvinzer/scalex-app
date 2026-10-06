@@ -72,6 +72,8 @@ Examiner le chemin d’extraction actuel et les variantes de DOM Instagram/Linke
 
 **Diagnostic du code actuel :** l’extension filtre déjà plusieurs libellés génériques dans les titres de profil et dans le lien du contact actif d’une conversation. Deux chemins laissent toutefois persister le défaut : le serveur accepte sans filtre `profile.displayName`, donc une ancienne version ou une requête modifiée peut encore enregistrer « Voir Profil » ; et le formulaire de nouveau lead peut corriger prénom/nom sans remplacer `displayName`, qui reste la valeur initialement extraite. Les sélecteurs couverts sont la zone d’identité du profil Instagram (`main header h1/h2`), la carte de profil LinkedIn (titre de la top card puis `main h1`) et le lien d’identité au-dessus du compositeur dans une conversation Instagram Direct ou LinkedIn Messaging. Les régressions doivent exercer les variantes profil et conversation, avec un bouton générique voisin ou un nom absent.
 
+**Écart A/B corrigé pendant la vérification :** la détection historique d’une date de message inspectait `[data-timestamp]` sur toutes les pages, y compris les publications d’un profil, et la capture serveur ignorait toute date détectée pour les nouveaux leads venant de l’extension. La lecture est maintenant limitée aux routes de conversation et la présence d’un message existant empêche l’attribution d’un test, tout en conservant le lead comme déjà contacté.
+
 **Alternatives considérées :** remplacer uniquement la chaîne littérale « Voir Profil », ce qui manquerait d’autres libellés génériques et des variations de pages ; accepter automatiquement le premier texte DOM détecté, ce qui conserve la cause du défaut.
 
 ### Surfaces CRM et extension

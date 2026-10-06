@@ -27,6 +27,8 @@ La version `0.3.3` ouvre la fiche lead Minaly depuis le panneau et retire le
 suivi de réponse dès que l’étape atteint « Conversation en cours ».
 La version `0.3.5` lit le nom depuis la zone d’identité du profil et utilise le
 handle normalisé lorsqu’aucun nom fiable n’est visible.
+La version `0.3.6` limite la détection des messages aux pages de conversation
+et exclut des tests les leads dont une conversation existait avant la capture.
 
 ## Construire le package local
 

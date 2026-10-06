@@ -49,7 +49,7 @@ Les modèles peuvent utiliser `{first_name}`, `{prenom}` ou `{prénom}` pour ins
 - **THEN** le système conserve son attribution initiale et ne l’ajoute pas au test ultérieur
 
 #### Scenario: Lead déjà contacté avant la capture
-- **WHEN** l’extension reconnaît un lead ayant déjà un premier message confirmé avant le test
+- **WHEN** l’extension reconnaît un lead déjà contacté dans le CRM ou détecte un message existant dans une conversation avant la capture
 - **THEN** le lead n’entre pas dans le test et l’extension indique qu’il a déjà été contacté
 
 #### Scenario: Test en pause ou terminé

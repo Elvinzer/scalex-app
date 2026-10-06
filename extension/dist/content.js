@@ -210,7 +210,9 @@ function minalyVisibleName(handle, preferredElement) {
         ? normalizedHandle
         : text;
 }
-function minalyVisibleMessageTime() {
+function minalyVisibleMessageTime(platform) {
+    if (!minalyIsMessagingRoute(platform))
+        return null;
     for (const node of Array.from(document.querySelectorAll("[data-timestamp]"))) {
         const raw = node.getAttribute("datetime") ?? node.getAttribute("data-timestamp");
         if (!raw)
@@ -219,9 +221,6 @@ function minalyVisibleMessageTime() {
         if (!Number.isNaN(date.getTime()))
             return date.toISOString();
     }
-    const pathname = window.location.pathname.toLowerCase();
-    if (!pathname.includes("/direct") && !pathname.includes("/messaging"))
-        return null;
     for (const node of Array.from(document.querySelectorAll("time[datetime]"))) {
         const raw = node.getAttribute("datetime");
         if (!raw)
@@ -237,7 +236,7 @@ function minalyProfile(detected = minalyProfileUrl()) {
         return null;
     const displayName = minalyVisibleName(detected.handle, detected.nameElement);
     const names = minalySplitName(displayName);
-    const messageOccurredAt = minalyVisibleMessageTime();
+    const messageOccurredAt = minalyVisibleMessageTime(detected.platform);
     const capturedAt = new Date().toISOString();
     return {
         platform: detected.platform,
@@ -839,7 +838,7 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, messageTe
             body.append(minalyCallout("AUCUN TEST ACTIF", "Crée un test depuis le CRM pour comparer les premiers messages sur ce canal.", "minaly-callout-neutral"));
         }
         if (resolution.lead.contactState === "contacted" && !resolution.lead.messageTestAssignment) {
-            body.append(minalyCallout("LEAD DÉJÀ CONTACTÉ", `Un premier message a déjà été confirmé${resolution.lead.messageOccurredAt ? ` le ${minalyFormatDate(resolution.lead.messageOccurredAt)}` : ""}.`, "minaly-callout-known"));
+            body.append(minalyCallout("LEAD DÉJÀ CONTACTÉ", `Ce lead est déjà marqué comme contacté dans le CRM${resolution.lead.messageOccurredAt ? ` depuis le ${minalyFormatDate(resolution.lead.messageOccurredAt)}` : ""}.`, "minaly-callout-known"));
         }
         const knownProfiles = minalyLeadProfiles(resolution.lead);
         if (knownProfiles)

@@ -83,6 +83,34 @@ function correctProfileName(input: { handle: string; displayName: string }): Rec
   return runInContext("minalyProfileWithDisplayName(testProfile, correctedName)", context) as Record<string, unknown>;
 }
 
+function extractMessageTime(input: {
+  platform: "instagram" | "linkedin";
+  pathname: string;
+  timestamps?: string[];
+  timeDates?: string[];
+}): { messageTime: unknown; queriedSelectors: string[] } {
+  const mountCode = contentSource.lastIndexOf("\nminalyMount();");
+  if (mountCode < 0) throw new Error("The extension content script has no mount entry point.");
+
+  const queriedSelectors: string[] = [];
+  const timestampNodes = (input.timestamps ?? []).map((value) => ({ getAttribute: (name: string) => name === "data-timestamp" ? value : null }));
+  const timeNodes = (input.timeDates ?? []).map((value) => ({ getAttribute: (name: string) => name === "datetime" ? value : null }));
+  const context = createContext({
+    window: { location: { pathname: input.pathname } },
+    document: {
+      querySelectorAll(selector: string) {
+        queriedSelectors.push(selector);
+        if (selector === "[data-timestamp]") return timestampNodes;
+        if (selector === "time[datetime]") return timeNodes;
+        return [];
+      },
+    },
+    testPlatform: input.platform,
+  });
+  runInContext(contentSource.slice(0, mountCode), context);
+  return { messageTime: runInContext("minalyVisibleMessageTime(testPlatform)", context), queriedSelectors };
+}
+
 describe("CRM extension profile name extraction", () => {
   it("uses the Instagram profile identity heading when it shows a display name", () => {
     const result = extractVisibleName({
@@ -191,5 +219,26 @@ describe("CRM extension profile name extraction", () => {
     });
 
     expect(result.name).toBe("natgeo");
+  });
+
+  it("does not read a post timestamp as a message on a profile page", () => {
+    const result = extractMessageTime({
+      platform: "instagram",
+      pathname: "/claire/",
+      timestamps: ["2026-10-06T09:00:00.000Z"],
+    });
+
+    expect(result.messageTime).toBeNull();
+    expect(result.queriedSelectors).not.toContain("[data-timestamp]");
+  });
+
+  it("reads a timestamp from the active Instagram conversation route", () => {
+    const result = extractMessageTime({
+      platform: "instagram",
+      pathname: "/direct/t/thread-123/",
+      timestamps: ["2026-10-06T09:00:00.000Z"],
+    });
+
+    expect(result.messageTime).toBe("2026-10-06T09:00:00.000Z");
   });
 });

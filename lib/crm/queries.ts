@@ -1061,7 +1061,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
   const stage = input.stage ?? "first_message_sent";
   const unconfirmedExtensionCapture = isExtensionCapture && stage === "first_message_sent";
   const createdMessageDate = unconfirmedExtensionCapture ? null : messageDate ?? (stage === "first_message_sent" ? capturedAt : null);
-  const contactState = createdMessageDate || stage !== "first_message_sent" ? "contacted" as const : "new" as const;
+  const contactState = (isExtensionCapture && input.profile.messageOccurredAt) || createdMessageDate || stage !== "first_message_sent" ? "contacted" as const : "new" as const;
   const phoneRaw = input.phone ?? input.profile.phone ?? null;
   const emailRaw = input.email ?? input.profile.email ?? null;
   const phoneNormalized = phoneRaw ? normalizeCrmPhone(phoneRaw, "fr").normalized : null;
@@ -1187,7 +1187,7 @@ export async function createCrmLead(accountId: string, input: CreateCrmLeadInput
     ];
     await tx.insert(crmLeadEvents).values(createdEvents).onConflictDoNothing();
 
-    const captureEligibility = { source: input.source, contactState, channel: input.profile.platform };
+    const captureEligibility = { source: input.source, contactState, channel: input.profile.platform, messageOccurredAt: input.profile.messageOccurredAt };
     if (isCrmMessageAbTestEligibleCapture(captureEligibility)) {
       const [activeTest] = await tx.select().from(crmMessageAbTests).where(and(
         eq(crmMessageAbTests.accountId, accountId),

@@ -37,6 +37,7 @@ describe("CRM first-message A/B test rules", () => {
     expect(isCrmMessageAbTestEligibleCapture({ source: "extension", contactState: "contacted", channel: "instagram" })).toBe(false);
     expect(isCrmMessageAbTestEligibleCapture({ source: "app", contactState: "new", channel: "instagram" })).toBe(false);
     expect(isCrmMessageAbTestEligibleCapture({ source: "extension", contactState: "new", channel: "whatsapp" })).toBe(false);
+    expect(isCrmMessageAbTestEligibleCapture({ source: "extension", contactState: "new", channel: "instagram", messageOccurredAt: "2026-10-06T09:00:00.000Z" })).toBe(false);
   });
 
   it("allows pause, resume when the channel is free, and end; rejects invalid transitions", () => {
