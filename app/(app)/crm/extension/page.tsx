@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 
+import { LocalizedDateTime } from "@/components/localized-date-time";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/current-user";
 import { requireCrmAccess } from "@/lib/crm/access";
@@ -16,11 +17,6 @@ export default async function CrmExtensionPage() {
   if (!access) redirect("/dashboard");
 
   const release = getCrmExtensionRelease();
-  const formattedLastUpdatedAt = new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(new Date(release.lastUpdatedAt));
   const webStoreUrl = release.webStoreUrl;
   const inlineLinkClassName = "text-accent-text underline underline-offset-2 hover:no-underline";
   const installStepDescription = release.distribution === "web_store" && webStoreUrl
@@ -96,7 +92,8 @@ export default async function CrmExtensionPage() {
             </div>
           </div>
           <p className="shrink-0 text-sm font-bold text-muted-foreground" role="status" aria-live="polite">
-            {t("extension.onboarding.latestVersion", { version: release.latestVersion, lastUpdatedAt: formattedLastUpdatedAt })}
+            {t("extension.onboarding.latestVersion", { version: release.latestVersion })}{" "}
+            <LocalizedDateTime value={release.lastUpdatedAt} locale={locale} />
           </p>
         </div>
 
