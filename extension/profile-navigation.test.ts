@@ -21,6 +21,17 @@ function shouldReconcileProfileNavigation(input: {
   return runInContext("minalyShouldReconcileProfileNavigation(navigationInput)", context);
 }
 
+function shouldKeepWaitingForConversationIdentity(input: {
+  awaitingProfile: boolean;
+  profileKeyBeforeWait: string | null;
+  profileKey: string | null;
+  waitElapsedMs: number;
+}): unknown {
+  const context = createContext({ navigationInput: input });
+  runInContext(contentSource.slice(0, mountCode), context);
+  return runInContext("minalyShouldKeepWaitingForConversationIdentity(navigationInput)", context);
+}
+
 describe("CRM extension profile navigation", () => {
   it("reconciles when a conversation identity appears after the initial page load", () => {
     expect(shouldReconcileProfileNavigation({
@@ -68,5 +79,23 @@ describe("CRM extension profile navigation", () => {
       profileKey: "https://instagram.com/romano0092",
       launcherMounted: true,
     })).toBe(false);
+  });
+
+  it("stops waiting when the same conversation identity appears after the fallback delay", () => {
+    expect(shouldKeepWaitingForConversationIdentity({
+      awaitingProfile: true,
+      profileKeyBeforeWait: "https://instagram.com/romano0092",
+      profileKey: "https://instagram.com/romano0092",
+      waitElapsedMs: 2_000,
+    })).toBe(false);
+  });
+
+  it("keeps waiting briefly while the previous identity remains visible", () => {
+    expect(shouldKeepWaitingForConversationIdentity({
+      awaitingProfile: true,
+      profileKeyBeforeWait: "https://instagram.com/romano0092",
+      profileKey: "https://instagram.com/romano0092",
+      waitElapsedMs: 1_000,
+    })).toBe(true);
   });
 });

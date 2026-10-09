@@ -35,6 +35,8 @@ La version `0.3.8` comptabilise le message dès sa copie et actualise le profil
 actif quand tu changes de conversation sans recharger la page.
 La version `0.3.9` attend l’identité chargée tardivement et recrée le bouton si
 Instagram retire son élément pendant une navigation.
+La version `0.3.10` débloque le bouton quand l’identité de la conversation
+arrive tardivement et permet de changer l’étape d’un lead avec une variante A/B.
 
 ## Construire le package local
 

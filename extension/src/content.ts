@@ -87,6 +87,7 @@ const minalyReservedInstagramPaths = new Set(["accounts", "explore", "direct", "
 const minalyDefaultStages = ["first_message_sent", "conversation_in_progress", "value_content_sent", "call_proposed", "call_booked"];
 const minalyDefaultSources = ["instagram", "linkedin", "tiktok", "youtube", "x", "facebook", "email_newsletter", "ads", "bouche_a_oreille", "autre"];
 const minalyResolutionCacheTtlMs = 30_000;
+const minalyConversationIdentityWaitMs = 2_000;
 const minalyMessagePlaceholderPattern = /message|mensaje|mensaj|nachricht|messagg|mensagem|メッセージ|訊息|消息|сообщен/i;
 
 function minalyIsRecord(value: unknown): value is Record<string, unknown> {
@@ -480,6 +481,28 @@ function minalyStageLabel(stage: string): string {
   return ({ first_message_sent: "1er message envoyé", conversation_in_progress: "Conversation en cours", value_content_sent: "Contenu de valeur envoyé", call_proposed: "Appel proposé", call_booked: "Appel booké" } as Record<string, string>)[stage] ?? stage;
 }
 
+function minalyStageSelect(currentStage: string): HTMLSelectElement {
+  const select = document.createElement("select");
+  select.className = "minaly-field";
+  for (const stage of minalyDefaultStages) {
+    const option = minalyElement("option", minalyStageLabel(stage));
+    option.value = stage;
+    option.selected = stage === currentStage;
+    select.append(option);
+  }
+  return select;
+}
+
+function minalyStageUpdateControls(
+  lead: MinalyExtensionLead,
+  onUpdate: (input: MinalyUpdateInput) => void,
+): [HTMLLabelElement, HTMLButtonElement] {
+  const stage = minalyStageSelect(lead.stage);
+  const save = minalyButton("Enregistrer les changements", "minaly-primary");
+  save.addEventListener("click", () => onUpdate({ leadId: lead.id, stage: stage.value }));
+  return [minalyLabeledField(stage, "Étape"), save];
+}
+
 function minalyStageImpliesResponse(stage: string): boolean {
   return minalyDefaultStages.indexOf(stage) > minalyDefaultStages.indexOf("first_message_sent");
 }
@@ -772,7 +795,11 @@ function minalyBuildPanel(
     const assignment = lead.messageTestAssignment;
     if (!assignment) return;
     body.append(minalyProfileCard(lead.displayName, `@${lead.profiles.find((item) => item.platform === assignment.channel)?.normalizedHandle ?? profile?.normalizedHandle ?? ""} · ${minalyPlatformLabel(assignment.channel)}`, lead.canonicalProfileUrl));
-    if (message) body.append(minalyCallout("ACTION REQUISE", message, "minaly-callout-warning"));
+    if (message === "Modification enregistrée.") {
+      body.append(minalyStatusBlock("MODIFICATION ENREGISTRÉE", message, minalyStageLabel(lead.stage), "minaly-status-success"));
+    } else if (message) {
+      body.append(minalyCallout("ACTION REQUISE", message, "minaly-callout-warning"));
+    }
     body.append(minalyCallout("VARIANTE ATTRIBUÉE", `Variante ${assignment.variant}`, "minaly-callout-known"));
     if (assignment.copiedAt) {
       body.append(minalyStatusBlock("COPIE COMPTABILISÉE", "Copie comptabilisée", `${minalyFormatDate(assignment.copiedAt)} · Variante ${assignment.variant}`, "minaly-status-success"));
@@ -802,6 +829,7 @@ function minalyBuildPanel(
       copy.addEventListener("click", () => onCopyMessage(assignment.id, assignment.messageSnapshot));
       body.append(copy);
     }
+    body.append(...minalyStageUpdateControls(lead, onUpdate));
     const leadLink = minalyLeadLink(lead.id, crmUrl);
     if (leadLink) body.append(leadLink);
     return;
@@ -991,14 +1019,7 @@ function minalyBuildPanel(
     displayName.autocomplete = "name";
     body.append(minalyLabeledField(displayName, "Nom affiché"));
 
-    const stage = document.createElement("select");
-    stage.className = "minaly-field";
-    for (const option of minalyDefaultStages) {
-      const item = minalyElement("option", minalyStageLabel(option));
-      item.value = option;
-      item.selected = option === resolution.lead.stage;
-      stage.append(item);
-    }
+    const stage = minalyStageSelect(resolution.lead.stage);
     body.append(minalyLabeledField(stage, "Étape"));
 
     const note = document.createElement("textarea");
@@ -1126,6 +1147,17 @@ function minalyShouldReconcileProfileNavigation(input: {
     || input.conversationSurface
     || input.profileKey !== input.previousProfileKey
     || (!input.launcherMounted && input.profileKey !== null);
+}
+
+function minalyShouldKeepWaitingForConversationIdentity(input: {
+  awaitingProfile: boolean;
+  profileKeyBeforeWait: string | null;
+  profileKey: string | null;
+  waitElapsedMs: number;
+}): boolean {
+  return input.awaitingProfile
+    && input.profileKey === input.profileKeyBeforeWait
+    && input.waitElapsedMs < minalyConversationIdentityWaitMs;
 }
 
 let minalyUnmount: (() => void) | null = null;
@@ -1492,6 +1524,7 @@ const minalyLastHostname = window.location.hostname.toLowerCase().replace(/^www\
 let minalyLastConversationSurface = minalyIsConversationSurface(minalyLastHostname === "linkedin.com" ? "linkedin" : "instagram");
 let minalyAwaitingProfile = false;
 let minalyProfileKeyBeforeNavigationWait: string | null = null;
+let minalyProfileWaitStartedAt: number | null = null;
 let minalyConversationFallbackTimer: number | null = null;
 let minalyNavigationCheckScheduled = false;
 
@@ -1514,7 +1547,12 @@ const minalyReconcileProfileNavigation = () => {
     launcherMounted,
   })) return;
 
-  if (minalyAwaitingProfile && profileKey === minalyProfileKeyBeforeNavigationWait) return;
+  if (minalyShouldKeepWaitingForConversationIdentity({
+    awaitingProfile: minalyAwaitingProfile,
+    profileKeyBeforeWait: minalyProfileKeyBeforeNavigationWait,
+    profileKey,
+    waitElapsedMs: minalyProfileWaitStartedAt === null ? 0 : Date.now() - minalyProfileWaitStartedAt,
+  })) return;
   if (minalyShouldWaitForConversationIdentity({
     urlChanged,
     previousConversationSurface: minalyLastConversationSurface,
@@ -1525,28 +1563,38 @@ const minalyReconcileProfileNavigation = () => {
     minalyLastUrl = currentUrl;
     minalyLastConversationSurface = conversationSurfaceVisible;
     minalyAwaitingProfile = true;
+    minalyProfileWaitStartedAt = Date.now();
     minalyProfileKeyBeforeNavigationWait = minalyLastProfileKey;
     minalyUnmount?.();
     if (minalyConversationFallbackTimer !== null) window.clearTimeout(minalyConversationFallbackTimer);
     minalyConversationFallbackTimer = window.setTimeout(() => {
+      minalyConversationFallbackTimer = null;
       if (!minalyAwaitingProfile) return;
       const settledProfile = minalyProfileUrl();
       if (!settledProfile) return;
       minalyAwaitingProfile = false;
+      minalyProfileWaitStartedAt = null;
       minalyProfileKeyBeforeNavigationWait = null;
       minalyLastProfileKey = settledProfile.url;
       minalyUnmount?.();
       minalyMount();
-    }, 2_000);
+    }, minalyConversationIdentityWaitMs);
     return;
   }
 
   if (!detected) {
     if (urlChanged || conversationSurfaceVisible || minalyAwaitingProfile) {
+      if (!minalyAwaitingProfile || urlChanged) {
+        minalyProfileWaitStartedAt = Date.now();
+        minalyProfileKeyBeforeNavigationWait = minalyLastProfileKey;
+        if (minalyConversationFallbackTimer !== null) {
+          window.clearTimeout(minalyConversationFallbackTimer);
+          minalyConversationFallbackTimer = null;
+        }
+      }
       minalyLastUrl = currentUrl;
       minalyLastConversationSurface = conversationSurfaceVisible;
       minalyAwaitingProfile = true;
-      minalyProfileKeyBeforeNavigationWait = minalyLastProfileKey;
       minalyUnmount?.();
     }
     return;
@@ -1558,6 +1606,7 @@ const minalyReconcileProfileNavigation = () => {
   minalyLastProfileKey = profileKey;
   minalyLastConversationSurface = conversationSurfaceVisible;
   minalyAwaitingProfile = false;
+  minalyProfileWaitStartedAt = null;
   minalyProfileKeyBeforeNavigationWait = null;
   if (minalyConversationFallbackTimer !== null) {
     window.clearTimeout(minalyConversationFallbackTimer);
