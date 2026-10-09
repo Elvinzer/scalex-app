@@ -286,7 +286,7 @@ export function computeCrmKpis(input: {
     const messageAt = firstMessageDates.get(event.leadId);
     if (!messageAt) continue;
     const date = conversionDate(event);
-    if (date < messageAt || date > asOf) continue;
+    if (date < messageAt || date > asOf || !inPeriod(date, input.period)) continue;
 
     if (event.type === "response_received") responsesAfterFirstMessage.add(event.leadId);
     if (event.type === "value_content_sent") valueContentAfterFirstMessage.add(event.leadId);
@@ -303,7 +303,7 @@ export function computeCrmKpis(input: {
   for (const change of stageChanges) {
     if (change.currentSnapshot) continue;
     const messageAt = firstMessageDates.get(change.leadId);
-    if (!messageAt || change.occurredAt < messageAt) continue;
+    if (!messageAt || change.occurredAt < messageAt || !inPeriod(change.occurredAt, input.period)) continue;
     if (change.fromStage === "first_message_sent" && change.toStage === "conversation_in_progress") {
       responsesAfterFirstMessage.add(change.leadId);
     }
@@ -315,26 +315,39 @@ export function computeCrmKpis(input: {
   let callsAttended = 0;
   let noShows = 0;
   const bookedLeadIds = new Set<string>();
+  const attendedLeadIds = new Set<string>();
   const noShowCallLeadIds = new Set<string>();
+  const noShowLeadIds = new Set<string>();
   for (const call of input.calls) {
     if (inPeriod(call.scheduledAt, input.period)) {
       if (call.leadId && call.attendance !== "cancelled") bookedLeadIds.add(call.leadId);
-      if (call.attendance === "showed") callsAttended += 1;
+      if (call.attendance === "showed") {
+        callsAttended += 1;
+        if (call.leadId) attendedLeadIds.add(call.leadId);
+      }
       if (call.attendance === "no_show") {
         noShows += 1;
-        if (call.leadId) noShowCallLeadIds.add(call.leadId);
+        if (call.leadId) {
+          noShowCallLeadIds.add(call.leadId);
+          noShowLeadIds.add(call.leadId);
+        }
       }
     }
 
     const messageAt = call.leadId ? firstMessageDates.get(call.leadId) : undefined;
     const bookedAt = call.bookedAt ?? call.scheduledAt;
-    if (call.leadId && messageAt && bookedAt >= messageAt && bookedAt <= asOf) {
+    if (call.leadId && messageAt && bookedAt >= messageAt && bookedAt <= asOf && inPeriod(bookedAt, input.period)) {
       callsBookedAfterFirstMessage.add(call.leadId);
     }
     if (call.leadId && inPeriod(bookedAt, input.period)) periodCallBookedLeadIds.add(call.leadId);
   }
 
-  noShows += [...noShowEventLeadIds].filter((leadId) => !noShowCallLeadIds.has(leadId)).length;
+  for (const leadId of noShowEventLeadIds) {
+    if (noShowCallLeadIds.has(leadId)) continue;
+    noShows += 1;
+    noShowLeadIds.add(leadId);
+    bookedLeadIds.add(leadId);
+  }
   for (const leadId of bookedLeadIds) periodCallBookedLeadIds.add(leadId);
 
   for (const sale of input.sales) {
@@ -390,9 +403,9 @@ export function computeCrmKpis(input: {
       valueContent: ratio(cohortValueContent, cohortConversations),
       callProposed: ratio(cohortCallsProposed, cohortFirstMessages),
       callBooked: ratio(cohortCallsBooked, cohortFirstMessages),
-      attendance: ratio(callsAttended, periodCallBookedLeadIds.size),
-      noShow: ratio(noShows, periodCallBookedLeadIds.size),
-      closing: ratio(soldLeadIds.size, callsAttended),
+      attendance: ratio([...attendedLeadIds].filter((leadId) => periodCallBookedLeadIds.has(leadId)).length, periodCallBookedLeadIds.size),
+      noShow: ratio([...noShowLeadIds].filter((leadId) => periodCallBookedLeadIds.has(leadId)).length, periodCallBookedLeadIds.size),
+      closing: ratio([...soldLeadIds].filter((leadId) => attendedLeadIds.has(leadId)).length, attendedLeadIds.size),
     },
   };
 }

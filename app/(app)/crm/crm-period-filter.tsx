@@ -96,32 +96,46 @@ export function CrmPeriodFilter({ activePreset, from, to }: CrmPeriodFilterProps
     navigate(preset);
   }
 
-  function applyCustomRange() {
-    if (!draftFrom || !draftTo) {
-      setError(t("kpis.periodPicker.rangeRequired"));
-      return;
-    }
-    if (draftFrom > draftTo) {
-      setError(t("kpis.periodPicker.rangeOrder"));
-      return;
-    }
-    navigate("custom", draftFrom, draftTo);
-  }
-
   function selectDay(iso: string) {
     if (!draftFrom || draftTo) {
       setDraftFrom(iso);
       setDraftTo(null);
+      setDraftPreset("custom");
       setError(null);
       return;
     }
     if (iso < draftFrom) {
       setDraftTo(draftFrom);
       setDraftFrom(iso);
+      navigate("custom", iso, draftFrom);
     } else {
       setDraftTo(iso);
+      navigate("custom", draftFrom, iso);
     }
+    setDraftPreset("custom");
     setError(null);
+  }
+
+  function updateCustomFrom(value: string) {
+    setDraftFrom(value);
+    setError(null);
+    if (!value || !draftTo) return;
+    if (value > draftTo) {
+      setError(t("kpis.periodPicker.rangeOrder"));
+      return;
+    }
+    navigate("custom", value, draftTo);
+  }
+
+  function updateCustomTo(value: string) {
+    setDraftTo(value);
+    setError(null);
+    if (!value || !draftFrom) return;
+    if (value < draftFrom) {
+      setError(t("kpis.periodPicker.rangeOrder"));
+      return;
+    }
+    navigate("custom", draftFrom, value);
   }
 
   return (
@@ -184,8 +198,8 @@ export function CrmPeriodFilter({ activePreset, from, to }: CrmPeriodFilterProps
             </div>
 
             <div className="mt-5 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
-              <DateInput label={t("kpis.periodPicker.from")} value={draftFrom ?? ""} max={draftTo ?? currentDate} onChange={setDraftFrom} />
-              <DateInput label={t("kpis.periodPicker.to")} value={draftTo ?? ""} min={draftFrom ?? undefined} max={currentDate} onChange={setDraftTo} />
+              <DateInput label={t("kpis.periodPicker.from")} value={draftFrom ?? ""} max={draftTo ?? currentDate} onChange={updateCustomFrom} />
+              <DateInput label={t("kpis.periodPicker.to")} value={draftTo ?? ""} min={draftFrom ?? undefined} max={currentDate} onChange={updateCustomTo} />
             </div>
             {error && <p className="mt-3 text-sm font-bold text-state-critical" role="alert">{error}</p>}
             <p className="mt-3 text-xs text-muted-foreground">
@@ -193,7 +207,6 @@ export function CrmPeriodFilter({ activePreset, from, to }: CrmPeriodFilterProps
             </p>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <Button type="button" variant="ghost" className="min-h-11" onClick={() => setOpen(false)}>{t("kpis.periodPicker.cancel")}</Button>
-              <Button type="button" variant="outline" className="min-h-11" onClick={applyCustomRange} disabled={!draftFrom || !draftTo || isPending}>{t("kpis.periodPicker.apply")}</Button>
             </div>
           </div>
         </div>

@@ -336,7 +336,7 @@ describe("CRM KPI projection", () => {
     expect(counts.conversations).toBe(1);
   });
 
-  it("uses the first-message cohort for all three rates and counts later conversions through today", () => {
+  it("uses the first-message cohort and counts conversions only inside the selected period", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -345,10 +345,19 @@ describe("CRM KPI projection", () => {
         firstMessage("lead-1", "2026-09-28T09:00:00Z"),
         firstMessage("lead-2", "2026-09-30T11:00:00Z"),
         firstMessage("older-lead", "2026-08-31T11:00:00Z"),
-        event({ leadId: "lead-1", type: "response_received", occurredAt: "2026-10-02T09:00:00Z" }),
-        event({ leadId: "lead-1", type: "call_proposed", occurredAt: "2026-10-03T09:00:00Z" }),
+        event({ leadId: "lead-1", type: "response_received", occurredAt: "2026-09-29T09:00:00Z" }),
+        event({ leadId: "lead-1", type: "call_proposed", occurredAt: "2026-09-30T09:00:00Z" }),
         event({
           leadId: "lead-1",
+          type: "call_booked",
+          occurredAt: "2026-10-20T09:00:00Z",
+          capturedAt: "2026-09-30T09:00:00Z",
+          metadata: { bookingMode: "native_crm" },
+        }),
+        event({ leadId: "lead-2", type: "response_received", occurredAt: "2026-10-02T09:00:00Z" }),
+        event({ leadId: "lead-2", type: "call_proposed", occurredAt: "2026-10-03T09:00:00Z" }),
+        event({
+          leadId: "lead-2",
           type: "call_booked",
           occurredAt: "2026-10-20T09:00:00Z",
           capturedAt: "2026-10-04T09:00:00Z",
@@ -362,10 +371,10 @@ describe("CRM KPI projection", () => {
     expect(counts.cohortFirstMessages).toBe(2);
     expect(counts.cohortConversations).toBe(1);
     expect(counts.cohortCallsProposed).toBe(1);
-    expect(counts.cohortCallsBooked).toBe(2);
+    expect(counts.cohortCallsBooked).toBe(1);
     expect(counts.rates.response).toBe(0.5);
     expect(counts.rates.callProposed).toBe(0.5);
-    expect(counts.rates.callBooked).toBe(1);
+    expect(counts.rates.callBooked).toBe(0.5);
   });
 
   it("uses stage history for replies and respects a reopened lead's current stage", () => {
@@ -389,7 +398,7 @@ describe("CRM KPI projection", () => {
     expect(counts.rates.response).toBe(1);
   });
 
-  it("counts a November reply in the October first-message cohort rate", () => {
+  it("does not count a November reply in the October first-message cohort rate", () => {
     const october = {
       from: new Date("2026-10-01T00:00:00.000Z"),
       to: new Date("2026-10-31T23:59:59.999Z"),
@@ -414,8 +423,8 @@ describe("CRM KPI projection", () => {
     });
 
     expect(counts.messages).toBe(1);
-    expect(counts.cohortConversations).toBe(1);
-    expect(counts.rates.response).toBe(1);
+    expect(counts.cohortConversations).toBe(0);
+    expect(counts.rates.response).toBe(0);
   });
 
   it("deduplicates repeated proposals, bookings, and canonical call records by lead", () => {
@@ -468,6 +477,32 @@ describe("CRM KPI projection", () => {
     expect(counts.noShows).toBe(1);
   });
 
+  it("uses unique leads for attendance, no-show, and closing rates", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [
+        event({ leadId: "lead-3", type: "call_booked", occurredAt: "2026-09-04T10:00:00Z" }),
+        event({ leadId: "lead-4", type: "call_booked", occurredAt: "2026-09-04T10:00:00Z" }),
+        event({ leadId: "lead-4", type: "no_show_marked", occurredAt: "2026-09-05T10:00:00Z" }),
+        event({ leadId: "lead-2", type: "sale_validated", occurredAt: "2026-09-10T10:00:00Z" }),
+      ],
+      calls: [
+        { leadId: "lead-1", scheduledAt: new Date("2026-09-05T10:00:00Z"), attendance: "no_show" },
+        { leadId: "lead-2", scheduledAt: new Date("2026-09-06T10:00:00Z"), attendance: "showed" },
+        { leadId: "lead-2", scheduledAt: new Date("2026-09-07T10:00:00Z"), attendance: "showed" },
+        { leadId: "outside-period", scheduledAt: new Date("2026-10-03T10:00:00Z"), attendance: "showed" },
+      ],
+      sales: [],
+    });
+
+    expect(counts.callsAttended).toBe(2);
+    expect(counts.noShows).toBe(2);
+    expect(counts.rates.attendance).toBe(0.25);
+    expect(counts.rates.noShow).toBe(0.5);
+    expect(counts.rates.closing).toBe(1);
+  });
+
   it("returns null for rates with no first-message denominator", () => {
     const counts = computeCrmKpis({ period, asOf, events: [], calls: [], sales: [] });
 
@@ -483,6 +518,8 @@ describe("CRM KPI projection", () => {
 
     expect(matchesCrmKpiAttribution(instagramLead, { source: "linkedin" })).toBe(true);
     expect(matchesCrmKpiAttribution(instagramLead, { platform: "linkedin" })).toBe(false);
+    expect(matchesCrmKpiAttribution(instagramLead, { platform: "instagram", offerId: "offer-1", source: "linkedin" })).toBe(true);
+    expect(matchesCrmKpiAttribution(instagramLead, { offerId: "offer-2" })).toBe(false);
     expect(matchesCrmKpiAttribution(linkedinLead, { source: "linkedin" })).toBe(false);
     expect(matchesCrmKpiAttribution(linkedinLead, { source: "instagram", platform: "linkedin" })).toBe(true);
   });

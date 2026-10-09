@@ -15,6 +15,7 @@ import { CRM_CHANNELS, CRM_LEAD_SOURCES } from "@/lib/crm/types";
 
 import { CrmActionList } from "./crm-action-list";
 import { CrmExtensionSuggestion } from "./crm-extension-suggestion";
+import { CrmKpiFilterForm } from "./crm-kpi-filter-form";
 import { CrmPeriodFilter } from "./crm-period-filter";
 import { CrmTimeZoneSync } from "./crm-time-zone-sync";
 
@@ -69,7 +70,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
   ]);
   const kpis = computeCrmKpis({ events, stageChanges, calls, sales: linkedSales, period, asOf });
   const activeFilterCount = [
-    params.platform === "instagram" || params.platform === "linkedin",
+    Boolean(platform),
     Boolean(offerId),
     Boolean(source),
     Boolean(isTeamView && setterId),
@@ -109,8 +110,9 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
           <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] group-open:rotate-180" aria-hidden="true" />
         </summary>
         <div className="flex flex-col gap-5 border-t border-border p-4">
-      <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
+      <CrmKpiFilterForm className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
         {isTeamView && <input type="hidden" name="team" value="1" />}
+        {timeZoneResult.success && <input type="hidden" name="tz" value={timeZone} />}
         <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 lg:col-span-6">
           <span className="text-sm font-bold">{t("kpis.period")}</span>
           <CrmPeriodFilter activePreset={period.preset} from={crmPeriodDateValue(period.from)} to={crmPeriodDateValue(period.to)} />
@@ -121,8 +123,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
         <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.channel")}<select name="platform" defaultValue={platform ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allChannels")}</option>{CRM_CHANNELS.map((channel) => <option key={channel} value={channel}>{t(`sources.${channel}`)}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.offer")}<select name="offer" defaultValue={offerId ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allOffers")}</option>{offers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
         <label className="flex flex-col gap-1 text-sm font-bold">{t("kpis.source")}<select name="source" defaultValue={source ?? ""} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent"><option value="">{t("kpis.allSources")}</option>{CRM_LEAD_SOURCES.map((item) => <option key={item} value={item}>{t(`sources.${item}`)}</option>)}</select></label>
-        <Button type="submit" variant="outline" className="min-h-11 lg:col-span-1">{t("kpis.apply")}</Button>
-      </form>
+      </CrmKpiFilterForm>
       {activeFilterCount > 0 && <div className="flex flex-wrap items-center gap-3 text-sm font-bold text-muted-foreground"><span>{t("today.filtersApplied", { count: activeFilterCount })}</span><Link href={resetHref} className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-foreground">{t("kpis.reset")}</Link></div>}
       <p className="text-sm font-bold text-muted-foreground">{t("kpis.scope", { from: crmPeriodDateValue(period.from), to: crmPeriodDateValue(period.to), view: isTeamView ? t("kpis.team") : t("kpis.personal") })}</p>
 
@@ -148,7 +149,7 @@ export default async function CrmTodayPage({ searchParams }: { searchParams: Pro
             const value = personalKpiScopeUnavailable ? t("kpis.notMeasured") : key === "revenue" ? `${kpis[key]} €` : kpis[key];
             return <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.${key}`)}</p><p className="mt-1 text-lg font-bold">{value}</p>{destination && <Link href={destination} className="mt-2 inline-flex min-h-11 items-center text-sm font-bold underline underline-offset-4">{t("kpis.viewCalls")}</Link>}</div>;
           })}
-          <section className="sm:col-span-2 lg:col-span-4"><h2 className="text-sm font-bold">{t("kpis.ratesTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{personalKpiScopeUnavailable ? t("kpis.notMeasured") : t("kpis.cohort", { count: kpis.cohortFirstMessages })}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(["qualification", "valueContent", "attendance", "noShow", "closing"] as const).map((key) => <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.rate${key[0].toUpperCase()}${key.slice(1)}`)}</p><p className="mt-1 text-lg font-bold">{personalKpiScopeUnavailable || kpis.rates[key] === null ? t("kpis.notMeasured") : `${Math.round(kpis.rates[key] * 100)}%`}</p></div>)}</div></section>
+          <section className="sm:col-span-2 lg:col-span-4"><h2 className="text-sm font-bold">{t("kpis.ratesTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{personalKpiScopeUnavailable ? t("kpis.notMeasured") : t("kpis.cohort", { count: kpis.cohortFirstMessages })}</p><p className="mt-1 text-sm text-muted-foreground">{t("kpis.secondaryRateBasis")}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(["qualification", "valueContent", "attendance", "noShow", "closing"] as const).map((key) => <div key={key} className="rounded-[var(--radius-control)] border border-border p-3"><p className="text-xs font-bold text-muted-foreground">{t(`kpis.rate${key[0].toUpperCase()}${key.slice(1)}`)}</p><p className="mt-1 text-lg font-bold">{personalKpiScopeUnavailable || kpis.rates[key] === null ? t("kpis.notMeasured") : `${Math.round(kpis.rates[key] * 100)}%`}</p></div>)}</div></section>
         </div>
       </details>
         </div>
