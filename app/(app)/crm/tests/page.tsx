@@ -100,7 +100,7 @@ export default async function CrmMessageTestsPage({ searchParams }: { searchPara
                     </th>
                     <td className="px-4 py-3"><span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold">{statusLabel(test.status, t)}</span></td>
                     <td className="px-4 py-3">{t("detail.split")}</td>
-                    <td className="px-4 py-3">{test.results.A.confirmedSent + test.results.B.confirmedSent}</td>
+                    <td className="px-4 py-3">{test.results.A.countedMessages + test.results.B.countedMessages}</td>
                     <td className="px-4 py-3 font-bold text-accent-2">{formatRate(test.results.A.responseRate, t("detail.notMeasured"), locale)}</td>
                     <td className="px-4 py-3 font-bold text-accent-2">{formatRate(test.results.B.responseRate, t("detail.notMeasured"), locale)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{formatDate(test.startedAt, locale)}</td>
@@ -121,7 +121,7 @@ export default async function CrmMessageTestsPage({ searchParams }: { searchPara
                   </div>
                   <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-bold">{statusLabel(test.status, t)}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">{t("detail.split")} · {test.results.A.confirmedSent + test.results.B.confirmedSent} {t("table.sent").toLocaleLowerCase(locale)} · {t("table.started").toLocaleLowerCase(locale)} {formatDate(test.startedAt, locale)}</p>
+                <p className="text-sm text-muted-foreground">{t("detail.split")} · {test.results.A.countedMessages + test.results.B.countedMessages} {t("table.sent").toLocaleLowerCase(locale)} · {t("table.started").toLocaleLowerCase(locale)} {formatDate(test.startedAt, locale)}</p>
                 <p className="text-sm font-bold text-accent-2">A {formatRate(test.results.A.responseRate, t("detail.notMeasured"), locale)} · B {formatRate(test.results.B.responseRate, t("detail.notMeasured"), locale)}</p>
                 <Button asChild variant="outline" className="min-h-11 w-full"><Link href={`/crm/tests/${test.id}`}>{t("list.viewResults")}</Link></Button>
               </li>

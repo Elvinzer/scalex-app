@@ -123,6 +123,7 @@ beforeEach(() => {
     messageSnapshot: "Bonjour Claire",
     status: "active",
     assignedAt: capturedAt,
+    copiedAt: null,
     sentAt: null,
   });
 });

@@ -827,7 +827,7 @@
   "messageTests": {
     "eyebrow": "MINALY CRM",
     "title": "First message tests",
-    "subtitle": "Compare two opening messages on one channel and track replies within seven days of a confirmed send.",
+    "subtitle": "Compare two opening messages on one channel and track replies for seven days after each copy.",
     "create": "Create a test",
     "tabs": { "active": "Active", "paused": "Paused", "ended": "Ended" },
     "status": { "active": "Active", "paused": "Paused", "ended": "Ended" },
@@ -835,7 +835,7 @@
       "test": "Test",
       "status": "Status",
       "split": "Split",
-      "sent": "Confirmed sends",
+      "sent": "Messages counted",
       "rateA": "Reply rate A",
       "rateB": "Reply rate B",
       "started": "Started"
@@ -866,7 +866,7 @@
       "split": "Lead split",
       "splitValue": "50 / 50, assigned automatically",
       "observation": "Observation window",
-      "observationValue": "7 days after you confirm the send",
+      "observationValue": "7 days after the message is copied",
       "metric": "Primary metric",
       "metricValue": "Reply rate within 7 days",
       "audioNote": "Audio versions are not available yet.",
@@ -891,15 +891,15 @@
       "messagePreview": "Message preview",
       "responseCount": "{responses} replies / {completed} completed windows",
       "assigned": "Leads assigned",
-      "confirmedSent": "Confirmed sends",
+      "countedMessages": "Messages counted",
       "completedWindows": "Completed windows",
       "responseRate": "Reply rate",
       "notMeasured": "Not measured yet",
       "inObservation": "Still in observation",
       "appointments": "Booked calls",
       "collecting": "Collecting replies",
-      "collectingBody": "Some confirmed sends are still within their seven day observation window.",
-      "copyDoesNotCount": "Copying a message does not count as a send. Confirm after you send it in the social app.",
+      "collectingBody": "Some copied messages are still within their seven day observation window.",
+      "copyStartsWindow": "Each successful copy counts in the test and starts the seven day reply window.",
       "noWinner": "Minaly does not pick a winning message automatically."
     },
     "warning": {
@@ -911,9 +911,9 @@
       "resume": "Resume test",
       "end": "End test",
       "pauseTitle": "Pause this test?",
-      "pauseBody": "New leads will stop receiving a variant. Leads already assigned can still copy and confirm their message.",
+      "pauseBody": "New leads will stop receiving a variant. Leads already assigned can still copy their message, and each copy counts in the test.",
       "endTitle": "End this test?",
-      "endBody": "No new lead will receive a variant. Replies from confirmed sends will keep counting until their seven day windows end. This action is final.",
+      "endBody": "No new lead will receive a variant. Replies to messages already copied will be tracked until their seven day windows end. This action is final.",
       "confirmPause": "Pause test",
       "confirmEnd": "End test",
       "cancel": "Cancel"
@@ -928,12 +928,11 @@
     "extension": {
       "assigned": "Variant {variant} assigned",
       "copied": "Message copied",
-      "confirmSend": "I sent it",
-      "sent": "Send recorded",
+      "copyCounted": "Copy counted",
       "paused": "Test paused",
       "noActiveTest": "No active test for this channel",
       "alreadyContacted": "Lead already contacted",
-      "copyNotice": "Copying does not count as a send. Send the message in the conversation, then confirm.",
+      "copyNotice": "Copying a message counts it in the test and starts the seven day reply window.",
       "sentWindow": "Replies will be tracked for seven days."
     }
   },

@@ -12,18 +12,18 @@
 - [x] 2.4 Attribuer côté serveur une variante 50/50 et son instantané de texte au moment de la création d’un nouveau lead, dans un flux idempotent et cohérent avec la capture existante.
 - [x] 2.5 Ajouter les tests de stabilité d’attribution, de double capture, de conflits de tests actifs et de cloisonnement entre comptes.
 
-## 3. Enregistrer les envois et calculer les résultats
+## 3. Comptabiliser les copies et calculer les résultats
 
-- [x] 3.1 Implémenter la confirmation manuelle d’envoi qui crée un seul événement CRM et lie celui-ci à l’attribution et à la variante.
-- [x] 3.2 Empêcher les confirmations d’envoi pour une attribution non confirmée lorsque le test est terminé, tout en conservant l’attribution et son contenu historique.
-- [x] 3.3 Calculer par variante les attributions, envois confirmés, fenêtres terminées, réponses sous 168 heures, leads encore en observation et rendez-vous séparés.
+- [x] 3.1 Ajouter une route idempotente qui enregistre la date et l’auteur de la copie sans modifier le statut ou l’étape du lead.
+- [x] 3.2 Empêcher les copies non comptabilisées après la fin d’un test, tout en conservant l’attribution et son contenu historique.
+- [x] 3.3 Calculer par variante les attributions, messages comptabilisés, fenêtres terminées, réponses sous 168 heures, leads encore en observation et rendez-vous séparés.
 - [x] 3.4 Afficher l’avertissement de volume insuffisant sous 50 fenêtres terminées par variante sans calcul automatique de gagnant.
 - [x] 3.5 Ajouter des tests de calcul aux bornes de la fenêtre, de réponses tardives, d’événements répétés, de maturité après la fin et de rendez-vous secondaires.
 
 ## 4. Sécuriser et exposer les opérations CRM
 
 - [x] 4.1 Ajouter la permission `crm:manage-message-tests` selon les conventions de rôles CRM, tout en laissant la consultation suivre `crm:view`.
-- [x] 4.2 Ajouter ou étendre les routes authentifiées pour lister, créer, consulter, gérer le cycle de vie et confirmer un envoi ; valider les entrées avec Zod et dériver compte, test et variante côté serveur.
+- [x] 4.2 Ajouter ou étendre les routes authentifiées pour lister, créer, consulter, gérer le cycle de vie et enregistrer une copie ; valider les entrées avec Zod et dériver compte, test et variante côté serveur. Conserver l’ancienne route de confirmation pour compatibilité.
 - [x] 4.3 Vérifier que toutes les lectures et mutations appliquent les contrôles de session, permission et tenant, y compris pour un identifiant de test appartenant à un autre compte.
 - [x] 4.4 Ajouter les tests d’accès lecture/gestion, d’isolation RLS, de rejeu de requête et de conflit de reprise.
 
@@ -37,15 +37,21 @@
 
 ## 6. Intégrer les variantes dans l’extension Chrome
 
-- [x] 6.1 Afficher la variante et son texte conservé sur une nouvelle fiche, puis ajouter l’aperçu et la copie sans créer d’événement d’envoi.
-- [x] 6.2 Ajouter l’action « Je l’ai envoyé » après copie, le retour de confirmation et un retry sûr en cas d’erreur réseau.
-- [x] 6.3 Implémenter les états déjà contacté, test en pause, test terminé (historique en lecture seule si l’envoi n’est pas confirmé), aucun test actif, identité à confirmer et erreur réseau selon les décisions du change.
+- [x] 6.1 Afficher la variante et son texte conservé sur une nouvelle fiche, puis comptabiliser la copie automatiquement après le succès du presse-papiers.
+- [x] 6.2 Retirer l’action « Je l’ai envoyé » et permettre de réessayer la copie si son enregistrement échoue.
+- [x] 6.3 Implémenter les états déjà contacté, test en pause, test terminé (historique en lecture seule si la copie n’est pas comptabilisée), aucun test actif, identité à confirmer et erreur réseau selon les décisions du change.
 - [x] 6.4 Vérifier que la capture existante et les anciennes versions de l’extension restent compatibles, et que le client ne peut pas choisir ou changer la variante.
-- [x] 6.5 Ajouter les tests de parcours d’extension pour copie, absence de confirmation, confirmation répétée, test indisponible et erreur réseau.
+- [x] 6.5 Ajouter les tests d’extension pour la copie, son comptage idempotent, les tests indisponibles et les erreurs réseau.
 
 ## 7. Vérifier les surfaces et la livraison
 
 - [x] 7.1 Exécuter `npm run typecheck`, `npm run lint` et `npm run test`, y compris les vérifications des catalogues FR/EN.
 - [x] 7.2 Lancer l’application avec Turbopack et vérifier `/crm/tests` en bureau et mobile avec `agent-browser`, y compris dialogues, états vides, erreurs et texte visible.
-- [x] 7.3 Vérifier le panneau d’extension sur les états de capture prévus et confirmer qu’aucune chaîne de clé i18n brute ou libellé générique de profil n’apparaît.
+- [x] 7.3 Vérifier le panneau d’extension sur les états de capture et les transitions SPA ; confirmer qu’aucune chaîne de clé i18n brute ou libellé générique de profil n’apparaît.
 - [x] 7.4 Vérifier le diff pour les secrets, confirmer que la migration Drizzle est générée et appliquée et que le build de prévisualisation passe.
+
+## 8. Actualiser l’extension lors d’une navigation SPA
+
+- [x] 8.1 Reproduire le changement de profil ou de conversation sans rechargement, y compris lorsque le DOM arrive après l’URL.
+- [x] 8.2 Réinitialiser la résolution de l’ancien profil et relancer automatiquement la détection pour l’identité active.
+- [x] 8.3 Ajouter une régression qui vérifie le changement de profil et le remplacement du lien CRM sans rafraîchissement.

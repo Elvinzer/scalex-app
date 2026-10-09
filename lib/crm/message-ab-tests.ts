@@ -10,7 +10,9 @@ import {
 } from "@/db/schema";
 import {
   calculateCrmMessageAbTestResults,
+  decideCrmMessageAbTestCopy,
   decideCrmMessageAbTestSend,
+  getCrmMessageAbTestCountedAt,
   transitionCrmMessageAbTest,
 } from "./message-ab-test-rules";
 import type {
@@ -26,7 +28,9 @@ export {
   CRM_MESSAGE_AB_TEST_MIN_MATURED_WINDOWS,
   CRM_MESSAGE_AB_TEST_WINDOW_MS,
   calculateCrmMessageAbTestResults,
+  decideCrmMessageAbTestCopy,
   decideCrmMessageAbTestSend,
+  getCrmMessageAbTestCountedAt,
   isCrmMessageAbTestEligibleCapture,
   pickCrmMessageAbTestVariant,
   renderCrmMessageAbTestMessage,
@@ -35,6 +39,7 @@ export {
 export type {
   CrmMessageAbTestAction,
   CrmMessageAbTestChannel,
+  CrmMessageAbTestCopyDecision,
   CrmMessageAbTestMetricAssignment,
   CrmMessageAbTestMetricEvent,
   CrmMessageAbTestMetrics,
@@ -51,6 +56,7 @@ export type CrmMessageAbTestAssignmentView = {
   messageSnapshot: string;
   status: CrmMessageAbTestStatus;
   assignedAt: Date;
+  copiedAt: Date | null;
   sentAt: Date | null;
 };
 
@@ -92,7 +98,7 @@ export function isCrmMessageAbTestUniqueViolation(error: unknown): boolean {
 
 async function loadResults(accountId: string, testId: string, status: CrmMessageAbTestStatus): Promise<CrmMessageAbTestResults> {
   const assignmentRows = await db
-    .select({ leadId: crmMessageAbTestAssignments.leadId, variant: crmMessageAbTestAssignments.variant, sentAt: crmMessageAbTestAssignments.sentAt })
+    .select({ leadId: crmMessageAbTestAssignments.leadId, variant: crmMessageAbTestAssignments.variant, countedAt: crmMessageAbTestAssignments.copiedAt, sentAt: crmMessageAbTestAssignments.sentAt })
     .from(crmMessageAbTestAssignments)
     .where(and(eq(crmMessageAbTestAssignments.accountId, accountId), eq(crmMessageAbTestAssignments.testId, testId)))
     .orderBy(asc(crmMessageAbTestAssignments.assignedAt));
@@ -112,7 +118,10 @@ async function loadResults(accountId: string, testId: string, status: CrmMessage
     if (event.type === "response_received") metricEvents.push({ leadId: event.leadId, type: "response_received", occurredAt: event.occurredAt });
     if (event.type === "call_booked") metricEvents.push({ leadId: event.leadId, type: "call_booked", occurredAt: event.occurredAt });
   }
-  return calculateCrmMessageAbTestResults(assignmentRows, metricEvents, new Date(), status);
+  return calculateCrmMessageAbTestResults(assignmentRows.map(({ countedAt, sentAt, ...assignment }) => ({
+    ...assignment,
+    countedAt: getCrmMessageAbTestCountedAt(countedAt, sentAt),
+  })), metricEvents, new Date(), status);
 }
 
 export async function listCrmMessageAbTests(accountId: string): Promise<CrmMessageAbTestView[]> {
@@ -143,6 +152,7 @@ export async function getCrmMessageAbTestAssignmentByLead(accountId: string, lea
       messageSnapshot: crmMessageAbTestAssignments.messageSnapshot,
       status: crmMessageAbTests.status,
       assignedAt: crmMessageAbTestAssignments.assignedAt,
+      copiedAt: crmMessageAbTestAssignments.copiedAt,
       sentAt: crmMessageAbTestAssignments.sentAt,
     })
     .from(crmMessageAbTestAssignments)
@@ -171,6 +181,69 @@ export async function getCrmMessageAbTestChannelStatus(accountId: string, channe
     eq(crmMessageAbTests.status, "paused"),
   )).orderBy(desc(crmMessageAbTests.startedAt)).limit(1);
   return paused ? "paused" : null;
+}
+
+export async function recordCrmMessageAbTestCopy(
+  accountId: string,
+  actorUserId: string,
+  assignmentId: string,
+): Promise<{ state: "recorded" | "already_copied"; assignment: CrmMessageAbTestAssignmentView } | { state: "not_found" | "test_ended" | "already_contacted" }> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        assignment: crmMessageAbTestAssignments,
+        test: crmMessageAbTests,
+        lead: leads,
+      })
+      .from(crmMessageAbTestAssignments)
+      .innerJoin(crmMessageAbTests, eq(crmMessageAbTests.id, crmMessageAbTestAssignments.testId))
+      .innerJoin(leads, eq(leads.id, crmMessageAbTestAssignments.leadId))
+      .where(and(
+        eq(crmMessageAbTestAssignments.accountId, accountId),
+        eq(crmMessageAbTestAssignments.id, assignmentId),
+        eq(crmMessageAbTestAssignments.testId, crmMessageAbTests.id),
+        eq(crmMessageAbTestAssignments.leadId, leads.id),
+        eq(crmMessageAbTests.accountId, accountId),
+        eq(leads.accountId, accountId),
+      ))
+      .for("update")
+      .limit(1);
+    if (!row) return { state: "not_found" };
+
+    const { assignment, test, lead } = row;
+    const view: CrmMessageAbTestAssignmentView = {
+      id: assignment.id,
+      testId: assignment.testId,
+      channel: test.channel,
+      variant: assignment.variant,
+      messageSnapshot: assignment.messageSnapshot,
+      status: test.status,
+      assignedAt: assignment.assignedAt,
+      copiedAt: assignment.copiedAt,
+      sentAt: assignment.sentAt,
+    };
+    const decision = decideCrmMessageAbTestCopy({
+      copiedAt: assignment.copiedAt,
+      sentAt: assignment.sentAt,
+      testStatus: test.status,
+      contactState: lead.contactState,
+      messageOccurredAt: lead.messageOccurredAt,
+    });
+    if (decision === "already_copied") return { state: decision, assignment: view };
+    if (decision !== "record") return { state: decision };
+
+    const copiedAt = new Date();
+    const [updated] = await tx.update(crmMessageAbTestAssignments)
+      .set({ copiedAt, copiedByUserId: actorUserId })
+      .where(and(
+        eq(crmMessageAbTestAssignments.id, assignment.id),
+        eq(crmMessageAbTestAssignments.accountId, accountId),
+        isNull(crmMessageAbTestAssignments.copiedAt),
+      ))
+      .returning({ id: crmMessageAbTestAssignments.id });
+    if (!updated) return { state: "already_copied", assignment: view };
+    return { state: "recorded", assignment: { ...view, copiedAt } };
+  });
 }
 
 export async function createCrmMessageAbTest(input: {
@@ -292,6 +365,7 @@ export async function confirmCrmMessageAbTestSend(
       messageSnapshot: assignment.messageSnapshot,
       status: test.status,
       assignedAt: assignment.assignedAt,
+      copiedAt: assignment.copiedAt,
       sentAt: assignment.sentAt,
     };
     const sendDecision = decideCrmMessageAbTestSend({

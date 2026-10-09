@@ -9,6 +9,7 @@ type MinalyMessageTestAssignment = {
   messageSnapshot: string;
   status: "active" | "paused" | "ended";
   assignedAt: string;
+  copiedAt: string | null;
   sentAt: string | null;
 };
 
@@ -408,6 +409,7 @@ function minalyReadMessageTestAssignment(value: unknown): MinalyMessageTestAssig
     messageSnapshot: value.messageSnapshot,
     status: value.status,
     assignedAt: value.assignedAt,
+    copiedAt: typeof value.copiedAt === "string" ? value.copiedAt : null,
     sentAt: typeof value.sentAt === "string" ? value.sentAt : null,
   };
 }
@@ -659,7 +661,6 @@ function minalyBuildPanel(
   profile: MinalyExtensionProfile | null,
   message: string | null,
   messageTestStatus: MinalyMessageTestStatus,
-  messageCopied: boolean,
   successLeadUrl: string | null,
   crmUrl: string | null,
   extensionUpdate: MinalyExtensionUpdate | null,
@@ -671,8 +672,7 @@ function minalyBuildPanel(
   onUpdate: (input: MinalyUpdateInput) => void,
   onSearch: (query: string) => void,
   onApplyUpdate: () => void,
-  onCopyMessage: (text: string) => void,
-  onConfirmMessageSent: (assignmentId: string) => void,
+  onCopyMessage: (assignmentId: string, text: string) => void,
 ): void {
   const panel = shadow.querySelector(".minaly-panel");
   if (!(panel instanceof HTMLElement)) return;
@@ -774,8 +774,11 @@ function minalyBuildPanel(
     body.append(minalyProfileCard(lead.displayName, `@${lead.profiles.find((item) => item.platform === assignment.channel)?.normalizedHandle ?? profile?.normalizedHandle ?? ""} · ${minalyPlatformLabel(assignment.channel)}`, lead.canonicalProfileUrl));
     if (message) body.append(minalyCallout("ACTION REQUISE", message, "minaly-callout-warning"));
     body.append(minalyCallout("VARIANTE ATTRIBUÉE", `Variante ${assignment.variant}`, "minaly-callout-known"));
-    if (assignment.sentAt) {
-      body.append(minalyStatusBlock("ENVOI CONFIRMÉ", "Envoi enregistré", `${minalyFormatDate(assignment.sentAt)} · Variante ${assignment.variant}`, "minaly-status-success"));
+    if (assignment.copiedAt) {
+      body.append(minalyStatusBlock("COPIE COMPTABILISÉE", "Copie comptabilisée", `${minalyFormatDate(assignment.copiedAt)} · Variante ${assignment.variant}`, "minaly-status-success"));
+      body.append(minalyElement("p", "Les réponses seront suivies pendant 7 jours."));
+    } else if (assignment.sentAt) {
+      body.append(minalyStatusBlock("ENVOI ENREGISTRÉ", "Envoi enregistré", `${minalyFormatDate(assignment.sentAt)} · Variante ${assignment.variant}`, "minaly-status-success"));
       body.append(minalyElement("p", "Les réponses seront suivies pendant 7 jours."));
     } else if (assignment.status === "ended") {
       body.append(minalyStatusBlock("HISTORIQUE", "Test terminé", "Cette variante reste dans l’historique. Le message n’a pas été confirmé et ne peut plus être copié.", "minaly-status-session"));
@@ -795,16 +798,9 @@ function minalyBuildPanel(
       if (assignment.status === "paused") {
         body.append(minalyCallout("TEST EN PAUSE", "Cette variante reste disponible pour les leads déjà attribués.", "minaly-callout-warning"));
       }
-      if (messageCopied) {
-        body.append(minalyStatusBlock("MESSAGE COPIÉ", "Message copié", "La copie ne compte pas comme un envoi. Envoie le message dans la conversation, puis confirme.", "minaly-status-success"));
-        const confirmSent = minalyButton("Je l’ai envoyé", "minaly-primary");
-        confirmSent.addEventListener("click", () => onConfirmMessageSent(assignment.id));
-        body.append(confirmSent);
-      } else {
-        const copy = minalyButton("Copier le message", "minaly-primary");
-        copy.addEventListener("click", () => onCopyMessage(assignment.messageSnapshot));
-        body.append(copy);
-      }
+      const copy = minalyButton("Copier le message", "minaly-primary");
+      copy.addEventListener("click", () => onCopyMessage(assignment.id, assignment.messageSnapshot));
+      body.append(copy);
     }
     const leadLink = minalyLeadLink(lead.id, crmUrl);
     if (leadLink) body.append(leadLink);
@@ -1102,6 +1098,19 @@ function minalyWatchHostPosition(host: HTMLElement, handle: string): () => void 
   };
 }
 
+function minalyShouldWaitForConversationIdentity(input: {
+  urlChanged: boolean;
+  previousConversationSurface: boolean;
+  conversationSurface: boolean;
+  previousProfileKey: string | null;
+  profileKey: string | null;
+}): boolean {
+  return input.urlChanged
+    && input.previousConversationSurface
+    && input.conversationSurface
+    && input.previousProfileKey === input.profileKey;
+}
+
 let minalyUnmount: (() => void) | null = null;
 
 function minalyMount(): void {
@@ -1245,7 +1254,6 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
   let resolvedAt = 0;
   let message: string | null = null;
   let messageTestStatus: MinalyMessageTestStatus = null;
-  let messageCopied = false;
   let successLeadUrl: string | null = null;
   let extensionUpdate: MinalyExtensionUpdate | null = null;
   let operationId = 0;
@@ -1261,54 +1269,49 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     if (state === "loading") return;
     void chrome.runtime.sendMessage({ type: "minaly-apply-update" }).catch(() => undefined);
   };
-  const copyMessage = async (text: string) => {
+  const copyMessage = async (assignmentId: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      messageCopied = true;
-      message = null;
     } catch {
-      messageCopied = false;
       message = "Impossible de copier le message. Réessaie depuis le panneau.";
+      draw();
+      return;
     }
-    draw();
-  };
-  const confirmMessageSent = async (assignmentId: string) => {
     const requestId = ++operationId;
     state = "loading";
     message = null;
     draw();
-    const result = await minalyRequest("/api/crm/extension/message-tests/confirm-send", { assignmentId });
+    const result = await minalyRequest("/api/crm/extension/message-tests/record-copy", { assignmentId });
     if (requestId !== operationId) return;
     if (result.status === 401) { state = "session"; draw(); return; }
     if (result.status === 403) { state = "unavailable"; draw(); return; }
     if (result.status === 503) { state = minalyIsConnectionError(result.status, result.body) ? "connection-error" : "error"; message = minalyApiErrorMessage(result.body); draw(); return; }
     if (result.status === 409) {
       const errorCode = minalyIsRecord(result.body) && typeof result.body.error === "string" ? result.body.error : "";
-      message = errorCode === "test_ended" ? "Le test est terminé. Cet envoi ne peut plus être confirmé." : "Ce lead a déjà été marqué comme contacté.";
-      state = "error";
+      if (!(await resolve(requestId)) || requestId !== operationId) return;
+      message = errorCode === "test_ended" ? "Le test est terminé. Cette copie ne peut plus être comptabilisée." : "Ce lead a déjà été marqué comme contacté.";
       draw();
       return;
     }
     const data = minalyIsRecord(result.body) && minalyIsRecord(result.body.assignment) ? result.body.assignment : null;
     const assignment = minalyReadMessageTestAssignment(data);
     if (result.status < 200 || result.status >= 300 || !assignment || resolution?.kind !== "known") {
-      state = "error";
-      message = "Impossible d’enregistrer la confirmation d’envoi.";
+      state = "known";
+      message = "Message copié, mais la copie n’a pas été comptabilisée. Copie-le à nouveau pour réessayer.";
       draw();
       return;
     }
     resolution = {
       kind: "known",
-      lead: { ...resolution.lead, contactState: "contacted", messageOccurredAt: assignment.sentAt, messageTestAssignment: assignment },
+      lead: { ...resolution.lead, messageTestAssignment: assignment },
     };
-    messageCopied = false;
     state = "known";
     draw();
   };
   const draw = () => {
     panel.hidden = state === "closed";
     button.setAttribute("aria-expanded", String(state !== "closed"));
-    minalyBuildPanel(shadow, state, resolution, profile, message, messageTestStatus, messageCopied, successLeadUrl, resolutionCrmUrl, extensionUpdate, manualSearchCandidates, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input), (query) => void search(query), applyUpdate, (text) => void copyMessage(text), (assignmentId) => void confirmMessageSent(assignmentId));
+    minalyBuildPanel(shadow, state, resolution, profile, message, messageTestStatus, successLeadUrl, resolutionCrmUrl, extensionUpdate, manualSearchCandidates, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input), (query) => void search(query), applyUpdate, (assignmentId, text) => void copyMessage(assignmentId, text));
   };
   const resolve = async (requestId: number): Promise<boolean> => {
     const result = await minalyRequest("/api/crm/extension/resolve", minalyApiProfile(profile));
@@ -1327,7 +1330,6 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     resolutionCrmUrl = parsed.crmUrl;
     resolution = parsed.resolution;
     messageTestStatus = parsed.messageTestStatus;
-    messageCopied = false;
     manualSearchCandidates = null;
     resolvedAt = Date.now();
     state = parsed.resolution.kind;
@@ -1377,7 +1379,6 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
       if (await resolve(requestId) && requestId === operationId) draw();
       return;
     }
-    messageCopied = false;
     state = savedLead ? "known" : "success";
     message = savedLead?.messageTestAssignment ? null : "Le lead est maintenant dans ton CRM.";
     draw();
@@ -1472,22 +1473,89 @@ const minalyLastDetectedProfile = minalyProfileUrl();
 let minalyLastProfileKey = minalyLastDetectedProfile?.url ?? null;
 const minalyLastHostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
 let minalyLastConversationSurface = minalyIsConversationSurface(minalyLastHostname === "linkedin.com" ? "linkedin" : "instagram");
-window.setInterval(() => {
+let minalyAwaitingProfile = false;
+let minalyProfileKeyBeforeNavigationWait: string | null = null;
+let minalyConversationFallbackTimer: number | null = null;
+let minalyNavigationCheckScheduled = false;
+
+const minalyReconcileProfileNavigation = () => {
   const currentUrl = window.location.href;
   const urlChanged = currentUrl !== minalyLastUrl;
   const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
   const platform = hostname === "linkedin.com" ? "linkedin" : "instagram";
   const conversationSurfaceVisible = minalyIsConversationSurface(platform);
-  if (!urlChanged && !minalyLastConversationSurface && !conversationSurfaceVisible) return;
-
   const detected = minalyProfileUrl();
   const profileKey = detected?.url ?? null;
-  const conversationSurface = minalyIsConversationSurface(platform);
-  if (!urlChanged && profileKey === minalyLastProfileKey && conversationSurface === minalyLastConversationSurface) return;
+  if (!urlChanged && !minalyAwaitingProfile && !minalyLastConversationSurface && !conversationSurfaceVisible) return;
+
+  if (minalyAwaitingProfile && profileKey === minalyProfileKeyBeforeNavigationWait) return;
+  if (minalyShouldWaitForConversationIdentity({
+    urlChanged,
+    previousConversationSurface: minalyLastConversationSurface,
+    conversationSurface: conversationSurfaceVisible,
+    previousProfileKey: minalyLastProfileKey,
+    profileKey,
+  })) {
+    minalyLastUrl = currentUrl;
+    minalyLastConversationSurface = conversationSurfaceVisible;
+    minalyAwaitingProfile = true;
+    minalyProfileKeyBeforeNavigationWait = minalyLastProfileKey;
+    minalyUnmount?.();
+    if (minalyConversationFallbackTimer !== null) window.clearTimeout(minalyConversationFallbackTimer);
+    minalyConversationFallbackTimer = window.setTimeout(() => {
+      if (!minalyAwaitingProfile) return;
+      const settledProfile = minalyProfileUrl();
+      if (!settledProfile) return;
+      minalyAwaitingProfile = false;
+      minalyProfileKeyBeforeNavigationWait = null;
+      minalyLastProfileKey = settledProfile.url;
+      minalyUnmount?.();
+      minalyMount();
+    }, 2_000);
+    return;
+  }
+
+  if (!detected) {
+    if (urlChanged || conversationSurfaceVisible || minalyAwaitingProfile) {
+      minalyLastUrl = currentUrl;
+      minalyLastConversationSurface = conversationSurfaceVisible;
+      minalyAwaitingProfile = true;
+      minalyProfileKeyBeforeNavigationWait = minalyLastProfileKey;
+      minalyUnmount?.();
+    }
+    return;
+  }
+
+  if (!urlChanged && profileKey === minalyLastProfileKey && conversationSurfaceVisible === minalyLastConversationSurface && !minalyAwaitingProfile) return;
 
   minalyLastUrl = currentUrl;
   minalyLastProfileKey = profileKey;
-  minalyLastConversationSurface = conversationSurface;
+  minalyLastConversationSurface = conversationSurfaceVisible;
+  minalyAwaitingProfile = false;
+  minalyProfileKeyBeforeNavigationWait = null;
+  if (minalyConversationFallbackTimer !== null) {
+    window.clearTimeout(minalyConversationFallbackTimer);
+    minalyConversationFallbackTimer = null;
+  }
   minalyUnmount?.();
   minalyMount();
-}, 1000);
+};
+
+const minalyScheduleNavigationCheck = () => {
+  if (minalyNavigationCheckScheduled) return;
+  minalyNavigationCheckScheduled = true;
+  window.setTimeout(() => {
+    minalyNavigationCheckScheduled = false;
+    minalyReconcileProfileNavigation();
+  }, 120);
+};
+
+const minalyNavigationObserver = new MutationObserver(() => {
+  if (window.location.href !== minalyLastUrl || minalyAwaitingProfile || minalyLastConversationSurface) {
+    minalyScheduleNavigationCheck();
+  }
+});
+minalyNavigationObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["href"] });
+window.addEventListener("popstate", minalyScheduleNavigationCheck);
+window.addEventListener("hashchange", minalyScheduleNavigationCheck);
+window.setInterval(minalyReconcileProfileNavigation, 1000);

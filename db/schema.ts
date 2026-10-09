@@ -2850,6 +2850,8 @@ export const crmMessageAbTestAssignments = pgTable(
     variant: crmMessageAbTestVariantEnum("variant").notNull(),
     messageSnapshot: text("message_snapshot").notNull(),
     assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+    copiedAt: timestamp("copied_at", { withTimezone: true }),
+    copiedByUserId: uuid("copied_by_user_id").references(() => users.id, { onDelete: "set null" }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     sentByUserId: uuid("sent_by_user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

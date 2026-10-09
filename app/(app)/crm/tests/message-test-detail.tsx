@@ -116,7 +116,7 @@ export function CrmMessageTestDetail({ test, canManage, locale }: Props) {
             <p className="text-sm text-muted-foreground">{t("detail.responseCount", { responses: metrics.responses, completed: metrics.completedWindows })}</p>
             <dl className="grid gap-x-4 gap-y-2 text-sm">
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("detail.assigned")}</dt><dd className="font-bold tabular-nums">{metrics.assigned}</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("detail.confirmedSent")}</dt><dd className="font-bold tabular-nums">{metrics.confirmedSent}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("detail.countedMessages")}</dt><dd className="font-bold tabular-nums">{metrics.countedMessages}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("detail.completedWindows")}</dt><dd className="font-bold tabular-nums">{metrics.completedWindows}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("detail.inObservation")}</dt><dd className="font-bold tabular-nums">{metrics.inObservation}</dd></div>
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("detail.appointments")}</dt><dd className="font-bold tabular-nums">{metrics.appointments}</dd></div>
@@ -128,7 +128,7 @@ export function CrmMessageTestDetail({ test, canManage, locale }: Props) {
           </section>
         ))}
       </div>
-      <p className="text-sm text-muted-foreground">{t("detail.copyDoesNotCount")}</p>
+      <p className="text-sm text-muted-foreground">{t("detail.copyStartsWindow")}</p>
       <p className="text-sm text-muted-foreground">{t("detail.noWinner")}</p>
 
       <Dialog open={dialogAction !== null} onOpenChange={(open) => { if (!open && !saving) setDialogAction(null); }}>

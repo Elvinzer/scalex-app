@@ -14,6 +14,7 @@ const minalyBackgroundPaths = new Set([
     "/api/crm/extension/search",
     "/api/crm/extension/capture",
     "/api/crm/extension/update",
+    "/api/crm/extension/message-tests/record-copy",
     "/api/crm/extension/message-tests/confirm-send",
 ]);
 function minalyBackgroundIsRecord(value) {

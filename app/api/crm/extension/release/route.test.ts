@@ -25,7 +25,7 @@ describe("GET /api/crm/extension/release", () => {
     const body = await response.json() as { data: Record<string, unknown> };
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("max-age=60");
-    expect(body.data.latestVersion).toBe("0.3.7");
+    expect(body.data.latestVersion).toBe("0.3.8");
     expect(body.data.updateAvailable).toBe(true);
     expect(body.data.distribution).toBe("web_store");
     expect(body.data.updateUrl).toBe("https://chromewebstore.google.com/detail/minaly/abc");

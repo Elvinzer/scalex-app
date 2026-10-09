@@ -37,3 +37,18 @@ Le comportement de capture MUST être vérifié sur les variantes de pages Insta
 #### Scenario: L’utilisateur corrige le nom proposé
 - **WHEN** l’utilisateur remplace le nom ou handle prérempli avant de confirmer la création
 - **THEN** la fiche CRM conserve le nom corrigé par l’utilisateur
+
+### Requirement: La navigation SPA actualise le profil traité par l’extension
+Quand l’utilisateur ouvre un autre profil ou une autre conversation Instagram ou LinkedIn sans recharger la page, l’extension MUST détecter le changement de profil actif et relancer la résolution CRM. Elle MUST attendre que l’identité du nouvel écran soit disponible si la page met à jour son DOM après l’URL et MUST retirer le lien et les données du profil précédent.
+
+#### Scenario: Passage à un autre profil sans rechargement
+- **WHEN** l’utilisateur ouvre un autre profil depuis Instagram ou LinkedIn dans la même page
+- **THEN** l’extension actualise sa fiche et son lien CRM avec le profil actif sans demander un rafraîchissement de page
+
+#### Scenario: Passage à une autre conversation
+- **WHEN** l’utilisateur sélectionne un autre fil de conversation dans l’application sociale
+- **THEN** l’extension résout le profil lié au fil actif et n’affiche pas le lien CRM du fil précédent
+
+#### Scenario: Le DOM du nouveau profil arrive après l’URL
+- **WHEN** l’URL change avant que la page affiche l’identité du nouveau profil
+- **THEN** l’extension reprend la détection lorsque le DOM est mis à jour et ne conserve pas une fiche liée à l’ancien profil

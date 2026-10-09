@@ -31,6 +31,8 @@ La version `0.3.6` limite la détection des messages aux pages de conversation
 et exclut des tests les leads dont une conversation existait avant la capture.
 La version `0.3.7` récupère la session après une erreur réseau et affiche un
 état de connexion distinct d’un problème de profil.
+La version `0.3.8` comptabilise le message dès sa copie et actualise le profil
+actif quand tu changes de conversation sans recharger la page.
 
 ## Construire le package local
 

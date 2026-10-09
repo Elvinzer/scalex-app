@@ -827,7 +827,7 @@
   "messageTests": {
     "eyebrow": "CRM MINALY",
     "title": "Tests de premiers messages",
-    "subtitle": "Compare deux messages d’ouverture sur un même canal et suis les réponses dans les sept jours après un envoi confirmé.",
+    "subtitle": "Compare deux messages d’ouverture sur un même canal et suis les réponses dans les sept jours après chaque copie.",
     "create": "Créer un test",
     "tabs": { "active": "Actifs", "paused": "En pause", "ended": "Terminés" },
     "status": { "active": "Actif", "paused": "En pause", "ended": "Terminé" },
@@ -835,7 +835,7 @@
       "test": "Test",
       "status": "Statut",
       "split": "Répartition",
-      "sent": "Envois confirmés",
+      "sent": "Messages comptabilisés",
       "rateA": "Taux de réponse A",
       "rateB": "Taux de réponse B",
       "started": "Début"
@@ -866,7 +866,7 @@
       "split": "Répartition des leads",
       "splitValue": "50 / 50, attribution automatique",
       "observation": "Fenêtre d’observation",
-      "observationValue": "7 jours après la confirmation de l’envoi",
+      "observationValue": "7 jours après la copie du message",
       "metric": "Indicateur principal",
       "metricValue": "Taux de réponse sous 7 jours",
       "audioNote": "Les variantes audio ne sont pas encore disponibles.",
@@ -891,15 +891,15 @@
       "messagePreview": "Aperçu du message",
       "responseCount": "{responses} réponses / {completed} fenêtres terminées",
       "assigned": "Leads attribués",
-      "confirmedSent": "Envois confirmés",
+      "countedMessages": "Messages comptabilisés",
       "completedWindows": "Fenêtres terminées",
       "responseRate": "Taux de réponse",
       "notMeasured": "Pas encore mesuré",
       "inObservation": "Encore en observation",
       "appointments": "Rendez-vous réservés",
       "collecting": "Réponses en cours de collecte",
-      "collectingBody": "Certains envois confirmés sont encore dans leur fenêtre d’observation de sept jours.",
-      "copyDoesNotCount": "La copie d’un message ne compte pas comme un envoi. Confirme après l’avoir envoyé dans l’application sociale.",
+      "collectingBody": "Certains messages copiés sont encore dans leur fenêtre d’observation de sept jours.",
+      "copyStartsWindow": "Chaque copie réussie est comptabilisée et lance le suivi des réponses pendant sept jours.",
       "noWinner": "Minaly ne désigne jamais automatiquement un message gagnant."
     },
     "warning": {
@@ -911,9 +911,9 @@
       "resume": "Reprendre le test",
       "end": "Terminer le test",
       "pauseTitle": "Mettre ce test en pause ?",
-      "pauseBody": "Aucun nouveau lead ne recevra de variante. Les leads déjà attribués pourront encore copier et confirmer leur message.",
+      "pauseBody": "Aucun nouveau lead ne recevra de variante. Les leads déjà attribués pourront encore copier leur message, ce qui le comptabilisera dans le test.",
       "endTitle": "Terminer ce test ?",
-      "endBody": "Aucun nouveau lead ne recevra de variante. Les réponses des envois confirmés continueront d’être suivies jusqu’à la fin de leur fenêtre de sept jours. Cette action est définitive.",
+      "endBody": "Aucun nouveau lead ne recevra de variante. Les réponses aux messages déjà copiés continueront d’être suivies jusqu’à la fin de leur fenêtre de sept jours. Cette action est définitive.",
       "confirmPause": "Mettre en pause",
       "confirmEnd": "Terminer le test",
       "cancel": "Annuler"
@@ -928,12 +928,11 @@
     "extension": {
       "assigned": "Variante {variant} attribuée",
       "copied": "Message copié",
-      "confirmSend": "Je l’ai envoyé",
-      "sent": "Envoi enregistré",
+      "copyCounted": "Copie comptabilisée",
       "paused": "Test en pause",
       "noActiveTest": "Aucun test actif sur ce canal",
       "alreadyContacted": "Lead déjà contacté",
-      "copyNotice": "La copie ne compte pas comme un envoi. Envoie le message dans la conversation, puis confirme.",
+      "copyNotice": "La copie du message le comptabilise dans le test et lance le suivi des réponses pendant sept jours.",
       "sentWindow": "Les réponses seront suivies pendant sept jours."
     }
   },

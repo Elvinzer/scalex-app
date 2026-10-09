@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateCrmMessageAbTestResults,
+  decideCrmMessageAbTestCopy,
   decideCrmMessageAbTestSend,
+  getCrmMessageAbTestCountedAt,
   CRM_MESSAGE_AB_TEST_MIN_MATURED_WINDOWS,
   CRM_MESSAGE_AB_TEST_WINDOW_MS,
   isCrmMessageAbTestEligibleCapture,
@@ -14,7 +16,8 @@ import {
 } from "./message-ab-test-rules";
 
 const sentAt = new Date("2026-09-01T12:00:00.000Z");
-const matureAt = new Date(sentAt.getTime() + CRM_MESSAGE_AB_TEST_WINDOW_MS);
+const copiedAt = new Date("2026-09-01T12:00:00.000Z");
+const matureAt = new Date(copiedAt.getTime() + CRM_MESSAGE_AB_TEST_WINDOW_MS);
 
 describe("CRM first-message A/B test rules", () => {
   it("assigns variants at an equal random threshold without accepting a client choice", () => {
@@ -59,11 +62,31 @@ describe("CRM first-message A/B test rules", () => {
       .toBe("already_contacted");
   });
 
+  it("counts a copied message once without changing whether it was sent", () => {
+    expect(decideCrmMessageAbTestCopy({ copiedAt: null, sentAt: null, testStatus: "active", contactState: "new", messageOccurredAt: null }))
+      .toBe("record");
+    expect(decideCrmMessageAbTestCopy({ copiedAt: null, sentAt: null, testStatus: "paused", contactState: "new", messageOccurredAt: null }))
+      .toBe("record");
+    expect(decideCrmMessageAbTestCopy({ copiedAt, sentAt: null, testStatus: "ended", contactState: "new", messageOccurredAt: null }))
+      .toBe("already_copied");
+    expect(decideCrmMessageAbTestCopy({ copiedAt: null, sentAt: null, testStatus: "ended", contactState: "new", messageOccurredAt: null }))
+      .toBe("test_ended");
+    expect(decideCrmMessageAbTestCopy({ copiedAt: null, sentAt: null, testStatus: "active", contactState: "contacted", messageOccurredAt: sentAt }))
+      .toBe("already_contacted");
+  });
+
+  it("keeps legacy confirmed sends in the counted cohort", () => {
+    const laterSendAt = new Date(copiedAt.getTime() + 60_000);
+    expect(getCrmMessageAbTestCountedAt(copiedAt, laterSendAt)).toBe(copiedAt);
+    expect(getCrmMessageAbTestCountedAt(null, sentAt)).toBe(sentAt);
+    expect(getCrmMessageAbTestCountedAt(null, null)).toBeNull();
+  });
+
   it("uses the inclusive 168-hour response boundary and deduplicates repeated events", () => {
     const assignments: CrmMessageAbTestMetricAssignment[] = [
-      { leadId: "a-one", variant: "A", sentAt },
-      { leadId: "a-two", variant: "A", sentAt },
-      { leadId: "b-one", variant: "B", sentAt },
+      { leadId: "a-one", variant: "A", countedAt: copiedAt },
+      { leadId: "a-two", variant: "A", countedAt: copiedAt },
+      { leadId: "b-one", variant: "B", countedAt: copiedAt },
     ];
     const events: CrmMessageAbTestMetricEvent[] = [
       { leadId: "a-one", type: "response_received", occurredAt: matureAt },
@@ -73,38 +96,38 @@ describe("CRM first-message A/B test rules", () => {
     ];
 
     const result = calculateCrmMessageAbTestResults(assignments, events, matureAt);
-    expect(result.A).toMatchObject({ assigned: 2, confirmedSent: 2, completedWindows: 2, responses: 1, responseRate: 50 });
-    expect(result.B).toMatchObject({ assigned: 1, confirmedSent: 1, completedWindows: 1, responses: 0, appointments: 1 });
+    expect(result.A).toMatchObject({ assigned: 2, countedMessages: 2, completedWindows: 2, responses: 1, responseRate: 50 });
+    expect(result.B).toMatchObject({ assigned: 1, countedMessages: 1, completedWindows: 1, responses: 0, appointments: 1 });
     expect(result.insufficientData).toBe(true);
     expect(result.winner).toBeNull();
   });
 
-  it("excludes unconfirmed and still-observed leads from the response denominator", () => {
-    const recentSentAt = new Date("2026-10-05T12:00:00.000Z");
+  it("excludes uncopied and still-observed leads from the response denominator", () => {
+    const recentCopiedAt = new Date("2026-10-05T12:00:00.000Z");
     const assignments: CrmMessageAbTestMetricAssignment[] = [
-      { leadId: "unsent", variant: "A", sentAt: null },
-      { leadId: "observed", variant: "A", sentAt: recentSentAt },
+      { leadId: "uncopied", variant: "A", countedAt: null },
+      { leadId: "observed", variant: "A", countedAt: recentCopiedAt },
     ];
     const events: CrmMessageAbTestMetricEvent[] = [
       { leadId: "observed", type: "response_received", occurredAt: new Date("2026-10-06T09:00:00.000Z") },
     ];
     const result = calculateCrmMessageAbTestResults(assignments, events, new Date("2026-10-06T12:00:00.000Z"));
-    expect(result.A).toMatchObject({ assigned: 2, confirmedSent: 1, completedWindows: 0, responses: 0, inObservation: 1, responseRate: null });
+    expect(result.A).toMatchObject({ assigned: 2, countedMessages: 1, completedWindows: 0, responses: 0, inObservation: 1, responseRate: null });
   });
 
   it("excludes unconfirmed assignments from all metrics after a test ends", () => {
     const result = calculateCrmMessageAbTestResults([
-      { leadId: "confirmed", variant: "A", sentAt },
-      { leadId: "not-sent", variant: "A", sentAt: null },
+      { leadId: "counted", variant: "A", countedAt: copiedAt },
+      { leadId: "not-copied", variant: "A", countedAt: null },
     ], [], matureAt, "ended");
-    expect(result.A).toMatchObject({ assigned: 1, confirmedSent: 1, completedWindows: 1 });
+    expect(result.A).toMatchObject({ assigned: 1, countedMessages: 1, completedWindows: 1 });
   });
 
   it("warns while either variant has fewer than fifty completed windows", () => {
     const assignments: CrmMessageAbTestMetricAssignment[] = Array.from({ length: CRM_MESSAGE_AB_TEST_MIN_MATURED_WINDOWS * 2 }, (_, index) => ({
       leadId: `lead-${index}`,
       variant: index < CRM_MESSAGE_AB_TEST_MIN_MATURED_WINDOWS ? "A" : "B",
-      sentAt,
+      countedAt: copiedAt,
     }));
     expect(calculateCrmMessageAbTestResults(assignments, [], matureAt).insufficientData).toBe(false);
     expect(calculateCrmMessageAbTestResults(assignments.slice(0, -1), [], matureAt).insufficientData).toBe(true);

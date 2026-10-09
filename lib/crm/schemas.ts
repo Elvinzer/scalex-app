@@ -122,6 +122,9 @@ export const crmMessageAbTestStatusCommandSchema = crmMessageAbTestActionSchema.
 export const crmMessageAbTestSendConfirmationSchema = z.object({
   assignmentId: z.string().uuid(),
 });
+export const crmMessageAbTestCopySchema = z.object({
+  assignmentId: z.string().uuid(),
+});
 
 export const crmLeadCaptureSchema = captureProfileBaseSchema.extend({
   offerId: z.string().trim().max(160).nullable().optional(),

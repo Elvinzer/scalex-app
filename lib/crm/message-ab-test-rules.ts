@@ -6,10 +6,11 @@ export type CrmMessageAbTestChannel = "instagram" | "linkedin";
 export type CrmMessageAbTestVariant = "A" | "B";
 export type CrmMessageAbTestAction = "pause" | "resume" | "end";
 export type CrmMessageAbTestSendDecision = "confirm" | "already_confirmed" | "test_ended" | "already_contacted";
+export type CrmMessageAbTestCopyDecision = "record" | "already_copied" | "test_ended" | "already_contacted";
 
 export type CrmMessageAbTestMetrics = {
   assigned: number;
-  confirmedSent: number;
+  countedMessages: number;
   completedWindows: number;
   responses: number;
   inObservation: number;
@@ -33,12 +34,16 @@ export type CrmMessageAbTestMetricEvent = {
 export type CrmMessageAbTestMetricAssignment = {
   leadId: string;
   variant: CrmMessageAbTestVariant;
-  sentAt: Date | null;
+  countedAt: Date | null;
 };
+
+export function getCrmMessageAbTestCountedAt(copiedAt: Date | null, sentAt: Date | null): Date | null {
+  return copiedAt ?? sentAt;
+}
 
 const emptyMetrics = (): CrmMessageAbTestMetrics => ({
   assigned: 0,
-  confirmedSent: 0,
+  countedMessages: 0,
   completedWindows: 0,
   responses: 0,
   inObservation: 0,
@@ -95,6 +100,19 @@ export function decideCrmMessageAbTestSend(input: {
   return "confirm";
 }
 
+export function decideCrmMessageAbTestCopy(input: {
+  copiedAt: Date | null;
+  sentAt: Date | null;
+  testStatus: CrmMessageAbTestStatus;
+  contactState: string;
+  messageOccurredAt: Date | null;
+}): CrmMessageAbTestCopyDecision {
+  if (input.copiedAt || input.sentAt) return "already_copied";
+  if (input.testStatus === "ended") return "test_ended";
+  if (input.contactState !== "new" || input.messageOccurredAt) return "already_contacted";
+  return "record";
+}
+
 export function calculateCrmMessageAbTestResults(
   assignments: readonly CrmMessageAbTestMetricAssignment[],
   events: readonly CrmMessageAbTestMetricEvent[],
@@ -111,17 +129,17 @@ export function calculateCrmMessageAbTestResults(
 
   const metrics: Record<CrmMessageAbTestVariant, CrmMessageAbTestMetrics> = { A: emptyMetrics(), B: emptyMetrics() };
   for (const assignment of assignments) {
-    if (testStatus === "ended" && !assignment.sentAt) continue;
+    if (testStatus === "ended" && !assignment.countedAt) continue;
     const variantMetrics = metrics[assignment.variant];
     variantMetrics.assigned += 1;
-    if (!assignment.sentAt) continue;
+    if (!assignment.countedAt) continue;
 
-    variantMetrics.confirmedSent += 1;
-    const sentAtMs = assignment.sentAt.getTime();
-    const endsAtMs = sentAtMs + CRM_MESSAGE_AB_TEST_WINDOW_MS;
+    variantMetrics.countedMessages += 1;
+    const countedAtMs = assignment.countedAt.getTime();
+    const endsAtMs = countedAtMs + CRM_MESSAGE_AB_TEST_WINDOW_MS;
     const windowEvents = (byLead.get(assignment.leadId) ?? []).filter((event) => {
       const occurredAtMs = event.occurredAt?.getTime();
-      return occurredAtMs !== undefined && occurredAtMs >= sentAtMs && occurredAtMs <= endsAtMs;
+      return occurredAtMs !== undefined && occurredAtMs >= countedAtMs && occurredAtMs <= endsAtMs;
     });
     if (windowEvents.some((event) => event.type === "call_booked")) variantMetrics.appointments += 1;
     if (now.getTime() >= endsAtMs) {

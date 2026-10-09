@@ -1,6 +1,6 @@
 ## Purpose
 
-Permet aux équipes CRM de comparer deux premiers messages sur un canal social, de garder la variante affectée à chaque nouveau lead et de mesurer les réponses obtenues après un envoi confirmé.
+Permet aux équipes CRM de comparer deux premiers messages sur un canal social, de garder la variante affectée à chaque nouveau lead et de mesurer les réponses après la copie du message.
 
 ## ADDED Requirements
 
@@ -56,50 +56,50 @@ Les modèles peuvent utiliser `{first_name}`, `{prenom}` ou `{prénom}` pour ins
 - **WHEN** un nouveau profil est capturé sur un canal dont le test est en pause ou terminé
 - **THEN** aucune variante de ce test n’est attribuée au lead
 
-### Requirement: L’extension distingue la copie du message de son envoi
-Pour un lead auquel une variante a été attribuée, l’extension MUST afficher le contenu exact attribué et permettre de le copier. La copie seule ne MUST NOT être enregistrée comme un envoi. L’envoi est enregistré uniquement après une confirmation explicite de l’utilisateur indiquant qu’il a réellement envoyé le message dans le réseau social.
+### Requirement: La copie du message comptabilise la variante sans enregistrer un envoi
+Pour un lead auquel une variante a été attribuée, l’extension MUST afficher le contenu exact attribué et permettre de le copier. Après une copie réussie, le système MUST comptabiliser la variante une seule fois et démarrer la fenêtre de suivi de sept jours. Cette opération MUST NOT déclarer le message envoyé, modifier l’état de contact ou l’étape du lead, ni créer un événement `first_message_sent`.
 
 #### Scenario: Aperçu et copie d’une variante
 - **WHEN** l’utilisateur ouvre la fiche d’un lead attribué à un test actif
 - **THEN** l’extension affiche la variante et son texte conservé, puis permet de le copier
 
-#### Scenario: Message copié mais pas encore envoyé
-- **WHEN** l’utilisateur copie le message sans confirmer son envoi
-- **THEN** aucun événement de premier message envoyé n’est créé et aucun dénominateur KPI n’est incrémenté
+#### Scenario: Copie réussie
+- **WHEN** l’utilisateur copie le message attribué à un lead créé
+- **THEN** l’attribution est comptabilisée une seule fois, la date serveur de copie est enregistrée et la fenêtre de réponse de sept jours démarre sans modifier le statut du lead
 
-#### Scenario: Envoi confirmé manuellement
-- **WHEN** l’utilisateur confirme dans l’extension qu’il a envoyé le message
-- **THEN** le système enregistre une seule fois l’envoi confirmé, sa date, son auteur et la variante du lead
+#### Scenario: Nouvelle copie de la même variante
+- **WHEN** l’utilisateur copie de nouveau le message ou relance la requête après une erreur réseau
+- **THEN** l’attribution reste comptabilisée une seule fois et conserve sa première date de copie
 
-#### Scenario: Confirmation répétée
-- **WHEN** l’utilisateur répète la confirmation pour le même lead et la même attribution
-- **THEN** le système conserve un seul envoi confirmé pour cette attribution
+#### Scenario: Échec d’enregistrement après copie
+- **WHEN** le presse-papiers reçoit le message mais que le CRM ne confirme pas l’enregistrement
+- **THEN** l’extension indique que la copie n’a pas encore été comptabilisée et permet de réessayer
 
 #### Scenario: Test en pause après l’attribution
 - **WHEN** le test est mis en pause après l’attribution d’une variante à un lead
-- **THEN** aucune variante n’est attribuée aux nouveaux leads, mais le lead conserve sa variante et peut encore confirmer son message
+- **THEN** aucune variante n’est attribuée aux nouveaux leads, mais le lead conserve sa variante et peut encore copier son message
 
 ### Requirement: Le système calcule le taux de réponse à partir des seules fenêtres complètes
-Le taux principal d’une variante MUST être calculé comme le nombre de leads uniques ayant répondu dans les sept jours suivant leur envoi confirmé, divisé par le nombre de leads uniques dont l’envoi est confirmé et dont la fenêtre de sept jours est terminée. Les envois sans fenêtre terminée restent en observation et sont affichés séparément. Les leads sans envoi confirmé ne font partie ni du numérateur ni du dénominateur. Les rendez-vous sont un indicateur secondaire : seuls les leads attribués ayant réservé dans les sept jours suivant un envoi confirmé sont comptés, sans être ajoutés aux réponses.
+Le taux principal d’une variante MUST être calculé comme le nombre de leads uniques ayant répondu dans les sept jours suivant la copie comptabilisée, divisé par le nombre de leads uniques dont la copie est comptabilisée et dont la fenêtre de sept jours est terminée. Les anciennes attributions dont l’envoi a été confirmé par une version antérieure de l’extension restent comptabilisées à partir de leur date `sent_at`. Les copies sans fenêtre terminée restent en observation et sont affichées séparément. Les leads sans copie comptabilisée ni ancienne confirmation d’envoi ne font partie ni du numérateur ni du dénominateur. Les rendez-vous sont un indicateur secondaire : seuls les leads attribués ayant réservé dans les sept jours suivant la date comptabilisée sont comptés, sans être ajoutés aux réponses.
 
 #### Scenario: Réponse dans la fenêtre d’observation
-- **WHEN** un lead répond dans les sept jours qui suivent son envoi confirmé
+- **WHEN** un lead répond dans les sept jours qui suivent la copie comptabilisée de son message
 - **THEN** il compte une fois comme réponse de sa variante lorsque sa fenêtre d’observation est terminée
 
 #### Scenario: Réponse après la fenêtre d’observation
-- **WHEN** un lead répond après la fin des sept jours suivant l’envoi confirmé
+- **WHEN** un lead répond après la fin des sept jours suivant la copie comptabilisée
 - **THEN** cette réponse n’augmente pas le taux de réponse de ce test
 
-#### Scenario: Envoi encore en observation
-- **WHEN** un envoi confirmé a moins de sept jours
+#### Scenario: Copie encore en observation
+- **WHEN** une copie comptabilisée a moins de sept jours
 - **THEN** le lead apparaît dans le nombre « encore en observation » et n’entre pas encore dans le dénominateur
 
 #### Scenario: Rendez-vous réservé
 - **WHEN** un lead du test réserve un rendez-vous
-- **THEN** le rendez-vous réservé dans les sept jours suivant l’envoi confirmé est affiché comme indicateur secondaire séparé et n’est pas ajouté au nombre de réponses
+- **THEN** le rendez-vous réservé dans les sept jours suivant la copie comptabilisée est affiché comme indicateur secondaire séparé et n’est pas ajouté au nombre de réponses
 
 #### Scenario: Rendez-vous réservé hors fenêtre
-- **WHEN** un lead réserve un rendez-vous plus de sept jours après l’envoi confirmé
+- **WHEN** un lead réserve un rendez-vous plus de sept jours après la copie comptabilisée
 - **THEN** le rendez-vous n’est pas compté dans l’indicateur secondaire de ce test
 
 #### Scenario: Volume encore insuffisant
@@ -111,7 +111,7 @@ Le taux principal d’une variante MUST être calculé comme le nombre de leads 
 - **THEN** les taux et leurs dénominateurs restent visibles et aucun gagnant n’est déclaré automatiquement
 
 ### Requirement: Les tests ont un cycle de vie explicite
-Le système MUST permettre aux utilisateurs autorisés de mettre en pause, reprendre ou terminer un test. La pause et la fin nécessitent une confirmation explicite ; la reprise est immédiate si aucun autre test actif n’occupe le canal. Une fin arrête définitivement les nouvelles attributions. Les fenêtres d’observation des envois déjà confirmés continuent jusqu’à leur terme avant que les résultats soient considérés comme définitifs.
+Le système MUST permettre aux utilisateurs autorisés de mettre en pause, reprendre ou terminer un test. La pause et la fin nécessitent une confirmation explicite ; la reprise est immédiate si aucun autre test actif n’occupe le canal. Une fin arrête définitivement les nouvelles attributions et les copies non encore comptabilisées. Les fenêtres des messages déjà copiés continuent jusqu’à leur terme avant que les résultats soient considérés comme définitifs.
 
 #### Scenario: Mise en pause confirmée
 - **WHEN** l’utilisateur autorisé confirme la mise en pause
@@ -126,16 +126,16 @@ Le système MUST permettre aux utilisateurs autorisés de mettre en pause, repre
 - **THEN** le système conserve le test en pause et indique le conflit
 
 #### Scenario: Fin confirmée avec des fenêtres encore ouvertes
-- **WHEN** l’utilisateur autorisé confirme la fin du test alors que des envois confirmés ont encore une fenêtre ouverte
+- **WHEN** l’utilisateur autorisé confirme la fin du test alors que des copies comptabilisées ont encore une fenêtre ouverte
 - **THEN** aucune nouvelle variante n’est attribuée, les fenêtres ouvertes continuent d’être suivies et le test est présenté comme terminé avec collecte en cours
 
 #### Scenario: Résultats définitifs après la fin
-- **WHEN** toutes les fenêtres d’observation des envois confirmés sont terminées après la fin du test
+- **WHEN** toutes les fenêtres d’observation des copies comptabilisées sont terminées après la fin du test
 - **THEN** le système fige les résultats finaux du test
 
-#### Scenario: Attribution existante sans envoi confirmé au moment de la fin
-- **WHEN** le test est terminé alors qu’un lead attribué n’a pas encore confirmé l’envoi
-- **THEN** son attribution reste consultable à titre d’historique, mais l’extension n’offre plus la copie ou la confirmation de cet envoi dans le test terminé et le lead est exclu des KPI du test
+#### Scenario: Attribution existante sans copie comptabilisée au moment de la fin
+- **WHEN** le test est terminé alors qu’un lead attribué n’a pas encore copié le message
+- **THEN** son attribution reste consultable à titre d’historique, mais l’extension n’offre plus la copie de ce message dans le test terminé et le lead est exclu des KPI du test
 
 ### Requirement: Les listes et résultats sont accessibles selon les permissions CRM
 Le système MUST afficher aux utilisateurs ayant accès au CRM les tests de leur compte et les résultats associés. Seuls les utilisateurs autorisés à gérer les tests peuvent les créer, les mettre en pause, les reprendre ou les terminer. Un utilisateur ne peut jamais consulter ou modifier les tests d’un autre compte.
