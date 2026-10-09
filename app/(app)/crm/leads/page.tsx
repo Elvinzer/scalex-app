@@ -18,7 +18,7 @@ import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 import { CrmLeadManagementActions } from "../crm-lead-management-actions";
 import { CrmLeadList } from "../crm-lead-list";
 
-export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; kpiSetter?: string; offer?: string; source?: string; from?: string; to?: string; event?: string; eventFrom?: string; eventTo?: string; firstMessageFrom?: string; firstMessageTo?: string; metric?: string; overdue?: string; responded?: string; qualification?: string }> }) {
+export default async function CrmLeadsPage({ searchParams }: { searchParams: Promise<{ search?: string; platform?: string; stage?: string; outcome?: string; responsible?: string; kpiSetter?: string; offer?: string; source?: string; from?: string; to?: string; event?: string; eventFrom?: string; eventTo?: string; statusFrom?: string; statusTo?: string; metric?: string; overdue?: string; responded?: string; qualification?: string }> }) {
   const t = await getTranslations("crm");
   const { userId } = await getCurrentUser();
   const access = await requireCrmAccess(userId);
@@ -50,8 +50,8 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   const eventType = crmEventTypeSchema.safeParse(params.event).success ? crmEventTypeSchema.parse(params.event) : undefined;
   const eventFrom = validDate(params.eventFrom);
   const eventTo = validDate(params.eventTo);
-  const firstMessageFrom = validDate(params.firstMessageFrom);
-  const firstMessageTo = validDate(params.firstMessageTo);
+  const statusFrom = validDate(params.statusFrom);
+  const statusTo = validDate(params.statusTo);
   const kpiMetric = CRM_PRIMARY_KPI_METRICS.find((metric) => metric === params.metric);
   const requestedKpiSetterId = setters.some((setter) => setter.id === params.kpiSetter) || personalSetter?.id === params.kpiSetter ? params.kpiSetter : undefined;
   const kpiSetterAttribution = requestedKpiSetterId
@@ -68,18 +68,18 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
   const respondedOnly = params.responded === "1";
   const qualificationOnly = params.qualification === "1";
   const search = params.search?.trim().slice(0, 200) || undefined;
-  const filters = { search, platform, stage, outcome, responsibleSetterId, kpiSetterId, kpiSetterActorUserId: kpiSetterAttribution?.actorUserId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, firstMessageFrom, firstMessageTo, kpiMetric, overdueActionOnly, respondedOnly, qualificationOnly };
+  const filters = { search, platform, stage, outcome, responsibleSetterId, kpiSetterId, kpiSetterActorUserId: kpiSetterAttribution?.actorUserId, offerId, source, createdFrom, createdTo, eventType, eventFrom, eventTo, statusFrom, statusTo, kpiMetric, overdueActionOnly, respondedOnly, qualificationOnly };
   const { leads, totalCount } = await withDatabaseReadTimeout(
     () => getCrmLeadsPage(access.accountId, filters, { limit: CRM_LEADS_PAGE_SIZE, offset: 0 }),
     { operation: "crm-leads-data", timeoutMs: 15_000 },
   );
   const leadListKey = `${JSON.stringify(filters)}:${totalCount}:${leads.map(({ id, updatedAt }) => `${id}:${updatedAt}`).join("|")}`;
-  const advancedFilterCount = [outcome, responsibleSetterId, kpiSetterId, offerId, source, createdFrom, createdTo, overdueActionOnly, respondedOnly, qualificationOnly, eventType, eventFrom, eventTo, firstMessageFrom, firstMessageTo, kpiMetric].filter(Boolean).length;
+  const advancedFilterCount = [outcome, responsibleSetterId, kpiSetterId, offerId, source, createdFrom, createdTo, overdueActionOnly, respondedOnly, qualificationOnly, eventType, eventFrom, eventTo, statusFrom, statusTo, kpiMetric].filter(Boolean).length;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">{t("leads.title")}</h1><p className="mt-1 text-muted-foreground">{t("leads.subtitle")}</p></div><CrmLeadManagementActions offers={offers} setters={setters} canImport={hasCrmPermission(access, "crm:manage-pipeline")} /></div>
-      {kpiMetric && <p className="rounded-[var(--radius-control)] border border-border bg-muted/30 px-4 py-3 text-sm font-bold">{t("leads.kpiScope", { metric: t(`kpis.primary.${kpiMetric}`), from: firstMessageFrom ?? t("kpis.from"), to: firstMessageTo ?? t("kpis.to") })}{kpiSetterName ? ` · ${t("kpis.setter")}: ${kpiSetterName}` : ""}</p>}
+      {kpiMetric && <p className="rounded-[var(--radius-control)] border border-border bg-muted/30 px-4 py-3 text-sm font-bold">{t("leads.kpiScope", { metric: t(`kpis.primary.${kpiMetric}`), from: statusFrom ?? t("kpis.from"), to: statusTo ?? t("kpis.to") })}{kpiSetterName ? ` · ${t("kpis.setter")}: ${kpiSetterName}` : ""}</p>}
       <form method="get" className="sticker-card grid gap-3 p-4 lg:grid-cols-4 lg:items-end">
         {kpiMetric && <input type="hidden" name="metric" value={kpiMetric} />}
         {kpiSetterId && <input type="hidden" name="kpiSetter" value={kpiSetterId} />}
@@ -102,8 +102,8 @@ export default async function CrmLeadsPage({ searchParams }: { searchParams: Pro
             <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.eventFrom")}<input name="eventFrom" type="date" defaultValue={eventFrom} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
             <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.eventTo")}<input name="eventTo" type="date" defaultValue={eventTo} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
             {kpiMetric && <>
-              <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.firstMessageFrom")}<input name="firstMessageFrom" type="date" defaultValue={firstMessageFrom} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
-              <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.firstMessageTo")}<input name="firstMessageTo" type="date" defaultValue={firstMessageTo} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
+              <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.statusFrom")}<input name="statusFrom" type="date" defaultValue={statusFrom} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
+              <label className="flex flex-col gap-1 text-sm font-bold">{t("leads.statusTo")}<input name="statusTo" type="date" defaultValue={statusTo} className="min-h-11 rounded border border-border bg-background px-2 font-normal outline-none focus-visible:border-accent" /></label>
             </>}
             <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input name="overdue" value="1" type="checkbox" defaultChecked={overdueActionOnly} className="size-5 accent-accent" />{t("leads.overdueAction")}</label>
             <label className="flex min-h-11 items-center gap-2 text-sm font-bold"><input name="responded" value="1" type="checkbox" defaultChecked={respondedOnly} className="size-5 accent-accent" />{t("leads.respondedOnly")}</label>

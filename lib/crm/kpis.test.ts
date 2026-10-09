@@ -28,7 +28,7 @@ function firstMessage(leadId: string, occurredAt: string): CrmKpiEvent {
   return event({ leadId, type: "first_message_sent", occurredAt, metadata: { confirmedFrom: "crm" } });
 }
 
-function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_show" | "lost" | "sold" = "none", contactState?: "new" | "contacted", leadCreatedAt = new Date("2026-09-10T12:00:00Z")) {
+function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_show" | "lost" | "sold" = "none", _contactState?: "new" | "contacted", lastStatusChangedAt: Date | null = new Date("2026-09-10T12:00:00Z")) {
   return {
     leadId,
     fromStage: null,
@@ -36,8 +36,7 @@ function snapshot(leadId: string, stage: CrmLeadStage, outcome: "none" | "no_sho
     occurredAt: asOf,
     currentSnapshot: true,
     currentOutcome: outcome,
-    currentContactState: contactState,
-    leadCreatedAt,
+    lastStatusChangedAt,
   } as const;
 }
 
@@ -115,7 +114,7 @@ describe("CRM KPI projection", () => {
     expect(isReliableFirstMessageEvent(repeated)).toBe(true);
   });
 
-  it("uses the lead creation date for an advanced legacy lead without a first-message date", () => {
+  it("uses the last status date instead of the lead creation date for an advanced legacy lead", () => {
     const migrated = event({
       leadId: "migrated-contact",
       type: "first_message_sent",
@@ -144,7 +143,7 @@ describe("CRM KPI projection", () => {
         snapshot("migrated-contact", "conversation_in_progress", "none", "contacted"),
         { leadId: "legacy-stage-without-date", fromStage: "first_message_sent", toStage: "conversation_in_progress", occurredAt: new Date("2026-09-11T09:00:00Z") },
         { leadId: "legacy-stage-without-date", fromStage: "conversation_in_progress", toStage: "value_content_sent", occurredAt: new Date("2026-09-12T09:00:00Z") },
-        snapshot("legacy-stage-without-date", "value_content_sent"),
+        snapshot("legacy-stage-without-date", "value_content_sent", "none", undefined, new Date("2026-09-12T09:00:00Z")),
       ],
       calls: [],
       sales: [],
@@ -199,12 +198,26 @@ describe("CRM KPI projection", () => {
     expect(counts.messages).toBe(1);
   });
 
-  it("uses the lead creation date for a current advanced-stage lead without a first-message date", () => {
+  it("does not use lead creation as a substitute for a missing status-change date", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
       events: [],
-      stageChanges: [snapshot("legacy-stage-without-date", "conversation_in_progress")],
+      stageChanges: [snapshot("legacy-stage-without-date", "conversation_in_progress", "none", undefined, null)],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(0);
+    expect(counts.conversations).toBe(0);
+  });
+
+  it("uses the latest status update to place an advanced lead in the selected period", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [],
+      stageChanges: [snapshot("old-lead", "conversation_in_progress", "none", "contacted", new Date("2026-09-18T12:00:00Z"))],
       calls: [],
       sales: [],
     });
@@ -213,7 +226,7 @@ describe("CRM KPI projection", () => {
     expect(counts.conversations).toBe(1);
   });
 
-  it("does not include a contacted lead in a period before its creation date", () => {
+  it("does not include a current status whose last update is before the selected period", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -276,7 +289,7 @@ describe("CRM KPI projection", () => {
     expect(getCrmPrimaryKpiPresentation(counts, "messages", true, "Non mesuré")).toMatchObject({ displayValue: "Non mesuré", isMeasured: false });
   });
 
-  it("does not include a reliably dated message outside the selected cohort", () => {
+  it("uses the current status update date for active-stage counts", () => {
     const counts = computeCrmKpis({
       period,
       asOf,
@@ -293,7 +306,7 @@ describe("CRM KPI projection", () => {
     });
 
     expect(counts.messages).toBe(1);
-    expect(counts.conversations).toBe(0);
+    expect(counts.conversations).toBe(1);
   });
 
   it("counts current open cohort stages and excludes lost or sold leads", () => {
@@ -375,6 +388,33 @@ describe("CRM KPI projection", () => {
     expect(counts.rates.response).toBe(0.5);
     expect(counts.rates.callProposed).toBe(0.5);
     expect(counts.rates.callBooked).toBe(0.5);
+  });
+
+  it("calculates call proposal and booking rates against the period's ten first messages", () => {
+    const firstMessages = Array.from({ length: 10 }, (_, index) => firstMessage(`message-${index}`, `2026-09-${String(index + 1).padStart(2, "0")}T09:00:00Z`));
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [
+        ...firstMessages,
+        firstMessage("older-proposal", "2026-08-31T09:00:00Z"),
+        firstMessage("older-booking-1", "2026-08-31T10:00:00Z"),
+        firstMessage("older-booking-2", "2026-08-31T11:00:00Z"),
+        firstMessage("older-booking-3", "2026-08-31T12:00:00Z"),
+        event({ leadId: "older-proposal", type: "call_proposed", occurredAt: "2026-09-15T10:00:00Z" }),
+        event({ leadId: "older-booking-1", type: "call_booked", occurredAt: "2026-09-16T10:00:00Z" }),
+        event({ leadId: "older-booking-2", type: "call_booked", occurredAt: "2026-09-17T10:00:00Z" }),
+        event({ leadId: "older-booking-3", type: "call_booked", occurredAt: "2026-09-18T10:00:00Z" }),
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(10);
+    expect(counts.cohortCallsProposed).toBe(1);
+    expect(counts.cohortCallsBooked).toBe(3);
+    expect(counts.rates.callProposed).toBe(0.1);
+    expect(counts.rates.callBooked).toBe(0.3);
   });
 
   it("uses stage history for replies and respects a reopened lead's current stage", () => {

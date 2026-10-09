@@ -22,8 +22,7 @@ export type CrmKpiStageChange = {
   occurredAt: Date;
   currentSnapshot?: boolean;
   currentOutcome?: CrmLeadOutcome;
-  currentContactState?: "new" | "contacted";
-  leadCreatedAt?: Date | null;
+  lastStatusChangedAt?: Date | null;
   includeInCurrentCounts?: boolean;
   includeInCohort?: boolean;
 };
@@ -203,7 +202,7 @@ export function computeCrmKpis(input: {
   const callsBookedAfterFirstMessage = new Set<string>();
   const soldLeadIds = new Set<string>();
   const noShowEventLeadIds = new Set<string>();
-  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; contactState?: "new" | "contacted"; changedAt: Date; leadCreatedAt?: Date | null; includeInCurrentCounts?: boolean }>();
+  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; changedAt: Date; lastStatusChangedAt?: Date | null; includeInCurrentCounts?: boolean }>();
   const stageChanges = (input.stageChanges ?? [])
     .filter((change) => change.occurredAt <= asOf)
     .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
@@ -221,24 +220,25 @@ export function computeCrmKpis(input: {
   for (const event of input.events) {
     const date = conversionDate(event);
     if (date > asOf) continue;
-    const selectedPeriod = inPeriod(eventDate(event), input.period);
 
     if (event.type === "first_message_sent") {
       if (isReliableFirstMessageEvent(event)) {
         datedFirstMessageLeadIds.add(event.leadId);
-        if (selectedPeriod && event.includeInCohort !== false) {
+        if (event.includeInCohort !== false && inPeriod(date, input.period)) {
           const previous = firstMessageDates.get(event.leadId);
           if (!previous || date < previous) firstMessageDates.set(event.leadId, date);
         }
       }
     }
 
-    if (event.type === "response_received" && selectedPeriod) periodResponseLeadIds.add(event.leadId);
-    if (event.type === "call_proposed" && selectedPeriod) periodCallProposedLeadIds.add(event.leadId);
-    if (event.type === "call_booked" && inPeriod(date, input.period)) periodCallBookedLeadIds.add(event.leadId);
-    if (event.type === "sale_validated" && selectedPeriod) soldLeadIds.add(event.leadId);
-    if (event.type === "qualification_updated" && selectedPeriod) qualificationLeadIds.add(event.leadId);
-    if (event.type === "no_show_marked" && selectedPeriod) noShowEventLeadIds.add(event.leadId);
+    if (!inPeriod(date, input.period)) continue;
+
+    if (event.type === "response_received") periodResponseLeadIds.add(event.leadId);
+    if (event.type === "call_proposed") periodCallProposedLeadIds.add(event.leadId);
+    if (event.type === "call_booked") periodCallBookedLeadIds.add(event.leadId);
+    if (event.type === "sale_validated") soldLeadIds.add(event.leadId);
+    if (event.type === "qualification_updated") qualificationLeadIds.add(event.leadId);
+    if (event.type === "no_show_marked") noShowEventLeadIds.add(event.leadId);
   }
 
   for (const change of stageChanges) {
@@ -246,16 +246,15 @@ export function computeCrmKpis(input: {
       currentStages.set(change.leadId, {
         stage: change.toStage,
         outcome: change.currentOutcome,
-        contactState: change.currentContactState,
         changedAt: change.occurredAt,
-        leadCreatedAt: change.leadCreatedAt,
+        lastStatusChangedAt: change.lastStatusChangedAt,
         includeInCurrentCounts: change.includeInCurrentCounts,
       });
       continue;
     }
     const previous = currentStages.get(change.leadId);
     if (!previous || change.occurredAt >= previous.changedAt) {
-      currentStages.set(change.leadId, { stage: change.toStage, changedAt: change.occurredAt });
+      currentStages.set(change.leadId, { stage: change.toStage, changedAt: change.occurredAt, lastStatusChangedAt: change.occurredAt });
     }
     if (
       change.fromStage === "first_message_sent"
@@ -268,25 +267,9 @@ export function computeCrmKpis(input: {
     if (change.toStage === "call_booked" && inPeriod(change.occurredAt, input.period)) periodCallBookedLeadIds.add(change.leadId);
   }
 
-  const advancedStagesWithoutCohort = new Set<CrmLeadStage>([
-    "conversation_in_progress",
-    "value_content_sent",
-    "call_proposed",
-    "call_booked",
-  ]);
-  for (const [leadId, current] of currentStages) {
-    if (datedFirstMessageLeadIds.has(leadId) || current.includeInCurrentCounts === false) continue;
-    if (current.contactState !== "contacted" && !advancedStagesWithoutCohort.has(current.stage)) continue;
-    const leadCreatedAt = current.leadCreatedAt;
-    if (!leadCreatedAt || leadCreatedAt > asOf || !inPeriod(leadCreatedAt, input.period)) continue;
-    firstMessageDates.set(leadId, leadCreatedAt);
-  }
-
   for (const event of input.events) {
-    const messageAt = firstMessageDates.get(event.leadId);
-    if (!messageAt) continue;
     const date = conversionDate(event);
-    if (date < messageAt || date > asOf || !inPeriod(date, input.period)) continue;
+    if (date > asOf || !inPeriod(date, input.period)) continue;
 
     if (event.type === "response_received") responsesAfterFirstMessage.add(event.leadId);
     if (event.type === "value_content_sent") valueContentAfterFirstMessage.add(event.leadId);
@@ -296,20 +279,40 @@ export function computeCrmKpis(input: {
     const eventStage = EVENT_STAGE[event.type];
     const existingStage = currentStages.get(event.leadId);
     if (eventStage && (!existingStage || date > existingStage.changedAt)) {
-      currentStages.set(event.leadId, { stage: eventStage, changedAt: date });
+      currentStages.set(event.leadId, { stage: eventStage, changedAt: date, lastStatusChangedAt: date });
     }
   }
 
   for (const change of stageChanges) {
     if (change.currentSnapshot) continue;
-    const messageAt = firstMessageDates.get(change.leadId);
-    if (!messageAt || change.occurredAt < messageAt || !inPeriod(change.occurredAt, input.period)) continue;
+    if (!inPeriod(change.occurredAt, input.period)) continue;
     if (change.fromStage === "first_message_sent" && change.toStage === "conversation_in_progress") {
       responsesAfterFirstMessage.add(change.leadId);
     }
     if (change.toStage === "value_content_sent") valueContentAfterFirstMessage.add(change.leadId);
     if (change.toStage === "call_proposed") callsProposedAfterFirstMessage.add(change.leadId);
     if (change.toStage === "call_booked") callsBookedAfterFirstMessage.add(change.leadId);
+  }
+
+  const advancedStagesWithoutMessageEvent = new Set<CrmLeadStage>([
+    "conversation_in_progress",
+    "value_content_sent",
+    "call_proposed",
+    "call_booked",
+  ]);
+  for (const [leadId, current] of currentStages) {
+    const statusDate = current.lastStatusChangedAt;
+    if (
+      datedFirstMessageLeadIds.has(leadId)
+      ||
+      firstMessageDates.has(leadId)
+      || !statusDate
+      || statusDate > asOf
+      || !inPeriod(statusDate, input.period)
+      || !advancedStagesWithoutMessageEvent.has(current.stage)
+      || current.includeInCurrentCounts === false
+    ) continue;
+    firstMessageDates.set(leadId, statusDate);
   }
 
   let callsAttended = 0;
@@ -334,9 +337,8 @@ export function computeCrmKpis(input: {
       }
     }
 
-    const messageAt = call.leadId ? firstMessageDates.get(call.leadId) : undefined;
     const bookedAt = call.bookedAt ?? call.scheduledAt;
-    if (call.leadId && messageAt && bookedAt >= messageAt && bookedAt <= asOf && inPeriod(bookedAt, input.period)) {
+    if (call.leadId && bookedAt <= asOf && inPeriod(bookedAt, input.period)) {
       callsBookedAfterFirstMessage.add(call.leadId);
     }
     if (call.leadId && inPeriod(bookedAt, input.period)) periodCallBookedLeadIds.add(call.leadId);
@@ -365,9 +367,16 @@ export function computeCrmKpis(input: {
   const cohortCallsBooked = callsBookedAfterFirstMessage.size;
   const currentConversationIds = new Set<string>();
   const currentValueContentIds = new Set<string>();
-  for (const leadId of firstMessageDates.keys()) {
-    const current = currentStages.get(leadId);
-    if (!current || current.includeInCurrentCounts === false || current.outcome === "lost" || current.outcome === "sold") continue;
+  for (const [leadId, current] of currentStages) {
+    const statusDate = current.lastStatusChangedAt;
+    if (
+      !statusDate
+      || statusDate > asOf
+      || !inPeriod(statusDate, input.period)
+      || current.includeInCurrentCounts === false
+      || current.outcome === "lost"
+      || current.outcome === "sold"
+    ) continue;
     if (current.stage === "conversation_in_progress") currentConversationIds.add(leadId);
     if (current.stage === "value_content_sent") currentValueContentIds.add(leadId);
   }

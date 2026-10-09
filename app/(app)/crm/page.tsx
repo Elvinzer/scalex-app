@@ -24,8 +24,8 @@ const SECONDARY_KPI_KEYS = ["responses", "qualificationNotes", "callsProposed", 
 function leadKpiHref(key: CrmPrimaryKpiMetric, params: { setter?: string; platform?: string; offer?: string; source?: string }, period: { from: Date; to: Date }): string {
   const query = new URLSearchParams();
   query.set("metric", key);
-  query.set("firstMessageFrom", crmPeriodDateValue(period.from));
-  query.set("firstMessageTo", crmPeriodDateValue(period.to));
+  query.set("statusFrom", crmPeriodDateValue(period.from));
+  query.set("statusTo", crmPeriodDateValue(period.to));
   if (params.setter) query.set("kpiSetter", params.setter);
   if (params.platform) query.set("platform", params.platform);
   if (params.offer) query.set("offer", params.offer);
