@@ -2,11 +2,13 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 import extensionManifest from "@/extension/manifest.json";
+import extensionReleaseMetadata from "@/extension/release.json";
 
 export type CrmExtensionDistribution = "web_store" | "pilot_package" | "unavailable";
 
 export type CrmExtensionRelease = {
   latestVersion: string;
+  lastUpdatedAt: string;
   currentVersion: string | null;
   updateAvailable: boolean;
   distribution: CrmExtensionDistribution;
@@ -90,6 +92,11 @@ function defaultPackageAvailable(): boolean {
 export function getCrmExtensionRelease(currentVersion?: string): CrmExtensionRelease {
   const latestVersion = extensionManifest.version;
   if (!isChromeExtensionVersion(latestVersion)) throw new Error("The CRM extension manifest has an invalid version");
+  if (extensionReleaseMetadata.version !== latestVersion) throw new Error("The CRM extension release metadata does not match its manifest version");
+  const lastUpdatedAt = new Date(extensionReleaseMetadata.lastUpdatedAt);
+  if (!Number.isFinite(lastUpdatedAt.getTime()) || lastUpdatedAt.toISOString() !== extensionReleaseMetadata.lastUpdatedAt) {
+    throw new Error("The CRM extension release metadata has an invalid UTC timestamp");
+  }
 
   const packageAvailable = defaultPackageAvailable() || Boolean(process.env.CRM_EXTENSION_PACKAGE_URL?.trim());
   const webStoreUrl = normalizeCrmExtensionStoreUrl(process.env.CRM_EXTENSION_STORE_URL);
@@ -100,6 +107,7 @@ export function getCrmExtensionRelease(currentVersion?: string): CrmExtensionRel
 
   return {
     latestVersion,
+    lastUpdatedAt: extensionReleaseMetadata.lastUpdatedAt,
     currentVersion: validCurrentVersion,
     updateAvailable: validCurrentVersion ? compareChromeExtensionVersions(validCurrentVersion, latestVersion) < 0 : false,
     distribution: distribution.distribution,

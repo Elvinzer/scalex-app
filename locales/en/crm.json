@@ -769,7 +769,7 @@
       "openGuide": "See the setup guide",
       "hideSuggestion": "Hide this suggestion",
       "step": "Step {number}",
-      "latestVersion": "Latest available version: {version}",
+      "latestVersion": "Latest available version: {version} · updated {lastUpdatedAt} UTC",
       "installAction": "Install or update",
       "storeLabel": "Chrome Web Store",
       "storeRecommended": "Recommended installation",

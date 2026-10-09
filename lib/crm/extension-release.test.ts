@@ -48,7 +48,8 @@ describe("CRM extension release metadata", () => {
     process.env.CRM_EXTENSION_STORE_URL = "https://chromewebstore.google.com/detail/minaly/abc";
     delete process.env.CRM_EXTENSION_PACKAGE_URL;
     const release = getCrmExtensionRelease("0.1.0");
-    expect(release.latestVersion).toBe("0.3.8");
+    expect(release.latestVersion).toBe("0.3.9");
+    expect(new Date(release.lastUpdatedAt).toISOString()).toBe(release.lastUpdatedAt);
     expect(release.currentVersion).toBe("0.1.0");
     expect(release.updateAvailable).toBe(true);
     expect(release.distribution).toBe("web_store");

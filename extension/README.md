@@ -33,6 +33,8 @@ La version `0.3.7` récupère la session après une erreur réseau et affiche un
 état de connexion distinct d’un problème de profil.
 La version `0.3.8` comptabilise le message dès sa copie et actualise le profil
 actif quand tu changes de conversation sans recharger la page.
+La version `0.3.9` attend l’identité chargée tardivement et recrée le bouton si
+Instagram retire son élément pendant une navigation.
 
 ## Construire le package local
 

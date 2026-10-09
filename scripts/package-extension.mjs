@@ -7,6 +7,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const extensionDir = path.join(rootDir, "extension");
 const downloadsDir = path.join(rootDir, "public", "downloads");
 const manifestPath = path.join(extensionDir, "manifest.json");
+const releaseMetadataPath = path.join(extensionDir, "release.json");
 const runtimeFiles = [
   "manifest.json",
   "auth-callback.html",
@@ -116,7 +117,16 @@ function createZip(entries) {
 
 async function main() {
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const releaseMetadata = JSON.parse(await readFile(releaseMetadataPath, "utf8"));
   assertManifest(manifest);
+  const releaseTimestamp = Date.parse(releaseMetadata.lastUpdatedAt);
+  if (
+    releaseMetadata.version !== manifest.version
+    || !Number.isFinite(releaseTimestamp)
+    || new Date(releaseTimestamp).toISOString() !== releaseMetadata.lastUpdatedAt
+  ) {
+    throw new Error("The extension release metadata must match the manifest version and use a UTC ISO timestamp.");
+  }
   const previousVersion = process.env.CRM_EXTENSION_PREVIOUS_VERSION?.trim();
   if (previousVersion) {
     if (!chromeVersionPattern.test(previousVersion)) throw new Error("CRM_EXTENSION_PREVIOUS_VERSION is not a valid Chrome version.");
@@ -133,7 +143,7 @@ async function main() {
   await writeFile(path.join(downloadsDir, "minaly-crm-latest.zip"), archive);
   await writeFile(
     path.join(downloadsDir, "minaly-crm-latest.json"),
-    `${JSON.stringify({ name: manifest.name, version: manifest.version, package: `/downloads/${versionedName}`, latest: "/downloads/minaly-crm-latest.zip", files: runtimeFiles }, null, 2)}\n`,
+    `${JSON.stringify({ name: manifest.name, version: manifest.version, lastUpdatedAt: releaseMetadata.lastUpdatedAt, package: `/downloads/${versionedName}`, latest: "/downloads/minaly-crm-latest.zip", files: runtimeFiles }, null, 2)}\n`,
   );
   process.stdout.write(`Packaged Minaly CRM ${manifest.version} (${runtimeFiles.length} files)\n`);
 }

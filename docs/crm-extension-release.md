@@ -25,7 +25,9 @@ sur les pages sociales qui capturent les événements de clic.
 
 ## Préparer une release
 
-1. Augmenter `version` dans `extension/manifest.json`.
+1. Augmenter `version` dans `extension/manifest.json` et reprendre la même
+   version dans `extension/release.json`. Mettre `lastUpdatedAt` à l’heure de
+   préparation de la release, au format ISO 8601 UTC.
 2. Lancer `CRM_EXTENSION_PREVIOUS_VERSION=0.2.0 npm run extension:package` avec la version réellement publiée précédente.
 3. Vérifier `public/downloads/minaly-crm-vX.Y.Z.zip` et son contenu.
 4. Tester l’extension depuis le ZIP ou le dossier compilé.

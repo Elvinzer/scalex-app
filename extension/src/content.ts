@@ -1111,6 +1111,23 @@ function minalyShouldWaitForConversationIdentity(input: {
     && input.previousProfileKey === input.profileKey;
 }
 
+function minalyShouldReconcileProfileNavigation(input: {
+  urlChanged: boolean;
+  awaitingProfile: boolean;
+  previousConversationSurface: boolean;
+  conversationSurface: boolean;
+  previousProfileKey: string | null;
+  profileKey: string | null;
+  launcherMounted: boolean;
+}): boolean {
+  return input.urlChanged
+    || input.awaitingProfile
+    || input.previousConversationSurface
+    || input.conversationSurface
+    || input.profileKey !== input.previousProfileKey
+    || (!input.launcherMounted && input.profileKey !== null);
+}
+
 let minalyUnmount: (() => void) | null = null;
 
 function minalyMount(): void {
@@ -1486,7 +1503,16 @@ const minalyReconcileProfileNavigation = () => {
   const conversationSurfaceVisible = minalyIsConversationSurface(platform);
   const detected = minalyProfileUrl();
   const profileKey = detected?.url ?? null;
-  if (!urlChanged && !minalyAwaitingProfile && !minalyLastConversationSurface && !conversationSurfaceVisible) return;
+  const launcherMounted = document.getElementById("minaly-crm-extension")?.isConnected === true;
+  if (!minalyShouldReconcileProfileNavigation({
+    urlChanged,
+    awaitingProfile: minalyAwaitingProfile,
+    previousConversationSurface: minalyLastConversationSurface,
+    conversationSurface: conversationSurfaceVisible,
+    previousProfileKey: minalyLastProfileKey,
+    profileKey,
+    launcherMounted,
+  })) return;
 
   if (minalyAwaitingProfile && profileKey === minalyProfileKeyBeforeNavigationWait) return;
   if (minalyShouldWaitForConversationIdentity({
@@ -1526,7 +1552,7 @@ const minalyReconcileProfileNavigation = () => {
     return;
   }
 
-  if (!urlChanged && profileKey === minalyLastProfileKey && conversationSurfaceVisible === minalyLastConversationSurface && !minalyAwaitingProfile) return;
+  if (!urlChanged && profileKey === minalyLastProfileKey && conversationSurfaceVisible === minalyLastConversationSurface && !minalyAwaitingProfile && launcherMounted) return;
 
   minalyLastUrl = currentUrl;
   minalyLastProfileKey = profileKey;
@@ -1551,7 +1577,17 @@ const minalyScheduleNavigationCheck = () => {
 };
 
 const minalyNavigationObserver = new MutationObserver(() => {
-  if (window.location.href !== minalyLastUrl || minalyAwaitingProfile || minalyLastConversationSurface) {
+  const currentUrl = window.location.href;
+  const launcherMounted = document.getElementById("minaly-crm-extension")?.isConnected === true;
+  if (minalyShouldReconcileProfileNavigation({
+    urlChanged: currentUrl !== minalyLastUrl,
+    awaitingProfile: minalyAwaitingProfile,
+    previousConversationSurface: minalyLastConversationSurface,
+    conversationSurface: minalyLastConversationSurface,
+    previousProfileKey: minalyLastProfileKey,
+    profileKey: minalyLastProfileKey,
+    launcherMounted,
+  })) {
     minalyScheduleNavigationCheck();
   }
 });

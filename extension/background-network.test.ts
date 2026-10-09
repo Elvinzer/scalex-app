@@ -20,7 +20,7 @@ function createBackgroundFixture(fetcher: (input: string) => Promise<Response>) 
   const chrome = {
     runtime: {
       id: "minaly-test-extension",
-      getManifest: () => ({ version: "0.3.8" }),
+      getManifest: () => ({ version: "0.3.9" }),
       onUpdateAvailable: { addListener: () => undefined },
       onMessage: { addListener: (listener: BackgroundMessageListener) => listeners.push(listener) },
     },

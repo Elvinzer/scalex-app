@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import releaseMetadata from "./release.json";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -32,18 +33,21 @@ describe("CRM extension package", () => {
       env: { ...process.env, CRM_EXTENSION_PREVIOUS_VERSION: "" },
       stdio: "pipe",
     });
-    const versioned = readFileSync(path.join(rootDir, "public", "downloads", "minaly-crm-v0.3.8.zip"));
+    const versioned = readFileSync(path.join(rootDir, "public", "downloads", `minaly-crm-v${releaseMetadata.version}.zip`));
     const latest = readFileSync(path.join(rootDir, "public", "downloads", "minaly-crm-latest.zip"));
+    const latestMetadata = JSON.parse(readFileSync(path.join(rootDir, "public", "downloads", "minaly-crm-latest.json"), "utf8")) as Record<string, unknown>;
     const expected = ["manifest.json", "auth-callback.html", "dist/background.js", "dist/content.js", "dist/auth-callback.js"];
     expect(zipNames(versioned)).toEqual(expected);
     expect(zipNames(latest)).toEqual(expected);
     expect(latest.equals(versioned)).toBe(true);
+    expect(latestMetadata.version).toBe(releaseMetadata.version);
+    expect(latestMetadata.lastUpdatedAt).toBe(releaseMetadata.lastUpdatedAt);
   });
 
   it("rejects a package version that is not greater than the published version", () => {
     expect(() => execFileSync(process.execPath, ["scripts/package-extension.mjs"], {
       cwd: rootDir,
-      env: { ...process.env, CRM_EXTENSION_PREVIOUS_VERSION: "0.3.8" },
+      env: { ...process.env, CRM_EXTENSION_PREVIOUS_VERSION: releaseMetadata.version },
       stdio: "pipe",
     })).toThrow(/must be greater than previous release/);
   });
