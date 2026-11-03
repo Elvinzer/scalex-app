@@ -27,6 +27,7 @@ const args = [
   "lib/businesses/multi-business.integration.test.ts",
   "lib/billing/business-billing.integration.test.ts",
   "lib/businesses/control-records.integration.test.ts",
+  "lib/businesses/improve-chat-tracking.integration.test.ts",
   ...process.argv.slice(2),
 ];
 const child = spawn(process.execPath, args, {

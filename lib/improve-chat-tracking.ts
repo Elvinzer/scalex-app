@@ -13,7 +13,7 @@ import { buildRates, labelFor } from "@/lib/diagnostic/cascade";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
 import { createClient } from "@/lib/supabase/server";
-import { requirePermission } from "@/lib/team/context";
+import { getAccountContext, requirePermission } from "@/lib/team/context";
 
 function isMetricKey(value: string): value is MetricKey {
   return (METRIC_KEYS as string[]).includes(value);
@@ -40,11 +40,14 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) return;
   const userId = data.claims.sub as string;
+  const business = await getAccountContext(userId);
+  if (!business) return;
 
   await track("improve_chat_opened", userId, {
     topic_type: safeContext.topicType,
     topic_key: safeContext.topicKey,
     source_page: safeContext.sourcePage,
+    business_id: business.accountId,
   });
 
   // Additive: the specific agent_key/mode pairing, alongside (not instead
@@ -57,7 +60,7 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
 
   if (safeContext.topicType === "content_idea" && safeContext.topicKey) {
     const parsedRecommendationId = z.string().uuid().safeParse(safeContext.topicKey);
-    const access = await requirePermission(userId, "acquisition:contenu");
+    const access = await requirePermission(userId, "acquisition:contenu", { businessId: business.accountId });
     if (parsedRecommendationId.success && access) {
       await db
         .update(contentRecommendations)
@@ -74,9 +77,12 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
   }
 
   if (safeContext.topicType !== "metric" || !safeContext.topicKey || !isMetricKey(safeContext.topicKey)) return;
+  const access = await requirePermission(userId, "diagnostic", { businessId: business.accountId });
+  if (!access) return;
+  const { accountId } = access;
   const metricKey = safeContext.topicKey;
 
-  const rawData = await getDiagnosticKpiRawData(userId);
+  const rawData = await getDiagnosticKpiRawData(accountId);
 
   const { settingTotals, closingTotals } = aggregatePeriodTotals({
     months: lastCompletedMonths(3),
@@ -98,7 +104,7 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
   await db
     .update(businesses)
     .set({ lastImproveMetricKey: metricKey, lastImproveMetricRateSnapshot: rate })
-    .where(eq(businesses.id, userId));
+    .where(eq(businesses.id, accountId));
 
   // Journal event — first time ever on this metric_key only. No history
   // table for "already discussed" exists (lastImproveMetricKey only ever
@@ -109,7 +115,7 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
     .from(improvementEvents)
     .where(
       and(
-        eq(improvementEvents.userId, userId),
+        eq(improvementEvents.userId, accountId),
         eq(improvementEvents.type, "copilote_started"),
         eq(improvementEvents.sourceId, metricKey)
       )
@@ -117,7 +123,7 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
     .limit(1);
   if (!existing) {
     await db.insert(improvementEvents).values({
-      userId,
+      userId: accountId,
       date: new Date().toISOString().slice(0, 10),
       type: "copilote_started",
       label: `Travail commencé sur ${labelFor(metricKey)}`,

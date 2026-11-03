@@ -1936,7 +1936,8 @@ export async function addCrmNote(accountId: string, leadId: string, actorUserId:
 }
 
 async function accountUserExists(accountId: string, userId: string): Promise<boolean> {
-  if (accountId === userId) return true;
+  const [owner] = await db.select({ id: businesses.id }).from(businesses).where(and(eq(businesses.id, accountId), eq(businesses.ownerUserId, userId))).limit(1);
+  if (owner) return true;
   const [member] = await db.select({ id: teamMembers.id }).from(teamMembers).where(and(eq(teamMembers.accountId, accountId), eq(teamMembers.memberUserId, userId), eq(teamMembers.status, "active"))).limit(1);
   return Boolean(member);
 }

@@ -62,13 +62,16 @@ function requireAccountWideBookingAccess(access: { viewer: NativeBookingViewer }
 }
 
 async function ensureDefaultNativeBookingCloser(eventId: string, accountId: string, position: number) {
+  const [business] = await db.select({ ownerUserId: businesses.ownerUserId }).from(businesses).where(eq(businesses.id, accountId)).limit(1);
+  if (!business) return false;
   await db
     .insert(nativeBookingEventClosers)
-    .values({ eventId, closerUserId: accountId, position })
+    .values({ eventId, closerUserId: business.ownerUserId, position })
     .onConflictDoUpdate({
       target: [nativeBookingEventClosers.eventId, nativeBookingEventClosers.closerUserId],
       set: { isActive: true, isOff: false, updatedAt: new Date() },
     });
+  return true;
 }
 
 export async function createNativeBookingEventAction(input: unknown): Promise<ActionResult & { eventId?: string }> {
@@ -103,6 +106,8 @@ export async function createNativeBookingEventAction(input: unknown): Promise<Ac
 
   try {
     const created = await db.transaction(async (tx) => {
+      const [business] = await tx.select({ ownerUserId: businesses.ownerUserId }).from(businesses).where(eq(businesses.id, access.accountId)).limit(1);
+      if (!business) throw new Error("Booking business is missing");
       const { questions, reminders, ...eventValues } = parsed.data;
       const [event] = await tx
         .insert(nativeBookingEvents)
@@ -115,7 +120,7 @@ export async function createNativeBookingEventAction(input: unknown): Promise<Ac
       );
       await tx.insert(nativeBookingEventClosers).values({
         eventId: event.id,
-        closerUserId: access.accountId,
+        closerUserId: business.ownerUserId,
         position: 0,
       });
       if (questions.length > 0) {
@@ -342,12 +347,12 @@ export async function toggleNativeBookingEventAction(eventId: string, status: st
     const entitlements = await getNativeBookingEntitlements(access.accountId);
     if (!entitlements.enabled) return { error: "La prise de rendez-vous native n’est plus incluse dans ton abonnement." };
     if (detail.availability.length === 0) return { error: "Ajoute au moins une disponibilité avant d’activer l’événement." };
-    let activeCloserIds = detail.closers
+    const activeCloserIds = detail.closers
       .filter(({ assignment }) => assignment.isActive && !assignment.isOff)
       .map(({ assignment }) => assignment.closerUserId);
     if (activeCloserIds.length === 0) {
-      await ensureDefaultNativeBookingCloser(detail.event.id, access.accountId, detail.closers.length);
-      activeCloserIds = [access.accountId];
+      const assigned = await ensureDefaultNativeBookingCloser(detail.event.id, access.accountId, detail.closers.length);
+      if (!assigned) return { error: "Événement introuvable." };
     }
   }
 
